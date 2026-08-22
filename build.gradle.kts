@@ -71,6 +71,7 @@ abstract class InstallSugarliciousDebugTask
             logger.lifecycle("Sugarlicious Watch: ${model(watch)} [$watch]")
 
             installApk(phone, mobileApk.get().asFile, "Mobile")
+            removeAccidentalPhoneCollector(phone)
             installApk(watch, wearApk.get().asFile, "Wear")
             installApk(watch, g7WatchApk.get().asFile, "G7 Watch Collector")
         }
@@ -103,6 +104,34 @@ abstract class InstallSugarliciousDebugTask
             }
         }
 
+        private fun removeAccidentalPhoneCollector(serial: String) {
+            val installed =
+                adb("-s", serial, "shell", "pm", "path", G7_WATCH_PACKAGE)
+                    .lineSequence()
+                    .any { it.trim().startsWith("package:") }
+            if (!installed) return
+
+            logger.lifecycle(
+                "Entferne versehentlich auf dem Smartphone installiertes G7-Watch-Paket; " +
+                    "Paketdaten bleiben mit -k erhalten …",
+            )
+            val output =
+                adb(
+                    "-s",
+                    serial,
+                    "shell",
+                    "pm",
+                    "uninstall",
+                    "-k",
+                    "--user",
+                    "0",
+                    G7_WATCH_PACKAGE,
+                ).trim()
+            check(output.lineSequence().any { it.trim().equals("Success", ignoreCase = true) }) {
+                "Das Wear-only G7-Watch-Paket konnte auf dem Smartphone nicht sauber entfernt werden:\n$output"
+            }
+        }
+
         private fun adb(vararg arguments: String): String {
             val stdout = ByteArrayOutputStream()
             val stderr = ByteArrayOutputStream()
@@ -130,6 +159,10 @@ abstract class InstallSugarliciousDebugTask
                 if (sdkAdb.isFile) return sdkAdb.absolutePath
             }
             return executableName
+        }
+
+        private companion object {
+            const val G7_WATCH_PACKAGE = "app.aapswear.g7watch"
         }
     }
 
