@@ -123,13 +123,20 @@ tasks.configureEach {
 }
 
 android {
-    namespace="app.aapswear.wear"
-    compileSdk=37
-    defaultConfig { applicationId="app.aapswear"; minSdk=33; targetSdk=36; versionCode=12; versionName="0.6.2" }
+    namespace = "app.aapswear.wear"
+    compileSdk = 37
+    defaultConfig {
+        applicationId = "app.aapswear"
+        minSdk = 33
+        targetSdk = 36
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
+    }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].assets.directories.add(generatedWatchFaceAssets.get().asFile.path)
     sourceSets["main"].res.directories.add(generatedWatchFaceResources.get().asFile.path)
 }
+
 dependencies {
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
