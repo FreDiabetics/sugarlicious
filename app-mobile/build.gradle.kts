@@ -33,8 +33,8 @@ android {
         applicationId = "app.aapswear"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.6.2"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].res.directories.add(generatedAnalogPreviewRes.get().asFile.path)
