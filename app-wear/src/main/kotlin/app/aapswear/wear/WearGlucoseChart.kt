@@ -6,22 +6,18 @@ import android.graphics.Canvas
 import android.graphics.DashPathEffect
 import android.graphics.Outline
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewOutlineProvider
-import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
-import app.aapswear.model.Freshness
-import app.aapswear.model.TargetStepTimeline
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RangeExcursion
-import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchGraphStyle
@@ -106,16 +102,7 @@ class WearGlucoseChart @JvmOverloads constructor(
             graphHours
                 .takeIf { it in WearDisplayPreferences.allowedGraphHours }
                 ?: 3
-        val newStateSignature =
-            newState?.let {
-                listOf(
-                    it.glucose,
-                    it.glucoseHistory,
-                    it.glucosePredictions,
-                    it.target,
-                    it.targetHistory,
-                )
-            }
+        val newStateSignature = wearChartStateSignature(newState)
         if (
             stateSignature == newStateSignature &&
             durationHours == resolvedDuration &&
@@ -312,61 +299,6 @@ class WearGlucoseChart @JvmOverloads constructor(
             targetLabelPaint,
         )
 
-        val currentTarget = state?.target?.valueMgDl?.takeIf { it.isFinite() && it in 20.0..1_000.0 }
-        val freshness = TherapyDisplayFormatter.freshness(state, now)
-        val targetSegments =
-            state?.targetHistory.orEmpty()
-                .asSequence()
-                .filter {
-                    it.valueMgDl.isFinite() &&
-                        it.valueMgDl in 20.0..1_000.0 &&
-                        it.startedAtEpochMs <= end &&
-                        it.endsAtEpochMs >= start
-                }
-                .map { sample ->
-                    val active =
-                        sample == state?.targetHistory?.lastOrNull() &&
-                            sample.valueMgDl == currentTarget &&
-                            sample.temporary == (state?.target?.temporary == true) &&
-                            freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
-                    val mayExtendToNow = active && (!sample.temporary || state?.target?.endsAtEpochMs == null)
-                    sample.copy(endsAtEpochMs = if (mayExtendToNow) maxOf(sample.endsAtEpochMs, now) else sample.endsAtEpochMs)
-                }
-                .toList()
-                .ifEmpty {
-                    currentTarget?.let { value ->
-                        val observedAt = state?.glucose?.measuredAtEpochMs ?: state?.receivedAtEpochMs ?: now
-                        val temporary = state?.target?.temporary == true
-                        val explicitEnd = state?.target?.endsAtEpochMs?.takeIf { temporary }
-                        if (explicitEnd != null && explicitEnd <= observedAt) {
-                            emptyList()
-                        } else {
-                            listOf(
-                                app.aapswear.model.TargetSample(
-                                    valueMgDl = value,
-                                    startedAtEpochMs = if (temporary) observedAt else start,
-                                    endsAtEpochMs = explicitEnd ?: now,
-                                    temporary = temporary,
-                                ),
-                            )
-                        }
-                    }.orEmpty()
-                }
-        linePaint.color = colors.targetValue
-        linePaint.strokeWidth = 1.4f.dp
-        linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 3f.dp), 0f)
-        TargetStepTimeline.build(targetSegments, start, end).forEach { points ->
-            val path = Path().apply {
-                points.forEachIndexed { index, (time, value) ->
-                    val x = xFor(time)
-                    val y = yFor(value)
-                    if (index == 0) moveTo(x, y) else lineTo(x, y)
-                }
-            }
-            canvas.drawPath(path, linePaint)
-        }
-        linePaint.pathEffect = null
-
         val dividerX = xFor(now)
         if (visiblePredictions.isNotEmpty()) {
             linePaint.color = colors.divider
@@ -509,6 +441,22 @@ class WearGlucoseChart @JvmOverloads constructor(
         private const val TILE_RADIUS_DP = 18f
     }
 }
+
+/**
+ * Wear graph rendering intentionally ignores effective/temporary target values and target history.
+ * Only the display range (low/high) influences this graph. The target-value timeline belongs solely
+ * to the Mobile CGM graph.
+ */
+internal fun wearChartStateSignature(state: TherapyDisplayState?): List<Any?>? =
+    state?.let {
+        listOf(
+            it.glucose,
+            it.glucoseHistory,
+            it.glucosePredictions,
+            it.target?.lowMgDl,
+            it.target?.highMgDl,
+        )
+    }
 
 internal fun wearChartTimeWindow(
     timelineNow: Long,
