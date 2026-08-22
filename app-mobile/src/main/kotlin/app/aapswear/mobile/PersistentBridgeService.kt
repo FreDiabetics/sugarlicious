@@ -581,8 +581,9 @@ internal object NotificationGraphRenderer {
 
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = max(1f, renderDensity)
-        paint.color = graphColor(SugarliciousColorRole.GRAPH_DIVIDER)
+        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.RANGE_HIGH))
         canvas.drawLine(plotLeft, y(targetHigh), plotRight, y(targetHigh), paint)
+        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.RANGE_LOW))
         canvas.drawLine(plotLeft, y(targetLow), plotRight, y(targetLow), paint)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
@@ -622,3 +623,6 @@ internal object NotificationGraphRenderer {
         return bitmap
     }
 }
+
+internal fun opaqueGraphBoundaryColor(color: Int): Int =
+    0xFF000000.toInt() or (color and 0x00FFFFFF)
