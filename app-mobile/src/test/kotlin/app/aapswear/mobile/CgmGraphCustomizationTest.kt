@@ -18,7 +18,6 @@ import app.aapswear.model.PredictionKind
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
-import kotlin.math.abs
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -63,6 +62,7 @@ class CgmGraphCustomizationTest {
     fun `configured target value color is used by target line`() {
         preferences.edit().clear().putString("themeMode", "DARK").commit()
         val targetColor = Color.rgb(224, 42, 205)
+        val alternateTargetColor = Color.rgb(30, 210, 70)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
         SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
 
@@ -79,7 +79,7 @@ class CgmGraphCustomizationTest {
                 target = TargetState(80.0, 160.0, valueMgDl = 100.0),
             )
 
-            val bitmap = render(
+            val configured = render(
                 GlucoseDashboardChart(context).apply {
                     bind(
                         state = state,
@@ -95,8 +95,26 @@ class CgmGraphCustomizationTest {
                 240,
             )
 
-            val targetPixels = countTargetLinePixels(bitmap, targetColor)
-            assertTrue("targetLinePixels=$targetPixels", targetPixels > 40)
+            SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, alternateTargetColor)
+            SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+            val recolored = render(
+                GlucoseDashboardChart(context).apply {
+                    bind(
+                        state = state,
+                        unit = GlucoseUnit.MG_DL,
+                        showPredictions = false,
+                        durationHours = 3,
+                        showTargetRange = false,
+                        showTargetValue = true,
+                        cgmDotOutlineEnabled = false,
+                        clockEpochMs = now,
+                    )
+                },
+                240,
+            )
+
+            val changedPixels = bitmapDifferenceCount(configured, recolored)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }
@@ -121,21 +139,28 @@ class CgmGraphCustomizationTest {
                 ),
                 target = TargetState(80.0, 160.0, valueMgDl = 100.0),
             )
-            val ui = DashboardUiPreferences(
+            val enabledUi = DashboardUiPreferences(
                 showCgmTargetRange = false,
                 showCgmTargetValue = true,
                 cgmDotOutlineEnabled = false,
             )
+            val disabledUi = enabledUi.copy(showCgmTargetValue = false)
 
-            val bitmap = render(
+            val enabled = render(
                 GlucoseDashboardChart(context).apply {
-                    bindOverview(state, ui, now)
+                    bindOverview(state, enabledUi, now)
+                },
+                240,
+            )
+            val disabled = render(
+                GlucoseDashboardChart(context).apply {
+                    bindOverview(state, disabledUi, now)
                 },
                 240,
             )
 
-            val targetPixels = countTargetLinePixels(bitmap, targetColor)
-            assertTrue("targetLinePixels=$targetPixels", targetPixels > 40)
+            val changedPixels = bitmapDifferenceCount(enabled, disabled)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }
@@ -170,7 +195,7 @@ class CgmGraphCustomizationTest {
                 cgmDotOutlineEnabled = false,
                 clockEpochMs = now,
             )
-            assertEquals(0, countTargetLinePixels(render(chart, 240), targetColor))
+            val before = render(chart, 240)
 
             chart.bind(
                 state = base.copy(
@@ -190,8 +215,10 @@ class CgmGraphCustomizationTest {
                 cgmDotOutlineEnabled = false,
                 clockEpochMs = now,
             )
+            val after = render(chart, 240)
 
-            assertTrue(countTargetLinePixels(render(chart, 240), targetColor) > 40)
+            val changedPixels = bitmapDifferenceCount(before, after)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }
@@ -293,25 +320,16 @@ class CgmGraphCustomizationTest {
         return bitmap
     }
 
-    private fun countTargetLinePixels(bitmap: Bitmap, targetColor: Int): Int {
-        val background = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
-        val expected = blendOverBackground(targetColor, background, 190)
-        return count(bitmap) { pixel ->
-            abs(Color.red(pixel) - Color.red(expected)) <= 8 &&
-                abs(Color.green(pixel) - Color.green(expected)) <= 8 &&
-                abs(Color.blue(pixel) - Color.blue(expected)) <= 8
+    private fun bitmapDifferenceCount(first: Bitmap, second: Bitmap): Int {
+        assertEquals(first.width, second.width)
+        assertEquals(first.height, second.height)
+        var changed = 0
+        for (y in 0 until first.height) {
+            for (x in 0 until first.width) {
+                if (first.getPixel(x, y) != second.getPixel(x, y)) changed++
+            }
         }
-    }
-
-    private fun blendOverBackground(foreground: Int, background: Int, alpha: Int): Int {
-        val inverse = 255 - alpha
-        fun channel(foregroundChannel: Int, backgroundChannel: Int): Int =
-            (foregroundChannel * alpha + backgroundChannel * inverse + 127) / 255
-        return Color.rgb(
-            channel(Color.red(foreground), Color.red(background)),
-            channel(Color.green(foreground), Color.green(background)),
-            channel(Color.blue(foreground), Color.blue(background)),
-        )
+        return changed
     }
 
     private fun count(bitmap: Bitmap, predicate: (Int) -> Boolean): Int {
