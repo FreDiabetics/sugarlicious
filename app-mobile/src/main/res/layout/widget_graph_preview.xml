@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_widget_preview_surface"
+    android:padding="10dp">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="@string/widget_graph_description"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_graph_preview_plot" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="34dp"
+        android:text="123  ↗  3 min"
+        android:textColor="#F5F5F5"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+</FrameLayout>

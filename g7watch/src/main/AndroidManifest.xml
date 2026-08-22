@@ -36,6 +36,16 @@
             android:name=".G7CollectorService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <service
+            android:name=".G7CollectorTileService"
+            android:label="@string/tile_g7_label"
+            android:description="@string/tile_g7_description"
+            android:icon="@drawable/ic_g7_app"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+            <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/tile_preview_g7" />
+        </service>
         <receiver android:name=".G7BootReceiver" android:enabled="true" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -45,6 +55,8 @@
         <receiver android:name=".G7ReconnectReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
         <receiver android:name=".G7ErrorAcknowledgeReceiver" android:exported="false" />
+        <receiver android:name=".G7CgmAlarmAcknowledgeReceiver" android:exported="false" />
+        <receiver android:name=".G7CgmAlarmRepeatReceiver" android:exported="false" />
         <receiver
             android:name=".G7SetupReceiver"
             android:exported="true"
@@ -56,6 +68,18 @@
             android:exported="true"
             android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
             <intent-filter><action android:name="app.aapswear.g7watch.SET_SOURCE" /></intent-filter>
+        </receiver>
+        <receiver
+            android:name=".G7SyncControlReceiver"
+            android:exported="true"
+            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
+            <intent-filter><action android:name="app.aapswear.g7watch.ACK_SYNC" /></intent-filter>
+        </receiver>
+        <receiver
+            android:name=".G7ColorSyncReceiver"
+            android:exported="true"
+            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
+            <intent-filter><action android:name="app.aapswear.g7watch.APPLY_GRAPH_COLORS" /></intent-filter>
         </receiver>
         <provider
             android:name=".G7ReadingProvider"

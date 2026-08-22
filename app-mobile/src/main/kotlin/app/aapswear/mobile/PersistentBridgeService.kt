@@ -26,7 +26,11 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
+import app.aapswear.model.CanonicalCgmHistory
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.storage.TherapyStateStore
@@ -195,7 +199,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-        if (glucose == null || freshness == Freshness.STALE || freshness == Freshness.NO_DATA) {
+        if (glucose == null || !TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null)
         }
 
@@ -327,15 +331,13 @@ internal object NotificationGraphRenderer {
         val notificationColorPrefix =
             if (palette.isLight) "notification.color.light." else "notification.color.dark."
         fun graphColor(role: SugarliciousColorRole): Int {
-            // The in-range band is a shared semantic color. Notification rendering must match
-            // the app graph exactly and must not be overridden by stale notification-only keys.
-            if (role == SugarliciousColorRole.RANGE_IN_RANGE) return palette.argb(role)
-
-            val key = notificationColorPrefix + role.preferenceKey
-            return if (preferences.contains(key)) {
-                preferences.getInt(key, palette.argb(role))
-            } else {
-                palette.argb(role)
+            val overrideKey = "notification.color.override." + role.preferenceKey
+            val legacyModeKey = notificationColorPrefix + role.preferenceKey
+            return when {
+                preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
+                role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
+                preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
+                else -> palette.argb(role)
             }
         }
 
@@ -359,24 +361,39 @@ internal object NotificationGraphRenderer {
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
         val start = now - windowMs
-        val merged = linkedMapOf<Long, Double>()
-
-        state?.glucoseHistory.orEmpty().forEach { point ->
-            if (point.measuredAtEpochMs in start..(now + 5 * 60_000L)) {
-                merged[point.measuredAtEpochMs] = point.valueMgDl
-            }
-        }
-        state?.glucose?.let { glucose ->
-            if (glucose.measuredAtEpochMs in start..(now + 5 * 60_000L)) {
-                merged[glucose.measuredAtEpochMs] = glucose.valueMgDl
-            }
-        }
-
-        val points = merged.entries.sortedBy { it.key }
+        val validSamples = CanonicalCgmHistory.merge(
+            samples = buildList {
+                addAll(state?.glucoseHistory.orEmpty())
+                state?.glucose?.let { glucose ->
+                    add(
+                        GlucoseSample(
+                            valueMgDl = glucose.valueMgDl,
+                            measuredAtEpochMs = glucose.measuredAtEpochMs,
+                            source = glucose.source,
+                            sensorId = glucose.sensorId,
+                            sessionId = glucose.sessionId,
+                            sequenceNumber = glucose.sequenceNumber,
+                            receivedAtEpochMs = glucose.receivedAtEpochMs,
+                            quality = glucose.quality,
+                        ),
+                    )
+                }
+            },
+            nowEpochMs = now,
+            preferredSource = state?.source,
+            windowMs = windowMs,
+        )
+        val points = validSamples.associate { it.measuredAtEpochMs to it.valueMgDl }.entries.sortedBy { it.key }
         if (points.isEmpty()) return bitmap
 
         val targetLow = state?.target?.lowMgDl ?: 80.0
         val targetHigh = state?.target?.highMgDl ?: 160.0
+        val excursion =
+            CgmGraphPolicy.rangeExcursion(
+                validSamples,
+                targetLow,
+                targetHigh,
+            )
         val lowest = points.minOf { it.value }
         val highest = points.maxOf { it.value }
         val minValue = min(targetLow - 24.0, lowest - max(12.0, lowest * 0.08))
@@ -400,14 +417,16 @@ internal object NotificationGraphRenderer {
         }
 
         paint.style = Paint.Style.FILL
-        paint.color = graphColor(SugarliciousColorRole.RANGE_HIGH)
-        canvas.drawRect(
-            plotLeft,
-            plotTop,
-            plotRight,
-            y(targetHigh),
-            paint,
-        )
+        if (excursion == RangeExcursion.HIGH) {
+            paint.color = graphColor(SugarliciousColorRole.RANGE_HIGH)
+            canvas.drawRect(
+                plotLeft,
+                plotTop,
+                plotRight,
+                y(targetHigh),
+                paint,
+            )
+        }
         paint.color = graphColor(SugarliciousColorRole.RANGE_IN_RANGE)
         canvas.drawRect(
             plotLeft,
@@ -416,14 +435,16 @@ internal object NotificationGraphRenderer {
             y(targetLow),
             paint,
         )
-        paint.color = graphColor(SugarliciousColorRole.RANGE_LOW)
-        canvas.drawRect(
-            plotLeft,
-            y(targetLow),
-            plotRight,
-            plotBottom,
-            paint,
-        )
+        if (excursion == RangeExcursion.LOW) {
+            paint.color = graphColor(SugarliciousColorRole.RANGE_LOW)
+            canvas.drawRect(
+                plotLeft,
+                y(targetLow),
+                plotRight,
+                plotBottom,
+                paint,
+            )
+        }
 
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = max(1f, height / displayHeightDp)

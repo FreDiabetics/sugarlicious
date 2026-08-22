@@ -1,6 +1,5 @@
 package app.aapswear.mobile
 
-import android.content.SharedPreferences
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
@@ -13,16 +12,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -43,6 +37,24 @@ import app.aapswear.model.TherapyDisplayState
 import kotlinx.coroutines.launch
 
 internal const val SUGARLICIOUS_G6_STYLE_FACE_INDEX = 5
+
+internal enum class WatchFaceSelectionEvent {
+    USER_SELECTION,
+    CGM_REFRESH,
+    COLLECTOR_REFRESH,
+    DATA_LAYER_REFRESH,
+}
+
+internal fun reduceWatchFaceSelection(
+    currentFaceIndex: Int,
+    requestedFaceIndex: Int?,
+    event: WatchFaceSelectionEvent,
+): Int =
+    if (event == WatchFaceSelectionEvent.USER_SELECTION && requestedFaceIndex != null) {
+        requestedFaceIndex.coerceIn(sugarliciousWatchFaceCards.indices)
+    } else {
+        currentFaceIndex.coerceIn(sugarliciousWatchFaceCards.indices)
+    }
 
 internal data class SugarliciousWatchFaceCard(
     val name: String,
@@ -124,57 +136,24 @@ internal fun SugarliciousWatchScreen(
     state: TherapyDisplayState?,
     preferences: DashboardUiPreferences,
     onSelectedFace: (Int) -> Unit,
-    onNavigate: (DashboardScreen) -> Unit,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
-    val scope = rememberCoroutineScope()
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
     val g6StyleRelevant =
         SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(appContext, state, preferences)
-    var runtimeStatus by remember { mutableStateOf(WatchRuntimeStatusStore.read(appContext)) }
-    var activeFaceIndex by remember {
-        mutableStateOf<Int?>(runtimeStatus.activeSugarliciousFaceIndex ?: savedFaceIndex)
-    }
-    var editingFaceIndex by remember {
-        mutableStateOf(runtimeStatus.activeSugarliciousFaceIndex ?: savedFaceIndex)
-    }
+    var activeFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
+    var editingFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
-    var showLegacyFaces by remember { mutableStateOf(false) }
-
-    DisposableEffect(appContext) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            val updated = WatchRuntimeStatusStore.read(appContext)
-            runtimeStatus = updated
-            activeFaceIndex =
-                updated.activeSugarliciousFaceIndex
-                    ?: SugarliciousWatchFaceSelectionStore.read(appContext, savedFaceIndex)
-        }
-        WatchRuntimeStatusStore.registerListener(appContext, listener)
-        onDispose { WatchRuntimeStatusStore.unregisterListener(appContext, listener) }
-    }
 
     LaunchedEffect(appContext) {
         runCatching { requestWatchRuntimeStatus(appContext) }
-    }
-
-    LaunchedEffect(preferences.watchFaceIndex, runtimeStatus.activeSugarliciousFaceIndex) {
-        if (runtimeStatus.activeSugarliciousFaceIndex == null) {
-            val stored = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
-            activeFaceIndex = stored
-            editingFaceIndex = stored
-        }
     }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        WatchMenuHeader(
-            onBack = { onNavigate(DashboardScreen.OVERVIEW) },
-            onSettings = { onNavigate(DashboardScreen.SETTINGS) },
-        )
-
         Text(
             text = "Ziffernblätter",
             modifier = Modifier.fillMaxWidth(),
@@ -200,27 +179,25 @@ internal fun SugarliciousWatchScreen(
                         enabled = enabled,
                         onSelected = {
                             editingFaceIndex = index
-                            activeFaceIndex = index
+                            activeFaceIndex =
+                                reduceWatchFaceSelection(
+                                    currentFaceIndex = activeFaceIndex,
+                                    requestedFaceIndex = index,
+                                    event = WatchFaceSelectionEvent.USER_SELECTION,
+                                )
                             SugarliciousWatchFaceSelectionStore.write(appContext, index)
                             val activated = WatchFacePresetStore.activate(appContext, index)
                             facePresets =
                                 WatchFacePresetStore.readAll(appContext).toMutableList().also {
                                     it[index] = activated
                                 }
-                            if (index != SUGARLICIOUS_G6_STYLE_FACE_INDEX) {
-                                onSelectedFace(index)
-                            }
+                            onSelectedFace(index)
                         },
                     )
                 }
                 if (indices.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-
-        TextButton(
-            onClick = { showLegacyFaces = true },
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Alte AAPS-Watchfaces anzeigen") }
 
         Text(
             text = "Complications",
@@ -266,48 +243,6 @@ internal fun SugarliciousWatchScreen(
         }
     }
 
-    if (showLegacyFaces) {
-        AlertDialog(
-            onDismissRequest = { showLegacyFaces = false },
-            title = { Text("Alte AAPS-Watchfaces") },
-            text = {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    itemsIndexed(legacyWatchFaceCards) { index, face ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                scope.launch {
-                                    val nodes = runCatching {
-                                        requestWatchFaceApply(appContext, sugarliciousWatchFaceCards.size + index)
-                                    }.getOrDefault(0)
-                                    Toast.makeText(
-                                        context,
-                                        if (nodes > 0) "${face.name} wird an die Watch gesendet" else "Watch nicht erreichbar",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            },
-                            color = SugarliciousColors.SurfaceHigh,
-                            shape = RoundedCornerShape(14.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                Image(
-                                    painter = painterResource(face.previewRes),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(58.dp),
-                                )
-                                Text(face.name, color = SugarliciousColors.TextPrimary)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showLegacyFaces = false }) { Text("Schließen") } },
-        )
-    }
 }
 
 @Composable

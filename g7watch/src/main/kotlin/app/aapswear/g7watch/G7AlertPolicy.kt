@@ -12,27 +12,39 @@ import app.aapswear.g7.G7SessionState
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 internal object G7AlertPolicyStore {
     private const val PREFS = "g7_alert_policy"
-    private const val KEY_WATCH_ONLY = "watch_only"
+    private const val KEY_ALARMS_ENABLED = "alarms_enabled"
+    private const val KEY_AUTOMATIC_ENABLE_AT = "automatic_enable_at"
 
-    fun isWatchOnly(context: Context): Boolean =
+    fun alarmsEnabled(context: Context, nowEpochMs: Long = System.currentTimeMillis()): Boolean {
+        val preferences =
+            context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return preferences.getBoolean(KEY_ALARMS_ENABLED, false) ||
+            preferences.getLong(KEY_AUTOMATIC_ENABLE_AT, 0L).let { it > 0L && nowEpochMs >= it }
+    }
+
+    fun nextAutomaticEnableAt(context: Context, nowEpochMs: Long = System.currentTimeMillis()): Long? =
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_WATCH_ONLY, false)
+            .getLong(KEY_AUTOMATIC_ENABLE_AT, 0L)
+            .takeIf { it > nowEpochMs }
 
-    fun setWatchOnly(context: Context, enabled: Boolean) {
+    fun setPolicy(context: Context, enabled: Boolean, automaticEnableAtEpochMs: Long? = null) {
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean(KEY_WATCH_ONLY, enabled)
+            .putBoolean(KEY_ALARMS_ENABLED, enabled)
+            .putLong(KEY_AUTOMATIC_ENABLE_AT, automaticEnableAtEpochMs?.takeIf { it > 0L } ?: 0L)
             .apply()
     }
 }
 
-internal const val G7_SIGNAL_LOSS_AFTER_MS = 11L * 60_000L
+internal const val G7_SIGNAL_LOSS_AFTER_MS = 16L * 60_000L
 
 internal fun isG7SignalLoss(
     lastReadingEpochMs: Long?,
@@ -42,11 +54,11 @@ internal fun isG7SignalLoss(
         nowEpochMs - lastReadingEpochMs >= G7_SIGNAL_LOSS_AFTER_MS
 
 internal fun shouldPostImmediateCollectorAlert(
-    watchOnly: Boolean,
+    alarmsEnabled: Boolean,
     error: G7CollectorError,
     sessionState: G7SessionState,
 ): Boolean {
-    if (!watchOnly) return false
+    if (!alarmsEnabled) return false
     if (!error.recoverable) return true
     return sessionState == G7SessionState.USER_INTERVENTION_REQUIRED ||
         sessionState == G7SessionState.REQUIRES_REBOND ||
@@ -62,7 +74,10 @@ internal object G7SignalLossMonitor {
             cancel(context)
             return
         }
-        val lastReading = state.lastReading?.timestampEpochMs ?: return
+        val lastReading = state.lastReading?.timestampEpochMs ?: run {
+            cancel(context)
+            return
+        }
         schedule(context, lastReading + G7_SIGNAL_LOSS_AFTER_MS)
     }
 
@@ -70,6 +85,10 @@ internal object G7SignalLossMonitor {
         val pending = pendingIntent(context)
         context.getSystemService(AlarmManager::class.java).cancel(pending)
         pending.cancel()
+    }
+
+    fun schedulePolicyRecheck(context: Context, atEpochMs: Long) {
+        schedule(context, atEpochMs)
     }
 
     private fun schedule(context: Context, requestedAtEpochMs: Long) {
@@ -100,39 +119,50 @@ internal object G7SignalLossMonitor {
 
 class G7SignalLossReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val state = G7SensorStateStore(context).read()
-        if (!state.collectorEnabled) return
+        // State deserialization, alarm-channel creation and notification delivery may all touch
+        // disk or system services. A BroadcastReceiver only has a few seconds on its main thread;
+        // keeping the complete signal-loss path behind goAsync avoids ANRs that would kill the
+        // collector process precisely while it is waiting for the next sensor advertisement.
+        val app = context.applicationContext
+        val pending = goAsync()
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            try {
+                withTimeout(8_000L) {
+                    val state = G7SensorStateStore(app).read()
+                    if (!state.collectorEnabled) return@withTimeout
 
-        val lastReadingAt = state.lastReading?.timestampEpochMs
-        val now = System.currentTimeMillis()
-        if (!isG7SignalLoss(lastReadingAt, now)) {
-            G7SignalLossMonitor.scheduleFromState(context, state)
-            return
-        }
+                    val lastReadingAt = state.lastReading?.timestampEpochMs
+                    val now = System.currentTimeMillis()
+                    if (!isG7SignalLoss(lastReadingAt, now)) {
+                        G7SignalLossMonitor.scheduleFromState(app, state)
+                        return@withTimeout
+                    }
 
-        if (!G7AlertPolicyStore.isWatchOnly(context)) {
-            val pending = goAsync()
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    context.applicationContext.recordG7Diagnostic(
-                        code = "G7-SIGNAL-LOSS-SUPPRESSED",
-                        message = "Direct G7 signal loss suppressed because Watch Collector Only is not selected",
-                        severity = DiagnosticSeverity.INFO,
-                        metadata = mapOf("lastReadingEpochMs" to lastReadingAt),
-                    )
-                } finally {
-                    pending.finish()
+                    if (!G7AlertPolicyStore.alarmsEnabled(app)) {
+                        G7AlertPolicyStore.nextAutomaticEnableAt(app, now)?.let { enableAt ->
+                            G7SignalLossMonitor.schedulePolicyRecheck(app, enableAt)
+                        }
+                        app.recordG7Diagnostic(
+                            code = "G7-SIGNAL-LOSS-SUPPRESSED",
+                            message = "Direct G7 signal loss suppressed because another canonical source is active",
+                            severity = DiagnosticSeverity.INFO,
+                            metadata = mapOf("lastReadingEpochMs" to lastReadingAt),
+                        )
+                        return@withTimeout
+                    }
+
+                    G7CgmAlarmCoordinator.onSignalLoss(app, state.lastReading, now)
                 }
+            } catch (error: Throwable) {
+                app.recordG7Diagnostic(
+                    code = "G7-SIGNAL-LOSS-500",
+                    message = "Asynchronous signal-loss evaluation failed",
+                    severity = DiagnosticSeverity.ERROR,
+                    metadata = mapOf("errorType" to error.javaClass.simpleName.take(40)),
+                )
+            } finally {
+                pending.finish()
             }
-            return
         }
-
-        val error = G7CollectorError(
-            code = "G7-SIGNAL-LOSS",
-            recoverable = true,
-            occurredAtEpochMs = now,
-            safeMessage = "Seit mindestens 11 Minuten kein aktueller G7-Wert. Bluetooth, Sensorreichweite und Sensorstatus prüfen; Bond, Shared Key und Sensorcode nicht löschen.",
-        )
-        G7ErrorNotifier.show(context, error)
     }
 }

@@ -17,6 +17,7 @@ class G7BlePolicyTest {
     }
 
     @Test fun `known sensor reconnect uses shorter targeted scan`() {
+        assertEquals(90_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
         assertEquals(
             G7_RECONNECT_SCAN_TIMEOUT_MS,
             g7ScanTimeoutMs(G7Sensor("known-sensor", deviceAddress = "AA:BB:CC:DD:EE:FF")),

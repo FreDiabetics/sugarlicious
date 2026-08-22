@@ -1,7 +1,10 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseState
+import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.storage.PersistentPredictionCache
@@ -11,12 +14,13 @@ internal object DisplayHistoryAccumulator {
     const val WINDOW_MS = 24 * 60 * 60_000L
     const val MAX_POINTS = 300
     const val GAP_THRESHOLD_MS = 7 * 60_000L + 30_000L
-    private const val SAME_READING_TOLERANCE_MS = 90_000L
 
     /** True when two persisted CGM points are farther apart than a normal 5-minute cycle. */
     fun hasGap(history: List<GlucoseSample>): Boolean =
-        history.sortedBy { it.measuredAtEpochMs }.zipWithNext().any { (first, second) ->
-            second.measuredAtEpochMs - first.measuredAtEpochMs > GAP_THRESHOLD_MS
+        history.groupBy { it.sensorId to it.sessionId }.values.any { stream ->
+            stream.sortedBy { it.measuredAtEpochMs }.zipWithNext().any { (first, second) ->
+                second.measuredAtEpochMs - first.measuredAtEpochMs > GAP_THRESHOLD_MS
+            }
         }
 
     fun merge(
@@ -27,11 +31,12 @@ internal object DisplayHistoryAccumulator {
         val glucose = mergeGlucose(
             buildList {
                 addAll(previous?.glucoseHistory.orEmpty())
-                previous?.glucose?.let { add(GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, previous.source)) }
+                previous?.glucose?.let { add(it.toSample(previous.source)) }
                 addAll(current.glucoseHistory)
-                current.glucose?.let { add(GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, current.source)) }
+                current.glucose?.let { add(it.toSample(current.source)) }
             },
             nowEpochMs,
+            current.source,
         )
 
         val earliest = nowEpochMs - WINDOW_MS
@@ -73,6 +78,7 @@ internal object DisplayHistoryAccumulator {
                 current.copy(
                     glucoseHistory = glucose,
                     therapyHistory = therapy,
+                    targetHistory = mergeTargetHistory(previous?.targetHistory.orEmpty(), current.targetHistory, nowEpochMs),
                 ),
             nowEpochMs = nowEpochMs,
         )
@@ -86,48 +92,88 @@ internal object DisplayHistoryAccumulator {
         glucoseHistory = mergeGlucose(
             buildList {
                 addAll(current.glucoseHistory)
-                current.glucose?.let { add(GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, current.source)) }
+                current.glucose?.let { add(it.toSample(current.source)) }
                 addAll(external)
             },
             nowEpochMs,
+            current.source,
         ),
     )
 
     private fun mergeGlucose(
         values: List<GlucoseSample>,
         nowEpochMs: Long,
-    ): List<GlucoseSample> {
+        preferredSource: DataSourceId,
+    ): List<GlucoseSample> =
+        CanonicalCgmHistory.merge(
+            samples = values,
+            nowEpochMs = nowEpochMs,
+            preferredSource = preferredSource,
+            windowMs = WINDOW_MS,
+            maxPoints = MAX_POINTS,
+        )
+
+    private fun mergeTargetHistory(
+        previous: List<TargetSample>,
+        incoming: List<TargetSample>,
+        nowEpochMs: Long,
+    ): List<TargetSample> {
         val earliest = nowEpochMs - WINDOW_MS
         val latest = nowEpochMs + 5 * 60_000L
-        val eligible = values
-            .filter {
-                it.measuredAtEpochMs in earliest..latest &&
+        val normalized =
+            (previous + incoming)
+                .asSequence()
+                .filter {
                     it.valueMgDl.isFinite() &&
-                    it.valueMgDl in 20.0..1000.0
-            }
-            .sortedBy { it.measuredAtEpochMs }
-
-        val deduplicated = mutableListOf<GlucoseSample>()
-        eligible.forEach { candidate ->
-            val duplicateIndex = deduplicated.indexOfLast {
-                candidate.measuredAtEpochMs - it.measuredAtEpochMs <= SAME_READING_TOLERANCE_MS
-            }
-            if (duplicateIndex < 0) {
-                deduplicated += candidate
-            } else {
-                val existing = deduplicated[duplicateIndex]
-                val preferred = when {
-                    existing.source == candidate.source && candidate.measuredAtEpochMs >= existing.measuredAtEpochMs -> candidate
-                    existing.source == DataSourceId.ANDROID_APS -> existing
-                    candidate.source == DataSourceId.ANDROID_APS -> candidate
-                    candidate.measuredAtEpochMs >= existing.measuredAtEpochMs -> candidate
-                    else -> existing
+                        it.valueMgDl in 20.0..1_000.0 &&
+                        it.startedAtEpochMs <= latest &&
+                        it.endsAtEpochMs >= earliest
                 }
-                deduplicated[duplicateIndex] = preferred
+                .map {
+                    it.copy(
+                        startedAtEpochMs = it.startedAtEpochMs.coerceAtLeast(earliest),
+                        endsAtEpochMs = it.endsAtEpochMs.coerceIn(it.startedAtEpochMs, latest),
+                    )
+                }
+                .sortedBy(TargetSample::startedAtEpochMs)
+                .toList()
+
+        val result = mutableListOf<TargetSample>()
+        normalized.forEach { sample ->
+            val prior = result.lastOrNull()
+            if (prior == null) {
+                result += sample
+                return@forEach
+            }
+
+            if (
+                prior.valueMgDl == sample.valueMgDl &&
+                prior.temporary == sample.temporary &&
+                sample.startedAtEpochMs - prior.endsAtEpochMs <= 15L * 60_000L
+            ) {
+                result[result.lastIndex] =
+                    prior.copy(endsAtEpochMs = maxOf(prior.endsAtEpochMs, sample.endsAtEpochMs, sample.startedAtEpochMs))
+            } else {
+                if (!prior.temporary && prior.endsAtEpochMs < sample.startedAtEpochMs) {
+                    result[result.lastIndex] = prior.copy(endsAtEpochMs = sample.startedAtEpochMs)
+                }
+                result += sample
             }
         }
-        return deduplicated.sortedBy { it.measuredAtEpochMs }.takeLast(MAX_POINTS)
+        return result.takeLast(MAX_POINTS)
     }
+
+    private fun GlucoseState.toSample(fallbackSource: DataSourceId): GlucoseSample =
+        GlucoseSample(
+            valueMgDl = valueMgDl,
+            measuredAtEpochMs = measuredAtEpochMs,
+            source = fallbackSource,
+            sensorId = sensorId,
+            sessionId = sessionId,
+            sequenceNumber = sequenceNumber,
+            receivedAtEpochMs = receivedAtEpochMs,
+            quality = quality,
+        )
 
     private fun TherapyHistorySample.merge(other: TherapyHistorySample, timestamp: Long) =
         TherapyHistorySample(

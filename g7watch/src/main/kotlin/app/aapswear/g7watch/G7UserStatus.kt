@@ -2,6 +2,7 @@ package app.aapswear.g7watch
 
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
+import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
 
 internal enum class G7UserStatusLevel { OK, WORKING, ATTENTION, ERROR, OFF }
@@ -61,13 +62,24 @@ internal fun deriveG7UserStatus(
         )
     }
 
+    if (state.sensor?.state == G7SensorState.ERROR) {
+        return G7UserStatus(
+            G7UserStatusLevel.ATTENTION,
+            "Sensorfehler",
+            "Sensorstatus",
+            "Kein gültiger G7-Wert",
+            "Der Sensor hat einen Fehlerstatus gemeldet. Der letzte gültige Wert bleibt als veraltet erkennbar erhalten.",
+            "Sensor und Reichweite prüfen und die automatische Wiederverbindung abwarten. Bond, Shared Key und Sensorcode nicht löschen.",
+        )
+    }
+
     if (ageMs != null && ageMs >= G7_SIGNAL_LOSS_AFTER_MS) {
         return G7UserStatus(
             G7UserStatusLevel.ATTENTION,
             "Signalverlust",
             phaseName(state.protocolState),
             "Kein aktueller G7-Wert",
-            "Seit mindestens 11 Minuten wurde kein valider direkter G7-Wert empfangen.",
+            "Seit mindestens 16 Minuten wurde kein valider direkter G7-Wert empfangen.",
             actionForError(state.lastError?.code) ?: "Bluetooth und Sensorreichweite prüfen und die Uhr am Sensor lassen. Bond, Shared Key und Sensorcode nicht löschen.",
         )
     }
@@ -94,7 +106,7 @@ internal fun deriveG7UserStatus(
         G7ProtocolState.BACKFILL,
         -> G7UserStatus(
             G7UserStatusLevel.WORKING,
-            "Normalbetrieb",
+            if (ageMs == null) "Verbindung wird aufgebaut" else "Verbunden",
             phaseName(state.protocolState),
             "Aktiv · Messzyklus läuft",
             "Der Collector verarbeitet das aktuelle G7-Sensorfenster.",
@@ -106,7 +118,7 @@ internal fun deriveG7UserStatus(
         G7ProtocolState.DISCONNECTED,
         -> G7UserStatus(
             G7UserStatusLevel.OK,
-            "Normalbetrieb",
+            if (ageMs == null) "Bereit" else "Verbunden",
             "Bereit für nächsten Wert",
             "Aktiv · Datenfluss in Ordnung",
             ageMs?.let { "Der letzte valide G7-Wert ist ${formatAge(it)} alt. Der nächste Messzyklus wird automatisch zum Sensorfenster gestartet." }
@@ -120,7 +132,7 @@ internal fun deriveG7UserStatus(
             "Nächstes Sensorfenster",
             if (ageMs == null) "Aktiv · Verbindung wird aufgebaut" else "Aktiv · letzter Wert ${formatAge(ageMs)} alt",
             "Ein Sensorfenster wurde verpasst oder Android BLE hat die Verbindung kurz unterbrochen. Sugarlicious versucht automatisch das nächste erwartete G7-Fenster.",
-            "Nichts zurücksetzen. Uhr in Sensornähe lassen; erst ab 11 Minuten ohne Wert ist dies ein Signalverlust.",
+            "Nichts zurücksetzen. Uhr in Sensornähe lassen; erst ab 16 Minuten ohne Wert ist dies ein Signalverlust.",
         )
 
         G7ProtocolState.ERROR -> {

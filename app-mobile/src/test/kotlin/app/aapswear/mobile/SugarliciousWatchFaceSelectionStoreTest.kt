@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.protocol.WatchRuntimeStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -101,5 +102,33 @@ class SugarliciousWatchFaceSelectionStoreTest {
                 g6StyleRelevant = true,
             ),
         )
+    }
+
+    @Test
+    fun `one hundred cgm collector and data layer refreshes cannot change selected face`() {
+        val selectedFace = 3
+        SugarliciousWatchFaceSelectionStore.write(context, selectedFace)
+        var reduced = selectedFace
+
+        repeat(100) { update ->
+            val event =
+                when (update % 3) {
+                    0 -> WatchFaceSelectionEvent.CGM_REFRESH
+                    1 -> WatchFaceSelectionEvent.COLLECTOR_REFRESH
+                    else -> WatchFaceSelectionEvent.DATA_LAYER_REFRESH
+                }
+            reduced = reduceWatchFaceSelection(reduced, update % sugarliciousWatchFaceCards.size, event)
+            WatchRuntimeStatusStore.save(
+                context,
+                WatchRuntimeStatus(
+                    activeSugarliciousFaceIndex = update % sugarliciousWatchFaceCards.size,
+                    activeComplicationIds = listOf(update),
+                    sentAtEpochMs = update.toLong(),
+                ),
+            )
+        }
+
+        assertEquals(selectedFace, reduced)
+        assertEquals(selectedFace, SugarliciousWatchFaceSelectionStore.read(context))
     }
 }

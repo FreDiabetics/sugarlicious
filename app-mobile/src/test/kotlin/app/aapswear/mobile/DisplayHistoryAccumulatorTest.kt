@@ -1,12 +1,14 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
+import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,6 +86,23 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
+    fun `sensor error samples never enter canonical graph history`() {
+        val now = 2_000_000L
+        val state = TherapyDisplayState(
+            source = DataSourceId.ANDROID_APS,
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(
+                123.0,
+                GlucoseUnit.MG_DL,
+                measuredAtEpochMs = now,
+                quality = CgmQuality.SENSOR_ERROR,
+            ),
+        )
+
+        assertTrue(DisplayHistoryAccumulator.merge(null, state, now).glucoseHistory.isEmpty())
+    }
+
+    @Test
     fun `stores a public enacted SMB as a therapy marker without losing IOB`() {
         val now = 2_000_000L
         val state = TherapyDisplayState(
@@ -101,5 +120,39 @@ class DisplayHistoryAccumulatorTest {
 
         assertEquals(1.2, sample.totalIob!!, 0.0)
         assertEquals(0.25, sample.smbUnits!!, 0.0)
+    }
+
+    @Test
+    fun `does not extend a temporary target beyond its published end`() {
+        val minute = 60_000L
+        val now = 2_000_000L
+        val temporaryEnd = now - 5 * minute
+        val previous = TherapyDisplayState(
+            receivedAtEpochMs = temporaryEnd,
+            targetHistory = listOf(
+                TargetSample(
+                    valueMgDl = 90.0,
+                    startedAtEpochMs = now - 35 * minute,
+                    endsAtEpochMs = temporaryEnd,
+                    temporary = true,
+                ),
+            ),
+        )
+        val current = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            targetHistory = listOf(
+                TargetSample(
+                    valueMgDl = 105.0,
+                    startedAtEpochMs = now,
+                    endsAtEpochMs = now,
+                    temporary = false,
+                ),
+            ),
+        )
+
+        val merged = DisplayHistoryAccumulator.merge(previous, current, now)
+
+        assertEquals(temporaryEnd, merged.targetHistory.first().endsAtEpochMs)
+        assertEquals(now, merged.targetHistory.last().startedAtEpochMs)
     }
 }

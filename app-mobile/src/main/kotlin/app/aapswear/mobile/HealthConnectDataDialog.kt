@@ -2,13 +2,11 @@ package app.aapswear.mobile
 
 import android.app.AlertDialog
 import android.content.Context
-import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -142,12 +140,10 @@ internal object HealthConnectDataDialog {
         minimumHeight = context.dp(50)
         setPadding(0, context.dp(6), 0, context.dp(6))
 
-        addView(ImageView(context).apply {
-            setImageResource(item.iconRes)
-            imageTintList = ColorStateList.valueOf(accent)
-            contentDescription = item.label
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-        }, LinearLayout.LayoutParams(context.dp(24), context.dp(24)).apply { marginEnd = context.dp(12) })
+        addView(
+            sugarliciousIconView(context, item.iconRes, item.label, tintArgb = accent),
+            LinearLayout.LayoutParams(context.dp(24), context.dp(24)).apply { marginEnd = context.dp(12) },
+        )
 
         addView(TextView(context).apply {
             text = item.label

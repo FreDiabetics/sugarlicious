@@ -2,11 +2,14 @@ package app.aapswear.wear
 
 import android.app.Notification
 import android.app.Service
+import android.content.ContextWrapper
 import android.content.Intent
 import android.provider.Settings
+import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +20,13 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class WearRuntimeLifecycleTest {
+    @Test fun `G7 reading receiver escapes the restricted receiver context`() {
+        val application = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val receiverContext = ContextWrapper(application)
+
+        assertSame(application, g7ReadingUpdateApplicationContext(receiverContext))
+    }
+
     @Test fun `runtime restores after boot and package replacement only`() {
         assertTrue(shouldRestoreWearRuntime(Intent.ACTION_BOOT_COMPLETED))
         assertTrue(shouldRestoreWearRuntime(Intent.ACTION_MY_PACKAGE_REPLACED))

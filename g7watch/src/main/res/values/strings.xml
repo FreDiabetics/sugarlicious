@@ -1,1 +1,5 @@
-<resources><string name="app_name">G7 Direct to Watch</string></resources>
+<resources>
+    <string name="app_name">G7 Direct to Watch</string>
+    <string name="tile_g7_label">G7 Watch Collector</string>
+    <string name="tile_g7_description">Lokaler Dexcom-G7-Wert mit Trend, Delta und Alter</string>
+</resources>

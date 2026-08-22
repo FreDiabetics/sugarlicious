@@ -7,14 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$faces = @(
-    @{ Name = "Digital"; Asset = "sugarlicious_digital.apk" }
-    @{ Name = "Analog"; Asset = "sugarlicious_analog.apk" }
-    @{ Name = "Orbit"; Asset = "sugarlicious_orbit.apk" }
-    @{ Name = "Rings"; Asset = "sugarlicious_rings.apk" }
-    @{ Name = "Graph"; Asset = "sugarlicious_graph.apk" }
-    @{ Name = "G6 Style"; Asset = "sugarlicious_g6_style.apk" }
-)
+. (Join-Path $PSScriptRoot 'watchface-catalog.ps1')
 
 if (-not (Test-Path -LiteralPath $Adb -PathType Leaf)) {
     throw "ADB wurde nicht gefunden: $Adb"
@@ -25,7 +18,7 @@ if ($LASTEXITCODE -ne 0 -or -not ($connected -match "(?m)^$([regex]::Escape($Wat
     throw "Die Watch '$WatchSerial' ist nicht als aktives ADB-Gerät verbunden."
 }
 
-foreach ($face in $faces) {
+foreach ($face in $ACTIVE_WATCHFACES) {
     $apk =
         Join-Path $projectRoot `
             "app-wear\build\generated\watchfacePushAssets\watchfaces\$($face.Asset)"

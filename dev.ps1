@@ -10,6 +10,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
+. (Join-Path $PSScriptRoot 'tools/watchface-catalog.ps1')
 
 function Assert-LastExitCode([string]$Step) {
     if ($LASTEXITCODE -ne 0) {
@@ -72,34 +73,26 @@ function Resolve-AdbDevice(
 function Test-WatchFacePushAssetsStale {
     $generated = ".\app-wear\build\generated\watchfacePushAssets\watchfaces"
     $required = @(
-        "sugarlicious_analog.apk",
-        "sugarlicious_analog_token.txt",
-        "sugarlicious_orbit.apk",
-        "sugarlicious_orbit_token.txt",
-        "sugarlicious_rings.apk",
-        "sugarlicious_rings_token.txt",
-        "sugarlicious_graph.apk",
-        "sugarlicious_graph_token.txt",
-        "sugarlicious_digital.apk",
-        "sugarlicious_digital_token.txt",
-        "sugarlicious_g6_style.apk",
-        "sugarlicious_g6_style_token.txt",
-        "..\default_watchface.apk"
+        $ACTIVE_WATCHFACES | ForEach-Object {
+            "$($_.Out).apk"
+            "$($_.Out)_token.txt"
+        }
     )
 
     $defaultTokenResource = ".\app-wear\build\generated\watchfacePushRes\values\default_watchface_token.xml"
-    if (-not (Test-Path $defaultTokenResource)) { return $true }
+    $defaultApk = ".\app-wear\build\generated\watchfacePushAssets\default_watchface.apk"
+    if (-not (Test-Path $defaultTokenResource) -or -not (Test-Path $defaultApk)) { return $true }
     foreach ($name in $required) {
         if (-not (Test-Path (Join-Path $generated $name))) { return $true }
     }
 
+    $actual = @(Get-ChildItem -LiteralPath $generated -File | ForEach-Object Name)
+    if (@(Compare-Object $required $actual).Count -gt 0) { return $true }
+
     $watchFaceSources = @(
-        Get-ChildItem .\watchfaces\sugarlicious-analog -Recurse -File
-        Get-ChildItem .\watchfaces\sugarlicious-orbit -Recurse -File
-        Get-ChildItem .\watchfaces\sugarlicious-rings -Recurse -File
-        Get-ChildItem .\watchfaces\sugarlicious-graph -Recurse -File
-        Get-ChildItem .\watchfaces\sugarlicious-digital -Recurse -File
-        Get-ChildItem .\watchfaces\sugarlicious-g6-style -Recurse -File
+        $ACTIVE_WATCHFACES | ForEach-Object {
+            Get-ChildItem (Join-Path '.\watchfaces' $_.Module) -Recurse -File
+        }
     ) | Where-Object { $_.FullName -notmatch '[\\/](build|\.gradle)[\\/]' }
 
     $sourceNewest = @(
@@ -109,6 +102,7 @@ function Test-WatchFacePushAssetsStale {
 
     $assetOldest = @(
         $required | ForEach-Object { Get-Item (Join-Path $generated $_) }
+        Get-Item $defaultApk
         Get-Item $defaultTokenResource
     ) | Sort-Object LastWriteTime | Select-Object -First 1
 

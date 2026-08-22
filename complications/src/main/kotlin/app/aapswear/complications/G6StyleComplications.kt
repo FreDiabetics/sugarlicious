@@ -17,16 +17,20 @@ import androidx.wear.watchface.complications.data.TimeRange
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.storage.TherapyStateStore
+import app.aapswear.protocol.WatchGraphColors
 import java.time.Instant
 import kotlinx.coroutines.flow.first
 import kotlin.math.roundToInt
@@ -86,14 +90,30 @@ internal object G6StylePresentationFormatter {
         state?.glucoseHistory.orEmpty().forEach { sample ->
             if (
                 sample.measuredAtEpochMs in cutoff..(nowEpochMs + FUTURE_TOLERANCE_MS) &&
-                sample.valueMgDl in 20.0..1000.0
+                sample.valueMgDl in 20.0..1000.0 &&
+                sample.quality == CgmQuality.VALID
             ) {
                 merged[sample.measuredAtEpochMs] = sample
             }
         }
         state?.glucose?.let { glucose ->
-            if (glucose.measuredAtEpochMs in cutoff..(nowEpochMs + FUTURE_TOLERANCE_MS)) {
-                merged[glucose.measuredAtEpochMs] = GlucoseSample(glucose.valueMgDl, glucose.measuredAtEpochMs)
+            if (
+                glucose.quality == CgmQuality.VALID &&
+                glucose.valueMgDl.isFinite() &&
+                glucose.valueMgDl in 20.0..1_000.0 &&
+                glucose.measuredAtEpochMs in cutoff..(nowEpochMs + FUTURE_TOLERANCE_MS)
+            ) {
+                merged[glucose.measuredAtEpochMs] =
+                    GlucoseSample(
+                        valueMgDl = glucose.valueMgDl,
+                        measuredAtEpochMs = glucose.measuredAtEpochMs,
+                        source = glucose.source,
+                        sensorId = glucose.sensorId,
+                        sessionId = glucose.sessionId,
+                        sequenceNumber = glucose.sequenceNumber,
+                        receivedAtEpochMs = glucose.receivedAtEpochMs,
+                        quality = glucose.quality,
+                    )
             }
         }
         return merged.values.sortedBy(GlucoseSample::measuredAtEpochMs)
@@ -213,8 +233,11 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         val plotBottom = height - 4f
         val targetLow = (state?.target?.lowMgDl ?: 70.0).coerceIn(40.0, 180.0)
         val targetHigh = (state?.target?.highMgDl ?: 180.0).coerceIn(targetLow + 1.0, 300.0)
+        val colors = readGraphColors()
+        val samples = G6StylePresentationFormatter.samples(state, nowEpochMs)
+        val excursion = CgmGraphPolicy.rangeExcursion(samples, targetLow, targetHigh)
 
-        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_IN_RANGE }
+        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors.graphBackground }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), background)
 
         fun yFor(valueMgDl: Double): Float {
@@ -222,29 +245,39 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
             return plotBottom - fraction * (plotBottom - plotTop)
         }
 
-        val highPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_HIGH }
-        canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), highPaint)
-        val lowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = COLOR_LOW }
-        canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, lowPaint)
+        if (excursion == RangeExcursion.HIGH) {
+            val highPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors.rangeHigh }
+            canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), highPaint)
+        }
+        val inRangePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors.rangeInRange }
+        canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), inRangePaint)
+        if (excursion == RangeExcursion.LOW) {
+            val lowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = colors.rangeLow }
+            canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, lowPaint)
+        }
 
         val divider = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = COLOR_DIVIDER
+            color = colors.divider
             strokeWidth = 1f
         }
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), divider)
-        divider.color = COLOR_LOW_LINE
+        divider.color = colors.targetValue
         divider.strokeWidth = 3f
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), divider)
 
-        val samples = G6StylePresentationFormatter.samples(state, nowEpochMs)
         val cutoff = nowEpochMs - G6StylePresentationFormatter.GRAPH_WINDOW_MS
         fun xFor(timestamp: Long): Float {
             val fraction = ((timestamp - cutoff).toDouble() / G6StylePresentationFormatter.GRAPH_WINDOW_MS.toDouble()).coerceIn(0.0, 1.0)
             return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
         }
 
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         samples.forEach { sample ->
+            dotPaint.color = when {
+                sample.valueMgDl < targetLow -> colors.cgmLow
+                sample.valueMgDl > targetHigh -> colors.cgmHigh
+                else -> colors.cgmInRange
+            }
             canvas.drawCircle(xFor(sample.measuredAtEpochMs), yFor(sample.valueMgDl), 3.2f, dotPaint)
         }
 
@@ -276,13 +309,30 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         return bitmap
     }
 
+    private fun readGraphColors(): WatchGraphColors {
+        val defaults = WatchGraphColors()
+        val preferences = getSharedPreferences("watch_display", MODE_PRIVATE)
+        return WatchGraphColors(
+            graphBackground = preferences.getInt("graph_color_background", defaults.graphBackground),
+            rangeLow = preferences.getInt("graph_color_range_low", defaults.rangeLow),
+            rangeInRange = preferences.getInt("graph_color_range_in", defaults.rangeInRange),
+            rangeHigh = preferences.getInt("graph_color_range_high", defaults.rangeHigh),
+            cgmLow = preferences.getInt("graph_color_cgm_low", defaults.cgmLow),
+            cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
+            cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
+            divider = preferences.getInt("graph_color_divider", defaults.divider),
+            outline = preferences.getInt("graph_color_outline", defaults.outline),
+            predictionIob = defaults.predictionIob,
+            predictionCob = defaults.predictionCob,
+            predictionUam = defaults.predictionUam,
+            predictionZeroTemp = defaults.predictionZeroTemp,
+            targetValue = preferences.getInt("graph_color_target_value", defaults.targetValue),
+            signalLoss = preferences.getInt("graph_color_signal_loss", defaults.signalLoss),
+        )
+    }
+
     private companion object {
         const val GRAPH_MIN = 40.0
         const val GRAPH_MAX = 300.0
-        const val COLOR_IN_RANGE = 0xFF172234.toInt()
-        const val COLOR_HIGH = 0xFF111925.toInt()
-        const val COLOR_LOW = 0xFFB0005D.toInt()
-        const val COLOR_LOW_LINE = 0xFFFF2C82.toInt()
-        const val COLOR_DIVIDER = 0xFF5F6878.toInt()
     }
 }

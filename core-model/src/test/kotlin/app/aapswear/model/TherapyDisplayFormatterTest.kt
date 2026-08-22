@@ -46,9 +46,29 @@ class TherapyDisplayFormatterTest {
         assertEquals("AKTUELL", TherapyDisplayFormatter.freshnessLabel(Freshness.CURRENT))
         assertEquals("VERZÖGERT", TherapyDisplayFormatter.freshnessLabel(Freshness.DELAYED))
         assertEquals("VERALTET", TherapyDisplayFormatter.freshnessLabel(Freshness.STALE))
+        assertEquals("SENSORFEHLER", TherapyDisplayFormatter.freshnessLabel(Freshness.ERROR))
         assertEquals("KEINE DATEN", TherapyDisplayFormatter.freshnessLabel(Freshness.NO_DATA))
         assertTrue(TherapyDisplayFormatter.isGlucoseDisplayable(stateAt(now - 8 * 60_000L), now))
         assertFalse(TherapyDisplayFormatter.isGlucoseDisplayable(stateAt(now - 13 * 60_000L), now))
+        assertFalse(
+            TherapyDisplayFormatter.isGlucoseDisplayable(
+                stateAt(now).copy(glucose = stateAt(now).glucose?.copy(quality = CgmQuality.SENSOR_ERROR)),
+                now,
+            ),
+        )
+        assertEquals(
+            Freshness.ERROR,
+            TherapyDisplayFormatter.freshness(
+                stateAt(now).copy(glucose = stateAt(now).glucose?.copy(quality = CgmQuality.SENSOR_ERROR)),
+                now,
+            ),
+        )
+        assertFalse(
+            TherapyDisplayFormatter.isGlucoseDisplayable(
+                stateAt(now).copy(glucose = stateAt(now).glucose?.copy(valueMgDl = Double.NaN)),
+                now,
+            ),
+        )
     }
 
     @Test

@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_preview_glucose"
+    android:background="@drawable/bg_widget_preview_surface"
     android:gravity="center_vertical"
     android:orientation="vertical"
     android:padding="16dp">
@@ -12,17 +12,36 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
-        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="Sugarlicious" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:layout_weight="1" android:text="Sugarlicious" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AKTUELL" android:textColor="#6DE892" android:textStyle="bold" android:textSize="10sp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="123"
+            android:textColor="#54DF30"
+            android:textSize="52sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="↗"
+            android:textColor="#6DE892"
+            android:textSize="30sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:gravity="center_vertical" android:orientation="horizontal">
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="123" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="46sp" />
-        <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="12dp" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="↗  +5" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="20sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="mg/dL" android:textColor="#B5B5B5" android:textSize="12sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AndroidAPS · 3 min" android:textColor="#B5B5B5" android:textSize="10sp" />
-        </LinearLayout>
-    </LinearLayout>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+5 · 3 min · mg/dL"
+        android:textColor="#F5F5F5"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="AKTUELL"
+        android:textColor="#54DF30"
+        android:textSize="10sp"
+        android:textStyle="bold" />
 </LinearLayout>

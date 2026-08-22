@@ -70,6 +70,10 @@ internal class G7CredentialStore(context: Context) {
         preferences.edit().remove(KEY_SHARED_KEY).remove(KEY_SHARED_ADDRESS).apply()
     }
 
+    fun clearAll() {
+        preferences.edit().clear().apply()
+    }
+
     private fun encrypt(value: ByteArray): String {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())

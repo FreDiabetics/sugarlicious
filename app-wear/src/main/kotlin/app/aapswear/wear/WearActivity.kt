@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -22,8 +21,8 @@ import app.aapswear.model.BasalState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
 import app.aapswear.protocol.WatchGlucoseUnit
@@ -71,6 +70,7 @@ class WearActivity : Activity() {
     private lateinit var therapyRow: LinearLayout
     private lateinit var chart: WearGlucoseChart
     private lateinit var watchFacePushStatus: TextView
+    private var currentBasalIconRes: Int = ComplicationR.drawable.ic_complication_basal
 
     private val displayPreferencesListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
@@ -222,10 +222,7 @@ class WearActivity : Activity() {
             applyUiColors(preferences)
         }
 
-        val freshness = FreshnessPolicy.classify(
-            glucoseState?.measuredAtEpochMs ?: state?.receivedAtEpochMs,
-            now,
-        )
+        val freshness = TherapyDisplayFormatter.freshness(state, now)
         val canShowValue = glucoseState != null && freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
         val targetLow = state?.target?.lowMgDl ?: 80.0
         val targetHigh = state?.target?.highMgDl ?: 160.0
@@ -253,21 +250,25 @@ class WearActivity : Activity() {
                 else -> preferences.uiColors.glucoseInRange
             }
             glucose.setTextColor(valueColor)
-            renderTrend(if (canShowValue) glucoseState.trend else null, preferences.uiColors.textPrimary)
-            delta.text = if (canShowValue) formatDelta(glucoseState.deltaMgDl, resolvedUnit) else "—"
-            age.text = ageMinutes(glucoseState?.measuredAtEpochMs, now)
-            glucoseStatus.text = freshnessLabel(freshness)
-            glucoseStatus.setTextColor(freshnessColor(freshness, preferences))
-
             val glucoseFill = if (canShowValue) {
                 blendArgb(preferences.uiColors.tileBackground, rangeColor, 0.24f)
             } else {
                 preferences.uiColors.tileBackground
             }
+            renderTrend(
+                trend = if (canShowValue) glucoseState.trend else null,
+                color = valueColor,
+                background = glucoseFill,
+            )
+            delta.text = if (canShowValue) formatDelta(glucoseState.deltaMgDl, resolvedUnit) else "—"
+            age.text = ageMinutes(glucoseState?.measuredAtEpochMs, now)
+            glucoseStatus.text = freshnessLabel(freshness)
+            glucoseStatus.setTextColor(freshnessColor(freshness, preferences))
+
             val glucoseBorder = when (freshness) {
                 Freshness.CURRENT -> rangeColor
                 Freshness.DELAYED -> DELAYED_ACCENT
-                Freshness.STALE, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
+                Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
             }
             findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, glucoseBorder, 26f)
@@ -298,7 +299,12 @@ class WearActivity : Activity() {
             basal.text = if (canShowValue) {
                 formatNumber(basalDisplayUnitsPerHour(state?.basal), 2, " U/h")
             } else "—"
-            basalIcon.setImageResource(basalIconResource(state?.basal))
+            currentBasalIconRes = basalIconResource(state?.basal)
+            basalIcon.renderSugarliciousWearIcon(
+                drawableRes = currentBasalIconRes,
+                tintArgb = preferences.uiColors.basal,
+                backgroundArgb = preferences.uiColors.tileBackground,
+            )
         }
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
@@ -329,16 +335,15 @@ class WearActivity : Activity() {
         hasRendered = true
     }
 
-    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int) {
+    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int) {
         val spec = trend?.let(TrendVisuals::spec)
         if (spec == null) {
             trendContainer.visibility = View.GONE
             return
         }
         trendContainer.visibility = View.VISIBLE
-        val tint = ColorStateList.valueOf(color)
-        trendArrow1.imageTintList = tint
-        trendArrow2.imageTintList = tint
+        trendArrow1.renderSugarliciousWearIcon(R.drawable.ic_trend_arrow, color, background)
+        trendArrow2.renderSugarliciousWearIcon(R.drawable.ic_trend_arrow, color, background)
         trendArrow1.rotation = spec.rotationDegrees
         trendArrow2.rotation = spec.rotationDegrees
         trendArrow1.visibility = View.VISIBLE
@@ -364,6 +369,7 @@ class WearActivity : Activity() {
             R.id.wear_cob,
             R.id.wear_source,
             R.id.wear_settings_label,
+            R.id.wear_header_title,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textPrimary) }
 
         listOf(
@@ -374,24 +380,39 @@ class WearActivity : Activity() {
             R.id.wear_footer_text,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textSecondary) }
 
-        iobIcon.imageTintList = ColorStateList.valueOf(ui.iob)
-        cobIcon.imageTintList = ColorStateList.valueOf(ui.cob)
-        basalIcon.imageTintList = ColorStateList.valueOf(ui.basal)
-        findViewById<ImageView>(R.id.wear_settings_icon).imageTintList = ColorStateList.valueOf(ui.textPrimary)
-        findViewById<ImageView>(R.id.wear_footer_icon).imageTintList = ColorStateList.valueOf(ui.accent)
+        findViewById<ImageView>(R.id.wear_header_logo).renderSugarliciousWearIcon(
+            R.drawable.ic_foreground,
+            tintArgb = null,
+            backgroundArgb = ui.background,
+        )
+        iobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_iob, ui.iob, ui.tileBackground)
+        cobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_carbs, ui.cob, ui.tileBackground)
+        basalIcon.renderSugarliciousWearIcon(currentBasalIconRes, ui.basal, ui.tileBackground)
+        findViewById<ImageView>(R.id.wear_settings_icon).renderSugarliciousWearIcon(
+            R.drawable.ic_settings,
+            ui.textPrimary,
+            ui.tileBackground,
+            colored = false,
+        )
+        findViewById<ImageView>(R.id.wear_footer_icon).renderSugarliciousWearIcon(
+            R.drawable.ic_monochrome_outlined,
+            ui.accent,
+            ui.background,
+        )
     }
 
     private fun freshnessLabel(freshness: Freshness): String = when (freshness) {
         Freshness.CURRENT -> "AKTUELL"
         Freshness.DELAYED -> "VERZÖGERT"
         Freshness.STALE -> "VERALTET · KEINE AKTUELLEN DATEN"
+        Freshness.ERROR -> "SENSORFEHLER · KEIN GÜLTIGER WERT"
         Freshness.NO_DATA -> "KEINE DATEN"
     }
 
     private fun freshnessColor(freshness: Freshness, preferences: WearDisplayPreferences): Int = when (freshness) {
         Freshness.CURRENT -> preferences.uiColors.accent
         Freshness.DELAYED -> DELAYED_ACCENT
-        Freshness.STALE, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
+        Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
     }
 
     private fun blendArgb(base: Int, overlay: Int, fraction: Float): Int {

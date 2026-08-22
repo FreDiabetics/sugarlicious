@@ -39,13 +39,13 @@ internal object SugarliciousWatchFacePush {
         "Watchface geladen - auf der Uhr lange drücken und Sugarlicious auswählen"
     private const val TAG = "WatchFacePush"
 
-    private data class FaceSpec(
+    internal data class FaceSpec(
         val packageName: String,
         val apkAsset: String,
         val tokenAsset: String,
     )
 
-    private val faces =
+    internal val activeFaceSpecs =
         listOf(
             FaceSpec(
                 "app.aapswear.watchfacepush.analog",
@@ -77,6 +77,11 @@ internal object SugarliciousWatchFacePush {
                 "watchfaces/sugarlicious_g6_style.apk",
                 "watchfaces/sugarlicious_g6_style_token.txt",
             ),
+        )
+
+    /** Retained for compilation and WFF validation, but never exposed or deployed. */
+    internal val legacyFaceSpecs =
+        listOf(
             FaceSpec("app.aapswear.watchfacepush.aapsbigchart", "watchfaces/aaps_big_chart.apk", "watchfaces/aaps_big_chart_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapscircle", "watchfaces/aaps_circle.apk", "watchfaces/aaps_circle_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapscockpit", "watchfaces/aaps_cockpit.apk", "watchfaces/aaps_cockpit_token.txt"),
@@ -102,6 +107,8 @@ internal object SugarliciousWatchFacePush {
             FaceSpec("app.aapswear.watchfacepush.steampunk", "watchfaces/steam_punk.apk", "watchfaces/steam_punk_token.txt"),
         )
 
+    private val faces = activeFaceSpecs
+
     fun isSupported(): Boolean =
         runCatching {
             WatchFacePushManagerFactory.isSupported()
@@ -123,7 +130,7 @@ internal object SugarliciousWatchFacePush {
                     manager.listWatchFaces()
                         .installedWatchFaceDetails
 
-                faces.take(SUGARLICIOUS_MANAGED_FACE_COUNT).indexOfFirst { face ->
+                faces.indexOfFirst { face ->
                     installed.any { details ->
                         details.packageName == face.packageName &&
                             runCatching {

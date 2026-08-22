@@ -87,6 +87,20 @@ class SettingsBackupTest {
         assertEquals("LIGHT", preferences.getString("themeMode", null))
     }
 
+    @Test
+    fun `widget color overrides are included in the bounded settings backup`() {
+        val chosen = 0xFF1234AB.toInt()
+        WidgetColorStore.save(context, WidgetColorRole.TREND, chosen)
+        val output = ByteArrayOutputStream()
+
+        SettingsBackup.write(context, output, exportedAtEpochMs = 77L)
+        clearPreferences()
+        SettingsBackup.restore(context, ByteArrayInputStream(output.toByteArray()))
+
+        assertEquals(chosen, WidgetColorStore.load(context).argb(WidgetColorRole.TREND))
+        assertTrue(WidgetColorStore.hasOverride(context, WidgetColorRole.TREND))
+    }
+
     private fun clearPreferences() {
         (exportedPreferenceFiles + "diagnostics").forEach { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()

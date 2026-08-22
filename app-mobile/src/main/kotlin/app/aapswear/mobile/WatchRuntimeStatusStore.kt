@@ -24,7 +24,12 @@ internal object WatchRuntimeStatusStore {
 
     fun read(context: Context): WatchRuntimeStatus {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val face = if (prefs.contains(FACE)) prefs.getInt(FACE, 0).coerceIn(0, 4) else null
+        val face =
+            if (prefs.contains(FACE)) {
+                prefs.getInt(FACE, 0).coerceIn(sugarliciousWatchFaceCards.indices)
+            } else {
+                null
+            }
         val ids = prefs.getString(IDS, "").orEmpty().split(',').mapNotNull(String::toIntOrNull).distinct()
         return WatchRuntimeStatus(face, ids, prefs.getLong(SENT, 0L))
     }

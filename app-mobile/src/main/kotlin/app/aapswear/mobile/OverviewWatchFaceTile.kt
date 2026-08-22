@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -193,14 +192,18 @@ internal fun OverviewWatchFaceTile(
             legacyFallback = selectedFaceIndex,
             g6StyleRelevant = g6StyleRelevant,
         )
-    val effectiveFaceIndex = runtime.activeSugarliciousFaceIndex ?: selectableSavedFaceIndex
-    val selected = effectiveFaceIndex.coerceIn(0, sugarliciousWatchFaceNames.lastIndex)
+    // Runtime status may refresh complications and connectivity, but only local user input owns
+    // carousel selection. This prevents G7/CGM Data-Layer traffic from jumping the visible face.
+    val selected = selectableSavedFaceIndex.coerceIn(0, sugarliciousWatchFaceNames.lastIndex)
     val activeComplicationIds =
-        runtime.activeComplicationIds.ifEmpty {
-            WatchFacePresetStore.read(appContext, selected).ifEmpty {
-                loadComplicationPreset(appContext)
+        runtime.activeComplicationIds
+            .takeIf { runtime.activeSugarliciousFaceIndex == selected }
+            .orEmpty()
+            .ifEmpty {
+                WatchFacePresetStore.read(appContext, selected).ifEmpty {
+                    loadComplicationPreset(appContext)
+                }
             }
-        }
     val faceSize = if (compactLayout) 104.dp else carouselFaceSize
     val frameHeight = if (compactLayout) 154.dp else carouselHeight
     val midpoint = carouselPages / 2
@@ -217,16 +220,14 @@ internal fun OverviewWatchFaceTile(
         if (currentIndex != selected) pager.scrollToPage(aligned + selected)
     }
 
-    LaunchedEffect(pager.settledPage, runtime.activeSugarliciousFaceIndex, g6StyleRelevant) {
-        if (runtime.activeSugarliciousFaceIndex == null) {
-            val index = pager.settledPage % sugarliciousWatchFaceNames.size
-            if (index != selected) {
-                if (SugarliciousWatchFaceSelectionStore.isSelectable(index, g6StyleRelevant)) {
-                    SugarliciousWatchFaceSelectionStore.write(appContext, index)
-                    if (index != SUGARLICIOUS_G6_STYLE_FACE_INDEX) onSelectedFace(index)
-                } else {
-                    pager.scrollToPage(aligned + selected)
-                }
+    LaunchedEffect(pager.settledPage, g6StyleRelevant) {
+        val index = pager.settledPage % sugarliciousWatchFaceNames.size
+        if (index != selected) {
+            if (SugarliciousWatchFaceSelectionStore.isSelectable(index, g6StyleRelevant)) {
+                SugarliciousWatchFaceSelectionStore.write(appContext, index)
+                onSelectedFace(index)
+            } else {
+                pager.scrollToPage(aligned + selected)
             }
         }
     }
@@ -246,30 +247,26 @@ internal fun OverviewWatchFaceTile(
             contentAlignment = Alignment.Center,
         ) {
             val oneStepSwipe =
-                if (runtime.activeSugarliciousFaceIndex != null) {
-                    Modifier
-                } else {
-                    Modifier.pointerInput(pager.settledPage, g6StyleRelevant) {
-                        var dragDistance = 0f
-                        detectHorizontalDragGestures(
-                            onDragStart = { dragDistance = 0f },
-                            onHorizontalDrag = { change, amount ->
-                                dragDistance += amount
-                                change.consume()
-                            },
-                            onDragEnd = {
-                                val target = carouselTargetPage(pager.settledPage, dragDistance)
-                                val targetIndex = target % sugarliciousWatchFaceNames.size
-                                if (
-                                    target != pager.settledPage &&
-                                    SugarliciousWatchFaceSelectionStore.isSelectable(targetIndex, g6StyleRelevant)
-                                ) {
-                                    carouselScope.launch { pager.animateScrollToPage(target) }
-                                }
-                            },
-                            onDragCancel = { dragDistance = 0f },
-                        )
-                    }
+                Modifier.pointerInput(pager.settledPage, g6StyleRelevant) {
+                    var dragDistance = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { dragDistance = 0f },
+                        onHorizontalDrag = { change, amount ->
+                            dragDistance += amount
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            val target = carouselTargetPage(pager.settledPage, dragDistance)
+                            val targetIndex = target % sugarliciousWatchFaceNames.size
+                            if (
+                                target != pager.settledPage &&
+                                SugarliciousWatchFaceSelectionStore.isSelectable(targetIndex, g6StyleRelevant)
+                            ) {
+                                carouselScope.launch { pager.animateScrollToPage(target) }
+                            }
+                        },
+                        onDragCancel = { dragDistance = 0f },
+                    )
                 }
             val centeredPadding = ((maxWidth - faceSize) / 2).coerceAtLeast(0.dp)
 
@@ -367,11 +364,11 @@ internal fun OverviewWatchFaceTile(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_watch_status),
+                    SugarliciousIcon(
+                        drawableRes = R.drawable.ic_watch_status,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp).graphicsLayer { alpha = 1f },
-                        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(statusColor),
+                        tint = statusColor,
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(

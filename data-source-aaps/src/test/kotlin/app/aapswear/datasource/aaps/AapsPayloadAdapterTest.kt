@@ -18,5 +18,32 @@ class AapsPayloadAdapterTest {
  }
  @Test fun missingOptionalAndInvalidBatteryDoNotCrash() { val state=assertNotNull(AapsPayloadAdapter.parse(mapOf("glucoseMgdl" to 90.0,"glucoseTimeStamp" to 1L,"pumpBattery" to 150),2)); assertNull(state.pump); assertTrue(DataCapability.PUMP_BATTERY !in state.capabilities) }
  @Test fun rejectsImplausibleFutureTimestamp() { assertNull(AapsPayloadAdapter.parse(mapOf("glucoseMgdl" to 100.0,"glucoseTimeStamp" to 400_001L),100_000L)) }
+ @Test fun preservesRealTempTargetStartAndDurationWithoutExtendingIt() {
+  val start=1_000_000L
+  val state=assertNotNull(AapsPayloadAdapter.parse(mapOf<String,Any?>(
+   "glucoseMgdl" to 110.0,
+   "glucoseTimeStamp" to start,
+   "suggestedTimeStamp" to start,
+   "suggested" to "{\"targetBG\":140,\"reason\":\"active temp target\"}",
+   "tempTargetStart" to start,
+   "tempTargetDurationInMinutes" to 30L,
+  ),start+1_000L))
+  assertTrue(state.target?.temporary==true)
+  assertEquals(start,state.target?.startedAtEpochMs)
+  assertEquals(start+30*60_000L,state.target?.endsAtEpochMs)
+  assertEquals(listOf(TargetSample(140.0,start,start+30*60_000L,true)),state.targetHistory)
+ }
+ @Test fun tempTargetWithoutPublicTimingDoesNotInventAnExpiry() {
+  val measured=1_000_000L
+  val state=assertNotNull(AapsPayloadAdapter.parse(mapOf<String,Any?>(
+   "glucoseMgdl" to 110.0,
+   "glucoseTimeStamp" to measured,
+   "suggested" to "{\"targetBG\":140,\"isTempTarget\":true}",
+  ),measured+1_000L))
+  assertNull(state.target?.startedAtEpochMs)
+  assertNull(state.target?.endsAtEpochMs)
+  assertEquals(measured,state.targetHistory.single().startedAtEpochMs)
+  assertEquals(measured,state.targetHistory.single().endsAtEpochMs)
+ }
 
 }

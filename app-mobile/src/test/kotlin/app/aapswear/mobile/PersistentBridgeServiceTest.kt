@@ -210,12 +210,17 @@ class PersistentBridgeServiceTest {
             assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, 0)))
             assertEquals(0, Color.alpha(graph.getPixel(0, graph.height - 1)))
             assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, graph.height - 1)))
-            assertEquals(highEdgeColor, graph.getPixel(graph.width / 2, 0))
-            assertEquals(lowEdgeColor, graph.getPixel(graph.width / 2, graph.height - 1))
+            // In-range data must leave both excursion regions on the graph background.
+            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, 0))
+            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, graph.height - 1))
         }
-        val targetTop = (expandedGraph.height * 0.1875f).toInt() + 2
-        assertEquals(appInRangeColor, expandedGraph.getPixel(0, targetTop))
-        assertEquals(appInRangeColor, expandedGraph.getPixel(expandedGraph.width - 1, targetTop))
+        var inRangePixels = 0
+        for (y in 0 until expandedGraph.height) {
+            for (x in 0 until expandedGraph.width) {
+                if (expandedGraph.getPixel(x, y) == appInRangeColor) inRangePixels++
+            }
+        }
+        assertTrue("inRangePixels=$inRangePixels", inRangePixels > 1_000)
         assertEquals(null, notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
         assertEquals(1, notification.actions.size)
         controller.destroy()

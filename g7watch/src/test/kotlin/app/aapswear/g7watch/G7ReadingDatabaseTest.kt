@@ -33,6 +33,7 @@ class G7ReadingDatabaseTest {
 
     @Test
     fun `retains all decoded sensor documentation fields`() = runBlocking {
+        val now = System.currentTimeMillis()
         val reading =
             CgmReading(
                 id = "reading-14",
@@ -40,8 +41,8 @@ class G7ReadingDatabaseTest {
                 sensorId = "sensor-id",
                 sessionId = "session-id",
                 glucoseMgDl = 123.0,
-                timestampEpochMs = 1_000_000L,
-                receivedAtEpochMs = 1_015_000L,
+                timestampEpochMs = now - 15_000L,
+                receivedAtEpochMs = now,
                 deltaMgDl = 2.0,
                 trend = Trend.FLAT,
                 trendRateMgDlPerMinute = 0.4,
@@ -51,9 +52,9 @@ class G7ReadingDatabaseTest {
                 sequenceNumber = 14L,
                 displayOnly = true,
                 rawSourceTimestamp = 123_456L,
-                sensorStartEpochMs = 900_000L,
-                sensorEndEpochMs = 865_900_000L,
-                graceEndEpochMs = 909_100_000L,
+                sensorStartEpochMs = now - 900_000L,
+                sensorEndEpochMs = now + 864_000_000L,
+                graceEndEpochMs = now + 907_200_000L,
                 protocolStatusCode = 1,
                 calibrationStateCode = 6,
                 reservedField = 42,
@@ -62,6 +63,42 @@ class G7ReadingDatabaseTest {
         database.insert(reading)
 
         assertEquals(reading, database.getLatest())
+    }
+
+    @Test
+    fun `only valid readings enter the Watch to Mobile backfill queue`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val valid =
+            CgmReading(
+                id = "valid",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-id",
+                sessionId = "session-id",
+                glucoseMgDl = 123.0,
+                timestampEpochMs = now - 5_000L,
+                receivedAtEpochMs = now,
+                status = CgmReadingStatus.VALID,
+            )
+        val sensorError =
+            valid.copy(
+                id = "sensor-error",
+                timestampEpochMs = now,
+                status = CgmReadingStatus.SENSOR_ERROR,
+            )
+        val newerValid =
+            valid.copy(
+                id = "newer-valid",
+                timestampEpochMs = now - 1_000L,
+                receivedAtEpochMs = now,
+            )
+
+        database.insert(newerValid)
+        database.insert(sensorError)
+        database.insert(valid)
+
+        assertEquals(listOf(valid, newerValid), database.getUnsynced())
+        assertEquals(sensorError, database.getLatest())
+        assertEquals(newerValid, database.getLatestValid())
     }
 
     private companion object {

@@ -13,6 +13,8 @@ import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUp
 import app.aapswear.complications.ActiveComplicationRegistry
 import app.aapswear.complications.AllProviders
 import app.aapswear.complications.ComplicationUpdatePlanner
+import app.aapswear.complications.G7LocalReadingResolver
+import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.GlucoseSample
@@ -25,6 +27,7 @@ import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
+import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
@@ -79,6 +82,31 @@ class StateDataLayerService : WearableListenerService() {
                         mapOf("error" to error.javaClass.simpleName),
                     )
                 }
+            runCatching { G7BackfillSync.sendPending(this@StateDataLayerService) }
+        }
+    }
+
+    override fun onPeerConnected(peer: Node) {
+        super.onPeerConnected(peer)
+        scope.launch {
+            runCatching { G7BackfillSync.sendPending(this@StateDataLayerService, peer.id) }
+                .onSuccess { dispatch ->
+                    applicationContext.recordWatchDiagnostic(
+                        "G7-SYNC",
+                        if (dispatch == null) "G7-SYNC-204" else "G7-SYNC-101",
+                        if (dispatch == null) "Mobile connected with no pending G7 history" else "Pending G7 history sent after Mobile reconnect",
+                        metadata = mapOf("batchId" to dispatch?.batchId, "readingCount" to dispatch?.readingIds?.size),
+                    )
+                }
+                .onFailure { error ->
+                    applicationContext.recordWatchDiagnostic(
+                        "G7-SYNC",
+                        "G7-SYNC-503",
+                        "Pending G7 history could not be sent after Mobile reconnect",
+                        DiagnosticSeverity.WARNING,
+                        mapOf("error" to error.javaClass.simpleName),
+                    )
+                }
         }
     }
 
@@ -97,6 +125,9 @@ class StateDataLayerService : WearableListenerService() {
 
                 WearProtocol.WATCH_CONFIG_PATH ->
                     persistWatchConfig(event)
+
+                WearProtocol.WATCH_COLOR_SYNC_PATH ->
+                    persistWatchColors(event)
 
                 WearProtocol.STATE_PATH ->
                     persistTherapyState(event)
@@ -120,6 +151,30 @@ class StateDataLayerService : WearableListenerService() {
                     )
                 }
             WearProtocol.G7_SETUP_PATH -> configureG7Collector(event)
+            WearProtocol.G7_SYNC_REQUEST_PATH ->
+                scope.launch {
+                    runCatching { G7BackfillSync.sendPending(this@StateDataLayerService, event.sourceNodeId) }
+                }
+            WearProtocol.G7_READING_ACK_PATH ->
+                scope.launch {
+                    val ack = runCatching { WearProtocol.decodeG7ReadingAck(event.data) }.getOrNull()
+                    if (ack == null) {
+                        applicationContext.recordWatchDiagnostic(
+                            "G7-SYNC",
+                            "G7-SYNC-401",
+                            "Invalid Mobile acknowledgement rejected",
+                            DiagnosticSeverity.WARNING,
+                        )
+                        return@launch
+                    }
+                    val count = G7BackfillSync.acknowledge(this@StateDataLayerService, ack)
+                    applicationContext.recordWatchDiagnostic(
+                        "G7-SYNC",
+                        "G7-SYNC-200",
+                        "Mobile acknowledgement forwarded to G7 database",
+                        metadata = mapOf("batchId" to ack.batchId, "acknowledged" to count),
+                    )
+                }
             WearProtocol.DIAGNOSTICS_REQUEST_PATH ->
                 scope.launch {
                     runCatching { sendWatchDiagnostics(applicationContext, event.sourceNodeId) }
@@ -294,6 +349,44 @@ class StateDataLayerService : WearableListenerService() {
         }
     }
 
+    private fun persistWatchColors(event: DataEvent) {
+        val payload = event.dataItem.data ?: return
+        val sync = runCatching { WearProtocol.decodeWatchColorSync(payload) }.getOrNull()
+        if (sync == null) {
+            scope.launch {
+                applicationContext.recordWatchDiagnostic(
+                    "CONFIG",
+                    "COLOR-SYNC-401",
+                    "Invalid Mobile graph color payload rejected",
+                    DiagnosticSeverity.WARNING,
+                )
+            }
+            return
+        }
+        WearDisplayPreferences.applySyncedColors(this, sync)
+        requestAllComplicationUpdates()
+        requestSugarliciousTileUpdates(this)
+        sendBroadcast(
+            Intent("app.aapswear.g7watch.APPLY_GRAPH_COLORS")
+                .setComponent(
+                    ComponentName(
+                        "app.aapswear.g7watch",
+                        "app.aapswear.g7watch.G7ColorSyncReceiver",
+                    ),
+                )
+                .putExtra("color_payload", payload),
+            "app.aapswear.g7watch.permission.CONFIGURE_G7",
+        )
+        scope.launch {
+            applicationContext.recordWatchDiagnostic(
+                "CONFIG",
+                "COLOR-SYNC-200",
+                "Mobile graph colors applied on Wear and forwarded to G7 Collector",
+                metadata = mapOf("schemaVersion" to sync.schemaVersion, "sentAtEpochMs" to sync.sentAtEpochMs),
+            )
+        }
+    }
+
     private fun persistTherapyState(event: DataEvent) {
         persistTherapyState(event.dataItem.data, "data_item")
     }
@@ -342,42 +435,35 @@ class StateDataLayerService : WearableListenerService() {
                     return@withLock
                 }
 
-                val mergedByTimestamp =
-                    linkedMapOf<Long, GlucoseSample>()
-
-                old
-                    ?.glucoseHistory
-                    .orEmpty()
-                    .forEach {
-                        mergedByTimestamp[it.measuredAtEpochMs] = it
+                val historyInputs =
+                    buildList {
+                        addAll(old?.glucoseHistory.orEmpty())
+                        addAll(incoming.glucoseHistory)
+                        incoming.glucose?.let {
+                            add(
+                                GlucoseSample(
+                                    valueMgDl = it.valueMgDl,
+                                    measuredAtEpochMs = it.measuredAtEpochMs,
+                                    source = it.source,
+                                    sensorId = it.sensorId,
+                                    sessionId = it.sessionId,
+                                    sequenceNumber = it.sequenceNumber,
+                                    receivedAtEpochMs = it.receivedAtEpochMs,
+                                    quality = it.quality,
+                                ),
+                            )
+                        }
                     }
-
-                incoming
-                    .glucoseHistory
-                    .forEach {
-                        mergedByTimestamp[it.measuredAtEpochMs] = it
-                    }
-
-                incoming.glucose?.let {
-                    mergedByTimestamp[it.measuredAtEpochMs] =
-                        GlucoseSample(
-                            valueMgDl = it.valueMgDl,
-                            measuredAtEpochMs = it.measuredAtEpochMs,
-                        )
-                }
 
                 val history =
-                    mergedByTimestamp
-                        .values
-                        .asSequence()
-                        .filter {
-                            it.valueMgDl in 20.0..1000.0 &&
-                                now - it.measuredAtEpochMs <= HISTORY_WINDOW_MS &&
-                                it.measuredAtEpochMs <= now + FUTURE_TOLERANCE_MS
-                        }
-                        .sortedBy { it.measuredAtEpochMs }
-                        .toList()
-                        .takeLast(MAX_HISTORY_POINTS)
+                    CanonicalCgmHistory.merge(
+                        samples = historyInputs,
+                        nowEpochMs = now,
+                        preferredSource = incoming.source,
+                        windowMs = HISTORY_WINDOW_MS,
+                        futureToleranceMs = FUTURE_TOLERANCE_MS,
+                        maxPoints = MAX_HISTORY_POINTS,
+                    )
 
                 val merged =
                     PersistentPredictionCache.merge(
@@ -385,6 +471,15 @@ class StateDataLayerService : WearableListenerService() {
                         incoming = incoming.copy(glucoseHistory = history),
                         nowEpochMs = now,
                     )
+                val selectedSource = WearDisplayPreferences.read(this@StateDataLayerService).dataSource
+                val canonicalForAlerts =
+                    G7LocalReadingResolver.resolve(
+                        context = this@StateDataLayerService,
+                        fallback = merged,
+                        nowEpochMs = now,
+                        dataSource = selectedSource,
+                    )
+                publishG7AlertMode(this@StateDataLayerService, selectedSource, canonicalForAlerts)
                 applicationContext.recordWatchDiagnostic(
                     "PREDICTION",
                     if (incoming.glucosePredictions.isEmpty() && merged.glucosePredictions.isNotEmpty()) "PRED-CACHE-203" else "PRED-DATA-200",

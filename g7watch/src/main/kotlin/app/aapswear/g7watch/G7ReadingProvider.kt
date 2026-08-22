@@ -66,10 +66,36 @@ class G7ReadingProvider : ContentProvider() {
                 "trend",
                 "trend_rate",
                 "status",
+                "predicted",
+                "sensor_age",
+                "display_only",
+                "sensor_clock",
+                "sensor_start",
+                "sensor_end",
+                "grace_end",
+                "protocol_status",
+                "calibration_state",
+                "reserved_field",
             )
         val cursor = MatrixCursor(columns)
-        val limit = if (uri.lastPathSegment == "latest") 1 else 300
-        G7ReadingDatabase(requireNotNull(context)).query(limit = limit).forEach { reading ->
+        val limit = if (uri.lastPathSegment == "latest") 1 else if (uri.lastPathSegment == "unsynced") 100 else 300
+        val readings = G7ReadingDatabase(requireNotNull(context)).let { database ->
+            try {
+                if (uri.lastPathSegment == "unsynced") {
+                    database.query(
+                        selection = "synced=0 AND status=?",
+                        args = arrayOf("VALID"),
+                        limit = limit,
+                        ascending = true,
+                    )
+                } else {
+                    database.query(limit = limit)
+                }
+            } finally {
+                database.close()
+            }
+        }
+        readings.forEach { reading ->
             cursor.addRow(
                 arrayOf<Any?>(
                     reading.id,
@@ -83,6 +109,16 @@ class G7ReadingProvider : ContentProvider() {
                     reading.trend.name,
                     reading.trendRateMgDlPerMinute,
                     reading.status.name,
+                    reading.predictedMgDl,
+                    reading.sensorAgeSeconds,
+                    if (reading.displayOnly) 1 else 0,
+                    reading.rawSourceTimestamp,
+                    reading.sensorStartEpochMs,
+                    reading.sensorEndEpochMs,
+                    reading.graceEndEpochMs,
+                    reading.protocolStatusCode,
+                    reading.calibrationStateCode,
+                    reading.reservedField,
                 ),
             )
         }
@@ -94,6 +130,7 @@ class G7ReadingProvider : ContentProvider() {
         when (uri.lastPathSegment) {
             "latest" -> "vnd.android.cursor.item/vnd.sugarlicious.g7"
             "diagnostics" -> "vnd.android.cursor.dir/vnd.sugarlicious.diagnostics"
+            "unsynced" -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
             else -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
         }
 

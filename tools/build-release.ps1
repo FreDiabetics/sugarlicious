@@ -6,18 +6,11 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $gradle = Join-Path $projectRoot "gradlew.bat"
-$watchFaces = @(
-    "aaps-v4", "aaps-v2", "aaps-standard", "aaps-circle", "aaps-digital-style",
-    "aaps-big-chart", "aaps-large", "aaps-no-chart", "aaps-cockpit", "aaps-v2-tt-dark",
-    "aaps-community", "aimico", "analog-g-watch", "blue-ring", "digital-big-graph",
-    "digital-g-watch", "gears", "gota", "lucky-loop-koeln", "p-zero", "robby",
-    "simple-digital", "steam-punk", "sugarlicious-digital", "sugarlicious-analog",
-    "sugarlicious-orbit", "sugarlicious-rings", "sugarlicious-graph"
-)
+. (Join-Path $PSScriptRoot 'watchface-catalog.ps1')
 
 if (-not $SkipBuild) {
     $tasks = @("test", "assembleDebug", ":app-mobile:assembleRelease", ":app-wear:assembleRelease", ":watchfaces:test-wff:assembleRelease") +
-        ($watchFaces | ForEach-Object { ":watchfaces:$($_):assembleRelease" })
+        ($ALL_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
     & $gradle @tasks
     if ($LASTEXITCODE -ne 0) { throw "Gradle verification failed" }
 
@@ -41,7 +34,8 @@ New-Item -ItemType Directory -Force -Path (Join-Path $target "apps"), (Join-Path
 
 Copy-Item -LiteralPath (Join-Path $projectRoot "app-mobile\build\outputs\apk\debug\app-mobile-debug.apk") -Destination (Join-Path $target "apps\sugarlicious-mobile-debug.apk")
 Copy-Item -LiteralPath (Join-Path $projectRoot "app-wear\build\outputs\apk\debug\app-wear-debug.apk") -Destination (Join-Path $target "apps\sugarlicious-wear-debug.apk")
-foreach ($name in $watchFaces) {
+foreach ($face in $ACTIVE_WATCHFACES) {
+    $name = $face.Module
     $source = Join-Path $projectRoot "watchfaces\$name\build\outputs\apk\release\$name-release.apk"
     if (-not (Test-Path -LiteralPath $source)) {
         $source = Get-ChildItem (Join-Path $projectRoot "watchfaces\$name\build\outputs\apk\release") -Filter "*.apk" | Select-Object -First 1 -ExpandProperty FullName
@@ -61,8 +55,11 @@ Copy-Item -Path (Join-Path $projectRoot "LICENSES\*") -Destination (Join-Path $t
 $report = [ordered]@{
     release = $Version
     generatedAt = (Get-Date).ToString("o")
-    androidApsDevCommit = "7fc8205e9a73259cec2982fc199f3d2055f84347"
-    watchfaceCount = $watchFaces.Count
+    androidApsDevCommit = "59ace5777a2a4ab5452d2f974b4f178993c12e9c"
+    watchfaceCount = $ACTIVE_WATCHFACES.Count
+    validatedWatchfaceCount = $ALL_WATCHFACES.Count
+    legacyWatchfaceCount = $LEGACY_WATCHFACES.Count
+    legacyDeploymentEnabled = $false
     applicationSigning = "debug/development signing only"
     publishingReady = $false
     excluded = @("PinkFloydTheWall: protected third-party motif/brand rights not cleared")

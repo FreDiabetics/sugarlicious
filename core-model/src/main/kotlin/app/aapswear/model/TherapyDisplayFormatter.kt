@@ -44,21 +44,41 @@ object TherapyDisplayFormatter {
     fun ageMinutesValue(timestampEpochMs: Long?, nowEpochMs: Long): Long? =
         timestampEpochMs?.let { ((nowEpochMs - it).coerceAtLeast(0L) / 60_000L) }
 
-    fun freshness(state: TherapyDisplayState?, nowEpochMs: Long): Freshness =
-        FreshnessPolicy.classify(state?.glucose?.measuredAtEpochMs, nowEpochMs)
+    fun freshness(state: TherapyDisplayState?, nowEpochMs: Long): Freshness {
+        val glucose = state?.glucose ?: return Freshness.NO_DATA
+        if (glucose.quality == CgmQuality.SENSOR_ERROR) return Freshness.ERROR
+        if (
+            glucose.quality != CgmQuality.VALID ||
+            !glucose.valueMgDl.isFinite() ||
+            glucose.valueMgDl !in 20.0..1_000.0
+        ) {
+            return Freshness.NO_DATA
+        }
+        return FreshnessPolicy.classify(glucose.measuredAtEpochMs, nowEpochMs)
+    }
 
     fun freshnessLabel(freshness: Freshness): String = when (freshness) {
         Freshness.CURRENT -> "AKTUELL"
         Freshness.DELAYED -> "VERZÖGERT"
         Freshness.STALE -> "VERALTET"
+        Freshness.ERROR -> "SENSORFEHLER"
         Freshness.NO_DATA -> "KEINE DATEN"
     }
 
-    fun isGlucoseDisplayable(state: TherapyDisplayState?, nowEpochMs: Long): Boolean =
-        when (freshness(state, nowEpochMs)) {
-            Freshness.CURRENT, Freshness.DELAYED -> true
-            Freshness.STALE, Freshness.NO_DATA -> false
+    fun isGlucoseDisplayable(state: TherapyDisplayState?, nowEpochMs: Long): Boolean {
+        val glucose = state?.glucose ?: return false
+        if (
+            glucose.quality != CgmQuality.VALID ||
+            !glucose.valueMgDl.isFinite() ||
+            glucose.valueMgDl !in 20.0..1_000.0
+        ) {
+            return false
         }
+        return when (freshness(state, nowEpochMs)) {
+            Freshness.CURRENT, Freshness.DELAYED -> true
+            Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> false
+        }
+    }
 
     fun sourceName(source: DataSourceId?): String = when (source) {
         DataSourceId.DEXCOM_G7_WATCH -> "Watch Direct"

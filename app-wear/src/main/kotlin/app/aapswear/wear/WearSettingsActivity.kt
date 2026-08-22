@@ -262,7 +262,7 @@ class WearSettingsActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         setPadding(5.dp, 5.dp, 5.dp, 5.dp)
-        background = cardBackground()
+        background = cardBackground(16f)
         choices.forEach { (label, value) ->
             val active = selected == value
             addView(Button(this@WearSettingsActivity).apply {
@@ -317,14 +317,15 @@ class WearSettingsActivity : Activity() {
             progressBackgroundTintList = ColorStateList.valueOf(current.uiColors.tileBorder)
             thumbTintList = ColorStateList.valueOf(current.uiColors.accent)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                private var pendingValue = progress.coerceIn(min, max)
+
                 override fun onProgressChanged(seekBar: SeekBar?, raw: Int, fromUser: Boolean) {
                     if (!fromUser) return
-                    val actual = raw + min
-                    valueText.text = value(actual)
-                    changed(actual)
+                    pendingValue = raw + min
+                    valueText.text = value(pendingValue)
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-                override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) = changed(pendingValue)
             })
         }, fullWidth())
     }

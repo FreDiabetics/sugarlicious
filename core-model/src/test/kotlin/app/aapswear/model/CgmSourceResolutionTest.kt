@@ -50,18 +50,17 @@ class CgmSourceResolutionTest {
     }
 
     @Test
-    fun `newer Watch value is not overwritten by delayed older Mobile value`() {
+    fun `newer Watch value does not override Mobile before the fifteen minute timeout`() {
         val result =
             CanonicalCgmSourceResolver.resolve(
                 mobile = mobile(minutesAgo = 5, value = 116.0),
                 watch = watch(minutesAgo = 0, value = 110.0),
                 nowEpochMs = now,
-                previous = CgmResolverMemory(state = CgmSourceState.WATCH_DIRECT),
             )
 
-        assertEquals(CgmSourceState.WATCH_DIRECT, result.state)
-        assertEquals(110.0, result.reading?.glucoseMgDl)
-        assertEquals(CgmCanonicalSource.WATCH_G7_DIRECT, result.canonicalSource)
+        assertEquals(CgmSourceState.MOBILE_PRIMARY, result.state)
+        assertEquals(116.0, result.reading?.glucoseMgDl)
+        assertEquals(CgmCanonicalSource.MOBILE_AAPS, result.canonicalSource)
     }
 
     @Test
@@ -109,16 +108,32 @@ class CgmSourceResolutionTest {
                 mobile = mobile(minutesAgo = 4, value = 108.0),
                 watch = watch(minutesAgo = 0, value = 109.0),
                 nowEpochMs = now,
+                previous = CgmResolverMemory(state = CgmSourceState.WATCH_DIRECT),
+            )
+
+        assertEquals(CgmSourceState.MOBILE_RECOVERY, result.state)
+        assertEquals(CgmCanonicalSource.WATCH_G7_DIRECT, result.canonicalSource)
+    }
+
+    @Test
+    fun `degraded Mobile readings do not count toward recovery`() {
+        val result =
+            CanonicalCgmSourceResolver.resolve(
+                mobile = mobile(minutesAgo = 8, value = 108.0),
+                watch = watch(minutesAgo = 1, value = 109.0),
+                nowEpochMs = now,
                 previous =
                     CgmResolverMemory(
                         state = CgmSourceState.MOBILE_RECOVERY,
                         recoveryReadingCount = 1,
-                        lastRecoveryMobileTimestampEpochMs = now - 6 * 60_000L,
+                        lastRecoveryMobileTimestampEpochMs = now - 9 * 60_000L,
                     ),
             )
 
-        assertEquals(CgmSourceState.WATCH_DIRECT, result.state)
+        assertEquals(CgmSourceState.MOBILE_RECOVERY, result.state)
         assertEquals(CgmCanonicalSource.WATCH_G7_DIRECT, result.canonicalSource)
+        assertEquals(0, result.memory.recoveryReadingCount)
+        assertEquals(null, result.memory.lastRecoveryMobileTimestampEpochMs)
     }
 
     @Test
@@ -270,6 +285,28 @@ class CgmSourceResolutionTest {
             )
 
         assertEquals(CgmSourceState.WATCH_DIRECT, result.state)
+    }
+
+    @Test
+    fun `non finite values and impossible receipt timestamps are rejected`() {
+        val invalidCandidates =
+            listOf(
+                mobile(value = Double.NaN),
+                mobile().copy(receivedAtEpochMs = now + 6 * 60_000L),
+                mobile().copy(receivedAtEpochMs = now - 6 * 60_000L),
+            )
+
+        invalidCandidates.forEach { candidate ->
+            val result =
+                CanonicalCgmSourceResolver.resolve(
+                    mobile = candidate,
+                    watch = null,
+                    nowEpochMs = now,
+                )
+
+            assertEquals(CgmSourceState.NO_SOURCE, result.state)
+            assertEquals(null, result.reading)
+        }
     }
 
     private fun mobile(

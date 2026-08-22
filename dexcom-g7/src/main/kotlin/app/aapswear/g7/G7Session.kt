@@ -6,13 +6,13 @@ data class G7ReconnectPlan(val nextReconnectEpochMs: Long, val retryCount: Int, 
 
 object G7ReconnectScheduler {
     const val EXPECTED_READING_INTERVAL_MS = 5 * 60_000L
-    private const val PRECONNECT_MS = 30_000L
+    const val PRECONNECT_LEAD_MS = 30_000L
     private const val MAX_BACKOFF_MS = 15 * 60_000L
     private const val GATT_133_INITIAL_RETRY_MS = 15_000L
     private const val MIN_WINDOW_LEAD_MS = 1_000L
 
     fun afterReading(readingEpochMs: Long): G7ReconnectPlan =
-        G7ReconnectPlan(readingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_MS, 0, EXPECTED_READING_INTERVAL_MS - PRECONNECT_MS)
+        G7ReconnectPlan(readingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS, 0, EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS)
 
     fun afterFailure(nowEpochMs: Long, retryCount: Int): G7ReconnectPlan {
         val count = (retryCount + 1).coerceAtMost(10)
@@ -30,7 +30,7 @@ object G7ReconnectScheduler {
         if (lastReadingEpochMs == null) {
             return G7ReconnectPlan(nowEpochMs + GATT_133_INITIAL_RETRY_MS, 0, GATT_133_INITIAL_RETRY_MS)
         }
-        val firstWindow = lastReadingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_MS
+        val firstWindow = lastReadingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS
         val minimumTrigger = nowEpochMs + MIN_WINDOW_LEAD_MS
         val trigger = if (firstWindow > minimumTrigger) {
             firstWindow
@@ -104,9 +104,34 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
         state.copy(sessionState = G7SessionState.AUTHENTICATED, authenticationState = G7AuthenticationState.AUTHENTICATED),
     )
 
-    fun readingReceived(reading: CgmReading): G7PersistedState {
-        val plan = G7ReconnectScheduler.afterReading(reading.timestampEpochMs)
-        return transition(state.copy(lastReading = reading, sessionState = G7SessionState.WAITING_FOR_NEXT_READING, protocolState = G7ProtocolState.RECEIVING_GLUCOSE, nextReconnectEpochMs = plan.nextReconnectEpochMs, retryCount = 0, lastError = null))
+    /**
+     * A packet may arrive now while describing an older sensor measurement. Only a fresh valid
+     * packet advances the displayable current reading and clears the fresh-slot cadence. Aged valid
+     * packets remain diagnostic/history data and schedule the next attempt from the prior fresh
+     * cadence rather than pretending the missed current slot succeeded.
+     */
+    fun readingReceived(
+        reading: CgmReading,
+        fresh: Boolean = true,
+        nowEpochMs: Long = reading.receivedAtEpochMs,
+    ): G7PersistedState {
+        val acceptedFresh = fresh && reading.status == CgmReadingStatus.VALID
+        val plan =
+            if (acceptedFresh) {
+                G7ReconnectScheduler.afterReading(reading.timestampEpochMs)
+            } else {
+                G7ReconnectScheduler.afterExpectedWindowMiss(nowEpochMs, state.lastReading?.timestampEpochMs)
+            }
+        return transition(
+            state.copy(
+                lastReading = if (acceptedFresh) reading else state.lastReading,
+                sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
+                protocolState = G7ProtocolState.RECEIVING_GLUCOSE,
+                nextReconnectEpochMs = plan.nextReconnectEpochMs,
+                retryCount = if (acceptedFresh) 0 else state.retryCount,
+                lastError = if (acceptedFresh) null else state.lastError,
+            ),
+        )
     }
 
     fun failure(error: G7CollectorError): G7PersistedState {

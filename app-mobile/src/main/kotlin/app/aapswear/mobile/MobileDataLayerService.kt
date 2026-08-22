@@ -8,6 +8,7 @@ import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchDataSource
@@ -16,6 +17,7 @@ import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.storage.TherapyStateStore
+import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.DiagnosticEventStore
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataRequest
@@ -32,17 +34,28 @@ import kotlinx.coroutines.tasks.await
 class MobileDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    override fun onCreate() {
+        super.onCreate()
+        scope.launch {
+            MobileWatchCgmMigration.runOnce(applicationContext)
+        }
+    }
+
     override fun onMessageReceived(event: MessageEvent) {
         recordWatchContact(applicationContext)
         when (event.path) {
             WearProtocol.REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-WATCH-100", "Watch requested current state")
-                    TherapyStateStore(this@MobileDataLayerService)
+                    MobileWatchCgmMigration.runOnce(applicationContext)
+                    val phoneState = PhoneTherapyStateStore(this@MobileDataLayerService)
                         .state
                         .first()
-                        ?.let { publishState(this@MobileDataLayerService, it) }
-
+                        ?: TherapyStateStore(this@MobileDataLayerService)
+                            .state
+                            .first()
+                            ?.withoutDirectWatchCgm()
+                    phoneState?.let { publishState(this@MobileDataLayerService, it) }
                     publishWatchConfig(this@MobileDataLayerService)
                 }
             }
@@ -82,33 +95,25 @@ class MobileDataLayerService : WearableListenerService() {
                         }
                     }
             }
-            WearProtocol.G7_READING_PATH -> {
+
+            // Product rule: direct G7 Watch readings are local-Watch CGM data only.
+            // Keep the legacy paths for compatibility, but reject their payloads explicitly so an
+            // older Wear client cannot repopulate Mobile history or Health Connect after migration.
+            WearProtocol.G7_READING_PATH,
+            WearProtocol.G7_READING_BATCH_PATH,
+            -> {
                 scope.launch {
-                    val incoming = runCatching { WearProtocol.decode(event.data) }.getOrNull()
-                        ?.takeIf { it.source == DataSourceId.DEXCOM_G7_WATCH }
-                        ?: return@launch
-                    val preference = runCatching {
-                        DataSourcePreference.valueOf(
-                            getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
-                                .getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                        )
-                    }.getOrDefault(DataSourcePreference.AUTOMATIC)
-                    if (preference !in setOf(DataSourcePreference.AUTOMATIC, DataSourcePreference.DEXCOM_G7_WATCH)) return@launch
-                    val store = TherapyStateStore(this@MobileDataLayerService)
-                    val previous = store.state.first()
-                    val merged = DisplayHistoryAccumulator.merge(previous, incoming, System.currentTimeMillis())
-                    store.save(merged)
+                    MobileWatchCgmMigration.runOnce(applicationContext)
                     applicationContext.recordMobileDiagnostic(
                         "G7",
-                        "G7-DATA-200",
-                        "Direct G7 reading received from Watch",
-                        metadata = mapOf("historyCount" to merged.glucoseHistory.size, "predictionCount" to merged.glucosePredictions.size),
+                        "G7-SYNC-410",
+                        "Direct G7 Watch CGM payload rejected by Mobile-local data policy",
+                        DiagnosticSeverity.INFO,
+                        metadata = mapOf("path" to event.path, "sourceNodeId" to event.sourceNodeId),
                     )
-                    runCatching { HealthConnectIntegration.exportCgmReading(this@MobileDataLayerService, merged) }
-                    SugarliciousWidgets.update(this@MobileDataLayerService)
-                    PersistentBridgeService.refresh(this@MobileDataLayerService)
                 }
             }
+
             WearProtocol.DIAGNOSTICS_BATCH_PATH -> {
                 scope.launch {
                     runCatching { WearProtocol.decodeDiagnostics(event.data) }
@@ -187,7 +192,7 @@ internal fun readWatchConfig(context: Context): WatchConfig {
         graphColors = WatchGraphColors(
             graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
             rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
-            rangeInRange = palette.argb(SugarliciousColorRole.TARGET_BAND),
+            rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
             rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
             cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
             cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
@@ -198,6 +203,8 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
             predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
             predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
+            targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
+            signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
         ),
         graphStyle = WatchGraphStyle(
             cgmDotRadiusDp =
@@ -228,7 +235,6 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             cob = palette.argb(SugarliciousColorRole.ORANGE),
             basal = palette.argb(SugarliciousColorRole.SECONDARY),
         ),
-
         sentAtEpochMs = System.currentTimeMillis(),
     )
 }
@@ -248,6 +254,23 @@ internal suspend fun publishWatchConfig(context: Context) {
         .getDataClient(context)
         .putDataItem(request)
         .await()
+}
+
+internal suspend fun publishWatchColors(context: Context) {
+    val colors = readWatchConfig(context).graphColors
+    val request =
+        PutDataRequest
+            .create(WearProtocol.WATCH_COLOR_SYNC_PATH)
+            .setData(
+                WearProtocol.encodeWatchColorSync(
+                    WatchColorSync(
+                        graphColors = colors,
+                        sentAtEpochMs = System.currentTimeMillis(),
+                    ),
+                ),
+            )
+            .setUrgent()
+    Wearable.getDataClient(context).putDataItem(request).await()
 }
 
 internal suspend fun requestWatchRuntimeStatus(context: Context) {

@@ -7,78 +7,78 @@ import android.content.Intent
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.complications.G7LocalReadingResolver
-import app.aapswear.model.DataSourceId
-import app.aapswear.protocol.WearProtocol
+import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.storage.TherapyStateStore
-import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
-/** Refreshes local CGM consumers immediately after the standalone G7 app stores a reading. */
+internal fun g7ReadingUpdateApplicationContext(context: Context): Context = context.applicationContext
+
+/** Refreshes local Watch CGM consumers immediately after the standalone G7 app stores a reading. */
 class G7ReadingUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_G7_READING_UPDATED) return
 
-        ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
-            ComplicationDataSourceUpdateRequester
-                .create(context, ComponentName(context, provider))
-                .requestUpdateAll()
-        }
-        requestSugarliciousTileUpdates(context)
-
+        // Android wraps manifest receivers in a restricted Context that must not bind services.
+        // Tile refresh can bind to System UI, so all asynchronous receiver work uses the
+        // unrestricted process-wide application Context instead.
+        val appContext = g7ReadingUpdateApplicationContext(context)
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                // TherapyStateStore deliberately remains the phone-fed source store. Do not replace
-                // it with a direct G7 reading: the canonical source resolver needs both independent
-                // inputs in order to apply timeout, ordering and Mobile-recovery hysteresis.
-                val phoneState = TherapyStateStore(context).state.first()
-                val source = WearDisplayPreferences.read(context).dataSource
+                runCatching {
+                    ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
+                        ComplicationDataSourceUpdateRequester
+                            .create(appContext, ComponentName(appContext, provider))
+                            .requestUpdateAll()
+                    }
+                }.onFailure { error ->
+                    appContext.recordWatchDiagnostic(
+                        module = "UI",
+                        code = "COMP-REFRESH-503",
+                        message = "Complication refresh after direct G7 reading failed",
+                        severity = DiagnosticSeverity.WARNING,
+                        metadata = mapOf("error" to error.javaClass.simpleName),
+                    )
+                }
+                runCatching { requestSugarliciousTileUpdates(appContext) }
+                    .onFailure { error ->
+                        appContext.recordWatchDiagnostic(
+                            module = "UI",
+                            code = "TILE-REFRESH-503",
+                            message = "Tile refresh after direct G7 reading failed",
+                            severity = DiagnosticSeverity.WARNING,
+                            metadata = mapOf("error" to error.javaClass.simpleName),
+                        )
+                    }
+
+                // TherapyStateStore remains the phone-fed source store. The direct G7 DB is a
+                // separate Watch-local input to the canonical resolver; it is never copied into
+                // Mobile CGM history.
+                val phoneState = TherapyStateStore(appContext).state.first()
+                val source = WearDisplayPreferences.read(appContext).dataSource
                 val resolved =
                     G7LocalReadingResolver.resolve(
-                        context = context,
+                        context = appContext,
                         fallback = phoneState,
                         dataSource = source,
                     )
                 val sourceState = G7LocalReadingResolver.sourceState(resolved)
-                context.recordWatchDiagnostic(
+                publishG7AlertMode(appContext, source, resolved)
+                appContext.recordWatchDiagnostic(
                     module = "SOURCE",
                     code = "SRC-RESOLVE-200",
-                    message = "Canonical CGM source resolved after direct G7 reading",
+                    message = "Canonical Watch CGM source resolved after local direct G7 reading",
                     metadata =
                         mapOf(
                             "state" to sourceState?.name,
                             "canonicalSource" to resolved?.source?.name,
+                            "mobileBackfill" to false,
                         ),
                 )
-
-                // This path is a convenience signal for the phone while Watch Direct is canonical.
-                // Local history itself remains durable in the G7 collector database.
-                val local =
-                    resolved
-                        ?.takeIf { it.source == DataSourceId.DEXCOM_G7_WATCH }
-                        ?: return@launch
-
-                Wearable
-                    .getNodeClient(context)
-                    .connectedNodes
-                    .await()
-                    .forEach { node ->
-                        runCatching {
-                            Wearable
-                                .getMessageClient(context)
-                                .sendMessage(
-                                    node.id,
-                                    WearProtocol.G7_READING_PATH,
-                                    WearProtocol.encode(local),
-                                )
-                                .await()
-                        }
-                    }
             } finally {
                 pending.finish()
             }

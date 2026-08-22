@@ -129,7 +129,7 @@ object ComplicationPresentationFormatter {
         nowEpochMs: Long = System.currentTimeMillis(),
     ): ComplicationPresentation {
         val glucose = state?.glucose
-        val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, nowEpochMs)
+        val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
         val liveGlucose = glucose.takeIf { displayable }
         val glucoseText = liveGlucose?.let(TherapyDisplayFormatter::glucose) ?: DASH

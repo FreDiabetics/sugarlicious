@@ -3,11 +3,13 @@ package app.aapswear.complications
 import android.content.Context
 import android.net.Uri
 import app.aapswear.model.CgmCanonicalSource
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmResolverMemory
 import app.aapswear.model.CgmSourceCandidate
 import app.aapswear.model.CgmSourceMode
 import app.aapswear.model.CgmSourcePolicy
 import app.aapswear.model.CgmSourceState
+import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CanonicalCgmSourceResolver
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
@@ -54,18 +56,22 @@ object G7LocalReadingResolver {
             }.getOrDefault(WatchDataSource.AUTOMATIC)
 
         val directRows = readDirectRows(context)
-        val latestDirect = directRows.maxByOrNull(LocalReading::measuredAt)
-        val mobileCandidate = fallback?.glucose?.let { glucose ->
+        val latestDirectEvent = directRows.maxByOrNull(LocalReading::measuredAt)
+        val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
+        val mobileCandidate = fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
             CgmSourceCandidate(
                 source = CgmCanonicalSource.MOBILE_AAPS,
                 glucoseMgDl = glucose.valueMgDl,
                 measuredAtEpochMs = glucose.measuredAtEpochMs,
-                receivedAtEpochMs = fallback.receivedAtEpochMs,
+                receivedAtEpochMs = glucose.receivedAtEpochMs ?: fallback.receivedAtEpochMs,
+                sensorId = glucose.sensorId,
+                sessionId = glucose.sessionId,
+                sequenceNumber = glucose.sequenceNumber,
             )
         }
         val watchCandidate = latestDirect?.toCandidate()
 
-        if (fallback == null && watchCandidate == null) return null
+        if (fallback == null && latestDirectEvent == null) return null
 
         val previous = readMemory(context)
         val resolution =
@@ -79,29 +85,42 @@ object G7LocalReadingResolver {
             )
         writeMemory(context, resolution.memory)
 
+        val directSensorError =
+            latestDirectEvent
+                ?.takeIf {
+                    selectedSource != WatchDataSource.PHONE &&
+                        it.quality == CgmQuality.SENSOR_ERROR &&
+                        it.isRecent(nowEpochMs, defaultPolicy)
+                }
+                ?.toGlucoseState()
+        val fallbackSensorError =
+            fallback
+                ?.glucose
+                ?.takeIf { it.quality == CgmQuality.SENSOR_ERROR }
         val chosenGlucose =
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.glucose
                 CgmCanonicalSource.WATCH_G7_DIRECT -> latestDirect?.toGlucoseState()
-                CgmCanonicalSource.NONE -> null
+                CgmCanonicalSource.NONE -> directSensorError ?: fallbackSensorError
             }
 
         val chosenSource =
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.source ?: DataSourceId.ANDROID_APS
                 CgmCanonicalSource.WATCH_G7_DIRECT -> DataSourceId.DEXCOM_G7_WATCH
-                CgmCanonicalSource.NONE -> fallback?.source ?: DataSourceId.OTHER
+                CgmCanonicalSource.NONE -> chosenGlucose?.source ?: fallback?.source ?: DataSourceId.OTHER
             }
 
         val sourceVersion =
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.WATCH_G7_DIRECT -> "G7 Watch Collector"
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.sourceVersion
-                CgmCanonicalSource.NONE -> fallback?.sourceVersion
+                CgmCanonicalSource.NONE ->
+                    if (directSensorError != null) "G7 Watch Collector" else fallback?.sourceVersion
             }
 
         val capabilities =
-            if (chosenGlucose != null) {
+            if (chosenGlucose?.quality == CgmQuality.VALID) {
                 fallback?.capabilities.orEmpty() +
                     setOf(
                         DataCapability.GLUCOSE,
@@ -123,8 +142,12 @@ object G7LocalReadingResolver {
                 phone = fallback?.glucoseHistory.orEmpty(),
                 direct = directRows,
                 nowEpochMs = nowEpochMs,
-                preferWatchAtSameTimestamp =
-                    resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT,
+                preferredSource =
+                    if (selectedSource == WatchDataSource.DEXCOM_G7_WATCH) {
+                        DataSourceId.DEXCOM_G7_WATCH
+                    } else {
+                        fallback?.source ?: chosenSource
+                    },
             )
 
         return TherapyDisplayState(
@@ -134,12 +157,14 @@ object G7LocalReadingResolver {
                 "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
+                    ?: chosenGlucose?.receivedAtEpochMs
                     ?: fallback?.receivedAtEpochMs
                     ?: nowEpochMs,
             glucose = chosenGlucose,
             glucoseHistory = mergedHistory,
             glucosePredictions = fallback?.glucosePredictions.orEmpty(),
             therapyHistory = fallback?.therapyHistory.orEmpty(),
+            targetHistory = fallback?.targetHistory.orEmpty(),
             insulin = fallback?.insulin,
             carbs = fallback?.carbs,
             basal = fallback?.basal,
@@ -165,8 +190,14 @@ object G7LocalReadingResolver {
             context.contentResolver.query(readingsUri, null, null, null, null)?.use { cursor ->
                 buildList {
                     while (cursor.moveToNext()) {
-                        val status = cursor.getString(cursor.getColumnIndexOrThrow("status"))
-                        if (status != "VALID") continue
+                        val quality =
+                            when (cursor.getString(cursor.getColumnIndexOrThrow("status"))) {
+                                "VALID" -> CgmQuality.VALID
+                                "SENSOR_ERROR" -> CgmQuality.SENSOR_ERROR
+                                else -> continue
+                            }
+                        val value = cursor.getDouble(cursor.getColumnIndexOrThrow("glucose"))
+                        if (quality == CgmQuality.VALID && (!value.isFinite() || value !in 20.0..1_000.0)) continue
                         add(
                             LocalReading(
                                 sensorId = cursor.getString(cursor.getColumnIndexOrThrow("sensor_id")),
@@ -175,7 +206,7 @@ object G7LocalReadingResolver {
                                     cursor.getColumnIndexOrThrow("sequence_number").let {
                                         if (cursor.isNull(it)) null else cursor.getLong(it)
                                     },
-                                value = cursor.getDouble(cursor.getColumnIndexOrThrow("glucose")),
+                                value = value,
                                 measuredAt = cursor.getLong(cursor.getColumnIndexOrThrow("measured_at")),
                                 receivedAt = cursor.getLong(cursor.getColumnIndexOrThrow("received_at")),
                                 delta =
@@ -188,6 +219,7 @@ object G7LocalReadingResolver {
                                             cursor.getString(cursor.getColumnIndexOrThrow("trend")),
                                         )
                                     }.getOrDefault(Trend.UNKNOWN),
+                                quality = quality,
                             ),
                         )
                     }
@@ -199,37 +231,29 @@ object G7LocalReadingResolver {
         phone: List<GlucoseSample>,
         direct: List<LocalReading>,
         nowEpochMs: Long,
-        preferWatchAtSameTimestamp: Boolean,
+        preferredSource: DataSourceId,
     ): List<GlucoseSample> {
-        val merged = linkedMapOf<Long, GlucoseSample>()
         val directSamples =
             direct.map {
                 GlucoseSample(
                     valueMgDl = it.value,
                     measuredAtEpochMs = it.measuredAt,
                     source = DataSourceId.DEXCOM_G7_WATCH,
+                    sensorId = it.sensorId,
+                    sessionId = it.sessionId,
+                    sequenceNumber = it.sequenceNumber,
+                    receivedAtEpochMs = it.receivedAt,
+                    quality = it.quality,
                 )
             }
-
-        if (preferWatchAtSameTimestamp) {
-            phone.forEach { merged[it.measuredAtEpochMs] = it }
-            directSamples.forEach { merged[it.measuredAtEpochMs] = it }
-        } else {
-            directSamples.forEach { merged[it.measuredAtEpochMs] = it }
-            phone.forEach { merged[it.measuredAtEpochMs] = it }
-        }
-
-        return merged
-            .values
-            .asSequence()
-            .filter {
-                it.valueMgDl in 20.0..1000.0 &&
-                    nowEpochMs - it.measuredAtEpochMs <= HISTORY_WINDOW_MS &&
-                    it.measuredAtEpochMs <= nowEpochMs + defaultPolicy.futureToleranceMs
-            }
-            .sortedBy { it.measuredAtEpochMs }
-            .toList()
-            .takeLast(MAX_HISTORY_POINTS)
+        return CanonicalCgmHistory.merge(
+            samples = directSamples + phone,
+            nowEpochMs = nowEpochMs,
+            preferredSource = preferredSource,
+            windowMs = HISTORY_WINDOW_MS,
+            futureToleranceMs = defaultPolicy.futureToleranceMs,
+            maxPoints = MAX_HISTORY_POINTS,
+        )
     }
 
     private fun readMemory(context: Context): CgmResolverMemory {
@@ -284,6 +308,12 @@ object G7LocalReadingResolver {
             sequenceNumber = sequenceNumber,
         )
 
+    private fun LocalReading.isRecent(nowEpochMs: Long, policy: CgmSourcePolicy): Boolean =
+        measuredAt <= nowEpochMs + policy.futureToleranceMs &&
+            receivedAt >= measuredAt - policy.futureToleranceMs &&
+            receivedAt <= nowEpochMs + policy.futureToleranceMs &&
+            (nowEpochMs - measuredAt).coerceAtLeast(0L) <= policy.watchFreshAfterMs
+
     private fun LocalReading.toGlucoseState(): GlucoseState =
         GlucoseState(
             valueMgDl = value,
@@ -291,6 +321,12 @@ object G7LocalReadingResolver {
             trend = trend,
             measuredAtEpochMs = measuredAt,
             deltaMgDl = delta,
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = sensorId,
+            sessionId = sessionId,
+            sequenceNumber = sequenceNumber,
+            receivedAtEpochMs = receivedAt,
+            quality = quality,
         )
 
     private data class LocalReading(
@@ -302,5 +338,6 @@ object G7LocalReadingResolver {
         val receivedAt: Long,
         val delta: Double?,
         val trend: Trend,
+        val quality: CgmQuality,
     )
 }

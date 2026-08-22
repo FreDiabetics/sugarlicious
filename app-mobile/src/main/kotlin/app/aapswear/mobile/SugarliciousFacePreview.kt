@@ -44,7 +44,7 @@ private const val PHONE_BATTERY_PREVIEW_ID = -2
 
 /** Mirrors the DefaultProviderPolicy order in each packaged Sugarlicious WFF. */
 internal fun defaultSugarliciousPreviewIds(faceIndex: Int): List<Int> =
-    when (faceIndex.coerceIn(0, 4)) {
+    when (faceIndex.coerceIn(sugarliciousWatchFaceCards.indices)) {
         0 -> listOf(
             SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
             SugarliciousComplicationIds.GLUCOSE_AGE,
@@ -67,7 +67,7 @@ internal fun defaultSugarliciousPreviewIds(faceIndex: Int): List<Int> =
             SugarliciousComplicationIds.IOB,
             SugarliciousComplicationIds.COB,
         )
-        else -> listOf(
+        4 -> listOf(
             SugarliciousComplicationIds.GLUCOSE_TREND_DELTA,
             SugarliciousComplicationIds.GLUCOSE_AGE,
             SugarliciousComplicationIds.GRAPH,
@@ -77,6 +77,7 @@ internal fun defaultSugarliciousPreviewIds(faceIndex: Int): List<Int> =
             SugarliciousComplicationIds.LOOP,
             PHONE_BATTERY_PREVIEW_ID,
         )
+        else -> emptyList()
     }
 
 private fun orderedSugarliciousPreviewIds(
@@ -100,7 +101,7 @@ internal fun SugarliciousFacePreview(
     complicationIds: List<Int>,
     modifier: Modifier = Modifier,
 ) {
-    val faceIndex = index.coerceIn(0, 4)
+    val faceIndex = index.coerceIn(sugarliciousWatchFaceCards.indices)
     BoxWithConstraints(
         modifier = modifier.clip(CircleShape).background(Color.Black),
         contentAlignment = Alignment.Center,

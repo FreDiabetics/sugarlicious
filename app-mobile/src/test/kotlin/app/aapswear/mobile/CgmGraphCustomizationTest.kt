@@ -15,6 +15,7 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
@@ -94,6 +95,100 @@ class CgmGraphCustomizationTest {
             )
 
             assertTrue("targetColorPixels=${count(bitmap) { it == targetColor }}", count(bitmap) { it == targetColor } > 40)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
+    fun `overview graph forwards enabled target value preference`() {
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val targetColor = Color.rgb(224, 42, 205)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        try {
+            val now = System.currentTimeMillis()
+            val state = TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(
+                    GlucoseSample(118.0, now - 10 * 60_000L),
+                    GlucoseSample(120.0, now - 5 * 60_000L),
+                    GlucoseSample(122.0, now),
+                ),
+                target = TargetState(80.0, 160.0, valueMgDl = 100.0),
+            )
+            val ui = DashboardUiPreferences(
+                showCgmTargetRange = false,
+                showCgmTargetValue = true,
+                cgmDotOutlineEnabled = false,
+            )
+
+            val bitmap = render(
+                GlucoseDashboardChart(context).apply {
+                    bindOverview(state, ui, now)
+                },
+                240,
+            )
+
+            assertTrue("targetColorPixels=${count(bitmap) { it == targetColor }}", count(bitmap) { it == targetColor } > 40)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
+    fun `changed target history invalidates an otherwise unchanged graph`() {
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val targetColor = Color.rgb(224, 42, 205)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        try {
+            val now = System.currentTimeMillis()
+            val base = TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(
+                    GlucoseSample(118.0, now - 10 * 60_000L),
+                    GlucoseSample(122.0, now),
+                ),
+                target = TargetState(80.0, 160.0),
+            )
+            val chart = GlucoseDashboardChart(context)
+            chart.bind(
+                state = base,
+                unit = GlucoseUnit.MG_DL,
+                showPredictions = false,
+                durationHours = 3,
+                showTargetRange = false,
+                showTargetValue = true,
+                cgmDotOutlineEnabled = false,
+                clockEpochMs = now,
+            )
+            assertEquals(0, count(render(chart, 240)) { it == targetColor })
+
+            chart.bind(
+                state = base.copy(
+                    targetHistory = listOf(
+                        TargetSample(
+                            valueMgDl = 100.0,
+                            startedAtEpochMs = now - 3 * 60 * 60_000L,
+                            endsAtEpochMs = now,
+                        ),
+                    ),
+                ),
+                unit = GlucoseUnit.MG_DL,
+                showPredictions = false,
+                durationHours = 3,
+                showTargetRange = false,
+                showTargetValue = true,
+                cgmDotOutlineEnabled = false,
+                clockEpochMs = now,
+            )
+
+            assertTrue(count(render(chart, 240)) { it == targetColor } > 40)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }

@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,6 +54,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun SugarliciousColorSettingsPanel(
@@ -60,6 +62,7 @@ internal fun SugarliciousColorSettingsPanel(
     showMetabolicGraph: Boolean = false,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val preferences =
         remember {
@@ -77,6 +80,7 @@ internal fun SugarliciousColorSettingsPanel(
     var editingRole by remember {
         mutableStateOf<SugarliciousColorRole?>(null)
     }
+    var watchSyncStatus by remember { mutableStateOf<String?>(null) }
     var cgmDotRadiusDp by remember(showCgmGraph) {
         mutableFloatStateOf(preferences.getFloat("cgm.dotRadiusDp", 2.4f).coerceIn(1.5f, 6.0f))
     }
@@ -142,6 +146,30 @@ internal fun SugarliciousColorSettingsPanel(
             }
         }
 
+        Button(
+            onClick = {
+                watchSyncStatus = "Wird gesendet …"
+                scope.launch {
+                    watchSyncStatus =
+                        runCatching { publishWatchColors(context.applicationContext) }
+                            .fold(
+                                onSuccess = { "Graphfarben wurden an die Watch gesendet." },
+                                onFailure = { "Watch-Farben konnten nicht gesendet werden." },
+                            )
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = SugarliciousColors.Primary,
+                contentColor = SugarliciousColors.OnPrimary,
+            ),
+        ) {
+            Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+        }
+        watchSyncStatus?.let { status ->
+            Text(status, color = SugarliciousColors.TextSecondary, fontSize = 10.sp)
+        }
+
         if (showCgmGraph) {
             Text(
                 text = "CGM-PUNKTE",
@@ -151,7 +179,7 @@ internal fun SugarliciousColorSettingsPanel(
                 modifier = Modifier.padding(top = 6.dp),
             )
 
-            GraphSettingSlider(
+            SugarliciousSettingSlider(
                 title = "Punktgröße",
                 description = "Größe der CGM-Dots im Glukosegraph",
                 value = cgmDotRadiusDp,
@@ -174,7 +202,7 @@ internal fun SugarliciousColorSettingsPanel(
             )
 
             if (cgmDotOutlineEnabled) {
-                GraphSettingSlider(
+                SugarliciousSettingSlider(
                     title = "Konturdicke",
                     description = "Dicke der Dot-Kontur",
                     value = cgmDotOutlineWidthDp,
@@ -233,6 +261,7 @@ internal fun SugarliciousColorSettingsPanel(
     editingRole?.let { role ->
         ColorEditorDialog(
             role = role,
+            label = role.label,
             initialArgb = palette.argb(role),
             onDismiss = {
                 editingRole = null
@@ -247,6 +276,120 @@ internal fun SugarliciousColorSettingsPanel(
                 editingRole = null
             },
         )
+    }
+}
+
+@Composable
+internal fun WidgetColorSettingsPanel() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var revision by remember { mutableStateOf(0) }
+    var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
+    val palette = remember(revision, SugarliciousColors.palette.isLight) { WidgetColorStore.load(context) }
+
+    fun refreshWidgets() {
+        revision++
+        scope.launch { SugarliciousWidgets.update(context.applicationContext) }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
+            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("GLUKOSEWIDGET", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text("Farben", color = SugarliciousColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Die Farben werden als eigene Kopie gespeichert und ändern sich danach unabhängig vom mobilen Graphen.",
+            color = SugarliciousColors.TextSecondary,
+            fontSize = 10.sp,
+        )
+        Button(
+            onClick = {
+                WidgetColorStore.copyFromMobileGraph(context)
+                refreshWidgets()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = SugarliciousColors.Primary,
+                contentColor = SugarliciousColors.OnPrimary,
+            ),
+        ) {
+            Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        TextButton(
+            onClick = {
+                WidgetColorStore.resetAll(context)
+                refreshWidgets()
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = SugarliciousColors.Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        WidgetColorRole.entries.forEach { role ->
+            WidgetColorSettingRow(
+                role = role,
+                argb = palette.argb(role),
+                isDefault = !WidgetColorStore.hasOverride(context, role),
+                onEdit = { editingRole = role },
+                onReset = {
+                    WidgetColorStore.reset(context, role)
+                    refreshWidgets()
+                },
+            )
+        }
+    }
+
+    editingRole?.let { role ->
+        ColorEditorDialog(
+            role = null,
+            label = "Widget: ${role.label}",
+            initialArgb = palette.argb(role),
+            onDismiss = { editingRole = null },
+            onSave = { argb ->
+                WidgetColorStore.save(context, role, argb)
+                editingRole = null
+                refreshWidgets()
+            },
+        )
+    }
+}
+
+@Composable
+private fun WidgetColorSettingRow(
+    role: WidgetColorRole,
+    argb: Int,
+    isDefault: Boolean,
+    onEdit: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+            .clickable(onClick = onEdit)
+            .padding(horizontal = 11.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(Color(argb), CircleShape)
+                .border(1.dp, SugarliciousColors.Border, CircleShape),
+        )
+        Spacer(Modifier.width(9.dp))
+        Column(Modifier.weight(1f)) {
+            Text(role.label, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(toHex(argb), color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+        }
+        if (!isDefault) {
+            TextButton(onClick = onReset) {
+                Text("RESET", color = SugarliciousColors.Primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 
@@ -315,7 +458,7 @@ private fun GraphSettingSwitch(
 }
 
 @Composable
-private fun GraphSettingSlider(
+internal fun SugarliciousSettingSlider(
     title: String,
     description: String,
     value: Float,
@@ -778,7 +921,8 @@ private fun ColorRoleExample(
 
 @Composable
 private fun ColorEditorDialog(
-    role: SugarliciousColorRole,
+    role: SugarliciousColorRole?,
+    label: String,
     initialArgb: Int,
     onDismiss: () -> Unit,
     onSave: (Int) -> Unit,
@@ -809,7 +953,7 @@ private fun ColorEditorDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                role.label,
+                label,
                 color = SugarliciousColors.TextPrimary,
             )
         },
@@ -817,13 +961,23 @@ private fun ColorEditorDialog(
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                ColorRoleExample(
-                    role = role,
-                    argb = currentArgb(),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(62.dp),
-                )
+                if (role != null) {
+                    ColorRoleExample(
+                        role = role,
+                        argb = currentArgb(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(62.dp),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(62.dp)
+                            .background(Color(currentArgb()), RoundedCornerShape(12.dp))
+                            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(12.dp)),
+                    )
+                }
 
                 OutlinedTextField(
                     value = hex,
@@ -1009,9 +1163,15 @@ internal fun NotificationGraphSettingsPanel() {
     var editingRole by remember { mutableStateOf<SugarliciousColorRole?>(null) }
     val palette = SugarliciousColorStore.load(preferences)
     val modePrefix = if (palette.isLight) "notification.color.light." else "notification.color.dark."
-    fun key(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
+    fun key(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
+    fun legacyModeKey(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
     fun resolved(role: SugarliciousColorRole): Int =
-        if (preferences.contains(key(role))) preferences.getInt(key(role), palette.argb(role)) else palette.argb(role)
+        when {
+            preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
+            role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
+            preferences.contains(legacyModeKey(role)) -> preferences.getInt(legacyModeKey(role), palette.argb(role))
+            else -> palette.argb(role)
+        }
     var dotRadius by remember(revision) {
         mutableFloatStateOf(preferences.getFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS, preferences.getFloat("cgm.dotRadiusDp", 2.4f)).coerceIn(1.5f, 6f))
     }
@@ -1028,6 +1188,11 @@ internal fun NotificationGraphSettingsPanel() {
         SugarliciousColorRole.GRAPH_CURRENT_OUTLINE,
         SugarliciousColorRole.GRAPH_BACKGROUND,
         SugarliciousColorRole.GRAPH_DIVIDER,
+        SugarliciousColorRole.RANGE_LOW,
+        SugarliciousColorRole.RANGE_IN_RANGE,
+        SugarliciousColorRole.RANGE_HIGH,
+        SugarliciousColorRole.TARGET_VALUE,
+        SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
     )
     Column(
         Modifier.fillMaxWidth().background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
@@ -1045,17 +1210,38 @@ internal fun NotificationGraphSettingsPanel() {
                     remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS)
                     remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED)
                     remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH)
-                    roles.forEach { remove(key(it)) }
+                    roles.forEach {
+                        remove(key(it))
+                        remove(legacyModeKey(it))
+                    }
                 }.apply()
                 revision++
             }) { Text("RESET", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
         }
         Text(
-            "Bereich · im Ziel übernimmt immer die Farbe des App-Graphs.",
+            "Ohne eigenen Override übernimmt der Notification-Graph automatisch die Mobile-CGM-Graphfarben.",
             color = SugarliciousColors.TextSecondary,
             fontSize = 10.sp,
         )
-        GraphSettingSlider(
+        Button(
+            onClick = {
+                preferences.edit().apply {
+                    roles.forEach { role -> putInt(key(role), palette.argb(role)) }
+                    putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS, preferences.getFloat("cgm.dotRadiusDp", 2.4f))
+                    putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED, preferences.getBoolean("cgm.dotOutlineEnabled", true))
+                    putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH, preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f))
+                }.apply()
+                revision++
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = SugarliciousColors.Primary,
+                contentColor = SugarliciousColors.OnPrimary,
+            ),
+        ) {
+            Text("MIT MOBILE SYNCHRONISIEREN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        SugarliciousSettingSlider(
             "Punktgröße", "Nur die CGM-Dots in der Notification", dotRadius, 1.5f..6f,
             "${String.format(locale, "%.1f", dotRadius)} dp",
             { dotRadius = it },
@@ -1066,7 +1252,7 @@ internal fun NotificationGraphSettingsPanel() {
             preferences.edit().putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED, it).apply()
         }
         if (outlineEnabled) {
-            GraphSettingSlider(
+            SugarliciousSettingSlider(
                 "Konturdicke", "Nur für Notification-CGM-Dots", outlineWidth, 0.25f..3f,
                 "${String.format(locale, "%.2f", outlineWidth)} dp",
                 { outlineWidth = it },
@@ -1077,15 +1263,19 @@ internal fun NotificationGraphSettingsPanel() {
             ColorSettingRow(
                 role = role,
                 argb = resolved(role),
-                isDefault = !preferences.contains(key(role)),
+                isDefault = !preferences.contains(key(role)) && !preferences.contains(legacyModeKey(role)),
                 onEdit = { editingRole = role },
-                onReset = { preferences.edit().remove(key(role)).apply(); revision++ },
+                onReset = {
+                    preferences.edit().remove(key(role)).remove(legacyModeKey(role)).apply()
+                    revision++
+                },
             )
         }
     }
     editingRole?.let { role ->
         ColorEditorDialog(
             role = role,
+            label = role.label,
             initialArgb = resolved(role),
             onDismiss = { editingRole = null },
             onSave = { argb ->

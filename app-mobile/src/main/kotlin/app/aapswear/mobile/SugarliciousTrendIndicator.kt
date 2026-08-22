@@ -1,6 +1,5 @@
 package app.aapswear.mobile
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,9 +9,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
@@ -40,10 +37,10 @@ internal fun SugarliciousTrendIndicator(
             horizontalArrangement = Arrangement.spacedBy(if (spec.arrowCount == 2) 1.dp else 0.dp),
         ) {
             repeat(spec.arrowCount) {
-                Image(
-                    painter = painterResource(R.drawable.ic_trend_arrow),
+                SugarliciousIcon(
+                    drawableRes = R.drawable.ic_trend_arrow,
                     contentDescription = null,
-                    colorFilter = ColorFilter.tint(color),
+                    tint = color,
                     modifier = Modifier.size(effectiveArrowSize).graphicsLayer(rotationZ = spec.rotationDegrees),
                 )
             }

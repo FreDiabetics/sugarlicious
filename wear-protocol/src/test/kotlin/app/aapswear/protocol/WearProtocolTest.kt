@@ -1,4 +1,5 @@
 package app.aapswear.protocol
+import app.aapswear.g7.CgmReading
 import app.aapswear.model.*
 import kotlin.test.*
 class WearProtocolTest {
@@ -52,4 +53,35 @@ class WearProtocolTest {
   assertEquals(5,decoded.activeSugarliciousFaceIndex)
   assertEquals(listOf(1,2),decoded.activeComplicationIds)
  }
+ @Test fun g7ReadingBatchRoundTripsAndDeduplicatesOnlyIdenticalIds() {
+  val first=g7("first","session-a",1,100L)
+  val sameId=first.copy(glucoseMgDl=999.0)
+  val sameSequenceDifferentSession=g7("second","session-b",1,200L)
+  val batch=G7ReadingBatch(batchId="batch-1",readings=listOf(first,sameId,sameSequenceDifferentSession),sentAtEpochMs=300L)
+  val decoded=WearProtocol.decodeG7ReadingBatch(WearProtocol.encodeG7ReadingBatch(batch))
+  assertEquals(listOf(first,sameSequenceDifferentSession),decoded.readings)
+ }
+ @Test fun g7ReadingBatchRejectsWrongSourceAndOversizedPayload() {
+  val wrong=G7ReadingBatch(batchId="batch",readings=listOf(g7("wrong","session",1,100L).copy(source=DataSourceId.ANDROID_APS)),sentAtEpochMs=200L)
+  assertFailsWith<IllegalArgumentException>{WearProtocol.decodeG7ReadingBatch(WearProtocol.encodeG7ReadingBatch(wrong))}
+  val oversized=G7ReadingBatch(batchId="batch",readings=(0..G7ReadingBatch.MAX_READINGS).map{g7("id-$it","session",it.toLong(),it.toLong())},sentAtEpochMs=200L)
+  assertFailsWith<IllegalArgumentException>{WearProtocol.decodeG7ReadingBatch(WearProtocol.encodeG7ReadingBatch(oversized))}
+ }
+ @Test fun g7AckAndVersionedWatchColorsRoundTrip() {
+  val ack=G7ReadingAck(batchId="batch-1",acknowledgedIds=setOf("one","","two"),acknowledgedAtEpochMs=400L)
+  assertEquals(setOf("one","two"),WearProtocol.decodeG7ReadingAck(WearProtocol.encodeG7ReadingAck(ack)).acknowledgedIds)
+  val colors=WatchGraphColors(targetValue=0xFF123456.toInt(),signalLoss=0x44112233)
+  val sync=WatchColorSync(graphColors=colors,sentAtEpochMs=500L)
+  assertEquals(sync,WearProtocol.decodeWatchColorSync(WearProtocol.encodeWatchColorSync(sync)))
+ }
+ private fun g7(id:String,session:String,sequence:Long,timestamp:Long)=CgmReading(
+  id=id,
+  source=DataSourceId.DEXCOM_G7_WATCH,
+  sensorId="sensor",
+  sessionId=session,
+  glucoseMgDl=120.0,
+  timestampEpochMs=timestamp,
+  receivedAtEpochMs=timestamp,
+  sequenceNumber=sequence,
+ )
 }
