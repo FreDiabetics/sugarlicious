@@ -463,6 +463,15 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 }
             }
 
+            if (showTargetRange) {
+                linePaint.strokeWidth = 1f.dp
+                linePaint.pathEffect = null
+                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH))
+                canvas.drawLine(plot.left, targetTop, plot.right, targetTop, linePaint)
+                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW))
+                canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, linePaint)
+            }
+
             if (showTargetValue) {
                 val currentTarget = state?.target?.valueMgDl?.takeIf { it.isFinite() && it in 20.0..1_000.0 }
                 val targetSegments =
@@ -567,9 +576,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             }
 
             if (visiblePredictions.isNotEmpty() && futureLaneVisible) {
-                val predictionAnchorY = history.lastOrNull()?.let { point -> mapGlucoseY(point.valueMgDl, plot) }
                 visiblePredictions.forEach {
-                    drawPrediction(canvas, it, plot, start, end, dividerX, predictionAnchorY)
+                    drawPrediction(canvas, it, plot, start, end, dividerX)
                 }
             }
 
@@ -683,7 +691,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         start: Long,
         end: Long,
         anchorX: Float,
-        anchorY: Float?,
     ) {
         val color = when (series.kind) {
             PredictionKind.IOB -> SugarliciousColors.argb(SugarliciousColorRole.PREDICTION_IOB)
@@ -695,11 +702,11 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val outlineWidth = predictionDotOutlineWidthDp.dp
         val minimumPredictionCenter = graphCenterAfterDivider(anchorX, radius, outlineWidth, 2f.dp)
         val maximumPredictionCenter = plot.right - radius - outlineWidth / 2f - 1f.dp
-        series.samples.forEachIndexed { index, point ->
+        series.samples.forEach { point ->
             val mappedX = mapX(point.measuredAtEpochMs, start, end, plot)
             val x = mappedX.coerceAtLeast(minimumPredictionCenter)
-            if (x > maximumPredictionCenter) return@forEachIndexed
-            val y = if (index == 0 && anchorY != null) anchorY else mapGlucoseY(point.valueMgDl, plot)
+            if (x > maximumPredictionCenter) return@forEach
+            val y = mapGlucoseY(point.valueMgDl, plot)
             if (outlineWidth > 0f) {
                 dotOutlinePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
                 dotOutlinePaint.strokeWidth = outlineWidth
