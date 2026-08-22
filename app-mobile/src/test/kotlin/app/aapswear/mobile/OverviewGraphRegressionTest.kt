@@ -1,7 +1,10 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import app.aapswear.mobile.ui.theme.SugarliciousColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -60,5 +63,16 @@ class OverviewGraphRegressionTest {
 
         assertEquals(divider, graphCenterBeforeDivider(divider, 4f, 2f, 2f), 0.001f)
         assertEquals(divider, graphCenterAfterDivider(divider, 4f, 2f, 2f), 0.001f)
+    }
+
+    @Test
+    fun `target range boundary colors preserve region rgb and force full opacity`() {
+        listOf(SugarliciousColorRole.RANGE_HIGH, SugarliciousColorRole.RANGE_LOW).forEach { role ->
+            val regionColor = SugarliciousColors.argb(role)
+            val boundaryColor = opaqueGraphBoundaryColor(regionColor)
+
+            assertEquals(255, Color.alpha(boundaryColor))
+            assertEquals(regionColor and 0x00FFFFFF, boundaryColor and 0x00FFFFFF)
+        }
     }
 }
