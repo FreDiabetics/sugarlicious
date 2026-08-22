@@ -15,8 +15,11 @@ import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.TargetSample
+import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.storage.TherapyStateStore
@@ -137,8 +140,8 @@ class PersistentBridgeServiceTest {
                 deltaMgDl = 5.0,
             ),
             glucoseHistory = listOf(
-                app.aapswear.model.GlucoseSample(115.0, now - 10 * 60_000L),
-                app.aapswear.model.GlucoseSample(120.0, now - 5 * 60_000L),
+                GlucoseSample(115.0, now - 10 * 60_000L),
+                GlucoseSample(120.0, now - 5 * 60_000L),
             ),
         )
         runBlocking { TherapyStateStore(context).save(therapyState) }
@@ -224,6 +227,56 @@ class PersistentBridgeServiceTest {
         assertEquals(null, notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
         assertEquals(1, notification.actions.size)
         controller.destroy()
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `notification graph ignores target value and target history`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val now = System.currentTimeMillis()
+        val base =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(
+                    valueMgDl = 123.0,
+                    displayUnit = GlucoseUnit.MG_DL,
+                    measuredAtEpochMs = now - 60_000L,
+                ),
+                glucoseHistory = listOf(
+                    GlucoseSample(116.0, now - 10 * 60_000L),
+                    GlucoseSample(120.0, now - 5 * 60_000L),
+                ),
+                target = TargetState(lowMgDl = 80.0, highMgDl = 160.0, valueMgDl = 100.0),
+                targetHistory = listOf(
+                    TargetSample(
+                        valueMgDl = 100.0,
+                        startedAtEpochMs = now - 60L * 60_000L,
+                        endsAtEpochMs = now,
+                    ),
+                ),
+            )
+        val changedTargetHistory =
+            base.copy(
+                target = base.target?.copy(valueMgDl = 130.0, temporary = true),
+                targetHistory = listOf(
+                    TargetSample(
+                        valueMgDl = 130.0,
+                        startedAtEpochMs = now - 30L * 60_000L,
+                        endsAtEpochMs = now + 30L * 60_000L,
+                        temporary = true,
+                    ),
+                ),
+            )
+
+        val collapsedBase = NotificationGraphRenderer.renderCollapsed(context, base, preferences)
+        val collapsedChanged = NotificationGraphRenderer.renderCollapsed(context, changedTargetHistory, preferences)
+        val expandedBase = NotificationGraphRenderer.renderExpanded(context, base, preferences)
+        val expandedChanged = NotificationGraphRenderer.renderExpanded(context, changedTargetHistory, preferences)
+
+        assertTrue(collapsedBase.sameAs(collapsedChanged))
+        assertTrue(expandedBase.sameAs(expandedChanged))
     }
 
     @Test
