@@ -23,6 +23,17 @@ class RelativeGraphTimeAxisTest {
     }
 
     @Test
+    fun `reading anchored live edge keeps now label at visible right edge`() {
+        val readingAge = 5L * 60_000L
+        val end = now - readingAge
+        val start = end - 3L * RelativeGraphTimeAxis.HOUR_MS
+        val ticks = RelativeGraphTimeAxis.ticks(start, end, now)
+
+        assertEquals(listOf("3h", "2h", "1h", "jetzt"), ticks.map { it.label })
+        assertEquals(end, ticks.last().timestampEpochMs)
+    }
+
+    @Test
     fun `panned history stays relative to now and never renders clock text`() {
         val ticks = RelativeGraphTimeAxis.ticks(
             startEpochMs = now - 7 * RelativeGraphTimeAxis.HOUR_MS,
