@@ -177,13 +177,11 @@ internal fun nextSafetyReconnectEpoch(
     ).nextReconnectEpochMs
 }
 
-internal fun stagedSafetyReconnectEpoch(
+internal fun stagedSafetyCycle(
     currentCycle: CollectorCycleTiming?,
     pendingCycle: CollectorCycleTiming?,
-): Long? {
+): CollectorCycleTiming? {
     val currentExpected = currentCycle?.expectedReadingEpoch ?: return null
     val expectedSafetySlot = currentExpected + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS
-    return pendingCycle
-        ?.takeIf { it.expectedReadingEpoch == expectedSafetySlot }
-        ?.requestedReconnectEpoch
+    return pendingCycle?.takeIf { it.expectedReadingEpoch == expectedSafetySlot }
 }

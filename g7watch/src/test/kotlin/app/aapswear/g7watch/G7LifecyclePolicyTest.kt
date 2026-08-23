@@ -114,9 +114,9 @@ class G7LifecyclePolicyTest {
             requestedReconnectEpoch = 1_295_000L,
         )
 
-        assertEquals(1_295_000L, stagedSafetyReconnectEpoch(current, safety))
+        assertEquals(safety, stagedSafetyCycle(current, safety))
         assertNull(
-            stagedSafetyReconnectEpoch(
+            stagedSafetyCycle(
                 current,
                 safety.copy(expectedReadingEpoch = 1_100_000L),
             ),

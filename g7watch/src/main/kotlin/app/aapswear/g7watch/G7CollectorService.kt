@@ -20,6 +20,7 @@ import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7ConnectionState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
+import app.aapswear.g7.G7ReconnectScheduler
 import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SessionState
 import app.aapswear.g7.toCgm
@@ -401,9 +402,9 @@ class G7CollectorService : Service() {
             }
             // For aged/invalid packets next.lastReading still points to the last fresh value, so
             // signal loss remains anchored to real current data rather than receive time.
-            val scheduledNext = scheduleReconnect(next)
-            G7SignalLossMonitor.scheduleFromState(this, scheduledNext)
-            scheduledNext.nextReconnectEpochMs?.let { reconnectAt ->
+            val scheduledReconnectAt = scheduleReconnect(next) ?: next.nextReconnectEpochMs
+            G7SignalLossMonitor.scheduleFromState(this, next)
+            scheduledReconnectAt?.let { reconnectAt ->
                 attemptStore.record(
                     attemptId,
                     CollectorDiagnosticStage.WAITING_FOR_WINDOW,
@@ -474,7 +475,7 @@ class G7CollectorService : Service() {
         startedAtEpochMs: Long,
     ) {
         val cycle = attemptStore.snapshot().firstOrNull { it.attemptId == attemptId }?.cycle
-        val stagedSafetyReconnect = stagedSafetyReconnectEpoch(
+        val stagedSafety = stagedSafetyCycle(
             cycle,
             attemptStore.pendingScheduledCycle(),
         )
@@ -485,11 +486,13 @@ class G7CollectorService : Service() {
             protocolState = if (softWindowFailure) G7ProtocolState.RECOVERING else G7ProtocolState.ERROR,
             activeAttemptId = null,
             lastAttemptCompletedAtEpochMs = System.currentTimeMillis(),
-            nextReconnectEpochMs = stagedSafetyReconnect ?: managed.nextReconnectEpochMs,
+            nextReconnectEpochMs =
+                stagedSafety?.expectedReadingEpoch?.minus(G7ReconnectScheduler.PRECONNECT_LEAD_MS)
+                    ?: managed.nextReconnectEpochMs,
         )
         store.save(next)
-        val scheduledNext = if (stagedSafetyReconnect != null) next else scheduleReconnect(next)
-        scheduledNext.nextReconnectEpochMs?.let { reconnectAt ->
+        val scheduledReconnectAt = stagedSafety?.requestedReconnectEpoch ?: scheduleReconnect(next)
+        scheduledReconnectAt?.let { reconnectAt ->
             attemptStore.record(
                 attemptId,
                 CollectorDiagnosticStage.WAITING_FOR_WINDOW,
@@ -499,7 +502,7 @@ class G7CollectorService : Service() {
                 durationMs = (reconnectAt - System.currentTimeMillis()).coerceAtLeast(0L),
             )
         }
-        G7SignalLossMonitor.scheduleFromState(this, scheduledNext)
+        G7SignalLossMonitor.scheduleFromState(this, next)
         updateForeground(
             if (softWindowFailure) {
                 "Dauerbetrieb aktiv · nächstes Sensorfenster wird abgewartet"
@@ -583,14 +586,8 @@ class G7CollectorService : Service() {
             .build()
     }
 
-    private fun scheduleReconnect(state: G7PersistedState): G7PersistedState {
-        val cycle = G7ReconnectAlarmScheduler.scheduleForState(this, state) ?: return state
-        val scheduledState =
-            if (state.nextReconnectEpochMs == cycle.requestedReconnectEpoch) {
-                state
-            } else {
-                state.copy(nextReconnectEpochMs = cycle.requestedReconnectEpoch).also(store::save)
-            }
+    private fun scheduleReconnect(state: G7PersistedState): Long? {
+        val cycle = G7ReconnectAlarmScheduler.scheduleForState(this, state) ?: return null
         scope.launch {
             applicationContext.recordG7Diagnostic(
                 if (cycle.alarmKind == app.aapswear.g7.CollectorAlarmKind.EXACT) "G7-SCHED-200" else "G7-SCHED-201",
@@ -612,7 +609,7 @@ class G7CollectorService : Service() {
                 ),
             )
         }
-        return scheduledState
+        return cycle.requestedReconnectEpoch
     }
 
     private fun expireStaleAttemptState(
