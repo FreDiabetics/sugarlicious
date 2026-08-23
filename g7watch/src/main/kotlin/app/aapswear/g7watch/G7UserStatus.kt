@@ -190,7 +190,9 @@ private fun actionForError(code: String?): String? = when {
     code.startsWith("G7-PERM-") -> "Bluetooth- und Benachrichtigungsberechtigungen in der Collector-App freigeben."
     code.startsWith("G7-SETUP-") -> "Sensorcode und Sensoreinrichtung in der Collector-App prüfen."
     code.startsWith("G7-AUTH-") -> "Uhr in Sensornähe lassen und automatische Wiederverbindung abwarten. Bond, Shared Key und Sensorcode nicht löschen."
-    code == "G7-GATT-133" || code == "G7-BLE-107" || code == "G7-BLE-111" -> "Nichts zurücksetzen. Sugarlicious versucht automatisch das nächste Sensorfenster."
+    code == "G7-GATT-133" || code == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE ||
+        code == "G7-BLE-107" || code == "G7-BLE-111" || code == "G7-BLE-FALLBACK-107" ->
+        "Nichts zurücksetzen. Sugarlicious versucht automatisch das nächste Sensorfenster."
     code == "G7-SIGNAL-LOSS" -> "Bluetooth, Sensorreichweite und Sensorstatus prüfen. Bond, Shared Key und Sensorcode nicht löschen."
     else -> null
 }

@@ -37,12 +37,21 @@ import kotlin.coroutines.resumeWithException
 internal const val G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS = 30 * 60_000L
 internal const val G7_RECONNECT_SCAN_TIMEOUT_MS = 60_000L
 internal const val G7_GATT_133_ERROR_CODE = "G7-GATT-133"
+internal const val G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE = "G7-GATT-215"
 internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
 internal enum class G7ReconnectStrategy { BOUNDED_SCAN, KNOWN_ADDRESS_DIRECT }
 
 internal fun shouldUseDirectReconnect(strategy: G7ReconnectStrategy, address: String?): Boolean =
     strategy == G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT && !address.isNullOrBlank()
+
+internal fun shouldUseFallbackDiscovery(
+    strategy: G7ReconnectStrategy,
+    address: String?,
+    fallbackUsed: Boolean,
+    recoverable: Boolean,
+): Boolean =
+    !fallbackUsed && recoverable && shouldUseDirectReconnect(strategy, address)
 
 internal fun g7ScanTimeoutMs(sensor: G7Sensor): Long =
     if (sensor.deviceAddress.isNullOrBlank()) G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS else G7_RECONNECT_SCAN_TIMEOUT_MS
@@ -277,8 +286,22 @@ internal class AndroidG7Collector(
                     discoveryRequired = false
                     onState(G7ProtocolState.RECOVERING)
                     delay(GATT_133_STACK_SETTLE_DELAY_MS)
-                } else if (!fallbackUsed && shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress) && error.recoverable) {
+                } else if (shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
                     pendingGatt133 = error.takeIf { it.errorCode == G7_GATT_133_ERROR_CODE }
+                    fallbackUsed = true
+                    discoveryRequired = true
+                    onState(G7ProtocolState.RECOVERING)
+                } else {
+                    throw pendingGatt133 ?: error
+                }
+            } catch (timeout: TimeoutCancellationException) {
+                val error = G7BleException(
+                    G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
+                    "Direkte G7-Verbindung hat das begrenzte Zeitfenster überschritten",
+                    true,
+                    timeout,
+                )
+                if (shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
                     fallbackUsed = true
                     discoveryRequired = true
                     onState(G7ProtocolState.RECOVERING)

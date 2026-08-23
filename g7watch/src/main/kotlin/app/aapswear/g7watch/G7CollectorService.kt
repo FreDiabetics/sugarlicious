@@ -63,9 +63,7 @@ class G7CollectorService : Service() {
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
-        if (attemptStore.expireStaleAttempts() > 0) {
-            store.save(store.read().copy(activeAttemptId = null, scanStartedAtEpochMs = null, scanTimeoutAtEpochMs = null))
-        }
+        expireStaleAttemptState()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "G7 Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter Dexcom G7 Watch Collector"
@@ -80,6 +78,7 @@ class G7CollectorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val serviceStartAt = System.currentTimeMillis()
+        expireStaleAttemptState(serviceStartAt)
         if (intent?.action == ACTION_STOP) {
             collectionJob?.cancel()
             store.save(G7SessionManager(store.read()).stop())
@@ -399,9 +398,9 @@ class G7CollectorService : Service() {
             }
             // For aged/invalid packets next.lastReading still points to the last fresh value, so
             // signal loss remains anchored to real current data rather than receive time.
-            G7SignalLossMonitor.scheduleFromState(this, next)
-            scheduleReconnect(next)
-            next.nextReconnectEpochMs?.let { reconnectAt ->
+            val scheduledNext = scheduleReconnect(next)
+            G7SignalLossMonitor.scheduleFromState(this, scheduledNext)
+            scheduledNext.nextReconnectEpochMs?.let { reconnectAt ->
                 attemptStore.record(
                     attemptId,
                     CollectorDiagnosticStage.WAITING_FOR_WINDOW,
@@ -471,6 +470,11 @@ class G7CollectorService : Service() {
         attemptId: Long,
         startedAtEpochMs: Long,
     ) {
+        val cycle = attemptStore.snapshot().firstOrNull { it.attemptId == attemptId }?.cycle
+        val stagedSafetyReconnect = stagedSafetyReconnectEpoch(
+            cycle,
+            attemptStore.pendingScheduledCycle(),
+        )
         val managed = G7SessionManager(state).failure(error)
         val softWindowFailure = error.recoverable && error.code in SOFT_WINDOW_ERRORS
         val next = managed.copy(
@@ -478,10 +482,11 @@ class G7CollectorService : Service() {
             protocolState = if (softWindowFailure) G7ProtocolState.RECOVERING else G7ProtocolState.ERROR,
             activeAttemptId = null,
             lastAttemptCompletedAtEpochMs = System.currentTimeMillis(),
+            nextReconnectEpochMs = stagedSafetyReconnect ?: managed.nextReconnectEpochMs,
         )
         store.save(next)
-        scheduleReconnect(next)
-        next.nextReconnectEpochMs?.let { reconnectAt ->
+        val scheduledNext = if (stagedSafetyReconnect != null) next else scheduleReconnect(next)
+        scheduledNext.nextReconnectEpochMs?.let { reconnectAt ->
             attemptStore.record(
                 attemptId,
                 CollectorDiagnosticStage.WAITING_FOR_WINDOW,
@@ -491,7 +496,7 @@ class G7CollectorService : Service() {
                 durationMs = (reconnectAt - System.currentTimeMillis()).coerceAtLeast(0L),
             )
         }
-        G7SignalLossMonitor.scheduleFromState(this, next)
+        G7SignalLossMonitor.scheduleFromState(this, scheduledNext)
         updateForeground(
             if (softWindowFailure) {
                 "Dauerbetrieb aktiv · nächstes Sensorfenster wird abgewartet"
@@ -500,7 +505,6 @@ class G7CollectorService : Service() {
             },
         )
 
-        val cycle = attemptStore.snapshot().firstOrNull { it.attemptId == attemptId }?.cycle
         val classification = when {
             error.code.startsWith("G7-SETUP-") || error.code.startsWith("G7-PERM-") -> CollectorCycleClassification.SERVICE_START_FAILED
             error.code == "G7-STORE-500" -> CollectorCycleClassification.STORE_FAILED
@@ -576,8 +580,14 @@ class G7CollectorService : Service() {
             .build()
     }
 
-    private fun scheduleReconnect(state: G7PersistedState) {
-        val cycle = G7ReconnectAlarmScheduler.scheduleForState(this, state) ?: return
+    private fun scheduleReconnect(state: G7PersistedState): G7PersistedState {
+        val cycle = G7ReconnectAlarmScheduler.scheduleForState(this, state) ?: return state
+        val scheduledState =
+            if (state.nextReconnectEpochMs == cycle.requestedReconnectEpoch) {
+                state
+            } else {
+                state.copy(nextReconnectEpochMs = cycle.requestedReconnectEpoch).also(store::save)
+            }
         scope.launch {
             applicationContext.recordG7Diagnostic(
                 if (cycle.alarmKind == app.aapswear.g7.CollectorAlarmKind.EXACT) "G7-SCHED-200" else "G7-SCHED-201",
@@ -596,6 +606,27 @@ class G7CollectorService : Service() {
                     "deviceIdleMode" to cycle.deviceIdleMode,
                     "isInteractive" to cycle.isInteractive,
                     "charging" to cycle.charging,
+                ),
+            )
+        }
+        return scheduledState
+    }
+
+    private fun expireStaleAttemptState(nowEpochMs: Long = System.currentTimeMillis()) {
+        val current = store.read()
+        val maxInactiveAgeMs =
+            if (current.sensor?.deviceAddress.isNullOrBlank()) {
+                G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + INITIAL_PAIRING_STALE_GRACE_MS
+            } else {
+                KNOWN_SENSOR_STALE_ATTEMPT_AGE_MS
+            }
+        if (attemptStore.expireStaleAttempts(nowEpochMs, maxInactiveAgeMs) == 0) return
+        if (current.activeAttemptId != null && !attemptStore.hasActiveAttempt(current.activeAttemptId)) {
+            store.save(
+                current.copy(
+                    activeAttemptId = null,
+                    scanStartedAtEpochMs = null,
+                    scanTimeoutAtEpochMs = null,
                 ),
             )
         }
@@ -666,7 +697,15 @@ class G7CollectorService : Service() {
         internal const val NOTIFICATION_ID = 7001
         private const val NORMAL_CYCLE_WAKE_LOCK_TIMEOUT_MS = 3L * 60_000L
         private const val INITIAL_PAIRING_WAKE_LOCK_TIMEOUT_MS = 31L * 60_000L
-        private val SOFT_WINDOW_ERRORS = setOf(G7_GATT_133_ERROR_CODE, "G7-BLE-107", "G7-BLE-111")
+        private const val INITIAL_PAIRING_STALE_GRACE_MS = 60_000L
+        private const val KNOWN_SENSOR_STALE_ATTEMPT_AGE_MS = 4L * 60_000L
+        private val SOFT_WINDOW_ERRORS = setOf(
+            G7_GATT_133_ERROR_CODE,
+            G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
+            "G7-BLE-107",
+            "G7-BLE-111",
+            "G7-BLE-FALLBACK-107",
+        )
 
         fun start(context: Context) {
             val app = context.applicationContext

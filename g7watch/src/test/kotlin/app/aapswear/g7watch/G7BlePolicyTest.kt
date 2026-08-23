@@ -31,6 +31,33 @@ class G7BlePolicyTest {
         assertEquals(15_000L, G7_FALLBACK_SCAN_TIMEOUT_MS)
     }
 
+    @Test fun `recoverable direct timeout enters fallback discovery only once`() {
+        assertTrue(
+            shouldUseFallbackDiscovery(
+                G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+                "AA:BB:CC:DD:EE:FF",
+                fallbackUsed = false,
+                recoverable = true,
+            ),
+        )
+        assertFalse(
+            shouldUseFallbackDiscovery(
+                G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+                "AA:BB:CC:DD:EE:FF",
+                fallbackUsed = true,
+                recoverable = true,
+            ),
+        )
+        assertFalse(
+            shouldUseFallbackDiscovery(
+                G7ReconnectStrategy.BOUNDED_SCAN,
+                "AA:BB:CC:DD:EE:FF",
+                fallbackUsed = false,
+                recoverable = true,
+            ),
+        )
+    }
+
     @Test fun `known sensor address rejects a different nearby G7`() {
         assertFalse(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66")!!)
         assertTrue(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff")!!)

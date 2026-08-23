@@ -31,7 +31,11 @@ internal object G7ReconnectAlarmScheduler {
     ): CollectorCycleTiming? {
         if (!state.collectorEnabled) return null
         val requestedAt = state.nextReconnectEpochMs ?: return null
-        return scheduleRequested(context, requestedAt)
+        return scheduleRequested(
+            context,
+            requestedAt,
+            directReconnect = directReconnectAvailable(context, state),
+        )
     }
 
     fun scheduleSafetyForCycle(
@@ -45,7 +49,12 @@ internal object G7ReconnectAlarmScheduler {
         val expectedAt =
             scheduledCycle?.expectedReadingEpoch?.plus(G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS)
                 ?: requestedAt + G7ReconnectScheduler.PRECONNECT_LEAD_MS
-        return scheduleRequested(context, requestedAt, expectedAt)
+        return scheduleRequested(
+            context,
+            requestedAt,
+            expectedAt,
+            directReconnect = directReconnectAvailable(context, state),
+        )
     }
 
     fun scheduleRecovery(
@@ -55,23 +64,33 @@ internal object G7ReconnectAlarmScheduler {
     ): CollectorCycleTiming? {
         if (!state.collectorEnabled) return null
         val plan = G7ReconnectScheduler.afterExpectedWindowMiss(nowEpochMs, state.lastReading?.timestampEpochMs)
-        return scheduleRequested(context, plan.nextReconnectEpochMs)
+        return scheduleRequested(
+            context,
+            plan.nextReconnectEpochMs,
+            directReconnect = directReconnectAvailable(context, state),
+        )
     }
 
     fun scheduleRequested(
         context: Context,
         requestedReconnectEpochMs: Long,
         expectedReadingEpochMs: Long = requestedReconnectEpochMs + G7ReconnectScheduler.PRECONNECT_LEAD_MS,
+        directReconnect: Boolean = false,
     ): CollectorCycleTiming {
         val app = context.applicationContext
 
-        if (G7ReconnectStrategyStore.read(app) == G7ReconnectStrategy.BOUNDED_SCAN) {
-            G7AdvertisementWakeScheduler.arm(app)
-        } else {
+        if (directReconnect) {
             G7AdvertisementWakeScheduler.disarm(app)
+        } else {
+            G7AdvertisementWakeScheduler.arm(app)
         }
 
-        val triggerAt = maxOf(requestedReconnectEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
+        val strategyRequest = alignReconnectRequestToStrategy(
+            requestedReconnectEpochMs,
+            expectedReadingEpochMs,
+            directReconnect,
+        )
+        val triggerAt = maxOf(strategyRequest, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
         val pending = reconnectPendingIntent(app)
         val alarmManager = app.getSystemService(AlarmManager::class.java)
         val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
@@ -119,7 +138,26 @@ internal object G7ReconnectAlarmScheduler {
             Intent(context, G7ReconnectReceiver::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+
+    private fun directReconnectAvailable(context: Context, state: G7PersistedState): Boolean =
+        shouldUseDirectReconnect(
+            G7ReconnectStrategyStore.read(context.applicationContext),
+            state.sensor?.deviceAddress,
+        )
 }
+
+internal const val G7_DIRECT_PRECONNECT_LEAD_MS = 5_000L
+
+internal fun alignReconnectRequestToStrategy(
+    requestedReconnectEpochMs: Long,
+    expectedReadingEpochMs: Long,
+    directReconnect: Boolean,
+): Long =
+    if (directReconnect) {
+        maxOf(requestedReconnectEpochMs, expectedReadingEpochMs - G7_DIRECT_PRECONNECT_LEAD_MS)
+    } else {
+        requestedReconnectEpochMs
+    }
 
 internal fun nextSafetyReconnectEpoch(
     scheduledCycle: CollectorCycleTiming?,
@@ -137,4 +175,15 @@ internal fun nextSafetyReconnectEpoch(
         nowEpochMs,
         state.lastReading?.timestampEpochMs,
     ).nextReconnectEpochMs
+}
+
+internal fun stagedSafetyReconnectEpoch(
+    currentCycle: CollectorCycleTiming?,
+    pendingCycle: CollectorCycleTiming?,
+): Long? {
+    val currentExpected = currentCycle?.expectedReadingEpoch ?: return null
+    val expectedSafetySlot = currentExpected + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS
+    return pendingCycle
+        ?.takeIf { it.expectedReadingEpoch == expectedSafetySlot }
+        ?.requestedReconnectEpoch
 }

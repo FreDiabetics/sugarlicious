@@ -63,11 +63,13 @@ class G7CollectorDiagnosticsTest {
         store.begin(manual = false, restart = false, nowEpochMs = 1_000L)
 
         assertTrue(store.hasActiveAttempt())
+        assertTrue(store.hasActiveAttempt(1L))
         assertEquals(1, store.expireStaleAttempts(nowEpochMs = 301_000L, maxAgeMs = 240_000L))
 
         val restored = G7CollectorDiagnosticStore(context).snapshot().single()
         assertEquals(CollectorCycleClassification.HUNG, restored.classification)
         assertFalse(G7CollectorDiagnosticStore(context).hasActiveAttempt())
+        assertFalse(G7CollectorDiagnosticStore(context).hasActiveAttempt(1L))
     }
 
     @Test
@@ -96,6 +98,22 @@ class G7CollectorDiagnosticsTest {
                 .getString("active_attempts_v1", null)
                 ?.isNotBlank() == true,
         )
+    }
+
+    @Test
+    fun `stale cleanup uses last stage progress rather than attempt start alone`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(manual = false, restart = false, nowEpochMs = 1_000L)
+        store.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.CONNECT_REQUEST,
+            nowEpochMs = 200_000L,
+            message = "Fortschritt",
+        )
+
+        assertEquals(0, store.expireStaleAttempts(nowEpochMs = 301_000L, maxAgeMs = 240_000L))
+        assertTrue(store.hasActiveAttempt(attempt.attemptId))
+        assertEquals(1, store.expireStaleAttempts(nowEpochMs = 441_000L, maxAgeMs = 240_000L))
     }
 
     @Test

@@ -93,6 +93,36 @@ class G7LifecyclePolicyTest {
         )
     }
 
+    @Test fun `direct reconnect wakes close to the expected reading while scan strategy keeps its lead`() {
+        val requested = 970_000L
+        val expected = 1_000_000L
+
+        assertEquals(
+            995_000L,
+            alignReconnectRequestToStrategy(requested, expected, directReconnect = true),
+        )
+        assertEquals(
+            requested,
+            alignReconnectRequestToStrategy(requested, expected, directReconnect = false),
+        )
+    }
+
+    @Test fun `failed scheduled cycle retains only the staged next real sensor slot`() {
+        val current = CollectorCycleTiming(expectedReadingEpoch = 1_000_000L)
+        val safety = CollectorCycleTiming(
+            expectedReadingEpoch = 1_300_000L,
+            requestedReconnectEpoch = 1_295_000L,
+        )
+
+        assertEquals(1_295_000L, stagedSafetyReconnectEpoch(current, safety))
+        assertNull(
+            stagedSafetyReconnectEpoch(
+                current,
+                safety.copy(expectedReadingEpoch = 1_100_000L),
+            ),
+        )
+    }
+
     @Test fun `restart resets only volatile runtime and retains enabled sensor session and history`() {
         val sensor = G7Sensor("sensor", "session", deviceAddress = "AA:BB:CC:DD:EE:FF")
         val reading = CgmReading(

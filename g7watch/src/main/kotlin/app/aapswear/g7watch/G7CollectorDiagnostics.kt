@@ -217,12 +217,22 @@ internal class G7CollectorDiagnosticStore(context: Context) {
 
     fun hasActiveAttempt(): Boolean = synchronized(lock) { loadActive().any { it.completedAtEpochMs == null } }
 
+    fun hasActiveAttempt(attemptId: Long?): Boolean = synchronized(lock) {
+        attemptId != null && loadActive().any { it.attemptId == attemptId && it.completedAtEpochMs == null }
+    }
+
     fun expireStaleAttempts(
         nowEpochMs: Long = System.currentTimeMillis(),
         maxAgeMs: Long = STALE_ATTEMPT_AGE_MS,
     ): Int = synchronized(lock) {
         val active = loadActive().toMutableList()
-        val stale = active.filter { it.completedAtEpochMs == null && nowEpochMs - it.startedAtEpochMs >= maxAgeMs }
+        val stale = active.filter { attempt ->
+            val lastProgressAt = maxOf(
+                attempt.startedAtEpochMs,
+                attempt.events.maxOfOrNull(CollectorDiagnosticEvent::timestampEpochMs) ?: attempt.startedAtEpochMs,
+            )
+            attempt.completedAtEpochMs == null && nowEpochMs - lastProgressAt >= maxAgeMs
+        }
         stale.forEach { attempt ->
             val terminal = attempt.copy(
                 completedAtEpochMs = nowEpochMs,
