@@ -53,6 +53,7 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".G7ReconnectReceiver" android:exported="false" />
+        <receiver android:name=".G7AdvertisementWakeReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
         <receiver android:name=".G7ErrorAcknowledgeReceiver" android:exported="false" />
         <receiver android:name=".G7CgmAlarmAcknowledgeReceiver" android:exported="false" />
