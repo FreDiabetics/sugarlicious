@@ -14,16 +14,22 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 internal data class StoredG7Credentials(
-    val pairingCode: String,
-    val sensorSerial: String?,
-    val gtin: String?,
+    override val pairingCode: String,
+    override val sensorSerial: String?,
+    override val gtin: String?,
     val gKey: G7GKeyParts,
     val sharedKey: ByteArray?,
     val sharedKeyAddress: String?,
-)
+) : G7CredentialStore.StoredCredentials
 
 /** Keeps pairing and session secrets encrypted by a non-exportable Android Keystore key. */
 internal class G7CredentialStore(context: Context) {
+    internal interface StoredCredentials {
+        val pairingCode: String
+        val sensorSerial: String?
+        val gtin: String?
+    }
+
     private val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
     fun saveSetup(payload: G7SetupPayload, gKey: G7GKeyParts = G7DefaultGKey.parts) {

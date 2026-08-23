@@ -15,6 +15,7 @@ import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchGraphStyle
@@ -51,6 +52,17 @@ class WearGlucoseChart @JvmOverloads constructor(
                     resources.displayMetrics,
                 )
             textAlign = Paint.Align.RIGHT
+            typeface = Typeface.DEFAULT_BOLD
+        }
+    private val axisLabelPaint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize =
+                TypedValue.applyDimension(
+                    TypedValue.COMPLEX_UNIT_SP,
+                    7.5f,
+                    resources.displayMetrics,
+                )
+            textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT_BOLD
         }
 
@@ -126,6 +138,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         graphStyle = style
         emptyTextPaint.color = colors.divider
         targetLabelPaint.color = colors.divider
+        axisLabelPaint.color = colors.divider
         invalidate()
     }
 
@@ -268,6 +281,7 @@ class WearGlucoseChart @JvmOverloads constructor(
                 height / 2f + 4f.dp,
                 emptyTextPaint,
             )
+            drawRelativeTimeAxis(canvas, start, end, now, ::xFor)
             drawTileContour(canvas, tileRadius)
             return
         }
@@ -335,7 +349,34 @@ class WearGlucoseChart @JvmOverloads constructor(
             )
         }
 
+        drawRelativeTimeAxis(canvas, start, end, now, ::xFor)
         drawTileContour(canvas, tileRadius)
+    }
+
+    private fun drawRelativeTimeAxis(
+        canvas: Canvas,
+        start: Long,
+        end: Long,
+        now: Long,
+        xFor: (Long) -> Float,
+    ) {
+        axisLabelPaint.color = colors.divider
+        RelativeGraphTimeAxis.ticks(start, end, now).forEach { tick ->
+            val x = xFor(tick.timestampEpochMs)
+            axisLabelPaint.textAlign =
+                when {
+                    tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
+                    tick.hoursBack == 0 -> Paint.Align.RIGHT
+                    else -> Paint.Align.CENTER
+                }
+            val labelX =
+                when (axisLabelPaint.textAlign) {
+                    Paint.Align.LEFT -> maxOf(3f.dp, x)
+                    Paint.Align.RIGHT -> minOf(width - 3f.dp, x)
+                    else -> x
+                }
+            canvas.drawText(tick.label, labelX, height - 2f.dp, axisLabelPaint)
+        }
     }
 
     private fun drawTileContour(

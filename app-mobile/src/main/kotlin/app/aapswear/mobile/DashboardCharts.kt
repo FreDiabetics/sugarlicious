@@ -24,11 +24,10 @@ import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.storage.PredictionDisplayTimeline
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ln
@@ -215,7 +214,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     }
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val dotOutlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private var state: TherapyDisplayState? = null
     private var unit = GlucoseUnit.MG_DL
     private var showPredictions = false
@@ -366,7 +364,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 }
             }
 
-            drawGrid(canvas, plot, start, end)
+            drawGrid(canvas, plot, start, end, now)
 
             if (signalLost) {
                 val signalStart = state?.glucose?.measuredAtEpochMs?.let { mapX(it, start, end, plot) }?.coerceIn(plot.left, plot.right) ?: plot.left
@@ -463,25 +461,38 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         drawRoundedBorder(canvas, scaleContainer, radius)
     }
 
-    private fun drawGrid(canvas: Canvas, plot: RectF, start: Long, end: Long) {
+    private fun drawGrid(canvas: Canvas, plot: RectF, start: Long, end: Long, now: Long) {
+        val ticks = RelativeGraphTimeAxis.ticks(start, end, now)
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
         linePaint.strokeWidth = 0.7f.dp
         linePaint.pathEffect = DashPathEffect(floatArrayOf(3f.dp, 3f.dp), 0f)
-        val interval = timeGridIntervalMs(viewport.hours)
-        var tick = firstAlignedTick(start, interval)
-        while (tick <= end) {
-            val x = mapX(tick, start, end, plot)
+        ticks.forEach { tick ->
+            val x = mapX(tick.timestampEpochMs, start, end, plot)
             if (x >= plot.left && x <= plot.right) canvas.drawLine(x, plot.top, x, plot.bottom, linePaint)
-            tick += interval
         }
         linePaint.pathEffect = null
-        tick = firstAlignedTick(start, interval)
-        while (tick <= end) {
-            val x = mapX(tick, start, end, plot)
-            if (x >= plot.left + 22f.dp && x <= plot.right - 22f.dp) {
-                drawText(canvas, timeFormat.format(Date(tick)), x, plot.bottom - 7f.dp, 8.5f, Color.WHITE, Paint.Align.CENTER)
+        ticks.forEach { tick ->
+            val x = mapX(tick.timestampEpochMs, start, end, plot)
+            if (x < plot.left || x > plot.right) return@forEach
+            val align = when {
+                tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
+                tick.hoursBack == 0 -> Paint.Align.RIGHT
+                else -> Paint.Align.CENTER
             }
-            tick += interval
+            val labelX = when (align) {
+                Paint.Align.LEFT -> plot.left + 3f.dp
+                Paint.Align.RIGHT -> plot.right - 3f.dp
+                else -> x
+            }
+            drawText(
+                canvas,
+                tick.label,
+                labelX,
+                plot.bottom - 7f.dp,
+                8.5f,
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
+                align,
+            )
         }
     }
 
@@ -623,7 +634,6 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         strokeJoin = Paint.Join.ROUND
     }
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
     private var state: TherapyDisplayState? = null
     private var boundDurationHours: Int? = null
     private var stateSignature: List<Any?>? = null
@@ -663,7 +673,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val cobPlot = RectF(left, top + half + gap, right, bottom)
             val iobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.totalIob })
             val cobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.cobGrams }, sharedZeroRatio = iobRange.zeroRatio)
-            drawSharedGrid(canvas, iobPlot, cobPlot, start, end)
+            drawSharedGrid(canvas, iobPlot, cobPlot, start, end, chartNow)
             drawLane(canvas, iobPlot, points, start, end, iob = true, range = iobRange)
             drawInsulinActivity(canvas, iobPlot, allPoints, points, start, end, iobRange.zeroRatio)
             drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange)
@@ -691,25 +701,38 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         canvas.drawRoundRect(outer, radius, radius, linePaint)
     }
 
-    private fun drawSharedGrid(canvas: Canvas, iob: RectF, cob: RectF, start: Long, end: Long) {
+    private fun drawSharedGrid(canvas: Canvas, iob: RectF, cob: RectF, start: Long, end: Long, now: Long) {
+        val ticks = RelativeGraphTimeAxis.ticks(start, end, now)
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
         linePaint.strokeWidth = 0.7f.dp
         linePaint.pathEffect = DashPathEffect(floatArrayOf(3f.dp, 3f.dp), 0f)
-        val interval = timeGridIntervalMs(viewport.hours)
-        var tick = firstAlignedTick(start, interval)
-        while (tick <= end) {
-            val x = mapX(tick, start, end, iob)
+        ticks.forEach { tick ->
+            val x = mapX(tick.timestampEpochMs, start, end, iob)
             if (x >= iob.left && x <= iob.right) canvas.drawLine(x, iob.top, x, cob.bottom, linePaint)
-            tick += interval
         }
         linePaint.pathEffect = null
-        tick = firstAlignedTick(start, interval)
-        while (tick <= end) {
-            val x = mapX(tick, start, end, cob)
-            if (x >= cob.left + 22f.dp && x <= cob.right - 22f.dp) {
-                drawText(canvas, timeFormat.format(Date(tick)), x, cob.bottom - 7f.dp, 8.5f, Color.WHITE, Paint.Align.CENTER)
+        ticks.forEach { tick ->
+            val x = mapX(tick.timestampEpochMs, start, end, cob)
+            if (x < cob.left || x > cob.right) return@forEach
+            val align = when {
+                tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
+                tick.hoursBack == 0 -> Paint.Align.RIGHT
+                else -> Paint.Align.CENTER
             }
-            tick += interval
+            val labelX = when (align) {
+                Paint.Align.LEFT -> cob.left + 3f.dp
+                Paint.Align.RIGHT -> cob.right - 3f.dp
+                else -> x
+            }
+            drawText(
+                canvas,
+                tick.label,
+                labelX,
+                cob.bottom - 7f.dp,
+                8.5f,
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
+                align,
+            )
         }
     }
 
