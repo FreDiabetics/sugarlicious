@@ -144,7 +144,7 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
                 ),
             )
         }
-        if (error.code == GATT_133_ERROR_CODE || error.code == NO_ADVERTISEMENT_ERROR_CODE) {
+        if (error.code in EXPECTED_WINDOW_ERROR_CODES) {
             val plan = G7ReconnectScheduler.afterExpectedWindowMiss(error.occurredAtEpochMs, state.lastReading?.timestampEpochMs)
             return transition(
                 state.copy(
@@ -196,8 +196,13 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
     private fun transition(next: G7PersistedState): G7PersistedState = next.also { state = it }
 
     private companion object {
-        const val GATT_133_ERROR_CODE = "G7-GATT-133"
-        const val NO_ADVERTISEMENT_ERROR_CODE = "G7-BLE-107"
+        val EXPECTED_WINDOW_ERROR_CODES = setOf(
+            "G7-GATT-133",
+            "G7-GATT-215",
+            "G7-BLE-107",
+            "G7-BLE-111",
+            "G7-BLE-FALLBACK-107",
+        )
     }
 }
 

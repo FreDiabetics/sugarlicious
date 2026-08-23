@@ -164,6 +164,33 @@ class G7FoundationTest {
         assertTrue(manager.state.retryCount <= 10)
     }
 
+    @Test fun `direct and fallback window misses retain cadence from last real reading`() {
+        val lastReading = reading(112.0, now - 60_000L, "last")
+        val expectedReconnect = now + 210_000L
+        val windowErrors = listOf(
+            "G7-GATT-133",
+            "G7-GATT-215",
+            "G7-BLE-107",
+            "G7-BLE-111",
+            "G7-BLE-FALLBACK-107",
+        )
+
+        windowErrors.forEach { code ->
+            val state =
+                G7SessionManager(
+                    G7PersistedState(
+                        collectorEnabled = true,
+                        lastReading = lastReading,
+                        retryCount = 4,
+                    ),
+                ).failure(G7CollectorError(code, true, now, "window miss"))
+
+            assertEquals(expectedReconnect, state.nextReconnectEpochMs, code)
+            assertEquals(0, state.retryCount, code)
+            assertEquals(G7SessionState.RECOVERING, state.sessionState, code)
+        }
+    }
+
     @Test fun `non recoverable collector errors never create an endless retry`() {
         val manager = G7SessionManager(G7PersistedState(collectorEnabled = true, retryCount = 2))
         val state = manager.failure(G7CollectorError("G7-AUTH-211", false, now, "Rebond required"))
