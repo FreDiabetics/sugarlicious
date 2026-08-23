@@ -59,6 +59,13 @@ jobs:
           :watchfaces:robby:assembleRelease
           :watchfaces:simple-digital:assembleRelease
           :watchfaces:steam-punk:assembleRelease
+      - name: Upload G7 Collector visual QA previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: g7-collector-visual-qa
+          path: g7watch/build/reports/g7-visual-qa/*.png
+          if-no-files-found: error
+          retention-days: 14
       - name: Lint Mobile and Wear frontend
         run: ./gradlew :app-mobile:lintDebug :app-wear:lintDebug
       - name: Validate Watch Face Format XML

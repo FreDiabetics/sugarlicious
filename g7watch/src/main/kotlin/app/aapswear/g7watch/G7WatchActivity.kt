@@ -1,13 +1,11 @@
 package app.aapswear.g7watch
 
 import android.Manifest
+import android.app.Activity
 import android.app.AlarmManager
-import android.app.AlertDialog
-import android.app.NotificationManager
-import android.bluetooth.BluetoothManager
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.ColorStateList
+import android.database.ContentObserver
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -16,1035 +14,554 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.PowerManager
 import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import app.aapswear.g7.CgmReading
-import app.aapswear.g7.CgmAlarmSettings
-import app.aapswear.g7.CollectorDiagnosticAttempt
-import app.aapswear.g7.CollectorDiagnosticResult
-import app.aapswear.g7.G7PersistedState
-import app.aapswear.g7.G7ProtocolState
+import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.Trend
-import java.text.DateFormat
-import java.text.SimpleDateFormat
-import java.util.ArrayDeque
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
-import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
 
-class G7WatchActivity : ComponentActivity() {
-    private enum class Screen {
-        MAIN,
-        SYSTEM,
-        SENSOR,
-        APP,
-        ALARMS,
-        READINGS,
-        COMMUNICATION,
-        ATTEMPT,
-        DIAGNOSIS,
-        SETUP,
-    }
-
-    private val workScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val uiHandler = Handler(Looper.getMainLooper())
-    private val navigation = ArrayDeque<Screen>()
-    private var screen = Screen.MAIN
-    private var selectedAttemptId: Long? = null
-    private var readings: List<CgmReading> = emptyList()
-    private var attempts: List<CollectorDiagnosticAttempt> = emptyList()
-    private var loading = false
-    private var resumed = false
+class G7WatchActivity : Activity() {
+    private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var batteryRequestPending = false
-    private var liveStatusView: TextView? = null
-    private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-            render()
-        }
-
-    private val uiTicker =
-        object : Runnable {
-            override fun run() {
-                if (!resumed) return
-                liveStatusView?.text = scanDetail(G7SensorStateStore(this@G7WatchActivity).read())
-                uiHandler.postDelayed(this, UI_TICK_MS)
+    private var showPairingEditor = false
+    private var readingObserverRegistered = false
+    private val readingObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                if (!isFinishing && !isDestroyed) render()
             }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedDispatcher.addCallback(
-            this,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() = navigateBack()
-            },
-        )
-        window.statusBarColor = BACKGROUND
-        window.navigationBarColor = BACKGROUND
         requestMissingPermissions()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        render()
     }
 
     override fun onResume() {
         super.onResume()
-        resumed = true
-        handleBatterySettingsResult()
+        registerReadingObserver()
+        if (batteryRequestPending) {
+            batteryRequestPending = false
+            val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
+            if (unrestricted) {
+                Toast.makeText(this, "Dauerbetrieb ist uneingeschränkt", Toast.LENGTH_SHORT).show()
+                recordBackgroundDiagnostic(
+                    "G7-BG-200",
+                    "Battery optimization exemption granted for G7 Watch Collector",
+                    DiagnosticSeverity.INFO,
+                )
+            } else {
+                Toast.makeText(
+                    this,
+                    "Dauerbetrieb nicht freigegeben – Akkuoptimierung ist weiterhin aktiv",
+                    Toast.LENGTH_LONG,
+                ).show()
+                recordBackgroundDiagnostic(
+                    "G7-BG-403",
+                    "Battery optimization exemption was not granted for G7 Watch Collector",
+                    DiagnosticSeverity.WARNING,
+                )
+            }
+        }
         render()
-        refreshCaches()
-        uiHandler.removeCallbacks(uiTicker)
-        uiHandler.post(uiTicker)
     }
 
     override fun onPause() {
-        resumed = false
-        uiHandler.removeCallbacks(uiTicker)
+        unregisterReadingObserver()
         super.onPause()
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        render()
-        refreshCaches()
+    private fun registerReadingObserver() {
+        if (readingObserverRegistered) return
+        contentResolver.registerContentObserver(
+            G7ReadingProvider.CONTENT_URI,
+            true,
+            readingObserver,
+        )
+        readingObserverRegistered = true
     }
 
-    private fun refreshCaches() {
-        if (loading) return
-        loading = true
-        workScope.launch {
-            val loadedReadings =
-                G7ReadingDatabase(applicationContext).let { database ->
-                    try {
-                        database.query(limit = MAX_HISTORY_ROWS)
-                    } finally {
-                        database.close()
-                    }
-                }
-            val loadedAttempts = G7CollectorDiagnosticStore(applicationContext).snapshot()
-            runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                readings = loadedReadings
-                attempts = loadedAttempts
-                loading = false
-                render()
-            }
-        }
+    private fun unregisterReadingObserver() {
+        if (!readingObserverRegistered) return
+        contentResolver.unregisterContentObserver(readingObserver)
+        readingObserverRegistered = false
     }
 
     private fun render() {
-        liveStatusView = null
+        val appearanceStore = G7AppearanceStore(this)
+        val palette = appearanceStore.load()
+        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        window.statusBarColor = background
+        window.navigationBarColor = background
+
         val state = G7SensorStateStore(this).read()
         val credentials = G7CredentialStore(this).read()
-        val status = deriveG7UserStatus(state, credentials != null)
-        val content = container()
-        when (screen) {
-            Screen.MAIN -> mainScreen(content, state, status)
-            Screen.SYSTEM -> systemScreen(content, state, status)
-            Screen.SENSOR -> sensorScreen(content, state, credentials != null, credentials?.sharedKey != null)
-            Screen.APP -> appScreen(content, state)
-            Screen.ALARMS -> alarmScreen(content, state)
-            Screen.READINGS -> readingsScreen(content)
-            Screen.COMMUNICATION -> communicationScreen(content, state)
-            Screen.ATTEMPT -> attemptScreen(content)
-            Screen.DIAGNOSIS -> diagnosisScreen(content, state, status)
-            Screen.SETUP -> setupScreen(content, state.sensor != null)
-        }
-        setContentView(
-            ScrollView(this).apply {
-                isFillViewport = true
-                setBackgroundColor(BACKGROUND)
-                addView(content)
-            },
-        )
-    }
+        val userStatus = deriveG7UserStatus(state, credentials != null)
+        val reading = state.lastReading
+        val readings = G7ReadingDatabase(this).query(limit = 300)
+        if (state.sensor == null) showPairingEditor = true
 
-    private fun container() =
-        LinearLayout(this).apply {
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(22.dp, 22.dp, 22.dp, 38.dp)
-            setBackgroundColor(BACKGROUND)
+            setPadding(18.dp, 14.dp, 18.dp, 30.dp)
+            setBackgroundColor(background)
         }
 
-    private fun mainScreen(content: LinearLayout, state: G7PersistedState, status: G7UserStatus) {
-        content.addView(
-            ImageView(this).apply {
-                setImageResource(R.drawable.ic_g7_sensor)
-                contentDescription = "G7 Sensor"
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-            },
-            LinearLayout.LayoutParams(76.dp, 76.dp),
-        )
-        content.addView(label("G7 Direct to Watch", 20f, TEXT_PRIMARY, true))
-        content.addView(label("by Sugarlicious", 11f, TEXT_SECONDARY, true).apply { letterSpacing = 0.08f })
+        content.addView(topBar(palette))
+        content.addView(header(palette, userStatus))
+        content.addView(glucoseTile(reading, userStatus, palette), cardParams())
+        content.addView(graphTile(readings, appearanceStore, palette), cardParams(top = 7))
+        content.addView(liveCollectorStatusTile(state, userStatus, palette), cardParams(top = 7))
+        content.addView(systemStatusTile(state, credentials != null, palette), cardParams(top = 7))
 
-        val reading = state.lastReading
-        val tile = g7TilePresentation(reading, G7GraphColorStore(this).read(), System.currentTimeMillis())
-        content.addView(
-            card(tile.background, tile.background).apply {
-                setPadding(16.dp, 20.dp, 16.dp, 18.dp)
-                addView(label(tile.value, 35f, tile.foreground, true))
-                addView(label(tile.meta, 14f, tile.foreground, true))
-                addView(label(tile.age, 11f, tile.foreground))
-            },
-            cardParams(),
-        )
-        content.addView(statusPill(status, displayStatus(state, status)))
-        content.addView(scanCard(state), cardParams())
-        content.addView(
-            card().apply {
-                addView(section("3-STUNDEN-VERLAUF"))
-                addView(
-                    G7GlucoseChart(this@G7WatchActivity).apply {
-                        contentDescription = "G7 Glukoseverlauf der letzten drei Stunden"
-                        update(currentG7SessionReadings(readings, state.sensor))
-                    },
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 132.dp).apply { topMargin = 6.dp },
-                )
-            },
-            cardParams(),
-        )
-        content.addView(navCard("◎", "Systemstatus", "Collector, Sensor, Empfang und Diagnose") { navigate(Screen.SYSTEM) }, cardParams())
-        content.addView(
-            navCard(
-                "⌁",
-                if (state.sensor == null) "Sensor koppeln" else "Sensor neu koppeln",
-                "Geschützten Pairing-Flow öffnen",
-            ) { navigate(Screen.SETUP) },
-            cardParams(),
-        )
-        content.addView(
-            actionButton(if (state.collectorEnabled) "Collector stoppen" else "Collector starten", !state.collectorEnabled) {
-                if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
-                scheduleRefresh()
-            },
-            buttonParams(),
-        )
-        content.addView(label("Nur einen direkten G7-Collector gleichzeitig verwenden.", 9f, TEXT_SECONDARY))
-    }
-
-    private fun systemScreen(content: LinearLayout, state: G7PersistedState, status: G7UserStatus) {
-        header(content, "Systemstatus")
-        val summary = summary()
-        content.addView(
-            rowsCard(
-                "Collector" to if (state.collectorEnabled) "Aktiviert" else "Gestoppt",
-                "FGS" to if (foregroundVisible()) "Aktiv" else "Nicht sichtbar",
-                "Status" to displayStatus(state, status),
-                "Sensor" to (state.sensor?.state?.name ?: "Nicht eingerichtet"),
-                "BLE" to state.connectionState.name,
-                "Letzter Wert" to timestamp(state.lastReading?.timestampEpochMs),
-                "Nächster Versuch" to timestamp(state.nextReconnectEpochMs),
-                "Letzter Scan" to timestamp(state.lastScanAtEpochMs),
-                "Letzter Connect" to timestamp(state.lastSuccessfulConnectionEpochMs),
-                "Verpasste Fenster" to summary.missedExpectedWindows.toString(),
-                "Letzter Fehler" to (state.lastError?.code ?: "Keiner"),
-            ),
-            cardParams(),
-        )
-        content.addView(scanCard(state), cardParams())
-        content.addView(navCard("⌁", "Sensor", "Kopplung, Session und sichere Dokumentation") { navigate(Screen.SENSOR) }, cardParams())
-        content.addView(navCard("⚙", "App-Betrieb", "FGS, Berechtigungen, Akku und Alarme") { navigate(Screen.APP) }, cardParams())
-        content.addView(navCard("▦", "Empfangene Werte", "Verlauf, Lücken und Validierung") { navigate(Screen.READINGS) }, cardParams())
-        content.addView(navCard("⇄", "Kommunikation", "Letzte 50 Collection-Versuche") { navigate(Screen.COMMUNICATION) }, cardParams())
-        content.addView(navCard("⊙", "Diagnose", "Strukturierter Zustand ohne Logcat") { navigate(Screen.DIAGNOSIS) }, cardParams())
-        content.addView(actionButton("↻  Collector neu starten", false) { restartCollector(state) }, buttonParams())
-        content.addView(actionButton("⌕  Jetzt nach Sensor suchen", false) { manualScan(state) }, buttonParams())
-        content.addView(actionButton("⊘  Sensor entkoppeln", false) { confirmUnlink() }, buttonParams())
-    }
-
-    private fun sensorScreen(
-        content: LinearLayout,
-        state: G7PersistedState,
-        credentialsPresent: Boolean,
-        sharedKeyPresent: Boolean,
-    ) {
-        header(content, "Sensor")
-        val sensor = state.sensor
-        val reading = state.lastReading
-        content.addView(
-            card().apply {
-                addView(section("SICHERE SENSOR-DOKUMENTATION"))
-                addRows(
-                    "Sensorcode" to if (credentialsPresent) "Gespeichert / verschlüsselt" else "Nicht gespeichert",
-                    "Shared Key" to if (sharedKeyPresent) "Gespeichert / verschlüsselt" else "Noch nicht vorhanden",
-                    "Sensor-ID" to safeId(sensor?.sensorId ?: reading?.sensorId),
-                    "Session-ID" to safeId(sensor?.sessionId ?: reading?.sessionId),
-                    "BLE-Name" to (sensor?.deviceName ?: "—"),
-                    "BLE-Adresse" to maskBluetoothAddress(sensor?.deviceAddress),
-                    "Sensorstatus" to (sensor?.state?.name ?: "—"),
-                    "Abgeleiteter Start" to timestamp(sensor?.sensorStartEpochMs ?: reading?.sensorStartEpochMs),
-                    "Reguläres Ende" to timestamp(sensor?.sensorEndEpochMs ?: reading?.sensorEndEpochMs),
-                    "Kulanzende" to timestamp(sensor?.graceEndEpochMs ?: reading?.graceEndEpochMs),
-                    "Letzte Sequenz" to (reading?.sequenceNumber?.toString() ?: "—"),
-                    "Quelle" to (reading?.source?.name ?: "—"),
-                )
-                addView(divider())
-                addView(
-                    label(
-                        "Pairing-Code, Authentifizierungsdaten und Schlüssel werden niemals angezeigt. Sie bleiben lokal im Android Keystore.",
-                        9f,
-                        TEXT_SECONDARY,
-                    ).apply { gravity = Gravity.START },
-                )
-            },
-            cardParams(),
-        )
-        content.addView(actionButton(if (sensor == null) "Sensor koppeln" else "Sensor neu koppeln", true) { navigate(Screen.SETUP) }, buttonParams())
-    }
-
-    private fun appScreen(content: LinearLayout, state: G7PersistedState) {
-        header(content, "App-Betrieb")
-        val nearby = nearbyAllowed()
-        val notifications = notificationsAllowed()
-        val battery = isBatteryUnrestricted()
-        val exact = exactAlarmAllowed()
-        content.addView(
-            rowsCard(
-                "Collector aktiviert" to yesNo(state.collectorEnabled),
-                "Foreground Service" to if (foregroundVisible()) "Aktiv" else "Nicht sichtbar",
-                "Geräte in der Nähe" to if (nearby) "Erlaubt" else "Freigeben",
-                "Bluetooth" to if (bluetoothEnabled()) "Ein" else "Aus",
-                "Benachrichtigungen" to if (notifications) "Erlaubt" else "Freigeben",
-                "Akku-Optimierung" to if (battery) "Uneingeschränkt" else "Optimiert",
-                "Präzise Sensor-Abfragen" to if (exact) "Erlaubt" else "Freigeben",
-                "Doze" to if (deviceIdle()) "Aktiv" else "Inaktiv",
-                "Alarmmodus" to if (G7AlertPolicyStore.alarmsEnabled(this)) "Watch Direct aktiv" else "kanonische Mobile-Quelle aktiv",
-            ),
-            cardParams(),
-        )
-        if (!nearby || !notifications) {
-            content.addView(actionButton("Berechtigungen freigeben", false) { requestMissingPermissions() }, buttonParams())
+        if (state.sensor != null || credentials != null || reading != null) {
+            content.addView(sensorDocumentationTile(state.sensor, reading, credentials, palette), cardParams(top = 7))
         }
-        if (!battery) content.addView(actionButton("Dauerbetrieb freigeben", false) { requestBatteryExemption() }, buttonParams())
-        if (!exact) content.addView(actionButton("Präzise Sensor-Abfragen freigeben", false) { requestExactAlarmAccess() }, buttonParams())
-        content.addView(navCard("!", "G7-Alarme", "Grenzwerte, Signalverlust, Ton und Wiederholung") { navigate(Screen.ALARMS) }, cardParams())
-        content.addView(
-            card().apply {
-                addView(
-                    label(
-                        "Begrenzte Sensorfenster, kein Dauerscan und kein permanenter WakeLock. Ein manueller Scan endet spätestens nach 90 Sekunden.",
-                        9f,
-                        TEXT_SECONDARY,
-                    ).apply { gravity = Gravity.START },
-                )
-            },
-            cardParams(),
-        )
-    }
 
-    private fun alarmScreen(content: LinearLayout, state: G7PersistedState) {
-        header(content, "G7-Alarme")
-        val settings = G7AlarmSettingsStore.read(this)
-        content.addView(
-            rowsCard(
-                "Alarmmodus" to if (G7AlertPolicyStore.alarmsEnabled(this)) "Watch Direct aktiv" else "Durch kanonische Mobile-Quelle unterdrückt",
-                "Sehr hoch" to alarmValue(settings.veryHighEnabled, "≥ ${settings.veryHighThreshold.toInt()} mg/dL"),
-                "Hoch" to alarmValue(settings.highEnabled, "≥ ${settings.highThreshold.toInt()} mg/dL"),
-                "Tief" to alarmValue(settings.lowEnabled, "≤ ${settings.lowThreshold.toInt()} mg/dL"),
-                "Sehr tief" to alarmValue(settings.veryLowEnabled, "≤ 40 mg/dL · fest"),
-                "Schnell steigend" to alarmValue(settings.rapidRiseEnabled, "≥ ${decimal(settings.rapidRiseThreshold)} mg/dL/min"),
-                "Schnell fallend" to alarmValue(settings.rapidFallEnabled, "≤ −${decimal(settings.rapidFallThreshold)} mg/dL/min"),
-                "Signalverlust" to alarmValue(settings.signalLossEnabled, "ab 16 Minuten · fest"),
-                "Sensorfehler" to yesNo(settings.sensorErrorEnabled),
-                "Ton" to yesNo(settings.soundEnabled),
-                "Vibration" to yesNo(settings.vibrationEnabled),
-                "Wiederholung" to alarmValue(settings.repeatEnabled, "alle ${settings.repeatIntervalMinutes} Minuten"),
-            ),
-            cardParams(),
-        )
-        content.addView(section("ALARMARTEN"), cardParams())
-        content.addView(toggleAlarmButton("Sehr hoch", settings.veryHighEnabled) { settings.copy(veryHighEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Hoch", settings.highEnabled) { settings.copy(highEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Tief", settings.lowEnabled) { settings.copy(lowEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Sehr tief · 40 mg/dL", settings.veryLowEnabled) { settings.copy(veryLowEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Schnell steigend", settings.rapidRiseEnabled) { settings.copy(rapidRiseEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Schnell fallend", settings.rapidFallEnabled) { settings.copy(rapidFallEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Signalverlust · 16 Minuten", settings.signalLossEnabled) { settings.copy(signalLossEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Sensorfehler", settings.sensorErrorEnabled) { settings.copy(sensorErrorEnabled = it) }, buttonParams())
-
-        content.addView(section("GRENZWERTE"), cardParams())
-        content.addView(actionButton("Sehr hoch · ${settings.veryHighThreshold.toInt()} mg/dL", false) {
-            editAlarmNumber("Sehr-hoch-Grenze", settings.veryHighThreshold, "mg/dL", settings.highThreshold + 1.0, 500.0, false) {
-                updateAlarmSettings(state, settings.copy(veryHighThreshold = it))
-            }
-        }, buttonParams())
-        content.addView(actionButton("Hoch · ${settings.highThreshold.toInt()} mg/dL", false) {
-            editAlarmNumber("Hoch-Grenze", settings.highThreshold, "mg/dL", settings.lowThreshold + 1.0, settings.veryHighThreshold - 1.0, false) {
-                updateAlarmSettings(state, settings.copy(highThreshold = it))
-            }
-        }, buttonParams())
-        content.addView(actionButton("Tief · ${settings.lowThreshold.toInt()} mg/dL", false) {
-            editAlarmNumber("Tief-Grenze", settings.lowThreshold, "mg/dL", 41.0, settings.highThreshold - 1.0, false) {
-                updateAlarmSettings(state, settings.copy(lowThreshold = it))
-            }
-        }, buttonParams())
-        content.addView(actionButton("Anstieg · ${decimal(settings.rapidRiseThreshold)} mg/dL/min", false) {
-            editAlarmNumber("Schneller Anstieg", settings.rapidRiseThreshold, "mg/dL/min", 0.5, 10.0, true) {
-                updateAlarmSettings(state, settings.copy(rapidRiseThreshold = it))
-            }
-        }, buttonParams())
-        content.addView(actionButton("Abfall · ${decimal(settings.rapidFallThreshold)} mg/dL/min", false) {
-            editAlarmNumber("Schneller Abfall", settings.rapidFallThreshold, "mg/dL/min", 0.5, 10.0, true) {
-                updateAlarmSettings(state, settings.copy(rapidFallThreshold = it))
-            }
-        }, buttonParams())
-
-        content.addView(section("AUSGABE"), cardParams())
-        content.addView(toggleAlarmButton("Ton", settings.soundEnabled) { settings.copy(soundEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Vibration", settings.vibrationEnabled) { settings.copy(vibrationEnabled = it) }, buttonParams())
-        content.addView(toggleAlarmButton("Wiederholen", settings.repeatEnabled) { settings.copy(repeatEnabled = it) }, buttonParams())
-        content.addView(actionButton("Wiederholung · ${settings.repeatIntervalMinutes} Minuten", false) {
-            editAlarmNumber("Wiederholungsintervall", settings.repeatIntervalMinutes.toDouble(), "Minuten", 5.0, 120.0, false) {
-                updateAlarmSettings(state, settings.copy(repeatIntervalMinutes = it.toInt()))
-            }
-        }, buttonParams())
         content.addView(
             label(
-                "Im Modus Automatisch werden recoverable Collector-Alarme unterdrückt, solange eine gültige kanonische Mobile-Quelle besteht. Sehr tief bleibt fest bei 40 mg/dL; Signalverlust beginnt fest nach 16 Minuten.",
+                "Nur einen direkten G7-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
                 9f,
-                TEXT_SECONDARY,
-            ).apply { gravity = Gravity.START },
-            cardParams(),
-        )
-    }
-
-    private fun toggleAlarmButton(
-        title: String,
-        enabled: Boolean,
-        transform: (Boolean) -> CgmAlarmSettings,
-    ) = actionButton("$title · ${if (enabled) "Ein" else "Aus"}", enabled) {
-        updateAlarmSettings(G7SensorStateStore(this).read(), transform(!enabled))
-    }
-
-    private fun updateAlarmSettings(state: G7PersistedState, settings: CgmAlarmSettings) {
-        G7AlarmSettingsStore.write(this, settings)
-        G7CgmAlarmCoordinator.onSignalLoss(this, state.lastReading)
-        G7CgmAlarmCoordinator.restore(this)
-        Toast.makeText(this, "Alarmeinstellung gespeichert", Toast.LENGTH_SHORT).show()
-        render()
-    }
-
-    private fun editAlarmNumber(
-        title: String,
-        current: Double,
-        unit: String,
-        minimum: Double,
-        maximum: Double,
-        allowDecimal: Boolean,
-        onSave: (Double) -> Unit,
-    ) {
-        val input = EditText(this).apply {
-            setText(if (allowDecimal) decimal(current) else current.toInt().toString())
-            inputType = InputType.TYPE_CLASS_NUMBER or
-                (if (allowDecimal) InputType.TYPE_NUMBER_FLAG_DECIMAL else 0)
-            setSelectAllOnFocus(true)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage("$unit · erlaubt: ${decimal(minimum)} bis ${decimal(maximum)}")
-            .setView(input)
-            .setNegativeButton("Abbrechen", null)
-            .setPositiveButton("Speichern") { _, _ ->
-                val value = input.text.toString().replace(',', '.').toDoubleOrNull()
-                if (value == null || value !in minimum..maximum) {
-                    Toast.makeText(this, "Ungültiger Wert", Toast.LENGTH_LONG).show()
-                } else {
-                    onSave(value)
-                }
-            }
-            .show()
-    }
-
-    private fun alarmValue(enabled: Boolean, detail: String) = if (enabled) "Ein · $detail" else "Aus"
-
-    private fun decimal(value: Double) = String.format(Locale.GERMANY, "%.1f", value)
-
-    private fun readingsScreen(content: LinearLayout) {
-        header(content, "Empfangene Werte")
-        val ordered = readings.sortedBy(CgmReading::timestampEpochMs)
-        val summary = summary()
-        content.addView(
-            rowsCard(
-                "Gespeicherte Werte" to summary.count.toString(),
-                "Heute" to summary.todayCount.toString(),
-                "Ältester Wert" to timestamp(summary.oldestEpochMs),
-                "Letzter Erfolg" to timestamp(summary.latestEpochMs),
-                "Verpasste Fenster" to summary.missedExpectedWindows.toString(),
-            ),
-            cardParams(),
-        )
-        if (ordered.isEmpty()) {
-            content.addView(label(if (loading) "Historie wird geladen …" else "Noch keine lokalen G7-Werte gespeichert.", 11f, TEXT_SECONDARY), cardParams())
-            return
-        }
-        val visible = ordered.takeLast(MAX_VISIBLE_READINGS)
-        if (visible.size < ordered.size) {
-            content.addView(label("Neueste $MAX_VISIBLE_READINGS von ${ordered.size} gespeicherten Werten.", 9f, TEXT_SECONDARY), cardParams())
-        }
-        visible.forEachIndexed { index, reading ->
-            if (index > 0) addGap(content, visible[index - 1], reading)
-            content.addView(readingCard(reading), cardParams())
-        }
-    }
-
-    private fun addGap(content: LinearLayout, before: CgmReading, after: CgmReading) {
-        if (before.sensorId != after.sensorId || before.sessionId != after.sessionId) return
-        val interval = after.timestampEpochMs - before.timestampEpochMs
-        if (interval <= EXPECTED_INTERVAL_MS + WINDOW_TOLERANCE_MS) return
-        val missed = (interval / EXPECTED_INTERVAL_MS - 1L).coerceAtLeast(1L).toInt()
-        val matching =
-            attempts.filter {
-                it.startedAtEpochMs <= after.timestampEpochMs &&
-                    (it.completedAtEpochMs ?: it.startedAtEpochMs) >= before.timestampEpochMs
-            }.sortedBy(CollectorDiagnosticAttempt::startedAtEpochMs)
-        content.addView(
-            card(Color.rgb(55, 42, 28), WARNING).apply {
-                addView(section("DATENLÜCKE · $missed FENSTER"))
-                addView(label("${time(before.timestampEpochMs)} → ${time(after.timestampEpochMs)}", 11f, TEXT_PRIMARY, true))
-                if (matching.isEmpty()) {
-                    addView(label("Kein gespeicherter Collection-Versuch in diesem Zeitraum.", 9f, TEXT_SECONDARY))
-                } else {
-                    matching.takeLast(5).forEach {
-                        addView(label("#${it.attemptId} ${time(it.startedAtEpochMs)} · ${it.summary}", 9f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-                    }
-                }
+                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+            ).apply {
+                gravity = Gravity.CENTER
+                setPadding(8.dp, 12.dp, 8.dp, 0)
             },
-            cardParams(),
         )
+
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(background)
+            addView(content)
+        })
     }
 
-    private fun readingCard(reading: CgmReading) =
-        card().apply {
-            addView(label("${timestamp(reading.timestampEpochMs)} · ${reading.glucoseMgDl.toInt()} mg/dL", 13f, TEXT_PRIMARY, true).apply { gravity = Gravity.START })
-            addRows(
-                "Empfangen" to timestamp(reading.receivedAtEpochMs),
-                "Trend" to "${trendGlyph(reading.trend)}  ${reading.trend.name}",
-                "Delta" to (reading.deltaMgDl?.let { String.format(Locale.US, "%+.0f mg/dL", it) } ?: "—"),
-                "Sequence" to (reading.sequenceNumber?.toString() ?: "—"),
-                "Sensor" to safeId(reading.sensorId),
-                "Session" to safeId(reading.sessionId),
-                "Source" to reading.source.name,
-                "Validierung" to reading.status.name,
-            )
-        }
-
-    private fun communicationScreen(content: LinearLayout, state: G7PersistedState) {
-        header(content, "Kommunikation")
-        content.addView(scanCard(state), cardParams())
-        if (attempts.isEmpty()) {
-            content.addView(label(if (loading) "Versuche werden geladen …" else "Noch keine Collection-Versuche gespeichert.", 11f, TEXT_SECONDARY), cardParams())
-            return
-        }
-        attempts.take(MAX_ATTEMPTS).forEach { attempt ->
-            val elapsed = (attempt.completedAtEpochMs ?: System.currentTimeMillis()) - attempt.startedAtEpochMs
-            val result = when (attempt.result) {
-                CollectorDiagnosticResult.SUCCESS -> "✓"
-                CollectorDiagnosticResult.RECOVERABLE_ERROR -> "⚠"
-                CollectorDiagnosticResult.FATAL_ERROR -> "✕"
-                CollectorDiagnosticResult.CANCELLED -> "○"
-                else -> "…"
-            }
-            val trigger = if (attempt.restart) "R" else if (attempt.manual) "M" else "A"
-            content.addView(
-                navCard(
-                    trigger,
-                    "#${attempt.attemptId}  ${time(attempt.startedAtEpochMs)}  $result",
-                    "${attempt.summary} · ${duration(elapsed)}",
-                ) {
-                    selectedAttemptId = attempt.attemptId
-                    navigate(Screen.ATTEMPT)
-                },
-                cardParams(),
-            )
-        }
-    }
-
-    private fun attemptScreen(content: LinearLayout) {
-        val attempt = attempts.firstOrNull { it.attemptId == selectedAttemptId }
-        header(content, attempt?.let { "Versuch #${it.attemptId}" } ?: "Versuch")
-        if (attempt == null) {
-            content.addView(label("Dieser Versuch ist nicht mehr im begrenzten Verlauf.", 11f, TEXT_SECONDARY), cardParams())
-            return
-        }
-        content.addView(
-            rowsCard(
-                "Start" to timestamp(attempt.startedAtEpochMs),
-                "Ende" to timestamp(attempt.completedAtEpochMs),
-                "Auslöser" to when {
-                    attempt.restart -> "Collector-Neustart"
-                    attempt.manual -> "Manueller Scan"
-                    else -> "Automatisch"
-                },
-                "Ergebnis" to attempt.result.name,
-                "Dauer" to duration((attempt.completedAtEpochMs ?: System.currentTimeMillis()) - attempt.startedAtEpochMs),
-            ),
-            cardParams(),
-        )
-        attempt.events.sortedBy { it.timestampEpochMs }.forEach { event ->
-            content.addView(
-                card().apply {
-                    addView(label("${timeSeconds(event.timestampEpochMs)}  ${event.stage.name}", 11f, TEXT_PRIMARY, true).apply { gravity = Gravity.START })
-                    addView(label("${event.result.name} · ${sanitizeDiagnosticText(event.message)}", 9f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-                    event.errorCode?.let { addView(row("Fehlercode", it)) }
-                    event.sequence?.let { addView(row("Sequence", it.toString())) }
-                    event.sensorId?.let { addView(row("Sensor", safeId(it))) }
-                    event.durationMs?.let { addView(row("Dauer", duration(it))) }
-                },
-                cardParams(),
-            )
-        }
-    }
-
-    private fun diagnosisScreen(content: LinearLayout, state: G7PersistedState, status: G7UserStatus) {
-        header(content, "Diagnose")
-        content.addView(
-            rowsCard(
-                "Collector-Status" to displayStatus(state, status),
-                "Protocol" to state.protocolState.name,
-                "Session" to state.sessionState.name,
-                "Connection" to state.connectionState.name,
-                "Owner" to state.collectorOwner.name,
-                "Aktiver Versuch" to (state.activeAttemptId?.let { "#$it" } ?: "Keiner"),
-                "Retry" to state.retryCount.toString(),
-                "Scanstart" to timestamp(state.scanStartedAtEpochMs),
-                "Scan-Timeout" to timestamp(state.scanTimeoutAtEpochMs),
-                "Letzter Abschluss" to timestamp(state.lastAttemptCompletedAtEpochMs),
-                "FGS" to if (foregroundVisible()) "Aktiv" else "Nicht sichtbar",
-                "Exact Alarm" to yesNo(exactAlarmAllowed()),
-                "Akku uneingeschränkt" to yesNo(isBatteryUnrestricted()),
-                "Bluetooth" to if (bluetoothEnabled()) "Ein" else "Aus",
-            ),
-            cardParams(),
-        )
-        state.lastError?.let { error ->
-            content.addView(
-                card(Color.rgb(53, 31, 34), ERROR).apply {
-                    addView(section("LETZTER FEHLER"))
-                    addRows(
-                        "Code" to error.code,
-                        "Zeit" to timestamp(error.occurredAtEpochMs),
-                        "Recoverable" to yesNo(error.recoverable),
-                    )
-                    addView(label(sanitizeDiagnosticText(error.safeMessage), 10f, TEXT_PRIMARY).apply { gravity = Gravity.START })
-                },
-                cardParams(),
-            )
-        }
-        content.addView(
-            card().apply {
-                addView(label("Nur strukturierte Diagnoseereignisse. Kein Logcat, keine vollständige Bluetooth-Adresse und keine Auth-Secrets.", 9f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-            },
-            cardParams(),
-        )
-    }
-
-    private fun setupScreen(content: LinearLayout, configured: Boolean) {
-        header(content, if (configured) "Sensor neu koppeln" else "Sensor koppeln")
-        content.addView(
-            card().apply {
-                addView(section(if (configured) "GESCHÜTZTEN PAIRING-FLOW STARTEN" else "SENSOR EINRICHTEN"))
-                addView(label("Vierstelliger Code vom G7-Applikator", 12f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-                val input =
-                    EditText(this@G7WatchActivity).apply {
-                        hint = "0000"
-                        inputType = InputType.TYPE_CLASS_NUMBER
-                        filters = arrayOf(InputFilter.LengthFilter(4))
-                        setTextColor(TEXT_PRIMARY)
-                        setHintTextColor(TEXT_SECONDARY)
-                        textSize = 20f
-                        gravity = Gravity.CENTER
-                        setPadding(14.dp, 9.dp, 14.dp, 9.dp)
-                        background = rounded(FIELD, BORDER, 16f)
-                    }
-                addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 8.dp })
-                addView(
-                    actionButton("Sensorcode verschlüsselt speichern", true) {
-                        val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()
-                        if (payload == null) {
-                            input.error = "4 Ziffern erforderlich"
-                            return@actionButton
-                        }
-                        G7CredentialStore(this@G7WatchActivity).saveSetup(payload)
-                        val sensorId = "G7-${UUID.randomUUID().toString().take(8)}"
-                        val store = G7SensorStateStore(this@G7WatchActivity)
-                        store.save(G7SessionManager(store.read()).prepareInitialSetup(G7Sensor(sensorId, sensorId, "Dexcom G7")))
-                        input.text?.clear()
-                        Toast.makeText(this@G7WatchActivity, "Sensorcode geschützt gespeichert", Toast.LENGTH_SHORT).show()
-                        navigation.clear()
-                        screen = Screen.MAIN
-                        scheduleRefresh()
-                    },
-                    buttonParams(10),
-                )
-                addView(label("Das Speichern erzwingt keinen Sensorwert. Der Sensor wird nur in begrenzten BLE-Fenstern gesucht.", 9f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-            },
-            cardParams(),
-        )
-    }
-
-    private fun scanCard(state: G7PersistedState) =
-        card().apply {
-            addView(section("LIVE COLLECTORSTATUS"))
-            addView(label(phaseTitle(state.protocolState), 14f, TEXT_PRIMARY, true))
-            val detail = label(scanDetail(state), 10f, TEXT_SECONDARY)
-            liveStatusView = detail
-            addView(detail)
-        }
-
-    private fun phaseTitle(protocol: G7ProtocolState): String =
-        when (protocol) {
-            G7ProtocolState.SCANNING -> "Suche nach Sensor …"
-            G7ProtocolState.SENSOR_FOUND -> "Sensor gefunden"
-            G7ProtocolState.CONNECTING, G7ProtocolState.DISCOVERING, G7ProtocolState.DISCOVERING_SERVICES -> "Verbindung wird aufgebaut …"
-            G7ProtocolState.AUTHENTICATION_START, G7ProtocolState.AUTHENTICATING,
-            G7ProtocolState.AUTHENTICATION_ROUND_1, G7ProtocolState.AUTHENTICATION_ROUND_2,
-            G7ProtocolState.AUTHENTICATION_ROUND_3, G7ProtocolState.CHALLENGE,
-            G7ProtocolState.CERTIFICATE_EXCHANGE, G7ProtocolState.KEY_EXCHANGE -> "Authentifizierung …"
-            G7ProtocolState.REQUESTING_GLUCOSE, G7ProtocolState.RECEIVING_GLUCOSE -> "Glukosedaten werden gelesen …"
-            G7ProtocolState.RECOVERING -> "Recovery"
-            G7ProtocolState.ERROR -> "Signalverlust / Fehler"
-            G7ProtocolState.WAITING_FOR_NEXT_READING, G7ProtocolState.IDLE, G7ProtocolState.DISCONNECTED -> "Warte auf nächstes Sensorfenster"
-            else -> "Bereit"
-        }
-
-    private fun scanDetail(state: G7PersistedState, now: Long = System.currentTimeMillis()): String {
-        val started = state.scanStartedAtEpochMs
-        if (state.protocolState == G7ProtocolState.SCANNING && started != null) {
-            return buildString {
-                append(duration((now - started).coerceAtLeast(0L)))
-                append("\nGestartet: ")
-                append(timeSeconds(started))
-                state.scanTimeoutAtEpochMs?.let {
-                    append(" · Timeout: ")
-                    append(timeSeconds(it))
-                }
-            }
-        }
-        return when (state.protocolState) {
-            G7ProtocolState.WAITING_FOR_NEXT_READING, G7ProtocolState.IDLE, G7ProtocolState.DISCONNECTED ->
-                state.nextReconnectEpochMs?.let { "Nächster Versuch: ${timeSeconds(it)}" } ?: "Bereit für das nächste Sensorfenster"
-            G7ProtocolState.SENSOR_FOUND -> "Sensor gefunden – Verbindung wird aufgebaut."
-            G7ProtocolState.CONNECTING, G7ProtocolState.DISCOVERING, G7ProtocolState.DISCOVERING_SERVICES -> "Verbindung wird aufgebaut …"
-            G7ProtocolState.AUTHENTICATION_START, G7ProtocolState.AUTHENTICATING,
-            G7ProtocolState.AUTHENTICATION_ROUND_1, G7ProtocolState.AUTHENTICATION_ROUND_2,
-            G7ProtocolState.AUTHENTICATION_ROUND_3, G7ProtocolState.CHALLENGE,
-            G7ProtocolState.CERTIFICATE_EXCHANGE, G7ProtocolState.KEY_EXCHANGE -> "Authentifizierung …"
-            G7ProtocolState.REQUESTING_GLUCOSE, G7ProtocolState.RECEIVING_GLUCOSE -> "Glukosedaten werden gelesen …"
-            G7ProtocolState.RECOVERING -> "Recovery – nächster begrenzter Versuch wird geplant."
-            G7ProtocolState.ERROR -> state.lastError?.safeMessage?.let(::sanitizeDiagnosticText) ?: "Collectorfehler"
-            else -> state.lastReading?.let { "Wert empfangen · ${it.glucoseMgDl.toInt()} mg/dL" } ?: "Bereit"
-        }
-    }
-
-    private fun displayStatus(state: G7PersistedState, status: G7UserStatus): String =
-        when {
-            !state.collectorEnabled -> "Collector inaktiv"
-            status.level == G7UserStatusLevel.ERROR -> status.title
-            status.title == "Signalverlust" -> "Signalverlust"
-            state.protocolState == G7ProtocolState.RECOVERING -> "Recovery"
-            state.protocolState == G7ProtocolState.SCANNING -> "Suche nach Sensor"
-            state.lastReading != null -> "Verbunden"
-            else -> "Bereit"
-        }
-
-    private fun restartCollector(state: G7PersistedState) {
-        if (!manualActionAllowed(state)) return
-        G7CollectorService.restart(this)
-        Toast.makeText(this, "Collector wird kontrolliert neu gestartet und scannt erneut", Toast.LENGTH_LONG).show()
-        scheduleRefresh()
-    }
-
-    private fun manualScan(state: G7PersistedState) {
-        if (!manualActionAllowed(state)) return
-        G7CollectorService.scanNow(this)
-        Toast.makeText(this, "Begrenzte Sensorsuche gestartet · maximal 90 Sekunden", Toast.LENGTH_LONG).show()
-        scheduleRefresh()
-    }
-
-    private fun manualActionAllowed(state: G7PersistedState): Boolean {
-        val allowed = state.collectorEnabled && state.sensor != null && G7CredentialStore(this).read() != null
-        if (!allowed) Toast.makeText(this, "Zuerst Sensor koppeln und Collector starten", Toast.LENGTH_LONG).show()
-        return allowed
-    }
-
-    private fun confirmUnlink() {
-        AlertDialog.Builder(this)
-            .setTitle("Sensor entkoppeln?")
-            .setMessage("Bond und geschützte Sensor-/Auth-Zuordnung werden entfernt. Verlauf, Graphfarben und Alarmsettings bleiben erhalten.")
-            .setNegativeButton("Abbrechen", null)
-            .setPositiveButton("Entkoppeln") { _, _ ->
-                val result = unlinkG7Sensor(this)
-                val message = when {
-                    result.bondRemovalRequested -> "Sensor und Bond wurden entkoppelt"
-                    result.bondRemovalAttempted -> "Sensorzuordnung entfernt; Bond-Entfernung konnte nicht bestätigt werden"
-                    else -> "Sensorzuordnung entfernt; kein gespeicherter Bond vorhanden"
-                }
-                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
-                navigation.clear()
-                screen = Screen.MAIN
-                scheduleRefresh()
-            }
-            .show()
-    }
-
-    private fun navigate(target: Screen) {
-        navigation.addLast(screen)
-        screen = target
-        render()
-        if (target == Screen.READINGS || target == Screen.COMMUNICATION || target == Screen.SYSTEM) refreshCaches()
-    }
-
-    private fun navigateBack() {
-        if (navigation.isEmpty()) {
-            finish()
-        } else {
-            screen = navigation.removeLast()
-            render()
-        }
-    }
-
-    private fun header(content: LinearLayout, title: String) {
-        content.addView(
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 0, 0, 7.dp)
-                addView(
-                    TextView(this@G7WatchActivity).apply {
-                        text = "‹"
-                        textSize = 24f
-                        gravity = Gravity.CENTER
-                        setTextColor(TEXT_PRIMARY)
-                        background = rounded(SURFACE, BORDER, 20f)
-                        isClickable = true
-                        isFocusable = true
-                        contentDescription = "Zurück"
-                        setOnClickListener { navigateBack() }
-                    },
-                    LinearLayout.LayoutParams(40.dp, 40.dp),
-                )
-                addView(
-                    LinearLayout(this@G7WatchActivity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(9.dp, 0, 0, 0)
-                        addView(
-                            label("G7 DIRECT TO WATCH", 8f, ACCENT, true).apply {
-                                gravity = Gravity.START
-                                letterSpacing = 0.08f
-                            },
-                        )
-                        addView(label(title, 14f, TEXT_PRIMARY, true).apply { gravity = Gravity.START })
-                    },
-                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-                )
-            },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
-        )
-    }
-
-    private fun navCard(icon: String, title: String, subtitle: String, action: () -> Unit) =
-        card().apply {
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { action() }
-            addView(
-                LinearLayout(this@G7WatchActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    addView(label(icon, 21f, ACCENT, true), LinearLayout.LayoutParams(38.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
-                    addView(
-                        LinearLayout(this@G7WatchActivity).apply {
-                            orientation = LinearLayout.VERTICAL
-                            addView(label(title, 13f, TEXT_PRIMARY, true).apply { gravity = Gravity.START })
-                            addView(label(subtitle, 9f, TEXT_SECONDARY).apply { gravity = Gravity.START })
-                        },
-                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-                    )
-                    addView(label("›", 22f, TEXT_SECONDARY, true))
-                },
-            )
-        }
-
-    private fun rowsCard(vararg rows: Pair<String, String>) = card().apply { addRows(*rows) }
-
-    private fun LinearLayout.addRows(vararg rows: Pair<String, String>) {
-        rows.forEach { (title, value) -> addView(row(title, value)) }
-    }
-
-    private fun row(title: String, value: String) =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            addView(label(title, 10f, TEXT_SECONDARY).apply { gravity = Gravity.START }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(
-                label(value, 10f, TEXT_PRIMARY, true).apply {
-                    gravity = Gravity.END
-                    maxLines = 4
-                },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.25f),
-            )
-        }
-
-    private fun statusPill(status: G7UserStatus, title: String): TextView {
-        val color = when (status.level) {
-            G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> ACCENT
-            G7UserStatusLevel.ATTENTION -> WARNING
-            G7UserStatusLevel.ERROR -> ERROR
-            G7UserStatusLevel.OFF -> TEXT_SECONDARY
-        }
-        val marker = if (status.level == G7UserStatusLevel.OFF) "○" else "●"
-        return label("$marker  ${title.uppercase(Locale.GERMANY)}", 11f, color, true).apply {
-            background = rounded(Color.argb(36, Color.red(color), Color.green(color), Color.blue(color)), color, 18f)
-            setPadding(14.dp, 6.dp, 14.dp, 6.dp)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = 8.dp
-                bottomMargin = 4.dp
-            }
-        }
-    }
-
-    private fun card(fill: Int = SURFACE, stroke: Int = BORDER) =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16.dp, 14.dp, 16.dp, 14.dp)
-            background = rounded(fill, stroke, 22f)
-        }
-
-    private fun divider() =
-        View(this).apply {
-            setBackgroundColor(BORDER)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply {
-                setMargins(0, 8.dp, 0, 8.dp)
-            }
-        }
-
-    private fun section(value: String) = label(value, 10f, ACCENT, true).apply {
-        gravity = Gravity.START
-        letterSpacing = 0.11f
-    }
-
-    private fun actionButton(value: String, primary: Boolean, action: () -> Unit) =
-        Button(this).apply {
-            text = value
-            isAllCaps = false
-            textSize = 12f
-            minHeight = 44.dp
-            minimumHeight = 44.dp
-            setPadding(12.dp, 9.dp, 12.dp, 9.dp)
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(if (primary) Color.rgb(9, 25, 15) else TEXT_PRIMARY)
-            backgroundTintList = ColorStateList.valueOf(if (primary) ACCENT else SURFACE_HIGH)
-            setOnClickListener { action() }
-        }
-
-    private fun label(value: String, size: Float, color: Int, bold: Boolean = false) =
-        TextView(this).apply {
-            text = value
-            textSize = size
-            setTextColor(color)
+    private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(TextView(this@G7WatchActivity).apply {
+            text = "←"
+            textSize = 27f
             gravity = Gravity.CENTER
-            setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-            if (bold) setTypeface(typeface, Typeface.BOLD)
+            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+            setOnClickListener { finish() }
+            contentDescription = "Zurück"
+        }, LinearLayout.LayoutParams(48.dp, 48.dp))
+        addView(View(this@G7WatchActivity), LinearLayout.LayoutParams(0, 1, 1f))
+        addView(TextView(this@G7WatchActivity).apply {
+            text = "⚙"
+            textSize = 21f
+            gravity = Gravity.CENTER
+            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+            setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java)) }
+            contentDescription = "Darstellung"
+        }, LinearLayout.LayoutParams(48.dp, 48.dp))
+    }
+
+    private fun header(palette: G7AppearancePalette, status: G7UserStatus) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+        addView(ImageView(this@G7WatchActivity).apply {
+            setImageResource(R.drawable.ic_g7_sensor)
+            contentDescription = "G7 Sensor"
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }, LinearLayout.LayoutParams(70.dp, 70.dp))
+        addView(label("G7 Direct to Watch", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+        addView(label("by Sugarlicious", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply { letterSpacing = 0.08f })
+        addView(statusPill(status, palette))
+    }
+
+    private fun glucoseTile(
+        reading: CgmReading?,
+        userStatus: G7UserStatus,
+        palette: G7AppearancePalette,
+    ): LinearLayout {
+        val now = System.currentTimeMillis()
+        val ageMs = reading?.timestampEpochMs?.let { (now - it).coerceAtLeast(0L) }
+        val statusColor = glucoseStatusColor(reading, userStatus, ageMs, palette)
+        val valueColor = when {
+            reading == null -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+            reading.status != CgmReadingStatus.VALID -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
+            ageMs != null && ageMs >= G7GraphPolicy.STALE_AFTER_MS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
+            ageMs != null && ageMs >= 6L * 60_000L -> palette.argb(G7AppearanceRole.GLUCOSE_DELAYED)
+            reading.glucoseMgDl < 80.0 -> palette.argb(G7AppearanceRole.GLUCOSE_LOW)
+            reading.glucoseMgDl > 160.0 -> palette.argb(G7AppearanceRole.GLUCOSE_HIGH)
+            else -> palette.argb(G7AppearanceRole.GLUCOSE_IN_RANGE)
+        }
+        val tile = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16.dp, 13.dp, 16.dp, 12.dp)
+            background = rounded(withAlpha(statusColor, 32), statusColor, 24f)
+        }
+        tile.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(label(reading?.glucoseMgDl?.toInt()?.toString() ?: "—", 35f, valueColor, true))
+            addView(label(trendGlyph(reading?.trend ?: Trend.UNKNOWN), 31f, palette.argb(G7AppearanceRole.GLUCOSE_TREND), true).apply {
+                setPadding(10.dp, 0, 0, 0)
+            })
+        })
+        val delta = reading?.deltaMgDl?.let { signedDelta(it) } ?: "—"
+        val age = ageMs?.let(::formatReadingAge) ?: "kein Wert"
+        tile.addView(label("Δ $delta · $age", 11f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        return tile
+    }
+
+    private fun graphTile(
+        readings: List<CgmReading>,
+        appearanceStore: G7AppearanceStore,
+        palette: G7AppearancePalette,
+    ): FrameLayout {
+        val hours = appearanceStore.graphHours()
+        return FrameLayout(this).apply {
+            addView(G7CollectorGraphView(this@G7WatchActivity).apply {
+                bind(
+                    readings = readings,
+                    palette = palette,
+                    graphHours = hours,
+                )
+            }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 150.dp))
+
+            addView(
+                pill(
+                    textValue = "${hours}h",
+                    style = PillStyle.SECONDARY,
+                    palette = palette,
+                ) {
+                    appearanceStore.nextGraphHours()
+                    render()
+                },
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp, Gravity.TOP or Gravity.END).apply {
+                    topMargin = 8.dp
+                    marginEnd = 8.dp
+                },
+            )
+        }
+    }
+
+    private fun liveCollectorStatusTile(
+        state: app.aapswear.g7.G7PersistedState,
+        userStatus: G7UserStatus,
+        palette: G7AppearancePalette,
+    ) = card(palette).apply {
+        addView(sectionLabel("LIVE COLLECTORSTATUS", palette))
+        addView(valueRow("Zustand", userStatus.title, palette))
+        addView(valueRow("Phase", userStatus.phase, palette))
+        addView(valueRow("Status", userStatus.status, palette))
+        addView(valueRow("Verbindung", state.connectionState.name, palette))
+        addView(divider(palette))
+        addView(label(userStatus.description, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply { gravity = Gravity.START })
+        if (userStatus.action.isNotBlank()) {
+            addView(label("Was tun: ${userStatus.action}", 9f, if (userStatus.level == G7UserStatusLevel.ERROR) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), userStatus.level == G7UserStatusLevel.ERROR).apply { gravity = Gravity.START })
+        }
+        addView(label("Intern: ${state.protocolState.name} / ${state.sessionState.name}", 8f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { gravity = Gravity.START })
+    }
+
+    private fun systemStatusTile(
+        state: app.aapswear.g7.G7PersistedState,
+        credentialsPresent: Boolean,
+        palette: G7AppearancePalette,
+    ) = card(palette).apply {
+        addView(sectionLabel("SYSTEMSTATUS", palette))
+        val nearbyAllowed =
+            checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        val notificationsAllowed =
+            Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        val batteryUnrestricted = isBatteryUnrestricted()
+        val exactReconnectAllowed = canScheduleExactReconnects()
+
+        addView(valueRow("Geräte in der Nähe", if (nearbyAllowed) "Erlaubt" else "Freigeben", palette))
+        addView(valueRow("Benachrichtigungen", if (notificationsAllowed) "Erlaubt" else "Freigeben", palette))
+        addView(valueRow("Akku-Optimierung", if (batteryUnrestricted) "Uneingeschränkt" else "Optimiert", palette))
+        addView(valueRow("Präzise Sensor-Abfragen", if (exactReconnectAllowed) "Erlaubt" else "Freigeben", palette))
+        addView(valueRow("Sensorcode", if (credentialsPresent) "Gespeichert" else "Fehlt", palette))
+        addView(divider(palette))
+
+        if (!nearbyAllowed || !notificationsAllowed) {
+            addView(pill("Berechtigungen freigeben", PillStyle.SECONDARY, palette) { requestMissingPermissions() }, buttonParams())
+        }
+        if (!batteryUnrestricted) {
+            addView(pill("Dauerbetrieb freigeben", PillStyle.SECONDARY, palette) { requestBatteryExemption() }, buttonParams())
+        }
+        if (!exactReconnectAllowed) {
+            addView(pill("Präzise Sensor-Abfragen freigeben", PillStyle.SECONDARY, palette) { requestExactAlarmAccess() }, buttonParams())
         }
 
-    private fun rounded(fill: Int, stroke: Int, radiusDp: Float) =
-        GradientDrawable().apply {
-            shape = GradientDrawable.RECTANGLE
-            setColor(fill)
-            setStroke(1.dp, stroke)
-            cornerRadius = radiusDp * resources.displayMetrics.density
+        addView(pill(if (state.sensor == null) "Sensor einrichten" else "Sensor neu koppeln", PillStyle.SECONDARY, palette) {
+            showPairingEditor = !showPairingEditor
+            render()
+        }, buttonParams())
+
+        if (showPairingEditor || state.sensor == null) {
+            addView(pairingEditor(palette), buttonParams(top = 7))
         }
 
-    private fun cardParams() =
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            setMargins(0, 8.dp, 0, 0)
+        addView(pill("Farben & Darstellung", PillStyle.SECONDARY, palette) {
+            startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java))
+        }, buttonParams())
+
+        addView(pill(
+            if (state.collectorEnabled) "Collector stoppen" else "Collector starten",
+            if (state.collectorEnabled) PillStyle.DANGER else PillStyle.PRIMARY,
+            palette,
+        ) {
+            if (state.collectorEnabled) G7CollectorService.stop(this@G7WatchActivity) else G7CollectorService.start(this@G7WatchActivity)
+            postDelayed({ render() }, 350L)
+        }, buttonParams())
+
+        addView(label(
+            "Der Collector scannt nur in begrenzten G7-Sensorfenstern. Verpasste einzelne Fenster werden automatisch zum nächsten 5-Minuten-Zyklus wiederholt.",
+            8.5f,
+            palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+        ).apply {
+            gravity = Gravity.START
+            setPadding(2.dp, 9.dp, 2.dp, 0)
+        })
+    }
+
+    private fun pairingEditor(palette: G7AppearancePalette): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(9.dp, 9.dp, 9.dp, 9.dp)
+        background = rounded(palette.argb(G7AppearanceRole.MENU_BACKGROUND), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
+        addView(label("Vierstelliger Code vom G7-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply { gravity = Gravity.START })
+        val codeInput = EditText(this@G7WatchActivity).apply {
+            hint = "0000"
+            inputType = InputType.TYPE_CLASS_NUMBER
+            filters = arrayOf(InputFilter.LengthFilter(4))
+            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+            setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+            textSize = 19f
+            gravity = Gravity.CENTER
+            setPadding(12.dp, 8.dp, 12.dp, 8.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
+        }
+        addView(codeInput, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 7.dp })
+        addView(pill("Sensorcode speichern", PillStyle.PRIMARY, palette) {
+            val code = codeInput.text?.toString().orEmpty()
+            val payload = runCatching { G7SetupPayload(code) }.getOrNull()
+            if (payload == null) {
+                codeInput.error = "4 Ziffern erforderlich"
+                return@pill
+            }
+            G7CredentialStore(this@G7WatchActivity).saveSetup(payload)
+            val sensorId = "G7-${UUID.randomUUID().toString().take(8)}"
+            val sensor = G7Sensor(sensorId, sensorId, "Dexcom G7")
+            G7SensorStateStore(this@G7WatchActivity).save(
+                G7SessionManager(G7SensorStateStore(this@G7WatchActivity).read()).prepareInitialSetup(sensor),
+            )
+            codeInput.text?.clear()
+            showPairingEditor = false
+            postDelayed({ render() }, 350L)
+        }, buttonParams(top = 7))
+    }
+
+    private fun sensorDocumentationTile(
+        sensor: G7Sensor?,
+        reading: CgmReading?,
+        credentials: G7CredentialStore.StoredCredentials?,
+        palette: G7AppearancePalette,
+    ) = card(palette).apply {
+        addView(sectionLabel("SENSOR-DOKUMENTATION", palette))
+        addView(valueRow("Sensorcode", credentials?.pairingCode ?: "—", palette))
+        addView(valueRow("GTIN", credentials?.gtin ?: "—", palette))
+        addView(valueRow("Seriennummer", credentials?.sensorSerial ?: "—", palette))
+        addView(valueRow("Sensor-ID", sensor?.sensorId ?: reading?.sensorId ?: "—", palette))
+        addView(valueRow("Session-ID", sensor?.sessionId ?: reading?.sessionId ?: "—", palette))
+        addView(valueRow("BLE-Name", sensor?.deviceName ?: "—", palette))
+        addView(valueRow("BLE-Adresse", sensor?.deviceAddress ?: "—", palette))
+        addView(valueRow("Sensorstatus", sensor?.state?.name ?: "—", palette))
+        addView(valueRow("Abgeleiteter Start", formatTimestamp(sensor?.sensorStartEpochMs ?: reading?.sensorStartEpochMs), palette))
+        addView(valueRow("Reguläres Ende", formatTimestamp(sensor?.sensorEndEpochMs ?: reading?.sensorEndEpochMs), palette))
+        addView(valueRow("Kulanzende", formatTimestamp(sensor?.graceEndEpochMs ?: reading?.graceEndEpochMs), palette))
+        addView(valueRow("Sequenz", reading?.sequenceNumber?.toString() ?: "—", palette))
+        addView(valueRow("Trendrate", reading?.trendRateMgDlPerMinute?.let { String.format(Locale.US, "%.1f mg/dL/min", it) } ?: "—", palette))
+    }
+
+    private fun statusPill(status: G7UserStatus, palette: G7AppearancePalette): TextView {
+        val color = statusColor(status, palette)
+        val marker = if (status.level == G7UserStatusLevel.OFF) "○" else "●"
+        return label("$marker  ${status.title.uppercase(Locale.GERMANY)}", 10f, color, true).apply {
+            background = rounded(withAlpha(color, 36), color, 999f)
+            setPadding(13.dp, 6.dp, 13.dp, 6.dp)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 7.dp
+                bottomMargin = 3.dp
+            }
+        }
+    }
+
+    private fun statusColor(status: G7UserStatus, palette: G7AppearancePalette): Int = when (status.level) {
+        G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
+        G7UserStatusLevel.ATTENTION -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
+        G7UserStatusLevel.ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
+        G7UserStatusLevel.OFF -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+    }
+
+    private fun glucoseStatusColor(
+        reading: CgmReading?,
+        status: G7UserStatus,
+        ageMs: Long?,
+        palette: G7AppearancePalette,
+    ): Int = when {
+        status.level == G7UserStatusLevel.ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
+        reading == null -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+        reading.status != CgmReadingStatus.VALID -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
+        ageMs != null && ageMs >= G7GraphPolicy.STALE_AFTER_MS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
+        ageMs != null && ageMs >= 6L * 60_000L -> palette.argb(G7AppearanceRole.GLUCOSE_DELAYED)
+        else -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
+    }
+
+    private fun card(palette: G7AppearancePalette) = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(14.dp, 12.dp, 14.dp, 12.dp)
+        background = rounded(
+            palette.argb(G7AppearanceRole.MENU_SURFACE),
+            palette.argb(G7AppearanceRole.MENU_BORDER),
+            22f,
+        )
+    }
+
+    private fun valueRow(title: String, value: String, palette: G7AppearancePalette) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(label(title, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { gravity = Gravity.START }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(label(value, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+            gravity = Gravity.END
+            maxLines = 3
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.25f))
+    }
+
+    private fun divider(palette: G7AppearancePalette) = View(this).apply {
+        setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BORDER))
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply { setMargins(0, 7.dp, 0, 7.dp) }
+    }
+
+    private fun sectionLabel(value: String, palette: G7AppearancePalette) =
+        label(value, 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+            gravity = Gravity.START
+            letterSpacing = 0.10f
         }
 
-    private fun buttonParams(top: Int = 8) =
-        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            setMargins(0, top.dp, 0, 0)
+    private enum class PillStyle { PRIMARY, SECONDARY, DANGER }
+
+    private fun pill(
+        textValue: String,
+        style: PillStyle,
+        palette: G7AppearancePalette,
+        action: () -> Unit,
+    ) = TextView(this).apply {
+        text = textValue
+        textSize = 11f
+        gravity = Gravity.CENTER
+        minHeight = 40.dp
+        setPadding(13.dp, 8.dp, 13.dp, 8.dp)
+        setTypeface(typeface, Typeface.BOLD)
+        val (fill, textColor, stroke) = when (style) {
+            PillStyle.PRIMARY -> Triple(palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BACKGROUND), palette.argb(G7AppearanceRole.MENU_PRIMARY))
+            PillStyle.SECONDARY -> Triple(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER))
+            PillStyle.DANGER -> Triple(withAlpha(palette.argb(G7AppearanceRole.GLUCOSE_ERROR), 36), palette.argb(G7AppearanceRole.GLUCOSE_ERROR), palette.argb(G7AppearanceRole.GLUCOSE_ERROR))
         }
+        setTextColor(textColor)
+        background = rounded(fill, stroke, 999f)
+        setOnClickListener { action() }
+    }
+
+    private fun label(textValue: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+        text = textValue
+        textSize = size
+        setTextColor(color)
+        gravity = Gravity.CENTER
+        setPadding(3.dp, 3.dp, 3.dp, 3.dp)
+        if (bold) setTypeface(typeface, Typeface.BOLD)
+    }
+
+    private fun rounded(fill: Int, stroke: Int, radiusDp: Float) = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        setColor(fill)
+        setStroke(1.dp, stroke)
+        cornerRadius = radiusDp * resources.displayMetrics.density
+    }
+
+    private fun cardParams(top: Int = 8) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        setMargins(0, top.dp, 0, 0)
+    }
+
+    private fun buttonParams(top: Int = 7) = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        setMargins(0, top.dp, 0, 0)
+    }
 
     private fun requestMissingPermissions() {
         val missing = buildList {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_SCAN)
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_CONNECT)
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST)
     }
 
-    private fun nearbyAllowed() =
-        checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == PERMISSION_REQUEST) render()
+    }
 
-    private fun notificationsAllowed() =
-        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    private fun isBatteryUnrestricted(): Boolean = G7BackgroundAccess.isBatteryUnrestricted(this)
 
-    private fun isBatteryUnrestricted() = G7BackgroundAccess.isBatteryUnrestricted(this)
-
-    private fun exactAlarmAllowed() =
-        getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
-
-    private fun foregroundVisible() =
-        runCatching {
-            getSystemService(NotificationManager::class.java).activeNotifications.any { it.id == G7CollectorService.NOTIFICATION_ID }
-        }.getOrDefault(false)
-
-    private fun bluetoothEnabled() =
-        runCatching { getSystemService(BluetoothManager::class.java).adapter?.isEnabled == true }.getOrDefault(false)
-
-    private fun deviceIdle() = getSystemService(PowerManager::class.java).isDeviceIdleMode
+    private fun canScheduleExactReconnects(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    }
 
     private fun requestBatteryExemption() {
-        if (isBatteryUnrestricted()) {
+        if (G7BackgroundAccess.isBatteryUnrestricted(this)) {
             Toast.makeText(this, "Dauerbetrieb ist bereits uneingeschränkt", Toast.LENGTH_SHORT).show()
+            render()
             return
         }
         batteryRequestPending = true
         if (G7BackgroundAccess.openBatterySettings(this)) return
         batteryRequestPending = false
-        Toast.makeText(this, "Akku-Einstellungen konnten nicht geöffnet werden", Toast.LENGTH_LONG).show()
-        recordBackgroundDiagnostic("G7-BG-404", "Battery optimization settings could not be opened for G7 Watch Collector", DiagnosticSeverity.ERROR)
+        Toast.makeText(this, "Akku-Einstellungen konnten auf dieser Watch nicht geöffnet werden", Toast.LENGTH_LONG).show()
+        recordBackgroundDiagnostic(
+            "G7-BG-404",
+            "Battery optimization settings could not be opened for G7 Watch Collector",
+            DiagnosticSeverity.ERROR,
+        )
     }
 
-    private fun handleBatterySettingsResult() {
-        if (!batteryRequestPending) return
-        batteryRequestPending = false
-        val allowed = isBatteryUnrestricted()
-        Toast.makeText(this, if (allowed) "Dauerbetrieb ist uneingeschränkt" else "Akkuoptimierung ist weiterhin aktiv", Toast.LENGTH_LONG).show()
-        recordBackgroundDiagnostic(
-            if (allowed) "G7-BG-200" else "G7-BG-403",
-            if (allowed) "Battery optimization exemption granted for G7 Watch Collector" else "Battery optimization exemption was not granted for G7 Watch Collector",
-            if (allowed) DiagnosticSeverity.INFO else DiagnosticSeverity.WARNING,
-        )
+    private fun recordBackgroundDiagnostic(code: String, message: String, severity: DiagnosticSeverity) {
+        diagnosticScope.launch { applicationContext.recordG7Diagnostic(code, message, severity) }
     }
 
     private fun requestExactAlarmAccess() {
@@ -1056,85 +573,43 @@ class G7WatchActivity : ComponentActivity() {
         }
     }
 
-    private fun recordBackgroundDiagnostic(code: String, message: String, severity: DiagnosticSeverity) {
-        workScope.launch { applicationContext.recordG7Diagnostic(code, message, severity) }
-    }
-
-    private fun scheduleRefresh() {
-        uiHandler.postDelayed(
-            {
-                render()
-                refreshCaches()
-            },
-            ACTION_REFRESH_DELAY_MS,
-        )
-    }
-
-    private fun summary() = summarizeG7Readings(readings, startOfToday())
-
-    private fun startOfToday() =
-        Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-
-    private fun timestamp(value: Long?) =
-        value?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) } ?: "—"
-
-    private fun time(value: Long) = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(value))
-
-    private fun timeSeconds(value: Long) = SimpleDateFormat("HH:mm:ss", Locale.GERMANY).format(Date(value))
-
-    private fun duration(value: Long): String {
-        val seconds = value.coerceAtLeast(0L) / 1_000L
-        return String.format(Locale.GERMANY, "%02d:%02d", seconds / 60L, seconds % 60L)
-    }
-
-    private fun safeId(value: String?) =
-        value?.takeIf(String::isNotBlank)?.let { if (it.length <= 18) it else "${it.take(10)}…${it.takeLast(5)}" } ?: "—"
-
-    private fun yesNo(value: Boolean) = if (value) "Ja" else "Nein"
-
-    private fun trendGlyph(trend: Trend) =
-        when (trend) {
-            Trend.DOUBLE_DOWN -> "⇊"
-            Trend.SINGLE_DOWN -> "↓"
-            Trend.FORTY_FIVE_DOWN -> "↘"
-            Trend.FLAT -> "→"
-            Trend.FORTY_FIVE_UP -> "↗"
-            Trend.SINGLE_UP -> "↑"
-            Trend.DOUBLE_UP -> "⇈"
-            Trend.UNKNOWN -> "·"
-        }
-
     override fun onDestroy() {
-        resumed = false
-        uiHandler.removeCallbacksAndMessages(null)
-        workScope.cancel()
+        unregisterReadingObserver()
+        diagnosticScope.cancel()
         super.onDestroy()
     }
+
+    private fun trendGlyph(trend: Trend): String = when (trend) {
+        Trend.DOUBLE_UP -> "⇈"
+        Trend.SINGLE_UP -> "↑"
+        Trend.FORTY_FIVE_UP -> "↗"
+        Trend.FLAT -> "→"
+        Trend.FORTY_FIVE_DOWN -> "↘"
+        Trend.SINGLE_DOWN -> "↓"
+        Trend.DOUBLE_DOWN -> "⇊"
+        Trend.UNKNOWN -> "·"
+    }
+
+    private fun signedDelta(value: Double): String = String.format(Locale.US, "%+.0f", value)
+
+    private fun formatReadingAge(ageMs: Long): String {
+        val seconds = ageMs / 1_000L
+        return if (seconds < 90L) "$seconds s" else "${seconds / 60L} min"
+    }
+
+    private fun formatTimestamp(timestamp: Long?): String =
+        timestamp?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) } ?: "—"
+
+    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(
+        alpha.coerceIn(0, 255),
+        Color.red(color),
+        Color.green(color),
+        Color.blue(color),
+    )
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     private companion object {
-        const val MAX_HISTORY_ROWS = 2_000
-        const val MAX_VISIBLE_READINGS = 100
-        const val MAX_ATTEMPTS = 50
-        const val EXPECTED_INTERVAL_MS = 5L * 60_000L
-        const val WINDOW_TOLERANCE_MS = 90_000L
-        const val UI_TICK_MS = 1_000L
-        const val ACTION_REFRESH_DELAY_MS = 500L
-        val BACKGROUND = Color.rgb(24, 24, 24)
-        val SURFACE = Color.rgb(36, 36, 36)
-        val SURFACE_HIGH = Color.rgb(48, 48, 48)
-        val FIELD = Color.rgb(30, 30, 30)
-        val BORDER = Color.rgb(64, 64, 64)
-        val TEXT_PRIMARY = Color.rgb(245, 245, 245)
-        val TEXT_SECONDARY = Color.rgb(181, 181, 181)
-        val ACCENT = Color.rgb(109, 232, 146)
-        val WARNING = Color.rgb(255, 193, 7)
-        val ERROR = Color.rgb(255, 92, 105)
+        const val PERMISSION_REQUEST = 7
     }
 }
