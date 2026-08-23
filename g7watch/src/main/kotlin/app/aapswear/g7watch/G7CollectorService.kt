@@ -63,7 +63,10 @@ class G7CollectorService : Service() {
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
-        expireStaleAttemptState()
+        // A newly created Service has no surviving collector coroutine. Any persisted active row
+        // therefore belongs to a killed/replaced process and must be closed before a new cycle may
+        // start, even when it is younger than the normal in-process inactivity deadline.
+        expireStaleAttemptState(maxInactiveAgeOverrideMs = 0L)
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "G7 Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter Dexcom G7 Watch Collector"
@@ -612,10 +615,13 @@ class G7CollectorService : Service() {
         return scheduledState
     }
 
-    private fun expireStaleAttemptState(nowEpochMs: Long = System.currentTimeMillis()) {
+    private fun expireStaleAttemptState(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        maxInactiveAgeOverrideMs: Long? = null,
+    ) {
         val current = store.read()
         val maxInactiveAgeMs =
-            if (current.sensor?.deviceAddress.isNullOrBlank()) {
+            maxInactiveAgeOverrideMs ?: if (current.sensor?.deviceAddress.isNullOrBlank()) {
                 G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + INITIAL_PAIRING_STALE_GRACE_MS
             } else {
                 KNOWN_SENSOR_STALE_ATTEMPT_AGE_MS

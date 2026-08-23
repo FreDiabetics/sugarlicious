@@ -117,6 +117,22 @@ class G7CollectorDiagnosticsTest {
     }
 
     @Test
+    fun `process recreation can immediately close an orphaned active attempt`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(manual = false, restart = false, nowEpochMs = 100_000L)
+        store.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.CONNECT_REQUEST,
+            nowEpochMs = 100_500L,
+            message = "Verbindung läuft",
+        )
+
+        assertEquals(1, store.expireStaleAttempts(nowEpochMs = 101_000L, maxAgeMs = 0L))
+        assertFalse(store.hasActiveAttempt(attempt.attemptId))
+        assertEquals(CollectorCycleClassification.HUNG, store.snapshot().single().classification)
+    }
+
+    @Test
     fun `terminal attempt moves from active persistence into bounded history`() {
         val store = G7CollectorDiagnosticStore(context)
         val attempt = store.begin(manual = false, restart = false, nowEpochMs = 20_000L)
