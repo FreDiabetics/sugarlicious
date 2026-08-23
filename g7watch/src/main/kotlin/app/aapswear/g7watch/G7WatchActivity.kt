@@ -830,13 +830,41 @@ class G7WatchActivity : ComponentActivity() {
 
     private fun header(content: LinearLayout, title: String) {
         content.addView(
-            actionButton("‹  Zurück", false) { navigateBack() },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                gravity = Gravity.START
-                bottomMargin = 8.dp
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 0, 0, 7.dp)
+                addView(
+                    TextView(this@G7WatchActivity).apply {
+                        text = "‹"
+                        textSize = 24f
+                        gravity = Gravity.CENTER
+                        setTextColor(TEXT_PRIMARY)
+                        background = rounded(SURFACE, BORDER, 20f)
+                        isClickable = true
+                        isFocusable = true
+                        contentDescription = "Zurück"
+                        setOnClickListener { navigateBack() }
+                    },
+                    LinearLayout.LayoutParams(40.dp, 40.dp),
+                )
+                addView(
+                    LinearLayout(this@G7WatchActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(9.dp, 0, 0, 0)
+                        addView(
+                            label("G7 DIRECT TO WATCH", 8f, ACCENT, true).apply {
+                                gravity = Gravity.START
+                                letterSpacing = 0.08f
+                            },
+                        )
+                        addView(label(title, 14f, TEXT_PRIMARY, true).apply { gravity = Gravity.START })
+                    },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                )
             },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
         )
-        content.addView(label(title, 20f, TEXT_PRIMARY, true))
     }
 
     private fun navCard(icon: String, title: String, subtitle: String, action: () -> Unit) =
