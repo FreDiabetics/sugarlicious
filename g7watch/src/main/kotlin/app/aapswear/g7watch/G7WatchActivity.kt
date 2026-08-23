@@ -5,12 +5,15 @@ import android.app.Activity
 import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
@@ -45,6 +48,13 @@ class G7WatchActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var batteryRequestPending = false
     private var showPairingEditor = false
+    private var readingObserverRegistered = false
+    private val readingObserver =
+        object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                if (!isFinishing && !isDestroyed) render()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +69,7 @@ class G7WatchActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        registerReadingObserver()
         if (batteryRequestPending) {
             batteryRequestPending = false
             val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
@@ -83,6 +94,27 @@ class G7WatchActivity : Activity() {
             }
         }
         render()
+    }
+
+    override fun onPause() {
+        unregisterReadingObserver()
+        super.onPause()
+    }
+
+    private fun registerReadingObserver() {
+        if (readingObserverRegistered) return
+        contentResolver.registerContentObserver(
+            G7ReadingProvider.CONTENT_URI,
+            true,
+            readingObserver,
+        )
+        readingObserverRegistered = true
+    }
+
+    private fun unregisterReadingObserver() {
+        if (!readingObserverRegistered) return
+        contentResolver.unregisterContentObserver(readingObserver)
+        readingObserverRegistered = false
     }
 
     private fun render() {
@@ -542,6 +574,7 @@ class G7WatchActivity : Activity() {
     }
 
     override fun onDestroy() {
+        unregisterReadingObserver()
         diagnosticScope.cancel()
         super.onDestroy()
     }
