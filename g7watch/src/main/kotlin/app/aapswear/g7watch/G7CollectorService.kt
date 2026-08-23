@@ -63,6 +63,9 @@ class G7CollectorService : Service() {
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
+        if (attemptStore.expireStaleAttempts() > 0) {
+            store.save(store.read().copy(activeAttemptId = null, scanStartedAtEpochMs = null, scanTimeoutAtEpochMs = null))
+        }
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "G7 Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter Dexcom G7 Watch Collector"
@@ -127,15 +130,12 @@ class G7CollectorService : Service() {
         }
 
         if (request == CycleRequest.AUTOMATIC && collectionJob?.isActive == true) {
-            scheduledCycle?.let { cycle ->
-                val attempt = attemptStore.begin(false, false, cycle.copy(cycleEndedAt = serviceStartAt), serviceStartAt)
-                attemptStore.setClassification(attempt.attemptId, CollectorCycleClassification.SERVICE_START_FAILED)
-                attemptStore.record(
-                    attempt.attemptId,
-                    CollectorDiagnosticStage.ERROR,
-                    CollectorDiagnosticResult.RECOVERABLE_ERROR,
-                    "Geplanter Sensorzyklus konnte nicht starten, weil der vorherige Zyklus noch aktiv war; Folgeslot bleibt geplant",
-                    nowEpochMs = serviceStartAt,
+            scope.launch {
+                applicationContext.recordG7Diagnostic(
+                    "G7-CYCLE-COALESCED",
+                    "Duplicate automatic trigger ignored while the canonical collector cycle is active",
+                    DiagnosticSeverity.INFO,
+                    mapOf("expectedReadingEpoch" to scheduledCycle?.expectedReadingEpoch),
                 )
             }
             G7WakeHandoff.release()
@@ -276,6 +276,7 @@ class G7CollectorService : Service() {
                 },
                 onSharedKey = credentials::saveSharedKey,
                 scanTimeoutMsOverride = boundedScanTimeout,
+                reconnectStrategy = G7ReconnectStrategyStore.read(this),
             )
             attemptStore.record(
                 attemptId,

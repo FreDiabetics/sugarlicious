@@ -37,6 +37,12 @@ import kotlin.coroutines.resumeWithException
 internal const val G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS = 30 * 60_000L
 internal const val G7_RECONNECT_SCAN_TIMEOUT_MS = 60_000L
 internal const val G7_GATT_133_ERROR_CODE = "G7-GATT-133"
+internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
+
+internal enum class G7ReconnectStrategy { BOUNDED_SCAN, KNOWN_ADDRESS_DIRECT }
+
+internal fun shouldUseDirectReconnect(strategy: G7ReconnectStrategy, address: String?): Boolean =
+    strategy == G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT && !address.isNullOrBlank()
 
 internal fun g7ScanTimeoutMs(sensor: G7Sensor): Long =
     if (sensor.deviceAddress.isNullOrBlank()) G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS else G7_RECONNECT_SCAN_TIMEOUT_MS
@@ -200,6 +206,7 @@ internal class AndroidG7Collector(
         onState: (G7ProtocolState) -> Unit,
         onSharedKey: (String, ByteArray) -> Unit = { _, _ -> },
         scanTimeoutMsOverride: Long? = null,
+        reconnectStrategy: G7ReconnectStrategy = G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
     ): G7CollectionResult {
         var sensor = initialSensor
         var sharedKey = credentials.sharedKey?.takeIf {
@@ -208,34 +215,31 @@ internal class AndroidG7Collector(
         var bondReconnectAttempts = 0
         var gatt133Retries = 0
         var pendingGatt133: G7BleException? = null
+        var discoveryRequired = !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
+        var fallbackUsed = false
 
         while (true) {
-            onState(G7ProtocolState.SCANNING)
-            val scanTimeout =
-                scanTimeoutMsOverride?.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
-                    ?: g7ScanTimeoutMs(sensor)
-            val discovered =
-                try {
-                    withTimeout(scanTimeout + SCAN_TIMEOUT_GUARD_MS) {
-                        scanner.findKnownSensor(sensor, scanTimeout)
-                    }
+            if (discoveryRequired) {
+                onState(G7ProtocolState.SCANNING)
+                val scanTimeout = when {
+                    scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
+                    fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
+                    else -> g7ScanTimeoutMs(sensor)
+                }
+                val discovered = try {
+                    withTimeout(scanTimeout + SCAN_TIMEOUT_GUARD_MS) { scanner.findKnownSensor(sensor, scanTimeout) }
                 } catch (error: G7BleException) {
-                    if (error.errorCode == "G7-BLE-107") pendingGatt133?.let { throw it }
+                    if (fallbackUsed && error.errorCode == "G7-BLE-107") {
+                        throw G7BleException("G7-BLE-FALLBACK-107", "Direct Reconnect und kurzer Fallback-Scan ohne Sensor", true, error)
+                    }
                     throw error
                 } catch (_: TimeoutCancellationException) {
-                    pendingGatt133?.let { throw it }
-                    throw G7BleException(
-                        "G7-BLE-111",
-                        "Sensorsuche hat ihr begrenztes Zeitfenster überschritten",
-                        true,
-                    )
+                    throw G7BleException("G7-BLE-111", "Sensorsuche hat ihr begrenztes Zeitfenster überschritten", true)
                 }
-            if (discovered == null) {
-                pendingGatt133?.let { throw it }
-                throw G7BleException("G7-BLE-107", "Kein sendender Dexcom-G7-Sensor gefunden", true)
+                sensor = discovered ?: throw G7BleException("G7-BLE-107", "Kein sendender Dexcom-G7-Sensor gefunden", true)
+                onState(G7ProtocolState.SENSOR_FOUND)
+                discoveryRequired = false
             }
-            sensor = discovered
-            onState(G7ProtocolState.SENSOR_FOUND)
             if (sharedKey != null && credentials.sharedKeyAddress != null &&
                 !credentials.sharedKeyAddress.equals(sensor.deviceAddress, ignoreCase = true)
             ) {
@@ -263,16 +267,24 @@ internal class AndroidG7Collector(
                     throw G7BleException("G7-AUTH-207", "Sensor wurde gekoppelt, die erneute Verbindung schlug aber fehl", true, rebond)
                 }
                 pendingGatt133 = null
+                discoveryRequired = false
                 onState(G7ProtocolState.RECOVERING)
                 delay(BOND_RECONNECT_DELAY_MS)
             } catch (error: G7BleException) {
-                if (error.errorCode != G7_GATT_133_ERROR_CODE || gatt133Retries >= MAX_GATT_133_RETRIES_PER_CYCLE) {
-                    throw error
+                if (error.errorCode == G7_GATT_133_ERROR_CODE && gatt133Retries < MAX_GATT_133_RETRIES_PER_CYCLE) {
+                    pendingGatt133 = error
+                    gatt133Retries += 1
+                    discoveryRequired = false
+                    onState(G7ProtocolState.RECOVERING)
+                    delay(GATT_133_STACK_SETTLE_DELAY_MS)
+                } else if (!fallbackUsed && shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress) && error.recoverable) {
+                    pendingGatt133 = error.takeIf { it.errorCode == G7_GATT_133_ERROR_CODE }
+                    fallbackUsed = true
+                    discoveryRequired = true
+                    onState(G7ProtocolState.RECOVERING)
+                } else {
+                    throw pendingGatt133 ?: error
                 }
-                pendingGatt133 = error
-                gatt133Retries += 1
-                onState(G7ProtocolState.RECOVERING)
-                delay(GATT_133_STACK_SETTLE_DELAY_MS)
             } finally {
                 connection.close()
             }
@@ -284,7 +296,7 @@ internal class AndroidG7Collector(
         const val SCAN_TIMEOUT_GUARD_MS = 2_000L
         const val MAX_BOND_RECONNECT_ATTEMPTS = 2
         const val BOND_RECONNECT_DELAY_MS = 1_500L
-        const val MAX_GATT_133_RETRIES_PER_CYCLE = 3
+        const val MAX_GATT_133_RETRIES_PER_CYCLE = 1
         const val GATT_133_STACK_SETTLE_DELAY_MS = 1_500L
     }
 }

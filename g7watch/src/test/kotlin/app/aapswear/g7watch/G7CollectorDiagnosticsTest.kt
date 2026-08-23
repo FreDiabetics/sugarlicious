@@ -38,7 +38,7 @@ class G7CollectorDiagnosticsTest {
 
     @Test
     fun `attempt ids survive recreation and only the latest overnight window remains`() {
-        repeat(197) { index ->
+        repeat(517) { index ->
             val store = G7CollectorDiagnosticStore(context)
             val attempt = store.begin(manual = index % 2 == 0, restart = index % 3 == 0, nowEpochMs = index.toLong())
             store.record(
@@ -51,10 +51,23 @@ class G7CollectorDiagnosticsTest {
         }
 
         val restored = G7CollectorDiagnosticStore(context).snapshot()
-        assertEquals(192, restored.size)
-        assertEquals(197L, restored.first().attemptId)
+        assertEquals(512, restored.size)
+        assertEquals(517L, restored.first().attemptId)
         assertEquals(6L, restored.last().attemptId)
         assertTrue(restored.all { it.completedAtEpochMs != null })
+    }
+
+    @Test
+    fun `stale active attempt is closed as hung and releases active store`() {
+        val store = G7CollectorDiagnosticStore(context)
+        store.begin(manual = false, restart = false, nowEpochMs = 1_000L)
+
+        assertTrue(store.hasActiveAttempt())
+        assertEquals(1, store.expireStaleAttempts(nowEpochMs = 301_000L, maxAgeMs = 240_000L))
+
+        val restored = G7CollectorDiagnosticStore(context).snapshot().single()
+        assertEquals(CollectorCycleClassification.HUNG, restored.classification)
+        assertFalse(G7CollectorDiagnosticStore(context).hasActiveAttempt())
     }
 
     @Test
@@ -184,6 +197,10 @@ class G7CollectorDiagnosticsTest {
         assertEquals(
             CollectorCycleClassification.INVALID_PACKET,
             classifyG7CycleFailure("G7-DATA-301", CollectorCycleTiming()),
+        )
+        assertEquals(
+            CollectorCycleClassification.FALLBACK_SCAN_FAILED,
+            classifyG7CycleFailure("G7-BLE-FALLBACK-107", CollectorCycleTiming()),
         )
     }
 

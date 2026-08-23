@@ -88,4 +88,13 @@ class G7AdvertisementWakePolicyTest {
             ),
         )
     }
+
+    @Test
+    fun `one advertisement wake is accepted per expected slot only while idle`() {
+        val slot = 1_300_000L
+        assertTrue(shouldForwardG7AdvertisementForSlot(true, false, 0, true, slot, null, slot - 20_000L))
+        assertFalse(shouldForwardG7AdvertisementForSlot(true, true, 0, true, slot, null, slot))
+        assertFalse(shouldForwardG7AdvertisementForSlot(true, false, 0, true, slot, slot, slot + 1_000L))
+        assertFalse(shouldForwardG7AdvertisementForSlot(true, false, 0, true, slot, null, slot + G7_ADVERTISEMENT_SLOT_WINDOW_MS + 1L))
+    }
 }

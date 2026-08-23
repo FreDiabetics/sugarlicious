@@ -142,6 +142,10 @@ enum class CollectorCycleClassification {
     INVALID_PACKET,
     STORE_FAILED,
     CANCELLED,
+    DIRECT_CONNECT_FAILED,
+    FALLBACK_SCAN_FAILED,
+    HUNG,
+    COALESCED,
 }
 
 @Serializable

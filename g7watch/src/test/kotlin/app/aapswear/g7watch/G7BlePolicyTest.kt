@@ -24,6 +24,13 @@ class G7BlePolicyTest {
         )
     }
 
+    @Test fun `known address direct reconnect is default fast path`() {
+        assertTrue(shouldUseDirectReconnect(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, "AA:BB:CC:DD:EE:FF"))
+        assertFalse(shouldUseDirectReconnect(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, null))
+        assertFalse(shouldUseDirectReconnect(G7ReconnectStrategy.BOUNDED_SCAN, "AA:BB:CC:DD:EE:FF"))
+        assertEquals(15_000L, G7_FALLBACK_SCAN_TIMEOUT_MS)
+    }
+
     @Test fun `known sensor address rejects a different nearby G7`() {
         assertFalse(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66")!!)
         assertTrue(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff")!!)

@@ -34,6 +34,7 @@ internal object G7AdvertisementWakeScheduler {
     private const val KEY_LAST_CALLBACK_ERROR_AT = "last_callback_error_at"
     private const val KEY_LAST_FORWARDED_AT = "last_forwarded_at"
     private const val KEY_FORWARDED_COUNT = "forwarded_count"
+    private const val KEY_LAST_FORWARDED_SLOT = "last_forwarded_slot"
 
     fun arm(context: Context): Int? {
         val app = context.applicationContext
@@ -105,6 +106,19 @@ internal object G7AdvertisementWakeScheduler {
             .apply()
     }
 
+    fun lastForwardedSlot(context: Context): Long? =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_LAST_FORWARDED_SLOT, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
+
+    fun markForwardedSlot(context: Context, slotEpochMs: Long, nowEpochMs: Long) {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit()
+            .putLong(KEY_LAST_FORWARDED_SLOT, slotEpochMs)
+            .putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
+            .putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
+            .apply()
+    }
+
     fun markCallbackError(context: Context, errorCode: Int, nowEpochMs: Long) {
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -149,7 +163,23 @@ internal fun shouldForwardG7AdvertisementWake(
     return nowEpochMs - previous >= G7_ADVERTISEMENT_WAKE_THROTTLE_MS
 }
 
+internal fun shouldForwardG7AdvertisementForSlot(
+    collectorEnabled: Boolean,
+    hasActiveCycle: Boolean,
+    callbackErrorCode: Int,
+    hasMatchingResult: Boolean,
+    expectedSlotEpochMs: Long?,
+    lastForwardedSlotEpochMs: Long?,
+    nowEpochMs: Long,
+): Boolean {
+    if (!collectorEnabled || hasActiveCycle || callbackErrorCode != 0 || !hasMatchingResult) return false
+    val slot = expectedSlotEpochMs ?: return false
+    if (lastForwardedSlotEpochMs == slot) return false
+    return kotlin.math.abs(nowEpochMs - slot) <= G7_ADVERTISEMENT_SLOT_WINDOW_MS
+}
+
 internal const val G7_ADVERTISEMENT_WAKE_THROTTLE_MS = 45_000L
+internal const val G7_ADVERTISEMENT_SLOT_WINDOW_MS = 90_000L
 
 class G7AdvertisementWakeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -162,6 +192,10 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         }
 
         val now = System.currentTimeMillis()
+        if (G7ReconnectStrategyStore.read(app) != G7ReconnectStrategy.BOUNDED_SCAN) {
+            G7AdvertisementWakeScheduler.disarm(app)
+            return
+        }
         val callbackError = intent.getIntExtra(BluetoothLeScanner.EXTRA_ERROR_CODE, 0)
         if (callbackError != 0) {
             // The AlarmManager watchdog is already staged by the same scheduling operation that
@@ -179,24 +213,27 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         val hasMatchingResult = knownAddress != null && results.any { result ->
             runCatching { result.device.address.equals(knownAddress, ignoreCase = true) }.getOrDefault(false)
         }
-        if (!shouldForwardG7AdvertisementWake(
+        val diagnostics = G7CollectorDiagnosticStore(app)
+        val expectedSlot = diagnostics.pendingScheduledCycle()?.expectedReadingEpoch
+        if (!shouldForwardG7AdvertisementForSlot(
                 collectorEnabled = state.collectorEnabled,
+                hasActiveCycle = diagnostics.hasActiveAttempt() || state.activeAttemptId != null,
                 callbackErrorCode = callbackError,
                 hasMatchingResult = hasMatchingResult,
-                lastForwardedAtEpochMs = G7AdvertisementWakeScheduler.lastForwardedAt(app),
+                expectedSlotEpochMs = expectedSlot,
+                lastForwardedSlotEpochMs = G7AdvertisementWakeScheduler.lastForwardedSlot(app),
                 nowEpochMs = now,
             )
         ) {
             return
         }
 
-        G7AdvertisementWakeScheduler.markForwarded(app, now)
+        G7AdvertisementWakeScheduler.markForwardedSlot(app, requireNotNull(expectedSlot), now)
         G7WakeHandoff.acquire(app)
         runCatching { G7CollectorService.startScheduledReconnect(app) }
             .onFailure { error ->
                 G7WakeHandoff.release()
                 G7ReconnectAlarmScheduler.scheduleRecovery(app, state, now)
-                val diagnostics = G7CollectorDiagnosticStore(app)
                 val attempt = diagnostics.begin(
                     manual = false,
                     restart = false,

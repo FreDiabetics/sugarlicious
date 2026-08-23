@@ -15,10 +15,10 @@ import app.aapswear.g7.G7ReconnectScheduler
 /**
  * Owns the durable recovery wake paths for the Watch collector.
  *
- * The exact/inexact AlarmManager slot is retained as a watchdog. In addition, the already paired
- * sensor is registered as a filtered PendingIntent BLE scan so a real G7 advertisement can wake
- * the collector directly during screen-off/Doze instead of depending on a five-minute alarm
- * cadence. A future watchdog alarm is still staged before risky BLE/GATT work begins, so process
+ * The exact/inexact AlarmManager slot is the primary wake path. The legacy bounded-scan strategy
+ * may additionally register a filtered PendingIntent scan; direct reconnect deliberately disarms
+ * it so the OS does not scan continuously between sensor windows. A future alarm is staged before
+ * risky BLE/GATT work begins, so process
  * death during a cycle cannot strand the collector.
  */
 internal object G7ReconnectAlarmScheduler {
@@ -65,10 +65,11 @@ internal object G7ReconnectAlarmScheduler {
     ): CollectorCycleTiming {
         val app = context.applicationContext
 
-        // Register the exact paired sensor as an OS-managed BLE wake source. This is deliberately
-        // filtered by device address and uses balanced scan mode: no polling loop, no permanent
-        // app WakeLock, and the process only wakes when the known G7 actually advertises.
-        G7AdvertisementWakeScheduler.arm(app)
+        if (G7ReconnectStrategyStore.read(app) == G7ReconnectStrategy.BOUNDED_SCAN) {
+            G7AdvertisementWakeScheduler.arm(app)
+        } else {
+            G7AdvertisementWakeScheduler.disarm(app)
+        }
 
         val triggerAt = maxOf(requestedReconnectEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
         val pending = reconnectPendingIntent(app)

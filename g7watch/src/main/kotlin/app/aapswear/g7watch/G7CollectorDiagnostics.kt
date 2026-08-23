@@ -215,6 +215,39 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         mergedAttempts().sortedByDescending(CollectorDiagnosticAttempt::attemptId)
     }
 
+    fun hasActiveAttempt(): Boolean = synchronized(lock) { loadActive().any { it.completedAtEpochMs == null } }
+
+    fun expireStaleAttempts(
+        nowEpochMs: Long = System.currentTimeMillis(),
+        maxAgeMs: Long = STALE_ATTEMPT_AGE_MS,
+    ): Int = synchronized(lock) {
+        val active = loadActive().toMutableList()
+        val stale = active.filter { it.completedAtEpochMs == null && nowEpochMs - it.startedAtEpochMs >= maxAgeMs }
+        stale.forEach { attempt ->
+            val terminal = attempt.copy(
+                completedAtEpochMs = nowEpochMs,
+                result = CollectorDiagnosticResult.RECOVERABLE_ERROR,
+                summary = "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt",
+                classification = CollectorCycleClassification.HUNG,
+                cycle = attempt.cycle?.copy(cycleEndedAt = nowEpochMs),
+                events = (attempt.events + CollectorDiagnosticEvent(
+                    timestampEpochMs = nowEpochMs,
+                    attemptId = attempt.attemptId,
+                    stage = CollectorDiagnosticStage.ERROR,
+                    result = CollectorDiagnosticResult.RECOVERABLE_ERROR,
+                    message = "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt",
+                    errorCode = "G7-CYCLE-HUNG",
+                    durationMs = nowEpochMs - attempt.startedAtEpochMs,
+                )).takeLast(MAX_EVENTS_PER_ATTEMPT),
+            )
+            appendHistory(listOf(terminal))
+        }
+        if (stale.isNotEmpty()) {
+            saveActive(active.filterNot { candidate -> stale.any { it.attemptId == candidate.attemptId } })
+        }
+        stale.size
+    }
+
     fun attemptsBetween(fromEpochMs: Long, toEpochMs: Long): List<CollectorDiagnosticAttempt> =
         snapshot()
             .filter { attempt ->
@@ -299,11 +332,12 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         const val KEY_PENDING_CYCLE = "pending_cycle_v2"
         // 192 five-minute attempts retain roughly 16 hours, enough to preserve a complete
         // overnight test plus the morning recovery while remaining bounded on Wear OS storage.
-        const val MAX_ATTEMPTS = 192
+        const val MAX_ATTEMPTS = 512
         // Normally only one cycle is active. A small bound also preserves rare overlap/process-death
         // evidence without allowing interrupted attempts to grow unbounded.
         const val MAX_ACTIVE_ATTEMPTS = 8
         const val MAX_EVENTS_PER_ATTEMPT = 40
+        const val STALE_ATTEMPT_AGE_MS = 4L * 60_000L
         val lock = Any()
     }
 }
@@ -312,6 +346,7 @@ internal fun classifyG7CycleFailure(
     errorCode: String?,
     cycle: CollectorCycleTiming?,
 ): CollectorCycleClassification = when {
+    errorCode == "G7-BLE-FALLBACK-107" -> CollectorCycleClassification.FALLBACK_SCAN_FAILED
     errorCode == "G7-BLE-107" -> CollectorCycleClassification.NO_ADVERTISEMENT
     errorCode == "G7-GATT-133" || errorCode?.startsWith("G7-GATT-") == true -> CollectorCycleClassification.GATT_CONNECT_FAILED
     errorCode?.startsWith("G7-AUTH-") == true || errorCode?.startsWith("AUTH") == true -> CollectorCycleClassification.AUTH_FAILED
