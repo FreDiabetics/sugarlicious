@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
@@ -24,6 +25,50 @@ class G7CollectorGraphViewTest {
     private val now = 20_000_000L
     private val highArea = Color.rgb(208, 72, 48)
     private val background = Color.rgb(25, 25, 25)
+
+    @Test
+    fun `current tick and latest reading use identical live edge x`() {
+        val left = 16f
+        val right = 369f
+        val start = now - 3 * 60 * 60_000L
+
+        assertEquals(right, G7GraphLayout.timeX(now, start, now, left, right))
+        assertEquals(right, G7GraphLayout.latestReadingX(right))
+    }
+
+    @Test
+    fun `relative tick positions remain exact for every supported period`() {
+        val left = 16f
+        val right = 369f
+        G7AppearanceStore.ALLOWED_GRAPH_HOURS.forEach { hours ->
+            val start = now - hours * 60 * 60_000L
+            assertEquals(left, G7GraphLayout.timeX(start, start, now, left, right))
+            assertEquals(right, G7GraphLayout.timeX(now, start, now, left, right))
+            assertEquals((left + right) / 2f, G7GraphLayout.timeX(start + (now - start) / 2, start, now, left, right), 0.001f)
+        }
+    }
+
+    @Test
+    fun `high and low label baselines stay inside their zones`() {
+        val metrics = Paint().apply { textSize = 12f }.fontMetrics
+        val highBaseline = G7GraphLayout.centeredTextBaseline(7f, 48f, metrics)
+        val lowBaseline = G7GraphLayout.centeredTextBaseline(103f, 130f, metrics)
+
+        assertTrue(highBaseline in 7f..48f)
+        assertTrue(lowBaseline in 103f..130f)
+    }
+
+    @Test
+    fun `range fill ends at current time marker and leaves label gutter clear`() {
+        val graph = render(
+            readings = listOf(reading("1", 120.0, now)),
+            graphHours = 3,
+            nowEpochMs = now,
+            palette = testPalette(),
+        )
+
+        assertEquals(background, graph.getPixel(380, 75))
+    }
 
     @Test
     fun `second consecutive high reading turns on configured high area`() {

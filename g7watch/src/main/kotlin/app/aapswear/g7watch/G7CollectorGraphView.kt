@@ -3,7 +3,7 @@ package app.aapswear.g7watch
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.DashPathEffect
+import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.Typeface
@@ -14,7 +14,6 @@ import android.view.ViewOutlineProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.RelativeGraphTimeAxis
-import kotlin.math.max
 
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
@@ -83,17 +82,13 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_BACKGROUND)
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fillPaint)
 
-        val plotLeft = 7f.dp
+        val plotLeft = 16f.dp
         val plotRight = width - 31f.dp
         val plotTop = 7f.dp
         val plotBottom = height - 20f.dp
         if (plotRight <= plotLeft || plotBottom <= plotTop) return
 
-        fun x(timestamp: Long): Float =
-            plotLeft +
-                ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L))
-                    .coerceIn(0.0, 1.0)
-                    .toFloat() * (plotRight - plotLeft)
+        fun x(timestamp: Long): Float = G7GraphLayout.timeX(timestamp, start, now, plotLeft, plotRight)
 
         fun y(valueMgDl: Double): Float =
             plotBottom - GlucoseGraphScale.ratio(valueMgDl).toFloat() * (plotBottom - plotTop)
@@ -102,15 +97,15 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         val targetBottom = y(targetLowMgDl)
 
         fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_TARGET_AREA)
-        canvas.drawRect(0f, targetTop, width.toFloat(), targetBottom, fillPaint)
+        canvas.drawRect(plotLeft, targetTop, plotRight, targetBottom, fillPaint)
 
         if (excursion == G7RangeExcursion.HIGH) {
             fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_HIGH_AREA)
-            canvas.drawRect(0f, 0f, width.toFloat(), targetTop, fillPaint)
+            canvas.drawRect(plotLeft, plotTop, plotRight, targetTop, fillPaint)
         }
         if (excursion == G7RangeExcursion.LOW) {
             fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_LOW_AREA)
-            canvas.drawRect(0f, targetBottom, width.toFloat(), height.toFloat(), fillPaint)
+            canvas.drawRect(plotLeft, targetBottom, plotRight, plotBottom, fillPaint)
         }
 
         drawGridAndAxis(canvas, start, now, plotLeft, plotRight, plotTop, plotBottom)
@@ -123,13 +118,29 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         canvas.drawLine(plotLeft, targetBottom, plotRight, targetBottom, linePaint)
 
         textPaint.textAlign = Paint.Align.RIGHT
-        textPaint.color = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE)
-        canvas.drawText(targetHighMgDl.toInt().toString(), width - 5f.dp, targetTop - 2f.dp, textPaint)
-        textPaint.color = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE)
-        canvas.drawText(targetLowMgDl.toInt().toString(), width - 5f.dp, targetBottom - 2f.dp, textPaint)
+        textPaint.color = Color.WHITE
+        textPaint.typeface = Typeface.DEFAULT_BOLD
+        canvas.drawText(
+            targetHighMgDl.toInt().toString(),
+            width - 5f.dp,
+            G7GraphLayout.centeredTextBaseline(plotTop, targetTop, textPaint.fontMetrics),
+            textPaint,
+        )
+        canvas.drawText(
+            targetLowMgDl.toInt().toString(),
+            width - 5f.dp,
+            G7GraphLayout.centeredTextBaseline(targetBottom, plotBottom, textPaint.fontMetrics),
+            textPaint,
+        )
 
+        linePaint.pathEffect = null
+        linePaint.strokeWidth = 1f.dp
+        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_NOW_MARKER)
+        canvas.drawLine(plotRight, plotTop, plotRight, plotBottom, linePaint)
+
+        val latestTimestamp = visible.maxOfOrNull { it.timestampEpochMs }
         visible.forEach { reading ->
-            val px = x(reading.timestampEpochMs)
+            val px = if (reading.timestampEpochMs == latestTimestamp) G7GraphLayout.latestReadingX(plotRight) else x(reading.timestampEpochMs)
             val py = y(reading.glucoseMgDl)
             val outline = 3.1f.dp
             fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE)
@@ -148,11 +159,6 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
             canvas.drawText("Noch keine CGM-Historie", width / 2f, height / 2f, textPaint)
         }
 
-        linePaint.pathEffect = null
-        linePaint.strokeWidth = 1f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_NOW_MARKER)
-        canvas.drawLine(plotRight, plotTop, plotRight, plotBottom, linePaint)
-
         drawContour(canvas)
     }
 
@@ -168,26 +174,16 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         val ticks = RelativeGraphTimeAxis.ticks(start, now, now)
         linePaint.strokeWidth = 0.7f.dp
         linePaint.color = palette.argb(G7AppearanceRole.GRAPH_GRID)
-        linePaint.pathEffect = DashPathEffect(floatArrayOf(2.5f.dp, 3f.dp), 0f)
+        linePaint.pathEffect = null
 
         textPaint.color = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT)
         textPaint.textAlign = Paint.Align.CENTER
         ticks.forEach { tick ->
             val fraction = ((tick.timestampEpochMs - start).toDouble() / (now - start).coerceAtLeast(1L)).coerceIn(0.0, 1.0)
             val px = plotLeft + fraction.toFloat() * (plotRight - plotLeft)
-            if (tick.hoursBack != 0) canvas.drawLine(px, plotTop, px, plotBottom, linePaint)
-            val align = when {
-                tick.hoursBack == graphHours -> Paint.Align.LEFT
-                tick.hoursBack == 0 -> Paint.Align.RIGHT
-                else -> Paint.Align.CENTER
-            }
-            textPaint.textAlign = align
-            val labelX = when (align) {
-                Paint.Align.LEFT -> max(2f.dp, px)
-                Paint.Align.RIGHT -> minOf(width - 4f.dp, px + 27f.dp)
-                else -> px
-            }
-            canvas.drawText(tick.label, labelX, height - 5f.dp, textPaint)
+            canvas.drawLine(px, plotBottom + 2f.dp, px, plotBottom + 6f.dp, linePaint)
+            textPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(tick.label, px, height - 5f.dp, textPaint)
         }
         linePaint.pathEffect = null
     }
@@ -213,4 +209,17 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     private companion object {
         const val TILE_RADIUS_DP = 20f
     }
+}
+
+internal object G7GraphLayout {
+    fun timeX(timestamp: Long, start: Long, now: Long, left: Float, right: Float): Float =
+        left +
+            ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L))
+                .coerceIn(0.0, 1.0)
+                .toFloat() * (right - left)
+
+    fun latestReadingX(right: Float): Float = right
+
+    fun centeredTextBaseline(top: Float, bottom: Float, metrics: Paint.FontMetrics): Float =
+        (top + bottom) / 2f - (metrics.ascent + metrics.descent) / 2f
 }

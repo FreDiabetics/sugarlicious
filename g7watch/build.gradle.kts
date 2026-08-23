@@ -10,8 +10,8 @@ android {
         applicationId = "app.aapswear.g7watch"
         minSdk = 33
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = 3
+        versionName = "0.1.2"
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }

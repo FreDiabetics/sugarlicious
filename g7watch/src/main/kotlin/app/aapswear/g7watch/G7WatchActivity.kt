@@ -46,13 +46,22 @@ import java.util.UUID
 
 class G7WatchActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val appearanceStore by lazy { G7AppearanceStore(this) }
     private var batteryRequestPending = false
     private var showPairingEditor = false
     private var readingObserverRegistered = false
+    private var activePalette: G7AppearancePalette? = null
+    private var screenBuilt = false
+    private lateinit var scrollView: ScrollView
+    private lateinit var statusHost: LinearLayout
+    private lateinit var glucoseHost: LinearLayout
+    private lateinit var systemStatusCard: LinearLayout
+    private lateinit var graphView: G7CollectorGraphView
+    private lateinit var graphPeriodPill: TextView
     private val readingObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                if (!isFinishing && !isDestroyed) render()
+                if (!isFinishing && !isDestroyed) refreshLiveContent()
             }
         }
 
@@ -64,7 +73,7 @@ class G7WatchActivity : Activity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-        render()
+        refreshLiveContent()
     }
 
     override fun onResume() {
@@ -93,7 +102,7 @@ class G7WatchActivity : Activity() {
                 )
             }
         }
-        render()
+        refreshScreen()
     }
 
     override fun onPause() {
@@ -117,9 +126,14 @@ class G7WatchActivity : Activity() {
         readingObserverRegistered = false
     }
 
-    private fun render() {
-        val appearanceStore = G7AppearanceStore(this)
+    private fun refreshScreen() {
         val palette = appearanceStore.load()
+        if (!screenBuilt || palette != activePalette) buildScreen(palette) else refreshLiveContent()
+    }
+
+    private fun buildScreen(palette: G7AppearancePalette) {
+        val previousScrollY = if (screenBuilt) scrollView.scrollY else 0
+        activePalette = palette
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         window.statusBarColor = background
         window.navigationBarColor = background
@@ -127,27 +141,36 @@ class G7WatchActivity : Activity() {
         val state = G7SensorStateStore(this).read()
         val credentials = G7CredentialStore(this).read()
         val userStatus = deriveG7UserStatus(state, credentials != null)
-        val reading = state.lastReading
-        val readings = G7ReadingDatabase(this).query(limit = 300)
         if (state.sensor == null) showPairingEditor = true
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 14.dp, 18.dp, 30.dp)
+            setPadding(18.dp, 5.dp, 18.dp, 30.dp)
             setBackgroundColor(background)
         }
 
-        content.addView(topBar(palette))
         content.addView(header(palette, userStatus))
-        content.addView(glucoseTile(reading, userStatus, palette), cardParams())
-        content.addView(graphTile(readings, appearanceStore, palette), cardParams(top = 7))
-        content.addView(liveCollectorStatusTile(state, userStatus, palette), cardParams(top = 7))
-        content.addView(systemStatusTile(state, credentials != null, palette), cardParams(top = 7))
+        glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(glucoseHost, cardParams(top = 4))
+        content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
+        systemStatusCard = card(palette)
+        content.addView(systemStatusCard, cardParams(top = 7))
 
-        if (state.sensor != null || credentials != null || reading != null) {
-            content.addView(sensorDocumentationTile(state.sensor, reading, credentials, palette), cardParams(top = 7))
-        }
+        content.addView(pill("Einstellungen", PillStyle.SECONDARY, palette) {
+            startActivity(Intent(this, G7AppearanceActivity::class.java))
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = 14.dp
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
+
+        content.addView(label("G7 Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+            setPadding(3.dp, 15.dp, 3.dp, 0)
+        })
+        content.addView(label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+            letterSpacing = 0.08f
+            setPadding(3.dp, 1.dp, 3.dp, 0)
+        })
 
         content.addView(
             label(
@@ -156,37 +179,19 @@ class G7WatchActivity : Activity() {
                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
             ).apply {
                 gravity = Gravity.CENTER
-                setPadding(8.dp, 12.dp, 8.dp, 0)
+                setPadding(8.dp, 10.dp, 8.dp, 0)
             },
         )
 
-        setContentView(ScrollView(this).apply {
+        scrollView = ScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(background)
             addView(content)
-        })
-    }
-
-    private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(TextView(this@G7WatchActivity).apply {
-            text = "←"
-            textSize = 27f
-            gravity = Gravity.CENTER
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-            setOnClickListener { finish() }
-            contentDescription = "Zurück"
-        }, LinearLayout.LayoutParams(48.dp, 48.dp))
-        addView(View(this@G7WatchActivity), LinearLayout.LayoutParams(0, 1, 1f))
-        addView(TextView(this@G7WatchActivity).apply {
-            text = "⚙"
-            textSize = 21f
-            gravity = Gravity.CENTER
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
-            setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java)) }
-            contentDescription = "Darstellung"
-        }, LinearLayout.LayoutParams(48.dp, 48.dp))
+        }
+        setContentView(scrollView)
+        screenBuilt = true
+        refreshLiveContent(preserveScroll = false)
+        if (previousScrollY > 0) scrollView.post { scrollView.scrollTo(0, previousScrollY) }
     }
 
     private fun header(palette: G7AppearancePalette, status: G7UserStatus) = LinearLayout(this).apply {
@@ -196,10 +201,13 @@ class G7WatchActivity : Activity() {
             setImageResource(R.drawable.ic_g7_sensor)
             contentDescription = "G7 Sensor"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
-        }, LinearLayout.LayoutParams(70.dp, 70.dp))
-        addView(label("G7 Direct to Watch", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-        addView(label("by Sugarlicious", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply { letterSpacing = 0.08f })
-        addView(statusPill(status, palette))
+        }, LinearLayout.LayoutParams(58.dp, 58.dp))
+        statusHost = LinearLayout(this@G7WatchActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(statusPill(status, palette))
+        }
+        addView(statusHost)
     }
 
     private fun glucoseTile(
@@ -238,62 +246,113 @@ class G7WatchActivity : Activity() {
         return tile
     }
 
-    private fun graphTile(
-        readings: List<CgmReading>,
-        appearanceStore: G7AppearanceStore,
-        palette: G7AppearancePalette,
-    ): FrameLayout {
+    private fun refreshLiveContent(preserveScroll: Boolean = true) {
+        if (!screenBuilt) {
+            refreshScreen()
+            return
+        }
+        val palette = appearanceStore.load()
+        if (palette != activePalette) {
+            buildScreen(palette)
+            return
+        }
+        preserveScrollPosition(preserveScroll) {
+            val state = G7SensorStateStore(this).read()
+            val credentials = G7CredentialStore(this).read()
+            val userStatus = deriveG7UserStatus(state, credentials != null)
+
+            statusHost.removeAllViews()
+            statusHost.addView(statusPill(userStatus, palette))
+            glucoseHost.removeAllViews()
+            glucoseHost.addView(glucoseTile(state.lastReading, userStatus, palette))
+            updateGraphOnly(preserveScroll = false)
+            populateSystemStatus(systemStatusCard, state, userStatus, credentials, palette)
+        }
+    }
+
+    private fun refreshSystemStatus() {
+        if (!screenBuilt) return
+        val palette = activePalette ?: return
+        preserveScrollPosition(true) {
+            val state = G7SensorStateStore(this).read()
+            val credentials = G7CredentialStore(this).read()
+            populateSystemStatus(systemStatusCard, state, deriveG7UserStatus(state, credentials != null), credentials, palette)
+        }
+    }
+
+    private fun updateGraphOnly(preserveScroll: Boolean = true) {
+        if (!screenBuilt) return
+        val palette = activePalette ?: return
+        preserveScrollPosition(preserveScroll) {
+            val hours = appearanceStore.graphHours()
+            graphPeriodPill.text = "${hours}h"
+            graphView.bind(
+                readings = G7ReadingDatabase(this).query(limit = 300),
+                palette = palette,
+                graphHours = hours,
+            )
+        }
+    }
+
+    private inline fun preserveScrollPosition(enabled: Boolean, update: () -> Unit) {
+        val previousScrollY = if (enabled && screenBuilt) scrollView.scrollY else 0
+        update()
+        if (enabled && screenBuilt) scrollView.post { scrollView.scrollTo(0, previousScrollY) }
+    }
+
+    private fun graphTile(readings: List<CgmReading>, palette: G7AppearancePalette): FrameLayout {
         val hours = appearanceStore.graphHours()
         return FrameLayout(this).apply {
-            addView(G7CollectorGraphView(this@G7WatchActivity).apply {
+            graphView = G7CollectorGraphView(this@G7WatchActivity).apply {
                 bind(
                     readings = readings,
                     palette = palette,
                     graphHours = hours,
                 )
-            }, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 150.dp))
+            }
+            addView(graphView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 150.dp))
 
+            graphPeriodPill = pill(
+                textValue = "${hours}h",
+                style = PillStyle.SECONDARY,
+                palette = palette,
+            ) {
+                appearanceStore.nextGraphHours()
+                updateGraphOnly()
+            }
             addView(
-                pill(
-                    textValue = "${hours}h",
-                    style = PillStyle.SECONDARY,
-                    palette = palette,
-                ) {
-                    appearanceStore.nextGraphHours()
-                    render()
-                },
-                FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp, Gravity.TOP or Gravity.END).apply {
+                graphPeriodPill,
+                FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp, Gravity.TOP or Gravity.START).apply {
                     topMargin = 8.dp
-                    marginEnd = 8.dp
+                    marginStart = 8.dp
                 },
             )
         }
     }
 
-    private fun liveCollectorStatusTile(
+    private fun populateSystemStatus(
+        target: LinearLayout,
         state: app.aapswear.g7.G7PersistedState,
         userStatus: G7UserStatus,
+        credentials: G7CredentialStore.StoredCredentials?,
         palette: G7AppearancePalette,
-    ) = card(palette).apply {
-        addView(sectionLabel("LIVE COLLECTORSTATUS", palette))
+    ) = target.apply {
+        removeAllViews()
+        addView(sectionLabel("SYSTEMSTATUS", palette))
+        addView(sectionLabel("STATUSINFORMATIONEN", palette).apply { setPadding(3.dp, 9.dp, 3.dp, 3.dp) })
         addView(valueRow("Zustand", userStatus.title, palette))
         addView(valueRow("Phase", userStatus.phase, palette))
         addView(valueRow("Status", userStatus.status, palette))
         addView(valueRow("Verbindung", state.connectionState.name, palette))
-        addView(divider(palette))
-        addView(label(userStatus.description, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply { gravity = Gravity.START })
+        addView(label(userStatus.description, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply {
+            gravity = Gravity.START
+            setPadding(3.dp, 6.dp, 3.dp, 3.dp)
+        })
         if (userStatus.action.isNotBlank()) {
             addView(label("Was tun: ${userStatus.action}", 9f, if (userStatus.level == G7UserStatusLevel.ERROR) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), userStatus.level == G7UserStatusLevel.ERROR).apply { gravity = Gravity.START })
         }
-        addView(label("Intern: ${state.protocolState.name} / ${state.sessionState.name}", 8f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { gravity = Gravity.START })
-    }
-
-    private fun systemStatusTile(
-        state: app.aapswear.g7.G7PersistedState,
-        credentialsPresent: Boolean,
-        palette: G7AppearancePalette,
-    ) = card(palette).apply {
-        addView(sectionLabel("SYSTEMSTATUS", palette))
+        addView(divider(palette))
+        addView(sectionLabel("TECHNISCHE DETAILS", palette))
         val nearbyAllowed =
             checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
                 checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
@@ -306,8 +365,11 @@ class G7WatchActivity : Activity() {
         addView(valueRow("Benachrichtigungen", if (notificationsAllowed) "Erlaubt" else "Freigeben", palette))
         addView(valueRow("Akku-Optimierung", if (batteryUnrestricted) "Uneingeschränkt" else "Optimiert", palette))
         addView(valueRow("Präzise Sensor-Abfragen", if (exactReconnectAllowed) "Erlaubt" else "Freigeben", palette))
-        addView(valueRow("Sensorcode", if (credentialsPresent) "Gespeichert" else "Fehlt", palette))
+        addView(valueRow("Sensorcode", if (credentials != null) "Gespeichert" else "Fehlt", palette))
+        addView(valueRow("Intern", "${state.protocolState.name} / ${state.sessionState.name}", palette))
+        addSensorDocumentation(this, state.sensor, state.lastReading, credentials, palette)
         addView(divider(palette))
+        addView(sectionLabel("AKTIONEN", palette))
 
         if (!nearbyAllowed || !notificationsAllowed) {
             addView(pill("Berechtigungen freigeben", PillStyle.SECONDARY, palette) { requestMissingPermissions() }, buttonParams())
@@ -321,16 +383,12 @@ class G7WatchActivity : Activity() {
 
         addView(pill(if (state.sensor == null) "Sensor einrichten" else "Sensor neu koppeln", PillStyle.SECONDARY, palette) {
             showPairingEditor = !showPairingEditor
-            render()
+            refreshSystemStatus()
         }, buttonParams())
 
         if (showPairingEditor || state.sensor == null) {
             addView(pairingEditor(palette), buttonParams(top = 7))
         }
-
-        addView(pill("Farben & Darstellung", PillStyle.SECONDARY, palette) {
-            startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java))
-        }, buttonParams())
 
         addView(pill(
             if (state.collectorEnabled) "Collector stoppen" else "Collector starten",
@@ -338,7 +396,7 @@ class G7WatchActivity : Activity() {
             palette,
         ) {
             if (state.collectorEnabled) G7CollectorService.stop(this@G7WatchActivity) else G7CollectorService.start(this@G7WatchActivity)
-            postDelayed({ render() }, 350L)
+            postDelayed({ refreshLiveContent() }, 350L)
         }, buttonParams())
 
         addView(label(
@@ -383,17 +441,19 @@ class G7WatchActivity : Activity() {
             )
             codeInput.text?.clear()
             showPairingEditor = false
-            postDelayed({ render() }, 350L)
+            postDelayed({ refreshLiveContent() }, 350L)
         }, buttonParams(top = 7))
     }
 
-    private fun sensorDocumentationTile(
+    private fun addSensorDocumentation(
+        target: LinearLayout,
         sensor: G7Sensor?,
         reading: CgmReading?,
         credentials: G7CredentialStore.StoredCredentials?,
         palette: G7AppearancePalette,
-    ) = card(palette).apply {
-        addView(sectionLabel("SENSOR-DOKUMENTATION", palette))
+    ) = target.apply {
+        if (sensor == null && reading == null && credentials == null) return@apply
+        addView(sectionLabel("SENSOR-DOKUMENTATION", palette).apply { setPadding(3.dp, 8.dp, 3.dp, 3.dp) })
         addView(valueRow("Sensorcode", credentials?.pairingCode ?: "—", palette))
         addView(valueRow("GTIN", credentials?.gtin ?: "—", palette))
         addView(valueRow("Seriennummer", credentials?.sensorSerial ?: "—", palette))
@@ -533,7 +593,7 @@ class G7WatchActivity : Activity() {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST) render()
+        if (requestCode == PERMISSION_REQUEST) refreshLiveContent()
     }
 
     private fun isBatteryUnrestricted(): Boolean = G7BackgroundAccess.isBatteryUnrestricted(this)
@@ -546,7 +606,7 @@ class G7WatchActivity : Activity() {
     private fun requestBatteryExemption() {
         if (G7BackgroundAccess.isBatteryUnrestricted(this)) {
             Toast.makeText(this, "Dauerbetrieb ist bereits uneingeschränkt", Toast.LENGTH_SHORT).show()
-            render()
+            refreshLiveContent()
             return
         }
         batteryRequestPending = true
