@@ -14,10 +14,21 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
 internal class G7CollectorDiagnosticStore(context: Context) {
-    private val preferences =
+    private val controlPreferences =
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val historyPreferences =
+        context.applicationContext.getSharedPreferences(HISTORY_PREFERENCES, Context.MODE_PRIVATE)
+    private val activePreferences =
+        context.applicationContext.getSharedPreferences(ACTIVE_PREFERENCES, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val serializer = ListSerializer(CollectorDiagnosticAttempt.serializer())
+
+    init {
+        synchronized(lock) {
+            migrateLegacyHistory()
+            compactCompletedActiveAttempts()
+        }
+    }
 
     fun begin(
         manual: Boolean,
@@ -25,7 +36,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         cycle: CollectorCycleTiming? = null,
         nowEpochMs: Long = System.currentTimeMillis(),
     ): CollectorDiagnosticAttempt = synchronized(lock) {
-        val attemptId = preferences.getLong(KEY_COUNTER, 0L) + 1L
+        val attemptId = controlPreferences.getLong(KEY_COUNTER, 0L) + 1L
         val initialEvents = buildList {
             add(
                 CollectorDiagnosticEvent(
@@ -87,7 +98,11 @@ internal class G7CollectorDiagnosticStore(context: Context) {
                 events = initialEvents,
                 cycle = cycle,
             )
-        save((load() + attempt).takeLast(MAX_ATTEMPTS), attemptId)
+        val active = loadActive() + attempt
+        val overflow = active.dropLast(MAX_ACTIVE_ATTEMPTS)
+        if (overflow.isNotEmpty()) appendHistory(overflow)
+        saveActive(active.takeLast(MAX_ACTIVE_ATTEMPTS))
+        controlPreferences.edit().putLong(KEY_COUNTER, attemptId).apply()
         attempt
     }
 
@@ -102,7 +117,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         durationMs: Long? = null,
         nowEpochMs: Long = System.currentTimeMillis(),
     ) = synchronized(lock) {
-        val attempts = load().toMutableList()
+        val attempts = loadActive().toMutableList()
         val index = attempts.indexOfFirst { it.attemptId == attemptId }
         if (index < 0) return@synchronized
         val current = attempts[index]
@@ -119,7 +134,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
                 durationMs = durationMs,
             )
         val terminal = stage == CollectorDiagnosticStage.COMPLETE || stage == CollectorDiagnosticStage.ERROR
-        attempts[index] =
+        val updated =
             current.copy(
                 completedAtEpochMs = if (terminal) nowEpochMs else current.completedAtEpochMs,
                 result = if (terminal) result else current.result,
@@ -127,35 +142,49 @@ internal class G7CollectorDiagnosticStore(context: Context) {
                 events = (current.events + event).takeLast(MAX_EVENTS_PER_ATTEMPT),
                 cycle = if (terminal) current.cycle?.copy(cycleEndedAt = nowEpochMs) else current.cycle,
             )
-        save(attempts.takeLast(MAX_ATTEMPTS), preferences.getLong(KEY_COUNTER, attemptId))
+        attempts[index] = updated
+
+        if (terminal) {
+            // Persist the terminal active row first. If Android kills the process between writes,
+            // construction on the next process compacts that completed row into history instead of
+            // losing the attempt. Only this terminal transition rewrites the large history file.
+            saveActive(attempts)
+            appendHistory(listOf(updated))
+            attempts.removeAt(index)
+            saveActive(attempts)
+        } else {
+            // High-frequency scan/GATT events only rewrite this tiny active-attempt file. The
+            // 16-hour completed history is deliberately not serialized on every BLE callback.
+            saveActive(attempts)
+        }
     }
 
     fun updateCycle(
         attemptId: Long,
         transform: (CollectorCycleTiming) -> CollectorCycleTiming,
     ) = synchronized(lock) {
-        val attempts = load().toMutableList()
+        val attempts = loadActive().toMutableList()
         val index = attempts.indexOfFirst { it.attemptId == attemptId }
         if (index < 0) return@synchronized
         val current = attempts[index]
         attempts[index] = current.copy(cycle = transform(current.cycle ?: CollectorCycleTiming()))
-        save(attempts.takeLast(MAX_ATTEMPTS), preferences.getLong(KEY_COUNTER, attemptId))
+        saveActive(attempts)
     }
 
     fun setClassification(
         attemptId: Long,
         classification: CollectorCycleClassification,
     ) = synchronized(lock) {
-        val attempts = load().toMutableList()
+        val attempts = loadActive().toMutableList()
         val index = attempts.indexOfFirst { it.attemptId == attemptId }
         if (index < 0) return@synchronized
         attempts[index] = attempts[index].copy(classification = classification)
-        save(attempts.takeLast(MAX_ATTEMPTS), preferences.getLong(KEY_COUNTER, attemptId))
+        saveActive(attempts)
     }
 
     /** Persisted before AlarmManager scheduling so process death cannot erase the expected slot. */
     fun stageScheduledCycle(cycle: CollectorCycleTiming) = synchronized(lock) {
-        preferences.edit()
+        controlPreferences.edit()
             .putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), cycle))
             .apply()
     }
@@ -167,7 +196,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
             alarmTriggeredAt = nowEpochMs,
             receiverReceivedAt = nowEpochMs,
         )
-        preferences.edit()
+        controlPreferences.edit()
             .putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), updated))
             .apply()
         updated
@@ -176,14 +205,14 @@ internal class G7CollectorDiagnosticStore(context: Context) {
     /** Transfers one scheduled slot into the service attempt and clears only the pending envelope. */
     fun consumeScheduledCycle(serviceStartEpochMs: Long): CollectorCycleTiming? = synchronized(lock) {
         val pending = loadPendingCycle() ?: return@synchronized null
-        preferences.edit().remove(KEY_PENDING_CYCLE).apply()
+        controlPreferences.edit().remove(KEY_PENDING_CYCLE).apply()
         pending.copy(serviceOnStartCommandAt = serviceStartEpochMs)
     }
 
     fun pendingScheduledCycle(): CollectorCycleTiming? = synchronized(lock) { loadPendingCycle() }
 
     fun snapshot(): List<CollectorDiagnosticAttempt> = synchronized(lock) {
-        load().sortedByDescending(CollectorDiagnosticAttempt::attemptId)
+        mergedAttempts().sortedByDescending(CollectorDiagnosticAttempt::attemptId)
     }
 
     fun attemptsBetween(fromEpochMs: Long, toEpochMs: Long): List<CollectorDiagnosticAttempt> =
@@ -194,30 +223,86 @@ internal class G7CollectorDiagnosticStore(context: Context) {
             }
             .sortedBy(CollectorDiagnosticAttempt::startedAtEpochMs)
 
-    private fun load(): List<CollectorDiagnosticAttempt> =
-        preferences.getString(KEY_ATTEMPTS, null)
+    private fun loadHistory(): List<CollectorDiagnosticAttempt> =
+        historyPreferences.getString(KEY_HISTORY, null)
             ?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
             .orEmpty()
 
-    private fun loadPendingCycle(): CollectorCycleTiming? =
-        preferences.getString(KEY_PENDING_CYCLE, null)
-            ?.let { runCatching { json.decodeFromString(CollectorCycleTiming.serializer(), it) }.getOrNull() }
+    private fun loadActive(): List<CollectorDiagnosticAttempt> =
+        activePreferences.getString(KEY_ACTIVE, null)
+            ?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
+            .orEmpty()
 
-    private fun save(attempts: List<CollectorDiagnosticAttempt>, counter: Long) {
-        preferences.edit()
-            .putLong(KEY_COUNTER, counter)
-            .putString(KEY_ATTEMPTS, json.encodeToString(serializer, attempts))
+    private fun saveHistory(attempts: List<CollectorDiagnosticAttempt>) {
+        historyPreferences.edit()
+            .putString(KEY_HISTORY, json.encodeToString(serializer, attempts.takeLast(MAX_ATTEMPTS)))
             .apply()
     }
 
+    private fun saveActive(attempts: List<CollectorDiagnosticAttempt>) {
+        val editor = activePreferences.edit()
+        if (attempts.isEmpty()) {
+            editor.remove(KEY_ACTIVE)
+        } else {
+            editor.putString(KEY_ACTIVE, json.encodeToString(serializer, attempts.takeLast(MAX_ACTIVE_ATTEMPTS)))
+        }
+        editor.apply()
+    }
+
+    private fun appendHistory(attempts: List<CollectorDiagnosticAttempt>) {
+        if (attempts.isEmpty()) return
+        val merged =
+            (loadHistory() + attempts)
+                .associateBy(CollectorDiagnosticAttempt::attemptId)
+                .values
+                .sortedBy(CollectorDiagnosticAttempt::attemptId)
+                .takeLast(MAX_ATTEMPTS)
+        saveHistory(merged)
+    }
+
+    private fun mergedAttempts(): List<CollectorDiagnosticAttempt> =
+        (loadHistory() + loadActive())
+            .associateBy(CollectorDiagnosticAttempt::attemptId)
+            .values
+            .sortedBy(CollectorDiagnosticAttempt::attemptId)
+            .takeLast(MAX_ATTEMPTS)
+
+    private fun migrateLegacyHistory() {
+        val legacy = controlPreferences.getString(KEY_LEGACY_ATTEMPTS, null) ?: return
+        val decoded = runCatching { json.decodeFromString(serializer, legacy) }.getOrNull()
+        if (decoded != null) appendHistory(decoded)
+        controlPreferences.edit().remove(KEY_LEGACY_ATTEMPTS).apply()
+    }
+
+    private fun compactCompletedActiveAttempts() {
+        val active = loadActive()
+        if (active.isEmpty()) return
+        val (completed, running) = active.partition { it.completedAtEpochMs != null }
+        if (completed.isNotEmpty()) appendHistory(completed)
+        if (completed.isNotEmpty() || running.size > MAX_ACTIVE_ATTEMPTS) {
+            saveActive(running.takeLast(MAX_ACTIVE_ATTEMPTS))
+        }
+    }
+
+    private fun loadPendingCycle(): CollectorCycleTiming? =
+        controlPreferences.getString(KEY_PENDING_CYCLE, null)
+            ?.let { runCatching { json.decodeFromString(CollectorCycleTiming.serializer(), it) }.getOrNull() }
+
     private companion object {
         const val PREFERENCES = "g7_collector_attempts"
+        const val HISTORY_PREFERENCES = "g7_collector_attempt_history"
+        const val ACTIVE_PREFERENCES = "g7_collector_attempt_active"
         const val KEY_COUNTER = "attempt_counter"
-        const val KEY_ATTEMPTS = "attempts_v1"
+        const val KEY_LEGACY_ATTEMPTS = "attempts_v1"
+        const val KEY_HISTORY = "attempts_v2"
+        const val KEY_ACTIVE = "active_attempts_v1"
         const val KEY_PENDING_CYCLE = "pending_cycle_v2"
         // 192 five-minute attempts retain roughly 16 hours, enough to preserve a complete
         // overnight test plus the morning recovery while remaining bounded on Wear OS storage.
         const val MAX_ATTEMPTS = 192
+        // Normally only one cycle is active. A small bound also preserves rare overlap/process-death
+        // evidence without allowing interrupted attempts to grow unbounded.
+        const val MAX_ACTIVE_ATTEMPTS = 8
         const val MAX_EVENTS_PER_ATTEMPT = 40
         val lock = Any()
     }
