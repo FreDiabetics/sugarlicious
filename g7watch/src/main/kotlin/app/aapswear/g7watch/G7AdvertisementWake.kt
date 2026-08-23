@@ -30,6 +30,8 @@ internal object G7AdvertisementWakeScheduler {
     private const val KEY_REGISTERED_ADDRESS = "registered_address"
     private const val KEY_REGISTRATION_STATUS = "registration_status"
     private const val KEY_REGISTRATION_AT = "registration_at"
+    private const val KEY_LAST_CALLBACK_ERROR = "last_callback_error"
+    private const val KEY_LAST_CALLBACK_ERROR_AT = "last_callback_error_at"
     private const val KEY_LAST_FORWARDED_AT = "last_forwarded_at"
     private const val KEY_FORWARDED_COUNT = "forwarded_count"
 
@@ -103,6 +105,14 @@ internal object G7AdvertisementWakeScheduler {
             .apply()
     }
 
+    fun markCallbackError(context: Context, errorCode: Int, nowEpochMs: Long) {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_LAST_CALLBACK_ERROR, errorCode)
+            .putLong(KEY_LAST_CALLBACK_ERROR_AT, nowEpochMs)
+            .apply()
+    }
+
     private fun rememberRegistration(context: Context, address: String, status: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -151,9 +161,13 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
             return
         }
 
+        val now = System.currentTimeMillis()
         val callbackError = intent.getIntExtra(BluetoothLeScanner.EXTRA_ERROR_CODE, 0)
         if (callbackError != 0) {
-            G7ReconnectAlarmScheduler.scheduleRecovery(app, state)
+            // The AlarmManager watchdog is already staged by the same scheduling operation that
+            // armed this scan. Do not immediately re-arm from an error callback: that can create a
+            // tight registration-failure loop on a broken Bluetooth stack.
+            G7AdvertisementWakeScheduler.markCallbackError(app, callbackError, now)
             return
         }
 
@@ -165,7 +179,6 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         val hasMatchingResult = knownAddress != null && results.any { result ->
             runCatching { result.device.address.equals(knownAddress, ignoreCase = true) }.getOrDefault(false)
         }
-        val now = System.currentTimeMillis()
         if (!shouldForwardG7AdvertisementWake(
                 collectorEnabled = state.collectorEnabled,
                 callbackErrorCode = callbackError,
