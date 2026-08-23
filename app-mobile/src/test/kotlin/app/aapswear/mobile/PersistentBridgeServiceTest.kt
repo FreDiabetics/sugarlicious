@@ -275,8 +275,29 @@ class PersistentBridgeServiceTest {
         val expandedBase = NotificationGraphRenderer.renderExpanded(context, base, preferences)
         val expandedChanged = NotificationGraphRenderer.renderExpanded(context, changedTargetHistory, preferences)
 
-        assertTrue(collapsedBase.sameAs(collapsedChanged))
-        assertTrue(expandedBase.sameAs(expandedChanged))
+        fun assertTargetIndependentColumnsEqual(
+            baseGraph: android.graphics.Bitmap,
+            changedGraph: android.graphics.Bitmap,
+        ) {
+            assertEquals(baseGraph.width, changedGraph.width)
+            assertEquals(baseGraph.height, changedGraph.height)
+            // All CGM points in this fixture are clustered in the final ~10 minutes of a 3 h
+            // window. Sampling three earlier columns therefore tests target-band/target-history
+            // rendering without making the assertion sensitive to millisecond-level x drift of
+            // anti-aliased glucose dots between two independent render calls.
+            listOf(baseGraph.width / 4, baseGraph.width / 2, baseGraph.width * 3 / 4).forEach { x ->
+                for (y in 0 until baseGraph.height) {
+                    assertEquals(
+                        "target-independent graph differs at x=$x y=$y",
+                        baseGraph.getPixel(x, y),
+                        changedGraph.getPixel(x, y),
+                    )
+                }
+            }
+        }
+
+        assertTargetIndependentColumnsEqual(collapsedBase, collapsedChanged)
+        assertTargetIndependentColumnsEqual(expandedBase, expandedChanged)
     }
 
     @Test
