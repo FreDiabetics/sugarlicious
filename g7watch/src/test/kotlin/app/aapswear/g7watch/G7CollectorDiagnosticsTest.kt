@@ -13,6 +13,7 @@ import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -26,7 +27,13 @@ class G7CollectorDiagnosticsTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("g7_collector_attempts", Context.MODE_PRIVATE).edit().clear().commit()
+        listOf(
+            "g7_collector_attempts",
+            "g7_collector_attempt_history",
+            "g7_collector_attempt_active",
+        ).forEach { name ->
+            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
+        }
     }
 
     @Test
@@ -48,6 +55,58 @@ class G7CollectorDiagnosticsTest {
         assertEquals(197L, restored.first().attemptId)
         assertEquals(6L, restored.last().attemptId)
         assertTrue(restored.all { it.completedAtEpochMs != null })
+    }
+
+    @Test
+    fun `incomplete active attempt survives process-style store recreation`() {
+        val firstStore = G7CollectorDiagnosticStore(context)
+        val attempt = firstStore.begin(manual = false, restart = false, nowEpochMs = 10_000L)
+        firstStore.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.SCANNING,
+            CollectorDiagnosticResult.INFO,
+            "Scan läuft",
+            nowEpochMs = 10_500L,
+        )
+
+        val restored = G7CollectorDiagnosticStore(context).snapshot().single()
+
+        assertEquals(attempt.attemptId, restored.attemptId)
+        assertNull(restored.completedAtEpochMs)
+        assertTrue(restored.events.any { it.stage == CollectorDiagnosticStage.SCANNING })
+        assertNull(
+            context.getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
+                .getString("attempts_v2", null),
+        )
+        assertTrue(
+            context.getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
+                .getString("active_attempts_v1", null)
+                ?.isNotBlank() == true,
+        )
+    }
+
+    @Test
+    fun `terminal attempt moves from active persistence into bounded history`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(manual = false, restart = false, nowEpochMs = 20_000L)
+        store.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.COMPLETE,
+            CollectorDiagnosticResult.SUCCESS,
+            "SUCCESS_FRESH",
+            nowEpochMs = 21_000L,
+        )
+
+        assertNull(
+            context.getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
+                .getString("active_attempts_v1", null),
+        )
+        assertTrue(
+            context.getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
+                .getString("attempts_v2", null)
+                ?.isNotBlank() == true,
+        )
+        assertEquals(CollectorDiagnosticResult.SUCCESS, G7CollectorDiagnosticStore(context).snapshot().single().result)
     }
 
     @Test
