@@ -13,11 +13,13 @@ import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ReconnectScheduler
 
 /**
- * Owns the single durable reconnect alarm for the Watch collector.
+ * Owns the durable recovery wake paths for the Watch collector.
  *
- * A future sensor-window alarm is staged before BLE work begins. If Android kills the process in
- * the middle of a scan/GATT cycle, that alarm survives and restarts collection at the next slot.
- * A normal success/failure simply replaces the safety alarm with the newly calculated cadence.
+ * The exact/inexact AlarmManager slot is retained as a watchdog. In addition, the already paired
+ * sensor is registered as a filtered PendingIntent BLE scan so a real G7 advertisement can wake
+ * the collector directly during screen-off/Doze instead of depending on a five-minute alarm
+ * cadence. A future watchdog alarm is still staged before risky BLE/GATT work begins, so process
+ * death during a cycle cannot strand the collector.
  */
 internal object G7ReconnectAlarmScheduler {
     private const val REQUEST_CODE = 0
@@ -62,6 +64,12 @@ internal object G7ReconnectAlarmScheduler {
         expectedReadingEpochMs: Long = requestedReconnectEpochMs + G7ReconnectScheduler.PRECONNECT_LEAD_MS,
     ): CollectorCycleTiming {
         val app = context.applicationContext
+
+        // Register the exact paired sensor as an OS-managed BLE wake source. This is deliberately
+        // filtered by device address and uses balanced scan mode: no polling loop, no permanent
+        // app WakeLock, and the process only wakes when the known G7 actually advertises.
+        G7AdvertisementWakeScheduler.arm(app)
+
         val triggerAt = maxOf(requestedReconnectEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
         val pending = reconnectPendingIntent(app)
         val alarmManager = app.getSystemService(AlarmManager::class.java)
@@ -97,6 +105,7 @@ internal object G7ReconnectAlarmScheduler {
 
     fun cancel(context: Context) {
         val app = context.applicationContext
+        G7AdvertisementWakeScheduler.disarm(app)
         val pending = reconnectPendingIntent(app)
         app.getSystemService(AlarmManager::class.java).cancel(pending)
         pending.cancel()
