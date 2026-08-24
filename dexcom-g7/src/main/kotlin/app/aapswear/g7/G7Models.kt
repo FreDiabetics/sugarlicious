@@ -266,6 +266,9 @@ data class CollectorDiagnosticEvent(
 data class CollectorDiagnosticAttempt(
     val attemptId: Long,
     val startedAtEpochMs: Long,
+    val lastProgressAtEpochMs: Long = startedAtEpochMs,
+    val currentStage: CollectorDiagnosticStage = CollectorDiagnosticStage.IDLE,
+    val deadlineEpochMs: Long? = null,
     val manual: Boolean = false,
     val restart: Boolean = false,
     val completedAtEpochMs: Long? = null,

@@ -144,9 +144,10 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         linePaint.color = palette.argb(G7AppearanceRole.GRAPH_GRID)
         canvas.drawLine(plotRight, plotTop, plotRight, plotBottom, linePaint)
 
-        val latestTimestamp = visible.maxOfOrNull { it.timestampEpochMs }
         visible.forEach { reading ->
-            val px = if (reading.timestampEpochMs == latestTimestamp) nowLineX else G7GraphLayout.realCgmX(x(reading.timestampEpochMs), nowLineX)
+            // Every real CGM point keeps its measurement-time X coordinate. Only a genuinely
+            // current point naturally reaches the live divider; stale points leave a visible gap.
+            val px = G7GraphLayout.realCgmX(x(reading.timestampEpochMs), nowLineX)
             val py = y(reading.glucoseMgDl)
             fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE)
             canvas.drawCircle(px, py, CGM_OUTER_RADIUS_DP.dp, fillPaint)

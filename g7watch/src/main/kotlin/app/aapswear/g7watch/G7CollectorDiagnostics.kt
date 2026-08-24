@@ -40,6 +40,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         restart: Boolean,
         cycle: CollectorCycleTiming? = null,
         nowEpochMs: Long = System.currentTimeMillis(),
+        deadlineEpochMs: Long? = null,
     ): CollectorDiagnosticAttempt = synchronized(lock) {
         val attemptId = controlPreferences.getLong(KEY_COUNTER, 0L) + 1L
         val initialEvents = buildList {
@@ -98,6 +99,9 @@ internal class G7CollectorDiagnosticStore(context: Context) {
             CollectorDiagnosticAttempt(
                 attemptId = attemptId,
                 startedAtEpochMs = nowEpochMs,
+                lastProgressAtEpochMs = nowEpochMs,
+                currentStage = CollectorDiagnosticStage.IDLE,
+                deadlineEpochMs = deadlineEpochMs,
                 manual = manual,
                 restart = restart,
                 events = initialEvents,
@@ -141,6 +145,8 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         val terminal = stage == CollectorDiagnosticStage.COMPLETE || stage == CollectorDiagnosticStage.ERROR
         val updated =
             current.copy(
+                lastProgressAtEpochMs = nowEpochMs,
+                currentStage = stage,
                 completedAtEpochMs = if (terminal) nowEpochMs else current.completedAtEpochMs,
                 result = if (terminal) result else current.result,
                 summary = if (terminal) event.message else current.summary,
@@ -188,7 +194,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         saveActive(attempts)
     }
 
-    /** Persisted before AlarmManager scheduling so process death cannot erase the expected slot. */
+    /** Persisted after AlarmManager accepts the request as durable evidence of the armed slot. */
     fun stageScheduledCycle(cycle: CollectorCycleTiming) = synchronized(lock) {
         controlPreferences.edit()
             .putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), cycle))
@@ -229,6 +235,10 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         attemptId != null && loadActive().any { it.attemptId == attemptId && it.completedAtEpochMs == null }
     }
 
+    fun activeAttempt(attemptId: Long?): CollectorDiagnosticAttempt? = synchronized(lock) {
+        attemptId?.let { id -> loadActive().firstOrNull { it.attemptId == id && it.completedAtEpochMs == null } }
+    }
+
     fun expireStaleAttempts(
         nowEpochMs: Long = System.currentTimeMillis(),
         maxAgeMs: Long = STALE_ATTEMPT_AGE_MS,
@@ -236,10 +246,11 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         val active = loadActive().toMutableList()
         val stale = active.filter { attempt ->
             val lastProgressAt = maxOf(
-                attempt.startedAtEpochMs,
+                attempt.lastProgressAtEpochMs,
                 attempt.events.maxOfOrNull(CollectorDiagnosticEvent::timestampEpochMs) ?: attempt.startedAtEpochMs,
             )
-            attempt.completedAtEpochMs == null && nowEpochMs - lastProgressAt >= maxAgeMs
+            attempt.completedAtEpochMs == null &&
+                (attempt.deadlineEpochMs?.let { nowEpochMs >= it } == true || nowEpochMs - lastProgressAt >= maxAgeMs)
         }
         stale.forEach { attempt ->
             val terminal = attempt.copy(

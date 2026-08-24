@@ -42,6 +42,17 @@ class G7LifecyclePolicyTest {
         assertFalse(shouldKeepG7RuntimeForeground(collectorEnabled = false))
     }
 
+    @Test fun `service create preserves a just delivered reconnect envelope for onStartCommand`() {
+        assertFalse(shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs = 1_780_000_000_000L))
+        assertTrue(shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs = null))
+    }
+
+    @Test fun `scheduled service start consumes its alarm envelope before runtime repair`() {
+        assertFalse(shouldRepairG7RuntimeOnServiceStart(G7CollectorService.ACTION_RECONNECT))
+        assertTrue(shouldRepairG7RuntimeOnServiceStart(G7CollectorService.ACTION_RESTART))
+        assertTrue(shouldRepairG7RuntimeOnServiceStart(null))
+    }
+
     @Test fun `source selection cannot enable a user-disabled collector`() {
         assertFalse(
             shouldResumeEnabledCollectorForSourceSignal(
@@ -121,6 +132,15 @@ class G7LifecyclePolicyTest {
                 safety.copy(expectedReadingEpoch = 1_100_000L),
             ),
         )
+    }
+
+    @Test fun `rearming direct cycle from the same requested and expected times does not drift`() {
+        val expected = 1_000_000L
+        val firstRequested = alignReconnectRequestToStrategy(970_000L, expected, directReconnect = true)
+        val rearmedRequested = alignReconnectRequestToStrategy(firstRequested, expected, directReconnect = true)
+
+        assertEquals(990_000L, firstRequested)
+        assertEquals(firstRequested, rearmedRequested)
     }
 
     @Test fun `restart resets only volatile runtime and retains enabled sensor session and history`() {

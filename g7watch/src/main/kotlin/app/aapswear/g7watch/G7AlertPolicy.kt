@@ -91,6 +91,10 @@ internal object G7SignalLossMonitor {
         schedule(context, atEpochMs)
     }
 
+    fun scheduleRecoveryHealthCheck(context: Context, atEpochMs: Long) {
+        schedule(context, atEpochMs)
+    }
+
     private fun schedule(context: Context, requestedAtEpochMs: Long) {
         val app = context.applicationContext
         val alarmManager = app.getSystemService(AlarmManager::class.java)
@@ -133,15 +137,23 @@ class G7SignalLossReceiver : BroadcastReceiver() {
 
                     val lastReadingAt = state.lastReading?.timestampEpochMs
                     val now = System.currentTimeMillis()
+                    // The signal-loss alarm is an independent, already proven wake path. Let it
+                    // repair a dead collector chain, but keep it out of the primary collection
+                    // cadence: reconciliation only arms the next plausible G7 slot.
+                    G7RuntimeReconciler.reconcile(
+                        app,
+                        G7RuntimeEntryPoint.SIGNAL_LOSS,
+                        nowEpochMs = now,
+                    )
                     if (!isG7SignalLoss(lastReadingAt, now)) {
                         G7SignalLossMonitor.scheduleFromState(app, state)
                         return@withTimeout
                     }
 
                     if (!G7AlertPolicyStore.alarmsEnabled(app)) {
-                        G7AlertPolicyStore.nextAutomaticEnableAt(app, now)?.let { enableAt ->
-                            G7SignalLossMonitor.schedulePolicyRecheck(app, enableAt)
-                        }
+                        val nextHealthCheck = now + G7_SIGNAL_LOSS_RECOVERY_CHECK_MS
+                        val nextPolicyCheck = G7AlertPolicyStore.nextAutomaticEnableAt(app, now)
+                        G7SignalLossMonitor.schedulePolicyRecheck(app, minOf(nextPolicyCheck ?: nextHealthCheck, nextHealthCheck))
                         app.recordG7Diagnostic(
                             code = "G7-SIGNAL-LOSS-SUPPRESSED",
                             message = "Direct G7 signal loss suppressed because another canonical source is active",
@@ -151,6 +163,7 @@ class G7SignalLossReceiver : BroadcastReceiver() {
                         return@withTimeout
                     }
 
+                    G7SignalLossMonitor.scheduleRecoveryHealthCheck(app, now + G7_SIGNAL_LOSS_RECOVERY_CHECK_MS)
                     G7CgmAlarmCoordinator.onSignalLoss(app, state.lastReading, now)
                 }
             } catch (error: Throwable) {
@@ -166,3 +179,5 @@ class G7SignalLossReceiver : BroadcastReceiver() {
         }
     }
 }
+
+private const val G7_SIGNAL_LOSS_RECOVERY_CHECK_MS = 15L * 60_000L

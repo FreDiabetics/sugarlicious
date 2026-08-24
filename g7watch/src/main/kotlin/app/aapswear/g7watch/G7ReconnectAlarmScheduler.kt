@@ -71,6 +71,23 @@ internal object G7ReconnectAlarmScheduler {
         )
     }
 
+    /** Reasserts an already calculated slot without changing its cadence or PendingIntent identity. */
+    fun rearmScheduledCycle(
+        context: Context,
+        cycle: CollectorCycleTiming,
+        state: G7PersistedState,
+    ): CollectorCycleTiming {
+        val requested = cycle.requestedReconnectEpoch
+            ?: error("Scheduled G7 cycle has no reconnect time")
+        return scheduleRequested(
+            context = context,
+            requestedReconnectEpochMs = requested,
+            expectedReadingEpochMs = cycle.expectedReadingEpoch
+                ?: (requested + G7ReconnectScheduler.PRECONNECT_LEAD_MS),
+            directReconnect = directReconnectAvailable(context, state),
+        )
+    }
+
     fun scheduleRequested(
         context: Context,
         requestedReconnectEpochMs: Long,

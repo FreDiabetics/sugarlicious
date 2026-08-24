@@ -103,6 +103,13 @@ class WearActivity : Activity() {
                 render()
             }
         }
+        scope.launch {
+            WearCanonicalStateEvents.updates.collectLatest {
+                // The event only invalidates the canonical resolver-backed UI. It does not copy
+                // G7 database data into the phone-fed TherapyStateStore.
+                render()
+            }
+        }
 
         val notificationRequestStarted = requestRuntimeNotificationPermission()
         if (!notificationRequestStarted) {

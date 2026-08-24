@@ -13,9 +13,21 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 internal fun g7ReadingUpdateApplicationContext(context: Context): Context = context.applicationContext
+
+/** Process-local invalidation bus for open Watch UI surfaces; the database remains the source. */
+internal object WearCanonicalStateEvents {
+    private val mutableUpdates = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val updates = mutableUpdates.asSharedFlow()
+
+    fun publishLocalReadingUpdate() {
+        mutableUpdates.tryEmit(Unit)
+    }
+}
 
 /** Refreshes local Watch CGM consumers immediately after the standalone G7 app stores a reading. */
 class G7ReadingUpdateReceiver : BroadcastReceiver() {
@@ -26,6 +38,7 @@ class G7ReadingUpdateReceiver : BroadcastReceiver() {
         // Tile refresh can bind to System UI, so all asynchronous receiver work uses the
         // unrestricted process-wide application Context instead.
         val appContext = g7ReadingUpdateApplicationContext(context)
+        WearCanonicalStateEvents.publishLocalReadingUpdate()
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {

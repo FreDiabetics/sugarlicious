@@ -70,6 +70,22 @@ class G7CollectorGraphViewTest {
     }
 
     @Test
+    fun `stale latest point keeps measurement position and leaves a real gap to now`() {
+        val left = 16f
+        val divider = 369f
+        val start = now - 3 * 60 * 60_000L
+        val nowLine = G7GraphLayout.nowLineX(divider, 3.1f, 1f)
+        val measuredAt = now - 2L * 60L * 60_000L
+
+        val measuredX = G7GraphLayout.realCgmX(
+            G7GraphLayout.timeX(measuredAt, start, now, left, divider),
+            nowLine,
+        )
+
+        assertTrue(measuredX < nowLine - 100f)
+    }
+
+    @Test
     fun `maximum dot geometry cannot touch now divider from either lane`() {
         val divider = 369f
         val gap = 1f

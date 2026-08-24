@@ -40,6 +40,12 @@ import kotlinx.coroutines.launch
 
 internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean = collectorEnabled
 
+internal fun shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs: Long?): Boolean =
+    receiverReceivedAtEpochMs == null
+
+internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean =
+    action != G7CollectorService.ACTION_RECONNECT
+
 internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState =
     state.copy(
         connectionState = G7ConnectionState.DISCONNECTED,
@@ -68,10 +74,22 @@ class G7CollectorService : Service() {
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
-        // A newly created Service has no surviving collector coroutine. Any persisted active row
-        // therefore belongs to a killed/replaced process and must be closed before a new cycle may
-        // start, even when it is younger than the normal in-process inactivity deadline.
-        expireStaleAttemptState(maxInactiveAgeOverrideMs = 0L)
+        // A newly created Service has no surviving collector coroutine. Reconcile persisted BLE
+        // state before accepting any new work and restore the future recovery invariant first.
+        // The one exception is an AlarmManager handoff that the receiver has already marked as
+        // delivered: onStartCommand must consume that exact slot before staging N+1. Repairing it
+        // here would replace N with N+1 and then incorrectly stage N+2 during the BLE attempt.
+        val pendingAlarmHandoff = attemptStore.pendingScheduledCycle()?.receiverReceivedAt
+        G7RuntimeReconciler.reconcile(
+            context = this,
+            entryPoint = G7RuntimeEntryPoint.SERVICE_CREATE,
+            allowRepair = shouldRepairG7RuntimeOnServiceCreate(pendingAlarmHandoff),
+        )
+        G7CollectorRuntimeRegistry.register(
+            owner = this,
+            activeCheck = { collectionJob?.isActive == true },
+            cancelAction = { collectionJob?.cancel() },
+        )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "G7 Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter Dexcom G7 Watch Collector"
@@ -86,7 +104,6 @@ class G7CollectorService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val serviceStartAt = System.currentTimeMillis()
-        expireStaleAttemptState(serviceStartAt)
         if (intent?.action == ACTION_STOP) {
             collectionJob?.cancel()
             store.save(G7SessionManager(store.read()).stop())
@@ -99,7 +116,7 @@ class G7CollectorService : Service() {
             return START_NOT_STICKY
         }
 
-        val persisted = store.read()
+        var persisted = store.read()
         if (!persisted.collectorEnabled) {
             G7SignalLossMonitor.cancel(this)
             G7ErrorNotifier.clearActive(this)
@@ -107,6 +124,19 @@ class G7CollectorService : Service() {
             stopRuntimeForeground()
             return START_NOT_STICKY
         }
+
+        G7RuntimeReconciler.reconcile(
+            context = this,
+            entryPoint = G7RuntimeEntryPoint.SERVICE_START,
+            liveCycle = collectionJob?.isActive == true,
+            // ACTION_RECONNECT owns a receiver-delivered envelope that is consumed immediately
+            // below. Repairing before consumption would replace slot N with N+1, after which the
+            // safety scheduler would incorrectly arm N+2 for the duration of this BLE attempt.
+            allowRepair = shouldRepairG7RuntimeOnServiceStart(intent?.action),
+            cancelLiveCycle = { collectionJob?.cancel() },
+            nowEpochMs = serviceStartAt,
+        )
+        persisted = store.read()
 
         G7SignalLossMonitor.scheduleFromState(this, persisted)
         startForegroundCollector(
@@ -123,23 +153,37 @@ class G7CollectorService : Service() {
             } else {
                 null
             }
+        if (intent?.action == ACTION_RECONNECT) {
+            scope.launch {
+                applicationContext.recordG7Diagnostic(
+                    "FGS_RESTART_REQUESTED",
+                    "Foreground-Service handoff accepted for scheduled G7 recovery",
+                    DiagnosticSeverity.INFO,
+                    mapOf("requestedReconnectEpoch" to scheduledCycle?.requestedReconnectEpoch),
+                )
+            }
+        }
 
         // Stage the next automatic slot before any scan/GATT work starts. The prior implementation
         // consumed the current alarm first and scheduled the next one only after cycle completion;
         // a process death mid-scan therefore left the collector with no future wake-up at all.
         if (request == CycleRequest.AUTOMATIC) {
-            G7ReconnectAlarmScheduler.scheduleSafetyForCycle(
+            val safetyCycle = G7ReconnectAlarmScheduler.scheduleSafetyForCycle(
                 this,
                 scheduledCycle,
                 persisted,
                 serviceStartAt,
             )
+            safetyCycle?.requestedReconnectEpoch?.let { reconnectAt ->
+                store.save(store.read().copy(nextReconnectEpochMs = reconnectAt))
+                persisted = store.read()
+            }
         }
 
         if (request == CycleRequest.AUTOMATIC && collectionJob?.isActive == true) {
             scope.launch {
                 applicationContext.recordG7Diagnostic(
-                    "G7-CYCLE-COALESCED",
+                    "RECOVERY_TRIGGER_COALESCED",
                     "Duplicate automatic trigger ignored while the canonical collector cycle is active",
                     DiagnosticSeverity.INFO,
                     mapOf("expectedReadingEpoch" to scheduledCycle?.expectedReadingEpoch),
@@ -158,10 +202,12 @@ class G7CollectorService : Service() {
         serviceStartAt: Long,
     ) {
         if (request != CycleRequest.AUTOMATIC) {
-            cancelScheduledReconnect(this)
-            // Restart/manual scan must also retain a future autonomous recovery path if Android
-            // kills the process while the bounded operation is in progress.
-            G7ReconnectAlarmScheduler.scheduleRecovery(this, store.read(), serviceStartAt)
+            // Replace the existing PendingIntent alarm directly. Never cancel first: process death
+            // in a cancel -> set gap was one of the ways the recovery chain could disappear.
+            val recovery = G7ReconnectAlarmScheduler.scheduleRecovery(this, store.read(), serviceStartAt)
+            recovery?.requestedReconnectEpoch?.let { reconnectAt ->
+                store.save(store.read().copy(nextReconnectEpochMs = reconnectAt))
+            }
         }
         val previous = collectionJob
         val token = ++cycleToken
@@ -202,6 +248,7 @@ class G7CollectorService : Service() {
             restart = request == CycleRequest.RESTART,
             cycle = scheduledCycle,
             nowEpochMs = startedAt,
+            deadlineEpochMs = startedAt + collectorAttemptDeadlineMs(store.read()),
         )
         val attemptId = attempt.attemptId
         val persisted =
@@ -710,29 +757,6 @@ class G7CollectorService : Service() {
         return cycle.requestedReconnectEpoch
     }
 
-    private fun expireStaleAttemptState(
-        nowEpochMs: Long = System.currentTimeMillis(),
-        maxInactiveAgeOverrideMs: Long? = null,
-    ) {
-        val current = store.read()
-        val maxInactiveAgeMs =
-            maxInactiveAgeOverrideMs ?: if (current.sensor?.deviceAddress.isNullOrBlank()) {
-                G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + INITIAL_PAIRING_STALE_GRACE_MS
-            } else {
-                KNOWN_SENSOR_STALE_ATTEMPT_AGE_MS
-            }
-        if (attemptStore.expireStaleAttempts(nowEpochMs, maxInactiveAgeMs) == 0) return
-        if (current.activeAttemptId != null && !attemptStore.hasActiveAttempt(current.activeAttemptId)) {
-            store.save(
-                current.copy(
-                    activeAttemptId = null,
-                    scanStartedAtEpochMs = null,
-                    scanTimeoutAtEpochMs = null,
-                ),
-            )
-        }
-    }
-
     private fun acquireCycleWakeLock(request: CycleRequest): Long {
         if (cycleWakeLock?.isHeld == true) return System.currentTimeMillis()
         val initialPairing = store.read().sensor?.deviceAddress.isNullOrBlank()
@@ -780,6 +804,7 @@ class G7CollectorService : Service() {
     }
 
     override fun onDestroy() {
+        G7CollectorRuntimeRegistry.unregister(this)
         releaseCycleWakeLock()
         G7WakeHandoff.release()
         scope.cancel()
@@ -798,8 +823,6 @@ class G7CollectorService : Service() {
         internal const val NOTIFICATION_ID = 7001
         private const val NORMAL_CYCLE_WAKE_LOCK_TIMEOUT_MS = 3L * 60_000L
         private const val INITIAL_PAIRING_WAKE_LOCK_TIMEOUT_MS = 31L * 60_000L
-        private const val INITIAL_PAIRING_STALE_GRACE_MS = 60_000L
-        private const val KNOWN_SENSOR_STALE_ATTEMPT_AGE_MS = 4L * 60_000L
         private val SOFT_WINDOW_ERRORS = setOf(
             G7_GATT_133_ERROR_CODE,
             G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
@@ -866,6 +889,13 @@ class G7CollectorService : Service() {
         }
     }
 }
+
+internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
+    if (state.sensor?.deviceAddress.isNullOrBlank()) {
+        G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L
+    } else {
+        3L * 60_000L
+    }
 
 private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
 

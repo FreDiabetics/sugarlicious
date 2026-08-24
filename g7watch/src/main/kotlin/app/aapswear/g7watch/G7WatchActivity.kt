@@ -46,6 +46,7 @@ class G7WatchActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        G7RuntimeReconciler.reconcile(this, G7RuntimeEntryPoint.WATCH_APP)
         requestMissingPermissions()
     }
 

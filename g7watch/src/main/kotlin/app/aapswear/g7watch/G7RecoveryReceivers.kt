@@ -48,6 +48,14 @@ class G7BootReceiver : BroadcastReceiver() {
         if (!shouldRestoreG7Collector(intent.action, state.collectorEnabled)) return
 
         G7CgmAlarmCoordinator.restore(context)
+        G7RuntimeReconciler.reconcile(
+            context,
+            if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+                G7RuntimeEntryPoint.PACKAGE_REPLACED
+            } else {
+                G7RuntimeEntryPoint.BOOT
+            },
+        )
         // Lifecycle recovery must never rewrite the user's persisted enable/disable decision.
         // If Android temporarily refuses the FGS launch, keep collectorEnabled=true and retain a
         // durable future alarm so a later slot can recover without re-pairing or losing the session.
@@ -63,6 +71,14 @@ class G7ReconnectReceiver : BroadcastReceiver() {
         val now = System.currentTimeMillis()
         val diagnosticStore = G7CollectorDiagnosticStore(context)
         val scheduled = diagnosticStore.markScheduledAlarmReceived(now)
+        // The service will stage the following slot before BLE work. At receiver level this is an
+        // observation-only reconciliation so the just-fired diagnostic envelope is not replaced.
+        G7RuntimeReconciler.reconcile(
+            context,
+            G7RuntimeEntryPoint.RECONNECT_RECEIVER,
+            allowRepair = false,
+            nowEpochMs = now,
+        )
         G7WakeHandoff.acquire(context)
         runCatching { G7CollectorService.startScheduledReconnect(context) }
             .onFailure { error ->
@@ -82,7 +98,7 @@ class G7ReconnectReceiver : BroadcastReceiver() {
                     attempt.attemptId,
                     CollectorDiagnosticStage.ERROR,
                     CollectorDiagnosticResult.RECOVERABLE_ERROR,
-                    "SERVICE_START_FAILED · Foreground-Service konnte aus dem Sensorfenster-Alarm nicht gestartet werden; Folgeslot wurde geplant (${error.javaClass.simpleName})",
+                    "FGS_RESTART_FAILED · Foreground-Service konnte aus dem Sensorfenster-Alarm nicht gestartet werden; Folgeslot wurde geplant (${error.javaClass.simpleName})",
                     nowEpochMs = System.currentTimeMillis(),
                 )
             }
