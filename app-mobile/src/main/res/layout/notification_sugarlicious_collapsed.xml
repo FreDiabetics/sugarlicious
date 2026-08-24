@@ -11,7 +11,7 @@
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
         android:contentDescription="@null"
-        android:scaleType="fitXY" />
+        android:scaleType="fitCenter" />
 
     <LinearLayout
         android:id="@+id/notification_info_block"

@@ -33,8 +33,8 @@ android {
         applicationId = "app.aapswear"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.6.2"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].res.directories.add(generatedAnalogPreviewRes.get().asFile.path)
@@ -62,6 +62,7 @@ dependencies {
     implementation(project(":data-source-xdrip"))
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
+    implementation(project(":dexcom-g7"))
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

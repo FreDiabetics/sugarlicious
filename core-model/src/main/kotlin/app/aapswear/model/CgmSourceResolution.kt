@@ -34,7 +34,6 @@ data class CgmSourcePolicy(
     val mobileFailoverAfterMs: Long = 15 * 60_000L,
     val watchFreshAfterMs: Long = 12 * 60_000L,
     val recoveryReadingsRequired: Int = 2,
-    val maxPreferredSourceLagMs: Long = 90_000L,
     val futureToleranceMs: Long = 5 * 60_000L,
 ) {
     init {
@@ -42,7 +41,6 @@ data class CgmSourcePolicy(
         require(mobileFailoverAfterMs > mobileDegradedAfterMs)
         require(watchFreshAfterMs > 0L)
         require(recoveryReadingsRequired > 0)
-        require(maxPreferredSourceLagMs >= 0L)
         require(futureToleranceMs >= 0L)
     }
 }
@@ -80,8 +78,8 @@ data class CgmSourceResolution(
  * Deterministic Wear-side CGM source state machine.
  *
  * MOBILE_AAPS is preferred while it is healthy. WATCH_G7_DIRECT is a continuously independent
- * input when available, but it becomes canonical only when Mobile is too old, clearly behind a
- * newer Watch measurement, or while Mobile is still proving recovery. The resolver never starts,
+ * input when available, but it becomes canonical only when Mobile has timed out or while Mobile
+ * is still proving recovery. The resolver never starts,
  * stops, pairs, scans, bonds, or authenticates a BLE collector.
  */
 object CanonicalCgmSourceResolver {
@@ -155,22 +153,13 @@ object CanonicalCgmSourceResolver {
             }
         }
 
-        val watchClearlyNewer =
-            watch != null &&
-                watch.measuredAtEpochMs - mobile.measuredAtEpochMs > policy.maxPreferredSourceLagMs
-
-        if (watchClearlyNewer) {
-            return resolution(
-                state = CgmSourceState.WATCH_DIRECT,
-                reading = watch,
-                previous = previous,
-                reason = "watch_measurement_newer_than_mobile",
-            )
-        }
-
         if (previous.state == CgmSourceState.WATCH_DIRECT || previous.state == CgmSourceState.MOBILE_RECOVERY) {
+            val mobileFreshForRecovery =
+                mobileAgeMs != null && mobileAgeMs <= policy.mobileDegradedAfterMs
             val nextRecoveryCount =
-                if (
+                if (!mobileFreshForRecovery) {
+                    0
+                } else if (
                     previous.lastRecoveryMobileTimestampEpochMs == null ||
                     mobile.measuredAtEpochMs > previous.lastRecoveryMobileTimestampEpochMs
                 ) {
@@ -189,7 +178,8 @@ object CanonicalCgmSourceResolver {
                         CgmResolverMemory(
                             state = CgmSourceState.MOBILE_RECOVERY,
                             recoveryReadingCount = nextRecoveryCount,
-                            lastRecoveryMobileTimestampEpochMs = mobile.measuredAtEpochMs,
+                            lastRecoveryMobileTimestampEpochMs =
+                                mobile.measuredAtEpochMs.takeIf { mobileFreshForRecovery },
                         ),
                     deduplicatedSameMeasurement = sameMeasurement,
                     reason = "mobile_recovery_hysteresis",
@@ -268,8 +258,11 @@ object CanonicalCgmSourceResolver {
         )
 
     private fun CgmSourceCandidate.isValid(nowEpochMs: Long, futureToleranceMs: Long): Boolean =
-        glucoseMgDl in 20.0..1000.0 &&
-            measuredAtEpochMs <= nowEpochMs + futureToleranceMs
+        glucoseMgDl.isFinite() &&
+            glucoseMgDl in 20.0..1000.0 &&
+            measuredAtEpochMs <= nowEpochMs + futureToleranceMs &&
+            receivedAtEpochMs >= measuredAtEpochMs - futureToleranceMs &&
+            receivedAtEpochMs <= nowEpochMs + futureToleranceMs
 
     private fun CgmSourceCandidate.ageAt(nowEpochMs: Long): Long =
         (nowEpochMs - measuredAtEpochMs).coerceAtLeast(0L)

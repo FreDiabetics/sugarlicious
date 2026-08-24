@@ -1,0 +1,28 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="400dp"
+    android:height="400dp"
+    android:viewportWidth="400"
+    android:viewportHeight="400">
+    <path android:fillColor="#FF181818" android:pathData="M200,0A200,200 0,1 1,199.9,0Z" />
+
+    <!-- Sugarlicious G7 sensor header mark -->
+    <path android:fillColor="#FF6DE892" android:pathData="M174,38Q174,28 184,28H216Q226,28 226,38V67Q226,77 216,77H184Q174,77 174,67Z" />
+    <path android:fillColor="#FF181818" android:pathData="M187,40H213V65H187Z" />
+    <path android:fillColor="#FF6DE892" android:pathData="M192,46H208V59H192Z" />
+    <path android:fillColor="#FFB5B5B5" android:pathData="M153,88Q153,83 158,83H242Q247,83 247,88V96Q247,101 242,101H158Q153,101 153,96Z" />
+
+    <!-- Glucose card -->
+    <path android:fillColor="#FF404040" android:pathData="M65,122Q65,96 91,96H309Q335,96 335,122V226Q335,252 309,252H91Q65,252 65,226Z" />
+    <path android:fillColor="#FF242424" android:pathData="M67,123Q67,98 92,98H308Q333,98 333,123V225Q333,250 308,250H92Q67,250 67,225Z" />
+    <path android:fillColor="#FFF5F5F5" android:pathData="M103,126H132V214H103ZM145,126H174V214H145ZM187,126H216V214H187Z" />
+    <path android:fillColor="#FFF5F5F5" android:pathData="M295,147L270,124Q260,115 250,125Q241,135 251,144L260,152H238Q224,152 224,166Q224,180 238,180H260L251,188Q241,197 250,207Q260,217 270,208L295,185Q303,177 303,166Q303,155 295,147Z" />
+
+    <!-- Delta + age -->
+    <path android:fillColor="#FFF5F5F5" android:pathData="M112,278Q112,272 118,272H282Q288,272 288,278V288Q288,294 282,294H118Q112,294 112,288Z" />
+
+    <!-- Green status pill -->
+    <path android:fillColor="#246DE892" android:pathData="M128,315Q128,301 142,301H258Q272,301 272,315V332Q272,346 258,346H142Q128,346 128,332Z" />
+    <path android:strokeColor="#FF6DE892" android:strokeWidth="2" android:fillColor="#00000000" android:pathData="M128,315Q128,301 142,301H258Q272,301 272,315V332Q272,346 258,346H142Q128,346 128,332Z" />
+    <path android:fillColor="#FF6DE892" android:pathData="M149,323A6,6 0,1 1,148.9,323Z" />
+    <path android:fillColor="#FF6DE892" android:pathData="M166,317Q166,312 171,312H249Q254,312 254,317V330Q254,335 249,335H171Q166,335 166,330Z" />
+</vector>

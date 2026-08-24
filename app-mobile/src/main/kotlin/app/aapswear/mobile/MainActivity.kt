@@ -151,6 +151,9 @@ class MainActivity : ComponentActivity() {
             }
             scope.launch(Dispatchers.IO) {
                 runCatching { publishWatchConfig(applicationContext) }
+                if (uiPreferenceRequiresWidgetUpdate(key)) {
+                    runCatching { SugarliciousWidgets.update(applicationContext) }
+                }
             }
         }
 
@@ -161,9 +164,15 @@ class MainActivity : ComponentActivity() {
         key != null && (
             key.startsWith("color.") ||
                 key.startsWith("notification.color.") ||
+                key.startsWith("widget.color.") ||
                 key.startsWith("cgm.dot") ||
                 key.startsWith("notification.cgm.dot")
             )
+
+    internal fun uiPreferenceRequiresWidgetUpdate(key: String?): Boolean =
+        key == "themeMode" ||
+            key?.startsWith("color.") == true ||
+            key?.startsWith("widget.color.") == true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -201,6 +210,15 @@ class MainActivity : ComponentActivity() {
                 putBoolean("cgm.prediction.uam", false)
                 putBoolean("cgm.prediction.zeroTemp", false)
                 putBoolean("overviewDefaultsMigratedV2", true)
+            }
+        }
+        if (!uiPreferences.getBoolean("targetStepLineDefaultMigratedV3", false)) {
+            // Earlier releases persisted the target-value layer as off, which made a correctly
+            // rendered Step-Line invisible after an in-place update. Enable the new AAPS-style
+            // layer once; subsequent user changes are preserved.
+            uiPreferences.edit {
+                putBoolean("cgm.targetValue", true)
+                putBoolean("targetStepLineDefaultMigratedV3", true)
             }
         }
         content = findViewById(R.id.dashboard_content)
@@ -247,7 +265,7 @@ class MainActivity : ComponentActivity() {
                 uiPreferences.edit {
                     putInt(
                         "watchFaceIndex",
-                        it.coerceIn(0, 4),
+                        it.coerceIn(sugarliciousWatchFaceCards.indices),
                     )
                 }
             },
@@ -398,7 +416,7 @@ class MainActivity : ComponentActivity() {
         if (screen != DashboardScreen.SETTINGS || forceSettingsRender) {
             factory.render(content, screen, state, diagnosticState, uiState, System.currentTimeMillis())
         }
-        renderFixedWatchHeader(diagnosticState, uiState)
+        renderFixedWatchHeader()
         updateTopBar()
     }
 
@@ -510,33 +528,23 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun renderFixedWatchHeader(
-        diagnosticState: DiagnosticsSnapshot,
-        uiState: DashboardUiPreferences,
-    ) {
+    private fun renderFixedWatchHeader() {
         val container = findViewById<android.widget.FrameLayout>(R.id.watch_fixed_header)
         if (screen != DashboardScreen.WATCH) {
             container.visibility = View.GONE
-            container.removeAllViews()
             return
         }
         container.visibility = View.VISIBLE
-        container.removeAllViews()
+        if (container.childCount > 0) return
         val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
             setViewCompositionStrategy(
                 androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow,
             )
             setContent {
                 app.aapswear.mobile.ui.theme.SugarliciousTheme {
-                    OverviewWatchFaceTile(
-                        state = state,
-                        diagnostics = diagnosticState,
-                        selectedFaceIndex = uiState.watchFaceIndex,
-                        onSelectedFace = { index ->
-                            uiPreferences.edit { putInt("watchFaceIndex", index.coerceIn(0, 4)) }
-                        },
-                        onEdit = {},
-                        interactive = false,
+                    WatchMenuHeader(
+                        onBack = { navigate(DashboardScreen.OVERVIEW) },
+                        onSettings = { navigate(DashboardScreen.SETTINGS) },
                     )
                 }
             }

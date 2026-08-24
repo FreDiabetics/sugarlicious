@@ -5,15 +5,34 @@ import kotlinx.serialization.Serializable
 @Serializable enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, NIGHTSCOUT, XDRIP_PLUS, OTHER }
 @Serializable enum class GlucoseUnit { MG_DL, MMOL_L }
 @Serializable enum class Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
-@Serializable enum class Freshness { CURRENT, DELAYED, STALE, NO_DATA }
+@Serializable enum class Freshness { CURRENT, DELAYED, STALE, ERROR, NO_DATA }
+@Serializable enum class CgmQuality { VALID, SENSOR_ERROR, INVALID }
 @Serializable enum class DataCapability { GLUCOSE, TREND, DELTA, AVERAGE_DELTA, TARGET, IOB, BOLUS_IOB, BASAL_IOB, SMB, COB, FUTURE_CARBS, BASAL, TEMP_BASAL, TEMP_TARGET, PROFILE, LOOP, PUMP, RESERVOIR, PUMP_BATTERY, PHONE_BATTERY, PREDICTIONS }
 @Serializable enum class PredictionKind { IOB, COB, ACOB, UAM, ZERO_TEMP }
 
-@Serializable data class GlucoseState(val valueMgDl: Double, val displayUnit: GlucoseUnit, val trend: Trend = Trend.UNKNOWN, val measuredAtEpochMs: Long, val deltaMgDl: Double? = null, val averageDeltaMgDl: Double? = null)
+@Serializable data class GlucoseState(
+    val valueMgDl: Double,
+    val displayUnit: GlucoseUnit,
+    val trend: Trend = Trend.UNKNOWN,
+    val measuredAtEpochMs: Long,
+    val deltaMgDl: Double? = null,
+    val averageDeltaMgDl: Double? = null,
+    val source: DataSourceId = DataSourceId.ANDROID_APS,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
+    val sequenceNumber: Long? = null,
+    val receivedAtEpochMs: Long? = null,
+    val quality: CgmQuality = CgmQuality.VALID,
+)
 @Serializable data class GlucoseSample(
     val valueMgDl: Double,
     val measuredAtEpochMs: Long,
     val source: DataSourceId = DataSourceId.ANDROID_APS,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
+    val sequenceNumber: Long? = null,
+    val receivedAtEpochMs: Long? = null,
+    val quality: CgmQuality = CgmQuality.VALID,
 )
 @Serializable data class GlucosePrediction(val kind: PredictionKind, val samples: List<GlucoseSample>)
 @Serializable data class TherapyHistorySample(
@@ -40,6 +59,16 @@ import kotlinx.serialization.Serializable
     val temporary: Boolean = false,
     /** Effective APS target (targetBG), including an active temp target when AAPS applies one. */
     val valueMgDl: Double? = null,
+    /** Present only when the source supplies a real target start timestamp. */
+    val startedAtEpochMs: Long? = null,
+    /** Present only when the source supplies a real target end timestamp. */
+    val endsAtEpochMs: Long? = null,
+)
+@Serializable data class TargetSample(
+    val valueMgDl: Double,
+    val startedAtEpochMs: Long,
+    val endsAtEpochMs: Long,
+    val temporary: Boolean = false,
 )
 @Serializable data class LoopState(val status: String? = null, val lastRunAtEpochMs: Long? = null, val suggestedAtEpochMs: Long? = null, val enactedAtEpochMs: Long? = null, val suggestedPayload: String? = null, val enactedPayload: String? = null, val smbUnits: Double? = null, val smbAtEpochMs: Long? = null)
 @Serializable data class PumpState(val status: String? = null, val reservoirUnits: Double? = null, val batteryPercent: Int? = null)
@@ -56,6 +85,7 @@ import kotlinx.serialization.Serializable
     val glucoseHistory: List<GlucoseSample> = emptyList(),
     val glucosePredictions: List<GlucosePrediction> = emptyList(),
     val therapyHistory: List<TherapyHistorySample> = emptyList(),
+    val targetHistory: List<TargetSample> = emptyList(),
     val insulin: InsulinState? = null,
     val carbs: CarbState? = null,
     val basal: BasalState? = null,
@@ -65,7 +95,7 @@ import kotlinx.serialization.Serializable
     val device: DeviceState? = null,
     val profile: ProfileState? = null,
     val capabilities: Set<DataCapability> = emptySet()
-) { companion object { const val CURRENT_SCHEMA = 5 } }
+) { companion object { const val CURRENT_SCHEMA = 6 } }
 
 object FreshnessPolicy {
     const val CURRENT_MAX_MS = 6 * 60_000L

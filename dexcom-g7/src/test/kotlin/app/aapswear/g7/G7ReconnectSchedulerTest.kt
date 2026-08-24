@@ -39,4 +39,15 @@ class G7ReconnectSchedulerTest {
         assertEquals(0, plan.retryCount)
         assert(plan.delayMs <= G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS)
     }
+
+    @Test fun `long outage advances old cadence to exactly one future sensor slot`() {
+        val lastReading = 19L * 60L * 60_000L + 5L * 60_000L
+        val now = 23L * 60L * 60_000L + 41L * 60_000L
+
+        val plan = G7ReconnectScheduler.afterExpectedWindowMiss(now, lastReading)
+
+        assertEquals(23L * 60L * 60_000L + 44L * 60_000L + 30_000L, plan.nextReconnectEpochMs)
+        assert(plan.nextReconnectEpochMs > now)
+        assert(plan.delayMs <= G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS)
+    }
 }

@@ -51,6 +51,8 @@ class XdripPayloadAdapter(
                 displayUnit = unit,
                 trend = mapTrend(values[XdripContract.EXTRA_SLOPE_NAME]?.toString()),
                 measuredAtEpochMs = measuredAt,
+                source = DataSourceId.XDRIP_PLUS,
+                receivedAtEpochMs = receivedAtEpochMs,
             ),
             capabilities = setOf(DataCapability.GLUCOSE, DataCapability.TREND),
         )

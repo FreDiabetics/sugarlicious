@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -27,9 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -182,7 +178,6 @@ internal fun SugarliciousOverviewScreen(
             glucoseColor = glucoseColor,
             trend = if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
             delta = delta,
-            deltaMgDl = glucose?.deltaMgDl,
             age = age,
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
@@ -223,7 +218,6 @@ private fun GlucoseHeroCard(
     glucoseColor: Color,
     trend: Trend,
     delta: String,
-    deltaMgDl: Double?,
     age: String,
     unitLabel: String,
     tirStats: TirStats,
@@ -276,12 +270,7 @@ private fun GlucoseHeroCard(
 
                         Spacer(Modifier.width(6.dp))
 
-                        SugarliciousTrendIndicator(
-                            correctedTrendForDisplay(
-                                trend,
-                                deltaMgDl,
-                            ),
-                        )
+                        SugarliciousTrendIndicator(trend)
                     }
 
                     Spacer(Modifier.height(3.dp))
@@ -437,26 +426,6 @@ private fun TirProgress(
         )
     }
 }
-private fun correctedTrendForDisplay(
-    sourceTrend: Trend,
-    deltaMgDl: Double?,
-): Trend {
-    val delta =
-        deltaMgDl
-            ?.takeIf { it.isFinite() }
-            ?: return sourceTrend
-
-    return when {
-        delta >= 15.0 -> Trend.DOUBLE_UP
-        delta >= 10.0 -> Trend.SINGLE_UP
-        delta >= 5.0 -> Trend.FORTY_FIVE_UP
-        delta > -5.0 -> Trend.FLAT
-        delta > -10.0 -> Trend.FORTY_FIVE_DOWN
-        delta > -15.0 -> Trend.SINGLE_DOWN
-        else -> Trend.DOUBLE_DOWN
-    }
-}
-
 @Composable
 private fun QuickStatsRow(
     state: TherapyDisplayState?,
@@ -489,11 +458,11 @@ private fun QuickStatCard(
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(iconRes),
+            SugarliciousIcon(
+                drawableRes = iconRes,
                 contentDescription = null,
                 modifier = Modifier.size(15.dp),
-                colorFilter = ColorFilter.tint(accent),
+                tint = accent,
             )
             Spacer(Modifier.width(6.dp))
             Text(
@@ -538,39 +507,33 @@ private fun GlucoseGraphSurface(
             )
         },
         update = {
-            it.bind(
-                state = state,
-                unit =
-                    preferences.unitFor(
-                        state,
-                    ),
-                showPredictions =
-                    preferences.anyCgmPredictionEnabled,
-                durationHours =
-                    preferences.graphHours,
-                showTargetRange =
-                    preferences.showCgmTargetRange,
-                showBasal =
-                    preferences.showCgmBasal,
-                showActivity =
-                    preferences.showCgmActivity,
-                showPredictionIob =
-                    preferences.showCgmPredictionIob,
-                showPredictionCob =
-                    preferences.showCgmPredictionCob,
-                showPredictionUam =
-                    preferences.showCgmPredictionUam,
-                showPredictionZeroTemp =
-                    preferences.showCgmPredictionZeroTemp,
-                cgmDotRadiusDp =
-                    preferences.cgmDotRadiusDp,
-                cgmDotOutlineEnabled =
-                    preferences.cgmDotOutlineEnabled,
-                cgmDotOutlineWidthDp =
-                    preferences.cgmDotOutlineWidthDp,
-                clockEpochMs = now,
-            )
+            it.bindOverview(state, preferences, now)
         },
+    )
+}
+
+internal fun GlucoseDashboardChart.bindOverview(
+    state: TherapyDisplayState?,
+    preferences: DashboardUiPreferences,
+    nowEpochMs: Long,
+) {
+    bind(
+        state = state,
+        unit = preferences.unitFor(state),
+        showPredictions = preferences.anyCgmPredictionEnabled,
+        durationHours = preferences.graphHours,
+        showTargetRange = preferences.showCgmTargetRange,
+        showTargetValue = preferences.showCgmTargetValue,
+        showBasal = preferences.showCgmBasal,
+        showActivity = preferences.showCgmActivity,
+        showPredictionIob = preferences.showCgmPredictionIob,
+        showPredictionCob = preferences.showCgmPredictionCob,
+        showPredictionUam = preferences.showCgmPredictionUam,
+        showPredictionZeroTemp = preferences.showCgmPredictionZeroTemp,
+        cgmDotRadiusDp = preferences.cgmDotRadiusDp,
+        cgmDotOutlineEnabled = preferences.cgmDotOutlineEnabled,
+        cgmDotOutlineWidthDp = preferences.cgmDotOutlineWidthDp,
+        clockEpochMs = nowEpochMs,
     )
 }
 

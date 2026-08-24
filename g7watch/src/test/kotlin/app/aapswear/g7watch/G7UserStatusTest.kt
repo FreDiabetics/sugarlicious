@@ -5,6 +5,7 @@ import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
 import app.aapswear.model.DataSourceId
 import org.junit.Assert.assertEquals
@@ -39,12 +40,12 @@ class G7UserStatusTest {
         )
 
         assertEquals(G7UserStatusLevel.OK, status.level)
-        assertEquals("Normalbetrieb", status.title)
+        assertEquals("Verbunden", status.title)
         assertTrue(status.status.contains("Datenfluss in Ordnung"))
         assertTrue(status.action.contains("Kein Eingriff"))
     }
 
-    @Test fun `single missed window remains automatic recovery before eleven minutes`() {
+    @Test fun `single missed window remains automatic recovery before sixteen minutes`() {
         val status = deriveG7UserStatus(
             G7PersistedState(
                 sensor = sensor,
@@ -63,7 +64,7 @@ class G7UserStatusTest {
         assertTrue(status.action.contains("Nichts zurücksetzen"))
     }
 
-    @Test fun `eleven minutes without reading becomes signal loss`() {
+    @Test fun `sixteen minutes without reading becomes signal loss`() {
         val status = deriveG7UserStatus(
             G7PersistedState(
                 sensor = sensor,
@@ -78,5 +79,23 @@ class G7UserStatusTest {
 
         assertEquals(G7UserStatusLevel.ATTENTION, status.level)
         assertEquals("Signalverlust", status.title)
+    }
+
+    @Test fun `sensor error is surfaced without presenting the last valid value as current`() {
+        val status = deriveG7UserStatus(
+            G7PersistedState(
+                sensor = sensor.copy(state = G7SensorState.ERROR),
+                collectorEnabled = true,
+                protocolState = G7ProtocolState.WAITING_FOR_NEXT_READING,
+                sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
+                lastReading = reading(now - 5 * 60_000L),
+            ),
+            credentialsPresent = true,
+            nowEpochMs = now,
+        )
+
+        assertEquals(G7UserStatusLevel.ATTENTION, status.level)
+        assertEquals("Sensorfehler", status.title)
+        assertTrue(status.status.contains("Kein gültiger"))
     }
 }

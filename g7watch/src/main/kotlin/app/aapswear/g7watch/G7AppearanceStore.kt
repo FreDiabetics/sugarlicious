@@ -45,7 +45,6 @@ enum class G7AppearanceRole(
     GRAPH_AXIS_TEXT("graph_axis_text", "Achsentext", G7AppearanceSection.GRAPH, 0xFFD2D2D2.toInt()),
     GRAPH_GRID("graph_grid", "Grid / Divider", G7AppearanceSection.GRAPH, 0xFF464646.toInt()),
     GRAPH_TILE_BORDER("graph_tile_border", "Graph-Tile-Kontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
-    GRAPH_NOW_MARKER("graph_now_marker", "Jetzt-Markierung", G7AppearanceSection.GRAPH, 0xFF969696.toInt()),
     GRAPH_PREDICTION("graph_prediction", "Prediction", G7AppearanceSection.GRAPH, 0xFFF4DE00.toInt()),
 }
 

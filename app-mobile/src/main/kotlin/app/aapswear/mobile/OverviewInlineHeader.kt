@@ -1,6 +1,5 @@
 package app.aapswear.mobile
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -16,9 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -27,10 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 
-private val SettingsIconGray = Color(0xFF4A4A4A)
-
 internal object OverviewHeaderLayout {
-    const val START_PADDING_DP = 12
+    const val START_PADDING_DP = 10
     const val END_PADDING_DP = 8
     const val LOGO_SLOT_WIDTH_DP = 40
     const val LOGO_SIZE_DP = 46
@@ -59,8 +53,8 @@ internal fun OverviewInlineHeader(onSettings: () -> Unit) {
                 ),
             contentAlignment = Alignment.CenterStart,
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_foreground),
+            SugarliciousIcon(
+                drawableRes = R.drawable.ic_foreground,
                 contentDescription = null,
                 modifier =
                     Modifier
@@ -101,10 +95,12 @@ internal fun WatchMenuHeader(
             modifier = Modifier.size(36.dp).clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_arrow_back),
+            SugarliciousIcon(
+                drawableRes = R.drawable.ic_arrow_back,
                 contentDescription = "Zurück",
                 modifier = Modifier.size(22.dp),
+                tint = SugarliciousColors.TextPrimary,
+                colored = false,
             )
         }
 
@@ -128,11 +124,12 @@ private fun SettingsHeaderButton(onSettings: () -> Unit) {
         modifier = Modifier.size(38.dp).clickable(onClick = onSettings),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_settings),
+        SugarliciousIcon(
+            drawableRes = R.drawable.ic_settings,
             contentDescription = "Einstellungen",
             modifier = Modifier.size(23.dp).offset(x = 7.dp),
-            colorFilter = ColorFilter.tint(SettingsIconGray),
+            tint = SugarliciousColors.TextSecondary,
+            colored = false,
         )
     }
 }

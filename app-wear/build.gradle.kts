@@ -123,17 +123,25 @@ tasks.configureEach {
 }
 
 android {
-    namespace="app.aapswear.wear"
-    compileSdk=37
-    defaultConfig { applicationId="app.aapswear"; minSdk=33; targetSdk=36; versionCode=12; versionName="0.6.2" }
+    namespace = "app.aapswear.wear"
+    compileSdk = 37
+    defaultConfig {
+        applicationId = "app.aapswear"
+        minSdk = 33
+        targetSdk = 36
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
+    }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].assets.directories.add(generatedWatchFaceAssets.get().asFile.path)
     sourceSets["main"].res.directories.add(generatedWatchFaceResources.get().asFile.path)
 }
+
 dependencies {
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
     implementation(project(":complications"))
+    implementation(project(":dexcom-g7"))
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0")
     implementation("androidx.wear.watchfacepush:watchfacepush:1.0.0")

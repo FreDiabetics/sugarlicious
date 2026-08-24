@@ -5,9 +5,8 @@ import app.aapswear.model.DataSourceId
 import app.aapswear.model.TherapyDisplayState
 
 /**
- * Keeps Sugarlicious watch-face selection independent from the legacy 0..4 UI clamp while that
- * preference is migrated to the sixth, collector-oriented face. The same dashboard_ui key remains
- * authoritative, so no parallel persistence store is introduced.
+ * Keeps all six Sugarlicious watch-face selections on the existing dashboard_ui key, so no
+ * parallel persistence store or collector-driven selection state is introduced.
  */
 internal object SugarliciousWatchFaceSelectionStore {
     private const val PREFS = "dashboard_ui"

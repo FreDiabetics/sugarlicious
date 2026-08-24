@@ -85,6 +85,201 @@ enum class G7SessionState {
 @Serializable enum class G7RecoveryStep { NORMAL_RECONNECT, AUTH_RETRY, SHORT_RETRY, BLE_RESCAN, DEVICE_ADDRESS_REFRESH, SESSION_REAUTH, SESSION_RESET, REBOND, FULL_HANDSHAKE, USER_INTERVENTION_REQUIRED }
 
 @Serializable
+enum class CollectorDiagnosticStage {
+    IDLE,
+    WAITING_FOR_WINDOW,
+    ALARM_RECEIVED,
+    SERVICE_START,
+    WAKE_LOCK,
+    SCAN_START,
+    SCANNING,
+    ADVERTISEMENT_FOUND,
+    CONNECT_REQUEST,
+    GATT_CONNECTED,
+    SERVICE_DISCOVERY,
+    SERVICE_READY,
+    AUTH_START,
+    AUTH_CHALLENGE,
+    AUTH_RESPONSE,
+    AUTH_SUCCESS,
+    AUTH_FAILURE,
+    GLUCOSE_REQUEST,
+    GLUCOSE_RECEIVED,
+    VALIDATION,
+    STORE,
+    SYNC,
+    GATT_CLOSE,
+    RETRY,
+    RECOVERY,
+    COMPLETE,
+    ERROR,
+}
+
+@Serializable
+enum class CollectorDiagnosticResult {
+    STARTED,
+    INFO,
+    SUCCESS,
+    RECOVERABLE_ERROR,
+    FATAL_ERROR,
+    CANCELLED,
+}
+
+@Serializable
+enum class CollectorAlarmKind { EXACT, INEXACT, NONE }
+
+@Serializable
+enum class CollectorCycleClassification {
+    SUCCESS_FRESH,
+    SUCCESS_AGED,
+    ALARM_LATE,
+    SERVICE_START_FAILED,
+    SCAN_STARTED_LATE,
+    NO_ADVERTISEMENT,
+    GATT_CONNECT_FAILED,
+    AUTH_FAILED,
+    GLUCOSE_TIMEOUT,
+    INVALID_PACKET,
+    STORE_FAILED,
+    CANCELLED,
+    DIRECT_CONNECT_FAILED,
+    FALLBACK_SCAN_FAILED,
+    HUNG,
+    COALESCED,
+}
+
+@Serializable
+enum class DirectConnectResult {
+    NO_CALLBACK,
+    STATUS_133,
+    STATUS_19,
+    OTHER_STATUS,
+    TIMEOUT,
+    DISCONNECTED_EARLY,
+    DEVICE_UNAVAILABLE,
+    SECURITY_ERROR,
+    SUCCESS,
+}
+
+@Serializable
+enum class CollectorSlotStrategy {
+    DIRECT_ONLY_SUCCESS,
+    DIRECT_RETRY_SUCCESS,
+    FALLBACK_SCAN_SUCCESS,
+    FULL_SLOT_FAILED,
+}
+
+@Serializable
+data class CollectorCycleTiming(
+    val expectedReadingEpoch: Long? = null,
+    val requestedReconnectEpoch: Long? = null,
+    val alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE,
+    val canScheduleExactAlarms: Boolean? = null,
+    val batteryUnrestricted: Boolean? = null,
+    val deviceIdleMode: Boolean? = null,
+    val isInteractive: Boolean? = null,
+    val charging: Boolean? = null,
+    val alarmTriggeredAt: Long? = null,
+    val receiverReceivedAt: Long? = null,
+    val serviceOnStartCommandAt: Long? = null,
+    val wakeLockAcquiredAt: Long? = null,
+    val scanStartedAt: Long? = null,
+    val advertisementFoundAt: Long? = null,
+    val advertisementRssi: Int? = null,
+    val connectGattStartedAt: Long? = null,
+    val directConnectCallbackAt: Long? = null,
+    val directConnectStartedElapsedRealtimeMs: Long? = null,
+    val processUptimeAtDirectConnectMs: Long? = null,
+    val directConnectResult: DirectConnectResult? = null,
+    val directConnectStatus: Int? = null,
+    val directConnectNewState: Int? = null,
+    val directConnectAttempts: Int = 0,
+    val fallbackScanUsed: Boolean = false,
+    val scanEndedAt: Long? = null,
+    val scanMode: Int? = null,
+    val scanCallbackType: Int? = null,
+    val scanTotalResults: Int? = null,
+    val scanConnectableResults: Int? = null,
+    val scanNamedG7Results: Int? = null,
+    val scanExactAddressResults: Int? = null,
+    val scanDuplicateResults: Int? = null,
+    val scanMinRssi: Int? = null,
+    val scanMaxRssi: Int? = null,
+    val bluetoothAdapterState: Int? = null,
+    val radioFailureStreak: Int = 0,
+    val radioDegradedCluster: Boolean = false,
+    val slotStrategy: CollectorSlotStrategy? = null,
+    val gattConnectedAt: Long? = null,
+    val serviceDiscoveryAt: Long? = null,
+    val authStartedAt: Long? = null,
+    val authSucceededAt: Long? = null,
+    val glucosePacketReceivedAt: Long? = null,
+    val sensorAgeSeconds: Long? = null,
+    val measurementTimestamp: Long? = null,
+    val sequenceNumber: Long? = null,
+    val storeCompletedAt: Long? = null,
+    val cycleEndedAt: Long? = null,
+) {
+    val alarmLatenessMs: Long?
+        get() = receiverReceivedAt?.let { received -> requestedReconnectEpoch?.let { received - it } }
+    val serviceStartLatenessMs: Long?
+        get() = serviceOnStartCommandAt?.let { started -> receiverReceivedAt?.let { started - it } }
+    val scanStartLatenessMs: Long?
+        get() = scanStartedAt?.let { scan -> requestedReconnectEpoch?.let { scan - it } }
+    val advertisementLatencyMs: Long?
+        get() = advertisementFoundAt?.let { found -> scanStartedAt?.let { found - it } }
+    val gattLatencyMs: Long?
+        get() = gattConnectedAt?.let { connected -> connectGattStartedAt?.let { connected - it } }
+    val totalCycleLatencyMs: Long?
+        get() = cycleEndedAt?.let { ended -> receiverReceivedAt?.let { ended - it } }
+}
+
+@Serializable
+data class CollectorSlotSummary(
+    val expectedReadingEpoch: Long,
+    val attemptId: Long,
+    val strategy: CollectorSlotStrategy,
+    val directResult: DirectConnectResult? = null,
+    val directAttempts: Int = 0,
+    val fallbackScanUsed: Boolean = false,
+    val scanResultCount: Int? = null,
+    val finalClassification: CollectorCycleClassification,
+    val readingAgeSeconds: Long? = null,
+    val durationMs: Long? = null,
+    val radioFailureStreak: Int = 0,
+)
+
+@Serializable
+data class CollectorDiagnosticEvent(
+    val timestampEpochMs: Long,
+    val attemptId: Long,
+    val stage: CollectorDiagnosticStage,
+    val result: CollectorDiagnosticResult,
+    val message: String,
+    val errorCode: String? = null,
+    val sensorId: String? = null,
+    val sequence: Long? = null,
+    val durationMs: Long? = null,
+)
+
+@Serializable
+data class CollectorDiagnosticAttempt(
+    val attemptId: Long,
+    val startedAtEpochMs: Long,
+    val lastProgressAtEpochMs: Long = startedAtEpochMs,
+    val currentStage: CollectorDiagnosticStage = CollectorDiagnosticStage.IDLE,
+    val deadlineEpochMs: Long? = null,
+    val manual: Boolean = false,
+    val restart: Boolean = false,
+    val completedAtEpochMs: Long? = null,
+    val result: CollectorDiagnosticResult = CollectorDiagnosticResult.STARTED,
+    val summary: String = "Collection-Versuch läuft",
+    val events: List<CollectorDiagnosticEvent> = emptyList(),
+    val cycle: CollectorCycleTiming? = null,
+    val classification: CollectorCycleClassification? = null,
+)
+
+@Serializable
 data class G7Sensor(
     val sensorId: String,
     val sessionId: String? = null,
@@ -140,4 +335,9 @@ data class G7PersistedState(
     val nextReconnectEpochMs: Long? = null,
     val retryCount: Int = 0,
     val lastError: G7CollectorError? = null,
+    val activeAttemptId: Long? = null,
+    val scanStartedAtEpochMs: Long? = null,
+    val scanTimeoutAtEpochMs: Long? = null,
+    val lastScanAtEpochMs: Long? = null,
+    val lastAttemptCompletedAtEpochMs: Long? = null,
 )

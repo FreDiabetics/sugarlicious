@@ -11,10 +11,13 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewOutlineProvider
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.RangeExcursion
 import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WatchGraphColors
@@ -111,15 +114,7 @@ class WearGlucoseChart @JvmOverloads constructor(
             graphHours
                 .takeIf { it in WearDisplayPreferences.allowedGraphHours }
                 ?: 3
-        val newStateSignature =
-            newState?.let {
-                listOf(
-                    it.glucose,
-                    it.glucoseHistory,
-                    it.glucosePredictions,
-                    it.target,
-                )
-            }
+        val newStateSignature = wearChartStateSignature(newState)
         if (
             stateSignature == newStateSignature &&
             durationHours == resolvedDuration &&
@@ -183,12 +178,20 @@ class WearGlucoseChart @JvmOverloads constructor(
                         GlucoseSample(
                             valueMgDl = it.valueMgDl,
                             measuredAtEpochMs = it.measuredAtEpochMs,
+                            source = state?.source ?: it.source,
+                            sensorId = it.sensorId,
+                            sessionId = it.sessionId,
+                            sequenceNumber = it.sequenceNumber,
+                            receivedAtEpochMs = it.receivedAtEpochMs,
+                            quality = it.quality,
                         ),
                     )
                 }
             }
                 .filter {
-                    it.valueMgDl in 20.0..1000.0 &&
+                    it.quality == CgmQuality.VALID &&
+                        it.valueMgDl.isFinite() &&
+                        it.valueMgDl in 20.0..1000.0 &&
                         it.measuredAtEpochMs in start..end
                 }
                 .associateBy { it.measuredAtEpochMs }
@@ -247,14 +250,17 @@ class WearGlucoseChart @JvmOverloads constructor(
             fillPaint,
         )
 
-        fillPaint.color = colors.rangeHigh
-        canvas.drawRect(
-            0f,
-            0f,
-            viewRight,
-            targetTop,
-            fillPaint,
-        )
+        val excursion = CgmGraphPolicy.rangeExcursion(history, targetLow, targetHigh)
+        if (excursion == RangeExcursion.HIGH) {
+            fillPaint.color = colors.rangeHigh
+            canvas.drawRect(
+                0f,
+                0f,
+                viewRight,
+                targetTop,
+                fillPaint,
+            )
+        }
 
         fillPaint.color = colors.rangeInRange
         canvas.drawRect(
@@ -265,14 +271,16 @@ class WearGlucoseChart @JvmOverloads constructor(
             fillPaint,
         )
 
-        fillPaint.color = colors.rangeLow
-        canvas.drawRect(
-            0f,
-            targetBottom,
-            viewRight,
-            viewBottom,
-            fillPaint,
-        )
+        if (excursion == RangeExcursion.LOW) {
+            fillPaint.color = colors.rangeLow
+            canvas.drawRect(
+                0f,
+                targetBottom,
+                viewRight,
+                viewBottom,
+                fillPaint,
+            )
+        }
 
         if (history.isEmpty() && visiblePredictions.isEmpty()) {
             canvas.drawText(
@@ -474,6 +482,22 @@ class WearGlucoseChart @JvmOverloads constructor(
         private const val TILE_RADIUS_DP = 18f
     }
 }
+
+/**
+ * Wear graph rendering intentionally ignores effective/temporary target values and target history.
+ * Only the display range (low/high) influences this graph. The target-value timeline belongs solely
+ * to the Mobile CGM graph.
+ */
+internal fun wearChartStateSignature(state: TherapyDisplayState?): List<Any?>? =
+    state?.let {
+        listOf(
+            it.glucose,
+            it.glucoseHistory,
+            it.glucosePredictions,
+            it.target?.lowMgDl,
+            it.target?.highMgDl,
+        )
+    }
 
 internal fun wearChartTimeWindow(
     timelineNow: Long,

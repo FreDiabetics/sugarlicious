@@ -3,6 +3,7 @@ package app.aapswear.mobile.ui.theme
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Color as AndroidColor
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -48,7 +49,7 @@ enum class SugarliciousColorRole(
     PROGRESS_IN_RANGE("progress_in_range", "Progressbar · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF2E9C45.toInt(), true),
     PROGRESS_ABOVE("progress_above", "Progressbar · über Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     CGM_DOT_LOW("cgm_dot_low", "CGM-Punkte · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
-    CGM_DOT_IN_RANGE("cgm_dot_in_range", "CGM-Punkte · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF2E9C45.toInt(), true),
+    CGM_DOT_IN_RANGE("cgm_dot_in_range", "CGM-Punkte · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF000000.toInt(), true),
     CGM_DOT_HIGH("cgm_dot_high", "CGM-Punkte · hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     /**
      * Compatibility enum slot: the target range itself is rendered via RANGE_IN_RANGE since #51.
@@ -59,8 +60,8 @@ enum class SugarliciousColorRole(
         "target_value",
         "Zielwert im Graph",
         SugarliciousColorGroup.GLUCOSE,
-        0xFFF5F5F5.toInt(),
-        0xFF252525.toInt(),
+        0xFF5AF034.toInt(),
+        0xFF47F06A.toInt(),
         true,
     ),
 
@@ -75,7 +76,7 @@ enum class SugarliciousColorRole(
     PREDICTION_COB("prediction_cob", "Prognose COB / ACOB", SugarliciousColorGroup.GRAPH, 0xFFF4DE00.toInt()),
     PREDICTION_UAM("prediction_uam", "Prognose UAM", SugarliciousColorGroup.GRAPH, 0xFFFFAE1F.toInt()),
     PREDICTION_ZERO_TEMP("prediction_zero_temp", "Prognose Zero Temp", SugarliciousColorGroup.GRAPH, 0xFF30DBDE.toInt()),
-    GRAPH_BACKGROUND("graph_background", "Graph-Hintergrund", SugarliciousColorGroup.GRAPH, 0xFF202020.toInt(), 0xFFF8F8F8.toInt(), true),
+    GRAPH_BACKGROUND("graph_background", "Graph-Hintergrund", SugarliciousColorGroup.GRAPH, 0xFF202020.toInt(), 0xFFFFFFFF.toInt(), true),
     GRAPH_IOB("graph_iob", "IOB", SugarliciousColorGroup.GRAPH, 0xFF64BFFF.toInt(), 0xFF2479B7.toInt(), true),
     GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
     GRAPH_GRID("graph_grid", "Graph-Gitter", SugarliciousColorGroup.GRAPH, 0xFF464646.toInt(), 0xFFD5D5D5.toInt()),
@@ -96,8 +97,11 @@ data class SugarliciousPalette(
     private val values: Map<SugarliciousColorRole, Int>,
     val isLight: Boolean = false,
 ) {
-    fun argb(role: SugarliciousColorRole): Int =
-        values[role] ?: if (isLight) role.lightArgb else role.defaultArgb
+    fun argb(role: SugarliciousColorRole): Int = when {
+        isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> AndroidColor.WHITE
+        isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> AndroidColor.BLACK
+        else -> values[role] ?: if (isLight) role.lightArgb else role.defaultArgb
+    }
 
     fun compose(role: SugarliciousColorRole): Color =
         Color(argb(role))
@@ -114,10 +118,19 @@ data class SugarliciousPalette(
     }
 }
 
+/** Keeps the target line in the in-range hue while making it visibly brighter. */
+fun derivedTargetValueArgb(inRangeArgb: Int): Int {
+    val hsv = FloatArray(3)
+    AndroidColor.colorToHSV(inRangeArgb, hsv)
+    hsv[2] = hsv[2].coerceAtLeast(0.94f)
+    return AndroidColor.HSVToColor(255, hsv)
+}
+
 object SugarliciousColorStore {
     private const val LEGACY_PREFIX = "color."
     private const val DARK_PREFIX = "color.dark."
     private const val LIGHT_PREFIX = "color.light."
+    private const val OVERRIDE_PREFIX = "color.override."
 
     private fun systemIsLight(): Boolean =
         (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) !=
@@ -130,17 +143,14 @@ object SugarliciousColorStore {
             else -> systemIsLight()
         }
 
-    private fun currentPrefix(preferences: SharedPreferences): String =
-        if (isLight(preferences)) LIGHT_PREFIX else DARK_PREFIX
-
     fun load(preferences: SharedPreferences): SugarliciousPalette {
         val light = isLight(preferences)
         val prefix = if (light) LIGHT_PREFIX else DARK_PREFIX
 
-        return SugarliciousPalette(
-            values =
-                SugarliciousColorRole.entries.associateWith { role ->
+        val values =
+            SugarliciousColorRole.entries.associateWith { role ->
                     val modeKey = prefix + role.preferenceKey
+                    val overrideKey = OVERRIDE_PREFIX + role.preferenceKey
                     val legacyKey =
                         LEGACY_PREFIX + role.preferenceKey
 
@@ -155,6 +165,9 @@ object SugarliciousColorStore {
                                 },
                             )
 
+                        !light && preferences.contains(overrideKey) ->
+                            preferences.getInt(overrideKey, role.defaultArgb)
+
                         !light &&
                             preferences.contains(legacyKey) ->
                             preferences.getInt(
@@ -168,7 +181,18 @@ object SugarliciousColorStore {
                         else ->
                             role.defaultArgb
                     }
-                },
+                }.toMutableMap()
+        val targetRole = SugarliciousColorRole.TARGET_VALUE
+        val targetHasExplicitColor =
+            preferences.contains(prefix + targetRole.preferenceKey) ||
+                (!light && preferences.contains(OVERRIDE_PREFIX + targetRole.preferenceKey)) ||
+                (!light && preferences.contains(LEGACY_PREFIX + targetRole.preferenceKey))
+        if (!targetHasExplicitColor) {
+            values[targetRole] = derivedTargetValueArgb(values.getValue(SugarliciousColorRole.RANGE_IN_RANGE))
+        }
+
+        return SugarliciousPalette(
+            values = values,
             isLight = light,
         )
     }
@@ -180,7 +204,7 @@ object SugarliciousColorStore {
     ) {
         preferences.edit {
             putInt(
-                currentPrefix(preferences) +
+                (if (isLight(preferences)) LIGHT_PREFIX else DARK_PREFIX) +
                     role.preferenceKey,
                 argb,
             )
@@ -194,11 +218,12 @@ object SugarliciousColorStore {
         val light = isLight(preferences)
         preferences.edit {
             remove(
-                currentPrefix(preferences) +
+                (if (light) LIGHT_PREFIX else DARK_PREFIX) +
                     role.preferenceKey,
             )
 
             if (!light) {
+                remove(OVERRIDE_PREFIX + role.preferenceKey)
                 remove(
                     LEGACY_PREFIX +
                         role.preferenceKey,
@@ -222,9 +247,21 @@ object SugarliciousColorStore {
                     LIGHT_PREFIX +
                         role.preferenceKey,
                 )
+                remove(
+                    OVERRIDE_PREFIX +
+                        role.preferenceKey,
+                )
             }
         }
     }
+
+    fun hasUserOverride(
+        preferences: SharedPreferences,
+        role: SugarliciousColorRole,
+    ): Boolean =
+        preferences.contains((if (isLight(preferences)) LIGHT_PREFIX else DARK_PREFIX) + role.preferenceKey) ||
+            (!isLight(preferences) && preferences.contains(OVERRIDE_PREFIX + role.preferenceKey)) ||
+            (!isLight(preferences) && preferences.contains(LEGACY_PREFIX + role.preferenceKey))
 }
 
 /**

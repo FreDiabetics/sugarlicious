@@ -4,45 +4,68 @@ import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.PredictionKind
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PredictionDisplayTimelineTest {
     @Test
-    fun `all prediction kinds begin at current time divider`() {
+    fun `prediction timestamps keep their real spacing after now`() {
         val now = 1_000_000L
+        val firstFuture = now + 5 * 60_000L
         val predictions =
             listOf(
-                prediction(PredictionKind.IOB, now - 10 * 60_000L),
-                prediction(PredictionKind.UAM, now + 5 * 60_000L),
+                GlucosePrediction(
+                    PredictionKind.IOB,
+                    listOf(
+                        GlucoseSample(118.0, now - 5 * 60_000L),
+                        GlucoseSample(120.0, now),
+                        GlucoseSample(125.0, firstFuture),
+                        GlucoseSample(130.0, firstFuture + 5 * 60_000L),
+                    ),
+                ),
             )
 
-        val anchored = PredictionDisplayTimeline.anchor(predictions, now)
+        val visible = PredictionDisplayTimeline.anchor(predictions, now).single().samples
 
-        anchored.forEach { series ->
-            assertEquals(now + PredictionDisplayTimeline.LEAD_IN_MS, series.samples.first().measuredAtEpochMs)
-            assertEquals(now, series.samples.first().measuredAtEpochMs)
-            assertEquals(5 * 60_000L, series.samples[1].measuredAtEpochMs - series.samples[0].measuredAtEpochMs)
-        }
+        assertEquals(firstFuture, visible.first().measuredAtEpochMs)
+        assertEquals(5 * 60_000L, visible[1].measuredAtEpochMs - visible[0].measuredAtEpochMs)
     }
 
     @Test
-    fun `cached prediction duration remains visible as current time advances`() {
-        val receivedAt = 1_000_000L
-        val later = receivedAt + 40 * 60_000L
-        val predictions = listOf(prediction(PredictionKind.IOB, receivedAt))
+    fun `series without a real future point is hidden instead of moved across now`() {
+        val now = 1_000_000L
+        val predictions =
+            listOf(
+                GlucosePrediction(
+                    PredictionKind.UAM,
+                    listOf(
+                        GlucoseSample(120.0, now - 5 * 60_000L),
+                        GlucoseSample(121.0, now),
+                    ),
+                ),
+            )
 
-        assertEquals(
-            5 * 60_000L + PredictionDisplayTimeline.LEAD_IN_MS,
-            PredictionDisplayTimeline.futureWindowMs(predictions, later),
-        )
+        assertTrue(PredictionDisplayTimeline.anchor(predictions, now).isEmpty())
     }
 
-    private fun prediction(kind: PredictionKind, first: Long) =
-        GlucosePrediction(
-            kind,
+    @Test
+    fun `future window uses the actual latest future timestamp`() {
+        val now = 1_000_000L
+        val predictions =
             listOf(
-                GlucoseSample(120.0, first),
-                GlucoseSample(125.0, first + 5 * 60_000L),
-            ),
+                GlucosePrediction(
+                    PredictionKind.IOB,
+                    listOf(
+                        GlucoseSample(120.0, now),
+                        GlucoseSample(125.0, now + 5 * 60_000L),
+                        GlucoseSample(130.0, now + 10 * 60_000L),
+                    ),
+                ),
+            )
+
+        assertEquals(
+            10 * 60_000L,
+            PredictionDisplayTimeline.futureWindowMs(predictions, now),
         )
+    }
 }

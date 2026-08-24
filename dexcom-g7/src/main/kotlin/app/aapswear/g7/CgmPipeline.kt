@@ -3,6 +3,7 @@ package app.aapswear.g7
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.Serializable
 import kotlin.math.abs
 
 interface CgmReadingRepository {
@@ -28,9 +29,22 @@ object CgmDeltaCalculator {
 
     fun calculate(current: CgmReading, previous: CgmReading?): Double? {
         if (previous == null || current.sensorId != previous.sensorId || current.sessionId != previous.sessionId) return null
+        if (current.status != CgmReadingStatus.VALID || previous.status != CgmReadingStatus.VALID) return null
+        if (!current.glucoseMgDl.isFinite() || !previous.glucoseMgDl.isFinite()) return null
+        if (current.glucoseMgDl !in 20.0..1_000.0 || previous.glucoseMgDl !in 20.0..1_000.0) return null
         val interval = current.timestampEpochMs - previous.timestampEpochMs
         if (interval !in MIN_INTERVAL_MS..MAX_INTERVAL_MS) return null
         return current.glucoseMgDl - previous.glucoseMgDl
+    }
+}
+
+object CgmTrendRateCalculator {
+    fun calculate(current: CgmReading, previous: CgmReading?): Double? {
+        val delta = CgmDeltaCalculator.calculate(current, previous) ?: return null
+        val previousReading = previous ?: return null
+        val intervalMinutes = (current.timestampEpochMs - previousReading.timestampEpochMs) / 60_000.0
+        if (!intervalMinutes.isFinite() || intervalMinutes <= 0.0) return null
+        return delta / intervalMinutes
     }
 }
 
@@ -66,9 +80,11 @@ data class CgmGap(val afterReadingId: String, val beforeReadingId: String, val d
 
 object CgmGapDetector {
     fun detect(readings: List<CgmReading>, expectedIntervalMs: Long = 5 * 60_000L, toleranceMs: Long = 90_000L): List<CgmGap> =
-        readings.sortedBy(CgmReading::timestampEpochMs).zipWithNext().mapNotNull { (before, after) ->
-            val duration = after.timestampEpochMs - before.timestampEpochMs
-            duration.takeIf { it > expectedIntervalMs + toleranceMs }?.let { CgmGap(before.id, after.id, it) }
+        readings.groupBy { it.sensorId to it.sessionId }.values.flatMap { stream ->
+            stream.sortedBy(CgmReading::timestampEpochMs).zipWithNext().mapNotNull { (before, after) ->
+                val duration = after.timestampEpochMs - before.timestampEpochMs
+                duration.takeIf { it > expectedIntervalMs + toleranceMs }?.let { CgmGap(before.id, after.id, it) }
+            }
         }
 }
 
@@ -85,6 +101,12 @@ object CgmSourceResolver {
 }
 
 fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
+    val status =
+        when {
+            sensorState == G7SensorState.ERROR -> CgmReadingStatus.SENSOR_ERROR
+            !glucoseMgDl.isFinite() || glucoseMgDl !in 20.0..1_000.0 -> CgmReadingStatus.INVALID
+            else -> CgmReadingStatus.VALID
+        }
     val base = CgmReading(
         id = CgmReadingIdentity.create(sensorId, sessionId, sequenceNumber, sensorTimestampEpochMs),
         source = DataSourceId.DEXCOM_G7_WATCH,
@@ -97,7 +119,7 @@ fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
         predictedMgDl = predictedMgDl,
         sensorAgeSeconds = sensorAgeSeconds,
         sequenceNumber = sequenceNumber,
-        status = if (sensorState == G7SensorState.ERROR) CgmReadingStatus.SENSOR_ERROR else CgmReadingStatus.VALID,
+        status = status,
         displayOnly = displayOnly,
         rawSourceTimestamp = sensorClockSeconds,
         sensorStartEpochMs = sensorStartEpochMs,
@@ -107,15 +129,29 @@ fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
         calibrationStateCode = calibrationStateCode,
         reservedField = reservedField,
     )
+    val delta = CgmDeltaCalculator.calculate(base, previous)
+    val resolvedTrendRate = trendRateMgDlPerMinute ?: CgmTrendRateCalculator.calculate(base, previous)
     return base.copy(
-        deltaMgDl = CgmDeltaCalculator.calculate(base, previous),
-        trend = CgmTrendMapper.fromRate(trendRateMgDlPerMinute),
+        deltaMgDl = delta,
+        trendRateMgDlPerMinute = resolvedTrendRate,
+        trend = CgmTrendMapper.fromRate(resolvedTrendRate),
     )
 }
 
-enum class CgmAlarmType { VERY_HIGH, HIGH, LOW, VERY_LOW, RAPID_RISE, RAPID_FALL, SIGNAL_LOSS, SENSOR_ERROR }
-enum class CgmAlarmState { INACTIVE, ACTIVE, ACKNOWLEDGED, SNOOZED, RESOLVED }
-data class CgmAlarm(val type: CgmAlarmType, val state: CgmAlarmState, val triggeredAtEpochMs: Long, val readingId: String?, val snoozedUntilEpochMs: Long? = null)
+@Serializable enum class CgmAlarmType { VERY_HIGH, HIGH, LOW, VERY_LOW, RAPID_RISE, RAPID_FALL, SIGNAL_LOSS, SENSOR_ERROR }
+@Serializable enum class CgmAlarmState { INACTIVE, ACTIVE, ACKNOWLEDGED, SNOOZED, RESOLVED }
+@Serializable
+data class CgmAlarm(
+    val type: CgmAlarmType,
+    val state: CgmAlarmState,
+    val triggeredAtEpochMs: Long,
+    val readingId: String?,
+    val snoozedUntilEpochMs: Long? = null,
+    val lastNotifiedAtEpochMs: Long? = null,
+    val acknowledgedAtEpochMs: Long? = null,
+)
+
+@Serializable
 data class CgmAlarmSettings(
     val veryHighThreshold: Double,
     val highThreshold: Double,
@@ -161,7 +197,15 @@ object CgmAlarmEngine {
         fun wasActive(type: CgmAlarmType): Boolean =
             next[type]?.state in setOf(CgmAlarmState.ACTIVE, CgmAlarmState.ACKNOWLEDGED, CgmAlarmState.SNOOZED)
 
-        val value = reading?.glucoseMgDl
+        val signalLossMs = settings.signalLossMinutes * 60_000L
+        val validReading = reading?.takeIf {
+            val ageMs = nowEpochMs - it.timestampEpochMs
+            it.status == CgmReadingStatus.VALID &&
+                it.glucoseMgDl.isFinite() &&
+                it.glucoseMgDl in 20.0..1_000.0 &&
+                ageMs in 0L until signalLossMs
+        }
+        val value = validReading?.glucoseMgDl
         val veryHigh = settings.veryHighEnabled && value != null &&
             (value >= settings.veryHighThreshold || (wasActive(CgmAlarmType.VERY_HIGH) && value >= settings.veryHighThreshold - settings.hysteresisMgDl))
         val high = settings.highEnabled && !veryHigh && value != null &&
@@ -175,14 +219,28 @@ object CgmAlarmEngine {
         update(CgmAlarmType.HIGH, high)
         update(CgmAlarmType.VERY_LOW, veryLow)
         update(CgmAlarmType.LOW, low)
-        update(CgmAlarmType.RAPID_RISE, settings.rapidRiseEnabled && reading?.trendRateMgDlPerMinute?.let { it >= settings.rapidRiseThreshold } == true)
-        update(CgmAlarmType.RAPID_FALL, settings.rapidFallEnabled && reading?.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true)
-        update(CgmAlarmType.SIGNAL_LOSS, settings.signalLossEnabled && (reading == null || nowEpochMs - reading.timestampEpochMs >= settings.signalLossMinutes * 60_000L))
-        update(CgmAlarmType.SENSOR_ERROR, settings.sensorErrorEnabled && reading?.status == CgmReadingStatus.SENSOR_ERROR)
+        update(CgmAlarmType.RAPID_RISE, settings.rapidRiseEnabled && validReading?.trendRateMgDlPerMinute?.let { it >= settings.rapidRiseThreshold } == true)
+        update(CgmAlarmType.RAPID_FALL, settings.rapidFallEnabled && validReading?.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true)
+        update(
+            CgmAlarmType.SIGNAL_LOSS,
+            settings.signalLossEnabled &&
+                reading != null &&
+                nowEpochMs - reading.timestampEpochMs >= signalLossMs,
+        )
+        update(
+            CgmAlarmType.SENSOR_ERROR,
+            settings.sensorErrorEnabled &&
+                reading?.status == CgmReadingStatus.SENSOR_ERROR &&
+                nowEpochMs - reading.timestampEpochMs in 0L until signalLossMs,
+        )
         return next
     }
 
-    fun acknowledge(alarm: CgmAlarm): CgmAlarm = alarm.copy(state = CgmAlarmState.ACKNOWLEDGED)
+    fun acknowledge(alarm: CgmAlarm, nowEpochMs: Long = System.currentTimeMillis()): CgmAlarm =
+        alarm.copy(state = CgmAlarmState.ACKNOWLEDGED, acknowledgedAtEpochMs = nowEpochMs)
+
+    fun markNotified(alarm: CgmAlarm, nowEpochMs: Long): CgmAlarm =
+        alarm.copy(lastNotifiedAtEpochMs = nowEpochMs)
 
     fun snooze(alarm: CgmAlarm, untilEpochMs: Long): CgmAlarm {
         require(untilEpochMs > alarm.triggeredAtEpochMs)
@@ -192,13 +250,5 @@ object CgmAlarmEngine {
     fun shouldRepeat(alarm: CgmAlarm, settings: CgmAlarmSettings, nowEpochMs: Long): Boolean =
         settings.repeatEnabled &&
             alarm.state == CgmAlarmState.ACTIVE &&
-            nowEpochMs - alarm.triggeredAtEpochMs >= settings.repeatIntervalMinutes * 60_000L
-}
-
-interface CgmAlarmNotifier {
-    fun showNotification(alarm: CgmAlarm)
-    fun startVibration(alarm: CgmAlarm)
-    fun stopVibration()
-    fun playSound(alarm: CgmAlarm) = Unit // TODO(ALARM-SOUNDS)
-    fun stopSound() = Unit
+            nowEpochMs - (alarm.lastNotifiedAtEpochMs ?: alarm.triggeredAtEpochMs) >= settings.repeatIntervalMinutes * 60_000L
 }

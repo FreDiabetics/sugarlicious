@@ -9,10 +9,10 @@ import app.aapswear.model.TrendVisuals
 import kotlin.math.roundToInt
 
 internal object NotificationTrendRenderer {
-    fun render(context: Context, trend: Trend, sizePx: Int = 64): Bitmap? {
+    fun render(context: Context, trend: Trend, sizePx: Int = 64, tint: Int = Color.WHITE): Bitmap? {
         val spec = TrendVisuals.spec(trend) ?: return null
         val drawable = context.getDrawable(R.drawable.ic_trend_arrow)?.mutate() ?: return null
-        drawable.setTint(Color.WHITE)
+        drawable.setTint(tint)
         val bitmap = Bitmap.createBitmap(sizePx * if (spec.arrowCount == 2) 2 else 1, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         repeat(spec.arrowCount) { index ->

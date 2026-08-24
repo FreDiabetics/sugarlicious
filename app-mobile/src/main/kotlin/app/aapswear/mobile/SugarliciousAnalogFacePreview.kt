@@ -104,6 +104,7 @@ internal fun SugarliciousAnalogFacePreview(
         Freshness.CURRENT -> "$source · $age"
         Freshness.DELAYED -> "VERZÖGERT · $age"
         Freshness.STALE -> "VERALTET"
+        Freshness.ERROR -> "SENSORFEHLER"
         Freshness.NO_DATA -> "KEINE DATEN"
     }
     val accent = Color(0xFFEB600A)

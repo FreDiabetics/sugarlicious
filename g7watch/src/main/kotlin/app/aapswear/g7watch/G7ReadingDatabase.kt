@@ -56,28 +56,111 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         }
         val inserted = writableDatabase.insertWithOnConflict("readings", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
         if (inserted) {
-            mutableLatest.value = reading
+            prune()
+            mutableLatest.value = query(limit = 1).firstOrNull()
             appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
             appContext.sendBroadcast(
                 Intent(ACTION_G7_READING_UPDATED).setPackage(SUGARLICIOUS_PACKAGE),
                 READ_G7_PERMISSION,
             )
+            G7CollectorTileService.requestUpdate(appContext)
         }
         return inserted
     }
+
+    private fun prune(nowEpochMs: Long = System.currentTimeMillis()) {
+        writableDatabase.delete(
+            "readings",
+            "measured_at<?",
+            arrayOf((nowEpochMs - RETENTION_MS).toString()),
+        )
+        writableDatabase.execSQL(
+            "DELETE FROM readings WHERE id NOT IN (SELECT id FROM readings ORDER BY measured_at DESC LIMIT $MAX_ROWS)",
+        )
+    }
     override suspend fun getLatest(): CgmReading? = query(limit = 1).firstOrNull()
+    suspend fun getLatestValid(): CgmReading? =
+        query(
+            selection = "status=?",
+            args = arrayOf(CgmReadingStatus.VALID.name),
+            limit = 1,
+        ).firstOrNull()
+
+    /**
+     * Returns the closest validated predecessor for one sensor/session stream. Delta/trend must
+     * never be derived from a future or out-of-order row that happened to be newest globally.
+     */
+    suspend fun getLatestValidBefore(
+        sensorId: String,
+        sessionId: String,
+        beforeEpochMs: Long,
+    ): CgmReading? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=? AND measured_at<?",
+            args = arrayOf(
+                CgmReadingStatus.VALID.name,
+                sensorId,
+                sessionId,
+                beforeEpochMs.toString(),
+            ),
+            limit = 1,
+        ).firstOrNull()
+
     override suspend fun getPrevious(): CgmReading? = query(limit = 2).getOrNull(1)
     override suspend fun getRecent(sinceEpochMs: Long): List<CgmReading> = query("measured_at>=?", arrayOf(sinceEpochMs.toString()))
     override suspend fun getRange(fromEpochMs: Long, toEpochMs: Long): List<CgmReading> = query("measured_at BETWEEN ? AND ?", arrayOf(fromEpochMs.toString(), toEpochMs.toString()))
-    override suspend fun getUnsynced(limit: Int): List<CgmReading> = query("synced=0", limit = limit)
+    override suspend fun getUnsynced(limit: Int): List<CgmReading> =
+        query(
+            selection = "synced=0 AND status=?",
+            args = arrayOf(CgmReadingStatus.VALID.name),
+            limit = limit,
+            ascending = true,
+        )
     override suspend fun markSynced(ids: Set<String>) {
         if (ids.isEmpty()) return
+        var updated = 0
         writableDatabase.beginTransaction()
-        try { ids.forEach { writableDatabase.update("readings", ContentValues().apply { put("synced", 1) }, "id=?", arrayOf(it)) }; writableDatabase.setTransactionSuccessful() } finally { writableDatabase.endTransaction() }
+        try {
+            ids.forEach {
+                updated +=
+                    writableDatabase.update(
+                        "readings",
+                        ContentValues().apply { put("synced", 1) },
+                        "id=? AND synced=0",
+                        arrayOf(it),
+                    )
+            }
+            writableDatabase.setTransactionSuccessful()
+        } finally {
+            writableDatabase.endTransaction()
+        }
+        if (updated > 0) {
+            appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
+            // The Wear bridge reacts only after the transaction committed, so batches larger
+            // than the protocol limit continue without racing the acknowledgement write.
+            appContext.sendBroadcast(
+                Intent(ACTION_G7_READING_UPDATED).setPackage(SUGARLICIOUS_PACKAGE),
+                READ_G7_PERMISSION,
+            )
+        }
     }
 
-    fun query(selection: String? = null, args: Array<String>? = null, limit: Int = 300): List<CgmReading> =
-        readableDatabase.query("readings", null, selection, args, null, null, "measured_at DESC", limit.toString()).use { cursor ->
+    fun query(
+        selection: String? = null,
+        args: Array<String>? = null,
+        limit: Int = 300,
+        ascending: Boolean = false,
+    ): List<CgmReading> =
+        readableDatabase.query(
+            "readings",
+            null,
+            selection,
+            args,
+            null,
+            null,
+            if (ascending) "measured_at ASC" else "measured_at DESC",
+            limit.toString(),
+        ).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) add(CgmReading(
                     id = cursor.getString(cursor.getColumnIndexOrThrow("id")), source = DataSourceId.DEXCOM_G7_WATCH,
@@ -106,5 +189,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         const val ACTION_G7_READING_UPDATED = "app.aapswear.g7watch.READING_UPDATED"
         const val SUGARLICIOUS_PACKAGE = "app.aapswear"
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
+        const val RETENTION_MS = 30L * 24L * 60L * 60_000L
+        const val MAX_ROWS = 2_000
     }
 }

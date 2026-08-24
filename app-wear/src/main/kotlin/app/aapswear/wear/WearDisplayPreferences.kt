@@ -1,14 +1,17 @@
 package app.aapswear.wear
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchDataSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 internal fun shouldApplyG7CollectorSourceTransition(
     previous: WatchDataSource,
@@ -40,12 +43,6 @@ internal data class WearDisplayPreferences(
         private const val STYLE_DOT_RADIUS = "cgm_dot_radius_dp"
         private const val STYLE_OUTLINE_ENABLED = "cgm_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
-        private const val G7_PACKAGE = "app.aapswear.g7watch"
-        private const val G7_SOURCE_RECEIVER = "app.aapswear.g7watch.G7SourceControlReceiver"
-        private const val G7_SOURCE_ACTION = "app.aapswear.g7watch.SET_SOURCE"
-        private const val G7_SOURCE_EXTRA = "g7_selected"
-        private const val G7_CONFIG_PERMISSION = "app.aapswear.g7watch.permission.CONFIGURE_G7"
-
         val allowedGraphHours = listOf(1, 2, 3, 6, 12, 24)
 
         fun read(context: Context): WearDisplayPreferences {
@@ -101,6 +98,8 @@ internal data class WearDisplayPreferences(
                         predictionCob = preferences.getInt(COLOR_PREFIX + "prediction_cob", graphDefaults.predictionCob),
                         predictionUam = preferences.getInt(COLOR_PREFIX + "prediction_uam", graphDefaults.predictionUam),
                         predictionZeroTemp = preferences.getInt(COLOR_PREFIX + "prediction_zero_temp", graphDefaults.predictionZeroTemp),
+                        targetValue = preferences.getInt(COLOR_PREFIX + "target_value", graphDefaults.targetValue),
+                        signalLoss = preferences.getInt(COLOR_PREFIX + "signal_loss", graphDefaults.signalLoss),
                     ),
                 graphStyle =
                     WatchGraphStyle(
@@ -191,17 +190,42 @@ internal data class WearDisplayPreferences(
             )
         }
 
+        /** Explicit Mobile action: graph colors are authoritative even after local Watch edits. */
+        fun applySyncedColors(
+            context: Context,
+            sync: WatchColorSync,
+        ) {
+            val colors = sync.graphColors
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putLong(KEY_SYNCED_AT, sync.sentAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
+                .putInt(COLOR_PREFIX + "background", colors.graphBackground)
+                .putInt(COLOR_PREFIX + "range_low", colors.rangeLow)
+                .putInt(COLOR_PREFIX + "range_in", colors.rangeInRange)
+                .putInt(COLOR_PREFIX + "range_high", colors.rangeHigh)
+                .putInt(COLOR_PREFIX + "cgm_low", colors.cgmLow)
+                .putInt(COLOR_PREFIX + "cgm_in", colors.cgmInRange)
+                .putInt(COLOR_PREFIX + "cgm_high", colors.cgmHigh)
+                .putInt(COLOR_PREFIX + "divider", colors.divider)
+                .putInt(COLOR_PREFIX + "outline", colors.outline)
+                .putInt(COLOR_PREFIX + "prediction_iob", colors.predictionIob)
+                .putInt(COLOR_PREFIX + "prediction_cob", colors.predictionCob)
+                .putInt(COLOR_PREFIX + "prediction_uam", colors.predictionUam)
+                .putInt(COLOR_PREFIX + "prediction_zero_temp", colors.predictionZeroTemp)
+                .putInt(COLOR_PREFIX + "target_value", colors.targetValue)
+                .putInt(COLOR_PREFIX + "signal_loss", colors.signalLoss)
+                .apply()
+        }
+
         private fun notifyG7CollectorSourceTransition(
             context: Context,
             previous: WatchDataSource,
             current: WatchDataSource,
         ) {
             if (!shouldApplyG7CollectorSourceTransition(previous, current)) return
-            val intent =
-                Intent(G7_SOURCE_ACTION)
-                    .setComponent(ComponentName(G7_PACKAGE, G7_SOURCE_RECEIVER))
-                    .putExtra(G7_SOURCE_EXTRA, current == WatchDataSource.DEXCOM_G7_WATCH)
-            context.sendBroadcast(intent, G7_CONFIG_PERMISSION)
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                resolveAndPublishCurrentG7AlertMode(context.applicationContext, current)
+            }
         }
 
         private fun write(
@@ -247,6 +271,8 @@ internal data class WearDisplayPreferences(
                 .putInt(COLOR_PREFIX + "prediction_cob", value.graphColors.predictionCob)
                 .putInt(COLOR_PREFIX + "prediction_uam", value.graphColors.predictionUam)
                 .putInt(COLOR_PREFIX + "prediction_zero_temp", value.graphColors.predictionZeroTemp)
+                .putInt(COLOR_PREFIX + "target_value", value.graphColors.targetValue)
+                .putInt(COLOR_PREFIX + "signal_loss", value.graphColors.signalLoss)
                 .putFloat(STYLE_DOT_RADIUS, style.cgmDotRadiusDp)
                 .putBoolean(STYLE_OUTLINE_ENABLED, style.cgmDotOutlineEnabled)
                 .putFloat(STYLE_OUTLINE_WIDTH, style.cgmDotOutlineWidthDp)

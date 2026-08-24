@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vector conversion of design-assets/ui/ic_trend.svg. Rotation/count comes only from TrendVisuals. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="91.16"
+    android:viewportHeight="83.65">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M88.61,35.97L52.23,2.14c-3.23,-3 -8.3,-2.82 -11.31,0.41 -1.46,1.57 -2.22,3.6 -2.14,5.74 0.08,2.14 0.98,4.12 2.55,5.57l21.47,19.96H8c-4.41,0 -8,3.59 -8,8s3.59,8 8,8h54.82l-21.49,19.97c-1.57,1.46 -2.47,3.44 -2.55,5.57 -0.08,2.14 0.68,4.18 2.14,5.74 1.57,1.69 3.71,2.54 5.86,2.54 1.95,0 3.91,-0.71 5.45,-2.14l36.38,-33.82c1.62,-1.51 2.55,-3.65 2.55,-5.86s-0.93,-4.35 -2.55,-5.86z" />
+</vector>

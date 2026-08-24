@@ -15,6 +15,7 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
@@ -61,6 +62,7 @@ class CgmGraphCustomizationTest {
     fun `configured target value color is used by target line`() {
         preferences.edit().clear().putString("themeMode", "DARK").commit()
         val targetColor = Color.rgb(224, 42, 205)
+        val alternateTargetColor = Color.rgb(30, 210, 70)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
         SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
 
@@ -77,7 +79,7 @@ class CgmGraphCustomizationTest {
                 target = TargetState(80.0, 160.0, valueMgDl = 100.0),
             )
 
-            val bitmap = render(
+            val configured = render(
                 GlucoseDashboardChart(context).apply {
                     bind(
                         state = state,
@@ -93,7 +95,130 @@ class CgmGraphCustomizationTest {
                 240,
             )
 
-            assertTrue("targetColorPixels=${count(bitmap) { it == targetColor }}", count(bitmap) { it == targetColor } > 40)
+            SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, alternateTargetColor)
+            SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+            val recolored = render(
+                GlucoseDashboardChart(context).apply {
+                    bind(
+                        state = state,
+                        unit = GlucoseUnit.MG_DL,
+                        showPredictions = false,
+                        durationHours = 3,
+                        showTargetRange = false,
+                        showTargetValue = true,
+                        cgmDotOutlineEnabled = false,
+                        clockEpochMs = now,
+                    )
+                },
+                240,
+            )
+
+            val changedPixels = bitmapDifferenceCount(configured, recolored)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
+    fun `overview graph forwards enabled target value preference`() {
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val targetColor = Color.rgb(224, 42, 205)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        try {
+            val now = System.currentTimeMillis()
+            val state = TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(
+                    GlucoseSample(118.0, now - 10 * 60_000L),
+                    GlucoseSample(120.0, now - 5 * 60_000L),
+                    GlucoseSample(122.0, now),
+                ),
+                target = TargetState(80.0, 160.0, valueMgDl = 100.0),
+            )
+            val enabledUi = DashboardUiPreferences(
+                showCgmTargetRange = false,
+                showCgmTargetValue = true,
+                cgmDotOutlineEnabled = false,
+            )
+            val disabledUi = enabledUi.copy(showCgmTargetValue = false)
+
+            val enabled = render(
+                GlucoseDashboardChart(context).apply {
+                    bindOverview(state, enabledUi, now)
+                },
+                240,
+            )
+            val disabled = render(
+                GlucoseDashboardChart(context).apply {
+                    bindOverview(state, disabledUi, now)
+                },
+                240,
+            )
+
+            val changedPixels = bitmapDifferenceCount(enabled, disabled)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
+    fun `changed target history invalidates an otherwise unchanged graph`() {
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val targetColor = Color.rgb(224, 42, 205)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        try {
+            val now = System.currentTimeMillis()
+            val base = TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(
+                    GlucoseSample(118.0, now - 10 * 60_000L),
+                    GlucoseSample(122.0, now),
+                ),
+                target = TargetState(80.0, 160.0),
+            )
+            val chart = GlucoseDashboardChart(context)
+            chart.bind(
+                state = base,
+                unit = GlucoseUnit.MG_DL,
+                showPredictions = false,
+                durationHours = 3,
+                showTargetRange = false,
+                showTargetValue = true,
+                cgmDotOutlineEnabled = false,
+                clockEpochMs = now,
+            )
+            val before = render(chart, 240)
+
+            chart.bind(
+                state = base.copy(
+                    targetHistory = listOf(
+                        TargetSample(
+                            valueMgDl = 100.0,
+                            startedAtEpochMs = now - 3 * 60 * 60_000L,
+                            endsAtEpochMs = now,
+                        ),
+                    ),
+                ),
+                unit = GlucoseUnit.MG_DL,
+                showPredictions = false,
+                durationHours = 3,
+                showTargetRange = false,
+                showTargetValue = true,
+                cgmDotOutlineEnabled = false,
+                clockEpochMs = now,
+            )
+            val after = render(chart, 240)
+
+            val changedPixels = bitmapDifferenceCount(before, after)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }
@@ -193,6 +318,18 @@ class CgmGraphCustomizationTest {
         view.layout(0, 0, size, size)
         view.draw(Canvas(bitmap))
         return bitmap
+    }
+
+    private fun bitmapDifferenceCount(first: Bitmap, second: Bitmap): Int {
+        assertEquals(first.width, second.width)
+        assertEquals(first.height, second.height)
+        var changed = 0
+        for (y in 0 until first.height) {
+            for (x in 0 until first.width) {
+                if (first.getPixel(x, y) != second.getPixel(x, y)) changed++
+            }
+        }
+        return changed
     }
 
     private fun count(bitmap: Bitmap, predicate: (Int) -> Boolean): Int {

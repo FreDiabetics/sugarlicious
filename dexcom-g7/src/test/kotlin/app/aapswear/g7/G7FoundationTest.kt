@@ -24,6 +24,36 @@ class G7FoundationTest {
         assertNull(CgmDeltaCalculator.calculate(reading(112.0), reading(108.0, now - 20 * 60_000L)))
     }
 
+    @Test fun `delta rejects sensor errors and implausible glucose values`() {
+        val sensorError = reading(0.0, now - 5 * 60_000L).copy(status = CgmReadingStatus.SENSOR_ERROR)
+        assertNull(CgmDeltaCalculator.calculate(reading(112.0), sensorError))
+        assertNull(CgmDeltaCalculator.calculate(reading(112.0), reading(Double.NaN, now - 5 * 60_000L)))
+        assertNull(CgmDeltaCalculator.calculate(reading(112.0), reading(1_001.0, now - 5 * 60_000L)))
+    }
+
+    @Test fun `CGM conversion marks implausible values invalid without inventing a replacement`() {
+        val converted =
+            G7Reading(
+                sensorId = "sensor",
+                sessionId = "session",
+                sequenceNumber = 1L,
+                glucoseMgDl = 14.0,
+                sensorTimestampEpochMs = now,
+                receivedAtEpochMs = now,
+                sensorState = G7SensorState.ACTIVE,
+            ).toCgm()
+
+        assertEquals(CgmReadingStatus.INVALID, converted.status)
+        assertEquals(14.0, converted.glucoseMgDl)
+    }
+
+    @Test fun `sensor and session changes never create synthetic history gaps`() {
+        val previous = reading(108.0, now - 30 * 60_000L).copy(sensorId = "old-sensor", sessionId = "old-session")
+        val current = reading(112.0).copy(sensorId = "new-sensor", sessionId = "new-session")
+
+        assertTrue(CgmGapDetector.detect(listOf(previous, current)).isEmpty())
+    }
+
     @Test fun `local current G7 wins source resolution`() {
         val g7 = reading(112.0)
         val phone = g7.copy(id = "phone", source = DataSourceId.ANDROID_APS, timestampEpochMs = now + 1_000L)
@@ -114,11 +144,51 @@ class G7FoundationTest {
         assertEquals(now + 270_000L, state.nextReconnectEpochMs)
     }
 
+    @Test fun `sensor error packet preserves last valid reading and schedules its next window`() {
+        val lastValid = reading(112.0, now - 5 * 60_000L, "valid")
+        val sensorError =
+            reading(0.0, now, "sensor-error").copy(status = CgmReadingStatus.SENSOR_ERROR)
+
+        val state =
+            G7SessionManager(G7PersistedState(collectorEnabled = true, lastReading = lastValid))
+                .readingReceived(sensorError)
+
+        assertEquals(lastValid, state.lastReading)
+        assertEquals(now + 270_000L, state.nextReconnectEpochMs)
+    }
+
     @Test fun `recovery is bounded and eventually requires user`() {
         val manager = G7SessionManager(G7PersistedState(collectorEnabled = true))
         repeat(12) { index -> manager.failure(G7CollectorError("AUTH_$index", true, now + index, "Authentication unavailable")) }
         assertEquals(G7SessionState.USER_INTERVENTION_REQUIRED, manager.state.sessionState)
         assertTrue(manager.state.retryCount <= 10)
+    }
+
+    @Test fun `direct and fallback window misses retain cadence from last real reading`() {
+        val lastReading = reading(112.0, now - 60_000L, "last")
+        val expectedReconnect = now + 210_000L
+        val windowErrors = listOf(
+            "G7-GATT-133",
+            "G7-GATT-215",
+            "G7-BLE-107",
+            "G7-BLE-111",
+            "G7-BLE-FALLBACK-107",
+        )
+
+        windowErrors.forEach { code ->
+            val state =
+                G7SessionManager(
+                    G7PersistedState(
+                        collectorEnabled = true,
+                        lastReading = lastReading,
+                        retryCount = 4,
+                    ),
+                ).failure(G7CollectorError(code, true, now, "window miss"))
+
+            assertEquals(expectedReconnect, state.nextReconnectEpochMs, code)
+            assertEquals(0, state.retryCount, code)
+            assertEquals(G7SessionState.RECOVERING, state.sessionState, code)
+        }
     }
 
     @Test fun `non recoverable collector errors never create an endless retry`() {

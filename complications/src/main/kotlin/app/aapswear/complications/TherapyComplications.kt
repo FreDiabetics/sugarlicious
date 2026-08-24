@@ -34,7 +34,6 @@ import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DeviceState
 import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseState
@@ -153,10 +152,7 @@ abstract class TherapyComplicationService(
     ): ComplicationData {
         val now = System.currentTimeMillis()
         val glucose = state?.glucose
-        val freshness = FreshnessPolicy.classify(
-            glucose?.measuredAtEpochMs ?: state?.receivedAtEpochMs,
-            now,
-        )
+        val freshness = TherapyDisplayFormatter.freshness(state, now)
         val displayable =
             freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
         val therapyState = state.takeIf { displayable }
@@ -834,6 +830,7 @@ abstract class TherapyComplicationService(
             Freshness.CURRENT -> "live"
             Freshness.DELAYED -> "delayed"
             Freshness.STALE -> "stale"
+            Freshness.ERROR -> "sensor error"
             Freshness.NO_DATA -> "no data"
         }
 

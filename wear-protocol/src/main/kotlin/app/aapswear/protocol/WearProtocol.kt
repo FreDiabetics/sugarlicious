@@ -2,6 +2,8 @@ package app.aapswear.protocol
 
 import app.aapswear.model.DiagnosticBatch
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.g7.CgmReading
+import app.aapswear.model.DataSourceId
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -11,7 +13,7 @@ data class WearEnvelope(
     val state: TherapyDisplayState,
 ) {
     companion object {
-        const val CURRENT = 6
+        const val CURRENT = 7
     }
 }
 
@@ -55,7 +57,45 @@ data class WatchGraphColors(
     val predictionCob: Int = 0xFFF4DE00.toInt(),
     val predictionUam: Int = 0xFFFFAE1F.toInt(),
     val predictionZeroTemp: Int = 0xFF30DBDE.toInt(),
+    val targetValue: Int = 0xFFF5F5F5.toInt(),
+    val signalLoss: Int = 0x46FF5C69,
 )
+
+@Serializable
+data class WatchColorSync(
+    val schemaVersion: Int = CURRENT_SCHEMA,
+    val graphColors: WatchGraphColors,
+    val sentAtEpochMs: Long,
+) {
+    companion object {
+        const val CURRENT_SCHEMA = 1
+    }
+}
+
+@Serializable
+data class G7ReadingBatch(
+    val schemaVersion: Int = CURRENT_SCHEMA,
+    val batchId: String,
+    val readings: List<CgmReading>,
+    val sentAtEpochMs: Long,
+) {
+    companion object {
+        const val CURRENT_SCHEMA = 1
+        const val MAX_READINGS = 100
+    }
+}
+
+@Serializable
+data class G7ReadingAck(
+    val schemaVersion: Int = CURRENT_SCHEMA,
+    val batchId: String,
+    val acknowledgedIds: Set<String>,
+    val acknowledgedAtEpochMs: Long,
+) {
+    companion object {
+        const val CURRENT_SCHEMA = 1
+    }
+}
 
 @Serializable
 data class WatchUiColors(
@@ -101,7 +141,7 @@ data class WatchConfig(
     val sentAtEpochMs: Long = 0L,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 6
+        const val CURRENT_SCHEMA = 7
     }
 }
 
@@ -117,6 +157,10 @@ object WearProtocol {
     const val WATCH_RUNTIME_REQUEST_PATH = "/aaps-display/v1/watch-runtime-request"
     const val G7_SETUP_PATH = "/aaps-display/v1/g7-setup"
     const val G7_READING_PATH = "/aaps-display/v1/g7-reading"
+    const val G7_READING_BATCH_PATH = "/aaps-display/v1/g7-reading-batch"
+    const val G7_READING_ACK_PATH = "/aaps-display/v1/g7-reading-ack"
+    const val G7_SYNC_REQUEST_PATH = "/aaps-display/v1/g7-sync-request"
+    const val WATCH_COLOR_SYNC_PATH = "/aaps-display/v1/watch-color-sync"
     const val DIAGNOSTICS_REQUEST_PATH = "/aaps-display/v1/diagnostics-request"
     const val DIAGNOSTICS_BATCH_PATH = "/aaps-display/v1/diagnostics-batch"
     const val SUGARLICIOUS_WATCH_FACE_MAX_INDEX = 5
@@ -143,6 +187,38 @@ object WearProtocol {
 
     fun encodeG7Setup(command: G7SetupCommand): ByteArray =
         json.encodeToString(command).encodeToByteArray()
+
+    fun encodeG7ReadingBatch(batch: G7ReadingBatch): ByteArray =
+        json.encodeToString(batch).encodeToByteArray()
+
+    fun decodeG7ReadingBatch(bytes: ByteArray): G7ReadingBatch {
+        val decoded = json.decodeFromString<G7ReadingBatch>(bytes.decodeToString())
+        require(decoded.schemaVersion in 1..G7ReadingBatch.CURRENT_SCHEMA)
+        require(decoded.batchId.isNotBlank() && decoded.batchId.length <= 80)
+        require(decoded.readings.size <= G7ReadingBatch.MAX_READINGS)
+        require(decoded.readings.all { it.source == DataSourceId.DEXCOM_G7_WATCH })
+        return decoded.copy(readings = decoded.readings.distinctBy(CgmReading::id))
+    }
+
+    fun encodeG7ReadingAck(ack: G7ReadingAck): ByteArray =
+        json.encodeToString(ack).encodeToByteArray()
+
+    fun decodeG7ReadingAck(bytes: ByteArray): G7ReadingAck {
+        val decoded = json.decodeFromString<G7ReadingAck>(bytes.decodeToString())
+        require(decoded.schemaVersion in 1..G7ReadingAck.CURRENT_SCHEMA)
+        require(decoded.batchId.isNotBlank() && decoded.batchId.length <= 80)
+        require(decoded.acknowledgedIds.size <= G7ReadingBatch.MAX_READINGS)
+        return decoded.copy(acknowledgedIds = decoded.acknowledgedIds.filter { it.isNotBlank() }.toSet())
+    }
+
+    fun encodeWatchColorSync(sync: WatchColorSync): ByteArray =
+        json.encodeToString(sync).encodeToByteArray()
+
+    fun decodeWatchColorSync(bytes: ByteArray): WatchColorSync {
+        val decoded = json.decodeFromString<WatchColorSync>(bytes.decodeToString())
+        require(decoded.schemaVersion in 1..WatchColorSync.CURRENT_SCHEMA)
+        return decoded
+    }
 
     fun decodeG7Setup(bytes: ByteArray): G7SetupCommand =
         json.decodeFromString<G7SetupCommand>(bytes.decodeToString())

@@ -65,6 +65,7 @@
   </receiver>
   <receiver android:name=".PersistentBridgeBootReceiver" android:exported="true"><intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/></intent-filter></receiver>
   <receiver android:name=".GlucoseWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/glucose_widget_info"/></receiver>
+  <receiver android:name=".GraphWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/graph_widget_info"/></receiver>
   <receiver android:name=".MetabolicWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/metabolic_widget_info"/></receiver>
   <receiver android:name=".ActivityWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/activity_widget_info"/></receiver>
   <service android:name=".PersistentBridgeService" android:exported="false" android:foregroundServiceType="specialUse">

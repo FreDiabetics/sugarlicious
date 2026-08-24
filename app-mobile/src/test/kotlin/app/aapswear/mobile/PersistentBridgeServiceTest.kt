@@ -15,8 +15,11 @@ import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.TargetSample
+import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.storage.TherapyStateStore
@@ -137,8 +140,8 @@ class PersistentBridgeServiceTest {
                 deltaMgDl = 5.0,
             ),
             glucoseHistory = listOf(
-                app.aapswear.model.GlucoseSample(115.0, now - 10 * 60_000L),
-                app.aapswear.model.GlucoseSample(120.0, now - 5 * 60_000L),
+                GlucoseSample(115.0, now - 10 * 60_000L),
+                GlucoseSample(120.0, now - 5 * 60_000L),
             ),
         )
         runBlocking { TherapyStateStore(context).save(therapyState) }
@@ -210,15 +213,91 @@ class PersistentBridgeServiceTest {
             assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, 0)))
             assertEquals(0, Color.alpha(graph.getPixel(0, graph.height - 1)))
             assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, graph.height - 1)))
-            assertEquals(highEdgeColor, graph.getPixel(graph.width / 2, 0))
-            assertEquals(lowEdgeColor, graph.getPixel(graph.width / 2, graph.height - 1))
+            // In-range data must leave both excursion regions on the graph background.
+            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, 0))
+            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, graph.height - 1))
         }
-        val targetTop = (expandedGraph.height * 0.1875f).toInt() + 2
-        assertEquals(appInRangeColor, expandedGraph.getPixel(0, targetTop))
-        assertEquals(appInRangeColor, expandedGraph.getPixel(expandedGraph.width - 1, targetTop))
+        var inRangePixels = 0
+        for (y in 0 until expandedGraph.height) {
+            for (x in 0 until expandedGraph.width) {
+                if (expandedGraph.getPixel(x, y) == appInRangeColor) inRangePixels++
+            }
+        }
+        assertTrue("inRangePixels=$inRangePixels", inRangePixels > 1_000)
         assertEquals(null, notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
         assertEquals(1, notification.actions.size)
         controller.destroy()
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `notification graph ignores target value and target history`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val now = System.currentTimeMillis()
+        val base =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(
+                    valueMgDl = 123.0,
+                    displayUnit = GlucoseUnit.MG_DL,
+                    measuredAtEpochMs = now - 60_000L,
+                ),
+                glucoseHistory = listOf(
+                    GlucoseSample(116.0, now - 10 * 60_000L),
+                    GlucoseSample(120.0, now - 5 * 60_000L),
+                ),
+                target = TargetState(lowMgDl = 80.0, highMgDl = 160.0, valueMgDl = 100.0),
+                targetHistory = listOf(
+                    TargetSample(
+                        valueMgDl = 100.0,
+                        startedAtEpochMs = now - 60L * 60_000L,
+                        endsAtEpochMs = now,
+                    ),
+                ),
+            )
+        val changedTargetHistory =
+            base.copy(
+                target = base.target?.copy(valueMgDl = 130.0, temporary = true),
+                targetHistory = listOf(
+                    TargetSample(
+                        valueMgDl = 130.0,
+                        startedAtEpochMs = now - 30L * 60_000L,
+                        endsAtEpochMs = now + 30L * 60_000L,
+                        temporary = true,
+                    ),
+                ),
+            )
+
+        val collapsedBase = NotificationGraphRenderer.renderCollapsed(context, base, preferences)
+        val collapsedChanged = NotificationGraphRenderer.renderCollapsed(context, changedTargetHistory, preferences)
+        val expandedBase = NotificationGraphRenderer.renderExpanded(context, base, preferences)
+        val expandedChanged = NotificationGraphRenderer.renderExpanded(context, changedTargetHistory, preferences)
+
+        fun assertTargetIndependentColumnsEqual(
+            baseGraph: android.graphics.Bitmap,
+            changedGraph: android.graphics.Bitmap,
+        ) {
+            assertEquals(baseGraph.width, changedGraph.width)
+            assertEquals(baseGraph.height, changedGraph.height)
+            // All CGM points in this fixture are clustered in the final ~10 minutes of a 3 h
+            // window. Sampling three earlier columns therefore tests target-band/target-history
+            // rendering without making the assertion sensitive to millisecond-level x drift of
+            // anti-aliased glucose dots between two independent render calls.
+            listOf(baseGraph.width / 4, baseGraph.width / 2, baseGraph.width * 3 / 4).forEach { x ->
+                for (y in 0 until baseGraph.height) {
+                    assertEquals(
+                        "target-independent graph differs at x=$x y=$y",
+                        baseGraph.getPixel(x, y),
+                        changedGraph.getPixel(x, y),
+                    )
+                }
+            }
+        }
+
+        assertTargetIndependentColumnsEqual(collapsedBase, collapsedChanged)
+        assertTargetIndependentColumnsEqual(expandedBase, expandedChanged)
     }
 
     @Test

@@ -35,7 +35,12 @@ object AapsPayloadAdapter {
   val enactedAt=values.number("enactedTimeStamp")?.toLong()?.takeIf { it>0 }
   val suggestedPayload=values["suggested"] as? String
   val enactedPayload=values["enacted"] as? String
-  val targetValue=AapsTargetParser.parse(suggestedPayload)?:AapsTargetParser.parse(enactedPayload)
+  val parsedTarget=AapsTargetParser.parseTarget(suggestedPayload)?:AapsTargetParser.parseTarget(enactedPayload)
+  val targetValue=parsedTarget?.valueMgDl
+  val targetStart=values.number("tempTargetStart")?.toLong()?.takeIf { it>0 }
+  val targetDuration=values.number("tempTargetDurationInMinutes")?.toLong()?.takeIf { it>0 }
+  val targetEnd=values.number("tempTargetEnd")?.toLong()?.takeIf { it>0 }
+   ?:targetStart?.let { start -> targetDuration?.let { duration -> start+duration*60_000L } }
   val smb=AapsSmbParser.parse(enactedPayload,enactedAt)
   val predictions=AapsPredictionParser.parse(suggestedPayload?:enactedPayload,suggestedAt?:enactedAt?:measured)
   val pumpStatus=values["pumpStatus"] as? String
@@ -45,7 +50,7 @@ object AapsPayloadAdapter {
   val rigBattery=values.number("rigBattery")?.toInt()?.takeIf { it in 0..100 }
   val caps=buildSet {
    add(DataCapability.GLUCOSE); if(trend!=Trend.UNKNOWN)add(DataCapability.TREND); if(delta!=null)add(DataCapability.DELTA); if(averageDelta!=null)add(DataCapability.AVERAGE_DELTA)
-   if(low!=null||high!=null||targetValue!=null)add(DataCapability.TARGET); if(iob!=null)add(DataCapability.IOB); if(bolusIob!=null)add(DataCapability.BOLUS_IOB); if(basalIob!=null)add(DataCapability.BASAL_IOB)
+   if(low!=null||high!=null||targetValue!=null)add(DataCapability.TARGET); if(parsedTarget?.temporary==true||targetStart!=null)add(DataCapability.TEMP_TARGET); if(iob!=null)add(DataCapability.IOB); if(bolusIob!=null)add(DataCapability.BOLUS_IOB); if(basalIob!=null)add(DataCapability.BASAL_IOB)
    if(smb!=null)add(DataCapability.SMB); if(cob!=null)add(DataCapability.COB); if(futureCarbs!=null)add(DataCapability.FUTURE_CARBS); if(baseBasal!=null)add(DataCapability.BASAL); if(tempStart!=null||tempAbsolute!=null||tempPercent!=null)add(DataCapability.TEMP_BASAL); if(predictions.isNotEmpty())add(DataCapability.PREDICTIONS)
    if(profile!=null)add(DataCapability.PROFILE); if(suggestedAt!=null||enactedAt!=null)add(DataCapability.LOOP); if(pumpStatus!=null)add(DataCapability.PUMP); if(reservoir!=null)add(DataCapability.RESERVOIR); if(pumpBattery!=null)add(DataCapability.PUMP_BATTERY); if(phoneBattery!=null)add(DataCapability.PHONE_BATTERY)
   }
@@ -64,12 +69,16 @@ object AapsPayloadAdapter {
   } else null
   return TherapyDisplayState(
    receivedAtEpochMs=receivedAtEpochMs, sourceContract=detectedContract,
-   glucose=GlucoseState(value,unit,trend,measured,delta,averageDelta),
+   glucose=GlucoseState(value,unit,trend,measured,delta,averageDelta,source=DataSourceId.ANDROID_APS,receivedAtEpochMs=receivedAtEpochMs),
+   targetHistory=targetValue?.let { target ->
+    val observedAt=targetStart?:suggestedAt?:enactedAt?:measured
+    listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget?.temporary==true||targetStart!=null))
+   }.orEmpty(),
    glucosePredictions=predictions,
    insulin=if(iob!=null||bolusIob!=null||basalIob!=null) InsulinState(iob,bolusIob,basalIob) else null,
    carbs=if(cob!=null||futureCarbs!=null) CarbState(cob,futureCarbs) else null,
    basal=if(baseBasal!=null||tempStart!=null||tempAbsolute!=null||tempPercent!=null) BasalState(baseBasal,tempAbsolute,tempPercent,tempStart,tempDuration,tempStart?.let{s->tempDuration?.let{d->s+d*60_000}},values["tempBasalString"] as? String) else null,
-   target=if(low!=null||high!=null||targetValue!=null) TargetState(low,high,valueMgDl=targetValue) else null,
+   target=if(low!=null||high!=null||targetValue!=null) TargetState(low,high,parsedTarget?.temporary==true||targetStart!=null,targetValue,targetStart,targetEnd) else null,
    loop=loopState,
    pump=if(pumpStatus!=null||reservoir!=null||pumpBattery!=null) PumpState(pumpStatus,reservoir,pumpBattery) else null,
    device=if(phoneBattery!=null||rigBattery!=null) DeviceState(phoneBattery,rigBattery) else null,

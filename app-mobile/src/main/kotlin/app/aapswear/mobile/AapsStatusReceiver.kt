@@ -7,10 +7,6 @@ import androidx.core.content.edit
 import app.aapswear.datasource.aaps.AapsCapabilityDetector
 import app.aapswear.datasource.aaps.AapsPayloadAdapter
 import app.aapswear.model.TherapyDisplayState
-import app.aapswear.model.Trend
-import app.aapswear.model.DataSourceId
-import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.TherapyStateStore
@@ -70,7 +66,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                         )
                     }
                 }
-                if (sourcePreference in setOf(DataSourcePreference.XDRIP_PLUS, DataSourcePreference.DEXCOM_G7_WATCH)) {
+                if (sourcePreference == DataSourcePreference.XDRIP_PLUS) {
                     app.recordMobileDiagnostic("SOURCE", "SRC-AAPS-102", "AAPS payload ignored by explicit source selection")
                     return@launch
                 }
@@ -87,15 +83,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                 val state = parsedState.copy(sourceVersion = installation?.versionName)
                 val store = TherapyStateStore(app)
                 val previous = store.state.first()
-                val g7IsCurrent = previous?.source == DataSourceId.DEXCOM_G7_WATCH &&
-                    FreshnessPolicy.classify(previous.glucose?.measuredAtEpochMs, now) in
-                    setOf(Freshness.CURRENT, Freshness.DELAYED)
-                if (sourcePreference == DataSourcePreference.AUTOMATIC && g7IsCurrent) {
-                    app.recordMobileDiagnostic("SOURCE", "SRC-AAPS-103", "AAPS payload deferred to current direct G7 reading")
-                    return@launch
-                }
-
-                var displayState = DisplayHistoryAccumulator.merge(previous, state, now)
+                val (phoneState, displayState) = MobileCanonicalStateCoordinator.savePhoneInput(app, state, now)
                 app.recordMobileDiagnostic(
                     "PREDICTION",
                     if (state.glucosePredictions.isEmpty() && displayState.glucosePredictions.isNotEmpty()) "PRED-CACHE-201" else "PRED-DATA-200",
@@ -107,16 +95,6 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     ),
                 )
 
-                val glucose = displayState.glucose
-                if (glucose != null && glucose.trend == Trend.UNKNOWN) {
-                    val resolved = TrendArrowResolver.resolve(
-                        glucose.trend,
-                        displayState.glucoseHistory,
-                        glucose.measuredAtEpochMs,
-                    )
-                    displayState = displayState.copy(glucose = glucose.copy(trend = resolved))
-                }
-
                 if (previous?.copy(receivedAtEpochMs = displayState.receivedAtEpochMs) == displayState) {
                     app.diagnostics().edit {
                         putLong("received", now)
@@ -125,9 +103,6 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     return@launch
                 }
 
-                // Persistence is deliberately completed before Data Layer I/O. A phone
-                // without a paired watch must never lose a valid AAPS status broadcast.
-                store.save(displayState)
                 runCatching { HealthConnectIntegration.exportCgmReading(app, displayState) }
                 SugarliciousWidgets.update(app)
                 app.diagnostics().edit {
@@ -141,7 +116,9 @@ class AapsStatusReceiver : BroadcastReceiver() {
                 }
 
                 runCatching {
-                    withTimeout(4.seconds) { publishState(app, displayState) }
+                    // The Watch receives the independent phone input. Mobile's canonical state may
+                    // contain Watch backfill and must not be reflected back as a fake phone source.
+                    withTimeout(4.seconds) { publishState(app, phoneState) }
                 }.onSuccess {
                     app.diagnostics().edit {
                         putLong("lastSyncAt", System.currentTimeMillis())
