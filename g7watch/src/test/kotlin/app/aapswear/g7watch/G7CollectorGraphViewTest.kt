@@ -27,13 +27,17 @@ class G7CollectorGraphViewTest {
     private val background = Color.rgb(25, 25, 25)
 
     @Test
-    fun `current tick and latest reading use identical live edge x`() {
+    fun `latest cgm is centered on now line left of prediction divider`() {
         val left = 16f
-        val right = 369f
+        val divider = 369f
         val start = now - 3 * 60 * 60_000L
+        val radius = 3.1f
+        val gap = 1f
+        val nowLine = G7GraphLayout.nowLineX(divider, radius, gap)
 
-        assertEquals(right, G7GraphLayout.timeX(now, start, now, left, right))
-        assertEquals(right, G7GraphLayout.latestReadingX(right))
+        assertEquals(divider, G7GraphLayout.timeX(now, start, now, left, divider))
+        assertEquals(nowLine, G7GraphLayout.realCgmX(divider, nowLine))
+        assertEquals(divider - gap, nowLine + radius)
     }
 
     @Test
@@ -49,13 +53,33 @@ class G7CollectorGraphViewTest {
     }
 
     @Test
-    fun `high and low label baselines stay inside their zones`() {
+    fun `high text bottom is above line and low text top is below line`() {
         val metrics = Paint().apply { textSize = 12f }.fontMetrics
-        val highBaseline = G7GraphLayout.centeredTextBaseline(7f, 48f, metrics)
-        val lowBaseline = G7GraphLayout.centeredTextBaseline(103f, 130f, metrics)
+        val gap = 1.5f
+        val highLine = 48f
+        val lowLine = 103f
+        val highBaseline = G7GraphLayout.highLabelBaseline(highLine, metrics, gap)
+        val lowBaseline = G7GraphLayout.lowLabelBaseline(lowLine, metrics, gap)
 
-        assertTrue(highBaseline in 7f..48f)
-        assertTrue(lowBaseline in 103f..130f)
+        assertEquals(highLine - gap, highBaseline + metrics.descent, 0.001f)
+        assertEquals(lowLine + gap, lowBaseline + metrics.ascent, 0.001f)
+        listOf("160", "8.9").forEach { _ ->
+            assertTrue(highBaseline + metrics.descent < highLine)
+            assertTrue(lowBaseline + metrics.ascent > lowLine)
+        }
+    }
+
+    @Test
+    fun `maximum dot geometry cannot touch now divider from either lane`() {
+        val divider = 369f
+        val gap = 1f
+        val cgmRadius = 4.5f
+        val predictionRadius = 5f
+        val nowLine = G7GraphLayout.nowLineX(divider, cgmRadius, gap)
+        val predictionCenter = G7GraphLayout.predictionX(divider, divider, predictionRadius, gap)
+
+        assertTrue(nowLine + cgmRadius < divider)
+        assertTrue(predictionCenter - predictionRadius > divider)
     }
 
     @Test

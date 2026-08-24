@@ -35,6 +35,9 @@
         <activity
             android:name=".G7AppearanceActivity"
             android:exported="false" />
+        <activity
+            android:name=".G7SystemStatusActivity"
+            android:exported="false" />
         <service
             android:name=".G7CollectorService"
             android:exported="false"

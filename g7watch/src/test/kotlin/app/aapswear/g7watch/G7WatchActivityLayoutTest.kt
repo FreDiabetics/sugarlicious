@@ -32,29 +32,31 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `collector overview uses compact header unified system status and bottom settings`() {
+    fun `collector overview contains only primary data and action elements`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()
         collectText(activity.findViewById(android.R.id.content), texts)
 
         assertFalse(texts.any { it.contains("3h Verlauf", ignoreCase = true) })
         assertTrue("3h" in texts)
+        assertTrue("mg/dL" in texts)
 
-        val systemIndex = texts.indexOf("SYSTEMSTATUS")
-        val settingsIndex = texts.indexOf("Einstellungen")
+        val systemIndex = texts.indexOf("Systemstatus")
+        val settingsIndex = texts.indexOf("⚙")
         val titleIndex = texts.indexOf("G7 Direct to Watch")
         val brandIndex = texts.indexOf("by Sugarlicious")
         assertTrue(systemIndex >= 0)
         assertTrue(settingsIndex > systemIndex)
         assertTrue(titleIndex > settingsIndex)
         assertTrue(brandIndex > titleIndex)
-        assertTrue(texts.contains("STATUSINFORMATIONEN"))
-        assertTrue(texts.contains("TECHNISCHE DETAILS"))
-        assertTrue(texts.contains("AKTIONEN"))
-        assertTrue(texts.any { it == "Sensor einrichten" || it == "Sensor neu koppeln" })
-        assertTrue(texts.any { it == "Collector starten" || it == "Collector stoppen" })
+        assertFalse(texts.contains("SENSOR"))
+        assertFalse(texts.contains("VERBINDUNG"))
+        assertFalse(texts.contains("ZEITPLANUNG"))
+        assertFalse(texts.contains("DIAGNOSE"))
+        assertFalse(texts.any { it == "Sensor einrichten" || it == "Sensor neu koppeln" })
+        assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
-        assertFalse(texts.contains("⚙"))
+        assertTrue(texts.contains("⚙"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()
@@ -66,7 +68,6 @@ class G7WatchActivityLayoutTest {
         val activity = controller.get()
         val before = findGraph(activity.findViewById(android.R.id.content))
         assertNotNull(before)
-        val systemCardBefore = findText(activity.findViewById(android.R.id.content), "SYSTEMSTATUS")!!.parent
         val scroll = findScrollView(activity.findViewById(android.R.id.content))!!
         measureAndLayout(activity.findViewById(android.R.id.content))
         scroll.scrollTo(0, 120)
@@ -92,10 +93,43 @@ class G7WatchActivityLayoutTest {
         val after = findGraph(activity.findViewById(android.R.id.content))
         assertNotNull(after)
         assertSame(before, after)
-        assertSame(systemCardBefore, findText(activity.findViewById(android.R.id.content), "SYSTEMSTATUS")!!.parent)
         assertEquals(120, scroll.scrollY)
 
         controller.pause().stop().destroy()
+    }
+
+    @Test
+    fun `system status pill and settings icon open existing screens`() {
+        val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        findText(root, "Systemstatus")!!.performClick()
+        assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+
+        findText(root, "⚙")!!.performClick()
+        assertEquals(G7AppearanceActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+        activity.finish()
+    }
+
+    @Test
+    fun `system status screen keeps all real status groups and back navigation`() {
+        val activity = Robolectric.buildActivity(G7SystemStatusActivity::class.java).create().start().resume().get()
+        val texts = mutableListOf<String>()
+        collectText(activity.findViewById(android.R.id.content), texts)
+
+        listOf("SENSOR", "VERBINDUNG", "ZEITPLANUNG", "KOMMUNIKATION", "DIAGNOSE", "AKTIONEN").forEach {
+            assertTrue("Missing group $it", texts.contains(it))
+        }
+        listOf(
+            "Sensorstatus", "Session", "Sensorcode", "GTIN", "Seriennummer", "Letzter Wert", "Trendrate", "BLE-Name", "Kulanzende",
+            "Status", "Reconnect-Strategie", "Hinweis", "Empfohlene Aktion", "Nächster Reconnect", "Geräte in der Nähe",
+            "Benachrichtigungen", "GATT verbunden", "Aktiver Attempt", "Fehlercode",
+        ).forEach {
+            assertTrue("Missing status field $it", texts.contains(it))
+        }
+        assertTrue(texts.any { it.startsWith("←") && it.contains("Systemstatus") })
+        findTextStartingWith(activity.findViewById(android.R.id.content), "←")!!.performClick()
+        assertTrue(activity.isFinishing)
     }
 
     @Test
@@ -144,6 +178,12 @@ class G7WatchActivityLayoutTest {
     private fun findText(view: android.view.View, value: String): TextView? {
         if (view is TextView && view.text?.toString() == value) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) findText(view.getChildAt(index), value)?.let { return it }
+        return null
+    }
+
+    private fun findTextStartingWith(view: android.view.View, value: String): TextView? {
+        if (view is TextView && view.text?.toString()?.startsWith(value) == true) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) findTextStartingWith(view.getChildAt(index), value)?.let { return it }
         return null
     }
 
