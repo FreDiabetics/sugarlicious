@@ -229,7 +229,6 @@ class G7CollectorGraphViewTest {
             this[G7AppearanceRole.GRAPH_GRID] = Color.TRANSPARENT
             this[G7AppearanceRole.GRAPH_AXIS_TEXT] = Color.TRANSPARENT
             this[G7AppearanceRole.GRAPH_TILE_BORDER] = Color.TRANSPARENT
-            this[G7AppearanceRole.GRAPH_NOW_MARKER] = Color.TRANSPARENT
         }
         return G7AppearancePalette(colors)
     }

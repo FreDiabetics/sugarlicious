@@ -144,10 +144,6 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         linePaint.color = palette.argb(G7AppearanceRole.GRAPH_GRID)
         canvas.drawLine(plotRight, plotTop, plotRight, plotBottom, linePaint)
 
-        linePaint.strokeWidth = 1f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_NOW_MARKER)
-        canvas.drawLine(nowLineX, plotTop, nowLineX, plotBottom, linePaint)
-
         val latestTimestamp = visible.maxOfOrNull { it.timestampEpochMs }
         visible.forEach { reading ->
             val px = if (reading.timestampEpochMs == latestTimestamp) nowLineX else G7GraphLayout.realCgmX(x(reading.timestampEpochMs), nowLineX)
