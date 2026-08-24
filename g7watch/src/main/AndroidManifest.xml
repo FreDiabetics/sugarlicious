@@ -46,7 +46,7 @@
             android:name=".G7CollectorTileService"
             android:label="@string/tile_g7_label"
             android:description="@string/tile_g7_description"
-            android:icon="@drawable/ic_g7_app"
+            android:icon="@drawable/ic_g7_sensor"
             android:exported="true"
             android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
             <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>

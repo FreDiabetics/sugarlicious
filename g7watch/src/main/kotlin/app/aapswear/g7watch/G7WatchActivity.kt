@@ -129,7 +129,7 @@ class G7WatchActivity : Activity() {
         })
 
         content.addView(ImageView(this).apply {
-            setImageResource(R.drawable.ic_g7_app)
+            setImageResource(R.drawable.ic_g7_sensor)
             contentDescription = "G7 Watch Collector"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {
