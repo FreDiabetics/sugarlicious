@@ -43,12 +43,10 @@ class G7WatchActivityLayoutTest {
         assertTrue("mg/dL" in texts)
 
         val systemIndex = texts.indexOf("Systemstatus")
-        val settingsIndex = texts.indexOf("⚙")
         val titleIndex = texts.indexOf("G7 Direct to Watch")
         val brandIndex = texts.indexOf("by Sugarlicious")
         assertTrue(systemIndex >= 0)
-        assertTrue(settingsIndex > systemIndex)
-        assertTrue(titleIndex > settingsIndex)
+        assertTrue(titleIndex > systemIndex)
         assertTrue(brandIndex > titleIndex)
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
@@ -57,7 +55,8 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Sensor einrichten" || it == "Sensor neu koppeln" })
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
-        assertTrue(texts.contains("⚙"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "G7 Watch Collector"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()
@@ -107,9 +106,19 @@ class G7WatchActivityLayoutTest {
         findText(root, "Systemstatus")!!.performClick()
         assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
 
-        findText(root, "⚙")!!.performClick()
+        findImageByDescription(root, "Einstellungen")!!.performClick()
         assertEquals(G7AppearanceActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
         activity.finish()
+    }
+
+    private fun findImageByDescription(root: android.view.View, description: String): ImageView? {
+        if (root is ImageView && root.contentDescription?.toString() == description) return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                findImageByDescription(root.getChildAt(index), description)?.let { return it }
+            }
+        }
+        return null
     }
 
     @Test

@@ -116,11 +116,11 @@ class G7WatchActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
-        content.addView(TextView(this).apply {
-            text = "⚙"
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+        content.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_settings)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
+            setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), PorterDuff.Mode.SRC_IN)
             setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java)) }
             contentDescription = "Einstellungen"
         }, LinearLayout.LayoutParams(48.dp, 48.dp).apply {
@@ -128,8 +128,16 @@ class G7WatchActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
         })
 
+        content.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_g7_app)
+            contentDescription = "G7 Watch Collector"
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {
+            topMargin = 9.dp
+            gravity = Gravity.CENTER_HORIZONTAL
+        })
         content.addView(label("G7 Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-            setPadding(3.dp, 15.dp, 3.dp, 0)
+            setPadding(3.dp, 2.dp, 3.dp, 0)
         })
         content.addView(label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
             letterSpacing = 0.08f
@@ -150,11 +158,6 @@ class G7WatchActivity : Activity() {
     private fun header(palette: G7AppearancePalette, status: G7UserStatus) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
-        addView(ImageView(this@G7WatchActivity).apply {
-            setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "G7 Sensor"
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-        }, LinearLayout.LayoutParams(54.dp, 54.dp))
         statusHost = LinearLayout(this@G7WatchActivity).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
