@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.graphics.Color
+import android.graphics.PorterDuff
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -23,6 +24,7 @@ import android.widget.TextView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.Trend
+import app.aapswear.model.TrendVisuals
 import java.util.Locale
 
 class G7WatchActivity : Activity() {
@@ -186,9 +188,7 @@ class G7WatchActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             addView(label(reading?.glucoseMgDl?.toInt()?.toString() ?: "—", 35f, valueColor, true))
-            addView(label(trendGlyph(reading?.trend ?: Trend.UNKNOWN), 31f, palette.argb(G7AppearanceRole.GLUCOSE_TREND), true).apply {
-                setPadding(10.dp, 0, 0, 0)
-            })
+            addView(trendIndicator(reading?.trend ?: Trend.UNKNOWN, palette.argb(G7AppearanceRole.GLUCOSE_TREND)))
         })
         tile.addView(label("mg/dL", 9f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
         val delta = reading?.deltaMgDl?.let { signedDelta(it) } ?: "—"
@@ -367,15 +367,23 @@ class G7WatchActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun trendGlyph(trend: Trend): String = when (trend) {
-        Trend.DOUBLE_UP -> "⇈"
-        Trend.SINGLE_UP -> "↑"
-        Trend.FORTY_FIVE_UP -> "↗"
-        Trend.FLAT -> "→"
-        Trend.FORTY_FIVE_DOWN -> "↘"
-        Trend.SINGLE_DOWN -> "↓"
-        Trend.DOUBLE_DOWN -> "⇊"
-        Trend.UNKNOWN -> "·"
+    private fun trendIndicator(trend: Trend, color: Int) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER
+        setPadding(10.dp, 0, 0, 0)
+        TrendVisuals.spec(trend)?.let { spec ->
+            repeat(spec.arrowCount) { index ->
+                addView(ImageView(this@G7WatchActivity).apply {
+                    setImageResource(R.drawable.ic_trend_arrow)
+                    setColorFilter(color, PorterDuff.Mode.SRC_IN)
+                    rotation = spec.rotationDegrees
+                    contentDescription = "Trend ${trend.name}"
+                    scaleType = ImageView.ScaleType.CENTER_INSIDE
+                }, LinearLayout.LayoutParams(27.dp, 27.dp).apply {
+                    if (index > 0) marginStart = 1.dp
+                })
+            }
+        }
     }
 
     private fun signedDelta(value: Double): String = String.format(Locale.US, "%+.0f", value)

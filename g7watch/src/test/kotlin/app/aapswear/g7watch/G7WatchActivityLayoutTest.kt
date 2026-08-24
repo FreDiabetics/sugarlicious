@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.ImageView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
@@ -112,6 +113,42 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `collector overview uses canonical drawable trend arrow geometry`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = System.currentTimeMillis() + 60_000L
+        val reading =
+            CgmReading(
+                id = "canonical-trend-${System.nanoTime()}",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-canonical-trend",
+                sessionId = "session-canonical-trend",
+                glucoseMgDl = 123.0,
+                timestampEpochMs = now,
+                receivedAtEpochMs = now,
+                trend = Trend.FORTY_FIVE_UP,
+                status = CgmReadingStatus.VALID,
+            )
+        runBlocking {
+            G7ReadingDatabase(context).let { database ->
+                try {
+                    database.insert(reading)
+                } finally {
+                    database.close()
+                }
+            }
+        }
+        G7SensorStateStore(context).save(G7SensorStateStore(context).read().copy(lastReading = reading))
+        val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
+        val arrows = mutableListOf<ImageView>()
+        collectTrendArrows(activity.findViewById(android.R.id.content), arrows)
+
+        assertEquals(1, arrows.size)
+        assertEquals(-45f, arrows.single().rotation)
+        assertTrue(arrows.single().contentDescription.toString().contains("FORTY_FIVE_UP"))
+        activity.finish()
+    }
+
+    @Test
     fun `system status screen keeps all real status groups and back navigation`() {
         val activity = Robolectric.buildActivity(G7SystemStatusActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()
@@ -179,6 +216,11 @@ class G7WatchActivityLayoutTest {
         if (view is TextView && view.text?.toString() == value) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) findText(view.getChildAt(index), value)?.let { return it }
         return null
+    }
+
+    private fun collectTrendArrows(view: android.view.View, output: MutableList<ImageView>) {
+        if (view is ImageView && view.contentDescription?.toString()?.startsWith("Trend ") == true) output += view
+        if (view is ViewGroup) for (index in 0 until view.childCount) collectTrendArrows(view.getChildAt(index), output)
     }
 
     private fun findTextStartingWith(view: android.view.View, value: String): TextView? {
