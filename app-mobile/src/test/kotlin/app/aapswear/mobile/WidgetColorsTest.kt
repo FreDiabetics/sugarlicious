@@ -46,6 +46,7 @@ class WidgetColorsTest {
     @Test
     fun `copy from graph is a snapshot and remains independent afterwards`() {
         val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
         val first = Color.rgb(19, 81, 177)
         val later = Color.rgb(210, 44, 51)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_IN_RANGE, first)

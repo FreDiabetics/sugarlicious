@@ -134,7 +134,6 @@ class NotificationGraphProfilesTest {
 
     @Test
     fun `collapsed and expanded rendered dots stay circular and concentric in light and dark mode`() {
-        val dotColor = Color.rgb(231, 37, 191)
         val outlineColor = Color.rgb(29, 211, 231)
         val now = System.currentTimeMillis()
         val state = TherapyDisplayState(
@@ -144,10 +143,12 @@ class NotificationGraphProfilesTest {
         )
 
         listOf("LIGHT", "DARK").forEach { mode ->
+            val dotColor = if (mode == "LIGHT") Color.BLACK else Color.rgb(231, 37, 191)
+            val modePrefix = "notification.color.${mode.lowercase()}."
             preferences.edit().clear()
                 .putString("themeMode", mode)
-                .putInt("notification.color.override.${SugarliciousColorRole.CGM_DOT_IN_RANGE.preferenceKey}", dotColor)
-                .putInt("notification.color.override.${SugarliciousColorRole.GRAPH_CURRENT_OUTLINE.preferenceKey}", outlineColor)
+                .putInt("$modePrefix${SugarliciousColorRole.CGM_DOT_IN_RANGE.preferenceKey}", dotColor)
+                .putInt("$modePrefix${SugarliciousColorRole.GRAPH_CURRENT_OUTLINE.preferenceKey}", outlineColor)
                 .commit()
             NotificationGraphDotStyleStore.resetProfiles(preferences)
             NotificationGraphDotStyleStore.save(

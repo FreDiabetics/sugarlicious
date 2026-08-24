@@ -33,7 +33,12 @@ class SugarliciousColorStoreTest {
                     30 + (index * 61) % 210,
                 )
                 SugarliciousColorStore.save(preferences, role, argb)
-                assertEquals("$mode ${role.name}", argb, SugarliciousColorStore.load(preferences).argb(role))
+                val expected = when {
+                    mode == "LIGHT" && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
+                    mode == "LIGHT" && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
+                    else -> argb
+                }
+                assertEquals("$mode ${role.name}", expected, SugarliciousColorStore.load(preferences).argb(role))
             }
         }
     }
@@ -72,20 +77,40 @@ class SugarliciousColorStoreTest {
     }
 
     @Test
-    fun `explicit user color survives light and dark theme changes`() {
-        val preferences = context.getSharedPreferences("theme_independent_user_override", Context.MODE_PRIVATE)
+    fun `explicit user colors are isolated between light and dark themes`() {
+        val preferences = context.getSharedPreferences("theme_specific_user_override", Context.MODE_PRIVATE)
         val chosen = Color.argb(144, 7, 91, 203)
         preferences.edit().clear().putString("themeMode", "DARK").commit()
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, chosen)
 
         assertEquals(chosen, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
         preferences.edit().putString("themeMode", "LIGHT").commit()
-        assertEquals(chosen, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
-
-        SugarliciousColorStore.reset(preferences, SugarliciousColorRole.RANGE_HIGH)
         assertEquals(
             SugarliciousColorRole.RANGE_HIGH.lightArgb,
             SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH),
         )
+
+        val lightChosen = Color.rgb(12, 34, 56)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, lightChosen)
+        assertEquals(lightChosen, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
+
+        preferences.edit().putString("themeMode", "DARK").commit()
+        assertEquals(chosen, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
+    }
+
+    @Test
+    fun `light mode enforces white graph and black in range cgm dots`() {
+        val preferences = context.getSharedPreferences("light_graph_contrast", Context.MODE_PRIVATE)
+        preferences.edit().clear()
+            .putString("themeMode", "LIGHT")
+            .putInt("color.override.graph_background", Color.rgb(32, 32, 32))
+            .putInt("color.light.cgm_dot_in_range", Color.WHITE)
+            .commit()
+
+        val palette = SugarliciousColorStore.load(preferences)
+        assertEquals(Color.WHITE, palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND))
+        assertEquals(Color.BLACK, palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE))
+        assertEquals(SugarliciousColorRole.CGM_DOT_LOW.lightArgb, palette.argb(SugarliciousColorRole.CGM_DOT_LOW))
+        assertEquals(SugarliciousColorRole.CGM_DOT_HIGH.lightArgb, palette.argb(SugarliciousColorRole.CGM_DOT_HIGH))
     }
 }

@@ -11,6 +11,7 @@ import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -176,7 +177,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             setTextColor(R.id.notification_value, textPrimary)
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
-                display.trend?.let { NotificationTrendRenderer.render(this@PersistentBridgeService, it) }
+                display.trend?.let { NotificationTrendRenderer.render(this@PersistentBridgeService, it, tint = textPrimary) }
             if (trendBitmap != null) {
                 setViewVisibility(R.id.notification_trend, View.VISIBLE)
                 setImageViewBitmap(R.id.notification_trend, trendBitmap)
@@ -484,9 +485,11 @@ internal object NotificationGraphRenderer {
             val overrideKey = "notification.color.override." + role.preferenceKey
             val legacyModeKey = notificationColorPrefix + role.preferenceKey
             return when {
-                preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
+                palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
+                palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
                 role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
                 preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
+                !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
                 else -> palette.argb(role)
             }
         }

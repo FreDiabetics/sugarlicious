@@ -224,6 +224,7 @@ internal fun SugarliciousColorSettingsPanel(
                             role = it,
                             showCgmGraph = showCgmGraph,
                             showMetabolicGraph = showMetabolicGraph,
+                            isLight = palette.isLight,
                         )
                 }
             if (roles.isEmpty()) return@forEach
@@ -397,8 +398,10 @@ internal fun colorRoleVisible(
     role: SugarliciousColorRole,
     showCgmGraph: Boolean,
     showMetabolicGraph: Boolean,
+    isLight: Boolean = false,
 ): Boolean {
     if (!role.configurable) return false
+    if (isLight && role in lightModeFixedGraphRoles) return false
     if (!showCgmGraph && role in cgmGraphColorRoles) return false
     if (
         role == SugarliciousColorRole.GRAPH_BACKGROUND &&
@@ -409,6 +412,11 @@ internal fun colorRoleVisible(
     }
     return true
 }
+
+private val lightModeFixedGraphRoles = setOf(
+    SugarliciousColorRole.GRAPH_BACKGROUND,
+    SugarliciousColorRole.CGM_DOT_IN_RANGE,
+)
 
 @Composable
 private fun GraphSettingSwitch(
@@ -925,12 +933,14 @@ internal fun NotificationGraphSettingsPanel() {
     var editingRole by remember { mutableStateOf<SugarliciousColorRole?>(null) }
     val palette = SugarliciousColorStore.load(preferences)
     val modePrefix = if (palette.isLight) "notification.color.light." else "notification.color.dark."
-    fun key(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
-    fun legacyModeKey(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
+    fun key(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
+    fun legacyOverrideKey(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
     fun resolved(role: SugarliciousColorRole): Int = when {
+        palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> AndroidColor.WHITE
+        palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> AndroidColor.BLACK
         preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
         role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-        preferences.contains(legacyModeKey(role)) -> preferences.getInt(legacyModeKey(role), palette.argb(role))
+        !palette.isLight && preferences.contains(legacyOverrideKey(role)) -> preferences.getInt(legacyOverrideKey(role), palette.argb(role))
         else -> palette.argb(role)
     }
 
@@ -975,7 +985,7 @@ internal fun NotificationGraphSettingsPanel() {
         SugarliciousColorRole.RANGE_HIGH,
         SugarliciousColorRole.TARGET_VALUE,
         SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
-    )
+    ).filterNot { palette.isLight && it in lightModeFixedGraphRoles }
 
     Column(
         Modifier.fillMaxWidth()
@@ -1000,7 +1010,7 @@ internal fun NotificationGraphSettingsPanel() {
                     preferences.edit().apply {
                         roles.forEach {
                             remove(key(it))
-                            remove(legacyModeKey(it))
+                            if (!palette.isLight) remove(legacyOverrideKey(it))
                         }
                     }.apply()
                     revision++
@@ -1129,10 +1139,13 @@ internal fun NotificationGraphSettingsPanel() {
             ColorSettingRow(
                 role = role,
                 argb = resolved(role),
-                isDefault = !preferences.contains(key(role)) && !preferences.contains(legacyModeKey(role)),
+                isDefault = !preferences.contains(key(role)) &&
+                    (palette.isLight || !preferences.contains(legacyOverrideKey(role))),
                 onEdit = { editingRole = role },
                 onReset = {
-                    preferences.edit().remove(key(role)).remove(legacyModeKey(role)).apply()
+                    preferences.edit().remove(key(role)).apply {
+                        if (!palette.isLight) remove(legacyOverrideKey(role))
+                    }.apply()
                     revision++
                 },
             )
