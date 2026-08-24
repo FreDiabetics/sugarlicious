@@ -5,6 +5,7 @@ import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticAttempt
+import app.aapswear.g7.CollectorCycleTiming
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,9 +27,32 @@ class G7BlePolicyTest {
             CollectorDiagnosticAttempt(2, 2, classification = CollectorCycleClassification.FALLBACK_SCAN_FAILED),
             CollectorDiagnosticAttempt(1, 1, classification = CollectorCycleClassification.SUCCESS_FRESH),
         )
-        assertEquals(2, consecutiveFallbackFailures(attempts, 4))
-        assertEquals(RADIO_DEGRADED_CLUSTER_THRESHOLD, 1 + consecutiveFallbackFailures(attempts, 4))
-        assertEquals(0, consecutiveFallbackFailures(attempts, 2))
+        assertEquals(2, consecutiveRadioFailures(attempts, 4))
+        assertEquals(RADIO_DEGRADED_CLUSTER_THRESHOLD, 1 + consecutiveRadioFailures(attempts, 4))
+        assertEquals(0, consecutiveRadioFailures(attempts, 2))
+    }
+
+    @Test fun `confirmed fallback sensor permits one final bounded status 133 retry`() {
+        assertEquals(1, maxGatt133RetriesForCycle(fallbackSensorConfirmed = false))
+        assertEquals(2, maxGatt133RetriesForCycle(fallbackSensorConfirmed = true))
+    }
+
+    @Test fun `gatt failure after fallback discovery remains part of radio failure cluster`() {
+        val attempts = listOf(
+            CollectorDiagnosticAttempt(
+                attemptId = 3,
+                startedAtEpochMs = 3,
+                classification = CollectorCycleClassification.GATT_CONNECT_FAILED,
+                cycle = CollectorCycleTiming(fallbackScanUsed = true),
+            ),
+            CollectorDiagnosticAttempt(
+                attemptId = 2,
+                startedAtEpochMs = 2,
+                classification = CollectorCycleClassification.FALLBACK_SCAN_FAILED,
+            ),
+        )
+
+        assertEquals(2, consecutiveRadioFailures(attempts, currentAttemptId = 4))
     }
     @Test fun `initial pairing keeps scanning for up to thirty minutes`() {
         assertEquals(

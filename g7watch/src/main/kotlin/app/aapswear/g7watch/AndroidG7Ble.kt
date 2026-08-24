@@ -368,7 +368,9 @@ internal class AndroidG7Collector(
                 onState(G7ProtocolState.RECOVERING)
                 delay(BOND_RECONNECT_DELAY_MS)
             } catch (error: G7BleException) {
-                if (error.errorCode == G7_GATT_133_ERROR_CODE && gatt133Retries < MAX_GATT_133_RETRIES_PER_CYCLE) {
+                if (error.errorCode == G7_GATT_133_ERROR_CODE &&
+                    gatt133Retries < maxGatt133RetriesForCycle(fallbackUsed)
+                ) {
                     pendingGatt133 = error
                     gatt133Retries += 1
                     discoveryRequired = false
@@ -407,7 +409,6 @@ internal class AndroidG7Collector(
         const val SCAN_TIMEOUT_GUARD_MS = 2_000L
         const val MAX_BOND_RECONNECT_ATTEMPTS = 2
         const val BOND_RECONNECT_DELAY_MS = 1_500L
-        const val MAX_GATT_133_RETRIES_PER_CYCLE = 1
         const val GATT_133_STACK_SETTLE_DELAY_MS = 1_500L
     }
 }
@@ -725,3 +726,6 @@ internal fun classifyDirectConnectCallback(status: Int, newState: Int): DirectCo
     status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_DISCONNECTED -> DirectConnectResult.DISCONNECTED_EARLY
     else -> DirectConnectResult.OTHER_STATUS
 }
+
+internal fun maxGatt133RetriesForCycle(fallbackSensorConfirmed: Boolean): Int =
+    if (fallbackSensorConfirmed) 2 else 1

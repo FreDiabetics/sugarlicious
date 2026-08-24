@@ -532,8 +532,8 @@ class G7CollectorService : Service() {
             error.code == "G7-STORE-500" -> CollectorCycleClassification.STORE_FAILED
             else -> classifyG7CycleFailure(error.code, cycle)
         }
-        if (classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED) {
-            val streak = 1 + consecutiveFallbackFailures(attemptStore.snapshot(), attemptId)
+        if (isCompleteRadioFailure(classification, cycle)) {
+            val streak = 1 + consecutiveRadioFailures(attemptStore.snapshot(), attemptId)
             val degraded = streak >= RADIO_DEGRADED_CLUSTER_THRESHOLD
             attemptStore.updateCycle(attemptId) {
                 it.copy(
@@ -871,13 +871,19 @@ private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
 
 internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
 
-internal fun consecutiveFallbackFailures(attempts: List<CollectorDiagnosticAttempt>, currentAttemptId: Long): Int =
+internal fun consecutiveRadioFailures(attempts: List<CollectorDiagnosticAttempt>, currentAttemptId: Long): Int =
     attempts
         .asSequence()
         .filter { it.attemptId < currentAttemptId }
         .sortedByDescending { it.attemptId }
-        .takeWhile { it.classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED }
+        .takeWhile { isCompleteRadioFailure(it.classification, it.cycle) }
         .count()
+
+internal fun isCompleteRadioFailure(
+    classification: CollectorCycleClassification?,
+    cycle: app.aapswear.g7.CollectorCycleTiming?,
+): Boolean = classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED ||
+    (classification == CollectorCycleClassification.GATT_CONNECT_FAILED && cycle?.fallbackScanUsed == true)
 
 internal fun directConnectDiagnosticCode(result: app.aapswear.g7.DirectConnectResult): String = when (result) {
     app.aapswear.g7.DirectConnectResult.NO_CALLBACK -> "DIRECT_CONNECT_NO_CALLBACK"
