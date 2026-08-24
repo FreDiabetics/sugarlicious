@@ -149,6 +149,27 @@ enum class CollectorCycleClassification {
 }
 
 @Serializable
+enum class DirectConnectResult {
+    NO_CALLBACK,
+    STATUS_133,
+    STATUS_19,
+    OTHER_STATUS,
+    TIMEOUT,
+    DISCONNECTED_EARLY,
+    DEVICE_UNAVAILABLE,
+    SECURITY_ERROR,
+    SUCCESS,
+}
+
+@Serializable
+enum class CollectorSlotStrategy {
+    DIRECT_ONLY_SUCCESS,
+    DIRECT_RETRY_SUCCESS,
+    FALLBACK_SCAN_SUCCESS,
+    FULL_SLOT_FAILED,
+}
+
+@Serializable
 data class CollectorCycleTiming(
     val expectedReadingEpoch: Long? = null,
     val requestedReconnectEpoch: Long? = null,
@@ -166,6 +187,28 @@ data class CollectorCycleTiming(
     val advertisementFoundAt: Long? = null,
     val advertisementRssi: Int? = null,
     val connectGattStartedAt: Long? = null,
+    val directConnectCallbackAt: Long? = null,
+    val directConnectStartedElapsedRealtimeMs: Long? = null,
+    val processUptimeAtDirectConnectMs: Long? = null,
+    val directConnectResult: DirectConnectResult? = null,
+    val directConnectStatus: Int? = null,
+    val directConnectNewState: Int? = null,
+    val directConnectAttempts: Int = 0,
+    val fallbackScanUsed: Boolean = false,
+    val scanEndedAt: Long? = null,
+    val scanMode: Int? = null,
+    val scanCallbackType: Int? = null,
+    val scanTotalResults: Int? = null,
+    val scanConnectableResults: Int? = null,
+    val scanNamedG7Results: Int? = null,
+    val scanExactAddressResults: Int? = null,
+    val scanDuplicateResults: Int? = null,
+    val scanMinRssi: Int? = null,
+    val scanMaxRssi: Int? = null,
+    val bluetoothAdapterState: Int? = null,
+    val radioFailureStreak: Int = 0,
+    val radioDegradedCluster: Boolean = false,
+    val slotStrategy: CollectorSlotStrategy? = null,
     val gattConnectedAt: Long? = null,
     val serviceDiscoveryAt: Long? = null,
     val authStartedAt: Long? = null,
@@ -190,6 +233,21 @@ data class CollectorCycleTiming(
     val totalCycleLatencyMs: Long?
         get() = cycleEndedAt?.let { ended -> receiverReceivedAt?.let { ended - it } }
 }
+
+@Serializable
+data class CollectorSlotSummary(
+    val expectedReadingEpoch: Long,
+    val attemptId: Long,
+    val strategy: CollectorSlotStrategy,
+    val directResult: DirectConnectResult? = null,
+    val directAttempts: Int = 0,
+    val fallbackScanUsed: Boolean = false,
+    val scanResultCount: Int? = null,
+    val finalClassification: CollectorCycleClassification,
+    val readingAgeSeconds: Long? = null,
+    val durationMs: Long? = null,
+    val radioFailureStreak: Int = 0,
+)
 
 @Serializable
 data class CollectorDiagnosticEvent(

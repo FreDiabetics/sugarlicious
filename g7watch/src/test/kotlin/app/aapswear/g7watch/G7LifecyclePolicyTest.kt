@@ -98,7 +98,7 @@ class G7LifecyclePolicyTest {
         val expected = 1_000_000L
 
         assertEquals(
-            995_000L,
+            990_000L,
             alignReconnectRequestToStrategy(requested, expected, directReconnect = true),
         )
         assertEquals(

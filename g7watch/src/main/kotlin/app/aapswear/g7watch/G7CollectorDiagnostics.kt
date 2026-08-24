@@ -9,6 +9,8 @@ import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.CollectorSlotStrategy
+import app.aapswear.g7.CollectorSlotSummary
 import java.util.Locale
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -20,8 +22,11 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         context.applicationContext.getSharedPreferences(HISTORY_PREFERENCES, Context.MODE_PRIVATE)
     private val activePreferences =
         context.applicationContext.getSharedPreferences(ACTIVE_PREFERENCES, Context.MODE_PRIVATE)
+    private val slotPreferences =
+        context.applicationContext.getSharedPreferences(SLOT_PREFERENCES, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val serializer = ListSerializer(CollectorDiagnosticAttempt.serializer())
+    private val slotSerializer = ListSerializer(CollectorSlotSummary.serializer())
 
     init {
         synchronized(lock) {
@@ -150,6 +155,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
             // losing the attempt. Only this terminal transition rewrites the large history file.
             saveActive(attempts)
             appendHistory(listOf(updated))
+            appendSlotSummary(updated)
             attempts.removeAt(index)
             saveActive(attempts)
         } else {
@@ -215,6 +221,8 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         mergedAttempts().sortedByDescending(CollectorDiagnosticAttempt::attemptId)
     }
 
+    fun slotSnapshot(): List<CollectorSlotSummary> = synchronized(lock) { loadSlotHistory() }
+
     fun hasActiveAttempt(): Boolean = synchronized(lock) { loadActive().any { it.completedAtEpochMs == null } }
 
     fun hasActiveAttempt(attemptId: Long?): Boolean = synchronized(lock) {
@@ -251,6 +259,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
                 )).takeLast(MAX_EVENTS_PER_ATTEMPT),
             )
             appendHistory(listOf(terminal))
+            appendSlotSummary(terminal)
         }
         if (stale.isNotEmpty()) {
             saveActive(active.filterNot { candidate -> stale.any { it.attemptId == candidate.attemptId } })
@@ -303,6 +312,42 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         saveHistory(merged)
     }
 
+    private fun loadSlotHistory(): List<CollectorSlotSummary> =
+        slotPreferences.getString(KEY_SLOTS, null)
+            ?.let { runCatching { json.decodeFromString(slotSerializer, it) }.getOrNull() }
+            .orEmpty()
+
+    private fun appendSlotSummary(attempt: CollectorDiagnosticAttempt) {
+        val cycle = attempt.cycle ?: return
+        val expected = cycle.expectedReadingEpoch ?: return
+        val classification = attempt.classification ?: return
+        val strategy = cycle.slotStrategy ?: when {
+            classification == CollectorCycleClassification.SUCCESS_FRESH && cycle.fallbackScanUsed -> CollectorSlotStrategy.FALLBACK_SCAN_SUCCESS
+            classification == CollectorCycleClassification.SUCCESS_FRESH && cycle.directConnectAttempts > 1 -> CollectorSlotStrategy.DIRECT_RETRY_SUCCESS
+            classification == CollectorCycleClassification.SUCCESS_FRESH -> CollectorSlotStrategy.DIRECT_ONLY_SUCCESS
+            else -> CollectorSlotStrategy.FULL_SLOT_FAILED
+        }
+        val summary = CollectorSlotSummary(
+            expectedReadingEpoch = expected,
+            attemptId = attempt.attemptId,
+            strategy = strategy,
+            directResult = cycle.directConnectResult,
+            directAttempts = cycle.directConnectAttempts,
+            fallbackScanUsed = cycle.fallbackScanUsed,
+            scanResultCount = cycle.scanTotalResults,
+            finalClassification = classification,
+            readingAgeSeconds = cycle.sensorAgeSeconds,
+            durationMs = attempt.completedAtEpochMs?.minus(attempt.startedAtEpochMs),
+            radioFailureStreak = cycle.radioFailureStreak,
+        )
+        val retained = (loadSlotHistory() + summary)
+            .associateBy(CollectorSlotSummary::expectedReadingEpoch)
+            .values
+            .sortedBy(CollectorSlotSummary::expectedReadingEpoch)
+            .takeLast(MAX_SLOT_SUMMARIES)
+        slotPreferences.edit().putString(KEY_SLOTS, json.encodeToString(slotSerializer, retained)).apply()
+    }
+
     private fun mergedAttempts(): List<CollectorDiagnosticAttempt> =
         (loadHistory() + loadActive())
             .associateBy(CollectorDiagnosticAttempt::attemptId)
@@ -322,6 +367,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         if (active.isEmpty()) return
         val (completed, running) = active.partition { it.completedAtEpochMs != null }
         if (completed.isNotEmpty()) appendHistory(completed)
+        completed.forEach(::appendSlotSummary)
         if (completed.isNotEmpty() || running.size > MAX_ACTIVE_ATTEMPTS) {
             saveActive(running.takeLast(MAX_ACTIVE_ATTEMPTS))
         }
@@ -335,10 +381,12 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         const val PREFERENCES = "g7_collector_attempts"
         const val HISTORY_PREFERENCES = "g7_collector_attempt_history"
         const val ACTIVE_PREFERENCES = "g7_collector_attempt_active"
+        const val SLOT_PREFERENCES = "g7_collector_slot_history"
         const val KEY_COUNTER = "attempt_counter"
         const val KEY_LEGACY_ATTEMPTS = "attempts_v1"
         const val KEY_HISTORY = "attempts_v2"
         const val KEY_ACTIVE = "active_attempts_v1"
+        const val KEY_SLOTS = "slots_v1"
         const val KEY_PENDING_CYCLE = "pending_cycle_v2"
         // 192 five-minute attempts retain roughly 16 hours, enough to preserve a complete
         // overnight test plus the morning recovery while remaining bounded on Wear OS storage.
@@ -346,11 +394,16 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         // Normally only one cycle is active. A small bound also preserves rare overlap/process-death
         // evidence without allowing interrupted attempts to grow unbounded.
         const val MAX_ACTIVE_ATTEMPTS = 8
+        const val MAX_SLOT_SUMMARIES = G7_SLOT_RETENTION_COUNT
         const val MAX_EVENTS_PER_ATTEMPT = 40
         const val STALE_ATTEMPT_AGE_MS = 4L * 60_000L
         val lock = Any()
     }
 }
+
+internal const val G7_SLOT_RETENTION_COUNT = 320
+internal const val G7_SLOT_INTERVAL_MS = 5L * 60_000L
+internal fun g7SlotRetentionDurationMs(): Long = G7_SLOT_RETENTION_COUNT * G7_SLOT_INTERVAL_MS
 
 internal fun classifyG7CycleFailure(
     errorCode: String?,

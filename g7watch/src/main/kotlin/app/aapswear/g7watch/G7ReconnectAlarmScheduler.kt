@@ -146,7 +146,10 @@ internal object G7ReconnectAlarmScheduler {
         )
 }
 
-internal const val G7_DIRECT_PRECONNECT_LEAD_MS = 5_000L
+// Hardware baseline 2026-08-24: a nominal 5 s alarm lead produced the actual GATT request only
+// ~3 s before the slot, while connection p50/p95 completed ~2.7/5.0 s after it. Ten seconds keeps
+// the bounded direct-first design but gives Android BLE scheduling enough reserve before fallback.
+internal const val G7_DIRECT_PRECONNECT_LEAD_MS = 10_000L
 
 internal fun alignReconnectRequestToStrategy(
     requestedReconnectEpochMs: Long,

@@ -11,11 +11,14 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.SystemClock
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
+import app.aapswear.g7.CollectorSlotStrategy
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
+import app.aapswear.g7.CollectorDiagnosticAttempt
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7ConnectionState
 import app.aapswear.g7.G7PersistedState
@@ -51,6 +54,7 @@ internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState
     )
 
 class G7CollectorService : Service() {
+    private val processStartedElapsedMs by lazy { SystemClock.elapsedRealtime() }
     private lateinit var store: G7SensorStateStore
     private lateinit var credentials: G7CredentialStore
     private lateinit var attemptStore: G7CollectorDiagnosticStore
@@ -280,6 +284,7 @@ class G7CollectorService : Service() {
                 onSharedKey = credentials::saveSharedKey,
                 scanTimeoutMsOverride = boundedScanTimeout,
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
+                onTelemetry = { telemetry -> recordBleTelemetry(attemptId, telemetry) },
             )
             attemptStore.record(
                 attemptId,
@@ -420,6 +425,17 @@ class G7CollectorService : Service() {
                 reading.status == CgmReadingStatus.VALID -> CollectorCycleClassification.SUCCESS_AGED
                 else -> CollectorCycleClassification.INVALID_PACKET
             }
+            attemptStore.updateCycle(attemptId) { cycle ->
+                cycle.copy(
+                    slotStrategy = when {
+                        cycle.fallbackScanUsed -> CollectorSlotStrategy.FALLBACK_SCAN_SUCCESS
+                        cycle.directConnectAttempts > 1 -> CollectorSlotStrategy.DIRECT_RETRY_SUCCESS
+                        else -> CollectorSlotStrategy.DIRECT_ONLY_SUCCESS
+                    },
+                    radioFailureStreak = 0,
+                    radioDegradedCluster = false,
+                )
+            }
             attemptStore.setClassification(attemptId, classification)
             val ageMinutes = ((storedAt - reading.timestampEpochMs).coerceAtLeast(0L) / 60_000L)
             attemptStore.record(
@@ -516,6 +532,29 @@ class G7CollectorService : Service() {
             error.code == "G7-STORE-500" -> CollectorCycleClassification.STORE_FAILED
             else -> classifyG7CycleFailure(error.code, cycle)
         }
+        if (classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED) {
+            val streak = 1 + consecutiveFallbackFailures(attemptStore.snapshot(), attemptId)
+            val degraded = streak >= RADIO_DEGRADED_CLUSTER_THRESHOLD
+            attemptStore.updateCycle(attemptId) {
+                it.copy(
+                    radioFailureStreak = streak,
+                    radioDegradedCluster = degraded,
+                    slotStrategy = CollectorSlotStrategy.FULL_SLOT_FAILED,
+                )
+            }
+            if (degraded) {
+                val staleScannerStopped = AndroidG7Scanner.forceCleanup()
+                attemptStore.record(
+                    attemptId,
+                    CollectorDiagnosticStage.RECOVERY,
+                    CollectorDiagnosticResult.INFO,
+                    "RADIO_DEGRADED_CLUSTER · streak=$streak · staleScannerStopped=$staleScannerStopped · nächster Zyklus erhält frische BLE-Laufzeitobjekte",
+                    errorCode = "G7-RADIO-CLUSTER",
+                )
+            }
+        } else {
+            attemptStore.updateCycle(attemptId) { it.copy(slotStrategy = CollectorSlotStrategy.FULL_SLOT_FAILED) }
+        }
         attemptStore.setClassification(attemptId, classification)
         attemptStore.record(
             attemptId,
@@ -546,6 +585,65 @@ class G7CollectorService : Service() {
                     "sessionState" to next.sessionState.name,
                 ),
             )
+        }
+    }
+
+    private fun recordBleTelemetry(attemptId: Long, telemetry: G7BleTelemetry) {
+        when (telemetry) {
+            is G7DirectConnectStarted -> attemptStore.updateCycle(attemptId) { cycle ->
+                cycle.copy(
+                    connectGattStartedAt = cycle.connectGattStartedAt ?: telemetry.timestampEpochMs,
+                    directConnectStartedElapsedRealtimeMs = telemetry.elapsedRealtimeMs,
+                    processUptimeAtDirectConnectMs = (telemetry.elapsedRealtimeMs - processStartedElapsedMs).coerceAtLeast(0L),
+                    directConnectAttempts = cycle.directConnectAttempts + 1,
+                )
+            }
+            is G7DirectConnectCompleted -> {
+                attemptStore.updateCycle(attemptId) { cycle ->
+                    cycle.copy(
+                        directConnectCallbackAt = telemetry.timestampEpochMs,
+                        directConnectResult = telemetry.result,
+                        directConnectStatus = telemetry.status,
+                        directConnectNewState = telemetry.newState,
+                    )
+                }
+                attemptStore.record(
+                    attemptId,
+                    CollectorDiagnosticStage.CONNECT_REQUEST,
+                    if (telemetry.result == app.aapswear.g7.DirectConnectResult.SUCCESS) CollectorDiagnosticResult.SUCCESS else CollectorDiagnosticResult.RECOVERABLE_ERROR,
+                    "Direct Connect ${telemetry.result.name} · callback=${telemetry.durationMs}ms · status=${telemetry.status ?: "—"} · state=${telemetry.newState ?: "—"}",
+                    errorCode = directConnectDiagnosticCode(telemetry.result),
+                    durationMs = telemetry.durationMs,
+                    nowEpochMs = telemetry.timestampEpochMs,
+                )
+            }
+            is G7ScanTelemetry -> {
+                attemptStore.updateCycle(attemptId) { cycle ->
+                    cycle.copy(
+                        fallbackScanUsed = cycle.directConnectAttempts > 0,
+                        scanStartedAt = cycle.scanStartedAt ?: telemetry.startedAtEpochMs,
+                        scanEndedAt = telemetry.endedAtEpochMs,
+                        scanMode = telemetry.scanMode,
+                        scanCallbackType = telemetry.callbackType,
+                        scanTotalResults = telemetry.totalResults,
+                        scanConnectableResults = telemetry.connectableResults,
+                        scanNamedG7Results = telemetry.namedG7Results,
+                        scanExactAddressResults = telemetry.exactAddressResults,
+                        scanDuplicateResults = telemetry.duplicateResults,
+                        scanMinRssi = telemetry.minRssi,
+                        scanMaxRssi = telemetry.maxRssi,
+                        bluetoothAdapterState = telemetry.adapterState,
+                    )
+                }
+                attemptStore.record(
+                    attemptId,
+                    CollectorDiagnosticStage.SCANNING,
+                    CollectorDiagnosticResult.INFO,
+                    "Scan beendet · total=${telemetry.totalResults} · connectable=${telemetry.connectableResults} · g7=${telemetry.namedG7Results} · known=${telemetry.exactAddressResults} · duplicates=${telemetry.duplicateResults} · rssi=${telemetry.minRssi ?: "—"}..${telemetry.maxRssi ?: "—"}",
+                    durationMs = telemetry.durationMs,
+                    nowEpochMs = telemetry.endedAtEpochMs,
+                )
+            }
         }
     }
 
@@ -770,6 +868,28 @@ class G7CollectorService : Service() {
 }
 
 private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
+
+internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
+
+internal fun consecutiveFallbackFailures(attempts: List<CollectorDiagnosticAttempt>, currentAttemptId: Long): Int =
+    attempts
+        .asSequence()
+        .filter { it.attemptId < currentAttemptId }
+        .sortedByDescending { it.attemptId }
+        .takeWhile { it.classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED }
+        .count()
+
+internal fun directConnectDiagnosticCode(result: app.aapswear.g7.DirectConnectResult): String = when (result) {
+    app.aapswear.g7.DirectConnectResult.NO_CALLBACK -> "DIRECT_CONNECT_NO_CALLBACK"
+    app.aapswear.g7.DirectConnectResult.STATUS_133 -> "DIRECT_CONNECT_STATUS_133"
+    app.aapswear.g7.DirectConnectResult.STATUS_19 -> "DIRECT_CONNECT_STATUS_19"
+    app.aapswear.g7.DirectConnectResult.OTHER_STATUS -> "DIRECT_CONNECT_OTHER_STATUS"
+    app.aapswear.g7.DirectConnectResult.TIMEOUT -> "DIRECT_CONNECT_TIMEOUT"
+    app.aapswear.g7.DirectConnectResult.DISCONNECTED_EARLY -> "DIRECT_CONNECT_DISCONNECTED_EARLY"
+    app.aapswear.g7.DirectConnectResult.DEVICE_UNAVAILABLE -> "DIRECT_CONNECT_DEVICE_UNAVAILABLE"
+    app.aapswear.g7.DirectConnectResult.SECURITY_ERROR -> "DIRECT_CONNECT_SECURITY_ERROR"
+    app.aapswear.g7.DirectConnectResult.SUCCESS -> "DIRECT_CONNECT_SUCCESS"
+}
 
 private fun G7CollectorService.updateAttemptCycleForProtocolState(
     attemptId: Long,

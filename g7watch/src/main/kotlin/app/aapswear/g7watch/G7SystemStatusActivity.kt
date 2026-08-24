@@ -168,6 +168,9 @@ class G7SystemStatusActivity : Activity() {
                 addView(row("Letzte Stufe", lastEvent?.stage?.name ?: "—", palette))
                 addView(row("Fehlercode", lastEvent?.errorCode ?: state.lastError?.code ?: "—", palette))
                 addView(row("Letzte Meldung", lastEvent?.message ?: userStatus.description, palette))
+                addView(row("Slot-Strategie", cycle?.slotStrategy?.name ?: "—", palette))
+                addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
+                addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
             }, cardParams())
 
             addView(group("AKTIONEN", palette).apply {
@@ -200,6 +203,13 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Advertisement", formatTimestamp(cycle?.advertisementFoundAt), palette))
         target.addView(row("RSSI", cycle?.advertisementRssi?.let { "$it dBm" } ?: "—", palette))
         target.addView(row("GATT Start", formatTimestamp(cycle?.connectGattStartedAt), palette))
+        target.addView(row("Direct-Ergebnis", cycle?.directConnectResult?.name ?: "—", palette))
+        target.addView(row("Direct-Versuche", cycle?.directConnectAttempts?.toString() ?: "—", palette))
+        target.addView(row("Direct-Status", cycle?.directConnectStatus?.toString() ?: "—", palette))
+        target.addView(row("Scan beendet", formatTimestamp(cycle?.scanEndedAt), palette))
+        target.addView(row("Scan-Ergebnisse", cycle?.scanTotalResults?.toString() ?: "—", palette))
+        target.addView(row("G7 / bekannte Adresse", "${cycle?.scanNamedG7Results ?: "—"} / ${cycle?.scanExactAddressResults ?: "—"}", palette))
+        target.addView(row("Scan-RSSI", cycle?.scanMinRssi?.let { "$it..${cycle.scanMaxRssi ?: it} dBm" } ?: "—", palette))
         target.addView(row("GATT verbunden", formatTimestamp(cycle?.gattConnectedAt), palette))
         target.addView(row("Auth Start", formatTimestamp(cycle?.authStartedAt), palette))
         target.addView(row("Auth Erfolg", formatTimestamp(cycle?.authSucceededAt), palette))

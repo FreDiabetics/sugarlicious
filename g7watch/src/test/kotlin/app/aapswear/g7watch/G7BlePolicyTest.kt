@@ -2,6 +2,9 @@ package app.aapswear.g7watch
 
 import android.bluetooth.BluetoothGatt
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.DirectConnectResult
+import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.CollectorDiagnosticAttempt
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -9,6 +12,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `direct connect callbacks retain actionable platform outcomes`() {
+        assertEquals(DirectConnectResult.SUCCESS, classifyDirectConnectCallback(BluetoothGatt.GATT_SUCCESS, android.bluetooth.BluetoothProfile.STATE_CONNECTED))
+        assertEquals(DirectConnectResult.STATUS_133, classifyDirectConnectCallback(133, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
+        assertEquals(DirectConnectResult.STATUS_19, classifyDirectConnectCallback(19, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
+        assertEquals(DirectConnectResult.DISCONNECTED_EARLY, classifyDirectConnectCallback(BluetoothGatt.GATT_SUCCESS, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
+        assertEquals(DirectConnectResult.OTHER_STATUS, classifyDirectConnectCallback(8, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
+    }
+
+    @Test fun `radio degraded mode starts only with third consecutive complete fallback miss`() {
+        val attempts = listOf(
+            CollectorDiagnosticAttempt(3, 3, classification = CollectorCycleClassification.FALLBACK_SCAN_FAILED),
+            CollectorDiagnosticAttempt(2, 2, classification = CollectorCycleClassification.FALLBACK_SCAN_FAILED),
+            CollectorDiagnosticAttempt(1, 1, classification = CollectorCycleClassification.SUCCESS_FRESH),
+        )
+        assertEquals(2, consecutiveFallbackFailures(attempts, 4))
+        assertEquals(RADIO_DEGRADED_CLUSTER_THRESHOLD, 1 + consecutiveFallbackFailures(attempts, 4))
+        assertEquals(0, consecutiveFallbackFailures(attempts, 2))
+    }
     @Test fun `initial pairing keeps scanning for up to thirty minutes`() {
         assertEquals(
             G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,

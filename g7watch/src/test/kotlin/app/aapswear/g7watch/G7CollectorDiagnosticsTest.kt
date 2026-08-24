@@ -7,6 +7,8 @@ import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
+import app.aapswear.g7.CollectorSlotStrategy
+import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7Sensor
@@ -31,9 +33,42 @@ class G7CollectorDiagnosticsTest {
             "g7_collector_attempts",
             "g7_collector_attempt_history",
             "g7_collector_attempt_active",
+            "g7_collector_slot_history",
         ).forEach { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
         }
+    }
+
+    @Test
+    fun `slot summaries retain more than a full day independently from raw event attempts`() {
+        assertTrue(g7SlotRetentionDurationMs() >= 24L * 60L * 60_000L)
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(
+            manual = false,
+            restart = false,
+            cycle = CollectorCycleTiming(
+                expectedReadingEpoch = 1_300_000L,
+                directConnectResult = DirectConnectResult.SUCCESS,
+                directConnectAttempts = 1,
+                slotStrategy = CollectorSlotStrategy.DIRECT_ONLY_SUCCESS,
+                sensorAgeSeconds = 3,
+            ),
+            nowEpochMs = 1_290_000L,
+        )
+        store.setClassification(attempt.attemptId, CollectorCycleClassification.SUCCESS_FRESH)
+        store.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.COMPLETE,
+            CollectorDiagnosticResult.SUCCESS,
+            "SUCCESS_FRESH",
+            nowEpochMs = 1_305_000L,
+        )
+
+        val summary = G7CollectorDiagnosticStore(context).slotSnapshot().single()
+        assertEquals(1_300_000L, summary.expectedReadingEpoch)
+        assertEquals(CollectorSlotStrategy.DIRECT_ONLY_SUCCESS, summary.strategy)
+        assertEquals(DirectConnectResult.SUCCESS, summary.directResult)
+        assertEquals(3L, summary.readingAgeSeconds)
     }
 
     @Test

@@ -16,6 +16,8 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.SystemClock
+import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.G7AuthenticationSession
 import app.aapswear.g7.G7GattProfile
 import app.aapswear.g7.G7GlucosePacketParser
@@ -41,6 +43,35 @@ internal const val G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE = "G7-GATT-215"
 internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
 internal enum class G7ReconnectStrategy { BOUNDED_SCAN, KNOWN_ADDRESS_DIRECT }
+
+internal sealed interface G7BleTelemetry
+
+internal data class G7DirectConnectStarted(val timestampEpochMs: Long, val elapsedRealtimeMs: Long) : G7BleTelemetry
+
+internal data class G7DirectConnectCompleted(
+    val timestampEpochMs: Long,
+    val elapsedRealtimeMs: Long,
+    val durationMs: Long,
+    val result: DirectConnectResult,
+    val status: Int? = null,
+    val newState: Int? = null,
+) : G7BleTelemetry
+
+internal data class G7ScanTelemetry(
+    val startedAtEpochMs: Long,
+    val endedAtEpochMs: Long,
+    val durationMs: Long,
+    val totalResults: Int,
+    val connectableResults: Int,
+    val namedG7Results: Int,
+    val exactAddressResults: Int,
+    val duplicateResults: Int,
+    val minRssi: Int?,
+    val maxRssi: Int?,
+    val adapterState: Int,
+    val scanMode: Int,
+    val callbackType: Int,
+) : G7BleTelemetry
 
 internal fun shouldUseDirectReconnect(strategy: G7ReconnectStrategy, address: String?): Boolean =
     strategy == G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT && !address.isNullOrBlank()
@@ -99,6 +130,8 @@ internal class AndroidG7Scanner(
     private val context: Context,
     private val matcher: G7DeviceMatcher = KnownG7DeviceMatcher(),
 ) : G7Scanner {
+    var telemetryListener: (G7BleTelemetry) -> Unit = {}
+
     @SuppressLint("MissingPermission")
     override suspend fun findKnownSensor(sensor: G7Sensor?, timeoutMs: Long): G7Sensor? {
         requirePermission(Manifest.permission.BLUETOOTH_SCAN, "G7-BLE-101")
@@ -109,11 +142,16 @@ internal class AndroidG7Scanner(
             ?: throw G7BleException("G7-BLE-104", "Bluetooth-Suche ist nicht verfügbar", true)
 
         return suspendCancellableCoroutine { continuation ->
+            val scanStartedAt = System.currentTimeMillis()
             val finished = AtomicBoolean(false)
             val totalResults = AtomicInteger(0)
             val connectableResults = AtomicInteger(0)
             val namedG7Results = AtomicInteger(0)
             val exactAddressResults = AtomicInteger(0)
+            val duplicateResults = AtomicInteger(0)
+            val seenAddresses = mutableSetOf<String>()
+            var minRssi: Int? = null
+            var maxRssi: Int? = null
             val handler = android.os.Handler(context.mainLooper)
             var timeoutCallback: Runnable? = null
             lateinit var callback: ScanCallback
@@ -122,12 +160,36 @@ internal class AndroidG7Scanner(
                 timeoutCallback?.let(handler::removeCallbacks)
                 timeoutCallback = null
                 runCatching { scanner.stopScan(callback) }
+                clearActiveScan(scanner, callback)
+                val endedAt = System.currentTimeMillis()
+                telemetryListener(
+                    G7ScanTelemetry(
+                        scanStartedAt,
+                        endedAt,
+                        endedAt - scanStartedAt,
+                        totalResults.get(),
+                        connectableResults.get(),
+                        namedG7Results.get(),
+                        exactAddressResults.get(),
+                        duplicateResults.get(),
+                        minRssi,
+                        maxRssi,
+                        adapter.state,
+                        ScanSettings.SCAN_MODE_LOW_LATENCY,
+                        ScanSettings.CALLBACK_TYPE_ALL_MATCHES,
+                    ),
+                )
                 if (!continuation.isActive) return
                 if (error != null) continuation.resumeWithException(error) else continuation.resume(result)
             }
             callback = object : ScanCallback() {
                 override fun onScanResult(callbackType: Int, result: ScanResult) {
                     totalResults.incrementAndGet()
+                    synchronized(seenAddresses) {
+                        if (!seenAddresses.add(result.device.address)) duplicateResults.incrementAndGet()
+                    }
+                    minRssi = minRssi?.let { minOf(it, result.rssi) } ?: result.rssi
+                    maxRssi = maxRssi?.let { maxOf(it, result.rssi) } ?: result.rssi
                     val advertisedName = result.scanRecord?.deviceName
                     if (isG7AdvertisedName(advertisedName)) namedG7Results.incrementAndGet()
                     if (knownG7AddressMatches(sensor?.deviceAddress, result.device.address) == true) {
@@ -155,6 +217,7 @@ internal class AndroidG7Scanner(
                 }
             }
             runCatching {
+                replaceActiveScan(scanner, callback)
                 scanner.startScan(
                     null,
                     ScanSettings.Builder()
@@ -189,6 +252,29 @@ internal class AndroidG7Scanner(
             throw G7BleException(code, "Bluetooth-Berechtigung fehlt", false)
         }
     }
+
+    companion object {
+        private val activeScanLock = Any()
+        private var activeScan: Pair<android.bluetooth.le.BluetoothLeScanner, ScanCallback>? = null
+
+        @SuppressLint("MissingPermission")
+        private fun replaceActiveScan(scanner: android.bluetooth.le.BluetoothLeScanner, callback: ScanCallback) = synchronized(activeScanLock) {
+            activeScan?.let { (oldScanner, oldCallback) -> runCatching { oldScanner.stopScan(oldCallback) } }
+            activeScan = scanner to callback
+        }
+
+        private fun clearActiveScan(scanner: android.bluetooth.le.BluetoothLeScanner, callback: ScanCallback) = synchronized(activeScanLock) {
+            if (activeScan?.first === scanner && activeScan?.second === callback) activeScan = null
+        }
+
+        @SuppressLint("MissingPermission")
+        fun forceCleanup(): Boolean = synchronized(activeScanLock) {
+            val stale = activeScan ?: return@synchronized false
+            runCatching { stale.first.stopScan(stale.second) }
+            activeScan = null
+            true
+        }
+    }
 }
 
 internal data class G7CollectionResult(
@@ -216,6 +302,7 @@ internal class AndroidG7Collector(
         onSharedKey: (String, ByteArray) -> Unit = { _, _ -> },
         scanTimeoutMsOverride: Long? = null,
         reconnectStrategy: G7ReconnectStrategy = G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+        onTelemetry: (G7BleTelemetry) -> Unit = {},
     ): G7CollectionResult {
         var sensor = initialSensor
         var sharedKey = credentials.sharedKey?.takeIf {
@@ -226,6 +313,7 @@ internal class AndroidG7Collector(
         var pendingGatt133: G7BleException? = null
         var discoveryRequired = !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
+        (scanner as? AndroidG7Scanner)?.telemetryListener = onTelemetry
 
         while (true) {
             if (discoveryRequired) {
@@ -255,7 +343,7 @@ internal class AndroidG7Collector(
                 sharedKey = null
             }
 
-            val connection = G7GattConnection(context, sensor)
+            val connection = G7GattConnection(context, sensor, onTelemetry)
             try {
                 val outcome = withTimeout(SESSION_TIMEOUT_MS) {
                     connection.collect(
@@ -329,6 +417,7 @@ private class G7BondReconnectRequired(val sharedKey: ByteArray) : Exception()
 private class G7GattConnection(
     private val context: Context,
     private val sensor: G7Sensor,
+    private val onTelemetry: (G7BleTelemetry) -> Unit,
 ) {
     private val manager = context.getSystemService(BluetoothManager::class.java)
     private val connectionEvents = Channel<Pair<Int, Int>>(Channel.UNLIMITED)
@@ -338,10 +427,15 @@ private class G7GattConnection(
     private val notifications = Channel<Pair<UUID, ByteArray>>(Channel.UNLIMITED)
     @Volatile private var connected = false
     private var gatt: BluetoothGatt? = null
+    private var connectStartedAtEpochMs: Long? = null
+    private var connectStartedElapsedMs: Long? = null
+    private val directResultRecorded = AtomicBoolean(false)
 
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             connected = status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED
+            val result = classifyDirectConnectCallback(status, newState)
+            recordDirectResult(result, status, newState)
             connectionEvents.trySend(status to newState)
         }
 
@@ -379,11 +473,27 @@ private class G7GattConnection(
             ?: throw G7BleException("G7-BLE-109", "Sensoradresse fehlt", true)
         val adapter = manager.adapter ?: throw G7BleException("G7-BLE-102", "Bluetooth ist nicht verfügbar", false)
         val device = runCatching { adapter.getRemoteDevice(address) }
-            .getOrElse { throw G7BleException("G7-BLE-110", "Sensoradresse ist ungültig", false, it) }
+            .getOrElse {
+                recordDirectResult(DirectConnectResult.DEVICE_UNAVAILABLE)
+                throw G7BleException("G7-BLE-110", "Sensoradresse ist ungültig", false, it)
+            }
 
         onState(G7ProtocolState.CONNECTING)
-        gatt = device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
-        val (connectStatus, connectState) = withTimeout(CONNECTION_TIMEOUT_MS) { connectionEvents.receive() }
+        connectStartedAtEpochMs = System.currentTimeMillis()
+        connectStartedElapsedMs = SystemClock.elapsedRealtime()
+        onTelemetry(G7DirectConnectStarted(requireNotNull(connectStartedAtEpochMs), requireNotNull(connectStartedElapsedMs)))
+        gatt = try {
+            device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        } catch (security: SecurityException) {
+            recordDirectResult(DirectConnectResult.SECURITY_ERROR)
+            throw security
+        }
+        val (connectStatus, connectState) = try {
+            withTimeout(CONNECTION_TIMEOUT_MS) { connectionEvents.receive() }
+        } catch (timeout: TimeoutCancellationException) {
+            recordDirectResult(DirectConnectResult.NO_CALLBACK)
+            throw G7BleException(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, "Direkter G7-Connect ohne Callback", true, timeout)
+        }
         if (connectStatus != BluetoothGatt.GATT_SUCCESS || connectState != BluetoothProfile.STATE_CONNECTED) {
             if (connectStatus == GATT_ERROR_133) {
                 throw G7BleException(G7_GATT_133_ERROR_CODE, "Temporärer BLE-Verbindungsfehler (133)", true)
@@ -564,6 +674,21 @@ private class G7GattConnection(
         notifications.close()
     }
 
+    private fun recordDirectResult(result: DirectConnectResult, status: Int? = null, newState: Int? = null) {
+        if (!directResultRecorded.compareAndSet(false, true)) return
+        val startElapsed = connectStartedElapsedMs ?: SystemClock.elapsedRealtime()
+        onTelemetry(
+            G7DirectConnectCompleted(
+                timestampEpochMs = System.currentTimeMillis(),
+                elapsedRealtimeMs = SystemClock.elapsedRealtime(),
+                durationMs = (SystemClock.elapsedRealtime() - startElapsed).coerceAtLeast(0L),
+                result = result,
+                status = status,
+                newState = newState,
+            ),
+        )
+    }
+
     private fun requirePermission(permission: String, code: String) {
         if (context.checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
             throw G7BleException(code, "Bluetooth-Berechtigung fehlt", false)
@@ -591,4 +716,12 @@ private class G7GattConnection(
         const val EXTRA_CHUNK_DELAY_MS = 40L
         const val EXTRA_SETTLE_DELAY_MS = 500L
     }
+}
+
+internal fun classifyDirectConnectCallback(status: Int, newState: Int): DirectConnectResult = when {
+    status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED -> DirectConnectResult.SUCCESS
+    status == 133 -> DirectConnectResult.STATUS_133
+    status == 19 -> DirectConnectResult.STATUS_19
+    status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_DISCONNECTED -> DirectConnectResult.DISCONNECTED_EARLY
+    else -> DirectConnectResult.OTHER_STATUS
 }
