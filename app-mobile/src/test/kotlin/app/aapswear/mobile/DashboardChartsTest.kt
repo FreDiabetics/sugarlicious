@@ -16,6 +16,8 @@ import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEvent
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
@@ -331,8 +333,46 @@ class DashboardChartsTest {
         assertEquals(30.0 * 1.08, cob.maximum, 0.0001)
         assertEquals(iob.zeroRatio, cob.zeroRatio, 0.0001)
         assertEquals(9f, toolkitSmbMarkerSide(0.1))
-        assertEquals(12f, toolkitSmbMarkerSide(0.25))
-        assertEquals(15f, toolkitSmbMarkerSide(0.5))
+        assertEquals(9f, toolkitSmbMarkerSide(0.25))
+        assertEquals(12f, toolkitSmbMarkerSide(0.5))
+    }
+
+    @Test fun `metabolic chart renders classified bolus carb and ecarb events`() {
+        val now = System.currentTimeMillis()
+        val history = listOf(
+            TherapyHistorySample(now - 60 * 60_000L, totalIob = 0.3, cobGrams = 5.0),
+            TherapyHistorySample(now - 30 * 60_000L, totalIob = 2.0, cobGrams = 60.0),
+            TherapyHistorySample(now, totalIob = 1.4, cobGrams = 35.0),
+        )
+        val events = listOf(
+            TherapyEvent("meal-bolus", TherapyEventKind.MEAL_BOLUS, now - 45 * 60_000L, 7.6),
+            TherapyEvent("smb", TherapyEventKind.SMB, now - 20 * 60_000L, 0.2),
+            TherapyEvent("correction", TherapyEventKind.MANUAL_CORRECTION, now - 15 * 60_000L, 1.0),
+            TherapyEvent("meal-carbs", TherapyEventKind.MEAL_CARBS, now - 45 * 60_000L, 60.0),
+            TherapyEvent("ecarbs", TherapyEventKind.ECARBS, now - 10 * 60_000L, 2.0),
+        )
+        val bitmap = render(MetabolicDashboardChart(context).apply {
+            bind(TherapyDisplayState(receivedAtEpochMs = now, therapyHistory = history, therapyEvents = events), 3)
+        }, 260)
+        assertTrue(count(bitmap) { Color.blue(it) > 150 && Color.blue(it) > Color.red(it) } > 30)
+        assertTrue(count(bitmap) { Color.red(it) > 160 && Color.green(it) > 70 && Color.blue(it) < 140 } > 30)
+    }
+
+    @Test fun `bolus marker sizes use the three requested discrete thresholds`() {
+        assertEquals(9f, bolusMarkerSide(0.2))
+        assertEquals(12f, bolusMarkerSide(0.5))
+        assertEquals(12f, bolusMarkerSide(1.5))
+        assertEquals(15f, bolusMarkerSide(1.6))
+        assertEquals(15f, bolusMarkerSide(7.6))
+    }
+
+    @Test fun `event curve position is interpolated at the real timestamp`() {
+        val values = listOf(
+            TherapyHistorySample(1_000L, totalIob = 1.0, cobGrams = 10.0),
+            TherapyHistorySample(3_000L, totalIob = 3.0, cobGrams = 30.0),
+        )
+        assertEquals(2.0, interpolateTherapyValue(values, 2_000L, iob = true)!!, 0.0001)
+        assertEquals(20.0, interpolateTherapyValue(values, 2_000L, iob = false)!!, 0.0001)
     }
 
     @Test fun `metabolic future projections follow recent observed decay`() {

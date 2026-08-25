@@ -10,12 +10,23 @@ import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEvent
+import app.aapswear.model.TherapyEventKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
+    @Test fun `treatment events keep stable ids and do not duplicate on reload`() {
+        val now = DisplayHistoryAccumulator.WINDOW_MS * 2
+        val event = TherapyEvent("bolus:42", TherapyEventKind.MEAL_BOLUS, now - 60_000L, 7.6)
+        val first = TherapyDisplayState(receivedAtEpochMs = now, therapyEvents = listOf(event))
+        val second = TherapyDisplayState(receivedAtEpochMs = now + 1_000L, therapyEvents = listOf(event))
+        val merged = DisplayHistoryAccumulator.merge(DisplayHistoryAccumulator.merge(null, first, now), second, now + 1_000L)
+        assertEquals(listOf(event), merged.therapyEvents)
+    }
+
     @Test
     fun `deduplicates and bounds display history`() {
         val now = 2 * DisplayHistoryAccumulator.WINDOW_MS

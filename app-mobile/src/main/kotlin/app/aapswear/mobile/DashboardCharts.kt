@@ -33,6 +33,8 @@ import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyHistorySample
+import app.aapswear.model.TherapyEvent
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetStepTimeline
 import app.aapswear.storage.PredictionDisplayTimeline
@@ -783,7 +785,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var stateSignature: List<Any?>? = null
 
     fun bind(state: TherapyDisplayState?, durationHours: Int) {
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory) }
+        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents) }
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
@@ -815,11 +817,14 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val half = (bottom - top - gap) / 2f
             val iobPlot = RectF(left, top, right, top + half)
             val cobPlot = RectF(left, top + half + gap, right, bottom)
+            val markerLaneHeight = 18f.dp
+            val iobDataPlot = RectF(iobPlot.left, iobPlot.top, iobPlot.right, iobPlot.bottom - markerLaneHeight)
+            val iobMarkerBounds = RectF(iobPlot.left, iobDataPlot.bottom, iobPlot.right, iobPlot.bottom)
             val iobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.totalIob })
             val cobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.cobGrams }, sharedZeroRatio = iobRange.zeroRatio)
             drawSharedGrid(canvas, iobPlot, cobPlot, start, end, chartNow)
-            drawLane(canvas, iobPlot, points, start, end, iob = true, range = iobRange)
-            drawInsulinActivity(canvas, iobPlot, allPoints, points, start, end, iobRange.zeroRatio)
+            drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange)
+            drawInsulinActivity(canvas, iobDataPlot, allPoints, points, start, end, iobRange.zeroRatio)
             drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange)
             val projectionNow = System.currentTimeMillis()
 
@@ -832,9 +837,9 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 linePaint.pathEffect = null
             }
 
-            drawFutureLane(canvas, iobPlot, buildIobProjection(allPoints, projectionNow, end), start, end, iobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB))
+            drawFutureLane(canvas, iobDataPlot, buildIobProjection(allPoints, projectionNow, end), start, end, iobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB))
             drawFutureLane(canvas, cobPlot, buildCobProjection(allPoints, projectionNow, end), start, end, cobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB))
-            drawSmbMarkers(canvas, iobPlot, points, start, end, mapSignedLogY(0.0, iobRange.minimum, iobRange.maximum, iobPlot))
+            drawTreatmentMarkers(canvas, iobDataPlot, iobMarkerBounds, cobPlot, allPoints, state?.therapyEvents.orEmpty(), points, start, end, iobRange, cobRange)
             if (points.none { it.totalIob != null || it.cobGrams != null }) {
                 drawText(canvas, "Noch kein IOB/COB-Verlauf", (left + right) / 2f, (top + bottom) / 2f, 10f, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED), Paint.Align.CENTER)
             }
@@ -959,18 +964,57 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         linePaint.pathEffect = null
     }
 
-    private fun drawSmbMarkers(canvas: Canvas, plot: RectF, points: List<TherapyHistorySample>, start: Long, end: Long, zeroY: Float) {
-        val markers = points.mapNotNull { point -> point.smbUnits?.takeIf { it > 0.0 }?.let { point.measuredAtEpochMs to it } }
-        if (markers.isEmpty()) return
-        fillPaint.color = Color.rgb(42, 202, 186)
-        markers.forEach { (time, units) ->
-            val side = toolkitSmbMarkerSide(units).dp
-            val halfWidth = side / 2f
-            val markerHeight = side * (sqrt(3.0).toFloat() / 2f)
-            val x = mapX(time, start, end, plot).coerceIn(plot.left + halfWidth, plot.right - halfWidth)
-            val baseY = (zeroY + markerHeight).coerceAtMost(plot.bottom - 1f.dp)
-            canvas.drawPath(roundedUpTriangle(x, baseY, halfWidth, markerHeight, 1.6f.dp), fillPaint)
+    private fun drawTreatmentMarkers(
+        canvas: Canvas,
+        iobData: RectF,
+        iobEventLane: RectF,
+        cobData: RectF,
+        history: List<TherapyHistorySample>,
+        events: List<TherapyEvent>,
+        legacyPoints: List<TherapyHistorySample>,
+        start: Long,
+        end: Long,
+        iobRange: ToolkitMetabolicRange,
+        cobRange: ToolkitMetabolicRange,
+    ) {
+        val visible = events.filter { it.timestampEpochMs in start..end && it.amount.isFinite() && it.amount > 0.0 }
+        val explicitSmbTimes = visible.filter { it.kind == TherapyEventKind.SMB }.map { it.timestampEpochMs }.toSet()
+        val legacySmb = legacyPoints.mapNotNull { point ->
+            point.smbUnits?.takeIf { it > 0.0 && explicitSmbTimes.none { time -> kotlin.math.abs(time - point.measuredAtEpochMs) < 1_000L } }
+                ?.let { TherapyEvent("legacy-smb:${point.measuredAtEpochMs}:$it", TherapyEventKind.SMB, point.measuredAtEpochMs, it) }
         }
+        val zeroY = mapSignedLogY(0.0, iobRange.minimum, iobRange.maximum, iobData)
+        (visible + legacySmb).forEach { event ->
+            val side = treatmentMarkerSide(event.kind, event.amount).dp
+            val half = side / 2f
+            val height = side * (sqrt(3.0).toFloat() / 2f)
+            when (event.kind) {
+                TherapyEventKind.SMB -> {
+                    fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
+                    val x = mapX(event.timestampEpochMs, start, end, iobData).coerceIn(iobData.left + half, iobData.right - half)
+                    canvas.drawPath(roundedUpTriangle(x, (zeroY + height).coerceAtMost(iobEventLane.bottom), half, height, 1.4f.dp), fillPaint)
+                }
+                TherapyEventKind.MANUAL_CORRECTION -> {
+                    fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
+                    val x = mapX(event.timestampEpochMs, start, end, iobData).coerceIn(iobData.left + half, iobData.right - half)
+                    canvas.drawPath(downTriangle(x, zeroY, half, height), fillPaint)
+                }
+                TherapyEventKind.MEAL_BOLUS -> drawCurveMarker(canvas, event, iobData, history, start, end, iobRange, true, side, "U")
+                TherapyEventKind.MEAL_CARBS -> drawCurveMarker(canvas, event, cobData, history, start, end, cobRange, false, side, null)
+                TherapyEventKind.ECARBS -> drawCurveMarker(canvas, event, cobData, history, start, end, cobRange, false, side, "g")
+            }
+        }
+    }
+
+    private fun drawCurveMarker(canvas: Canvas, event: TherapyEvent, plot: RectF, history: List<TherapyHistorySample>, start: Long, end: Long, range: ToolkitMetabolicRange, iob: Boolean, side: Float, unit: String?) {
+        val value = interpolateTherapyValue(history, event.timestampEpochMs, iob) ?: return
+        val half = side / 2f
+        val height = side * (sqrt(3.0).toFloat() / 2f)
+        val x = mapX(event.timestampEpochMs, start, end, plot).coerceIn(plot.left + half, plot.right - half)
+        val y = mapSignedLogY(value, range.minimum, range.maximum, plot)
+        fillPaint.color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
+        canvas.drawPath(downTriangle(x, y, half, height), fillPaint)
+        unit?.let { drawText(canvas, formatEventAmount(event.amount, it), x, (y - height - 3f.dp).coerceAtLeast(plot.top + 10f.dp), 8f, fillPaint.color, Paint.Align.CENTER, bold = true) }
     }
 
     private val Float.dp get() = this * density
@@ -1035,10 +1079,36 @@ private fun recentNegativeSlope(values: List<Pair<Long, Double>>, now: Long): Do
     return sorted[sorted.size / 2]
 }
 
-internal fun toolkitSmbMarkerSide(units: Double): Float = when {
-    abs(units) <= 0.1 -> 9f
-    abs(units) < 0.5 -> 12f
+internal fun toolkitSmbMarkerSide(units: Double): Float = bolusMarkerSide(units)
+
+internal fun bolusMarkerSide(units: Double): Float = when {
+    abs(units) < 0.5 -> 9f
+    abs(units) <= 1.5 -> 12f
     else -> 15f
+}
+
+internal fun treatmentMarkerSide(kind: TherapyEventKind, amount: Double): Float = when (kind) {
+    TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_BOLUS -> bolusMarkerSide(amount)
+    TherapyEventKind.MEAL_CARBS -> 15f
+    TherapyEventKind.ECARBS -> 11f
+}
+
+internal fun interpolateTherapyValue(points: List<TherapyHistorySample>, timestamp: Long, iob: Boolean): Double? {
+    val values = points.mapNotNull { point ->
+        (if (iob) point.totalIob else point.cobGrams)?.takeIf(Double::isFinite)?.let { point.measuredAtEpochMs to it }
+    }.sortedBy { it.first }
+    if (values.isEmpty()) return null
+    val before = values.lastOrNull { it.first <= timestamp }
+    val after = values.firstOrNull { it.first >= timestamp }
+    if (before == null) return after?.second
+    if (after == null || before.first == after.first) return before.second
+    val ratio = (timestamp - before.first).toDouble() / (after.first - before.first).toDouble()
+    return before.second + (after.second - before.second) * ratio
+}
+
+internal fun formatEventAmount(amount: Double, unit: String): String {
+    val rounded = if (kotlin.math.abs(amount - kotlin.math.round(amount)) < 0.0001) "%.0f" else "%.1f"
+    return String.format(Locale.getDefault(), "$rounded %s", amount, unit)
 }
 
 internal fun glucoseLogRatio(valueMgDl: Double): Double {
@@ -1205,6 +1275,13 @@ private fun roundedUpTriangle(cx: Float, baseY: Float, halfWidth: Float, height:
     quadTo(cx, apexY, cx - radius * 0.7f, apexY + radius)
     lineTo(cx - halfWidth + radius * 0.7f, baseY - radius)
     quadTo(cx - halfWidth, baseY, cx - halfWidth + radius, baseY)
+    close()
+}
+
+private fun downTriangle(cx: Float, apexY: Float, halfWidth: Float, height: Float): Path = Path().apply {
+    moveTo(cx, apexY)
+    lineTo(cx - halfWidth, apexY - height)
+    lineTo(cx + halfWidth, apexY - height)
     close()
 }
 
