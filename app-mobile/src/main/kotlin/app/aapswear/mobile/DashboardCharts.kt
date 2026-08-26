@@ -816,13 +816,15 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var state: TherapyDisplayState? = null
     private var boundDurationHours: Int? = null
     private var stateSignature: List<Any?>? = null
+    private var markerVisibility = TreatmentMarkerVisibility()
 
-    fun bind(state: TherapyDisplayState?, durationHours: Int) {
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents) }
+    fun bind(state: TherapyDisplayState?, durationHours: Int, markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility()) {
+        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility) }
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
         boundDurationHours = durationHours
+        this.markerVisibility = markerVisibility
         if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
         invalidate()
     }
@@ -1010,7 +1012,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         iobRange: ToolkitMetabolicRange,
         cobRange: ToolkitMetabolicRange,
     ) {
-        val visible = events.filter { it.timestampEpochMs in start..end && it.amount.isFinite() && it.amount > 0.0 }
+        val visible = events.filter { it.timestampEpochMs in start..end && it.amount.isFinite() && it.amount > 0.0 && markerVisibility.shows(it.kind) }
         val explicitSmbTimes = visible.filter { it.kind == TherapyEventKind.SMB }.map { it.timestampEpochMs }.toSet()
         val legacySmb = legacyPoints.mapNotNull { point ->
             point.smbUnits?.takeIf { it > 0.0 && explicitSmbTimes.none { time -> kotlin.math.abs(time - point.measuredAtEpochMs) < 1_000L } }
@@ -1319,6 +1321,22 @@ private fun downTriangle(cx: Float, apexY: Float, halfWidth: Float, height: Floa
     lineTo(cx - halfWidth, apexY - height)
     lineTo(cx + halfWidth, apexY - height)
     close()
+}
+
+internal data class TreatmentMarkerVisibility(
+    val mealBolus: Boolean = true,
+    val correction: Boolean = true,
+    val smb: Boolean = true,
+    val mealCarbs: Boolean = true,
+    val eCarbs: Boolean = true,
+) {
+    fun shows(kind: TherapyEventKind) = when (kind) {
+        TherapyEventKind.MEAL_BOLUS -> mealBolus
+        TherapyEventKind.MANUAL_CORRECTION -> correction
+        TherapyEventKind.SMB -> smb
+        TherapyEventKind.MEAL_CARBS -> mealCarbs
+        TherapyEventKind.ECARBS -> eCarbs
+    }
 }
 
 private fun mapX(time: Long, start: Long, end: Long, plot: RectF): Float =

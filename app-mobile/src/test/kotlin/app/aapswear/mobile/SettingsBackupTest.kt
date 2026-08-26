@@ -45,6 +45,9 @@ class SettingsBackupTest {
         context.getSharedPreferences("diagnostics", Context.MODE_PRIVATE).edit()
             .putString("private_error", "must-not-leave-device")
             .commit()
+        context.getSharedPreferences("nightscout_treatment_secret", Context.MODE_PRIVATE).edit()
+            .putString("value", "encrypted-nightscout-secret-must-not-leave-device")
+            .commit()
 
         val output = ByteArrayOutputStream()
         SettingsBackup.write(context, output, exportedAtEpochMs = 42L)
@@ -52,6 +55,7 @@ class SettingsBackupTest {
 
         assertTrue(document.contains("sugarlicious-settings"))
         assertFalse(document.contains("must-not-leave-device"))
+        assertFalse(document.contains("encrypted-nightscout-secret"))
         clearPreferences()
 
         val result = SettingsBackup.restore(context, ByteArrayInputStream(output.toByteArray()))
@@ -102,7 +106,7 @@ class SettingsBackupTest {
     }
 
     private fun clearPreferences() {
-        (exportedPreferenceFiles + "diagnostics").forEach { name ->
+        (exportedPreferenceFiles + listOf("diagnostics", "nightscout_treatment_secret", "nightscout_treatment_history", "nightscout_treatment_config")).forEach { name ->
             context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
         }
     }

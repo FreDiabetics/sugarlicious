@@ -230,6 +230,7 @@ class MainActivity : ComponentActivity() {
             setUnit = { uiPreferences.edit { putString("unit", it.name) } },
             setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
             openG7Setup = { startActivity(Intent(this, G7SetupActivity::class.java)) },
+            openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
             openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
             setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
@@ -382,6 +383,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
+        scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
         refresh()
     }
 

@@ -2,6 +2,7 @@ package app.aapswear.datasource.aaps
 
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
+import app.aapswear.model.TherapyEventSource
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -25,7 +26,17 @@ object AapsTherapyEventParser {
             val amount = item["amount"]?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() && it > 0.0 }
                 ?: return@mapNotNull null
             val suppliedId = item["id"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
-            TherapyEvent(suppliedId ?: "${kind.name}:$timestamp:$amount", kind, timestamp, amount)
+            TherapyEvent(
+                id = suppliedId ?: "${kind.name}:$timestamp:$amount",
+                kind = kind,
+                timestampEpochMs = timestamp,
+                amount = amount,
+                source = TherapyEventSource.AAPS_ONLY,
+                originalSourceId = suppliedId,
+                insulinUnits = amount.takeIf { kind in insulinKinds },
+                carbsGrams = amount.takeIf { kind in carbKinds },
+                eventType = item["type"]?.jsonPrimitive?.contentOrNull,
+            )
         }.distinctBy(TherapyEvent::id).sortedBy(TherapyEvent::timestampEpochMs)
     }
 
@@ -39,4 +50,7 @@ object AapsTherapyEventParser {
     }
 
     private fun normalizeEpoch(value: Long): Long = if (value in 1..9_999_999_999L) value * 1_000L else value
+
+    private val insulinKinds = setOf(TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_BOLUS)
+    private val carbKinds = setOf(TherapyEventKind.MEAL_CARBS, TherapyEventKind.ECARBS)
 }

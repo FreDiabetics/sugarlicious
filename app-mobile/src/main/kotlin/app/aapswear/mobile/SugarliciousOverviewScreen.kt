@@ -560,6 +560,13 @@ private fun MetabolicGraphSurface(
             it.bind(
                 state,
                 preferences.graphHours,
+                TreatmentMarkerVisibility(
+                    mealBolus = preferences.showMealBolusMarkers,
+                    correction = preferences.showCorrectionMarkers,
+                    smb = preferences.showSmbMarkers,
+                    mealCarbs = preferences.showMealCarbMarkers,
+                    eCarbs = preferences.showECarbMarkers,
+                ),
             )
         },
     )

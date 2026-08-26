@@ -51,6 +51,11 @@ data class DashboardUiPreferences(
     val showCgmPredictionUam: Boolean = false,
     val showCgmPredictionZeroTemp: Boolean = false,
     val showMetabolicGraph: Boolean = false,
+    val showMealBolusMarkers: Boolean = true,
+    val showCorrectionMarkers: Boolean = true,
+    val showSmbMarkers: Boolean = true,
+    val showMealCarbMarkers: Boolean = true,
+    val showECarbMarkers: Boolean = true,
     val cgmDotRadiusDp: Float = 2.4f,
     val cgmDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
@@ -96,6 +101,11 @@ data class DashboardUiPreferences(
                 showCgmPredictionUam = preferences.getBoolean("cgm.prediction.uam", false),
                 showCgmPredictionZeroTemp = preferences.getBoolean("cgm.prediction.zeroTemp", false),
                 showMetabolicGraph = preferences.getBoolean("showMetabolicGraph", false),
+                showMealBolusMarkers = preferences.getBoolean("treatment.mealBolus", true),
+                showCorrectionMarkers = preferences.getBoolean("treatment.correction", true),
+                showSmbMarkers = preferences.getBoolean("treatment.smb", true),
+                showMealCarbMarkers = preferences.getBoolean("treatment.mealCarbs", true),
+                showECarbMarkers = preferences.getBoolean("treatment.eCarbs", true),
                 cgmDotRadiusDp = preferences.getFloat("cgm.dotRadiusDp", 2.4f).coerceIn(1.5f, 6.0f),
                 cgmDotOutlineEnabled = preferences.getBoolean("cgm.dotOutlineEnabled", true),
                 cgmDotOutlineWidthDp = preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f).coerceIn(0.25f, 3.0f),
@@ -150,6 +160,7 @@ data class DashboardCallbacks(
     val setUnit: (DisplayUnitPreference) -> Unit,
     val setDataSource: (DataSourcePreference) -> Unit,
     val openG7Setup: () -> Unit,
+    val openNightscoutTreatments: () -> Unit,
     val openDiagnostics: () -> Unit,
     val setThemeMode: (DashboardThemeMode) -> Unit,
     val setShowDetails: (Boolean) -> Unit,
@@ -213,7 +224,7 @@ class DashboardViewFactory(
         when (screen) {
             DashboardScreen.OVERVIEW -> renderOverview(parent, state, diagnostics, preferences, now)
             DashboardScreen.WATCH -> renderWatch(parent, state, diagnostics, preferences, now)
-            DashboardScreen.SETTINGS -> renderSettings(parent, preferences)
+            DashboardScreen.SETTINGS -> renderSettings(parent, state, preferences)
         }
     }
 
@@ -281,7 +292,7 @@ class DashboardViewFactory(
         activeComposeView = composeView
     }
 
-    private fun renderSettings(parent: LinearLayout, preferences: DashboardUiPreferences) {
+    private fun renderSettings(parent: LinearLayout, state: TherapyDisplayState?, preferences: DashboardUiPreferences) {
         parent.removeAllViews()
         overviewRenderState.value = null
         watchRenderState.value = null
@@ -307,6 +318,10 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
                     }
+                    addView(divider())
+                    addView(settingsGroupLabel("OPTIONALE TREATMENT-ANREICHERUNG"))
+                    val nightscout = NightscoutConfigurationStore.read(context)
+                    addView(actionRow("Nightscout Treatments", if (nightscout.enabled) "Aktiv" else "Aus") { callbacks.openNightscoutTreatments() })
                     addView(divider())
                     addView(settingsGroupLabel("EINHEIT"))
                     addView(
@@ -468,6 +483,19 @@ class DashboardViewFactory(
                         addView(switchRowCompact("Insulinaktivität", preferences.showCgmActivity, View.generateViewId()) { callbacks.setCgmStream("cgm.activity", it) })
                         addView(divider())
                         addView(switchRowCompact("IOB/COB-Graph", preferences.showMetabolicGraph, View.generateViewId(), callbacks.setShowMetabolicGraph))
+                        if (preferences.showMetabolicGraph) {
+                            addView(divider())
+                            addView(settingsGroupLabel("TREATMENT-MARKER"))
+                            addView(switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealBolus", it) })
+                            addView(divider())
+                            addView(switchRowCompact("Korrekturboli", preferences.showCorrectionMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.correction", it) })
+                            addView(divider())
+                            addView(switchRowCompact("SMB", preferences.showSmbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.smb", it) })
+                            addView(divider())
+                            addView(switchRowCompact("Mahlzeiten-Carbs", preferences.showMealCarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealCarbs", it) })
+                            addView(divider())
+                            addView(switchRowCompact("eCarbs", preferences.showECarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.eCarbs", it) })
+                        }
                         addView(divider())
                         addView(settingsGroupLabel("VORHERSAGEN"))
                         addView(actionRow("Vorhersagen", if (preferences.anyCgmPredictionEnabled) "Aktiv" else "Aus") {
@@ -565,6 +593,9 @@ class DashboardViewFactory(
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("LOKALE DIAGNOSE"))
+                    val provenance = state?.therapyEvents.orEmpty().groupingBy { it.source }.eachCount()
+                    addView(actionRow("Treatment-Quellen", "AAPS ${provenance[app.aapswear.model.TherapyEventSource.AAPS_ONLY] ?: 0} · NS ${provenance[app.aapswear.model.TherapyEventSource.NIGHTSCOUT_ONLY] ?: 0} · ergänzt ${provenance[app.aapswear.model.TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT] ?: 0}") { callbacks.openNightscoutTreatments() })
+                    addView(divider())
                     addView(actionRow("Ereignisse & Fehlercodes", "Öffnen") { callbacks.openDiagnostics() })
                     addView(helper("Lokale, begrenzte Ablaufdiagnose von Smartphone und Watch. Sensor- und Authentifizierungs-Rohdaten werden nicht exportiert.", 3))
                 },

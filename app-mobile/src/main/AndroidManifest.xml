@@ -5,6 +5,7 @@
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
+ <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
  <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
@@ -45,6 +46,7 @@
  <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">
   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name=".G7SetupActivity" android:exported="false"/>
+  <activity android:name=".NightscoutTreatmentSettingsActivity" android:exported="false"/>
   <activity android:name=".DiagnosticActivity" android:exported="false"/>
   <activity android:name=".HealthConnectRationaleActivity" android:exported="true">
    <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/></intent-filter>
