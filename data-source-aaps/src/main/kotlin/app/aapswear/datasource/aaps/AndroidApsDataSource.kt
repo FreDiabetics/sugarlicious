@@ -22,7 +22,7 @@ class AapsCapabilityDetector {
   else -> AapsContract.UNSUPPORTED
  }
  companion object {
-  private val EXTENDED_KEYS=setOf("deltaMgdl","avgDeltaMgdl","bolusIob","basalIob","baseBasal","pumpStatus","pumpReservoir")
+  private val EXTENDED_KEYS=setOf("deltaMgdl","avgDeltaMgdl","bolusIob","basalIob","baseBasal","pumpStatus","pumpReservoir","therapyEvents")
   private val KNOWN_PACKAGES=listOf("info.nightscout.androidaps","info.nightscout.aapspumpcontrol","info.nightscout.aapsclient","info.nightscout.aapsclient2","info.nightscout.aapsclient3")
   fun detectContract(values:Map<String,Any?>)=AapsCapabilityDetector().detect(values)
   @Suppress("DEPRECATION")

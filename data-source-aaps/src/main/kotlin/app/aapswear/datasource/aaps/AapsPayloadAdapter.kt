@@ -42,6 +42,7 @@ object AapsPayloadAdapter {
   val targetEnd=values.number("tempTargetEnd")?.toLong()?.takeIf { it>0 }
    ?:targetStart?.let { start -> targetDuration?.let { duration -> start+duration*60_000L } }
   val smb=AapsSmbParser.parse(enactedPayload,enactedAt)
+  val therapyEvents=AapsTherapyEventParser.parse(values["therapyEvents"] as? String)
   val predictions=AapsPredictionParser.parse(suggestedPayload?:enactedPayload,suggestedAt?:enactedAt?:measured)
   val pumpStatus=values["pumpStatus"] as? String
   val reservoir=values.number("pumpReservoir")
@@ -51,7 +52,7 @@ object AapsPayloadAdapter {
   val caps=buildSet {
    add(DataCapability.GLUCOSE); if(trend!=Trend.UNKNOWN)add(DataCapability.TREND); if(delta!=null)add(DataCapability.DELTA); if(averageDelta!=null)add(DataCapability.AVERAGE_DELTA)
    if(low!=null||high!=null||targetValue!=null)add(DataCapability.TARGET); if(parsedTarget?.temporary==true||targetStart!=null)add(DataCapability.TEMP_TARGET); if(iob!=null)add(DataCapability.IOB); if(bolusIob!=null)add(DataCapability.BOLUS_IOB); if(basalIob!=null)add(DataCapability.BASAL_IOB)
-   if(smb!=null)add(DataCapability.SMB); if(cob!=null)add(DataCapability.COB); if(futureCarbs!=null)add(DataCapability.FUTURE_CARBS); if(baseBasal!=null)add(DataCapability.BASAL); if(tempStart!=null||tempAbsolute!=null||tempPercent!=null)add(DataCapability.TEMP_BASAL); if(predictions.isNotEmpty())add(DataCapability.PREDICTIONS)
+   if(smb!=null)add(DataCapability.SMB); if(cob!=null)add(DataCapability.COB); if(futureCarbs!=null)add(DataCapability.FUTURE_CARBS); if(therapyEvents.isNotEmpty())add(DataCapability.TREATMENTS); if(baseBasal!=null)add(DataCapability.BASAL); if(tempStart!=null||tempAbsolute!=null||tempPercent!=null)add(DataCapability.TEMP_BASAL); if(predictions.isNotEmpty())add(DataCapability.PREDICTIONS)
    if(profile!=null)add(DataCapability.PROFILE); if(suggestedAt!=null||enactedAt!=null)add(DataCapability.LOOP); if(pumpStatus!=null)add(DataCapability.PUMP); if(reservoir!=null)add(DataCapability.RESERVOIR); if(pumpBattery!=null)add(DataCapability.PUMP_BATTERY); if(phoneBattery!=null)add(DataCapability.PHONE_BATTERY)
   }
   val detectedContract=AapsCapabilityDetector.detectContract(values).id
@@ -75,6 +76,7 @@ object AapsPayloadAdapter {
     listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget?.temporary==true||targetStart!=null))
    }.orEmpty(),
    glucosePredictions=predictions,
+   therapyEvents=therapyEvents,
    insulin=if(iob!=null||bolusIob!=null||basalIob!=null) InsulinState(iob,bolusIob,basalIob) else null,
    carbs=if(cob!=null||futureCarbs!=null) CarbState(cob,futureCarbs) else null,
    basal=if(baseBasal!=null||tempStart!=null||tempAbsolute!=null||tempPercent!=null) BasalState(baseBasal,tempAbsolute,tempPercent,tempStart,tempDuration,tempStart?.let{s->tempDuration?.let{d->s+d*60_000}},values["tempBasalString"] as? String) else null,

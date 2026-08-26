@@ -71,6 +71,12 @@ internal object DisplayHistoryAccumulator {
             .sortedBy { it.measuredAtEpochMs }
             .takeLast(MAX_POINTS)
             .withEstimatedInsulinActivity()
+        val therapyEvents = (previous?.therapyEvents.orEmpty() + current.therapyEvents)
+            .asSequence()
+            .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() && it.amount > 0.0 }
+            .distinctBy { it.id }
+            .sortedBy { it.timestampEpochMs }
+            .toList()
 
         return PersistentPredictionCache.merge(
             previous = previous,
@@ -78,6 +84,7 @@ internal object DisplayHistoryAccumulator {
                 current.copy(
                     glucoseHistory = glucose,
                     therapyHistory = therapy,
+                    therapyEvents = therapyEvents,
                     targetHistory = mergeTargetHistory(previous?.targetHistory.orEmpty(), current.targetHistory, nowEpochMs),
                 ),
             nowEpochMs = nowEpochMs,
