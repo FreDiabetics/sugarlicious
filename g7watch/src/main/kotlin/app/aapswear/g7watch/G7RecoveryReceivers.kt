@@ -71,6 +71,7 @@ class G7ReconnectReceiver : BroadcastReceiver() {
         val now = System.currentTimeMillis()
         val diagnosticStore = G7CollectorDiagnosticStore(context)
         val scheduled = diagnosticStore.markScheduledAlarmReceived(now)
+        G7ExpectedWindowLedger(context).markPrimaryTriggered(scheduled?.expectedWindowId, now)
         // The service will stage the following slot before BLE work. At receiver level this is an
         // observation-only reconciliation so the just-fired diagnostic envelope is not replaced.
         G7RuntimeReconciler.reconcile(

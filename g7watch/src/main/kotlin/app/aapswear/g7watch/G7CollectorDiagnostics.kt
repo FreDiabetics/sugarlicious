@@ -422,6 +422,7 @@ internal fun classifyG7CycleFailure(
 ): CollectorCycleClassification = when {
     errorCode == "G7-BLE-FALLBACK-107" -> CollectorCycleClassification.FALLBACK_SCAN_FAILED
     errorCode == "G7-BLE-107" -> CollectorCycleClassification.NO_ADVERTISEMENT
+    errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE -> CollectorCycleClassification.GATT_NO_CALLBACK
     errorCode == "G7-GATT-133" || errorCode?.startsWith("G7-GATT-") == true -> CollectorCycleClassification.GATT_CONNECT_FAILED
     errorCode?.startsWith("G7-AUTH-") == true || errorCode?.startsWith("AUTH") == true -> CollectorCycleClassification.AUTH_FAILED
     errorCode == "G7-BLE-111" -> CollectorCycleClassification.GLUCOSE_TIMEOUT

@@ -33,6 +33,7 @@ internal enum class G7RuntimeEntryPoint {
     SIGNAL_LOSS,
     WATCH_APP,
     SYSTEM_STATUS,
+    WATCHDOG,
 }
 
 internal data class G7RuntimeAssessment(
