@@ -540,13 +540,13 @@ internal object NotificationGraphRenderer {
         val points = validSamples.associate { it.measuredAtEpochMs to it.valueMgDl }.entries.sortedBy { it.key }
         if (points.isEmpty()) return bitmap
 
-        val targetLow = state?.target?.lowMgDl ?: 80.0
-        val targetHigh = state?.target?.highMgDl ?: 160.0
+        val thresholds = CgmThresholdPreferences.read(preferences)
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val excursion =
             CgmGraphPolicy.rangeExcursion(
                 validSamples,
-                targetLow,
-                targetHigh,
+                thresholds,
             )
         val lowest = points.minOf { it.value }
         val highest = points.maxOf { it.value }

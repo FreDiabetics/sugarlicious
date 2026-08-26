@@ -34,6 +34,8 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
 import com.google.common.util.concurrent.Futures
@@ -59,6 +61,7 @@ internal fun wearGlucoseTilePresentation(
     state: TherapyDisplayState?,
     colors: WatchUiColors,
     now: Long,
+    thresholds: CgmThresholds = CgmThresholds.DEFAULT,
 ): WearGlucoseTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val glucose = state?.glucose
@@ -84,12 +87,13 @@ internal fun wearGlucoseTilePresentation(
             statusColor = statusColor,
         )
     }
-    val low = state.target?.lowMgDl ?: 80.0
-    val high = state.target?.highMgDl ?: 160.0
-    val valueColor = when {
-        glucose.valueMgDl < low -> colors.glucoseLow
-        glucose.valueMgDl > high -> colors.glucoseHigh
-        else -> colors.glucoseInRange
+    val valueColor = when (thresholds.classify(glucose.valueMgDl)) {
+        CgmRangeClass.VERY_LOW -> colors.glucoseVeryLow
+        CgmRangeClass.LOW -> colors.glucoseLow
+        CgmRangeClass.IN_RANGE -> colors.glucoseInRange
+        CgmRangeClass.HIGH -> colors.glucoseHigh
+        CgmRangeClass.VERY_HIGH -> colors.glucoseVeryHigh
+        null -> colors.glucoseInRange
     }
     val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, glucose.displayUnit).ifBlank { "—" }
     val unit = if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
@@ -172,7 +176,7 @@ abstract class SugarliciousTileService : TileService() {
 
 class GlucoseTileService : SugarliciousTileService() {
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
-        val presentation = wearGlucoseTilePresentation(state, colors, now)
+        val presentation = wearGlucoseTilePresentation(state, colors, now, WearDisplayPreferences.read(this).cgmThresholds)
         val primary = Row.Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .addContent(tileText(presentation.value, 42f, presentation.valueColor, bold = true))

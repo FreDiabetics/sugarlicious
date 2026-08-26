@@ -36,6 +36,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.storage.PredictionDisplayTimeline
@@ -99,7 +100,7 @@ internal fun SugarliciousOverviewScreen(
                             preferences.showCgmPredictionZeroTemp
                     }
                 }
-            PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now)
+            maxOf(PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now), 60L * 60_000L)
         } else {
             0L
         }
@@ -140,13 +141,16 @@ internal fun SugarliciousOverviewScreen(
     }
 
     val glucoseText = if (displayable && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
-    val targetLow = state?.target?.lowMgDl ?: 80.0
-    val targetHigh = state?.target?.highMgDl ?: 160.0
     val glucoseColor = when {
         !displayable || glucose == null -> SugarliciousColors.TextPrimary
-        glucose.valueMgDl < targetLow -> SugarliciousColors.GlucoseLow
-        glucose.valueMgDl > targetHigh -> SugarliciousColors.GlucoseHigh
-        else -> SugarliciousColors.GlucoseInRange
+        else -> when (preferences.cgmThresholds.classify(glucose.valueMgDl)) {
+            CgmRangeClass.VERY_LOW -> SugarliciousColors.GlucoseVeryLow
+            CgmRangeClass.LOW -> SugarliciousColors.GlucoseLow
+            CgmRangeClass.IN_RANGE -> SugarliciousColors.GlucoseInRange
+            CgmRangeClass.HIGH -> SugarliciousColors.GlucoseHigh
+            CgmRangeClass.VERY_HIGH -> SugarliciousColors.GlucoseVeryHigh
+            null -> SugarliciousColors.TextPrimary
+        }
     }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = glucose?.measuredAtEpochMs?.let { "${((now - it).coerceAtLeast(0L) / 60_000L)} min" } ?: "—"

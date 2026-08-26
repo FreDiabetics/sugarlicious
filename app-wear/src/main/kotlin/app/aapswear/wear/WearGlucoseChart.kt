@@ -12,6 +12,8 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewOutlineProvider
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
@@ -74,6 +76,7 @@ class WearGlucoseChart @JvmOverloads constructor(
     private var showPredictions: Boolean = false
     private var colors: WatchGraphColors = WatchGraphColors()
     private var graphStyle: WatchGraphStyle = WatchGraphStyle()
+    private var thresholds: CgmThresholds = CgmThresholds.DEFAULT
     private var stateSignature: List<Any?>? = null
 
     init {
@@ -109,6 +112,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         showPredictions: Boolean,
         colors: WatchGraphColors,
         style: WatchGraphStyle,
+        thresholds: CgmThresholds = CgmThresholds.DEFAULT,
     ) {
         val resolvedDuration =
             graphHours
@@ -120,7 +124,7 @@ class WearGlucoseChart @JvmOverloads constructor(
             durationHours == resolvedDuration &&
             this.showPredictions == showPredictions &&
             this.colors == colors &&
-            graphStyle == style
+            graphStyle == style && this.thresholds == thresholds
         ) {
             return
         }
@@ -131,6 +135,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         this.showPredictions = showPredictions
         this.colors = colors
         graphStyle = style
+        this.thresholds = thresholds
         emptyTextPaint.color = colors.divider
         targetLabelPaint.color = colors.divider
         axisLabelPaint.color = colors.divider
@@ -233,8 +238,8 @@ class WearGlucoseChart @JvmOverloads constructor(
                     .toFloat() *
                 (bottom - top)
 
-        val targetLow = state?.target?.lowMgDl ?: TARGET_LOW
-        val targetHigh = state?.target?.highMgDl ?: TARGET_HIGH
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val targetTop = yFor(targetHigh)
         val targetBottom = yFor(targetLow)
 
@@ -429,11 +434,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         }
 
         fillPaint.color =
-            glucoseColor(
-                valueMgDl,
-                targetLow,
-                targetHigh,
-            )
+            glucoseColor(valueMgDl)
         canvas.drawCircle(x, y, radius, fillPaint)
     }
 
@@ -462,23 +463,19 @@ class WearGlucoseChart @JvmOverloads constructor(
         }
     }
 
-    private fun glucoseColor(
-        valueMgDl: Double,
-        low: Double,
-        high: Double,
-    ): Int =
-        when {
-            valueMgDl < low -> colors.cgmLow
-            valueMgDl > high -> colors.cgmHigh
-            else -> colors.cgmInRange
-        }
+    private fun glucoseColor(valueMgDl: Double): Int = when (thresholds.classify(valueMgDl)) {
+        CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
+        CgmRangeClass.LOW -> colors.cgmLow
+        CgmRangeClass.IN_RANGE -> colors.cgmInRange
+        CgmRangeClass.HIGH -> colors.cgmHigh
+        CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
+        null -> colors.cgmInRange
+    }
 
     private val Float.dp: Float
         get() = this * density
 
     companion object {
-        private const val TARGET_LOW = 80.0
-        private const val TARGET_HIGH = 160.0
         private const val TILE_RADIUS_DP = 18f
     }
 }

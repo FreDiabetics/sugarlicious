@@ -42,6 +42,8 @@ enum class SugarliciousColorRole(
     GLUCOSE_LOW("glucose_low", "Zuckerwert · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
     GLUCOSE_IN_RANGE("glucose_in_range", "Zuckerwert · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFF5F5F5.toInt(), 0xFF202020.toInt(), true),
     GLUCOSE_HIGH("glucose_high", "Zuckerwert · hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
+    GLUCOSE_VERY_LOW("glucose_very_low", "Zuckerwert / CGM-Punkte · sehr tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    GLUCOSE_VERY_HIGH("glucose_very_high", "Zuckerwert / CGM-Punkte · sehr hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     RANGE_LOW("range_low", "Bereich · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
     RANGE_IN_RANGE("range_in_range", "Bereich · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF2E9C45.toInt(), true),
     RANGE_HIGH("range_high", "Bereich · hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
@@ -190,6 +192,16 @@ object SugarliciousColorStore {
         if (!targetHasExplicitColor) {
             values[targetRole] = derivedTargetValueArgb(values.getValue(SugarliciousColorRole.RANGE_IN_RANGE))
         }
+        fun hasExplicit(role: SugarliciousColorRole): Boolean =
+            preferences.contains(prefix + role.preferenceKey) ||
+                (!light && preferences.contains(OVERRIDE_PREFIX + role.preferenceKey)) ||
+                (!light && preferences.contains(LEGACY_PREFIX + role.preferenceKey))
+        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW)) {
+            values[SugarliciousColorRole.GLUCOSE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH)) {
+            values[SugarliciousColorRole.GLUCOSE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_HIGH)
+        }
 
         return SugarliciousPalette(
             values = values,
@@ -304,6 +316,8 @@ object SugarliciousColors {
     val GlucoseLow get() = color(SugarliciousColorRole.GLUCOSE_LOW)
     val GlucoseInRange get() = color(SugarliciousColorRole.GLUCOSE_IN_RANGE)
     val GlucoseHigh get() = color(SugarliciousColorRole.GLUCOSE_HIGH)
+    val GlucoseVeryLow get() = color(SugarliciousColorRole.GLUCOSE_VERY_LOW)
+    val GlucoseVeryHigh get() = color(SugarliciousColorRole.GLUCOSE_VERY_HIGH)
     val TargetBand get() = color(SugarliciousColorRole.RANGE_IN_RANGE)
     val TargetValue get() = color(SugarliciousColorRole.TARGET_VALUE)
 

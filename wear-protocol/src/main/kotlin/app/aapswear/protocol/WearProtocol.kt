@@ -4,6 +4,7 @@ import app.aapswear.model.DiagnosticBatch
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.CgmThresholds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -51,6 +52,8 @@ data class WatchGraphColors(
     val cgmLow: Int = 0xFFFF5C69.toInt(),
     val cgmInRange: Int = 0xFF54DF30.toInt(),
     val cgmHigh: Int = 0xFFFFD040.toInt(),
+    val cgmVeryLow: Int = cgmLow,
+    val cgmVeryHigh: Int = cgmHigh,
     val divider: Int = 0xFF969696.toInt(),
     val outline: Int = 0xFF000000.toInt(),
     val predictionIob: Int = 0xFF52C1FF.toInt(),
@@ -65,10 +68,11 @@ data class WatchGraphColors(
 data class WatchColorSync(
     val schemaVersion: Int = CURRENT_SCHEMA,
     val graphColors: WatchGraphColors,
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val sentAtEpochMs: Long,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 1
+        const val CURRENT_SCHEMA = 2
     }
 }
 
@@ -108,6 +112,8 @@ data class WatchUiColors(
     val glucoseLow: Int = 0xFFFF5C69.toInt(),
     val glucoseInRange: Int = 0xFFF5F5F5.toInt(),
     val glucoseHigh: Int = 0xFFFFD040.toInt(),
+    val glucoseVeryLow: Int = glucoseLow,
+    val glucoseVeryHigh: Int = glucoseHigh,
     val iob: Int = 0xFF64BFFF.toInt(),
     val cob: Int = 0xFFFF9D18.toInt(),
     val basal: Int = 0xFF19D7E8.toInt(),
@@ -138,10 +144,11 @@ data class WatchConfig(
     val graphColors: WatchGraphColors = WatchGraphColors(),
     val graphStyle: WatchGraphStyle = WatchGraphStyle(),
     val uiColors: WatchUiColors = WatchUiColors(),
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val sentAtEpochMs: Long = 0L,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 7
+        const val CURRENT_SCHEMA = 8
     }
 }
 

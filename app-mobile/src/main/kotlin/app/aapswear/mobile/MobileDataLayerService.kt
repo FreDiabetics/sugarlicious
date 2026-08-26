@@ -197,6 +197,8 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
             cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
             cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
+            cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+            cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
             divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
             outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
             predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
@@ -231,10 +233,13 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
             glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
             glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
+            glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+            glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
             iob = palette.argb(SugarliciousColorRole.BLUE),
             cob = palette.argb(SugarliciousColorRole.ORANGE),
             basal = palette.argb(SugarliciousColorRole.SECONDARY),
         ),
+        cgmThresholds = CgmThresholdPreferences.read(preferences),
         sentAtEpochMs = System.currentTimeMillis(),
     )
 }
@@ -265,6 +270,7 @@ internal suspend fun publishWatchColors(context: Context) {
                 WearProtocol.encodeWatchColorSync(
                     WatchColorSync(
                         graphColors = colors,
+                        cgmThresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)),
                         sentAtEpochMs = System.currentTimeMillis(),
                     ),
                 ),

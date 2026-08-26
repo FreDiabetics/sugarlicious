@@ -43,9 +43,9 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `only glucose card changes color outside target range`() {
-        val low = g7TilePresentation(reading(79.0), colors, now)
+        val low = g7TilePresentation(reading(69.0), colors, now)
         val normal = g7TilePresentation(reading(123.0), colors, now)
-        val high = g7TilePresentation(reading(161.0), colors, now)
+        val high = g7TilePresentation(reading(181.0), colors, now)
 
         assertEquals(colors.cgmLow, low.cardBackground)
         assertEquals(G7_TILE_CARD_BACKGROUND, normal.cardBackground)

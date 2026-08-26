@@ -108,10 +108,17 @@ internal fun widgetGlucoseColorRole(
     lowMgDl: Double,
     highMgDl: Double,
 ): WidgetColorRole =
-    when {
-        valueMgDl <= 40.0 -> WidgetColorRole.URGENT_LOW
-        valueMgDl < lowMgDl -> WidgetColorRole.LOW
-        valueMgDl >= 400.0 -> WidgetColorRole.VERY_HIGH
-        valueMgDl > highMgDl -> WidgetColorRole.HIGH
-        else -> WidgetColorRole.IN_RANGE
+    widgetGlucoseColorRole(valueMgDl, app.aapswear.model.CgmThresholds(
+        veryHighMgDl = maxOf(250.0, highMgDl + 1.0), highMgDl = highMgDl,
+        lowMgDl = lowMgDl, veryLowMgDl = minOf(50.0, lowMgDl - 1.0),
+    ))
+
+internal fun widgetGlucoseColorRole(valueMgDl: Double, thresholds: app.aapswear.model.CgmThresholds): WidgetColorRole =
+    when (thresholds.classify(valueMgDl)) {
+        app.aapswear.model.CgmRangeClass.VERY_LOW -> WidgetColorRole.URGENT_LOW
+        app.aapswear.model.CgmRangeClass.LOW -> WidgetColorRole.LOW
+        app.aapswear.model.CgmRangeClass.IN_RANGE -> WidgetColorRole.IN_RANGE
+        app.aapswear.model.CgmRangeClass.HIGH -> WidgetColorRole.HIGH
+        app.aapswear.model.CgmRangeClass.VERY_HIGH -> WidgetColorRole.VERY_HIGH
+        null -> WidgetColorRole.IN_RANGE
     }

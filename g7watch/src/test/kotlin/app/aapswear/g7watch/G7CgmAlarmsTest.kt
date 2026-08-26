@@ -81,13 +81,13 @@ class G7CgmAlarmsTest {
     }
 
     @Test
-    fun `urgent low threshold remains forty even with stale persisted preferences`() {
+    fun `urgent low threshold uses canonical default despite stale legacy alarm preference`() {
         context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_low", 30f)
             .commit()
 
-        assertEquals(40.0, G7AlarmSettingsStore.read(context).veryLowThreshold, 0.0)
+        assertEquals(50.0, G7AlarmSettingsStore.read(context).veryLowThreshold, 0.0)
     }
 
     @Test
@@ -98,7 +98,7 @@ class G7CgmAlarmsTest {
                 veryHighThreshold = 280.0,
                 highThreshold = 190.0,
                 lowThreshold = 75.0,
-                veryLowThreshold = 40.0,
+                veryLowThreshold = 45.0,
                 rapidRiseThreshold = 3.0,
                 rapidFallThreshold = 2.5,
                 signalLossMinutes = 16,
@@ -112,7 +112,7 @@ class G7CgmAlarmsTest {
         assertEquals(280.0, restored.veryHighThreshold, 0.0)
         assertEquals(190.0, restored.highThreshold, 0.0)
         assertEquals(75.0, restored.lowThreshold, 0.0)
-        assertEquals(40.0, restored.veryLowThreshold, 0.0)
+        assertEquals(45.0, restored.veryLowThreshold, 0.0)
         assertEquals(16, restored.signalLossMinutes)
         assertEquals(30, restored.repeatIntervalMinutes)
         assertEquals(false, restored.soundEnabled)

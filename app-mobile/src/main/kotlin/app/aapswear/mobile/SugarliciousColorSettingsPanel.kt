@@ -384,8 +384,10 @@ private fun WidgetColorSettingRow(
 private val cgmGraphColorRoles =
     setOf(
         SugarliciousColorRole.RANGE_LOW,
+        SugarliciousColorRole.GLUCOSE_VERY_LOW,
         SugarliciousColorRole.RANGE_IN_RANGE,
         SugarliciousColorRole.RANGE_HIGH,
+        SugarliciousColorRole.GLUCOSE_VERY_HIGH,
         SugarliciousColorRole.TARGET_BAND,
         SugarliciousColorRole.CGM_DOT_LOW,
         SugarliciousColorRole.CGM_DOT_IN_RANGE,
@@ -714,6 +716,7 @@ private fun ColorRoleExample(
                     SugarliciousColorRole.BRAND_GREEN -> "S"
                     SugarliciousColorRole.PRIMARY -> "AKTIV"
                     SugarliciousColorRole.SECONDARY -> "INFO"
+                    else -> "●"
                 }
                 Box(
                     modifier = Modifier

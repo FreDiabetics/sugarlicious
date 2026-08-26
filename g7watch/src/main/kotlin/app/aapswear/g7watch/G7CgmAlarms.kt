@@ -33,14 +33,12 @@ internal object G7AlarmSettingsStore {
 
     fun read(context: Context): CgmAlarmSettings {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        val high = preferences.getFloat("high", 180f).toDouble().coerceIn(42.0, 499.0)
-        val veryHigh = preferences.getFloat("very_high", 250f).toDouble().coerceIn(high + 1.0, 500.0)
-        val low = preferences.getFloat("low", 70f).toDouble().coerceIn(41.0, high - 1.0)
+        val thresholds = G7GraphColorStore(context).readThresholds()
         return CgmAlarmSettings(
-            veryHighThreshold = veryHigh,
-            highThreshold = high,
-            lowThreshold = low,
-            veryLowThreshold = 40.0,
+            veryHighThreshold = thresholds.veryHighMgDl,
+            highThreshold = thresholds.highMgDl,
+            lowThreshold = thresholds.lowMgDl,
+            veryLowThreshold = thresholds.veryLowMgDl,
             rapidRiseThreshold = preferences.getFloat("rapid_rise", 2f).toDouble().coerceIn(0.5, 10.0),
             rapidFallThreshold = preferences.getFloat("rapid_fall", 2f).toDouble().coerceIn(0.5, 10.0),
             signalLossMinutes = 16,
@@ -60,8 +58,11 @@ internal object G7AlarmSettingsStore {
     }
 
     fun write(context: Context, settings: CgmAlarmSettings) {
-        require(settings.veryLowThreshold == 40.0)
+        require(app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold).isValid)
         require(settings.signalLossMinutes == 16)
+        G7GraphColorStore(context).saveThresholds(
+            app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold),
+        )
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_high", settings.veryHighThreshold.toFloat())

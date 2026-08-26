@@ -24,6 +24,8 @@ import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
@@ -113,6 +115,7 @@ internal fun graphCenterAfterDivider(
 ): Float = dividerX
 
 internal class ChartViewport(initialHours: Int) {
+    enum class Mode { LIVE_FOLLOW, USER_NAVIGATING }
     private val listeners = LinkedHashSet<() -> Unit>()
     private var availablePastWindowMs = 24L * HOUR_MS
     private var requestedHours = initialHours.toFloat().coerceIn(1f, 24f)
@@ -122,13 +125,20 @@ internal class ChartViewport(initialHours: Int) {
         private set
     var futureWindowMs = 0L
         private set
+    var mode: Mode = Mode.LIVE_FOLLOW
+        private set
+    private var navigationEndEpochMs: Long? = null
 
     fun setHours(value: Float, resetPan: Boolean = false) {
         requestedHours = value.coerceIn(1f, 24f)
         val next = requestedHours.coerceAtMost(maximumHours())
         val changed = next != hours || (resetPan && panMs != 0L)
         hours = next
-        if (resetPan) panMs = 0L
+        if (resetPan) {
+            panMs = 0L
+            mode = Mode.LIVE_FOLLOW
+            navigationEndEpochMs = null
+        }
         clampPan()
         if (changed) notifyChanged()
     }
@@ -151,7 +161,9 @@ internal class ChartViewport(initialHours: Int) {
         notifyChanged()
     }
 
-    fun endEpochMs(now: Long): Long = now + futureWindowMs + panMs
+    fun endEpochMs(now: Long): Long =
+        if (mode == Mode.USER_NAVIGATING) navigationEndEpochMs ?: now + futureWindowMs + panMs
+        else now + futureWindowMs
 
     fun zoom(scaleFactor: Float) {
         val oldHours = hours
@@ -161,12 +173,29 @@ internal class ChartViewport(initialHours: Int) {
         if (hours != oldHours) notifyChanged()
     }
 
-    fun pan(deltaPixels: Float, width: Float) {
+    fun pan(deltaPixels: Float, width: Float, referenceNow: Long = System.currentTimeMillis()) {
         if (width <= 0f) return
         val oldPan = panMs
-        panMs -= (deltaPixels / width * hours * HOUR_MS).toLong()
+        val deltaMs = (deltaPixels / width * hours * HOUR_MS).toLong()
+        panMs -= deltaMs
         clampPan()
+        if (panMs != 0L) {
+            navigationEndEpochMs = if (mode == Mode.USER_NAVIGATING) {
+                (navigationEndEpochMs ?: referenceNow + futureWindowMs + oldPan) - deltaMs
+            } else {
+                referenceNow + futureWindowMs + panMs
+            }
+            mode = Mode.USER_NAVIGATING
+        }
         if (panMs != oldPan) notifyChanged()
+    }
+
+    fun returnToNow() {
+        if (panMs == 0L && mode == Mode.LIVE_FOLLOW) return
+        panMs = 0L
+        mode = Mode.LIVE_FOLLOW
+        navigationEndEpochMs = null
+        notifyChanged()
     }
 
     internal fun addListener(listener: () -> Unit) { listeners += listener }
@@ -389,8 +418,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             canvas.drawRect(contentBounds, fillPaint)
 
             val now = System.currentTimeMillis()
-            val targetLow = state?.target?.lowMgDl ?: 80.0
-            val targetHigh = state?.target?.highMgDl ?: 160.0
+            val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
+            val targetLow = thresholds.lowMgDl
+            val targetHigh = thresholds.highMgDl
             val freshness = FreshnessPolicy.classify(state?.glucose?.measuredAtEpochMs, now)
             val signalLost = !TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
             val predictions = if (showPredictions) state?.glucosePredictions.orEmpty().filter { predictionEnabled(it.kind) } else emptyList()
@@ -564,7 +594,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                         plot.right - dotRadius - outlineWidth / 2f - 2f.dp
                     }
                 val x = min(mappedX, historyRightEdge).coerceAtLeast(plot.left + dotRadius + outlineWidth / 2f)
-                fillPaint.color = dotColor(point.valueMgDl, targetLow, targetHigh)
+                fillPaint.color = dotColor(point.valueMgDl, thresholds)
                 canvas.drawCircle(x, y, dotRadius, fillPaint)
                 if (cgmDotOutlineEnabled) {
                     dotOutlinePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
@@ -729,10 +759,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         canvas.drawRoundRect(rect, radius, radius, linePaint)
     }
 
-    private fun dotColor(value: Double, low: Double, high: Double): Int = when {
-        value < low -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_LOW)
-        value > high -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_HIGH)
-        else -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE)
+    private fun dotColor(value: Double, thresholds: CgmThresholds): Int = when (thresholds.classify(value)) {
+        CgmRangeClass.VERY_LOW -> SugarliciousColors.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW)
+        CgmRangeClass.LOW -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_LOW)
+        CgmRangeClass.IN_RANGE -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE)
+        CgmRangeClass.HIGH -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_HIGH)
+        CgmRangeClass.VERY_HIGH -> SugarliciousColors.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH)
+        null -> SugarliciousColors.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE)
     }
 
     private fun glucoseLabel(valueMgDl: Double): String =
@@ -1208,8 +1241,11 @@ private fun roundedUpTriangle(cx: Float, baseY: Float, halfWidth: Float, height:
     close()
 }
 
+internal fun timeToXFraction(time: Long, start: Long, end: Long): Float =
+    ((time - start).toDouble() / (end - start).coerceAtLeast(1L)).toFloat()
+
 private fun mapX(time: Long, start: Long, end: Long, plot: RectF): Float =
-    plot.left + ((time - start).toDouble() / (end - start).coerceAtLeast(1L) * plot.width()).toFloat()
+    plot.left + timeToXFraction(time, start, end) * plot.width()
 
 private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha.coerceIn(0, 255), Color.red(color), Color.green(color), Color.blue(color))
 

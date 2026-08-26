@@ -8,6 +8,7 @@ import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchDataSource
+import app.aapswear.model.CgmThresholds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +29,7 @@ internal data class WearDisplayPreferences(
     val graphColors: WatchGraphColors = WatchGraphColors(),
     val graphStyle: WatchGraphStyle = WatchGraphStyle(),
     val uiColors: WatchUiColors = WatchUiColors(),
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
 ) {
     companion object {
         const val PREFS = "watch_display"
@@ -43,6 +45,10 @@ internal data class WearDisplayPreferences(
         private const val STYLE_DOT_RADIUS = "cgm_dot_radius_dp"
         private const val STYLE_OUTLINE_ENABLED = "cgm_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
+        private const val THRESHOLD_VERY_HIGH = "threshold_very_high"
+        private const val THRESHOLD_HIGH = "threshold_high"
+        private const val THRESHOLD_LOW = "threshold_low"
+        private const val THRESHOLD_VERY_LOW = "threshold_very_low"
         val allowedGraphHours = listOf(1, 2, 3, 6, 12, 24)
 
         fun read(context: Context): WearDisplayPreferences {
@@ -92,6 +98,8 @@ internal data class WearDisplayPreferences(
                         cgmLow = preferences.getInt(COLOR_PREFIX + "cgm_low", graphDefaults.cgmLow),
                         cgmInRange = preferences.getInt(COLOR_PREFIX + "cgm_in", graphDefaults.cgmInRange),
                         cgmHigh = preferences.getInt(COLOR_PREFIX + "cgm_high", graphDefaults.cgmHigh),
+                        cgmVeryLow = preferences.getInt(COLOR_PREFIX + "cgm_very_low", graphDefaults.cgmVeryLow),
+                        cgmVeryHigh = preferences.getInt(COLOR_PREFIX + "cgm_very_high", graphDefaults.cgmVeryHigh),
                         divider = preferences.getInt(COLOR_PREFIX + "divider", graphDefaults.divider),
                         outline = preferences.getInt(COLOR_PREFIX + "outline", graphDefaults.outline),
                         predictionIob = preferences.getInt(COLOR_PREFIX + "prediction_iob", graphDefaults.predictionIob),
@@ -125,10 +133,18 @@ internal data class WearDisplayPreferences(
                         glucoseLow = preferences.getInt(UI_PREFIX + "glucose_low", uiDefaults.glucoseLow),
                         glucoseInRange = preferences.getInt(UI_PREFIX + "glucose_in_range", uiDefaults.glucoseInRange),
                         glucoseHigh = preferences.getInt(UI_PREFIX + "glucose_high", uiDefaults.glucoseHigh),
+                        glucoseVeryLow = preferences.getInt(UI_PREFIX + "glucose_very_low", uiDefaults.glucoseVeryLow),
+                        glucoseVeryHigh = preferences.getInt(UI_PREFIX + "glucose_very_high", uiDefaults.glucoseVeryHigh),
                         iob = preferences.getInt(UI_PREFIX + "iob", uiDefaults.iob),
                         cob = preferences.getInt(UI_PREFIX + "cob", uiDefaults.cob),
                         basal = preferences.getInt(UI_PREFIX + "basal", uiDefaults.basal),
                     ),
+                cgmThresholds = CgmThresholds(
+                    veryHighMgDl = preferences.getFloat(THRESHOLD_VERY_HIGH, 250f).toDouble(),
+                    highMgDl = preferences.getFloat(THRESHOLD_HIGH, 180f).toDouble(),
+                    lowMgDl = preferences.getFloat(THRESHOLD_LOW, 70f).toDouble(),
+                    veryLowMgDl = preferences.getFloat(THRESHOLD_VERY_LOW, 50f).toDouble(),
+                ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT,
             )
         }
 
@@ -173,6 +189,7 @@ internal data class WearDisplayPreferences(
                         graphColors = config.graphColors,
                         graphStyle = config.graphStyle,
                         uiColors = config.uiColors,
+                        cgmThresholds = config.cgmThresholds,
                     ),
                 markLocal = false,
             )
@@ -206,6 +223,12 @@ internal data class WearDisplayPreferences(
                 .putInt(COLOR_PREFIX + "cgm_low", colors.cgmLow)
                 .putInt(COLOR_PREFIX + "cgm_in", colors.cgmInRange)
                 .putInt(COLOR_PREFIX + "cgm_high", colors.cgmHigh)
+                .putInt(COLOR_PREFIX + "cgm_very_low", colors.cgmVeryLow)
+                .putInt(COLOR_PREFIX + "cgm_very_high", colors.cgmVeryHigh)
+                .putFloat(THRESHOLD_VERY_HIGH, sync.cgmThresholds.veryHighMgDl.toFloat())
+                .putFloat(THRESHOLD_HIGH, sync.cgmThresholds.highMgDl.toFloat())
+                .putFloat(THRESHOLD_LOW, sync.cgmThresholds.lowMgDl.toFloat())
+                .putFloat(THRESHOLD_VERY_LOW, sync.cgmThresholds.veryLowMgDl.toFloat())
                 .putInt(COLOR_PREFIX + "divider", colors.divider)
                 .putInt(COLOR_PREFIX + "outline", colors.outline)
                 .putInt(COLOR_PREFIX + "prediction_iob", colors.predictionIob)
@@ -265,6 +288,8 @@ internal data class WearDisplayPreferences(
                 .putInt(COLOR_PREFIX + "cgm_low", value.graphColors.cgmLow)
                 .putInt(COLOR_PREFIX + "cgm_in", value.graphColors.cgmInRange)
                 .putInt(COLOR_PREFIX + "cgm_high", value.graphColors.cgmHigh)
+                .putInt(COLOR_PREFIX + "cgm_very_low", value.graphColors.cgmVeryLow)
+                .putInt(COLOR_PREFIX + "cgm_very_high", value.graphColors.cgmVeryHigh)
                 .putInt(COLOR_PREFIX + "divider", value.graphColors.divider)
                 .putInt(COLOR_PREFIX + "outline", value.graphColors.outline)
                 .putInt(COLOR_PREFIX + "prediction_iob", value.graphColors.predictionIob)
@@ -285,6 +310,12 @@ internal data class WearDisplayPreferences(
                 .putInt(UI_PREFIX + "glucose_low", value.uiColors.glucoseLow)
                 .putInt(UI_PREFIX + "glucose_in_range", value.uiColors.glucoseInRange)
                 .putInt(UI_PREFIX + "glucose_high", value.uiColors.glucoseHigh)
+                .putInt(UI_PREFIX + "glucose_very_low", value.uiColors.glucoseVeryLow)
+                .putInt(UI_PREFIX + "glucose_very_high", value.uiColors.glucoseVeryHigh)
+                .putFloat(THRESHOLD_VERY_HIGH, value.cgmThresholds.veryHighMgDl.toFloat())
+                .putFloat(THRESHOLD_HIGH, value.cgmThresholds.highMgDl.toFloat())
+                .putFloat(THRESHOLD_LOW, value.cgmThresholds.lowMgDl.toFloat())
+                .putFloat(THRESHOLD_VERY_LOW, value.cgmThresholds.veryLowMgDl.toFloat())
                 .putInt(UI_PREFIX + "iob", value.uiColors.iob)
                 .putInt(UI_PREFIX + "cob", value.uiColors.cob)
                 .putInt(UI_PREFIX + "basal", value.uiColors.basal)

@@ -231,8 +231,7 @@ class WearActivity : Activity() {
 
         val freshness = TherapyDisplayFormatter.freshness(state, now)
         val canShowValue = glucoseState != null && freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
-        val targetLow = state?.target?.lowMgDl ?: 80.0
-        val targetHigh = state?.target?.highMgDl ?: 160.0
+        val thresholds = preferences.cgmThresholds
         val resolvedUnit = resolveUnit(glucoseState?.displayUnit, preferences.glucoseUnit)
 
         val glucoseSectionChanged =
@@ -244,16 +243,21 @@ class WearActivity : Activity() {
         if (glucoseSectionChanged) {
             glucose.text = if (canShowValue) formatGlucose(glucoseState.valueMgDl, resolvedUnit) else "—"
 
+            val rangeClass = glucoseState?.valueMgDl?.let(thresholds::classify)
             val rangeColor = when {
                 !canShowValue -> preferences.uiColors.tileBorder
-                glucoseState.valueMgDl < targetLow -> preferences.uiColors.glucoseLow
-                glucoseState.valueMgDl > targetHigh -> preferences.uiColors.glucoseHigh
+                rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
+                rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
+                rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
+                rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
                 else -> IN_RANGE_SURFACE_ACCENT
             }
             val valueColor = when {
                 !canShowValue -> preferences.uiColors.textPrimary
-                glucoseState.valueMgDl < targetLow -> preferences.uiColors.glucoseLow
-                glucoseState.valueMgDl > targetHigh -> preferences.uiColors.glucoseHigh
+                rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
+                rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
+                rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
+                rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
                 else -> preferences.uiColors.glucoseInRange
             }
             glucose.setTextColor(valueColor)
@@ -287,6 +291,7 @@ class WearActivity : Activity() {
             showPredictions = preferences.showPredictions,
             colors = preferences.graphColors,
             style = preferences.graphStyle,
+            thresholds = preferences.cgmThresholds,
         )
         if (refreshClock) chart.invalidate()
 

@@ -17,12 +17,26 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.TherapyDisplayState
 import java.util.Locale
 
 enum class DashboardScreen { OVERVIEW, WATCH, SETTINGS }
 enum class DisplayUnitPreference { AAPS, MG_DL, MMOL_L }
 enum class DashboardThemeMode { SYSTEM, LIGHT, DARK }
+
+internal fun thresholdForUi(valueMgDl: Double, unit: DisplayUnitPreference): Float =
+    if (unit == DisplayUnitPreference.MMOL_L) (valueMgDl / 18.0).toFloat() else valueMgDl.toFloat()
+
+internal fun thresholdFromUi(value: Float, unit: DisplayUnitPreference): Double =
+    if (unit == DisplayUnitPreference.MMOL_L) value * 18.0 else value.toDouble()
+
+internal fun formatThreshold(valueMgDl: Double, unit: DisplayUnitPreference): String =
+    if (unit == DisplayUnitPreference.MMOL_L) {
+        String.format(Locale.GERMANY, "%.1f mmol/L", valueMgDl / 18.0)
+    } else {
+        "${valueMgDl.toInt()} mg/dL"
+    }
 
 data class DashboardUiPreferences(
     val unit: DisplayUnitPreference = DisplayUnitPreference.AAPS,
@@ -50,6 +64,7 @@ data class DashboardUiPreferences(
     val watchFaceIndex: Int = 1,
     val dataSource: DataSourcePreference = DataSourcePreference.AUTOMATIC,
     val themeMode: DashboardThemeMode = DashboardThemeMode.SYSTEM,
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
 ) {
     val anyCgmPredictionEnabled: Boolean
         get() =
@@ -98,6 +113,7 @@ data class DashboardUiPreferences(
                 themeMode = runCatching {
                     DashboardThemeMode.valueOf(preferences.getString("themeMode", "SYSTEM")!!)
                 }.getOrDefault(DashboardThemeMode.SYSTEM),
+                cgmThresholds = CgmThresholdPreferences.read(preferences),
             )
     }
 }
@@ -417,6 +433,27 @@ class DashboardViewFactory(
         addSettingsCategory(parent, "cgm_graph", "CGM-Graph", R.drawable.ic_health_glucose) {
             addView(
                 tile(null).apply {
+                    addView(settingsGroupLabel("GLUKOSEBEREICHE & ALARME"))
+                    fun thresholdRow(title: String, value: Double, minimum: Float, maximum: Float, update: (Double) -> CgmThresholds) =
+                        sugarliciousSliderRow(
+                            title = title,
+                            description = "${formatThreshold(value, preferences.unit)} · Reihenfolge: Sehr tief < Tief < Hoch < Sehr hoch",
+                            value = thresholdForUi(value, preferences.unit),
+                            minimum = thresholdForUi(minimum.toDouble(), preferences.unit),
+                            maximum = thresholdForUi(maximum.toDouble(), preferences.unit),
+                            decimals = if (preferences.unit == DisplayUnitPreference.MMOL_L) 1 else 0,
+                        ) { entered ->
+                            val mgDl = thresholdFromUi(entered, preferences.unit)
+                            CgmThresholdPreferences.save(dashboardPreferences, update(mgDl))
+                        }
+                    addView(thresholdRow("Sehr hoch", preferences.cgmThresholds.veryHighMgDl, 100f, 400f) { preferences.cgmThresholds.copy(veryHighMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Hoch", preferences.cgmThresholds.highMgDl, 80f, 300f) { preferences.cgmThresholds.copy(highMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Tief", preferences.cgmThresholds.lowMgDl, 40f, 180f) { preferences.cgmThresholds.copy(lowMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Sehr tief", preferences.cgmThresholds.veryLowMgDl, 20f, 120f) { preferences.cgmThresholds.copy(veryLowMgDl = it) })
+                    addView(divider())
                     addView(settingsGroupLabel("SICHTBARKEIT"))
                     addView(switchRowCompact("Graph anzeigen", preferences.showCgmGraph, View.generateViewId(), callbacks.setShowCgmGraph))
                     if (preferences.showCgmGraph) {

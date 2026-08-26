@@ -88,8 +88,9 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
         val state = TherapyStateStore(context).state.first()
         val activitySnapshot = if (kind == WidgetKind.ACTIVITY) HealthConnectIntegration.snapshot(context) else null
         val palette = WidgetColorStore.load(context)
-        val graphBitmap = if (kind == WidgetKind.GRAPH) renderWidgetGraph(state, palette) else null
-        provideContent { WidgetShell(kind, state, activitySnapshot, palette, graphBitmap) }
+        val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
+        val graphBitmap = if (kind == WidgetKind.GRAPH) renderWidgetGraph(state, palette, thresholds = thresholds) else null
+        provideContent { WidgetShell(kind, state, activitySnapshot, palette, graphBitmap, thresholds) }
     }
 }
 
@@ -119,6 +120,7 @@ private fun WidgetShell(
     activitySnapshot: HealthConnectSnapshot?,
     palette: WidgetPalette,
     graphBitmap: Bitmap?,
+    thresholds: app.aapswear.model.CgmThresholds,
 ) {
     val size = LocalSize.current
     val compact = size.width < 210.dp || size.height < 130.dp
@@ -135,7 +137,7 @@ private fun WidgetShell(
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         when (kind) {
-            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, compact, palette)
+            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, compact, palette, thresholds)
             WidgetKind.GRAPH -> GraphWidgetContent(graphBitmap)
             WidgetKind.METABOLIC,
             WidgetKind.ACTIVITY,
@@ -178,7 +180,7 @@ private fun WidgetHeader(kind: WidgetKind, state: TherapyDisplayState?, compact:
 }
 
 @Composable
-private fun GlucoseWidgetContent(state: TherapyDisplayState?, compact: Boolean, palette: WidgetPalette) {
+private fun GlucoseWidgetContent(state: TherapyDisplayState?, compact: Boolean, palette: WidgetPalette, thresholds: app.aapswear.model.CgmThresholds) {
     val now = System.currentTimeMillis()
     val glucose = state?.glucose
     val freshness = TherapyDisplayFormatter.freshness(state, now)
@@ -193,11 +195,9 @@ private fun GlucoseWidgetContent(state: TherapyDisplayState?, compact: Boolean, 
         GlucoseUnit.MG_DL -> "mg/dL"
         null -> ""
     }
-    val low = state?.target?.lowMgDl ?: 80.0
-    val high = state?.target?.highMgDl ?: 160.0
     val valueColor =
         if (displayable && glucose != null) {
-            widgetColor(palette.argb(widgetGlucoseColorRole(glucose.valueMgDl, low, high)))
+            widgetColor(palette.argb(widgetGlucoseColorRole(glucose.valueMgDl, thresholds)))
         } else {
             widgetColor(palette.argb(WidgetColorRole.TEXT))
         }
@@ -322,6 +322,7 @@ internal fun renderWidgetGraph(
     width: Int = 800,
     height: Int = 360,
     now: Long = System.currentTimeMillis(),
+    thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(160)
     val safeHeight = height.coerceAtLeast(100)
@@ -342,15 +343,15 @@ internal fun renderWidgetGraph(
         color = blendArgb(background, text, 0.22f)
         strokeWidth = 1f * density
     }
-    listOf(40.0, 80.0, 160.0, 400.0).forEach { value ->
+    listOf(40.0, thresholds.lowMgDl, thresholds.highMgDl, 400.0).distinct().forEach { value ->
         val y = widgetGlucoseY(value, plot)
         canvas.drawLine(plot.left, y, plot.right, y, subtleGrid)
         canvas.drawText(value.roundToInt().toString(), 4f * density, y - 3f * density, textPaint)
     }
 
-    val targetLow = state?.target?.lowMgDl?.takeIf(Double::isFinite)
-    val targetHigh = state?.target?.highMgDl?.takeIf(Double::isFinite)
-    if (targetLow != null && targetHigh != null && targetHigh >= targetLow) {
+    val targetLow = thresholds.lowMgDl
+    val targetHigh = thresholds.highMgDl
+    if (targetHigh >= targetLow) {
         val top = widgetGlucoseY(targetHigh, plot)
         val bottom = widgetGlucoseY(targetLow, plot)
         val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -362,13 +363,11 @@ internal fun renderWidgetGraph(
 
     val windowMs = 3L * 60L * 60_000L
     val samples = canonicalWidgetSamples(state, now, windowMs)
-    val low = targetLow ?: 80.0
-    val high = targetHigh ?: 160.0
     val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     samples.forEach { sample ->
         val x = plot.left + ((sample.measuredAtEpochMs - (now - windowMs)).toFloat() / windowMs) * plot.width()
         val y = widgetGlucoseY(sample.valueMgDl, plot)
-        pointPaint.color = palette.argb(widgetGlucoseColorRole(sample.valueMgDl, low, high))
+        pointPaint.color = palette.argb(widgetGlucoseColorRole(sample.valueMgDl, thresholds))
         canvas.drawCircle(x, y, 4.1f * density, pointPaint)
     }
 

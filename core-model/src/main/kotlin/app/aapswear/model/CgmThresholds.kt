@@ -1,5 +1,7 @@
 package app.aapswear.model
 
+import kotlinx.serialization.Serializable
+
 /** Canonical Sugarlicious glucose-range classification. Values are stored in mg/dL. */
 enum class CgmRangeClass {
     VERY_LOW,
@@ -9,6 +11,7 @@ enum class CgmRangeClass {
     VERY_HIGH,
 }
 
+@Serializable
 data class CgmThresholds(
     val veryHighMgDl: Double = DEFAULT_VERY_HIGH_MG_DL,
     val highMgDl: Double = DEFAULT_HIGH_MG_DL,

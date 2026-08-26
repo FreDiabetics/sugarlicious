@@ -82,6 +82,7 @@ internal fun g7TilePresentation(
     reading: CgmReading?,
     colors: app.aapswear.protocol.WatchGraphColors,
     nowEpochMs: Long,
+    thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
 ): G7TilePresentation {
     if (reading == null) {
         return G7TilePresentation(
@@ -130,9 +131,11 @@ internal fun g7TilePresentation(
     }
 
     val value = reading.glucoseMgDl
-    val cardBackground = when {
-        value < G7_TILE_TARGET_LOW_MG_DL -> colors.cgmLow
-        value > G7_TILE_TARGET_HIGH_MG_DL -> colors.cgmHigh
+    val cardBackground = when (thresholds.classify(value)) {
+        app.aapswear.model.CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
+        app.aapswear.model.CgmRangeClass.LOW -> colors.cgmLow
+        app.aapswear.model.CgmRangeClass.HIGH -> colors.cgmHigh
+        app.aapswear.model.CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
         else -> G7_TILE_CARD_BACKGROUND
     }
     val delta = reading.deltaMgDl?.let { String.format(Locale.US, "%+.0f", it) } ?: "—"
@@ -210,7 +213,8 @@ class G7CollectorTileService : TileService() {
         val persistedState = G7SensorStateStore(this).read()
         val credentialsPresent = G7CredentialStore(this).read() != null
         val userStatus = deriveG7UserStatus(persistedState, credentialsPresent)
-        val presentation = g7TilePresentation(reading, G7GraphColorStore(this).read(), System.currentTimeMillis())
+        val colorStore = G7GraphColorStore(this)
+        val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
         val statusPresentation = g7TileStatusPresentation(userStatus)
 
         val primaryRow =
@@ -389,5 +393,3 @@ internal const val G7_TILE_TEXT_DARK = 0xFF181818.toInt()
 internal const val G7_TILE_ACCENT = 0xFF6DE892.toInt()
 internal const val G7_TILE_WARNING = 0xFFFFC107.toInt()
 internal const val G7_TILE_ERROR = 0xFFFF5C69.toInt()
-internal const val G7_TILE_TARGET_LOW_MG_DL = 80.0
-internal const val G7_TILE_TARGET_HIGH_MG_DL = 160.0

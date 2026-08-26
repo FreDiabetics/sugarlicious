@@ -6,6 +6,7 @@ import android.content.Intent
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WearProtocol
+import app.aapswear.model.CgmThresholds
 
 internal class G7GraphColorStore(context: Context) {
     private val preferences =
@@ -21,6 +22,8 @@ internal class G7GraphColorStore(context: Context) {
             cgmLow = preferences.getInt("cgm_low", defaults.cgmLow),
             cgmInRange = preferences.getInt("cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("cgm_high", defaults.cgmHigh),
+            cgmVeryLow = preferences.getInt("cgm_very_low", defaults.cgmVeryLow),
+            cgmVeryHigh = preferences.getInt("cgm_very_high", defaults.cgmVeryHigh),
             divider = preferences.getInt("divider", defaults.divider),
             outline = preferences.getInt("outline", defaults.outline),
             predictionIob = preferences.getInt("prediction_iob", defaults.predictionIob),
@@ -30,6 +33,23 @@ internal class G7GraphColorStore(context: Context) {
             targetValue = preferences.getInt("target_value", defaults.targetValue),
             signalLoss = preferences.getInt("signal_loss", defaults.signalLoss),
         )
+    }
+
+    fun readThresholds(): CgmThresholds = CgmThresholds(
+        veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
+        highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
+        lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
+        veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
+    ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+
+    fun saveThresholds(value: CgmThresholds) {
+        require(value.isValid)
+        preferences.edit()
+            .putFloat("threshold_very_high", value.veryHighMgDl.toFloat())
+            .putFloat("threshold_high", value.highMgDl.toFloat())
+            .putFloat("threshold_low", value.lowMgDl.toFloat())
+            .putFloat("threshold_very_low", value.veryLowMgDl.toFloat())
+            .apply()
     }
 
     fun save(sync: WatchColorSync) {
@@ -42,6 +62,12 @@ internal class G7GraphColorStore(context: Context) {
             .putInt("cgm_low", colors.cgmLow)
             .putInt("cgm_in", colors.cgmInRange)
             .putInt("cgm_high", colors.cgmHigh)
+            .putInt("cgm_very_low", colors.cgmVeryLow)
+            .putInt("cgm_very_high", colors.cgmVeryHigh)
+            .putFloat("threshold_very_high", sync.cgmThresholds.veryHighMgDl.toFloat())
+            .putFloat("threshold_high", sync.cgmThresholds.highMgDl.toFloat())
+            .putFloat("threshold_low", sync.cgmThresholds.lowMgDl.toFloat())
+            .putFloat("threshold_very_low", sync.cgmThresholds.veryLowMgDl.toFloat())
             .putInt("divider", colors.divider)
             .putInt("outline", colors.outline)
             .putInt("prediction_iob", colors.predictionIob)
