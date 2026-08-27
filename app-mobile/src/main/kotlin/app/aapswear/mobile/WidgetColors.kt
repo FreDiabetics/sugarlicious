@@ -21,15 +21,22 @@ internal enum class WidgetColorRole(
     HIGH_LINE("high_line", "Hoch-Grenzlinie"),
     LOW_LINE("low_line", "Tief-Grenzlinie"),
     DOT_OUTLINE("dot_outline", "Punkt-Kontur"),
+    DOT_HIGH("dot_high", "Punkte Hoch"),
+    DOT_IN_RANGE("dot_in_range", "Punkte im Ziel"),
+    DOT_LOW("dot_low", "Punkte Tief"),
     DIVIDER("divider", "Jetzt-Trennlinie"),
     AXIS("axis", "Achsentext"),
     TEXT("text", "Text"),
     TREND("trend", "Trend"),
+    TREND_HIGH("trend_high", "Trend Hoch"),
+    TREND_IN_RANGE("trend_in_range", "Trend im Ziel"),
+    TREND_LOW("trend_low", "Trend Tief"),
 }
 
 internal data class WidgetPalette(private val values: Map<WidgetColorRole, Int>) {
     fun argb(role: WidgetColorRole): Int = values.getValue(role)
     fun with(role: WidgetColorRole, argb: Int): WidgetPalette = WidgetPalette(values + (role to argb))
+    fun with(overrides: Map<WidgetColorRole, Int>): WidgetPalette = WidgetPalette(values + overrides)
 }
 
 internal object WidgetColorStore {
@@ -91,10 +98,16 @@ internal object WidgetColorStore {
                             WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
                             WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
                             WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                            WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
+                            WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
+                            WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
                             WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_DIVIDER
                             WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
+                            WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+                            WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+                            WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
                         }
                     putInt(key(role), mobile.argb(sourceRole))
                 }
@@ -123,10 +136,16 @@ internal object WidgetColorStore {
                 WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
                 WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
                 WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
+                WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
+                WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
                 WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_DIVIDER
                 WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
                 WidgetColorRole.TEXT -> SugarliciousColorRole.TEXT_PRIMARY
                 WidgetColorRole.TREND -> SugarliciousColorRole.PRIMARY
+                WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+                WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+                WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
             },
         )
 }

@@ -115,6 +115,34 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `widget trend arrow is exactly four dp shorter than value at every density`() {
+        listOf(1f, 2f, 3f, 4f).forEach { density ->
+            val textHeight = 48f * density
+            assertEquals(textHeight - 4f * density, widgetTrendArrowTargetHeight(textHeight, 1f, density), 0.01f)
+        }
+    }
+
+    @Test
+    fun `low graph surfaces devote more height to plot than legacy axis band`() {
+        val layout = responsiveWidgetLayout(160f, 72f)
+        val metrics = widgetGraphMetrics(320, 144, 2f, layout, Paint(), showTimeAxis = true)
+        assertTrue(metrics.plot.bottom > 100f)
+        assertTrue(metrics.axisBaselinePx > 130f)
+    }
+
+    @Test
+    fun `combined two by two widget renders left glucose block and larger graph`() {
+        val bitmap = renderGlucoseGraphWidget(
+            state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0), palette,
+            440, 440, now, thresholds, responsiveWidgetLayout(220f, 220f), 2f,
+            WidgetInstanceConfiguration(showTimeAxis = true),
+        )
+        assertEquals(440, bitmap.width)
+        assertEquals(440, bitmap.height)
+        assertFalse(bitmap.isRecycled)
+    }
+
+    @Test
     fun `render hardware resize regression matrix when requested`() {
         val output = System.getenv("WIDGET_MATRIX_DIR")?.let(::File) ?: return
         output.mkdirs()
@@ -141,6 +169,17 @@ class WidgetPresentationTest {
                 thresholds = thresholds,
                 layout = responsiveWidgetLayout(width / density, height / density),
                 pixelDensity = density,
+            )
+            FileOutputStream(File(output, "$name.png")).use { stream ->
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
+            }
+        }
+        listOf("combined-2x2" to (440 to 440), "combined-1x2" to (440 to 220)).forEach { (name, dimensions) ->
+            val (width, height) = dimensions
+            val bitmap = renderGlucoseGraphWidget(
+                state, palette, width, height, now, thresholds,
+                responsiveWidgetLayout(width / density, height / density), density,
+                WidgetInstanceConfiguration(showTimeAxis = true),
             )
             FileOutputStream(File(output, "$name.png")).use { stream ->
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))

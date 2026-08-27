@@ -33,8 +33,15 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `two widget instances retain independent appearance and graph settings`() {
-        val first = WidgetInstanceConfiguration(6, true, WidgetScaleMode.DYNAMIC, Color.argb(120, 10, 20, 30), "app.aapswear")
-        val second = WidgetInstanceConfiguration(24, false, WidgetScaleMode.LOGARITHMIC, Color.BLACK, "com.eveningoutpost.dexdrip")
+        val first = WidgetInstanceConfiguration(
+            6, true, WidgetScaleMode.DYNAMIC, Color.argb(120, 10, 20, 30), "app.aapswear",
+            backgroundEnabled = false, glucoseScalePercent = 88, trendScalePercent = 112,
+            colorOverrides = mapOf(WidgetColorRole.TREND_HIGH to Color.MAGENTA),
+        )
+        val second = WidgetInstanceConfiguration(
+            24, false, WidgetScaleMode.LOGARITHMIC, Color.BLACK, "com.eveningoutpost.dexdrip",
+            colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to Color.GREEN),
+        )
         WidgetInstanceConfigurationStore.save(context, 101, first)
         WidgetInstanceConfigurationStore.save(context, 202, second)
 

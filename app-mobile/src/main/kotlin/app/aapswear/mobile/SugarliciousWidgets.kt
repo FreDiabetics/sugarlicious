@@ -104,8 +104,10 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
         val state = TherapyStateStore(context).state.first()
         val activitySnapshot = if (kind == WidgetKind.ACTIVITY) HealthConnectIntegration.snapshot(context) else null
         val palette = WidgetColorStore.load(context)
+            .with(instance.colorOverrides)
+            .with(WidgetColorRole.BACKGROUND, if (instance.backgroundEnabled) instance.backgroundArgb else AndroidColor.TRANSPARENT)
         val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
-        provideContent { WidgetShell(kind, state, activitySnapshot, palette.with(WidgetColorRole.BACKGROUND, instance.backgroundArgb), thresholds, instance) }
+        provideContent { WidgetShell(kind, state, activitySnapshot, palette, thresholds, instance) }
     }
 }
 
@@ -166,7 +168,7 @@ private fun WidgetShell(
     val background = widgetColor(palette.argb(WidgetColorRole.BACKGROUND))
     val outerBackground =
         if (kind == WidgetKind.GRAPH || kind == WidgetKind.GLUCOSE || kind == WidgetKind.GLUCOSE_GRAPH) {
-            widgetColor(instance.backgroundArgb)
+            widgetColor(if (instance.backgroundEnabled) instance.backgroundArgb else AndroidColor.TRANSPARENT)
         } else {
             background
         }
@@ -177,13 +179,13 @@ private fun WidgetShell(
             GlanceModifier
                 .fillMaxSize()
                 .background(outerBackground)
-                .cornerRadius(layout.cornerRadiusDp.dp)
+                .cornerRadius((instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp).dp)
                 .padding(contentPadding)
                 .clickable(actionStartActivity(launchComponent)),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         when (kind) {
-            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout)
+            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout, instance)
             WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, instance)
             WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidgetContent(state, palette, thresholds, layout, instance)
             WidgetKind.METABOLIC,
@@ -232,6 +234,7 @@ private fun GlucoseWidgetContent(
     palette: WidgetPalette,
     thresholds: app.aapswear.model.CgmThresholds,
     layout: ResponsiveWidgetLayout,
+    instance: WidgetInstanceConfiguration,
 ) {
     val size = LocalSize.current
     val pixelDensity = LocalContext.current.resources.displayMetrics.density.coerceAtLeast(1f)
@@ -243,6 +246,13 @@ private fun GlucoseWidgetContent(
         thresholds = thresholds,
         layout = layout,
         pixelDensity = pixelDensity,
+        options = GlucoseWidgetRenderOptions(
+            glucoseScale = configurationScale(instance.glucoseScalePercent),
+            trendScale = configurationScale(instance.trendScalePercent),
+            outlineEnabled = instance.outlineEnabled,
+            outlineArgb = instance.outlineArgb,
+            cornerRadiusDp = instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp,
+        ),
     )
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
 }
@@ -367,7 +377,7 @@ internal fun renderWidgetGraph(
     val safeHeight = height.coerceAtLeast(72)
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
-    val background = configuration.backgroundArgb
+    val background = if (configuration.backgroundEnabled) palette.argb(WidgetColorRole.GRAPH_BACKGROUND) else AndroidColor.TRANSPARENT
     val text = palette.argb(WidgetColorRole.AXIS)
     canvas.drawColor(background)
 
@@ -430,7 +440,13 @@ internal fun renderWidgetGraph(
             plot.right - metrics.dotRadiusPx - metrics.outlineWidthPx,
         )
         val y = yScale.map(sample.valueMgDl, plot)
-        pointPaint.color = palette.argb(widgetGlucoseColorRole(sample.valueMgDl, thresholds))
+        pointPaint.color = palette.argb(
+            when (widgetGlucoseColorRole(sample.valueMgDl, thresholds)) {
+                WidgetColorRole.HIGH, WidgetColorRole.VERY_HIGH -> WidgetColorRole.DOT_HIGH
+                WidgetColorRole.LOW, WidgetColorRole.URGENT_LOW -> WidgetColorRole.DOT_LOW
+                else -> WidgetColorRole.DOT_IN_RANGE
+            },
+        )
         val radius = metrics.dotRadiusPx
         canvas.drawCircle(pointX, y, radius, pointPaint)
         canvas.drawCircle(pointX, y, radius + outlinePaint.strokeWidth / 2f, outlinePaint)
@@ -454,6 +470,7 @@ internal fun renderWidgetGraph(
     textPaint.textAlign = Paint.Align.LEFT
     canvas.drawText(targetHigh.roundToInt().toString(), plot.right + 4f * density, targetTop - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
     canvas.drawText(targetLow.roundToInt().toString(), plot.right + 4f * density, targetBottom - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
+    drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, density)
     return bitmap
 }
 
@@ -480,12 +497,13 @@ internal fun widgetGraphMetrics(
     showTimeAxis: Boolean = true,
 ): WidgetGraphMetrics {
     val safeDensity = density.coerceIn(1f, 4f)
-    val axisText = layout.graphAxisTextSp * safeDensity
+    val lowSurface = heightPx / safeDensity < 110f
+    val axisText = (if (lowSurface) minOf(layout.graphAxisTextSp, 8f) else layout.graphAxisTextSp) * safeDensity
     val nowText = (layout.graphAxisTextSp + 2f).coerceAtMost(13f) * safeDensity
     textPaint.textSize = axisText
     // Axis text sits inside the full-bleed surface, but must also clear the launcher's rounded
     // clipping mask. A tiny edge clamp is insufficient near the lower corners (notably for 3h).
-    val edgeGap = 8f * safeDensity
+    val edgeGap = (if (lowSurface) 4f else 8f) * safeDensity
     val dotRadius = layout.graphDotRadiusDp.coerceIn(2.4f, 2.5f) * safeDensity
     val outline = layout.graphOutlineDp.coerceIn(0.8f, 1f) * safeDensity
     val lineWidth = layout.graphLineDp.coerceIn(1f, 1.2f) * safeDensity
@@ -495,7 +513,8 @@ internal fun widgetGraphMetrics(
     textPaint.textSize = axisText
     val fontHeight = textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent
     val bottomBand = if (showTimeAxis) {
-        maxOf(fontHeight + 12f * safeDensity, 22f * safeDensity).coerceAtMost(heightPx * 0.34f)
+        maxOf(fontHeight + (if (lowSurface) 4f else 7f) * safeDensity, (if (lowSurface) 15f else 19f) * safeDensity)
+            .coerceAtMost(heightPx * 0.28f)
     } else {
         2f * safeDensity
     }
@@ -507,7 +526,7 @@ internal fun widgetGraphMetrics(
     val topInset = maxOf(2f * safeDensity, dotRadius + outline)
     val plotRight = (widthPx - rightInset).coerceAtLeast(leftInset + 24f * safeDensity)
     val plotBottom = (heightPx - bottomBand).coerceAtLeast(topInset + 24f * safeDensity)
-    val baseline = if (showTimeAxis) heightPx - 8f * safeDensity else heightPx.toFloat()
+    val baseline = if (showTimeAxis) heightPx - textPaint.fontMetrics.descent - 1f * safeDensity else heightPx.toFloat()
     return WidgetGraphMetrics(
         plot = RectF(leftInset, topInset, plotRight, plotBottom),
         axisTextSizePx = axisText,
@@ -548,6 +567,10 @@ internal fun renderMinimalGlucoseWidget(
     thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
     layout: ResponsiveWidgetLayout = responsiveWidgetLayout(width.toFloat(), height.toFloat()),
     pixelDensity: Float = 1f,
+    options: GlucoseWidgetRenderOptions = GlucoseWidgetRenderOptions(
+        glucoseScale = configurationScale(100),
+        trendScale = configurationScale(100),
+    ),
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
@@ -560,24 +583,33 @@ internal fun renderMinimalGlucoseWidget(
     val color = palette.argb(if (displayable) presentation.visibleRole else WidgetColorRole.TEXT)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
-        textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f)
+        textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * options.glucoseScale
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
     val textWidth = paint.measureText(value)
     val textBounds = Rect().also { paint.getTextBounds(value, 0, value.length, it) }
     val textHeight = textBounds.height().toFloat().coerceAtLeast(paint.textSize * 0.65f)
     val spec = if (displayable) glucose?.trend?.let(TrendVisuals::spec) else null
-    val arrowGeometry = spec?.let { normalizedTrendArrowGeometry(textHeight, it.rotationDegrees, it.arrowCount) }
+    // The widget arrow intentionally sits 4 dp below the Mobile value height. It remains the
+    // canonical Mobile vector and is uniformly scaled for every rotation.
+    val arrowTargetHeight = widgetTrendArrowTargetHeight(textHeight, options.trendScale, pixelDensity)
+    val arrowGeometry = spec?.let { normalizedTrendArrowGeometry(arrowTargetHeight, it.rotationDegrees, it.arrowCount) }
     val arrowSize = arrowGeometry?.scalePx ?: 0f
     val arrowWidth = arrowGeometry?.groupWidthPx ?: 0f
     val gap = if (spec != null) (paint.textSize * (6f / 42f)).coerceAtLeast(3f) else 0f
     val groupWidth = textWidth + gap + arrowWidth
-    val startX = (bitmap.width - groupWidth) / 2f
+    val startX = if (options.leftAligned) options.leftInsetDp * pixelDensity else (bitmap.width - groupWidth) / 2f
     val baseline = bitmap.height / 2f - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
     canvas.drawText(value, startX, baseline, paint)
     if (spec != null) {
         val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
+            this.color = palette.argb(
+                when (presentation.visibleRole) {
+                    WidgetColorRole.HIGH, WidgetColorRole.VERY_HIGH -> WidgetColorRole.TREND_HIGH
+                    WidgetColorRole.LOW, WidgetColorRole.URGENT_LOW -> WidgetColorRole.TREND_LOW
+                    else -> WidgetColorRole.TREND_IN_RANGE
+                },
+            )
             style = Paint.Style.FILL
         }
         val count = spec.arrowCount
@@ -600,7 +632,53 @@ internal fun renderMinimalGlucoseWidget(
             canvas.restore()
         }
     }
+    drawWidgetOutline(canvas, bitmap.width, bitmap.height, options, pixelDensity)
     return bitmap
+}
+
+internal data class GlucoseWidgetRenderOptions(
+    val glucoseScale: Float = 1f,
+    val trendScale: Float = 1f,
+    val leftAligned: Boolean = false,
+    val leftInsetDp: Float = 12f,
+    val outlineEnabled: Boolean = false,
+    val outlineArgb: Int = AndroidColor.DKGRAY,
+    val cornerRadiusDp: Float = 20f,
+)
+
+private fun configurationScale(percent: Int): Float = percent.coerceIn(70, 130) / 100f
+
+internal fun widgetTrendArrowTargetHeight(textHeightPx: Float, trendScale: Float, pixelDensity: Float): Float =
+    (textHeightPx * trendScale - 4f * pixelDensity.coerceIn(1f, 4f)).coerceAtLeast(8f * pixelDensity)
+
+private fun drawWidgetOutline(
+    canvas: AndroidCanvas,
+    width: Int,
+    height: Int,
+    configuration: WidgetInstanceConfiguration,
+    density: Float,
+) {
+    if (!configuration.outlineEnabled) return
+    val stroke = density.coerceIn(1f, 4f)
+    val radius = (configuration.cornerRadiusDp.takeIf { it > 0 } ?: 20) * density
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = configuration.outlineArgb
+        style = Paint.Style.STROKE
+        strokeWidth = stroke
+    }
+    canvas.drawRoundRect(stroke / 2f, stroke / 2f, width - stroke / 2f, height - stroke / 2f, radius, radius, paint)
+}
+
+private fun drawWidgetOutline(canvas: AndroidCanvas, width: Int, height: Int, options: GlucoseWidgetRenderOptions, density: Float) {
+    if (!options.outlineEnabled) return
+    val stroke = density.coerceIn(1f, 4f)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = options.outlineArgb
+        style = Paint.Style.STROKE
+        strokeWidth = stroke
+    }
+    val radius = options.cornerRadiusDp * density
+    canvas.drawRoundRect(stroke / 2f, stroke / 2f, width - stroke / 2f, height - stroke / 2f, radius, radius, paint)
 }
 
 internal data class TrendArrowGeometry(
@@ -675,14 +753,25 @@ internal fun renderGlucoseGraphWidget(
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(96)
-    val topHeight = (safeHeight * 0.38f).roundToInt().coerceIn(46, safeHeight - 48)
+    val topHeight = (safeHeight * 0.27f).roundToInt().coerceIn(40, safeHeight - 64)
     val graphHeight = safeHeight - topHeight
     val topLayout = responsiveWidgetLayout(safeWidth / pixelDensity, topHeight / pixelDensity)
-    val top = renderMinimalGlucoseWidget(state, palette, safeWidth, topHeight, now, thresholds, topLayout, pixelDensity)
-    val graph = renderWidgetGraph(state, palette, safeWidth, graphHeight, now, thresholds, layout, pixelDensity, configuration)
+    val top = renderMinimalGlucoseWidget(
+        state, palette, safeWidth, topHeight, now, thresholds, topLayout, pixelDensity,
+        GlucoseWidgetRenderOptions(
+            glucoseScale = configurationScale(configuration.glucoseScalePercent) * 0.78f,
+            trendScale = configurationScale(configuration.trendScalePercent) * 0.78f,
+            leftAligned = true,
+            leftInsetDp = 12f,
+        ),
+    )
+    val graph = renderWidgetGraph(
+        state, palette, safeWidth, graphHeight, now, thresholds, layout, pixelDensity,
+        configuration.copy(outlineEnabled = false),
+    )
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
-    canvas.drawColor(configuration.backgroundArgb)
+    canvas.drawColor(if (configuration.backgroundEnabled) configuration.backgroundArgb else AndroidColor.TRANSPARENT)
     canvas.drawBitmap(top, 0f, 0f, null)
     canvas.drawBitmap(graph, 0f, topHeight.toFloat(), null)
 
@@ -695,12 +784,13 @@ internal fun renderGlucoseGraphWidget(
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = palette.argb(WidgetColorRole.TEXT)
             alpha = 170
-            textAlign = Paint.Align.CENTER
+            textAlign = Paint.Align.LEFT
             textSize = (10f * pixelDensity).coerceAtMost(topHeight * 0.15f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
-        canvas.drawText(unit, safeWidth / 2f, topHeight - 3f * pixelDensity, paint)
+        canvas.drawText(unit, 12f * pixelDensity, topHeight - 2f * pixelDensity, paint)
     }
+    drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, pixelDensity)
     return bitmap
 }
 
