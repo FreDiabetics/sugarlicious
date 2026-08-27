@@ -1,7 +1,6 @@
 package app.aapswear.mobile
 
 import android.graphics.RectF
-import kotlin.math.max
 import kotlin.math.min
 
 internal enum class WidgetGraphSizeClass {
@@ -57,8 +56,8 @@ internal data class WidgetGraphLayoutMetrics(
         ): WidgetGraphLayoutMetrics {
             val safeDensity = density.coerceAtLeast(0.5f)
             val safeScaledDensity = scaledDensity.coerceAtLeast(0.5f)
-            val width = widthPx.coerceAtLeast((96f * safeDensity).toInt())
-            val height = heightPx.coerceAtLeast((72f * safeDensity).toInt())
+            val width = widthPx.coerceAtLeast(1)
+            val height = heightPx.coerceAtLeast(1)
             val widthDp = width / safeDensity
             val heightDp = height / safeDensity
             val aspect = widthDp / heightDp.coerceAtLeast(1f)
@@ -80,13 +79,13 @@ internal data class WidgetGraphLayoutMetrics(
                 WidgetGraphSizeClass.SMALL -> 6f
                 else -> 8f
             }
-            val rightAxisDp = when (sizeClass) {
+            val requestedRightAxisDp = when (sizeClass) {
                 WidgetGraphSizeClass.VERY_SMALL -> 27f
                 WidgetGraphSizeClass.SMALL -> 30f
                 WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.TALL -> 34f
                 WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.EXTRA_WIDE -> 38f
             }
-            val bottomAxisDp = when (sizeClass) {
+            val requestedBottomAxisDp = when (sizeClass) {
                 WidgetGraphSizeClass.VERY_SMALL -> 20f
                 WidgetGraphSizeClass.SMALL -> 22f
                 WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.EXTRA_WIDE -> 24f
@@ -110,11 +109,20 @@ internal data class WidgetGraphLayoutMetrics(
                 else -> CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP
             }.coerceIn(0.55f, CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP)
 
-            val outerInset = dp(outerInsetDp)
-            val leftInset = outerInset + dp(if (sizeClass == WidgetGraphSizeClass.VERY_SMALL) 2f else 4f)
+            val outerInset = min(dp(outerInsetDp), min(width, height) * 0.08f)
+            val leftInset = (outerInset + dp(if (sizeClass == WidgetGraphSizeClass.VERY_SMALL) 2f else 4f))
+                .coerceAtMost(width * 0.22f)
+            val rightAxisPx =
+                dp(requestedRightAxisDp)
+                    .coerceAtMost((width - leftInset - outerInset - dp(18f)).coerceAtLeast(dp(18f)))
+            val bottomAxisPx =
+                dp(requestedBottomAxisDp)
+                    .coerceAtMost((height - outerInset - dp(24f)).coerceAtLeast(dp(16f)))
             val plotTop = outerInset
-            val plotRight = max(leftInset + dp(44f), width - outerInset - dp(rightAxisDp))
-            val plotBottom = max(plotTop + dp(36f), height - outerInset - dp(bottomAxisDp))
+            val plotRight = (width - outerInset - rightAxisPx)
+                .coerceIn(leftInset + dp(12f), (width - outerInset).coerceAtLeast(leftInset + dp(12f)))
+            val plotBottom = (height - outerInset - bottomAxisPx)
+                .coerceIn(plotTop + dp(18f), (height - outerInset).coerceAtLeast(plotTop + dp(18f)))
 
             return WidgetGraphLayoutMetrics(
                 widthPx = width,
@@ -133,8 +141,8 @@ internal data class WidgetGraphLayoutMetrics(
                 currentTimeStrokePx = dp(CgmGraphVisualPolicy.CURRENT_TIME_STROKE_DP),
                 tickHeightPx = dp(CgmGraphVisualPolicy.AXIS_TICK_HEIGHT_DP),
                 outerInsetPx = outerInset,
-                yAxisGapPx = dp(5f),
-                bottomAxisGapPx = dp(3f),
+                yAxisGapPx = dp(5f).coerceAtMost(rightAxisPx * 0.22f),
+                bottomAxisGapPx = dp(3f).coerceAtMost(bottomAxisPx * 0.18f),
             )
         }
     }
