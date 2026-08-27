@@ -150,6 +150,18 @@ internal object SugarliciousWidgets {
         MetabolicWidget().updateAll(context)
         ActivityWidget().updateAll(context)
     }
+
+    @SuppressLint("RestrictedApi")
+    suspend fun update(context: Context, appWidgetId: Int, kind: ConfigurableWidgetKind) {
+        val id = AppWidgetId(appWidgetId)
+        when (kind) {
+            ConfigurableWidgetKind.GLUCOSE -> GlucoseWidget().update(context, id)
+            ConfigurableWidgetKind.GRAPH -> GraphWidget().update(context, id)
+            ConfigurableWidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidget().update(context, id)
+            ConfigurableWidgetKind.METABOLIC -> MetabolicWidget().update(context, id)
+            ConfigurableWidgetKind.ACTIVITY -> ActivityWidget().update(context, id)
+        }
+    }
 }
 
 @Composable
@@ -163,7 +175,15 @@ private fun WidgetShell(
 ) {
     val size = LocalSize.current
     val layout = responsiveWidgetLayout(size.width.value, size.height.value)
-    val launchComponent = WidgetLaunchTargetStore.launchComponent(LocalContext.current, instance.launchPackage)
+    val context = LocalContext.current
+    val resolvedRadius = resolveWidgetCornerRadiusDp(
+        instance,
+        heightDp = size.height.value,
+        systemDefaultDp = systemWidgetCornerRadiusDp(context),
+        pillAllowed = kind == WidgetKind.GLUCOSE,
+    )
+    val renderInstance = instance.copy(cornerRadiusDp = resolvedRadius.roundToInt())
+    val launchComponent = WidgetLaunchTargetStore.launchComponent(context, instance.launchPackage)
     val compact = layout.widthClass <= WidgetWidthClass.NARROW || layout.heightClass == WidgetHeightClass.LOW
     val background = widgetColor(palette.argb(WidgetColorRole.BACKGROUND))
     val outerBackground =
@@ -179,15 +199,15 @@ private fun WidgetShell(
             GlanceModifier
                 .fillMaxSize()
                 .background(outerBackground)
-                .cornerRadius((instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp).dp)
+                .cornerRadius(resolvedRadius.dp)
                 .padding(contentPadding)
                 .clickable(actionStartActivity(launchComponent)),
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         when (kind) {
-            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout, instance)
-            WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, instance)
-            WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidgetContent(state, palette, thresholds, layout, instance)
+            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout, renderInstance)
+            WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, renderInstance)
+            WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidgetContent(state, palette, thresholds, layout, renderInstance)
             WidgetKind.METABOLIC,
             WidgetKind.ACTIVITY,
             -> {
@@ -255,6 +275,29 @@ private fun GlucoseWidgetContent(
         ),
     )
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
+}
+
+internal const val SAMSUNG_WIDGET_RADIUS_FALLBACK_DP = 28f
+
+internal fun resolveWidgetCornerRadiusDp(
+    configuration: WidgetInstanceConfiguration,
+    heightDp: Float,
+    systemDefaultDp: Float = SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+    pillAllowed: Boolean = true,
+): Float = when {
+    pillAllowed && configuration.shapeMode == WidgetShapeMode.PILL -> heightDp.coerceAtLeast(1f) / 2f
+    configuration.cornerRadiusDp > 0 -> configuration.cornerRadiusDp.toFloat()
+    else -> systemDefaultDp
+}
+
+private fun systemWidgetCornerRadiusDp(context: Context): Float {
+    val resources = context.resources
+    val identifier = resources.getIdentifier("system_app_widget_background_radius", "dimen", "android")
+    if (identifier == 0) return SAMSUNG_WIDGET_RADIUS_FALLBACK_DP
+    return runCatching { resources.getDimension(identifier) / resources.displayMetrics.density }
+        .getOrDefault(SAMSUNG_WIDGET_RADIUS_FALLBACK_DP)
+        .takeIf { it > 0f }
+        ?: SAMSUNG_WIDGET_RADIUS_FALLBACK_DP
 }
 
 @Composable
@@ -372,11 +415,15 @@ internal fun renderWidgetGraph(
     layout: ResponsiveWidgetLayout = responsiveWidgetLayout(width.toFloat(), height.toFloat()),
     pixelDensity: Float = 1f,
     configuration: WidgetInstanceConfiguration = WidgetInstanceConfiguration(showTimeAxis = true),
+    clipToWidgetShape: Boolean = true,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(72)
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
+    if (clipToWidgetShape) {
+        clipWidgetCanvas(canvas, safeWidth, safeHeight, configuration.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: SAMSUNG_WIDGET_RADIUS_FALLBACK_DP, pixelDensity)
+    }
     val background = if (configuration.backgroundEnabled) palette.argb(WidgetColorRole.GRAPH_BACKGROUND) else AndroidColor.TRANSPARENT
     val text = palette.argb(WidgetColorRole.AXIS)
     canvas.drawColor(background)
@@ -574,6 +621,7 @@ internal fun renderMinimalGlucoseWidget(
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
+    clipWidgetCanvas(canvas, bitmap.width, bitmap.height, options.cornerRadiusDp, pixelDensity)
     canvas.drawColor(palette.argb(WidgetColorRole.BACKGROUND))
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val samples = canonicalWidgetSamples(state, now)
@@ -681,6 +729,14 @@ private fun drawWidgetOutline(canvas: AndroidCanvas, width: Int, height: Int, op
     canvas.drawRoundRect(stroke / 2f, stroke / 2f, width - stroke / 2f, height - stroke / 2f, radius, radius, paint)
 }
 
+private fun clipWidgetCanvas(canvas: AndroidCanvas, width: Int, height: Int, radiusDp: Float, density: Float) {
+    val radius = radiusDp * density.coerceIn(1f, 4f)
+    val clip = Path().apply {
+        addRoundRect(0f, 0f, width.toFloat(), height.toFloat(), radius, radius, Path.Direction.CW)
+    }
+    canvas.clipPath(clip)
+}
+
 internal data class TrendArrowGeometry(
     val scalePx: Float,
     val singleVisibleWidthPx: Float,
@@ -768,9 +824,15 @@ internal fun renderGlucoseGraphWidget(
     val graph = renderWidgetGraph(
         state, palette, safeWidth, graphHeight, now, thresholds, layout, pixelDensity,
         configuration.copy(outlineEnabled = false),
+        clipToWidgetShape = false,
     )
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
+    clipWidgetCanvas(
+        canvas, safeWidth, safeHeight,
+        configuration.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+        pixelDensity,
+    )
     canvas.drawColor(if (configuration.backgroundEnabled) configuration.backgroundArgb else AndroidColor.TRANSPARENT)
     canvas.drawBitmap(top, 0f, 0f, null)
     canvas.drawBitmap(graph, 0f, topHeight.toFloat(), null)

@@ -9,6 +9,7 @@ import android.widget.ImageView
 import androidx.activity.compose.setContent
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,12 +21,12 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,11 +47,11 @@ import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 internal enum class WidgetScaleMode { STATIC, DYNAMIC, LOGARITHMIC }
+internal enum class WidgetShapeMode { STANDARD, PILL }
 
 internal enum class ConfigurableWidgetKind(val hasGraph: Boolean) {
     GLUCOSE(false),
@@ -78,6 +79,7 @@ internal data class WidgetInstanceConfiguration(
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = Color.DKGRAY,
     val cornerRadiusDp: Int = 0,
+    val shapeMode: WidgetShapeMode = WidgetShapeMode.STANDARD,
     val glucoseScalePercent: Int = 100,
     val trendScalePercent: Int = 100,
     val colorOverrides: Map<WidgetColorRole, Int> = emptyMap(),
@@ -100,6 +102,9 @@ internal object WidgetInstanceConfigurationStore {
             outlineEnabled = prefs.getBoolean(key(appWidgetId, "outline_enabled"), false),
             outlineArgb = prefs.getInt(key(appWidgetId, "outline"), Color.DKGRAY),
             cornerRadiusDp = prefs.getInt(key(appWidgetId, "corner_radius"), 0).coerceIn(0, 32),
+            shapeMode = runCatching {
+                WidgetShapeMode.valueOf(prefs.getString(key(appWidgetId, "shape"), WidgetShapeMode.STANDARD.name)!!)
+            }.getOrDefault(WidgetShapeMode.STANDARD),
             glucoseScalePercent = prefs.getInt(key(appWidgetId, "glucose_scale"), 100).coerceIn(70, 130),
             trendScalePercent = prefs.getInt(key(appWidgetId, "trend_scale"), 100).coerceIn(70, 130),
             colorOverrides = WidgetColorRole.entries.mapNotNull { role ->
@@ -119,6 +124,7 @@ internal object WidgetInstanceConfigurationStore {
             .putBoolean(key(appWidgetId, "outline_enabled"), value.outlineEnabled)
             .putInt(key(appWidgetId, "outline"), value.outlineArgb)
             .putInt(key(appWidgetId, "corner_radius"), value.cornerRadiusDp)
+            .putString(key(appWidgetId, "shape"), value.shapeMode.name)
             .putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
             .apply {
@@ -140,6 +146,8 @@ internal object WidgetInstanceConfigurationStore {
 
 class WidgetConfigurationActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var currentConfiguration: WidgetInstanceConfiguration? = null
+    private var currentWidgetKind: ConfigurableWidgetKind = ConfigurableWidgetKind.GLUCOSE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -153,6 +161,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
         val initial = WidgetInstanceConfigurationStore.read(this, appWidgetId)
         val manager = AppWidgetManager.getInstance(this)
         val widgetKind = configurableWidgetKind(manager.getAppWidgetInfo(appWidgetId)?.provider?.className)
+        currentWidgetKind = widgetKind
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
         val previewWidthDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220).coerceAtLeast(80)
         val previewHeightDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110).coerceAtLeast(48)
@@ -162,6 +171,11 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 var editBackground by remember { mutableStateOf(false) }
                 var editOutline by remember { mutableStateOf(false) }
                 var editRole by remember { mutableStateOf<WidgetColorRole?>(null) }
+                currentConfiguration = value
+                LaunchedEffect(value) {
+                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
+                    SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, widgetKind)
+                }
                 Column(
                     Modifier.background(ComposeColor(0xFF000000)).padding(18.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -185,11 +199,26 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 value = value.copy(outlineArgb = Color.DKGRAY)
                             }
                         }
-                        WidgetPercentSlider("Eckenradius", if (value.cornerRadiusDp == 0) 20 else value.cornerRadiusDp, 8..32, "dp") {
+                        WidgetPercentSlider("Eckenradius", if (value.cornerRadiusDp == 0) SAMSUNG_WIDGET_RADIUS_FALLBACK_DP.toInt() else value.cornerRadiusDp, 8..32, "dp") {
                             value = value.copy(cornerRadiusDp = it)
                         }
+                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
+                            Text("Form", color = ComposeColor.LightGray, fontSize = 11.sp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                WidgetShapeMode.entries.forEach { mode ->
+                                    Text(
+                                        if (mode == WidgetShapeMode.STANDARD) "STANDARD" else "PILLE",
+                                        color = if (value.shapeMode == mode) ComposeColor(0xFF6DE892) else ComposeColor.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.clickable { value = value.copy(shapeMode = mode) }
+                                            .background(ComposeColor(0xFF242424), RoundedCornerShape(999.dp))
+                                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    )
+                                }
+                            }
+                        }
                     }
-                    if (widgetKind != ConfigurableWidgetKind.GRAPH) {
+                    if (widgetKind == ConfigurableWidgetKind.GLUCOSE || widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
                         WidgetSettingsSection("Glukosewert") {
                             WidgetPercentSlider("Größe", value.glucoseScalePercent) { value = value.copy(glucoseScalePercent = it) }
                             listOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW).forEach { role ->
@@ -258,12 +287,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth().clickable { value = value.copy(launchPackage = target.packageName) }.padding(10.dp),
                         )
                     }
-                    Button(onClick = {
-                        WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
-                        CoroutineScope(Dispatchers.IO).launch { SugarliciousWidgets.update(applicationContext) }
-                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                        finish()
-                    }, modifier = Modifier.fillMaxWidth()) { Text("SPEICHERN") }
                 }
                 if (editBackground) {
                     ColorEditorDialog(
@@ -293,6 +316,15 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 }
             }
         }
+        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+    }
+
+    override fun onStop() {
+        currentConfiguration?.let { configuration ->
+            WidgetInstanceConfigurationStore.save(this, appWidgetId, configuration)
+            lifecycleScope.launch { SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, currentWidgetKind) }
+        }
+        super.onStop()
     }
 }
 
@@ -308,12 +340,17 @@ private fun WidgetConfigurationPreview(kind: ConfigurableWidgetKind, configurati
     val previewWidth = (widthDp * 2).coerceIn(160, 900)
     val previewHeight = (heightDp * 2).coerceIn(96, 900)
     val previewLayout = responsiveWidgetLayout(widthDp.toFloat(), heightDp.toFloat())
-    val bitmap = remember(kind, configuration, state, palette) {
+    val previewRadius = resolveWidgetCornerRadiusDp(
+        configuration, heightDp.toFloat(), SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+        pillAllowed = kind == ConfigurableWidgetKind.GLUCOSE,
+    )
+    val renderConfiguration = configuration.copy(cornerRadiusDp = previewRadius.toInt())
+    val bitmap = remember(kind, renderConfiguration, state, palette) {
         when (kind) {
-            ConfigurableWidgetKind.GRAPH -> renderWidgetGraph(state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT, previewLayout, 2f, configuration)
+            ConfigurableWidgetKind.GRAPH -> renderWidgetGraph(state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT, previewLayout, 2f, renderConfiguration)
             ConfigurableWidgetKind.GLUCOSE_GRAPH -> renderGlucoseGraphWidget(
                 state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT,
-                previewLayout, 2f, configuration,
+                previewLayout, 2f, renderConfiguration,
             )
             else -> renderMinimalGlucoseWidget(
                 state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT, previewLayout, 2f,
@@ -322,7 +359,7 @@ private fun WidgetConfigurationPreview(kind: ConfigurableWidgetKind, configurati
                     trendScale = configuration.trendScalePercent / 100f,
                     outlineEnabled = configuration.outlineEnabled,
                     outlineArgb = configuration.outlineArgb,
-                    cornerRadiusDp = configuration.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: previewLayout.cornerRadiusDp,
+                    cornerRadiusDp = previewRadius,
                 ),
             )
         }
@@ -346,10 +383,18 @@ private fun WidgetSettingsSection(title: String, content: @androidx.compose.runt
 
 @androidx.compose.runtime.Composable
 private fun WidgetColorSetting(label: String, argb: Int, onEdit: () -> Unit, onReset: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = ComposeColor.White, modifier = Modifier.clickable(onClick = onEdit).padding(vertical = 8.dp))
-        Box(Modifier.padding(6.dp).background(ComposeColor(argb), RoundedCornerShape(12.dp)).clickable(onClick = onEdit).padding(horizontal = 18.dp, vertical = 10.dp))
-        Text("Reset", color = ComposeColor.LightGray, fontSize = 10.sp, modifier = Modifier.clickable(onClick = onReset).padding(8.dp))
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = ComposeColor.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+        Box(
+            Modifier.fillMaxWidth().height(44.dp)
+                .background(ComposeColor(argb), RoundedCornerShape(14.dp))
+                .border(1.dp, ComposeColor(0xFF666666), RoundedCornerShape(14.dp))
+                .clickable(onClick = onEdit),
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(toHex(argb), color = ComposeColor.LightGray, fontSize = 10.sp)
+            Text("ZURÜCKSETZEN", color = ComposeColor(0xFF6DE892), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onReset).padding(vertical = 4.dp))
+        }
     }
 }
 

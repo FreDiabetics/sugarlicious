@@ -143,6 +143,17 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `graph and combined widget clip their outer corners to the configured shape`() {
+        val current = state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0)
+        val configuration = WidgetInstanceConfiguration(cornerRadiusDp = 28)
+        val graph = renderWidgetGraph(current, palette, 320, 180, now, thresholds, configuration = configuration)
+        val combined = renderGlucoseGraphWidget(current, palette, 320, 320, now, thresholds, configuration = configuration)
+
+        assertEquals(0, Color.alpha(graph.getPixel(0, 0)))
+        assertEquals(0, Color.alpha(combined.getPixel(0, combined.height - 1)))
+    }
+
+    @Test
     fun `render hardware resize regression matrix when requested`() {
         val output = System.getenv("WIDGET_MATRIX_DIR")?.let(::File) ?: return
         output.mkdirs()

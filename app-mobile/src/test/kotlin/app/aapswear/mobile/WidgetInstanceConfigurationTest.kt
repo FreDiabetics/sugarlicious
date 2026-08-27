@@ -64,6 +64,38 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
+    fun `standard and pill shapes remain independent per widget instance`() {
+        val standard = WidgetInstanceConfiguration(shapeMode = WidgetShapeMode.STANDARD, cornerRadiusDp = 24)
+        val pill = WidgetInstanceConfiguration(shapeMode = WidgetShapeMode.PILL)
+        WidgetInstanceConfigurationStore.save(context, 505, standard)
+        WidgetInstanceConfigurationStore.save(context, 606, pill)
+
+        assertEquals(standard, WidgetInstanceConfigurationStore.read(context, 505))
+        assertEquals(pill, WidgetInstanceConfigurationStore.read(context, 606))
+    }
+
+    @Test
+    fun `pill radius tracks half of every resized widget height`() {
+        val pill = WidgetInstanceConfiguration(shapeMode = WidgetShapeMode.PILL)
+        assertEquals(40f, resolveWidgetCornerRadiusDp(pill, 80f), 0.01f)
+        assertEquals(75f, resolveWidgetCornerRadiusDp(pill, 150f), 0.01f)
+    }
+
+    @Test
+    fun `standard shape uses custom radius or samsung compatible fallback`() {
+        assertEquals(
+            SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+            resolveWidgetCornerRadiusDp(WidgetInstanceConfiguration(), 120f),
+            0.01f,
+        )
+        assertEquals(
+            18f,
+            resolveWidgetCornerRadiusDp(WidgetInstanceConfiguration(cornerRadiusDp = 18), 120f),
+            0.01f,
+        )
+    }
+
+    @Test
     fun `all y scale modes keep target and readings inside the plot`() {
         val plot = android.graphics.RectF(0f, 0f, 100f, 100f)
         WidgetScaleMode.entries.forEach { mode ->
