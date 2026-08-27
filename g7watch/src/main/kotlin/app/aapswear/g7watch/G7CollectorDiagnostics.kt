@@ -42,6 +42,10 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         nowEpochMs: Long = System.currentTimeMillis(),
         deadlineEpochMs: Long? = null,
     ): CollectorDiagnosticAttempt = synchronized(lock) {
+        // A new canonical cycle is proof that older inactive rows have no live owner. Compact
+        // expired/deadline-exceeded attempts before adding the new row so an unrelated healthy
+        // current cycle cannot hide a persisted HUNG predecessor forever.
+        expireStaleAttempts(nowEpochMs)
         val attemptId = controlPreferences.getLong(KEY_COUNTER, 0L) + 1L
         val initialEvents = buildList {
             add(
