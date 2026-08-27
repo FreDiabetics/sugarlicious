@@ -3,7 +3,12 @@ package app.aapswear.mobile
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.GraphicsMode
 
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetGraphNoStretchTest {
     @Test
     fun `resize recomputes plot geometry instead of scaling old coordinates`() {
