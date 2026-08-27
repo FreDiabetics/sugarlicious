@@ -68,6 +68,17 @@ object CanonicalCgmHistory {
     private fun DataSourceId.isPhoneHistorySource(): Boolean = this != DataSourceId.DEXCOM_G7_WATCH
 
     private fun GlucoseSample.sameMeasurement(other: GlucoseSample): Boolean {
+        val timeDifference = abs(measuredAtEpochMs - other.measuredAtEpochMs)
+        val sameKnownSensor = sensorId != null && sensorId == other.sensorId
+        val sameKnownSession = sessionId != null && sessionId == other.sessionId
+
+        // A G7 session cannot produce two independent measurements only seconds apart. Some
+        // upstream payloads nevertheless expose the same reading once as history and once as the
+        // live value with different sequence metadata. Collapse that pair before rendering so a
+        // newly arriving dot keeps the regular five-minute visual spacing to its predecessor.
+        if (sameKnownSensor && sameKnownSession && timeDifference <= SAME_MEASUREMENT_TOLERANCE_MS) {
+            return true
+        }
         if (
             sensorId != null && sessionId != null && sequenceNumber != null &&
             other.sensorId != null && other.sessionId != null && other.sequenceNumber != null
@@ -79,7 +90,6 @@ object CanonicalCgmHistory {
         if (sensorId != null && other.sensorId != null && sensorId != other.sensorId) return false
         if (sessionId != null && other.sessionId != null && sessionId != other.sessionId) return false
 
-        val timeDifference = abs(measuredAtEpochMs - other.measuredAtEpochMs)
         if (timeDifference == 0L && source == other.source) return true
         return timeDifference <= SAME_MEASUREMENT_TOLERANCE_MS &&
             abs(valueMgDl - other.valueMgDl) <= 5.0

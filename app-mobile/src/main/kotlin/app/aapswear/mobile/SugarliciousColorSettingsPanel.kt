@@ -273,6 +273,8 @@ internal fun WidgetColorSettingsPanel() {
     val scope = rememberCoroutineScope()
     var revision by remember { mutableStateOf(0) }
     var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
+    var choosingLaunchTarget by remember { mutableStateOf(false) }
+    var launchTarget by remember(revision) { mutableStateOf(WidgetLaunchTargetStore.selected(context)) }
     val palette = remember(revision, SugarliciousColors.palette.isLight) { WidgetColorStore.load(context) }
 
     fun refreshWidgets() {
@@ -295,6 +297,21 @@ internal fun WidgetColorSettingsPanel() {
             color = SugarliciousColors.TextSecondary,
             fontSize = 10.sp,
         )
+        Text("BEIM ANTIPPEN ÖFFNEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .clickable { choosingLaunchTarget = true }
+                .padding(horizontal = 11.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(launchTarget.label, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text("Gilt für alle Mobile-Widgets", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+            }
+            Text("ÄNDERN", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
         Button(
             onClick = {
                 WidgetColorStore.copyFromMobileGraph(context)
@@ -342,6 +359,38 @@ internal fun WidgetColorSettingsPanel() {
                 editingRole = null
                 refreshWidgets()
             },
+        )
+    }
+
+    if (choosingLaunchTarget) {
+        AlertDialog(
+            onDismissRequest = { choosingLaunchTarget = false },
+            title = { Text("App beim Antippen") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    WidgetLaunchTargetStore.available(context).forEach { target ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (target.packageName == launchTarget.packageName) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
+                                    RoundedCornerShape(14.dp),
+                                )
+                                .clickable {
+                                    WidgetLaunchTargetStore.select(context, target)
+                                    launchTarget = target
+                                    choosingLaunchTarget = false
+                                    refreshWidgets()
+                                }
+                                .padding(12.dp),
+                        ) {
+                            Text(target.label, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosingLaunchTarget = false }) { Text("ABBRECHEN") } },
         )
     }
 }
@@ -733,7 +782,7 @@ private fun ColorRoleExample(
 }
 
 @Composable
-private fun ColorEditorDialog(
+internal fun ColorEditorDialog(
     role: SugarliciousColorRole?,
     label: String,
     initialArgb: Int,
@@ -1170,7 +1219,7 @@ internal fun NotificationGraphSettingsPanel() {
     }
 }
 
-private fun toHex(argb: Int): String =
+internal fun toHex(argb: Int): String =
     String.format(
         "#%02X%02X%02X%02X",
         AndroidColor.alpha(argb),

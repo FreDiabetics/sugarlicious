@@ -1,4 +1,8 @@
 package app.aapswear.protocol
+
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.LoopState
+import app.aapswear.model.TherapyHistorySample
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.*
 import kotlin.test.*
@@ -9,6 +13,26 @@ class WearProtocolTest {
   assertEquals(listOf(event),decoded.events)
  }
  @Test fun roundTrip() { val s=TherapyDisplayState(receivedAtEpochMs=2,glucose=GlucoseState(100.0,GlucoseUnit.MG_DL,measuredAtEpochMs=1)); assertEquals(s,WearProtocol.decode(WearProtocol.encode(s))) }
+
+ @Test fun `transport payload is bounded and retains newest state`() {
+  val now = 2_000_000_000L
+  val state = TherapyDisplayState(
+   receivedAtEpochMs = now,
+   glucose = GlucoseState(123.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+   glucoseHistory = (0 until 600).map { GlucoseSample(100.0 + it % 40, now - (599 - it) * 300_000L, sensorId = "sensor-very-long-identifier", sessionId = "session-very-long-identifier") },
+   therapyHistory = (0 until 600).map { TherapyHistorySample(now - (599 - it) * 300_000L, totalIob = it / 100.0, cobGrams = it.toDouble(), basalUnitsPerHour = 0.7) },
+   loop = LoopState(suggestedPayload = "s".repeat(120_000), enactedPayload = "e".repeat(120_000)),
+  )
+
+  val payload = WearProtocol.encodeStateForTransport(state)
+  val decoded = WearProtocol.decode(payload)
+
+  assertTrue(payload.size <= WearProtocol.MAX_STATE_PAYLOAD_BYTES)
+  assertEquals(123.0, decoded.glucose?.valueMgDl)
+  assertEquals(now, decoded.glucoseHistory.last().measuredAtEpochMs)
+  assertEquals(null, decoded.loop?.suggestedPayload)
+  assertEquals(null, decoded.loop?.enactedPayload)
+ }
  @Test fun migratesProtocolOneContractStoredInVersionField() {
   val legacy="""{"protocolVersion":1,"state":{"schemaVersion":1,"source":"ANDROID_APS","sourceVersion":"AAPS_EXTENDED_STATUS_V1","receivedAtEpochMs":2}}"""
   val migrated=WearProtocol.decode(legacy.encodeToByteArray())

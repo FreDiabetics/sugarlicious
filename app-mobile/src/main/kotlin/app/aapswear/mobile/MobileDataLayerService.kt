@@ -55,15 +55,34 @@ class MobileDataLayerService : WearableListenerService() {
                             .state
                             .first()
                             ?.withoutDirectWatchCgm()
-                    phoneState?.let { publishState(this@MobileDataLayerService, it) }
-                    publishWatchConfig(this@MobileDataLayerService)
+                    runCatching {
+                        phoneState?.let { publishState(this@MobileDataLayerService, it) }
+                        publishWatchConfig(this@MobileDataLayerService)
+                    }.onFailure { error ->
+                        applicationContext.recordMobileDiagnostic(
+                            "SYNC",
+                            "SYNC-REQUEST-503",
+                            "Watch request could not be fulfilled",
+                            DiagnosticSeverity.WARNING,
+                            metadata = mapOf("error" to error.javaClass.simpleName),
+                        )
+                    }
                 }
             }
 
             WearProtocol.WATCH_CONFIG_REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-CONFIG-101", "Watch requested display configuration")
-                    publishWatchConfig(this@MobileDataLayerService)
+                    runCatching { publishWatchConfig(this@MobileDataLayerService) }
+                        .onFailure { error ->
+                            applicationContext.recordMobileDiagnostic(
+                                "SYNC",
+                                "SYNC-CONFIG-503",
+                                "Watch configuration request failed",
+                                DiagnosticSeverity.WARNING,
+                                metadata = mapOf("error" to error.javaClass.simpleName),
+                            )
+                        }
                 }
             }
             WearProtocol.WATCH_FACE_STATUS_PATH -> {

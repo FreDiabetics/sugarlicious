@@ -52,12 +52,16 @@ private const val HOUR_MS = 60L * 60_000L
 private const val BASAL_HEIGHT_FRACTION = 0.28f
 private const val ACTIVITY_HEIGHT_FRACTION = 0.92f
 private const val GRAPH_CORNER_RADIUS_DP = 18f
-private const val GLUCOSE_ZERO_RATIO = 0.055
-private const val GLUCOSE_LOW_RATIO = 0.215
+private const val GLUCOSE_ZERO_RATIO = 0.02
+private const val GLUCOSE_LOW_RATIO = 0.10
 private const val GLUCOSE_TARGET_HIGH_RATIO = 0.515
+private const val GLUCOSE_DISPLAY_MIN = 40.0
 private const val GLUCOSE_DISPLAY_MAX = 400.0
 private const val TOOLKIT_ACTIVITY_SCALE_FACTOR = 1.15
+private const val VALUE_AXIS_WIDTH_DP = 34f
+private const val TIME_AXIS_HEIGHT_DP = 24f
 private const val OVERVIEW_GRAPH_HOURS_MIGRATION = "graphHoursDefault3MigratedV5"
+internal val OVERVIEW_GRAPH_HOUR_OPTIONS = listOf(1, 2, 3, 6, 12, 24)
 
 internal fun sustainedRangeExcursion(
     samples: List<GlucoseSample>,
@@ -80,7 +84,7 @@ internal fun resolveOverviewGraphHoursPreference(
     preferences: SharedPreferences,
     durationHours: Int,
 ): Int {
-    val normalized = durationHours.takeIf { it in listOf(3, 6, 12, 24) } ?: 3
+    val normalized = durationHours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3
     if (preferences.getBoolean(OVERVIEW_GRAPH_HOURS_MIGRATION, false)) return normalized
 
     val previousAuto24 =
@@ -130,6 +134,8 @@ internal class ChartViewport(initialHours: Int) {
     var mode: Mode = Mode.LIVE_FOLLOW
         private set
     private var navigationEndEpochMs: Long? = null
+    var axisIntervalHours: Int? = null
+        private set
 
     fun setHours(value: Float, resetPan: Boolean = false) {
         requestedHours = value.coerceIn(1f, 24f)
@@ -167,6 +173,15 @@ internal class ChartViewport(initialHours: Int) {
         if (mode == Mode.USER_NAVIGATING) navigationEndEpochMs ?: now + futureWindowMs + panMs
         else now + futureWindowMs
 
+    fun beginScale() {
+        axisIntervalHours = RelativeGraphTimeAxis.intervalHours(hours.toDouble())
+    }
+
+    fun endScale() {
+        axisIntervalHours = null
+        notifyChanged()
+    }
+
     fun zoom(scaleFactor: Float) {
         val oldHours = hours
         requestedHours = (hours / scaleFactor.coerceAtLeast(0.05f)).coerceIn(1f, 24f)
@@ -181,15 +196,11 @@ internal class ChartViewport(initialHours: Int) {
         val deltaMs = (deltaPixels / width * hours * HOUR_MS).toLong()
         panMs -= deltaMs
         clampPan()
-        if (panMs != 0L) {
-            navigationEndEpochMs = if (mode == Mode.USER_NAVIGATING) {
-                (navigationEndEpochMs ?: referenceNow + futureWindowMs + oldPan) - deltaMs
-            } else {
-                referenceNow + futureWindowMs + panMs
-            }
+        if (panMs != oldPan) {
+            navigationEndEpochMs = referenceNow + futureWindowMs + panMs
             mode = Mode.USER_NAVIGATING
+            notifyChanged()
         }
-        if (panMs != oldPan) notifyChanged()
     }
 
     fun returnToNow() {
@@ -204,14 +215,15 @@ internal class ChartViewport(initialHours: Int) {
     internal fun removeListener(listener: () -> Unit) { listeners -= listener }
     private fun notifyChanged() { listeners.toList().forEach { it() } }
     private fun maximumHours(): Float =
-        ((availablePastWindowMs + futureWindowMs).toFloat() / HOUR_MS)
+        (availablePastWindowMs.toFloat() / HOUR_MS)
             .coerceIn(1f, 24f)
 
-    private fun clampPan() {
-        val visibleWindowMs = (hours * HOUR_MS).toLong()
-        val minimumPanMs = (visibleWindowMs - futureWindowMs - availablePastWindowMs).coerceAtMost(0L)
-        panMs = panMs.coerceIn(minimumPanMs, 0L)
+    private fun clampPan(maximumPanMs: Long = 0L) {
+        val visiblePastWindowMs = (hours * HOUR_MS).toLong()
+        val minimumPanMs = (visiblePastWindowMs - availablePastWindowMs).coerceAtMost(0L)
+        panMs = panMs.coerceIn(minimumPanMs, maximumPanMs)
     }
+
 }
 
 internal abstract class InteractiveChartView(
@@ -227,10 +239,20 @@ internal abstract class InteractiveChartView(
     private val scaleDetector = ScaleGestureDetector(
         context,
         object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                viewport.beginScale()
+                parent?.requestDisallowInterceptTouchEvent(true)
+                return true
+            }
+
             override fun onScale(detector: ScaleGestureDetector): Boolean {
                 viewport.zoom(detector.scaleFactor)
                 parent?.requestDisallowInterceptTouchEvent(true)
                 return true
+            }
+
+            override fun onScaleEnd(detector: ScaleGestureDetector) {
+                viewport.endScale()
             }
         },
     )
@@ -409,7 +431,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         super.onDraw(canvas)
         val outlineInset = 0.5f.dp
         val scaleContainer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
-        val plot = RectF(scaleContainer)
+        val timeAxisHeight = TIME_AXIS_HEIGHT_DP.dp
+        val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
+        val plot = RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
         val contentBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
         if (plot.width() <= 24f || plot.height() <= 24f) return
         val radius = GRAPH_CORNER_RADIUS_DP.dp
@@ -430,7 +454,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             // the same time axis instead of pinning the latest point while neighbours get squeezed.
             val liveEdge = now
             val end = viewport.endEpochMs(liveEdge)
-            val start = end - (viewport.hours * HOUR_MS).toLong()
+            // The selected scale always describes real CGM history. Prediction time is
+            // appended to the right and never consumes part of the selected history span.
+            val start = end - viewport.futureWindowMs - (viewport.hours * HOUR_MS).toLong()
             val allHistory = CanonicalCgmHistory.merge(
                 samples = buildList {
                     addAll(state?.glucoseHistory.orEmpty())
@@ -460,21 +486,21 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             val targetTop = mapGlucoseY(targetHigh, plot)
             val targetBottom = mapGlucoseY(targetLow, plot)
             val excursion = if (signalLost) null else sustainedRangeExcursion(allHistory, targetLow, targetHigh)
+            val graphSave = canvas.save()
+            canvas.clipPath(Path().apply { addRoundRect(plot, radius, radius, Path.Direction.CW) })
 
             if (showTargetRange) {
                 if (excursion == RangeExcursion.HIGH) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH)
-                    canvas.drawRect(contentBounds.left, contentBounds.top, contentBounds.right, targetTop, fillPaint)
+                    canvas.drawRect(plot.left, plot.top, plot.right, targetTop, fillPaint)
                 }
                 fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_IN_RANGE)
-                canvas.drawRect(contentBounds.left, targetTop, contentBounds.right, targetBottom, fillPaint)
+                canvas.drawRect(plot.left, targetTop, plot.right, targetBottom, fillPaint)
                 if (excursion == RangeExcursion.LOW) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW)
-                    canvas.drawRect(contentBounds.left, targetBottom, contentBounds.right, contentBounds.bottom, fillPaint)
+                    canvas.drawRect(plot.left, targetBottom, plot.right, plot.bottom, fillPaint)
                 }
             }
-
-            drawGrid(canvas, plot, start, end, now)
 
             if (signalLost) {
                 val signalStart = state?.glucose?.measuredAtEpochMs?.let { mapX(it, start, end, plot) }?.coerceIn(plot.left, plot.right) ?: plot.left
@@ -551,8 +577,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 val targetValueColor = withAlpha(SugarliciousColors.argb(SugarliciousColorRole.TARGET_VALUE), 190)
                 linePaint.color = targetValueColor
                 linePaint.strokeWidth = 1.35f.dp
-                linePaint.pathEffect = DashPathEffect(floatArrayOf(3f.dp, 3f.dp), 0f)
                 targetStepPaths(targetSegments, start, end).forEach { points ->
+                    val dashLength = 3f.dp
+                    val firstX = points.firstOrNull()?.let { mapX(it.first, start, end, plot) } ?: plot.left
+                    linePaint.pathEffect = DashPathEffect(
+                        floatArrayOf(dashLength, dashLength),
+                        screenAnchoredDashPhase(firstX, plot.left, dashLength * 2f),
+                    )
                     canvas.drawPath(
                         valuePath(points, start, end, plot) { value -> mapGlucoseY(value, plot) },
                         linePaint,
@@ -570,10 +601,19 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                     end,
                     now,
                     state?.therapyHistory.orEmpty(),
+                    state?.profile?.diaHours ?: 3.0,
                 )
             }
 
-            val dividerX = mapX(now, start, end, plot).coerceIn(plot.left, plot.right)
+            // Keep the relative time axis anchored to the actual latest CGM reading. Using the
+            // newest point inside the panned window resets the labels for every swipe (typically
+            // leaving only "1h" visible) instead of showing how far that window is from now.
+            val currentDotTimestamp = allHistory.maxOfOrNull { it.measuredAtEpochMs }
+                ?: state?.glucose?.measuredAtEpochMs
+                ?: now
+            val currentDotX = mapX(currentDotTimestamp, start, end, plot).coerceIn(plot.left, plot.right)
+            val dividerX = (currentDotX + 5f.dp)
+                .coerceIn(plot.left, plot.right)
             val futureLaneVisible = end > now && now in start..end
             if (futureLaneVisible) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
@@ -611,8 +651,11 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 }
             }
 
+            canvas.restoreToCount(graphSave)
+            drawGrid(canvas, plot, scaleContainer.bottom, start, end, currentDotTimestamp, currentDotX)
+
             if (showTargetRange) {
-                drawTargetLabels(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), plot, targetTop, targetBottom)
+                drawTargetScale(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), scaleContainer.left, plot, targetTop, targetBottom)
             }
 
             if (history.size < 2) {
@@ -622,22 +665,18 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         drawRoundedBorder(canvas, scaleContainer, radius)
     }
 
-    private fun drawGrid(canvas: Canvas, plot: RectF, start: Long, end: Long, now: Long) {
-        val ticks = RelativeGraphTimeAxis.ticks(start, end, now)
+    private fun drawGrid(canvas: Canvas, plot: RectF, axisBottom: Float, start: Long, end: Long, now: Long, nowLineX: Float) {
+        val ticks = RelativeGraphTimeAxis.ticks(start, end, now, viewport.axisIntervalHours)
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
-        linePaint.strokeWidth = 0.7f.dp
-        linePaint.pathEffect = DashPathEffect(floatArrayOf(3f.dp, 3f.dp), 0f)
-        ticks.forEach { tick ->
-            val x = mapX(tick.timestampEpochMs, start, end, plot)
-            if (x >= plot.left && x <= plot.right) canvas.drawLine(x, plot.top, x, plot.bottom, linePaint)
-        }
+        linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         ticks.forEach { tick ->
-            val x = mapX(tick.timestampEpochMs, start, end, plot)
+            val isNow = tick.hoursBack == 0
+            val x = if (isNow) nowLineX else mapX(tick.timestampEpochMs, start, end, plot)
             if (x < plot.left || x > plot.right) return@forEach
             val align = when {
                 tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
-                tick.hoursBack == 0 -> Paint.Align.RIGHT
+                isNow -> Paint.Align.CENTER
                 else -> Paint.Align.CENTER
             }
             val labelX = when (align) {
@@ -645,16 +684,52 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 Paint.Align.RIGHT -> plot.right - 3f.dp
                 else -> x
             }
+            val labelSize = if (isNow) 12f else 10f
+            val tickX = timeLabelCenterX(tick.label, labelX, align, labelSize)
+            canvas.drawLine(tickX, plot.bottom + 2f.dp, tickX, plot.bottom + 8f.dp, linePaint)
             drawText(
                 canvas,
                 tick.label,
                 labelX,
-                plot.bottom - 7f.dp,
-                8.5f,
+                axisBottom - 4f.dp,
+                labelSize,
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
                 align,
+                bold = true,
             )
         }
+    }
+
+    private fun drawTargetScale(
+        canvas: Canvas,
+        highValue: String,
+        lowValue: String,
+        scaleLeft: Float,
+        plot: RectF,
+        targetTop: Float,
+        targetBottom: Float,
+    ) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
+            color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
+            textAlign = Paint.Align.RIGHT
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val metrics = paint.fontMetrics
+        val highBaseline = targetTop - (metrics.ascent + metrics.descent) / 2f
+        val lowBaseline = targetBottom - (metrics.ascent + metrics.descent) / 2f
+        val x = plot.left - 15f.dp
+        canvas.drawText(highValue, x, highBaseline, paint)
+        canvas.drawText(lowValue, x, lowBaseline, paint)
+        drawTargetScaleTick(canvas, plot.left, targetTop)
+        drawTargetScaleTick(canvas, plot.left, targetBottom)
+    }
+
+    private fun drawTargetScaleTick(canvas: Canvas, graphLeft: Float, centerY: Float) {
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.strokeWidth = 1f.dp
+        linePaint.pathEffect = null
+        canvas.drawLine(graphLeft - 13f.dp, centerY, graphLeft - 7f.dp, centerY, linePaint)
     }
 
     private fun drawBasal(canvas: Canvas, plot: RectF, start: Long, end: Long, points: List<TherapyHistorySample>) {
@@ -689,12 +764,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         end: Long,
         now: Long,
         points: List<TherapyHistorySample>,
+        diaHours: Double,
     ) {
         val actual = points.mapNotNull { point ->
             point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
         }.filter { it.first in start..min(end, now) }.sortedBy { it.first }
         if (actual.size < 2) return
-        val future = buildActivityProjection(actual.last(), max(now, actual.last().first), end)
+        val future = buildActivityProjection(actual.last(), max(now, actual.last().first), end, diaHours)
         val maxActivity = max(0.0001, (actual.map { it.second } + future.map { it.second }).maxOrNull() ?: 0.0001)
         fun activityY(value: Double): Float = band.bottom - (value / maxActivity).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
         val yellow = Color.rgb(242, 201, 76)
@@ -773,30 +849,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     private fun glucoseLabel(valueMgDl: Double): String =
         if (unit == GlucoseUnit.MMOL_L) String.format(Locale.getDefault(), "%.1f", valueMgDl / 18.0) else valueMgDl.toInt().toString()
 
-    private fun drawTargetLabels(
-        canvas: Canvas,
-        highValue: String,
-        lowValue: String,
-        plot: RectF,
-        targetTop: Float,
-        targetBottom: Float,
-    ) {
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10f, resources.displayMetrics)
-            color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
-            textAlign = Paint.Align.RIGHT
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
-        }
-        val metrics = paint.fontMetrics
-        val minimumBaseline = plot.top - metrics.ascent + 1f.dp
-        val maximumBaseline = plot.bottom - metrics.descent - 1f.dp
-        val highBaseline = (targetTop - 2f.dp - metrics.descent).coerceIn(minimumBaseline, maximumBaseline)
-        val lowBaseline = (targetBottom + 2f.dp - metrics.ascent).coerceIn(minimumBaseline, maximumBaseline)
-        val x = plot.right - 5f.dp
-        canvas.drawText(highValue, x, highBaseline, paint)
-        canvas.drawText(lowValue, x, lowBaseline, paint)
-    }
-
     private val Float.dp get() = this * density
 }
 
@@ -841,30 +893,37 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val chartNow = System.currentTimeMillis()
             val liveEdge = if (viewport.futureWindowMs == 0L) state?.glucose?.measuredAtEpochMs?.coerceAtMost(chartNow) ?: chartNow else chartNow
             val end = viewport.endEpochMs(liveEdge)
-            val start = end - (viewport.hours * HOUR_MS).toLong()
+            val start = end - viewport.futureWindowMs - (viewport.hours * HOUR_MS).toLong()
             val allPoints = state?.therapyHistory.orEmpty()
             val points = allPoints.filter { it.measuredAtEpochMs in start..end }
-            val left = outer.left
+            val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
+            val left = outer.left + valueAxisWidth
             val right = outer.right
             val top = outer.top
-            val bottom = outer.bottom
-            val gap = 3f.dp
+            val timeAxisHeight = TIME_AXIS_HEIGHT_DP.dp
+            val bottom = outer.bottom - timeAxisHeight
+            val gap = 14f.dp
             val half = (bottom - top - gap) / 2f
             val iobPlot = RectF(left, top, right, top + half)
-            val cobPlot = RectF(left, top + half + gap, right, bottom)
-            val markerLaneHeight = 18f.dp
-            val iobDataPlot = RectF(iobPlot.left, iobPlot.top, iobPlot.right, iobPlot.bottom - markerLaneHeight)
-            val iobMarkerBounds = RectF(iobPlot.left, iobDataPlot.bottom, iobPlot.right, iobPlot.bottom)
+            val cobLanePlot = RectF(left, top + half + gap, right, bottom)
+            val markerHeadroom = min(32f.dp, half * 0.4f)
+            val iobDataPlot = RectF(iobPlot.left, iobPlot.top + markerHeadroom, iobPlot.right, iobPlot.bottom)
+            val cobPlot = RectF(cobLanePlot.left, cobLanePlot.top + markerHeadroom, cobLanePlot.right, cobLanePlot.bottom)
             val iobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.totalIob })
             val cobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.cobGrams }, sharedZeroRatio = iobRange.zeroRatio)
-            drawSharedGrid(canvas, iobPlot, cobPlot, start, end, chartNow)
-            drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange)
+            val projectionNow = state?.glucose?.measuredAtEpochMs ?: System.currentTimeMillis()
+            val currentDotX = mapX(projectionNow, start, end, iobDataPlot).coerceIn(iobDataPlot.left, iobDataPlot.right)
+            val dividerX = (currentDotX + 5f.dp).coerceIn(iobDataPlot.left, iobDataPlot.right)
+            drawSharedGrid(canvas, iobPlot, cobPlot, outer.bottom, start, end, projectionNow, currentDotX)
+            val graphSave = canvas.save()
+            canvas.clipPath(Path().apply {
+                addRoundRect(iobPlot, radius, radius, Path.Direction.CW)
+                addRoundRect(cobLanePlot, radius, radius, Path.Direction.CW)
+            })
+            drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
             drawInsulinActivity(canvas, iobDataPlot, allPoints, points, start, end, iobRange.zeroRatio)
-            drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange)
-            val projectionNow = System.currentTimeMillis()
-
+            drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
             if (projectionNow in start..end) {
-                val dividerX = mapX(projectionNow, start, end, iobPlot)
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
@@ -872,12 +931,15 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 linePaint.pathEffect = null
             }
 
-            drawFutureLane(canvas, iobDataPlot, buildIobProjection(allPoints, projectionNow, end), start, end, iobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB))
+            drawFutureLane(canvas, iobDataPlot, buildIobProjection(allPoints, projectionNow, end, state?.profile?.diaHours ?: 3.0), start, end, iobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB))
             drawFutureLane(canvas, cobPlot, buildCobProjection(allPoints, projectionNow, end), start, end, cobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB))
-            drawTreatmentMarkers(canvas, iobDataPlot, iobMarkerBounds, cobPlot, allPoints, state?.therapyEvents.orEmpty(), points, start, end, iobRange, cobRange)
+            drawTreatmentMarkers(canvas, iobDataPlot, cobPlot, iobPlot.top, allPoints, state?.therapyEvents.orEmpty(), points, start, end, iobRange, cobRange)
             if (points.none { it.totalIob != null || it.cobGrams != null }) {
                 drawText(canvas, "Noch kein IOB/COB-Verlauf", (left + right) / 2f, (top + bottom) / 2f, 10f, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED), Paint.Align.CENTER)
             }
+            canvas.restoreToCount(graphSave)
+            drawMetabolicScale(canvas, iobDataPlot, iobRange)
+            drawMetabolicScale(canvas, cobPlot, cobRange)
         }
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.BORDER)
         linePaint.strokeWidth = 1f.dp
@@ -885,22 +947,18 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         canvas.drawRoundRect(outer, radius, radius, linePaint)
     }
 
-    private fun drawSharedGrid(canvas: Canvas, iob: RectF, cob: RectF, start: Long, end: Long, now: Long) {
-        val ticks = RelativeGraphTimeAxis.ticks(start, end, now)
+    private fun drawSharedGrid(canvas: Canvas, iob: RectF, cob: RectF, axisBottom: Float, start: Long, end: Long, now: Long, nowLineX: Float) {
+        val ticks = RelativeGraphTimeAxis.ticks(start, end, now, viewport.axisIntervalHours)
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
-        linePaint.strokeWidth = 0.7f.dp
-        linePaint.pathEffect = DashPathEffect(floatArrayOf(3f.dp, 3f.dp), 0f)
-        ticks.forEach { tick ->
-            val x = mapX(tick.timestampEpochMs, start, end, iob)
-            if (x >= iob.left && x <= iob.right) canvas.drawLine(x, iob.top, x, cob.bottom, linePaint)
-        }
+        linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         ticks.forEach { tick ->
-            val x = mapX(tick.timestampEpochMs, start, end, cob)
+            val isNow = tick.hoursBack == 0
+            val x = if (isNow) nowLineX else mapX(tick.timestampEpochMs, start, end, cob)
             if (x < cob.left || x > cob.right) return@forEach
             val align = when {
                 tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
-                tick.hoursBack == 0 -> Paint.Align.RIGHT
+                isNow -> Paint.Align.CENTER
                 else -> Paint.Align.CENTER
             }
             val labelX = when (align) {
@@ -908,14 +966,18 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 Paint.Align.RIGHT -> cob.right - 3f.dp
                 else -> x
             }
+            val labelSize = if (isNow) 12f else 10f
+            val tickX = timeLabelCenterX(tick.label, labelX, align, labelSize)
+            canvas.drawLine(tickX, cob.bottom + 2f.dp, tickX, cob.bottom + 8f.dp, linePaint)
             drawText(
                 canvas,
                 tick.label,
                 labelX,
-                cob.bottom - 7f.dp,
-                8.5f,
+                axisBottom - 4f.dp,
+                labelSize,
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
                 align,
+                bold = true,
             )
         }
     }
@@ -928,6 +990,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         end: Long,
         iob: Boolean,
         range: ToolkitMetabolicRange,
+        drawScale: Boolean = true,
     ) {
         val actual = points.mapNotNull { point ->
             (if (iob) point.totalIob else point.cobGrams)?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it }
@@ -949,11 +1012,32 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         linePaint.strokeWidth = 2.35f.dp
         linePaint.pathEffect = null
         canvas.drawPath(valuePath(actual, start, end, plot, ::y), linePaint)
-        val labelX = plot.right - 7f.dp
+        if (drawScale) drawMetabolicScale(canvas, plot, range)
+    }
+
+    private fun drawMetabolicScale(canvas: Canvas, plot: RectF, range: ToolkitMetabolicRange) {
+        val labelX = plot.left - 15f.dp
         val labelColor = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
-        drawText(canvas, formatMetabolicScale(range.maximum), labelX, plot.top + 12f.dp, 8f, labelColor, Paint.Align.RIGHT)
-        drawText(canvas, "0", labelX, (zeroY - 3f.dp).coerceIn(plot.top + 12f.dp, plot.bottom - 7f.dp), 8f, labelColor, Paint.Align.RIGHT)
-        if (range.minimum < -0.01) drawText(canvas, formatMetabolicScale(range.minimum), labelX, plot.bottom - 7f.dp, 8f, labelColor, Paint.Align.RIGHT)
+        val maximumBaseline = plot.top + 12f.dp
+        val minimumBaseline = plot.bottom - 7f.dp
+        val scalePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 8f, resources.displayMetrics)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val scaleMetrics = scalePaint.fontMetrics
+        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, 8f, labelColor, Paint.Align.RIGHT, bold = true)
+        drawHorizontalScaleTick(canvas, plot.left, maximumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f)
+        if (range.minimum < -0.01) {
+            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, 8f, labelColor, Paint.Align.RIGHT, bold = true)
+            drawHorizontalScaleTick(canvas, plot.left, minimumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f)
+        }
+    }
+
+    private fun drawHorizontalScaleTick(canvas: Canvas, graphLeft: Float, centerY: Float) {
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.strokeWidth = 1f.dp
+        linePaint.pathEffect = null
+        canvas.drawLine(graphLeft - 13f.dp, centerY, graphLeft - 7f.dp, centerY, linePaint)
     }
 
     private fun drawInsulinActivity(
@@ -1002,8 +1086,8 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private fun drawTreatmentMarkers(
         canvas: Canvas,
         iobData: RectF,
-        iobEventLane: RectF,
         cobData: RectF,
+        iobLaneTop: Float,
         history: List<TherapyHistorySample>,
         events: List<TherapyEvent>,
         legacyPoints: List<TherapyHistorySample>,
@@ -1012,44 +1096,111 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         iobRange: ToolkitMetabolicRange,
         cobRange: ToolkitMetabolicRange,
     ) {
-        val visible = events.filter { it.timestampEpochMs in start..end && it.amount.isFinite() && it.amount > 0.0 && markerVisibility.shows(it.kind) }
+        val visible = events
+            .flatMap(::expandECarbSimulation)
+            .filter { it.timestampEpochMs in start..end && it.amount.isFinite() && it.amount > 0.0 && markerVisibility.shows(it.kind) }
+            .filterNot { it.kind == TherapyEventKind.ECARBS && it.amount < 1.0 }
         val explicitSmbTimes = visible.filter { it.kind == TherapyEventKind.SMB }.map { it.timestampEpochMs }.toSet()
         val legacySmb = legacyPoints.mapNotNull { point ->
             point.smbUnits?.takeIf { it > 0.0 && explicitSmbTimes.none { time -> kotlin.math.abs(time - point.measuredAtEpochMs) < 1_000L } }
                 ?.let { TherapyEvent("legacy-smb:${point.measuredAtEpochMs}:$it", TherapyEventKind.SMB, point.measuredAtEpochMs, it) }
         }
         val zeroY = mapSignedLogY(0.0, iobRange.minimum, iobRange.maximum, iobData)
+        val cobZeroY = mapSignedLogY(0.0, cobRange.minimum, cobRange.maximum, cobData)
         (visible + legacySmb).forEach { event ->
             val side = treatmentMarkerSide(event.kind, event.amount).dp
             val half = side / 2f
             val height = side * (sqrt(3.0).toFloat() / 2f)
-            when (event.kind) {
-                TherapyEventKind.SMB -> {
-                    fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
-                    val x = mapX(event.timestampEpochMs, start, end, iobData).coerceIn(iobData.left + half, iobData.right - half)
-                    canvas.drawPath(roundedUpTriangle(x, (zeroY + height).coerceAtMost(iobEventLane.bottom), half, height, 1.4f.dp), fillPaint)
+            val eventPlot = when (event.kind) {
+                // COB labels may use the dedicated separator above the COB
+                // lane. The marker and curve still remain inside cobData.
+                TherapyEventKind.MEAL_CARBS, TherapyEventKind.ECARBS ->
+                    RectF(cobData.left, iobData.bottom, cobData.right, cobData.bottom)
+                else -> RectF(iobData.left, iobLaneTop, iobData.right, iobData.bottom)
+            }
+            canvas.withClip(eventPlot) {
+                when (event.kind) {
+                    TherapyEventKind.SMB -> {
+                        fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
+                        val x = mapX(event.timestampEpochMs, start, end, iobData).coerceIn(iobData.left + half, iobData.right - half)
+                        drawPath(roundedUpTriangle(x, (zeroY + height).coerceAtMost(iobData.bottom), half, height, 2.4f.dp), fillPaint)
+                    }
+                    TherapyEventKind.MANUAL_CORRECTION -> drawBolusMarkerAboveZero(this, event, iobData, start, end, zeroY, side, showAmount = false)
+                    TherapyEventKind.MEAL_BOLUS -> drawCurveMarker(this, event, iobData, history, start, end, iobRange, true, side, "U", labelGapDp = 2f)
+                    TherapyEventKind.MEAL_CARBS -> drawCurveMarker(this, event, cobData, history, start, end, cobRange, false, side, "g", labelGapDp = 2f)
+                    TherapyEventKind.ECARBS -> drawCarbMarkerAtZero(this, event, cobData, start, end, cobZeroY, side)
                 }
-                TherapyEventKind.MANUAL_CORRECTION -> {
-                    fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
-                    val x = mapX(event.timestampEpochMs, start, end, iobData).coerceIn(iobData.left + half, iobData.right - half)
-                    canvas.drawPath(downTriangle(x, zeroY, half, height), fillPaint)
-                }
-                TherapyEventKind.MEAL_BOLUS -> drawCurveMarker(canvas, event, iobData, history, start, end, iobRange, true, side, "U")
-                TherapyEventKind.MEAL_CARBS -> drawCurveMarker(canvas, event, cobData, history, start, end, cobRange, false, side, null)
-                TherapyEventKind.ECARBS -> drawCurveMarker(canvas, event, cobData, history, start, end, cobRange, false, side, "g")
             }
         }
     }
 
-    private fun drawCurveMarker(canvas: Canvas, event: TherapyEvent, plot: RectF, history: List<TherapyHistorySample>, start: Long, end: Long, range: ToolkitMetabolicRange, iob: Boolean, side: Float, unit: String?) {
-        val value = interpolateTherapyValue(history, event.timestampEpochMs, iob) ?: return
+    private fun drawBolusMarkerAboveZero(canvas: Canvas, event: TherapyEvent, plot: RectF, start: Long, end: Long, zeroY: Float, side: Float, showAmount: Boolean) {
+        val half = side / 2f
+        val height = side * (sqrt(3.0).toFloat() / 2f)
+        val x = mapX(event.timestampEpochMs, start, end, plot).coerceIn(plot.left + half, plot.right - half)
+        fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
+        canvas.drawPath(roundedDownTriangle(x, zeroY, half, height, 2.4f.dp), fillPaint)
+        if (showAmount) drawText(canvas, formatEventAmount(event.amount, "U"), x, (zeroY - height - 3f.dp).coerceAtLeast(plot.top + 10f.dp), 8f, fillPaint.color, Paint.Align.CENTER, bold = true)
+    }
+
+    private fun drawCarbMarkerAtZero(canvas: Canvas, event: TherapyEvent, plot: RectF, start: Long, end: Long, zeroY: Float, side: Float) {
+        val half = side / 2f
+        val height = side * (sqrt(3.0).toFloat() / 2f)
+        val x = mapX(event.timestampEpochMs, start, end, plot).coerceIn(plot.left + half, plot.right - half)
+        fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB)
+        canvas.drawPath(roundedDownTriangle(x, zeroY, half, height, 2.4f.dp), fillPaint)
+        drawMarkerLabel(
+            canvas = canvas,
+            value = formatEventAmount(event.amount, "g"),
+            markerCenterX = x,
+            markerTopY = zeroY - height,
+            gapDp = 2f,
+            sizeSp = 7f,
+            color = fillPaint.color,
+        )
+    }
+
+    private fun drawCurveMarker(canvas: Canvas, event: TherapyEvent, plot: RectF, history: List<TherapyHistorySample>, start: Long, end: Long, range: ToolkitMetabolicRange, iob: Boolean, side: Float, unit: String?, labelGapDp: Float = 3f) {
+        val value = interpolateTherapyValue(history, event.timestampEpochMs, iob) ?: 0.0
         val half = side / 2f
         val height = side * (sqrt(3.0).toFloat() / 2f)
         val x = mapX(event.timestampEpochMs, start, end, plot).coerceIn(plot.left + half, plot.right - half)
         val y = mapSignedLogY(value, range.minimum, range.maximum, plot)
         fillPaint.color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
-        canvas.drawPath(downTriangle(x, y, half, height), fillPaint)
-        unit?.let { drawText(canvas, formatEventAmount(event.amount, it), x, (y - height - 3f.dp).coerceAtLeast(plot.top + 10f.dp), 8f, fillPaint.color, Paint.Align.CENTER, bold = true) }
+        canvas.drawPath(roundedDownTriangle(x, y, half, height, 2.4f.dp), fillPaint)
+        unit?.let {
+            drawMarkerLabel(
+                canvas = canvas,
+                value = formatEventAmount(event.amount, it),
+                markerCenterX = x,
+                markerTopY = y - height,
+                gapDp = labelGapDp,
+                sizeSp = 8f,
+                color = fillPaint.color,
+            )
+        }
+    }
+
+    private fun drawMarkerLabel(
+        canvas: Canvas,
+        value: String,
+        markerCenterX: Float,
+        markerTopY: Float,
+        gapDp: Float,
+        sizeSp: Float,
+        color: Int,
+    ) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp * 1.15f, resources.displayMetrics)
+            this.color = color
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.LEFT
+        }
+        val visibleBounds = android.graphics.Rect()
+        paint.getTextBounds(value, 0, value.length, visibleBounds)
+        val left = markerCenterX - visibleBounds.exactCenterX()
+        val baseline = markerTopY - gapDp.dp - visibleBounds.bottom
+        canvas.drawText(value, left, baseline, paint)
     }
 
     private val Float.dp get() = this * density
@@ -1063,8 +1214,13 @@ internal fun toolkitMetabolicRange(values: List<Double>, sharedZeroRatio: Double
     val finite = values.filter { it.isFinite() }
     val referenceMaximum = finite.filter { it >= 0.0 }.maxOrNull() ?: 0.0
     val referenceMinimum = min(0.0, finite.minOrNull() ?: 0.0)
-    val maximum = max(0.01, referenceMaximum * 1.08)
-    val minimum = sharedZeroRatio?.let { toolkitMinimumForZeroRatio(maximum, it) } ?: if (referenceMinimum < 0.0) referenceMinimum * 1.08 else -maximum * 0.08
+    // The scale reserves the upper 35 percent for the complete treatment
+    // annotation: curve peak, rounded triangle and its enlarged bold label.
+    val maximum = max(0.01, referenceMaximum * 1.55)
+    // With no negative history the zero line belongs immediately above the
+    // dedicated time-axis band. Real negative values still remain visible.
+    val minimum = sharedZeroRatio?.let { toolkitMinimumForZeroRatio(maximum, it) }
+        ?: if (referenceMinimum < 0.0) referenceMinimum * 1.08 else -maximum * 0.02
     return ToolkitMetabolicRange(minimum, maximum)
 }
 
@@ -1073,16 +1229,18 @@ internal fun toolkitMinimumForZeroRatio(maximum: Double, zeroRatio: Double): Dou
     return -(ratio * maximum.coerceAtLeast(0.000001)) / (1.0 - ratio).coerceAtLeast(0.01)
 }
 
-internal fun buildIobProjection(points: List<TherapyHistorySample>, now: Long, end: Long): List<Pair<Long, Double>> {
+internal fun buildIobProjection(points: List<TherapyHistorySample>, now: Long, end: Long, diaHours: Double = 3.0): List<Pair<Long, Double>> {
     if (end <= now) return emptyList()
     val actual = points.mapNotNull { point -> point.totalIob?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it } }
     val latest = actual.filter { it.first <= now }.maxByOrNull { it.first } ?: return emptyList()
-    val negativeSlope = recentNegativeSlope(actual, now) ?: return emptyList()
+    val duration = (diaHours.takeIf { it.isFinite() } ?: 3.0).coerceIn(1.0, 24.0) * HOUR_MS
+    val diaSlope = -latest.second.coerceAtLeast(0.0) / (duration / 60_000.0)
+    val decaySlope = min(recentNegativeSlope(actual, now) ?: diaSlope, diaSlope)
     return buildList {
         var time = now
-        while (time <= end) {
+        while (time <= min(end, now + duration.toLong())) {
             val minutes = (time - now) / 60_000.0
-            add(time to max(0.0, latest.second + negativeSlope * minutes))
+            add(time to max(0.0, latest.second + decaySlope * minutes))
             time += 5 * 60_000L
         }
     }
@@ -1117,15 +1275,45 @@ private fun recentNegativeSlope(values: List<Pair<Long, Double>>, now: Long): Do
 internal fun toolkitSmbMarkerSide(units: Double): Float = bolusMarkerSide(units)
 
 internal fun bolusMarkerSide(units: Double): Float = when {
-    abs(units) < 0.5 -> 9f
-    abs(units) <= 1.5 -> 12f
-    else -> 15f
+    abs(units) <= 0.1 -> 7f
+    abs(units) <= 0.2 -> 9f
+    abs(units) <= 0.5 -> 11f
+    abs(units) <= 1.5 -> 13f
+    else -> 16f
 }
 
 internal fun treatmentMarkerSide(kind: TherapyEventKind, amount: Double): Float = when (kind) {
     TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_BOLUS -> bolusMarkerSide(amount)
     TherapyEventKind.MEAL_CARBS -> 15f
     TherapyEventKind.ECARBS -> 11f
+}
+
+internal fun expandECarbSimulation(event: TherapyEvent): List<TherapyEvent> {
+    if (event.kind != TherapyEventKind.ECARBS) return listOf(event)
+    val duration = event.durationMinutes?.takeIf { it > 0 } ?: return listOf(event)
+    if (!event.amount.isFinite() || event.amount < 1.0) return emptyList()
+    // A marker every five minutes makes labels overlap even on a 3 h view.
+    // Fifteen-minute portions keep the simulation distributed over its full
+    // duration while leaving each amount and triangle readable.
+    val timelineStepCount = ((duration + 14) / 15).coerceAtLeast(1)
+    val wholeGrams = kotlin.math.floor(event.amount).toInt().coerceAtLeast(1)
+    val gramLimitedStepCount = wholeGrams
+    val stepCount = min(timelineStepCount, gramLimitedStepCount)
+    val intervalMs = duration * 60_000L / stepCount
+    val baseGrams = wholeGrams / stepCount
+    val extraWholeGrams = wholeGrams % stepCount
+    val fractionalRemainder = event.amount - wholeGrams
+    return List(stepCount) { index ->
+        val grams = baseGrams.toDouble() +
+            (if (index < extraWholeGrams) 1.0 else 0.0) +
+            (if (index == stepCount - 1) fractionalRemainder else 0.0)
+        event.copy(
+            id = "${event.id}:simulation:$index",
+            timestampEpochMs = event.timestampEpochMs + index * intervalMs,
+            amount = grams,
+            carbsGrams = grams,
+        )
+    }
 }
 
 internal fun interpolateTherapyValue(points: List<TherapyHistorySample>, timestamp: Long, iob: Boolean): Double? {
@@ -1147,9 +1335,9 @@ internal fun formatEventAmount(amount: Double, unit: String): String {
 }
 
 internal fun glucoseLogRatio(valueMgDl: Double): Double {
-    val value = valueMgDl.coerceIn(0.0, GLUCOSE_DISPLAY_MAX)
+    val value = valueMgDl.coerceIn(GLUCOSE_DISPLAY_MIN, GLUCOSE_DISPLAY_MAX)
     return when {
-        value <= 80.0 -> GLUCOSE_ZERO_RATIO + value / 80.0 * (GLUCOSE_LOW_RATIO - GLUCOSE_ZERO_RATIO)
+        value <= 80.0 -> GLUCOSE_ZERO_RATIO + (value - GLUCOSE_DISPLAY_MIN) / (80.0 - GLUCOSE_DISPLAY_MIN) * (GLUCOSE_LOW_RATIO - GLUCOSE_ZERO_RATIO)
         value <= 160.0 -> GLUCOSE_LOW_RATIO + (ln(value / 80.0) / ln(2.0)) * (GLUCOSE_TARGET_HIGH_RATIO - GLUCOSE_LOW_RATIO)
         else -> GLUCOSE_TARGET_HIGH_RATIO + (ln(value / 160.0) / ln(GLUCOSE_DISPLAY_MAX / 160.0)) * (1.0 - GLUCOSE_TARGET_HIGH_RATIO)
     }.coerceIn(GLUCOSE_ZERO_RATIO, 1.0)
@@ -1209,6 +1397,12 @@ internal fun targetStepPaths(
     end: Long,
     continuityToleranceMs: Long = 90_000L,
 ): List<List<Pair<Long, Double>>> = TargetStepTimeline.build(samples, start, end, continuityToleranceMs)
+
+internal fun screenAnchoredDashPhase(pathStartX: Float, plotLeft: Float, period: Float): Float {
+    if (!period.isFinite() || period <= 0f) return 0f
+    val offset = (pathStartX - plotLeft) % period
+    return if (offset < 0f) offset + period else offset
+}
 
 private fun valuePath(values: List<Pair<Long, Double>>, start: Long, end: Long, plot: RectF, mapValue: (Double) -> Float): Path = Path().apply {
     values.forEachIndexed { index, (time, value) ->
@@ -1288,9 +1482,9 @@ private fun formatMetabolicScale(value: Double): String = when {
     else -> String.format(Locale.getDefault(), "%.2f", value)
 }
 
-private fun buildActivityProjection(last: Pair<Long, Double>, projectionStart: Long, end: Long): List<Pair<Long, Double>> {
+private fun buildActivityProjection(last: Pair<Long, Double>, projectionStart: Long, end: Long, diaHours: Double): List<Pair<Long, Double>> {
     if (end <= projectionStart || last.second <= 0.0) return emptyList()
-    val duration = 3L * HOUR_MS
+    val duration = ((diaHours.takeIf { it.isFinite() } ?: 3.0).coerceIn(1.0, 24.0) * HOUR_MS).toLong()
     return buildList {
         var time = projectionStart
         while (time <= min(end, projectionStart + duration)) {
@@ -1316,10 +1510,16 @@ private fun roundedUpTriangle(cx: Float, baseY: Float, halfWidth: Float, height:
 internal fun timeToXFraction(time: Long, start: Long, end: Long): Float =
     ((time - start).toDouble() / (end - start).coerceAtLeast(1L)).toFloat()
 
-private fun downTriangle(cx: Float, apexY: Float, halfWidth: Float, height: Float): Path = Path().apply {
-    moveTo(cx, apexY)
-    lineTo(cx - halfWidth, apexY - height)
-    lineTo(cx + halfWidth, apexY - height)
+private fun roundedDownTriangle(cx: Float, apexY: Float, halfWidth: Float, height: Float, radius: Float): Path = Path().apply {
+    val topY = apexY - height
+    val safeRadius = radius.coerceAtMost(min(halfWidth, height) * 0.35f)
+    moveTo(cx - halfWidth + safeRadius, topY)
+    lineTo(cx + halfWidth - safeRadius, topY)
+    quadTo(cx + halfWidth, topY, cx + halfWidth - safeRadius * 0.55f, topY + safeRadius)
+    lineTo(cx + safeRadius * 0.55f, apexY - safeRadius)
+    quadTo(cx, apexY, cx - safeRadius * 0.55f, apexY - safeRadius)
+    lineTo(cx - halfWidth + safeRadius * 0.55f, topY + safeRadius)
+    quadTo(cx - halfWidth, topY, cx - halfWidth + safeRadius, topY)
     close()
 }
 
@@ -1357,10 +1557,22 @@ private fun View.drawText(
     bold: Boolean = false,
 ) {
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp, resources.displayMetrics)
+        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp * 1.15f, resources.displayMetrics)
         this.color = color
         textAlign = align
         if (bold) typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
     canvas.drawText(value, x, y, paint)
+}
+
+private fun View.timeLabelCenterX(value: String, anchorX: Float, align: Paint.Align, sizeSp: Float): Float {
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sizeSp * 1.15f, resources.displayMetrics)
+    }
+    val halfWidth = paint.measureText(value) / 2f
+    return when (align) {
+        Paint.Align.LEFT -> anchorX + halfWidth
+        Paint.Align.RIGHT -> anchorX - halfWidth
+        Paint.Align.CENTER -> anchorX
+    }
 }

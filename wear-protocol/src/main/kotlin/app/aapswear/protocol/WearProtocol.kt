@@ -153,6 +153,7 @@ data class WatchConfig(
 }
 
 object WearProtocol {
+    const val MAX_STATE_PAYLOAD_BYTES = 90_000
     const val STATE_PATH = "/aaps-display/v1/state"
     const val REQUEST_PATH = "/aaps-display/v1/request"
     const val WATCH_CONFIG_PATH = "/aaps-display/v1/watch-config"
@@ -179,6 +180,48 @@ object WearProtocol {
 
     fun encode(state: TherapyDisplayState): ByteArray =
         json.encodeToString(WearEnvelope(state = state)).encodeToByteArray()
+
+    /**
+     * Builds a Wear Data Layer safe state without changing the locally persisted Mobile model.
+     * Google Play services rejects DataItems around 100 KiB with DATA_ITEM_TOO_LARGE. Histories
+     * grow during normal use, so transporting the unbounded persistence object is unsafe.
+     */
+    fun encodeStateForTransport(
+        state: TherapyDisplayState,
+        maxBytes: Int = MAX_STATE_PAYLOAD_BYTES,
+    ): ByteArray {
+        require(maxBytes > 0)
+        var transport = state.copy(
+            // These raw AAPS JSON documents are diagnostic input, not Wear presentation data,
+            // and can each be larger than the complete Data Layer allowance.
+            loop = state.loop?.copy(suggestedPayload = null, enactedPayload = null),
+            glucoseHistory = state.glucoseHistory.takeLast(288),
+            therapyHistory = state.therapyHistory.takeLast(288),
+            therapyEvents = state.therapyEvents.takeLast(180),
+            targetHistory = state.targetHistory.takeLast(96),
+            glucosePredictions = state.glucosePredictions.map { it.copy(samples = it.samples.takeLast(72)) },
+        )
+        var payload = encode(transport)
+        while (payload.size > maxBytes) {
+            transport = when {
+                transport.therapyHistory.size > 72 -> transport.copy(therapyHistory = transport.therapyHistory.drop(oldestQuarter(transport.therapyHistory.size, 72)))
+                transport.therapyEvents.size > 40 -> transport.copy(therapyEvents = transport.therapyEvents.drop(oldestQuarter(transport.therapyEvents.size, 40)))
+                transport.targetHistory.size > 24 -> transport.copy(targetHistory = transport.targetHistory.drop(oldestQuarter(transport.targetHistory.size, 24)))
+                transport.glucoseHistory.size > 72 -> transport.copy(glucoseHistory = transport.glucoseHistory.drop(oldestQuarter(transport.glucoseHistory.size, 72)))
+                transport.glucosePredictions.any { it.samples.size > 12 } -> transport.copy(
+                    glucosePredictions = transport.glucosePredictions.map { prediction ->
+                        prediction.copy(samples = prediction.samples.takeLast((prediction.samples.size * 3 / 4).coerceAtLeast(12)))
+                    },
+                )
+                else -> throw IllegalArgumentException("Wear state cannot fit into $maxBytes bytes")
+            }
+            payload = encode(transport)
+        }
+        return payload
+    }
+
+    private fun oldestQuarter(size: Int, minimum: Int): Int =
+        (size / 4).coerceAtLeast(1).coerceAtMost(size - minimum)
 
     fun decode(bytes: ByteArray): TherapyDisplayState {
         val envelope = json.decodeFromString<WearEnvelope>(bytes.decodeToString())

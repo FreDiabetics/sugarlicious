@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlarmManager
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.graphics.Color
@@ -46,6 +47,20 @@ class G7SystemStatusActivity : Activity() {
     private var batteryRequestPending = false
     private var showPairingEditor = false
     private var observerRegistered = false
+    private var hardwareExpanded = false
+    private var diagnosticsExpanded = false
+    private val livePreferenceNames = listOf(
+        "g7_collector_state",
+        "g7_collector_attempts",
+        "g7_collector_attempt_active",
+        "g7_collector_slot_history",
+    )
+    private val livePreferences by lazy {
+        livePreferenceNames.map { getSharedPreferences(it, MODE_PRIVATE) }
+    }
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        if (!isFinishing && !isDestroyed) runOnUiThread(::render)
+    }
     private var scrollView: ScrollView? = null
     private val readingObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) {
@@ -62,6 +77,7 @@ class G7SystemStatusActivity : Activity() {
     override fun onResume() {
         super.onResume()
         registerObserver()
+        livePreferences.forEach { it.registerOnSharedPreferenceChangeListener(preferenceListener) }
         if (batteryRequestPending) {
             batteryRequestPending = false
             val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
@@ -80,6 +96,7 @@ class G7SystemStatusActivity : Activity() {
     }
 
     override fun onPause() {
+        livePreferences.forEach { it.unregisterOnSharedPreferenceChangeListener(preferenceListener) }
         unregisterObserver()
         super.onPause()
     }
@@ -113,7 +130,24 @@ class G7SystemStatusActivity : Activity() {
                 contentDescription = "Zurück zur Übersicht"
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 48.dp))
 
-            addView(group("SENSOR", palette).apply {
+            addView(group("LIVE COLLECTOR STATUS", palette).apply {
+                val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
+                val livePhase = lastEvent?.stage?.name ?: userStatus.phase
+                addView(row("Collector", if (state.collectorEnabled) "Aktiv" else "Inaktiv", palette))
+                addView(row("Aktueller Zustand", livePhase, palette))
+                addView(row("Letzter gültiger Wert", state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${formatTimestamp(it.timestampEpochMs)}" } ?: "—", palette))
+                addView(row("Alter", state.lastReading?.let { formatDurationMs(System.currentTimeMillis() - it.timestampEpochMs) } ?: "—", palette))
+                addView(row("Nächster Sensorzyklus", formatTimestamp(cycle?.expectedReadingEpoch), palette))
+                addView(row("Nächster Wakeup", formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch), palette))
+                addView(row("Aktueller Attempt", state.activeAttemptId?.toString() ?: "—", palette))
+                addView(row("Verbindungsweg", liveCollectorPath(cycle, livePhase), palette))
+                addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
+                addView(row("Letzte Verbindung", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
+                addView(row("FGS", if (state.collectorEnabled && (state.activeAttemptId != null || state.nextReconnectEpochMs != null)) "Aktiv/geplant" else "Nicht aktiv", palette))
+            }, cardParams())
+
+            addView(group("SYSTEMSTATUS", palette).apply {
+                addView(label("SENSOR", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
                 addView(row("Sensorstatus", state.sensor?.state?.name ?: "—", palette))
                 addView(row("Session", state.sensor?.sessionId ?: state.lastReading?.sessionId ?: "—", palette))
                 addView(row("Sensorcode", credentials?.pairingCode ?: "—", palette))
@@ -128,9 +162,7 @@ class G7SystemStatusActivity : Activity() {
                 addView(row("Sensorstart", formatTimestamp(state.sensor?.sensorStartEpochMs ?: state.lastReading?.sensorStartEpochMs), palette))
                 addView(row("Sensorende", formatTimestamp(state.sensor?.sensorEndEpochMs ?: state.lastReading?.sensorEndEpochMs), palette))
                 addView(row("Kulanzende", formatTimestamp(state.sensor?.graceEndEpochMs ?: state.lastReading?.graceEndEpochMs), palette))
-            }, cardParams())
-
-            addView(group("VERBINDUNG", palette).apply {
+                addView(label("VERBINDUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
                 addView(row("Zustand", userStatus.title, palette))
                 addView(row("Status", userStatus.status, palette))
                 addView(row("Verbindung", state.connectionState.name, palette))
@@ -143,9 +175,7 @@ class G7SystemStatusActivity : Activity() {
                 addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
                 addView(row("Hinweis", userStatus.description, palette))
                 addView(row("Empfohlene Aktion", userStatus.action, palette))
-            }, cardParams())
-
-            addView(group("ZEITPLANUNG", palette).apply {
+                addView(label("ZEITPLANUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
                 addView(row("Nächster Wert", formatTimestamp(cycle?.expectedReadingEpoch), palette))
                 addView(row("Nächster Reconnect", formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch), palette))
                 addView(row("Alarm", cycle?.alarmKind?.name ?: "—", palette))
@@ -154,27 +184,31 @@ class G7SystemStatusActivity : Activity() {
                 addView(row("Geräte in der Nähe", if (hasNearbyPermission()) "Erlaubt" else "Nicht erlaubt", palette))
                 addView(row("Benachrichtigungen", if (hasNotificationPermission()) "Erlaubt" else "Nicht erlaubt", palette))
                 addView(row("Retry", state.retryCount.toString(), palette))
-            }, cardParams())
+                addView(expandableHeader("HARDWARETEST", hardwareExpanded, palette) {
+                    hardwareExpanded = !hardwareExpanded
+                    render()
+                })
+                if (hardwareExpanded) addCycleRows(this, cycle, palette)
 
-            addView(group("KOMMUNIKATION", palette).apply {
-                addCycleRows(this, cycle, palette)
-            }, cardParams())
+                addView(expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
+                    diagnosticsExpanded = !diagnosticsExpanded
+                    render()
+                })
+                if (diagnosticsExpanded) {
+                    val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
+                    addView(row("Aktiver Attempt", state.activeAttemptId?.toString() ?: "—", palette))
+                    addView(row("Attempt-Alter", attempt?.takeIf { it.completedAtEpochMs == null }?.let { formatDurationMs(System.currentTimeMillis() - it.startedAtEpochMs) } ?: "—", palette))
+                    addView(row("Letztes Ergebnis", attempt?.result?.name ?: "—", palette))
+                    addView(row("Klassifikation", attempt?.classification?.name ?: "—", palette))
+                    addView(row("Letzte Stufe", lastEvent?.stage?.name ?: "—", palette))
+                    addView(row("Fehlercode", lastEvent?.errorCode ?: state.lastError?.code ?: "—", palette))
+                    addView(row("Letzte Meldung", lastEvent?.message ?: userStatus.description, palette))
+                    addView(row("Slot-Strategie", cycle?.slotStrategy?.name ?: "—", palette))
+                    addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
+                    addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
+                }
 
-            addView(group("DIAGNOSE", palette).apply {
-                val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
-                addView(row("Aktiver Attempt", state.activeAttemptId?.toString() ?: "—", palette))
-                addView(row("Attempt-Alter", attempt?.takeIf { it.completedAtEpochMs == null }?.let { formatDurationMs(System.currentTimeMillis() - it.startedAtEpochMs) } ?: "—", palette))
-                addView(row("Letztes Ergebnis", attempt?.result?.name ?: "—", palette))
-                addView(row("Klassifikation", attempt?.classification?.name ?: "—", palette))
-                addView(row("Letzte Stufe", lastEvent?.stage?.name ?: "—", palette))
-                addView(row("Fehlercode", lastEvent?.errorCode ?: state.lastError?.code ?: "—", palette))
-                addView(row("Letzte Meldung", lastEvent?.message ?: userStatus.description, palette))
-                addView(row("Slot-Strategie", cycle?.slotStrategy?.name ?: "—", palette))
-                addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
-                addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
-            }, cardParams())
-
-            addView(group("AKTIONEN", palette).apply {
+                addView(label("AKTIONEN", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
                 addActionRows(this, state, palette)
             }, cardParams())
 
@@ -198,6 +232,24 @@ class G7SystemStatusActivity : Activity() {
         setContentView(scrollView)
         scrollView?.post { scrollView?.scrollTo(0, oldScrollY) }
     }
+
+    private fun liveCollectorPath(cycle: CollectorCycleTiming?, phase: String): String = when {
+        cycle?.authStartedAt != null && cycle.authSucceededAt == null -> "Auth"
+        cycle?.gattConnectedAt != null -> "GATT"
+        cycle?.scanEndedAt == null && cycle?.directConnectResult?.name?.contains("FAILED") == true -> "Scan"
+        cycle?.directConnectAttempts?.let { it > 1 } == true -> "Retry"
+        cycle?.connectGattStartedAt != null -> "Direct Connect"
+        phase.isNotBlank() -> phase
+        else -> "Waiting"
+    }
+
+    private fun expandableHeader(title: String, expanded: Boolean, palette: G7AppearancePalette, action: () -> Unit) =
+        label("${if (expanded) "▾" else "▸"}  $title", 10.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            minHeight = 44.dp
+            setOnClickListener { action() }
+            contentDescription = "$title ${if (expanded) "einklappen" else "ausklappen"}"
+        }
 
     private fun addCycleRows(target: LinearLayout, cycle: CollectorCycleTiming?, palette: G7AppearancePalette) {
         target.addView(row("Letzter Versuch", formatTimestamp(cycle?.receiverReceivedAt ?: cycle?.serviceOnStartCommandAt), palette))

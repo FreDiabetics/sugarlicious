@@ -33,4 +33,21 @@ class CanonicalTreatmentsTest {
         assertEquals(1, merged.size)
         assertTrue(merged.single().source == TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT)
     }
+
+    @Test fun `explicit AAPS correction wins over matching Nightscout automatic classification`() {
+        val merged = CanonicalTreatments.merge(
+            listOf(event("aaps-manual", TherapyEventKind.MANUAL_CORRECTION, 1_000_000L, 0.3)),
+            listOf(event("ns-auto", TherapyEventKind.SMB, 1_045_000L, 0.3, TherapyEventSource.NIGHTSCOUT_ONLY)),
+        )
+        assertEquals(1, merged.size)
+        assertEquals(TherapyEventKind.MANUAL_CORRECTION, merged.single().kind)
+    }
+
+    @Test fun `same carbs from AAPS and Nightscout merge despite timestamp drift`() {
+        val merged = CanonicalTreatments.merge(
+            listOf(event("aaps-carbs", TherapyEventKind.MEAL_CARBS, 1_000_000L, 60.0)),
+            listOf(event("ns-carbs", TherapyEventKind.MEAL_CARBS, 1_090_000L, 60.0, TherapyEventSource.NIGHTSCOUT_ONLY)),
+        )
+        assertEquals(1, merged.size)
+    }
 }

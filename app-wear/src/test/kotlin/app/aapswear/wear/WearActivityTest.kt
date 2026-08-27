@@ -128,7 +128,7 @@ class WearActivityTest {
         assertEquals(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,
-                12f,
+                14f,
                 activity.resources.displayMetrics,
             ),
             delta.textSize,

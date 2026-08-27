@@ -173,7 +173,6 @@ class G7WatchActivity : Activity() {
     ): LinearLayout {
         val now = System.currentTimeMillis()
         val ageMs = reading?.timestampEpochMs?.let { (now - it).coerceAtLeast(0L) }
-        val statusColor = glucoseStatusColor(reading, userStatus, ageMs, palette)
         val valueColor = when {
             reading == null -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
             reading.status != CgmReadingStatus.VALID -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
@@ -186,18 +185,22 @@ class G7WatchActivity : Activity() {
         val tile = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(16.dp, 13.dp, 16.dp, 12.dp)
-            background = rounded(withAlpha(statusColor, 32), statusColor, 24f)
+            background = rounded(
+                palette.argb(G7AppearanceRole.MENU_SURFACE),
+                palette.argb(G7AppearanceRole.MENU_BORDER),
+                24f,
+            )
         }
         tile.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(label(reading?.glucoseMgDl?.toInt()?.toString() ?: "—", 35f, valueColor, true))
+            addView(label(reading?.glucoseMgDl?.toInt()?.toString() ?: "—", 40f, valueColor, true))
             addView(trendIndicator(reading?.trend ?: Trend.UNKNOWN, palette.argb(G7AppearanceRole.GLUCOSE_TREND)))
         })
-        tile.addView(label("mg/dL", 9f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        tile.addView(label("mg/dL", 11f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
         val delta = reading?.deltaMgDl?.let { signedDelta(it) } ?: "—"
         val age = ageMs?.let(::formatReadingAge) ?: "kein Wert"
-        tile.addView(label("Δ $delta · $age", 11f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        tile.addView(label("Δ $delta · $age", 13f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
         return tile
     }
 
@@ -387,6 +390,9 @@ class G7WatchActivity : Activity() {
                     if (index > 0) marginStart = 1.dp
                 })
             }
+            graphPeriodPill.background = null
+            graphPeriodPill.minWidth = 44.dp
+            graphPeriodPill.minHeight = 44.dp
         }
     }
 

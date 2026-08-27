@@ -511,7 +511,7 @@ internal object NotificationGraphRenderer {
         val now = System.currentTimeMillis()
         val graphHours = graphHoursOverride ?: preferences
             .getInt("graphHours", 3)
-            .takeIf { it in listOf(3, 6, 12, 24) }
+            .takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS }
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
         val start = now - windowMs

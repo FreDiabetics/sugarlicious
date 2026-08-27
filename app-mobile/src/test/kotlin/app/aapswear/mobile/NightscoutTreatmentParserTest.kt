@@ -35,4 +35,11 @@ class NightscoutTreatmentParserTest {
         )
         assertTrue(parsed.isEmpty())
     }
+
+    @Test fun `nightscout correction bolus is normalized as automatic loop bolus`() {
+        val parsed = NightscoutTreatmentParser.parse(
+            """[{"_id":"auto-1","eventType":"Correction Bolus","date":1787720400000,"insulin":0.2}]""",
+        )
+        assertEquals(TherapyEventKind.SMB, parsed.single().kind)
+    }
 }

@@ -1102,7 +1102,7 @@ internal suspend fun syncComplicationPreset(
 ) {
     val request = PutDataMapRequest.create(WearProtocol.COMPLICATION_PRESET_PATH).apply {
         dataMap.putIntegerArrayList("ids", ArrayList(ids))
-        dataMap.putInt("graphHours", graphHours.takeIf { it in listOf(1, 2, 6, 12, 24) } ?: 3)
+        dataMap.putInt("graphHours", graphHours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3)
         dataMap.putLong("updatedAt", System.currentTimeMillis())
     }.asPutDataRequest().setUrgent()
 

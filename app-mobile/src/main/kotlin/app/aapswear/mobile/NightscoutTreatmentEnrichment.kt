@@ -142,7 +142,8 @@ internal object NightscoutTreatmentParser {
                 val kind = when {
                     explicitSmb -> TherapyEventKind.SMB
                     eventType.contains("meal", true) || carbs != null -> TherapyEventKind.MEAL_BOLUS
-                    eventType.contains("correction", true) || eventType.contains("bolus", true) -> TherapyEventKind.MANUAL_CORRECTION
+                    eventType.contains("correction", true) -> TherapyEventKind.SMB
+                    eventType.contains("bolus", true) -> TherapyEventKind.MANUAL_CORRECTION
                     else -> null
                 }
                 if (kind != null) add(event("$baseId:insulin", baseId, kind, timestamp, it, insulin, carbs, duration, enteredBy, eventType))
@@ -182,13 +183,21 @@ internal object NightscoutTreatmentStore {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(DATA, null) ?: return emptyList()
         return runCatching { json.decodeFromString(StoredTreatments.serializer(), raw).values }.getOrDefault(emptyList())
             .filter { it.timestampEpochMs >= now - RETENTION_MS }
+            .map(::normalizeNightscoutKind)
     }
 
     fun merge(context: Context, incoming: List<TherapyEvent>, now: Long): List<TherapyEvent> {
-        val values = (read(context, now) + incoming).filter { it.timestampEpochMs in (now - RETENTION_MS)..(now + 5 * 60_000L) }.distinctBy(TherapyEvent::id).sortedBy(TherapyEvent::timestampEpochMs)
+        val values = (read(context, now) + incoming).filter { it.timestampEpochMs in (now - RETENTION_MS)..(now + 5 * 60_000L) }.associateBy(TherapyEvent::id).values.sortedBy(TherapyEvent::timestampEpochMs)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(DATA, json.encodeToString(StoredTreatments.serializer(), StoredTreatments(values))) }
         return values
     }
+
+    private fun normalizeNightscoutKind(event: TherapyEvent): TherapyEvent =
+        if (event.kind == TherapyEventKind.MANUAL_CORRECTION && event.eventType?.contains("correction", true) == true) {
+            event.copy(kind = TherapyEventKind.SMB)
+        } else {
+            event
+        }
 }
 
 internal data class NightscoutSyncResult(val success: Boolean, val count: Int, val message: String)

@@ -103,6 +103,13 @@ class WearActivity : Activity() {
                 render()
             }
         }
+        findViewById<View>(R.id.wear_graph_period).setOnClickListener {
+            val current = WearDisplayPreferences.read(this)
+            val values = WearDisplayPreferences.allowedGraphHours
+            val next = values[(values.indexOf(current.graphHours).coerceAtLeast(0) + 1) % values.size]
+            WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
+            render(refreshClock = true)
+        }
         scope.launch {
             WearCanonicalStateEvents.updates.collectLatest {
                 // The event only invalidates the canonical resolver-backed UI. It does not copy
@@ -244,14 +251,6 @@ class WearActivity : Activity() {
             glucose.text = if (canShowValue) formatGlucose(glucoseState.valueMgDl, resolvedUnit) else "—"
 
             val rangeClass = glucoseState?.valueMgDl?.let(thresholds::classify)
-            val rangeColor = when {
-                !canShowValue -> preferences.uiColors.tileBorder
-                rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
-                rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
-                rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
-                rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
-                else -> IN_RANGE_SURFACE_ACCENT
-            }
             val valueColor = when {
                 !canShowValue -> preferences.uiColors.textPrimary
                 rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
@@ -261,11 +260,7 @@ class WearActivity : Activity() {
                 else -> preferences.uiColors.glucoseInRange
             }
             glucose.setTextColor(valueColor)
-            val glucoseFill = if (canShowValue) {
-                blendArgb(preferences.uiColors.tileBackground, rangeColor, 0.24f)
-            } else {
-                preferences.uiColors.tileBackground
-            }
+            val glucoseFill = preferences.uiColors.tileBackground
             renderTrend(
                 trend = if (canShowValue) glucoseState.trend else null,
                 color = valueColor,
@@ -276,13 +271,8 @@ class WearActivity : Activity() {
             glucoseStatus.text = freshnessLabel(freshness)
             glucoseStatus.setTextColor(freshnessColor(freshness, preferences))
 
-            val glucoseBorder = when (freshness) {
-                Freshness.CURRENT -> rangeColor
-                Freshness.DELAYED -> DELAYED_ACCENT
-                Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
-            }
             findViewById<View>(R.id.wear_glucose_card).background =
-                roundedBackground(glucoseFill, glucoseBorder, 26f)
+                roundedBackground(glucoseFill, preferences.uiColors.tileBorder, 26f)
         }
 
         chart.bind(
@@ -293,6 +283,11 @@ class WearActivity : Activity() {
             style = preferences.graphStyle,
             thresholds = preferences.cgmThresholds,
         )
+        findViewById<TextView>(R.id.wear_graph_period).apply {
+            text = "${preferences.graphHours}h"
+            setTextColor(preferences.uiColors.textPrimary)
+            background = null
+        }
         if (refreshClock) chart.invalidate()
 
         if (

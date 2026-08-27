@@ -91,7 +91,11 @@ import kotlinx.serialization.Serializable
 @Serializable data class LoopState(val status: String? = null, val lastRunAtEpochMs: Long? = null, val suggestedAtEpochMs: Long? = null, val enactedAtEpochMs: Long? = null, val suggestedPayload: String? = null, val enactedPayload: String? = null, val smbUnits: Double? = null, val smbAtEpochMs: Long? = null)
 @Serializable data class PumpState(val status: String? = null, val reservoirUnits: Double? = null, val batteryPercent: Int? = null)
 @Serializable data class DeviceState(val phoneBatteryPercent: Int? = null, val rigBatteryPercent: Int? = null)
-@Serializable data class ProfileState(val name: String? = null)
+@Serializable data class ProfileState(
+    val name: String? = null,
+    /** Insulin duration of action supplied by the active profile, in hours. */
+    val diaHours: Double? = null,
+)
 
 @Serializable data class TherapyDisplayState(
     val schemaVersion: Int = CURRENT_SCHEMA,

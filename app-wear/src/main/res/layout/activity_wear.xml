@@ -48,7 +48,7 @@
             <LinearLayout
                 android:id="@+id/wear_glucose_card"
                 android:layout_width="match_parent"
-                android:layout_height="98dp"
+                android:layout_height="110dp"
                 android:gravity="center"
                 android:orientation="vertical"
                 android:paddingStart="14dp"
@@ -78,7 +78,7 @@
                             android:includeFontPadding="false"
                             android:text="—"
                             android:textColor="@color/wear_text"
-                            android:textSize="42sp"
+                            android:textSize="44sp"
                             android:textStyle="bold" />
 
                         <LinearLayout
@@ -123,7 +123,7 @@
                             android:includeFontPadding="false"
                             android:text="—"
                             android:textColor="@color/wear_text_secondary"
-                            android:textSize="12sp"
+                            android:textSize="14sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -134,7 +134,7 @@
                             android:includeFontPadding="false"
                             android:text="—"
                             android:textColor="@color/wear_text_secondary"
-                            android:textSize="12sp" />
+                            android:textSize="14sp" />
                     </LinearLayout>
 
                     <TextView
@@ -191,6 +191,16 @@
 
             <FrameLayout android:id="@+id/wear_graph_card" android:layout_width="match_parent" android:layout_height="138dp" android:layout_marginTop="7dp">
                 <app.aapswear.wear.WearGlucoseChart android:id="@+id/wear_glucose_chart" android:layout_width="match_parent" android:layout_height="match_parent" />
+                <TextView
+                    android:id="@+id/wear_graph_period"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:gravity="center"
+                    android:text="3h"
+                    android:textColor="@color/wear_text"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:background="@null" />
             </FrameLayout>
 
             <LinearLayout

@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+ <queries>
+  <package android:name="info.nightscout.androidaps"/>
+  <package android:name="info.nightscout.androidaps.dev"/>
+  <package android:name="info.nightscout.aaps"/>
+  <package android:name="com.eveningoutpost.dexdrip"/>
+  <package android:name="com.dexcom.g7"/>
+ </queries>
  <permission android:name="com.eveningoutpost.dexdrip.permissions.RECEIVE_BG_ESTIMATE" android:protectionLevel="normal"/>
  <uses-permission android:name="com.eveningoutpost.dexdrip.permissions.RECEIVE_BG_ESTIMATE"/>
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -48,6 +55,7 @@
   <activity android:name=".G7SetupActivity" android:exported="false"/>
   <activity android:name=".NightscoutTreatmentSettingsActivity" android:exported="false"/>
   <activity android:name=".DiagnosticActivity" android:exported="false"/>
+  <activity android:name=".WidgetConfigurationActivity" android:exported="true" android:theme="@style/AppTheme"/>
   <activity android:name=".HealthConnectRationaleActivity" android:exported="true">
    <intent-filter><action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE"/></intent-filter>
   </activity>
@@ -70,6 +78,7 @@
   <receiver android:name=".GraphWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/graph_widget_info"/></receiver>
   <receiver android:name=".MetabolicWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/metabolic_widget_info"/></receiver>
   <receiver android:name=".ActivityWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/activity_widget_info"/></receiver>
+  <receiver android:name=".GlucoseGraphWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/><action android:name="android.appwidget.action.APPWIDGET_DELETED"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/glucose_graph_widget_info"/></receiver>
   <service android:name=".PersistentBridgeService" android:exported="false" android:foregroundServiceType="specialUse">
    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-visible Sugarlicious therapy status receiver and read-only Wear OS synchronization"/>
   </service>

@@ -2,8 +2,9 @@
     <string name="app_name">Sugarlicious</string>
     <string name="contact_email">typ1.diafreddy@gmail.com</string>
     <string name="brand_logo">FreDiabetics-Logo</string>
-    <string name="widget_glucose_description">Glukose, Trend und Delta im Sugarlicious-Stil</string>
+    <string name="widget_glucose_description">Glukosewert und Trendpfeil im Sugarlicious-Stil</string>
     <string name="widget_graph_description">Kanonischer CGM-Verlauf mit Zielbereich</string>
     <string name="widget_metabolic_description">IOB, COB und Basal im Sugarlicious-Stil</string>
     <string name="widget_activity_description">Schritte, Puls, Aktivzeit und Kalorien aus Health Connect</string>
+    <string name="widget_glucose_graph_description">Glukosewert, Trend und kanonischer CGM-Graph</string>
 </resources>

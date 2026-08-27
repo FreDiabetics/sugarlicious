@@ -163,9 +163,13 @@ class G7WatchActivityLayoutTest {
         val texts = mutableListOf<String>()
         collectText(activity.findViewById(android.R.id.content), texts)
 
-        listOf("SENSOR", "VERBINDUNG", "ZEITPLANUNG", "KOMMUNIKATION", "DIAGNOSE", "AKTIONEN").forEach {
-            assertTrue("Missing group $it", texts.contains(it))
+        listOf("LIVE COLLECTOR STATUS", "SYSTEMSTATUS", "SENSOR", "VERBINDUNG", "ZEITPLANUNG", "HARDWARETEST", "DIAGNOSE", "AKTIONEN").forEach {
+            assertTrue("Missing group $it", texts.any { text -> text.contains(it) })
         }
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  HARDWARETEST")!!.performClick()
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  DIAGNOSE")!!.performClick()
+        texts.clear()
+        collectText(activity.findViewById(android.R.id.content), texts)
         listOf(
             "Sensorstatus", "Session", "Sensorcode", "GTIN", "Seriennummer", "Letzter Wert", "Trendrate", "BLE-Name", "Kulanzende",
             "Status", "Reconnect-Strategie", "Hinweis", "Empfohlene Aktion", "Nächster Reconnect", "Geräte in der Nähe",

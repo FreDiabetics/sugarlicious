@@ -45,15 +45,15 @@ internal data class AnalogArcGeometry(
  * Keep the contract test green whenever the WFF layout is changed.
  */
 internal object SugarliciousAnalogGeometry {
-    const val CANVAS = 450f
-    val graph = AnalogRectGeometry(78f, 68f, 294f, 103f)
-    val middleLeft = AnalogRectGeometry(72f, 170f, 110f, 110f)
-    val middleRight = AnalogRectGeometry(268f, 170f, 110f, 110f)
-    val bottomCenter = AnalogRectGeometry(160f, 249f, 130f, 130f)
+    const val CANVAS = 512f
+    val graph = AnalogRectGeometry(89f, 77f, 335f, 117f)
+    val middleLeft = AnalogRectGeometry(82f, 193f, 125f, 125f)
+    val middleRight = AnalogRectGeometry(305f, 193f, 125f, 125f)
+    val bottomCenter = AnalogRectGeometry(182f, 283f, 148f, 148f)
 
-    const val outerCenter = 225f
-    const val outerDiameter = 344f
-    const val outerStroke = 12f
+    const val outerCenter = 256f
+    const val outerDiameter = 438f
+    const val outerStroke = 13.65f
     val outerUpperLeft = AnalogArcGeometry(250f, 336f, true)
     val outerUpperRight = AnalogArcGeometry(8f, 67f, true)
     val outerLowerRight = AnalogArcGeometry(96f, 158f, true)

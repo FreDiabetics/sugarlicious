@@ -4,7 +4,7 @@ import kotlin.math.abs
 
 /** Source-independent treatment merge. It never manufactures events from IOB/COB curves. */
 object CanonicalTreatments {
-    private const val TIME_TOLERANCE_MS = 30_000L
+    private const val TIME_TOLERANCE_MS = 120_000L
     private const val INSULIN_TOLERANCE = 0.01
     private const val CARB_TOLERANCE = 0.1
 
@@ -35,17 +35,23 @@ object CanonicalTreatments {
         val firstIds = setOfNotNull(first.id.takeIf(String::isNotBlank), first.originalSourceId?.takeIf(String::isNotBlank))
         val secondIds = setOfNotNull(second.id.takeIf(String::isNotBlank), second.originalSourceId?.takeIf(String::isNotBlank))
         if (firstIds.intersect(secondIds).isNotEmpty()) return true
-        if (first.kind != second.kind || abs(first.timestampEpochMs - second.timestampEpochMs) > TIME_TOLERANCE_MS) return false
+        if (!sameTreatmentFamily(first.kind, second.kind) || abs(first.timestampEpochMs - second.timestampEpochMs) > TIME_TOLERANCE_MS) return false
         return amountsMatch(first, second)
     }
 
-    private fun amountsMatch(first: TherapyEvent, second: TherapyEvent): Boolean = when (first.kind) {
-        TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_BOLUS ->
+    private fun sameTreatmentFamily(first: TherapyEventKind, second: TherapyEventKind): Boolean =
+        (first in insulinKinds && second in insulinKinds) || (first == second && first in carbKinds)
+
+    private fun amountsMatch(first: TherapyEvent, second: TherapyEvent): Boolean = when {
+        first.kind in insulinKinds ->
             abs((first.insulinUnits ?: first.amount) - (second.insulinUnits ?: second.amount)) <= INSULIN_TOLERANCE
-        TherapyEventKind.MEAL_CARBS, TherapyEventKind.ECARBS ->
+        else ->
             abs((first.carbsGrams ?: first.amount) - (second.carbsGrams ?: second.amount)) <= CARB_TOLERANCE &&
                 (first.durationMinutes == null || second.durationMinutes == null || first.durationMinutes == second.durationMinutes)
     }
+
+    private val insulinKinds = setOf(TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_BOLUS)
+    private val carbKinds = setOf(TherapyEventKind.MEAL_CARBS, TherapyEventKind.ECARBS)
 
     private fun TherapyEvent.isUsable() = timestampEpochMs > 0L && amount.isFinite() && amount > 0.0
 }

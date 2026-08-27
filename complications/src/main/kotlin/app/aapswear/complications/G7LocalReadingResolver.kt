@@ -142,12 +142,8 @@ object G7LocalReadingResolver {
                 phone = fallback?.glucoseHistory.orEmpty(),
                 direct = directRows,
                 nowEpochMs = nowEpochMs,
-                preferredSource =
-                    if (selectedSource == WatchDataSource.DEXCOM_G7_WATCH) {
-                        DataSourceId.DEXCOM_G7_WATCH
-                    } else {
-                        fallback?.source ?: chosenSource
-                    },
+                watchIsCanonical = resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT,
+                preferredSource = chosenSource,
             )
 
         return TherapyDisplayState(
@@ -231,6 +227,7 @@ object G7LocalReadingResolver {
         phone: List<GlucoseSample>,
         direct: List<LocalReading>,
         nowEpochMs: Long,
+        watchIsCanonical: Boolean,
         preferredSource: DataSourceId,
     ): List<GlucoseSample> {
         val directSamples =
@@ -246,13 +243,12 @@ object G7LocalReadingResolver {
                     quality = it.quality,
                 )
             }
-        return CanonicalCgmHistory.merge(
-            samples = directSamples + phone,
+        return canonicalWearHistory(
+            phone = phone,
+            direct = directSamples,
             nowEpochMs = nowEpochMs,
+            watchIsCanonical = watchIsCanonical,
             preferredSource = preferredSource,
-            windowMs = HISTORY_WINDOW_MS,
-            futureToleranceMs = defaultPolicy.futureToleranceMs,
-            maxPoints = MAX_HISTORY_POINTS,
         )
     }
 
@@ -341,3 +337,20 @@ object G7LocalReadingResolver {
         val quality: CgmQuality,
     )
 }
+
+/** Keeps collector persistence independent from the one canonical history exposed to Wear UI. */
+internal fun canonicalWearHistory(
+    phone: List<GlucoseSample>,
+    direct: List<GlucoseSample>,
+    nowEpochMs: Long,
+    watchIsCanonical: Boolean,
+    preferredSource: DataSourceId,
+): List<GlucoseSample> =
+    CanonicalCgmHistory.merge(
+        samples = if (watchIsCanonical) direct + phone else phone,
+        nowEpochMs = nowEpochMs,
+        preferredSource = preferredSource,
+        windowMs = 24 * 60 * 60_000L,
+        futureToleranceMs = CgmSourcePolicy().futureToleranceMs,
+        maxPoints = 300,
+    )

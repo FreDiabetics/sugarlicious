@@ -235,6 +235,7 @@ class MainActivity : ComponentActivity() {
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
             setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
             setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
+            setGraphHours = { hours -> uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) } },
             setCgmStream = { key, enabled ->
                 uiPreferences.edit {
                     putBoolean(
@@ -519,7 +520,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        scroll.isUserScrollEnabled = screen != DashboardScreen.OVERVIEW
+        scroll.isUserScrollEnabled = true
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(

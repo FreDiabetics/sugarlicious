@@ -2,7 +2,7 @@ package app.aapswear.datasource.aaps
 import app.aapswear.model.*
 import kotlin.test.*
 class AapsPayloadAdapterTest {
- @Test fun parsesDocumentedBroadcast() { val b=mapOf("glucoseMgdl" to 123.0,"glucoseTimeStamp" to 900_000L,"units" to "mmol","slopeArrow" to "↗","iob" to 1.25,"cob" to 18.0,"profile" to "Default"); val s=assertNotNull(AapsPayloadAdapter.parse(b,1_000_000)); assertEquals(Trend.FORTY_FIVE_UP,s.glucose?.trend); assertEquals(GlucoseUnit.MMOL_L,s.glucose?.displayUnit); assertTrue(DataCapability.IOB in s.capabilities) }
+ @Test fun parsesDocumentedBroadcast() { val b=mapOf("glucoseMgdl" to 123.0,"glucoseTimeStamp" to 900_000L,"units" to "mmol","slopeArrow" to "↗","iob" to 1.25,"cob" to 18.0,"profile" to "Default","dia" to 5.0); val s=assertNotNull(AapsPayloadAdapter.parse(b,1_000_000)); assertEquals(Trend.FORTY_FIVE_UP,s.glucose?.trend); assertEquals(GlucoseUnit.MMOL_L,s.glucose?.displayUnit); assertEquals(5.0,s.profile?.diaHours); assertTrue(DataCapability.IOB in s.capabilities) }
  @Test fun rejectsMissingAndWrongTypes() { assertNull(AapsPayloadAdapter.parse(emptyMap(),1)); assertNull(AapsPayloadAdapter.parse(mapOf("glucoseMgdl" to "oops","glucoseTimeStamp" to 1L),1)) }
  @Test fun unknownFieldsAreIgnored() { assertNotNull(AapsPayloadAdapter.parse(mapOf("glucoseMgdl" to 100.0,"glucoseTimeStamp" to 1L,"futureThing" to Any()),2)) }
  @Test fun parsesCurrentDevExtendedPayload() {

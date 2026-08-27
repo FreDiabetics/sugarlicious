@@ -112,7 +112,7 @@ data class DashboardUiPreferences(
                 predictionDotRadiusDp = preferences.getFloat("cgm.prediction.dotRadiusDp", 1.75f).coerceIn(1.0f, 6.0f),
                 predictionDotOutlineWidthDp = preferences.getFloat("cgm.prediction.dotOutlineWidthDp", 0.70f).coerceIn(0.0f, 3.0f),
                 compact = preferences.getBoolean("compact", true),
-                graphHours = preferences.getInt("graphHours", 3).takeIf { it in listOf(3, 6, 12, 24) } ?: 3,
+                graphHours = preferences.getInt("graphHours", 3).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3,
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
                 notificationGraphHours = preferences.getInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 3).takeIf { it in 1..3 } ?: 3,
@@ -165,6 +165,7 @@ data class DashboardCallbacks(
     val setThemeMode: (DashboardThemeMode) -> Unit,
     val setShowDetails: (Boolean) -> Unit,
     val setShowCgmGraph: (Boolean) -> Unit,
+    val setGraphHours: (Int) -> Unit,
     val setCgmStream: (String, Boolean) -> Unit = { _, _ -> },
     val setShowMetabolicGraph: (Boolean) -> Unit,
     val setCompact: (Boolean) -> Unit,
@@ -307,9 +308,9 @@ class DashboardViewFactory(
                     addView(
                         sourceChoiceRow(
                             listOf(
-                                SourceChoice("Automatisch", R.drawable.ic_sugarlicious_monochrome, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
-                                SourceChoice("AndroidAPS", R.drawable.ic_foreground, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
-                                SourceChoice("xDrip+", R.drawable.ic_health_glucose, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
+                                SourceChoice("Automatisch", R.drawable.ic_source_auto, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
+                                SourceChoice("AndroidAPS", R.drawable.ic_source_androidaps, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
+                                SourceChoice("xDrip+", R.drawable.ic_source_xdrip, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
                                 SourceChoice("Dexcom G7 Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
                             ),
                         ),
@@ -721,8 +722,8 @@ class DashboardViewFactory(
                     minimumHeight = 43.dp
                     setPadding(12.dp, 5.dp, 12.dp, 5.dp)
                     background = roundedBackground(
-                        if (item.selected) SugarliciousColors.argb(SugarliciousColorRole.SURFACE_SELECTED) else SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
-                        if (item.selected) accent else SugarliciousColors.argb(SugarliciousColorRole.BORDER),
+                        SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
+                        SugarliciousColors.argb(SugarliciousColorRole.BORDER),
                         999,
                     )
                     isClickable = true
@@ -734,18 +735,15 @@ class DashboardViewFactory(
                             drawableRes = item.icon,
                             contentDescription = item.label,
                             tintArgb =
-                                if (item.icon == R.drawable.ic_sensor || item.icon == R.drawable.ic_foreground) {
+                                if (item.icon == R.drawable.ic_sensor) {
                                     null
-                                } else if (item.selected) {
-                                    accent
                                 } else {
                                     secondary
                                 },
                         ),
                         LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 9.dp },
                     )
-                    addView(value(item.label, if (item.selected) text else secondary, 13f, 1))
-                    addView(value(if (item.selected) "✓" else "", accent, 14f, 1), LinearLayout.LayoutParams(24.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
+                    addView(value(item.label, if (item.selected) accent else secondary, 13f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 },
                 LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 6.dp },
             )
