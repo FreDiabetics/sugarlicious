@@ -3,13 +3,32 @@ package app.aapswear.mobile
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
+    @Test
+    fun `configuration options follow the concrete widget provider`() {
+        assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind("app.aapswear.mobile.GlucoseWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind("app.aapswear.mobile.GraphWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GLUCOSE_GRAPH, configurableWidgetKind("app.aapswear.mobile.GlucoseGraphWidgetReceiver"))
+        assertFalse(ConfigurableWidgetKind.GLUCOSE.hasGraph)
+        assertTrue(ConfigurableWidgetKind.GRAPH.hasGraph)
+    }
+
+    @Test
+    fun `target scale moves right only for a pure cgm graph`() {
+        assertTrue(targetScaleOnRight(false, false, false, false))
+        assertFalse(targetScaleOnRight(true, false, false, false))
+        assertFalse(targetScaleOnRight(false, true, false, false))
+        assertFalse(targetScaleOnRight(false, false, true, false))
+        assertFalse(targetScaleOnRight(false, false, false, true))
+    }
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test

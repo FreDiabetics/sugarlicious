@@ -475,8 +475,6 @@ class DashboardViewFactory(
                     if (preferences.showCgmGraph) {
                         addView(divider())
                         addView(settingsGroupLabel("EBENEN"))
-                        addView(switchRowCompact("Zielbereich", preferences.showCgmTargetRange, View.generateViewId()) { callbacks.setCgmStream("cgm.targetRange", it) })
-                        addView(divider())
                         addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })
                         addView(divider())
                         addView(switchRowCompact("Basal", preferences.showCgmBasal, View.generateViewId()) { callbacks.setCgmStream("cgm.basal", it) })

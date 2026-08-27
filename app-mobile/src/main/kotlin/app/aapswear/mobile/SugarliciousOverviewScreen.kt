@@ -622,7 +622,7 @@ internal fun GlucoseDashboardChart.bindOverview(
         unit = preferences.unitFor(state),
         showPredictions = preferences.anyCgmPredictionEnabled,
         durationHours = preferences.graphHours,
-        showTargetRange = preferences.showCgmTargetRange,
+        showTargetRange = true,
         showTargetValue = preferences.showCgmTargetValue,
         showBasal = preferences.showCgmBasal,
         showActivity = preferences.showCgmActivity,

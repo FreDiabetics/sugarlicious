@@ -326,7 +326,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     private var state: TherapyDisplayState? = null
     private var unit = GlucoseUnit.MG_DL
     private var showPredictions = false
-    private var showTargetRange = false
+    private var showTargetRange = true
     private var showTargetValue = false
     private var showBasal = false
     private var showActivity = false
@@ -348,7 +348,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         unit: GlucoseUnit,
         showPredictions: Boolean,
         durationHours: Int,
-        showTargetRange: Boolean = false,
+        showTargetRange: Boolean = true,
         showTargetValue: Boolean = false,
         showBasal: Boolean = false,
         showActivity: Boolean = false,
@@ -386,7 +386,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 durationChanged ||
                 this.unit != unit ||
                 this.showPredictions != showPredictions ||
-                this.showTargetRange != showTargetRange ||
                 this.showTargetValue != showTargetValue ||
                 this.showBasal != showBasal ||
                 this.showActivity != showActivity ||
@@ -408,7 +407,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         boundDurationHours = resolvedDurationHours
         this.unit = unit
         this.showPredictions = showPredictions
-        this.showTargetRange = showTargetRange
+        // The CGM target range is a permanent part of the Sugarlicious graph. The parameter is
+        // retained for binary/source compatibility with older callers, but is intentionally ignored.
+        this.showTargetRange = true
         this.showTargetValue = showTargetValue
         this.showBasal = showBasal
         this.showActivity = showActivity
@@ -433,7 +434,12 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val scaleContainer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
         val timeAxisHeight = TIME_AXIS_HEIGHT_DP.dp
         val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
-        val plot = RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
+        val targetScaleOnRight = targetScaleOnRight(showPredictions, showTargetValue, showBasal, showActivity)
+        val plot = if (targetScaleOnRight) {
+            RectF(scaleContainer.left, scaleContainer.top, scaleContainer.right - valueAxisWidth, scaleContainer.bottom - timeAxisHeight)
+        } else {
+            RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
+        }
         val contentBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
         if (plot.width() <= 24f || plot.height() <= 24f) return
         val radius = GRAPH_CORNER_RADIUS_DP.dp
@@ -655,7 +661,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             drawGrid(canvas, plot, scaleContainer.bottom, start, end, currentDotTimestamp, currentDotX)
 
             if (showTargetRange) {
-                drawTargetScale(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), scaleContainer.left, plot, targetTop, targetBottom)
+                drawTargetScale(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), plot, targetTop, targetBottom, targetScaleOnRight)
             }
 
             if (history.size < 2) {
@@ -704,33 +710,38 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         canvas: Canvas,
         highValue: String,
         lowValue: String,
-        scaleLeft: Float,
         plot: RectF,
         targetTop: Float,
         targetBottom: Float,
+        onRight: Boolean,
     ) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
             color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
-            textAlign = Paint.Align.RIGHT
+            textAlign = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val metrics = paint.fontMetrics
         val highBaseline = targetTop - (metrics.ascent + metrics.descent) / 2f
         val lowBaseline = targetBottom - (metrics.ascent + metrics.descent) / 2f
-        val x = plot.left - 15f.dp
+        val x = if (onRight) plot.right + 15f.dp else plot.left - 15f.dp
         canvas.drawText(highValue, x, highBaseline, paint)
         canvas.drawText(lowValue, x, lowBaseline, paint)
-        drawTargetScaleTick(canvas, plot.left, targetTop)
-        drawTargetScaleTick(canvas, plot.left, targetBottom)
+        drawTargetScaleTick(canvas, plot, targetTop, onRight)
+        drawTargetScaleTick(canvas, plot, targetBottom, onRight)
     }
 
-    private fun drawTargetScaleTick(canvas: Canvas, graphLeft: Float, centerY: Float) {
+    private fun drawTargetScaleTick(canvas: Canvas, plot: RectF, centerY: Float, onRight: Boolean) {
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
-        canvas.drawLine(graphLeft - 13f.dp, centerY, graphLeft - 7f.dp, centerY, linePaint)
+        if (onRight) {
+            canvas.drawLine(plot.right + 7f.dp, centerY, plot.right + 13f.dp, centerY, linePaint)
+        } else {
+            canvas.drawLine(plot.left - 13f.dp, centerY, plot.left - 7f.dp, centerY, linePaint)
+        }
     }
+
 
     private fun drawBasal(canvas: Canvas, plot: RectF, start: Long, end: Long, points: List<TherapyHistorySample>) {
         val sorted = points.filter { it.baseBasalUnitsPerHour != null || it.basalUnitsPerHour != null }.sortedBy { it.measuredAtEpochMs }
@@ -1509,6 +1520,13 @@ private fun roundedUpTriangle(cx: Float, baseY: Float, halfWidth: Float, height:
 
 internal fun timeToXFraction(time: Long, start: Long, end: Long): Float =
     ((time - start).toDouble() / (end - start).coerceAtLeast(1L)).toFloat()
+
+internal fun targetScaleOnRight(
+    showPredictions: Boolean,
+    showTargetValue: Boolean,
+    showBasal: Boolean,
+    showActivity: Boolean,
+): Boolean = !showPredictions && !showTargetValue && !showBasal && !showActivity
 
 private fun roundedDownTriangle(cx: Float, apexY: Float, halfWidth: Float, height: Float, radius: Float): Path = Path().apply {
     val topY = apexY - height
