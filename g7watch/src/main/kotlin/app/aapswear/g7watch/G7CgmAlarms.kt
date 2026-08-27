@@ -298,7 +298,7 @@ private object G7CgmAlarmNotifier {
         type: CgmAlarmType,
         settings: CgmAlarmSettings,
     ) {
-        val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${soundResource(type)}") else null
+        val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${g7AlarmSoundResource(type)}") else null
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Eigenständiger G7-Watch-Alarm: ${title(type)}"
@@ -313,17 +313,6 @@ private object G7CgmAlarmNotifier {
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
         )
-    }
-
-    private fun soundResource(type: CgmAlarmType): Int = when (type) {
-        CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
-        CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
-        CgmAlarmType.LOW -> R.raw.alerts_sounds_low
-        CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
-        CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
-        CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
-        CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
-        CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
     }
 
     private fun title(type: CgmAlarmType): String = when (type) {
@@ -351,6 +340,17 @@ private object G7CgmAlarmNotifier {
         }
 
     private fun notificationId(type: CgmAlarmType): Int = NOTIFICATION_BASE + type.ordinal
+}
+
+internal fun g7AlarmSoundResource(type: CgmAlarmType): Int = when (type) {
+    CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
+    CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
+    CgmAlarmType.LOW -> R.raw.alerts_sounds_low
+    CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
+    CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
+    CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
+    CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
+    CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
 }
 
 internal object G7AlarmRepeatScheduler {

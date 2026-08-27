@@ -71,6 +71,7 @@ class G7CollectorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        serviceRunning = true
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
@@ -804,6 +805,7 @@ class G7CollectorService : Service() {
     }
 
     override fun onDestroy() {
+        serviceRunning = false
         G7CollectorRuntimeRegistry.unregister(this)
         releaseCycleWakeLock()
         G7WakeHandoff.release()
@@ -814,6 +816,11 @@ class G7CollectorService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        @Volatile
+        private var serviceRunning = false
+
+        internal fun isServiceRunning(): Boolean = serviceRunning
+
         const val ACTION_START = "app.aapswear.g7watch.START"
         const val ACTION_STOP = "app.aapswear.g7watch.STOP"
         const val ACTION_RESTART = "app.aapswear.g7watch.RESTART"

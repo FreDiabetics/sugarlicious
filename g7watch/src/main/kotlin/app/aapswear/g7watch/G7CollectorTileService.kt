@@ -34,11 +34,14 @@ import androidx.wear.tiles.TileService
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.ArgbContrast
-import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.WearGlucoseCardInput
+import app.aapswear.model.wearGlucoseCardPresentation
 import com.google.common.util.concurrent.Futures
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -84,68 +87,37 @@ internal fun g7TilePresentation(
     nowEpochMs: Long,
     thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
 ): G7TilePresentation {
-    if (reading == null) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Noch kein lokaler Wert",
-            age = "",
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
+    val shared = wearGlucoseCardPresentation(
+        WearGlucoseCardInput(
+            valueMgDl = reading?.glucoseMgDl,
+            displayUnit = GlucoseUnit.MG_DL,
+            deltaMgDl = reading?.deltaMgDl,
+            trend = reading?.trend ?: Trend.UNKNOWN,
+            measuredAtEpochMs = reading?.timestampEpochMs,
+            quality = when (reading?.status) {
+                CgmReadingStatus.VALID -> CgmQuality.VALID
+                CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+                else -> CgmQuality.INVALID
+            },
+            sourceLabel = "Watch Direct",
+        ),
+        thresholds,
+        nowEpochMs,
+    )
+    val valueColor = when (shared.rangeClass) {
+        CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
+        CgmRangeClass.LOW -> colors.cgmLow
+        CgmRangeClass.HIGH -> colors.cgmHigh
+        CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
+        else -> G7_TILE_TEXT_PRIMARY
     }
-    val ageMs = (nowEpochMs - reading.timestampEpochMs).coerceAtLeast(0L)
-    val ageMinutes = ageMs / 60_000L
-    val age = if (ageMinutes == 0L) "gerade" else "vor $ageMinutes min"
-    if (reading.status == CgmReadingStatus.SENSOR_ERROR) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Sensorfehler",
-            age = age,
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-    if (
-        reading.status != CgmReadingStatus.VALID ||
-        !reading.glucoseMgDl.isFinite() ||
-        reading.glucoseMgDl !in 20.0..1_000.0
-    ) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Ungültiger Sensorwert",
-            age = "",
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-    val freshness = FreshnessPolicy.classify(reading.timestampEpochMs, nowEpochMs)
-    if (freshness !in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
-        val label = if (freshness == Freshness.STALE) "Veraltet" else "Keine Daten"
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = label,
-            age = age,
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-
-    val value = reading.glucoseMgDl
-    val cardBackground = when (thresholds.classify(value)) {
-        app.aapswear.model.CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
-        app.aapswear.model.CgmRangeClass.LOW -> colors.cgmLow
-        app.aapswear.model.CgmRangeClass.HIGH -> colors.cgmHigh
-        app.aapswear.model.CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
-        else -> G7_TILE_CARD_BACKGROUND
-    }
-    val delta = reading.deltaMgDl?.let { String.format(Locale.US, "%+.0f", it) } ?: "—"
     return G7TilePresentation(
-        glucoseValue = value.toInt().toString(),
-        meta = "Δ $delta",
-        age = age,
-        cardBackground = cardBackground,
-        cardForeground = tileForegroundFor(cardBackground),
-        trend = reading.trend.takeUnless { it == Trend.UNKNOWN },
+        glucoseValue = shared.value,
+        meta = shared.primaryMeta,
+        age = shared.secondaryMeta,
+        cardBackground = G7_TILE_CARD_BACKGROUND,
+        cardForeground = valueColor,
+        trend = shared.trend,
     )
 }
 

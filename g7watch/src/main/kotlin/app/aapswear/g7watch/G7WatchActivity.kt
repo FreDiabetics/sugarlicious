@@ -25,6 +25,12 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.WearGlucoseCardInput
+import app.aapswear.model.WearGlucoseCardStyle
+import app.aapswear.model.wearGlucoseCardPresentation
 import java.util.Locale
 
 class G7WatchActivity : Activity() {
@@ -168,39 +174,58 @@ class G7WatchActivity : Activity() {
 
     private fun glucoseTile(
         reading: CgmReading?,
-        userStatus: G7UserStatus,
         palette: G7AppearancePalette,
     ): LinearLayout {
         val now = System.currentTimeMillis()
-        val ageMs = reading?.timestampEpochMs?.let { (now - it).coerceAtLeast(0L) }
+        val presentation = wearGlucoseCardPresentation(
+            WearGlucoseCardInput(
+                valueMgDl = reading?.glucoseMgDl,
+                displayUnit = GlucoseUnit.MG_DL,
+                deltaMgDl = reading?.deltaMgDl,
+                trend = reading?.trend ?: Trend.UNKNOWN,
+                measuredAtEpochMs = reading?.timestampEpochMs,
+                quality = when (reading?.status) {
+                    CgmReadingStatus.VALID -> CgmQuality.VALID
+                    CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+                    CgmReadingStatus.INVALID, null -> CgmQuality.INVALID
+                },
+                sourceLabel = "Watch Direct",
+            ),
+            G7GraphColorStore(this).readThresholds(),
+            now,
+        )
         val valueColor = when {
-            reading == null -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
-            reading.status != CgmReadingStatus.VALID -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-            ageMs != null && ageMs >= G7GraphPolicy.STALE_AFTER_MS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
-            ageMs != null && ageMs >= 6L * 60_000L -> palette.argb(G7AppearanceRole.GLUCOSE_DELAYED)
-            reading.glucoseMgDl < 80.0 -> palette.argb(G7AppearanceRole.GLUCOSE_LOW)
-            reading.glucoseMgDl > 160.0 -> palette.argb(G7AppearanceRole.GLUCOSE_HIGH)
+            !presentation.displayable -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+            presentation.rangeClass == CgmRangeClass.VERY_LOW -> palette.argb(G7AppearanceRole.GLUCOSE_VERY_LOW)
+            presentation.rangeClass == CgmRangeClass.LOW -> palette.argb(G7AppearanceRole.GLUCOSE_LOW)
+            presentation.rangeClass == CgmRangeClass.VERY_HIGH -> palette.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH)
+            presentation.rangeClass == CgmRangeClass.HIGH -> palette.argb(G7AppearanceRole.GLUCOSE_HIGH)
             else -> palette.argb(G7AppearanceRole.GLUCOSE_IN_RANGE)
         }
         val tile = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(16.dp, 13.dp, 16.dp, 12.dp)
+            gravity = Gravity.CENTER
+            minimumHeight = WearGlucoseCardStyle.CARD_HEIGHT_DP.dp
+            setPadding(
+                WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.dp,
+                WearGlucoseCardStyle.VERTICAL_PADDING_DP.dp,
+                WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.dp,
+                WearGlucoseCardStyle.VERTICAL_PADDING_DP.dp,
+            )
             background = rounded(
                 palette.argb(G7AppearanceRole.MENU_SURFACE),
                 palette.argb(G7AppearanceRole.MENU_BORDER),
-                24f,
+                WearGlucoseCardStyle.CARD_RADIUS_DP,
             )
         }
         tile.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(label(reading?.glucoseMgDl?.toInt()?.toString() ?: "—", 40f, valueColor, true))
-            addView(trendIndicator(reading?.trend ?: Trend.UNKNOWN, palette.argb(G7AppearanceRole.GLUCOSE_TREND)))
+            addView(label(presentation.value, WearGlucoseCardStyle.VALUE_TEXT_SP, valueColor, true))
+            presentation.trend?.let { addView(trendIndicator(it, valueColor)) }
         })
-        tile.addView(label("mg/dL", 11f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
-        val delta = reading?.deltaMgDl?.let { signedDelta(it) } ?: "—"
-        val age = ageMs?.let(::formatReadingAge) ?: "kein Wert"
-        tile.addView(label("Δ $delta · $age", 13f, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        tile.addView(label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        tile.addView(label(presentation.secondaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
         return tile
     }
 
@@ -222,7 +247,7 @@ class G7WatchActivity : Activity() {
             statusHost.removeAllViews()
             statusHost.addView(statusPill(userStatus, palette))
             glucoseHost.removeAllViews()
-            glucoseHost.addView(glucoseTile(state.lastReading, userStatus, palette))
+            glucoseHost.addView(glucoseTile(state.lastReading, palette))
             updateGraphOnly(preserveScroll = false)
         }
     }
@@ -297,20 +322,6 @@ class G7WatchActivity : Activity() {
         G7UserStatusLevel.OFF -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
     }
 
-    private fun glucoseStatusColor(
-        reading: CgmReading?,
-        status: G7UserStatus,
-        ageMs: Long?,
-        palette: G7AppearancePalette,
-    ): Int = when {
-        status.level == G7UserStatusLevel.ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-        reading == null -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
-        reading.status != CgmReadingStatus.VALID -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-        ageMs != null && ageMs >= G7GraphPolicy.STALE_AFTER_MS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
-        ageMs != null && ageMs >= 6L * 60_000L -> palette.argb(G7AppearanceRole.GLUCOSE_DELAYED)
-        else -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
-    }
-
     private enum class PillStyle { PRIMARY, SECONDARY, DANGER }
 
     private fun pill(
@@ -377,7 +388,7 @@ class G7WatchActivity : Activity() {
     private fun trendIndicator(trend: Trend, color: Int) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
-        setPadding(10.dp, 0, 0, 0)
+        setPadding(WearGlucoseCardStyle.TREND_GAP_DP.dp, 0, 0, 0)
         TrendVisuals.spec(trend)?.let { spec ->
             repeat(spec.arrowCount) { index ->
                 addView(ImageView(this@G7WatchActivity).apply {
@@ -386,21 +397,11 @@ class G7WatchActivity : Activity() {
                     rotation = spec.rotationDegrees
                     contentDescription = "Trend ${trend.name}"
                     scaleType = ImageView.ScaleType.CENTER_INSIDE
-                }, LinearLayout.LayoutParams(27.dp, 27.dp).apply {
+                }, LinearLayout.LayoutParams(WearGlucoseCardStyle.TREND_SIZE_DP.dp, WearGlucoseCardStyle.TREND_SIZE_DP.dp).apply {
                     if (index > 0) marginStart = 1.dp
                 })
             }
-            graphPeriodPill.background = null
-            graphPeriodPill.minWidth = 44.dp
-            graphPeriodPill.minHeight = 44.dp
         }
-    }
-
-    private fun signedDelta(value: Double): String = String.format(Locale.US, "%+.0f", value)
-
-    private fun formatReadingAge(ageMs: Long): String {
-        val seconds = ageMs / 1_000L
-        return if (seconds < 90L) "$seconds s" else "${seconds / 60L} min"
     }
 
     private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(

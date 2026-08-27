@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -20,11 +19,13 @@ import app.aapswear.complications.R as ComplicationR
 import app.aapswear.model.BasalState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticSeverity
-import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.WearGlucoseCardInput
+import app.aapswear.model.WearGlucoseCardStyle
+import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +58,6 @@ class WearActivity : Activity() {
     private lateinit var trendArrow2: ImageView
     private lateinit var delta: TextView
     private lateinit var age: TextView
-    private lateinit var glucoseStatus: TextView
     private lateinit var source: TextView
     private lateinit var connection: TextView
     private lateinit var syncHint: TextView
@@ -189,7 +189,6 @@ class WearActivity : Activity() {
         trendArrow2 = findViewById(R.id.wear_trend_arrow_2)
         delta = findViewById(R.id.wear_delta)
         age = findViewById(R.id.wear_age)
-        glucoseStatus = findViewById(R.id.wear_glucose_status)
         source = findViewById(R.id.wear_source)
         connection = findViewById(R.id.wear_connection)
         syncHint = findViewById(R.id.wear_sync_hint)
@@ -236,43 +235,53 @@ class WearActivity : Activity() {
             applyUiColors(preferences)
         }
 
-        val freshness = TherapyDisplayFormatter.freshness(state, now)
-        val canShowValue = glucoseState != null && freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
         val thresholds = preferences.cgmThresholds
         val resolvedUnit = resolveUnit(glucoseState?.displayUnit, preferences.glucoseUnit)
+        val glucosePresentation = wearGlucoseCardPresentation(
+            WearGlucoseCardInput(
+                valueMgDl = glucoseState?.valueMgDl,
+                displayUnit = resolvedUnit,
+                deltaMgDl = glucoseState?.deltaMgDl,
+                trend = glucoseState?.trend ?: app.aapswear.model.Trend.UNKNOWN,
+                measuredAtEpochMs = glucoseState?.measuredAtEpochMs,
+                quality = glucoseState?.quality ?: app.aapswear.model.CgmQuality.INVALID,
+                sourceLabel = TherapyDisplayFormatter.sourceName(state?.source),
+            ),
+            thresholds,
+            now,
+        )
+        val canShowValue = glucosePresentation.displayable
 
         val glucoseSectionChanged =
             firstRender || refreshClock || previousState?.glucose != glucoseState ||
                 previousState?.target != state?.target ||
+                previousState?.source != state?.source ||
                 previousPreferences?.glucoseUnit != preferences.glucoseUnit ||
                 previousPreferences?.uiColors != preferences.uiColors
 
         if (glucoseSectionChanged) {
-            glucose.text = if (canShowValue) formatGlucose(glucoseState.valueMgDl, resolvedUnit) else "—"
-
-            val rangeClass = glucoseState?.valueMgDl?.let(thresholds::classify)
+            val presentation = glucosePresentation
+            glucose.text = presentation.value
             val valueColor = when {
-                !canShowValue -> preferences.uiColors.textPrimary
-                rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
-                rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
-                rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
-                rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
+                !presentation.displayable -> preferences.uiColors.textPrimary
+                presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
+                presentation.rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
+                presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
+                presentation.rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
                 else -> preferences.uiColors.glucoseInRange
             }
             glucose.setTextColor(valueColor)
             val glucoseFill = preferences.uiColors.tileBackground
             renderTrend(
-                trend = if (canShowValue) glucoseState.trend else null,
+                trend = presentation.trend,
                 color = valueColor,
                 background = glucoseFill,
             )
-            delta.text = if (canShowValue) formatDelta(glucoseState.deltaMgDl, resolvedUnit) else "—"
-            age.text = ageMinutes(glucoseState?.measuredAtEpochMs, now)
-            glucoseStatus.text = freshnessLabel(freshness)
-            glucoseStatus.setTextColor(freshnessColor(freshness, preferences))
+            delta.text = presentation.primaryMeta
+            age.text = presentation.secondaryMeta
 
             findViewById<View>(R.id.wear_glucose_card).background =
-                roundedBackground(glucoseFill, preferences.uiColors.tileBorder, 26f)
+                roundedBackground(glucoseFill, preferences.uiColors.tileBorder, WearGlucoseCardStyle.CARD_RADIUS_DP)
         }
 
         chart.bind(
@@ -408,31 +417,6 @@ class WearActivity : Activity() {
         )
     }
 
-    private fun freshnessLabel(freshness: Freshness): String = when (freshness) {
-        Freshness.CURRENT -> "AKTUELL"
-        Freshness.DELAYED -> "VERZÖGERT"
-        Freshness.STALE -> "VERALTET · KEINE AKTUELLEN DATEN"
-        Freshness.ERROR -> "SENSORFEHLER · KEIN GÜLTIGER WERT"
-        Freshness.NO_DATA -> "KEINE DATEN"
-    }
-
-    private fun freshnessColor(freshness: Freshness, preferences: WearDisplayPreferences): Int = when (freshness) {
-        Freshness.CURRENT -> preferences.uiColors.accent
-        Freshness.DELAYED -> DELAYED_ACCENT
-        Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> preferences.uiColors.glucoseLow
-    }
-
-    private fun blendArgb(base: Int, overlay: Int, fraction: Float): Int {
-        val amount = fraction.coerceIn(0f, 1f)
-        fun channel(a: Int, b: Int) = (a + (b - a) * amount).roundToInt().coerceIn(0, 255)
-        return Color.argb(
-            channel(Color.alpha(base), Color.alpha(overlay)),
-            channel(Color.red(base), Color.red(overlay)),
-            channel(Color.green(base), Color.green(overlay)),
-            channel(Color.blue(base), Color.blue(overlay)),
-        )
-    }
-
     private fun roundedBackground(fill: Int, border: Int, radiusDp: Float): GradientDrawable =
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
@@ -541,23 +525,6 @@ class WearActivity : Activity() {
         WatchGlucoseUnit.MMOL_L -> GlucoseUnit.MMOL_L
     }
 
-    private fun formatGlucose(valueMgDl: Double, unit: GlucoseUnit): String =
-        if (unit == GlucoseUnit.MMOL_L) {
-            String.format(Locale.getDefault(), "%.1f", valueMgDl / 18.0)
-        } else valueMgDl.roundToInt().toString()
-
-    private fun formatDelta(valueMgDl: Double?, unit: GlucoseUnit): String {
-        valueMgDl ?: return "—"
-        val value = if (unit == GlucoseUnit.MMOL_L) valueMgDl / 18.0 else valueMgDl
-        val prefix = if (value >= 0.0) "+" else ""
-        return prefix + if (unit == GlucoseUnit.MMOL_L) {
-            String.format(Locale.getDefault(), "%.1f", value)
-        } else value.roundToInt().toString()
-    }
-
-    private fun ageMinutes(timestamp: Long?, now: Long): String =
-        timestamp?.let { "${((now - it).coerceAtLeast(0L) / 60_000L)} min" } ?: "—"
-
     private fun formatNumber(value: Double?, digits: Int, suffix: String): String =
         value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
 
@@ -566,8 +533,6 @@ class WearActivity : Activity() {
         private const val WATCH_FACE_PERMISSION_REQUEST = 701
         private const val ONBOARDING_PREFS = "wear_onboarding"
         private const val KEY_WFP_PERMISSION_REQUESTED = "watchface_permission_requested"
-        private const val IN_RANGE_SURFACE_ACCENT = 0xFF54DF30.toInt()
-        private const val DELAYED_ACCENT = 0xFFFFD040.toInt()
     }
 }
 

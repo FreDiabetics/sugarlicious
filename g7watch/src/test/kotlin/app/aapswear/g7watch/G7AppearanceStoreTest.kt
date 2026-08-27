@@ -32,6 +32,8 @@ class G7AppearanceStoreTest {
         assertEquals(6, G7AppearanceStore(context).graphHours())
         assertEquals(12, store.nextGraphHours())
         assertEquals(24, store.nextGraphHours())
+        assertEquals(1, store.nextGraphHours())
+        assertEquals(2, store.nextGraphHours())
         assertEquals(3, store.nextGraphHours())
     }
 }

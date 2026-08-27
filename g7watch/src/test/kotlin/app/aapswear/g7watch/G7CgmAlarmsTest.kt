@@ -28,6 +28,21 @@ class G7CgmAlarmsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val notificationManager by lazy { context.getSystemService(NotificationManager::class.java) }
 
+    @Test
+    fun `every collector alarm keeps its dedicated bundled sound`() {
+        val expected = mapOf(
+            CgmAlarmType.VERY_HIGH to R.raw.alerts_sounds_high_alert,
+            CgmAlarmType.HIGH to R.raw.alerts_sounds_high,
+            CgmAlarmType.LOW to R.raw.alerts_sounds_low,
+            CgmAlarmType.VERY_LOW to R.raw.alerts_sounds_urgent_low_alarm,
+            CgmAlarmType.RAPID_RISE to R.raw.alerts_sounds_rise_rate,
+            CgmAlarmType.RAPID_FALL to R.raw.alerts_sounds_fall_rate,
+            CgmAlarmType.SIGNAL_LOSS to R.raw.alerts_sounds_signal_loss_alert,
+            CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
+        )
+        assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundResource))
+    }
+
     @Before
     fun setUp() {
         context.getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE).edit().clear().commit()

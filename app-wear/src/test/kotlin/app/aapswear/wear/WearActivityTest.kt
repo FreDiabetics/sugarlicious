@@ -134,6 +134,7 @@ class WearActivityTest {
             delta.textSize,
             0.5f,
         )
+        assertEquals(0, activity.resources.getIdentifier("wear_glucose_status", "id", activity.packageName))
     }
 
     @Test

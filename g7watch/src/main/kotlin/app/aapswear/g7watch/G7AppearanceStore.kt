@@ -23,8 +23,10 @@ enum class G7AppearanceRole(
     MENU_PRIMARY("menu_primary", "Primär / Sugarlicious", G7AppearanceSection.MENU, 0xFF6DE892.toInt()),
 
     GLUCOSE_LOW("glucose_low", "Glukose · tief", G7AppearanceSection.GLUCOSE, 0xFFFF5C69.toInt()),
+    GLUCOSE_VERY_LOW("glucose_very_low", "Glukose · sehr tief", G7AppearanceSection.GLUCOSE, 0xFFFF3048.toInt()),
     GLUCOSE_IN_RANGE("glucose_in_range", "Glukose · im Ziel", G7AppearanceSection.GLUCOSE, 0xFFFFFFFF.toInt()),
     GLUCOSE_HIGH("glucose_high", "Glukose · hoch", G7AppearanceSection.GLUCOSE, 0xFFFFD040.toInt()),
+    GLUCOSE_VERY_HIGH("glucose_very_high", "Glukose · sehr hoch", G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
     GLUCOSE_TREND("glucose_trend", "Trendpfeil", G7AppearanceSection.GLUCOSE, 0xFFFFFFFF.toInt()),
     GLUCOSE_DELTA("glucose_delta", "Delta / Alter", G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt()),
     GLUCOSE_DELAYED("glucose_delayed", "DELAYED", G7AppearanceSection.GLUCOSE, 0xFFF4DE00.toInt()),
@@ -98,7 +100,7 @@ class G7AppearanceStore(context: Context) {
     private fun colorKey(role: G7AppearanceRole): String = "color.${role.key}"
 
     companion object {
-        val ALLOWED_GRAPH_HOURS = listOf(3, 6, 12, 24)
+        val ALLOWED_GRAPH_HOURS = listOf(1, 2, 3, 6, 12, 24)
         const val DEFAULT_GRAPH_HOURS = 3
         private const val PREFERENCES = "g7_appearance"
         private const val KEY_GRAPH_HOURS = "graph_hours"

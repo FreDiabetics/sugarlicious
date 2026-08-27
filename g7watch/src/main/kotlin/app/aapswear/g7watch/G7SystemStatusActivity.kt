@@ -143,7 +143,7 @@ class G7SystemStatusActivity : Activity() {
                 addView(row("Verbindungsweg", liveCollectorPath(cycle, livePhase), palette))
                 addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
                 addView(row("Letzte Verbindung", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
-                addView(row("FGS", if (state.collectorEnabled && (state.activeAttemptId != null || state.nextReconnectEpochMs != null)) "Aktiv/geplant" else "Nicht aktiv", palette))
+                addView(row("FGS", if (G7CollectorService.isServiceRunning()) "Aktiv" else "Nicht aktiv", palette))
             }, cardParams())
 
             addView(group("SYSTEMSTATUS", palette).apply {

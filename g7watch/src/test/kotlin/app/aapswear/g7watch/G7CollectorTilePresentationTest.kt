@@ -42,20 +42,23 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `only glucose card changes color outside target range`() {
+    fun `glucose card stays neutral while value follows range color`() {
         val low = g7TilePresentation(reading(69.0), colors, now)
         val normal = g7TilePresentation(reading(123.0), colors, now)
         val high = g7TilePresentation(reading(181.0), colors, now)
 
-        assertEquals(colors.cgmLow, low.cardBackground)
+        assertEquals(G7_TILE_CARD_BACKGROUND, low.cardBackground)
         assertEquals(G7_TILE_CARD_BACKGROUND, normal.cardBackground)
-        assertEquals(colors.cgmHigh, high.cardBackground)
+        assertEquals(G7_TILE_CARD_BACKGROUND, high.cardBackground)
+        assertEquals(colors.cgmLow, low.cardForeground)
+        assertEquals(G7_TILE_TEXT_PRIMARY, normal.cardForeground)
+        assertEquals(colors.cgmHigh, high.cardForeground)
         assertEquals(G7_TILE_BACKGROUND, 0xFF181818.toInt())
         assertEquals(G7_TILE_CARD_BORDER, 0xFF404040.toInt())
     }
 
     @Test
-    fun `tile shows vector trend delta and age without glucose unit text`() {
+    fun `tile shows vector trend delta unit source and age`() {
         val presentation = g7TilePresentation(
             reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
             colors,
@@ -65,8 +68,10 @@ class G7CollectorTilePresentationTest {
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
         assertTrue(presentation.tileMeta.contains("+5"))
-        assertTrue(presentation.tileMeta.contains("vor 2 min"))
-        assertFalse(presentation.tileMeta.contains("mg/dL"))
+        assertTrue(presentation.tileMeta.contains("2 min"))
+        assertTrue(presentation.tileMeta.contains("mg/dL"))
+        assertTrue(presentation.tileMeta.contains("Watch Direct"))
+        assertFalse(presentation.tileMeta.contains("Aktuell", ignoreCase = true))
     }
 
     @Test
@@ -84,8 +89,8 @@ class G7CollectorTilePresentationTest {
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)
-        assertEquals("Δ +5", up.meta)
-        assertEquals("gerade", up.age)
+        assertEquals("Δ +5 · mg/dL", up.meta)
+        assertEquals("0 min · Watch Direct", up.age)
         assertEquals(up.cardBackground, up.background)
         assertEquals(up.cardForeground, up.foreground)
     }

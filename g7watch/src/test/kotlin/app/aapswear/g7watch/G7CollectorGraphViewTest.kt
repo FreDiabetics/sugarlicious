@@ -194,7 +194,7 @@ class G7CollectorGraphViewTest {
                 ),
             )
 
-        assertEquals(7, expectedFiles.size)
+        assertEquals(G7AppearanceStore.ALLOWED_GRAPH_HOURS.size + 3, expectedFiles.size)
         expectedFiles.forEach { file ->
             assertTrue("Missing visual QA preview: ${file.path}", file.isFile)
             assertTrue("Empty visual QA preview: ${file.path}", file.length() > 0L)
