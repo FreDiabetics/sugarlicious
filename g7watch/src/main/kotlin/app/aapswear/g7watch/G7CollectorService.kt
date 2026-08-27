@@ -49,6 +49,12 @@ internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean =
 internal fun shouldCoalesceG7CollectorTrigger(automatic: Boolean, activeCycle: Boolean): Boolean =
     automatic && activeCycle
 
+internal fun needsG7FollowUpRepair(
+    collectorEnabled: Boolean,
+    pendingReconnectEpochMs: Long?,
+    nowEpochMs: Long,
+): Boolean = collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
+
 internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState =
     state.copy(
         connectionState = G7ConnectionState.DISCONNECTED,
@@ -441,51 +447,9 @@ class G7CollectorService : Service() {
             )
             store.save(next)
 
-            attemptStore.record(
-                attemptId,
-                CollectorDiagnosticStage.SYNC,
-                CollectorDiagnosticResult.INFO,
-                "Direkter G7-Wert bleibt Watch-lokal; Tiles und Complications werden lokal aktualisiert",
-                sensorId = reading.sensorId,
-                sequence = reading.sequenceNumber,
-            )
-            applicationContext.recordG7Diagnostic(
-                "G7-DATA-200",
-                when {
-                    reading.status == CgmReadingStatus.VALID && fresh -> "Fresh validated G7 reading stored locally on Watch"
-                    reading.status == CgmReadingStatus.VALID -> "Aged validated G7 reading stored locally on Watch"
-                    reading.status == CgmReadingStatus.SENSOR_ERROR -> "Validated G7 sensor-error status stored locally on Watch"
-                    else -> "Invalid G7 glucose stored for diagnostics only"
-                },
-                metadata = mapOf(
-                    "sequence" to reading.sequenceNumber,
-                    "sensorState" to result.reading.sensorState,
-                    "sensorClockSeconds" to reading.rawSourceTimestamp,
-                    "sensorAgeSeconds" to reading.sensorAgeSeconds,
-                    "measurementTimestamp" to reading.timestampEpochMs,
-                    "freshCycle" to fresh,
-                    "mobileBackfill" to false,
-                ),
-            )
-
-            if (fresh) {
-                G7ErrorNotifier.markRecovered(this)
-                G7CgmAlarmCoordinator.onReading(this, reading)
-            }
-            // For aged/invalid packets next.lastReading still points to the last fresh value, so
-            // signal loss remains anchored to real current data rather than receive time.
-            val scheduledReconnectAt = scheduleReconnect(next) ?: next.nextReconnectEpochMs
-            G7SignalLossMonitor.scheduleFromState(this, next)
-            scheduledReconnectAt?.let { reconnectAt ->
-                attemptStore.record(
-                    attemptId,
-                    CollectorDiagnosticStage.WAITING_FOR_WINDOW,
-                    CollectorDiagnosticResult.INFO,
-                    "Nächstes Sensorfenster geplant",
-                    durationMs = (reconnectAt - System.currentTimeMillis()).coerceAtLeast(0L),
-                )
-            }
-
+            // Persistence is the collector's critical commit point. Finalize the attempt before
+            // notifications, alarm presentation or the general diagnostic stream: none of those
+            // secondary consumers may leave an already stored glucose packet looking HUNG.
             val classification = when {
                 reading.status == CgmReadingStatus.INVALID -> CollectorCycleClassification.INVALID_PACKET
                 reading.status == CgmReadingStatus.VALID && fresh -> CollectorCycleClassification.SUCCESS_FRESH
@@ -519,6 +483,50 @@ class G7CollectorService : Service() {
                 durationMs = storedAt - startedAt,
                 nowEpochMs = storedAt,
             )
+
+            try {
+                applicationContext.recordG7Diagnostic(
+                    "G7-DATA-200",
+                    when {
+                        reading.status == CgmReadingStatus.VALID && fresh -> "Fresh validated G7 reading stored locally on Watch"
+                        reading.status == CgmReadingStatus.VALID -> "Aged validated G7 reading stored locally on Watch"
+                        reading.status == CgmReadingStatus.SENSOR_ERROR -> "Validated G7 sensor-error status stored locally on Watch"
+                        else -> "Invalid G7 glucose stored for diagnostics only"
+                    },
+                    metadata = mapOf(
+                        "sequence" to reading.sequenceNumber,
+                        "sensorState" to result.reading.sensorState,
+                        "sensorClockSeconds" to reading.rawSourceTimestamp,
+                        "sensorAgeSeconds" to reading.sensorAgeSeconds,
+                        "measurementTimestamp" to reading.timestampEpochMs,
+                        "freshCycle" to fresh,
+                        "mobileBackfill" to false,
+                    ),
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                // The collector attempt is already durably COMPLETE; diagnostics are best effort.
+            }
+
+            if (fresh) {
+                runCatching { G7ErrorNotifier.markRecovered(this) }
+                runCatching { G7CgmAlarmCoordinator.onReading(this, reading) }
+            }
+            // For aged/invalid packets next.lastReading still points to the last fresh value, so
+            // signal loss remains anchored to real current data rather than receive time.
+            val scheduledReconnectAt = scheduleReconnect(next) ?: next.nextReconnectEpochMs
+            G7SignalLossMonitor.scheduleFromState(this, next)
+            scheduledReconnectAt?.let { reconnectAt ->
+                attemptStore.record(
+                    attemptId,
+                    CollectorDiagnosticStage.WAITING_FOR_WINDOW,
+                    CollectorDiagnosticResult.INFO,
+                    "Nächstes Sensorfenster geplant",
+                    durationMs = (reconnectAt - System.currentTimeMillis()).coerceAtLeast(0L),
+                )
+            }
+
             updateForeground(
                 when (classification) {
                     CollectorCycleClassification.SUCCESS_FRESH -> "${reading.glucoseMgDl.toInt()} mg/dL · Verbunden"
@@ -842,7 +850,16 @@ class G7CollectorService : Service() {
         releaseCycleWakeLock()
         G7WakeHandoff.release()
         if (token == cycleToken) collectionJob = null
-        val current = store.read()
+        var current = store.read()
+        val now = System.currentTimeMillis()
+        val pendingReconnect = attemptStore.pendingScheduledCycle()?.requestedReconnectEpoch
+        if (needsG7FollowUpRepair(current.collectorEnabled, pendingReconnect, now)) {
+            val repaired = G7ReconnectAlarmScheduler.scheduleRecovery(this, current, now)
+            repaired?.requestedReconnectEpoch?.let { reconnectAt ->
+                current = current.copy(nextReconnectEpochMs = reconnectAt)
+                store.save(current)
+            }
+        }
         if (shouldKeepG7RuntimeForeground(current.collectorEnabled)) {
             val message = when (current.protocolState) {
                 G7ProtocolState.WAITING_FOR_NEXT_READING -> "Dauerbetrieb aktiv · wartet auf nächstes Sensorfenster"

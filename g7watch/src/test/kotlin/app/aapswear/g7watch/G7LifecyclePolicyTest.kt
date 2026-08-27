@@ -19,6 +19,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7LifecyclePolicyTest {
+    @Test fun `collector repairs missing or expired follow up but preserves future alarm`() {
+        val now = 1_000_000L
+        assertTrue(needsG7FollowUpRepair(true, null, now))
+        assertTrue(needsG7FollowUpRepair(true, now, now))
+        assertTrue(needsG7FollowUpRepair(true, now - 1L, now))
+        assertFalse(needsG7FollowUpRepair(false, null, now))
+        assertFalse(needsG7FollowUpRepair(true, now + 1L, now))
+    }
     @Test fun `enabled collector restores after boot`() {
         assertTrue(shouldRestoreG7Collector(Intent.ACTION_BOOT_COMPLETED, collectorEnabled = true))
     }
