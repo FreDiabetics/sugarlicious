@@ -415,6 +415,16 @@ internal class AndroidG7Collector(
 
 private class G7BondReconnectRequired(val sharedKey: ByteArray) : Exception()
 
+internal enum class G7BondWaitDecision { KEEP_WAITING, BONDED, FAILED }
+
+internal fun g7BondWaitDecision(bondState: Int, observedBonding: Boolean): G7BondWaitDecision =
+    when (bondState) {
+        BluetoothDevice.BOND_BONDED -> G7BondWaitDecision.BONDED
+        BluetoothDevice.BOND_BONDING -> G7BondWaitDecision.KEEP_WAITING
+        BluetoothDevice.BOND_NONE -> if (observedBonding) G7BondWaitDecision.FAILED else G7BondWaitDecision.KEEP_WAITING
+        else -> G7BondWaitDecision.KEEP_WAITING
+    }
+
 private class G7GattConnection(
     private val context: Context,
     private val sensor: G7Sensor,
@@ -571,8 +581,25 @@ private class G7GattConnection(
     private suspend fun ensureBonded(device: BluetoothDevice) {
         if (device.bondState == BluetoothDevice.BOND_BONDED) return
         if (!device.createBond()) throw G7BleException("G7-AUTH-206", "Bluetooth-Kopplung konnte nicht gestartet werden", false)
-        withTimeout(BOND_TIMEOUT_MS) {
-            while (device.bondState == BluetoothDevice.BOND_BONDING) delay(250L)
+
+        // createBond() is asynchronous. On real Wear OS hardware it can return true a few
+        // milliseconds before bondState changes from NONE to BONDING. Treating that initial NONE
+        // as a terminal failure closes the GATT client while Android is only just starting SMP.
+        var observedBonding = false
+        try {
+            withTimeout(BOND_TIMEOUT_MS) {
+                while (true) {
+                    val bondState = device.bondState
+                    when (g7BondWaitDecision(bondState, observedBonding)) {
+                        G7BondWaitDecision.BONDED, G7BondWaitDecision.FAILED -> return@withTimeout
+                        G7BondWaitDecision.KEEP_WAITING -> Unit
+                    }
+                    if (bondState == BluetoothDevice.BOND_BONDING) observedBonding = true
+                    delay(BOND_STATE_POLL_MS)
+                }
+            }
+        } catch (_: TimeoutCancellationException) {
+            // Converted below into the stable, user-facing authentication error.
         }
         if (device.bondState != BluetoothDevice.BOND_BONDED) {
             throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", false)
@@ -713,6 +740,7 @@ private class G7GattConnection(
         const val CONNECTION_TIMEOUT_MS = 20_000L
         const val OPERATION_TIMEOUT_MS = 15_000L
         const val BOND_TIMEOUT_MS = 35_000L
+        const val BOND_STATE_POLL_MS = 250L
         const val EXTRA_CHUNK_BYTES = 20
         const val EXTRA_CHUNK_DELAY_MS = 40L
         const val EXTRA_SETTLE_DELAY_MS = 500L

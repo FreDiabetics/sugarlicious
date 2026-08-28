@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothDevice
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.CollectorCycleClassification
@@ -13,6 +14,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `bonding waits through asynchronous initial bond none state`() {
+        assertEquals(
+            G7BondWaitDecision.KEEP_WAITING,
+            g7BondWaitDecision(BluetoothDevice.BOND_NONE, observedBonding = false),
+        )
+        assertEquals(
+            G7BondWaitDecision.KEEP_WAITING,
+            g7BondWaitDecision(BluetoothDevice.BOND_BONDING, observedBonding = false),
+        )
+        assertEquals(
+            G7BondWaitDecision.BONDED,
+            g7BondWaitDecision(BluetoothDevice.BOND_BONDED, observedBonding = true),
+        )
+    }
+
+    @Test fun `bonding none is terminal only after bonding was observed`() {
+        assertEquals(
+            G7BondWaitDecision.FAILED,
+            g7BondWaitDecision(BluetoothDevice.BOND_NONE, observedBonding = true),
+        )
+    }
+
     @Test fun `direct connect callbacks retain actionable platform outcomes`() {
         assertEquals(DirectConnectResult.SUCCESS, classifyDirectConnectCallback(BluetoothGatt.GATT_SUCCESS, android.bluetooth.BluetoothProfile.STATE_CONNECTED))
         assertEquals(DirectConnectResult.STATUS_133, classifyDirectConnectCallback(133, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
