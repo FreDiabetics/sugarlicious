@@ -177,11 +177,22 @@ class WearActivityTest {
     }
 
     @Test
-    fun `watch config persists phone display preferences`() {
+    fun `watch config does not overwrite independent local display preferences`() {
         val context =
             ApplicationProvider.getApplicationContext<
                 android.content.Context
             >()
+
+        WearDisplayPreferences.saveLocal(
+            context,
+            WearDisplayPreferences(
+                graphHours = 12,
+                showPredictions = true,
+                glucoseUnit = WatchGlucoseUnit.MG_DL,
+                showTherapyStats = true,
+                uiColors = WatchUiColors(basal = 0xFFABCDEF.toInt()),
+            ),
+        )
 
         WearDisplayPreferences.save(
             context,
@@ -198,14 +209,14 @@ class WearActivityTest {
         val preferences =
             WearDisplayPreferences.read(context)
 
-        assertEquals(6, preferences.graphHours)
-        assertEquals(false, preferences.showPredictions)
+        assertEquals(12, preferences.graphHours)
+        assertEquals(true, preferences.showPredictions)
         assertEquals(
-            WatchGlucoseUnit.MMOL_L,
+            WatchGlucoseUnit.MG_DL,
             preferences.glucoseUnit,
         )
-        assertEquals(false, preferences.showTherapyStats)
-        assertEquals(0xFF123456.toInt(), preferences.uiColors.basal)
+        assertEquals(true, preferences.showTherapyStats)
+        assertEquals(0xFFABCDEF.toInt(), preferences.uiColors.basal)
         assertEquals(1234L, preferences.syncedAtEpochMs)
     }
 }

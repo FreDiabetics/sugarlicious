@@ -149,9 +149,11 @@ internal data class WearDisplayPreferences(
         }
 
         /**
-         * Applies the phone configuration until the user customizes the Watch locally. Once local
-         * settings exist, sync still updates the timestamp but no longer silently overwrites the
-         * Watch color pickers, graph scale or dot style every time the Watch app requests data.
+         * Records operational sync metadata without changing this app's display settings.
+         *
+         * Wear appearance, graph scale, units and visibility options are independent local state.
+         * A phone may still provide data and select the active source, but routine synchronization
+         * must never act as a remote appearance editor.
          */
         fun save(
             context: Context,
@@ -167,32 +169,10 @@ internal data class WearDisplayPreferences(
                 config.sentAtEpochMs.takeIf { it > 0L }
                     ?: System.currentTimeMillis()
 
-            if (preferences.getBoolean(KEY_LOCAL_CUSTOMIZED, false)) {
-                preferences.edit()
-                    .putLong(KEY_SYNCED_AT, syncedAt)
-                    .putString(KEY_DATA_SOURCE, config.dataSource.name)
-                    .apply()
-                notifyG7CollectorSourceTransition(context, previousSource, config.dataSource)
-                return
-            }
-
-            write(
-                context = context,
-                value =
-                    WearDisplayPreferences(
-                        graphHours = config.graphHours,
-                        showPredictions = config.showPredictions,
-                        glucoseUnit = config.glucoseUnit,
-                        dataSource = config.dataSource,
-                        showTherapyStats = config.showTherapyStats,
-                        syncedAtEpochMs = syncedAt,
-                        graphColors = config.graphColors,
-                        graphStyle = config.graphStyle,
-                        uiColors = config.uiColors,
-                        cgmThresholds = config.cgmThresholds,
-                    ),
-                markLocal = false,
-            )
+            preferences.edit()
+                .putLong(KEY_SYNCED_AT, syncedAt)
+                .putString(KEY_DATA_SOURCE, config.dataSource.name)
+                .apply()
             notifyG7CollectorSourceTransition(context, previousSource, config.dataSource)
         }
 
