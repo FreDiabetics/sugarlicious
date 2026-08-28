@@ -212,7 +212,10 @@ $specs = @(
     @{ Name = "19a"; Kind = "Text"; Text = "100%"; Title = "70–180" },
     @{ Name = "19b"; Kind = "Goal"; Text = "100%"; Progress = 1.0 },
     @{ Name = "19c"; Kind = "Weighted" },
-    @{ Name = "20"; Kind = "Text"; Text = "16"; Title = "MON" }
+    @{ Name = "20"; Kind = "Text"; Text = "16"; Title = "MON" },
+    @{ Name = "21"; Kind = "Text"; Text = "80%" },
+    @{ Name = "22"; Kind = "Text"; Text = "85%" },
+    @{ Name = "23"; Kind = "Text"; Text = "123→" }
 )
 
 $specs | ForEach-Object { Render-ProviderIcon $_ }

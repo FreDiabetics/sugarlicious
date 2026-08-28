@@ -1,10 +1,12 @@
 package app.aapswear.complications
 
 import app.aapswear.model.CarbState
+import app.aapswear.model.DeviceState
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
+import app.aapswear.model.PumpState
 import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,9 +58,31 @@ class ComplicationUpdatePlannerTest {
                 IobRangedValueComplication::class.java,
                 IobCobBasalComplication::class.java,
                 IobCobBasalLongTextComplication::class.java,
+                AapsStatusComplication::class.java,
             ),
             affected.toSet(),
         )
+    }
+
+    @Test
+    fun `pump and phone battery providers receive their own updates`() {
+        val old = state()
+
+        val pumpAffected =
+            ComplicationUpdatePlanner.affectedProviders(
+                old,
+                old.copy(pump = PumpState(reservoirUnits = 120.0, batteryPercent = 72)),
+            )
+        assertTrue(PumpBatteryComplication::class.java in pumpAffected)
+        assertTrue(ReservoirComplication::class.java in pumpAffected)
+        assertFalse(PhoneBatteryComplication::class.java in pumpAffected)
+
+        val phoneAffected =
+            ComplicationUpdatePlanner.affectedProviders(
+                old,
+                old.copy(device = DeviceState(phoneBatteryPercent = 85)),
+            )
+        assertEquals(listOf(PhoneBatteryComplication::class.java), phoneAffected)
     }
 
     @Test

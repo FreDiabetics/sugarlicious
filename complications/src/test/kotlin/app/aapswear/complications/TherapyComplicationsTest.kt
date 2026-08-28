@@ -9,6 +9,7 @@ import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -22,9 +23,12 @@ class TherapyComplicationsTest {
 
     @Test
     fun `all documented providers remain active`() {
-        assertEquals(36, AllProviders.classes.distinct().size)
+        assertEquals(39, AllProviders.classes.distinct().size)
         assertEquals(GlucoseComplication::class.java, AllProviders.classes.first())
-        assertEquals(DateComplication::class.java, AllProviders.classes.last())
+        assertTrue(DateComplication::class.java in AllProviders.classes)
+        assertTrue(PumpBatteryComplication::class.java in AllProviders.classes)
+        assertTrue(PhoneBatteryComplication::class.java in AllProviders.classes)
+        assertTrue(AapsStatusComplication::class.java in AllProviders.classes)
     }
 
     @Test
@@ -49,6 +53,38 @@ class TherapyComplicationsTest {
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
         assertEquals("123", data.text.getTextAt(service.resources, Instant.now()).toString())
         assertNotNull(data.monochromaticImage)
+    }
+
+    @Test
+    fun `G6 header uses normalized trend icon and every G6 preview is tappable`() {
+        val headerService = Robolectric.buildService(G6StyleHeaderComplication::class.java).create().get()
+        val header = headerService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertEquals("152", header.text.getTextAt(headerService.resources, Instant.now()).toString())
+        assertNotNull(header.monochromaticImage)
+        assertNotNull(header.tapAction)
+
+        val statusService = Robolectric.buildService(G6StyleStatusComplication::class.java).create().get()
+        val status = statusService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertNotNull(status.tapAction)
+
+        val graphService = Robolectric.buildService(G6StyleGraphComplication::class.java).create().get()
+        val graph = graphService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
+        assertNotNull(graph.tapAction)
+    }
+
+    @Test
+    fun `watchface compatibility providers expose current previews`() {
+        val pumpService = Robolectric.buildService(PumpBatteryComplication::class.java).create().get()
+        val pump = pumpService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertEquals("80%", pump.text.getTextAt(pumpService.resources, Instant.now()).toString())
+
+        val phoneService = Robolectric.buildService(PhoneBatteryComplication::class.java).create().get()
+        val phone = phoneService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertEquals("85%", phone.text.getTextAt(phoneService.resources, Instant.now()).toString())
+
+        val statusService = Robolectric.buildService(AapsStatusComplication::class.java).create().get()
+        val status = statusService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertEquals("123↗", status.text.getTextAt(statusService.resources, Instant.now()).toString())
     }
 
     @Test

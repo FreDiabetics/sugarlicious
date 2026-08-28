@@ -1,5 +1,7 @@
 package app.aapswear.complications
 
+import android.app.PendingIntent
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -18,6 +20,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
@@ -38,6 +41,7 @@ import kotlin.math.roundToInt
 internal data class G6StyleHeaderPresentation(
     val text: String,
     val title: String,
+    val trend: Trend? = null,
 )
 
 internal data class G6StyleStatusPresentation(
@@ -63,8 +67,9 @@ internal object G6StylePresentationFormatter {
         val arrow = TherapyDisplayFormatter.trendArrow(glucose.trend)
         val value = TherapyDisplayFormatter.glucose(glucose)
         return G6StyleHeaderPresentation(
-            text = listOf(value, arrow).filter(String::isNotBlank).joinToString(" "),
+            text = value,
             title = unitLabel(glucose.displayUnit),
+            trend = glucose.trend.takeIf { arrow.isNotBlank() },
         )
     }
 
@@ -153,6 +158,24 @@ abstract class G6StyleComplicationService : SuspendingComplicationDataSourceServ
         nowEpochMs: Long,
     ): ComplicationData
 
+    protected fun tapAction(): PendingIntent =
+        PendingIntent.getActivity(
+            this,
+            javaClass.name.hashCode(),
+            packageManager.getLaunchIntentForPackage(packageName) ?: Intent(),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    protected fun readThresholds(): CgmThresholds {
+        val preferences = getSharedPreferences("watch_display", MODE_PRIVATE)
+        return CgmThresholds(
+            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
+            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
+            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
+            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
+        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+    }
+
     private fun previewState(): TherapyDisplayState {
         val now = System.currentTimeMillis()
         val history = (0..36).map { index ->
@@ -190,6 +213,12 @@ class G6StyleHeaderComplication : G6StyleComplicationService() {
             PlainComplicationText.Builder("Sugarlicious G6 Style ${presentation.text}").build(),
         )
             .setTitle(PlainComplicationText.Builder(presentation.title).build())
+            .also { builder ->
+                presentation.trend?.let { trend ->
+                    TrendComplicationIcon.monochromaticImage(this, trend)?.let(builder::setMonochromaticImage)
+                }
+            }
+            .setTapAction(tapAction())
             .setValidTimeRange(G6StylePresentationFormatter.validTimeRange(state, nowEpochMs))
             .build()
     }
@@ -203,6 +232,7 @@ class G6StyleStatusComplication : G6StyleComplicationService() {
             PlainComplicationText.Builder("${presentation.text}, ${presentation.title}").build(),
         )
             .setTitle(PlainComplicationText.Builder(presentation.title).build())
+            .setTapAction(tapAction())
             .setValidTimeRange(G6StylePresentationFormatter.validTimeRange(state, nowEpochMs))
             .build()
     }
@@ -217,6 +247,7 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
             SmallImage.Builder(icon, SmallImageType.PHOTO).build(),
             description,
         )
+            .setTapAction(tapAction())
             .setValidTimeRange(G6StylePresentationFormatter.validTimeRange(state, nowEpochMs))
             .build()
     }
@@ -231,8 +262,9 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         val plotRight = width - 4f
         val plotTop = 4f
         val plotBottom = height - 4f
-        val targetLow = (state?.target?.lowMgDl ?: 70.0).coerceIn(40.0, 180.0)
-        val targetHigh = (state?.target?.highMgDl ?: 180.0).coerceIn(targetLow + 1.0, 300.0)
+        val thresholds = readThresholds()
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val colors = readGraphColors()
         val samples = G6StylePresentationFormatter.samples(state, nowEpochMs)
         val excursion = CgmGraphPolicy.rangeExcursion(samples, targetLow, targetHigh)

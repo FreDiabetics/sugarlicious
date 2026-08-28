@@ -155,6 +155,7 @@ abstract class TherapyComplicationService(
         state: TherapyDisplayState?,
     ): ComplicationData {
         val now = System.currentTimeMillis()
+        val thresholds = readCgmThresholds()
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, now)
         val displayable =
@@ -198,7 +199,7 @@ abstract class TherapyComplicationService(
             else -> null
         }
         val presentation = presentationId?.let {
-            ComplicationPresentationFormatter.format(it, state, now)
+            ComplicationPresentationFormatter.format(it, state, now, thresholds)
         }
 
         val pair: Pair<String, String> = presentation?.let {
@@ -257,7 +258,7 @@ abstract class TherapyComplicationService(
         }
 
         if (kind == ProviderKind.TIR && Build.VERSION.SDK_INT >= 33) {
-            val stats = tirStats(state, now)
+            val stats = tirStats(state, now, thresholds)
             if (type == ComplicationType.GOAL_PROGRESS) {
                 return GoalProgressComplicationData.Builder(
                     stats.inRangePercent,
@@ -268,11 +269,12 @@ abstract class TherapyComplicationService(
                     .build()
             }
             if (type == ComplicationType.WEIGHTED_ELEMENTS) {
+                val graphColors = readGraphColors()
                 val elements = buildList {
-                    if (stats.lowPercent > 0f) add(WeightedElementsComplicationData.Element(stats.lowPercent, Color.rgb(244, 67, 54)))
-                    if (stats.inRangePercent > 0f) add(WeightedElementsComplicationData.Element(stats.inRangePercent, Color.rgb(76, 175, 80)))
-                    if (stats.highPercent > 0f) add(WeightedElementsComplicationData.Element(stats.highPercent, Color.rgb(255, 152, 0)))
-                    if (isEmpty()) add(WeightedElementsComplicationData.Element(1f, Color.GRAY))
+                    if (stats.lowPercent > 0f) add(WeightedElementsComplicationData.Element(stats.lowPercent, graphColors.cgmLow))
+                    if (stats.inRangePercent > 0f) add(WeightedElementsComplicationData.Element(stats.inRangePercent, graphColors.cgmInRange))
+                    if (stats.highPercent > 0f) add(WeightedElementsComplicationData.Element(stats.highPercent, graphColors.cgmHigh))
+                    if (isEmpty()) add(WeightedElementsComplicationData.Element(1f, graphColors.axisLabel))
                 }
                 return WeightedElementsComplicationData.Builder(elements, description)
                     .setText(PlainComplicationText.Builder(stats.text).build())
@@ -559,8 +561,9 @@ abstract class TherapyComplicationService(
         val glucose = state?.glucose
         val colors = readGraphColors()
         val graphStyle = readGraphStyle()
-        val targetLow = state?.target?.lowMgDl ?: DISPLAY_LOW_MGDL
-        val targetHigh = state?.target?.highMgDl ?: DISPLAY_HIGH_MGDL
+        val thresholds = readCgmThresholds()
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val density = resources.displayMetrics.density
         val plotLeft = 1f
         val plotRight = width - 1f
@@ -732,6 +735,16 @@ abstract class TherapyComplicationService(
         )
     }
 
+    private fun readCgmThresholds(): CgmThresholds {
+        val preferences = getSharedPreferences("watch_display", Context.MODE_PRIVATE)
+        return CgmThresholds(
+            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
+            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
+            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
+            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
+        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+    }
+
     private fun complicationIcon(
         kind: ProviderKind,
         state: TherapyDisplayState?,
@@ -782,18 +795,23 @@ abstract class TherapyComplicationService(
         val text: String get() = if (hasData) "${inRangePercent.toInt()}%" else DASH
     }
 
-    private fun tirStats(state: TherapyDisplayState?, now: Long): TirStats {
+    private fun tirStats(
+        state: TherapyDisplayState?,
+        now: Long,
+        thresholds: CgmThresholds,
+    ): TirStats {
         val samples = state?.glucoseHistory.orEmpty().filter {
             it.measuredAtEpochMs in (now - TIR_WINDOW_MS)..(now + FUTURE_TOLERANCE_MS)
         }
         if (samples.isEmpty()) return TirStats(0f, 0f, 0f, false)
         val total = samples.size.toFloat()
-        val low = samples.count { it.valueMgDl < TIR_LOW_MGDL } * 100f / total
-        val high = samples.count { it.valueMgDl > TIR_HIGH_MGDL } * 100f / total
+        val low = samples.count { it.valueMgDl < thresholds.lowMgDl } * 100f / total
+        val high = samples.count { it.valueMgDl > thresholds.highMgDl } * 100f / total
         return TirStats(low, (100f - low - high).coerceIn(0f, 100f), high, true)
     }
 
-    private fun tirText(state: TherapyDisplayState?, now: Long): String = tirStats(state, now).text
+    private fun tirText(state: TherapyDisplayState?, now: Long): String =
+        tirStats(state, now, readCgmThresholds()).text
 
     private fun compactTherapyStatus(
         state: TherapyDisplayState?,
@@ -936,8 +954,6 @@ abstract class TherapyComplicationService(
         private const val IOB_GAUGE_MAX = 10f
         private const val COB_GAUGE_MAX = 150f
         private const val SENSOR_AGE_GAUGE_MAX_DAYS = 14f
-        private const val TIR_LOW_MGDL = CgmThresholds.DEFAULT_LOW_MG_DL
-        private const val TIR_HIGH_MGDL = CgmThresholds.DEFAULT_HIGH_MG_DL
         private const val TIR_GOAL_PERCENT = 70f
         private const val TIR_WINDOW_MS = 24 * 60 * 60_000L
 
@@ -1186,5 +1202,8 @@ object AllProviders {
         TirGoalProgressComplication::class.java,
         TirWeightedElementsComplication::class.java,
         DateComplication::class.java,
+        PumpBatteryComplication::class.java,
+        PhoneBatteryComplication::class.java,
+        AapsStatusComplication::class.java,
     )
 }

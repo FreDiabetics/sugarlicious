@@ -20,8 +20,9 @@ class G6StyleComplicationsTest {
     fun `current reading renders value trend and unit`() {
         val state = state(measuredAt = now - 2 * 60_000L)
         val header = G6StylePresentationFormatter.header(state, now)
-        assertEquals("152 →", header.text)
+        assertEquals("152", header.text)
         assertEquals("mg/dL", header.title)
+        assertEquals(Trend.FLAT, header.trend)
     }
 
     @Test
