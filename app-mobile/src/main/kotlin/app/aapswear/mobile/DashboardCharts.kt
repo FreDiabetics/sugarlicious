@@ -556,9 +556,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (showTargetRange) {
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = null
-                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH))
+                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
                 canvas.drawLine(plot.left, targetTop, plot.right, targetTop, linePaint)
-                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW))
+                linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
                 canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, linePaint)
             }
 
@@ -650,7 +650,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 .coerceIn(plot.left, plot.right)
             val futureLaneVisible = end > now && now in start..end
             if (futureLaneVisible) {
-                linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
+                linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_NOW_LINE)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
                 canvas.drawLine(dividerX, plot.top, dividerX, plot.bottom, linePaint)
@@ -701,7 +701,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
     private fun drawGrid(canvas: Canvas, plot: RectF, axisBottom: Float, start: Long, end: Long, now: Long, nowLineX: Float) {
         val ticks = RelativeGraphTimeAxis.ticks(start, end, now, viewport.axisIntervalHours)
-        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         ticks.forEach { tick ->
@@ -760,7 +760,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     }
 
     private fun drawTargetScaleTick(canvas: Canvas, plot: RectF, centerY: Float, onRight: Boolean) {
-        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         if (onRight) {
@@ -988,7 +988,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
 
     private fun drawSharedGrid(canvas: Canvas, iob: RectF, cob: RectF, axisBottom: Float, start: Long, end: Long, now: Long, nowLineX: Float) {
         val ticks = RelativeGraphTimeAxis.ticks(start, end, now, viewport.axisIntervalHours)
-        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         ticks.forEach { tick ->
@@ -1073,7 +1073,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     }
 
     private fun drawHorizontalScaleTick(canvas: Canvas, graphLeft: Float, centerY: Float) {
-        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         canvas.drawLine(graphLeft - 13f.dp, centerY, graphLeft - 7f.dp, centerY, linePaint)

@@ -258,12 +258,11 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         }
 
         val divider = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.divider
+            color = colors.highLine
             strokeWidth = 1f
         }
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), divider)
-        divider.color = colors.targetValue
-        divider.strokeWidth = 3f
+        divider.color = colors.lowLine
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), divider)
 
         val timeWindow = GraphTimeWindow.live(nowEpochMs, G6StylePresentationFormatter.GRAPH_WINDOW_MS)
@@ -322,6 +321,11 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
             cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
             divider = preferences.getInt("graph_color_divider", defaults.divider),
+            highLine = preferences.getInt("graph_color_high_line", defaults.highLine),
+            lowLine = preferences.getInt("graph_color_low_line", defaults.lowLine),
+            axisLabel = preferences.getInt("graph_color_axis_label", defaults.axisLabel),
+            axisTick = preferences.getInt("graph_color_axis_tick", defaults.axisTick),
+            nowLine = preferences.getInt("graph_color_now_line", defaults.nowLine),
             outline = preferences.getInt("graph_color_outline", defaults.outline),
             predictionIob = defaults.predictionIob,
             predictionCob = defaults.predictionCob,

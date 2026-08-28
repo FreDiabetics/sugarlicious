@@ -83,6 +83,10 @@ enum class SugarliciousColorRole(
     GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
     GRAPH_GRID("graph_grid", "Graph-Gitter", SugarliciousColorGroup.GRAPH, 0xFF464646.toInt(), 0xFFD5D5D5.toInt()),
     GRAPH_LABEL("graph_label", "Achsenbeschriftung", SugarliciousColorGroup.GRAPH, 0xFFD2D2D2.toInt(), 0xFF575757.toInt()),
+    GRAPH_AXIS_TICK("graph_axis_tick", "Achsenstriche", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF747474.toInt(), true),
+    GRAPH_HIGH_LINE("graph_high_line", "Obere Zielbereichslinie", SugarliciousColorGroup.GRAPH, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
+    GRAPH_LOW_LINE("graph_low_line", "Untere Zielbereichslinie", SugarliciousColorGroup.GRAPH, 0xFFFF5C69.toInt(), configurable = true),
+    GRAPH_NOW_LINE("graph_now_line", "Jetzt-Linie", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF747474.toInt(), true),
     GRAPH_MUTED("graph_muted", "Graph-Hinweise / Trennlinie", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF777777.toInt()),
     GRAPH_DIVIDER("graph_divider", "Trennlinie", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF747474.toInt(), true),
     GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0x46FF5C69, 0x38D11A2A, true),
@@ -201,6 +205,21 @@ object SugarliciousColorStore {
         }
         if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_HIGH)
+        }
+        // Non-destructive semantic-token migration: installations that customized the former
+        // combined range/divider roles keep their exact appearance until the new dedicated role
+        // is explicitly changed by the user.
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_HIGH_LINE)) {
+            values[SugarliciousColorRole.GRAPH_HIGH_LINE] = values.getValue(SugarliciousColorRole.RANGE_HIGH)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_LOW_LINE)) {
+            values[SugarliciousColorRole.GRAPH_LOW_LINE] = values.getValue(SugarliciousColorRole.RANGE_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_AXIS_TICK)) {
+            values[SugarliciousColorRole.GRAPH_AXIS_TICK] = values.getValue(SugarliciousColorRole.GRAPH_DIVIDER)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_NOW_LINE)) {
+            values[SugarliciousColorRole.GRAPH_NOW_LINE] = values.getValue(SugarliciousColorRole.GRAPH_DIVIDER)
         }
 
         return SugarliciousPalette(

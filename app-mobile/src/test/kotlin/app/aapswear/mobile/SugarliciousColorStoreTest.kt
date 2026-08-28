@@ -99,6 +99,29 @@ class SugarliciousColorStoreTest {
     }
 
     @Test
+    fun `new semantic graph roles inherit legacy customized colors until explicitly overridden`() {
+        val preferences = context.getSharedPreferences("semantic_graph_role_migration", Context.MODE_PRIVATE)
+        val high = Color.argb(181, 201, 111, 9)
+        val low = Color.argb(173, 222, 21, 61)
+        val divider = Color.argb(140, 71, 82, 93)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, high)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_LOW, low)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_DIVIDER, divider)
+
+        val migrated = SugarliciousColorStore.load(preferences)
+        assertEquals(high, migrated.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
+        assertEquals(low, migrated.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
+        assertEquals(divider, migrated.argb(SugarliciousColorRole.GRAPH_AXIS_TICK))
+        assertEquals(divider, migrated.argb(SugarliciousColorRole.GRAPH_NOW_LINE))
+
+        val explicit = Color.MAGENTA
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_HIGH_LINE, explicit)
+        assertEquals(explicit, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
+        assertEquals(high, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
+    }
+
+    @Test
     fun `light mode enforces white graph and black in range cgm dots`() {
         val preferences = context.getSharedPreferences("light_graph_contrast", Context.MODE_PRIVATE)
         preferences.edit().clear()

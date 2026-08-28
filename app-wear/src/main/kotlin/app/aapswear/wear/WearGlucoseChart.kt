@@ -295,10 +295,11 @@ class WearGlucoseChart @JvmOverloads constructor(
             return
         }
 
-        linePaint.color = colors.divider
+        linePaint.color = colors.highLine
         linePaint.pathEffect = null
         linePaint.strokeWidth = 0.7f.dp
         canvas.drawLine(left, targetTop, right, targetTop, linePaint)
+        linePaint.color = colors.lowLine
         canvas.drawLine(left, targetBottom, right, targetBottom, linePaint)
 
         canvas.drawText(
@@ -316,7 +317,7 @@ class WearGlucoseChart @JvmOverloads constructor(
 
         val dividerX = xFor(now)
         if (visiblePredictions.isNotEmpty()) {
-            linePaint.color = colors.divider
+            linePaint.color = colors.nowLine
             linePaint.strokeWidth = 1f.dp
             linePaint.pathEffect =
                 DashPathEffect(
@@ -369,7 +370,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         now: Long,
         xFor: (Long) -> Float,
     ) {
-        axisLabelPaint.color = colors.divider
+        axisLabelPaint.color = colors.axisLabel
         RelativeGraphTimeAxis.ticks(start, end, now).forEach { tick ->
             val x = xFor(tick.timestampEpochMs)
             axisLabelPaint.textAlign =

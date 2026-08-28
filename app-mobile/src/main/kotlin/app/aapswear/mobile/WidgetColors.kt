@@ -95,13 +95,13 @@ internal object WidgetColorStore {
                             WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
                             WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
                             WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
-                            WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
-                            WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
+                            WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
+                            WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                             WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                             WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                             WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                             WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
-                            WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_DIVIDER
+                            WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
                             WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
@@ -133,8 +133,8 @@ internal object WidgetColorStore {
                 WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
                 WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
                 WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
-                WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
-                WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
+                WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
+                WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                 WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                 WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                 WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
