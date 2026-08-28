@@ -106,9 +106,9 @@ abstract class InstallSugarliciousDebugTask
 
         private fun removeAccidentalPhoneCollector(serial: String) {
             val installed =
-                adb("-s", serial, "shell", "pm", "path", G7_WATCH_PACKAGE)
+                adb("-s", serial, "shell", "pm", "list", "packages", "--user", "0", G7_WATCH_PACKAGE)
                     .lineSequence()
-                    .any { it.trim().startsWith("package:") }
+                    .any { it.trim() == "package:$G7_WATCH_PACKAGE" }
             if (!installed) return
 
             logger.lifecycle(
