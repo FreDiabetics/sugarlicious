@@ -1,10 +1,57 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.GraphTimeWindow
 import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 
 class LiveCgmViewportTest {
+    @Test fun `live viewport shifts every existing timestamp left for each new reading`() {
+        val minute = 60_000L
+        val history = 3L * 60L * minute
+        val at1150 = 11L * 60L * minute + 50L * minute
+        val at1155 = at1150 + 5L * minute
+        val at1200 = at1155 + 5L * minute
+        val at1205 = at1200 + 5L * minute
+
+        val renderA = GraphTimeWindow.live(at1155, history)
+        val renderB = GraphTimeWindow.live(at1200, history)
+        val renderC = GraphTimeWindow.live(at1205, history)
+
+        assertTrue(renderB.xFraction(at1150) < renderA.xFraction(at1150))
+        assertTrue(renderB.xFraction(at1155) < renderA.xFraction(at1155))
+        assertTrue(renderB.xFraction(at1200) > renderB.xFraction(at1155))
+        assertTrue(renderC.xFraction(at1150) < renderB.xFraction(at1150))
+        assertTrue(renderC.xFraction(at1155) < renderB.xFraction(at1155))
+        assertTrue(renderC.xFraction(at1200) < renderB.xFraction(at1200))
+        assertTrue(renderC.xFraction(at1205) > renderC.xFraction(at1200))
+        assertTrue(renderC.xFraction(at1200) != renderC.xFraction(at1205))
+    }
+
+    @Test fun `irregular missing duplicate and out of order timestamps keep real spacing`() {
+        val minute = 60_000L
+        val second = 1_000L
+        val end = 12L * 60L * minute + 20L * second
+        val window = GraphTimeWindow.live(end, 3L * 60L * minute)
+        val unordered = listOf(
+            12L * 60L * minute + 5L * minute + 19L * second,
+            11L * 60L * minute + 50L * minute + 8L * second,
+            12L * 60L * minute + 4L * second,
+            11L * 60L * minute + 55L * minute + 11L * second,
+            12L * 60L * minute + 4L * second,
+            11L * 60L * minute + 40L * minute + 8L * second,
+        )
+        val ordered = unordered.distinct().sorted()
+        val positions = ordered.map(window::xFraction)
+
+        assertEquals(ordered.size, positions.distinct().size)
+        assertTrue(positions.zipWithNext().all { (left, right) -> left < right })
+        ordered.zipWithNext().zip(positions.zipWithNext()).forEach { (times, xs) ->
+            val expected = (times.second - times.first).toDouble() / window.durationMs
+            assertEquals(expected, (xs.second - xs.first).toDouble(), 0.000001)
+        }
+    }
+
     @Test fun `timestamp positions preserve five minute and two minute spacing`() {
         val start = 12L * 60L * 60_000L
         val end = start + 60L * 60_000L

@@ -55,6 +55,7 @@ import app.aapswear.model.Freshness
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.RangeExcursion
@@ -468,9 +469,10 @@ internal fun renderWidgetGraph(
     line.color = palette.argb(WidgetColorRole.LOW_LINE)
     canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, line)
 
-    val start = now - windowMs
+    val timeWindow = GraphTimeWindow.live(now, windowMs)
+    val start = timeWindow.startEpochMs
     val latestTimestamp = samples.maxOfOrNull(GlucoseSample::measuredAtEpochMs) ?: now
-    fun x(timestamp: Long): Float = plot.left + ((timestamp - start).toFloat() / windowMs) * plot.width()
+    fun x(timestamp: Long): Float = plot.left + timeWindow.xFraction(timestamp) * plot.width()
     val latestX = x(latestTimestamp).coerceIn(
         plot.left + metrics.dotRadiusPx + metrics.outlineWidthPx,
         plot.right - metrics.dotRadiusPx - metrics.outlineWidthPx,

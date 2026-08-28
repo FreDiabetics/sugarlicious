@@ -29,6 +29,7 @@ import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.RelativeGraphTimeAxis
@@ -372,9 +373,31 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val newStateSignature = state?.let {
             buildList {
                 add(it.source)
-                add(it.glucose)
-                add(it.glucoseHistory)
-                add(it.glucosePredictions)
+                add(it.glucose?.let { glucose ->
+                    listOf(
+                        glucose.measuredAtEpochMs,
+                        glucose.receivedAtEpochMs,
+                        glucose.valueMgDl,
+                        glucose.source,
+                        glucose.sensorId,
+                        glucose.sessionId,
+                        glucose.sequenceNumber,
+                    )
+                })
+                add(it.glucoseHistory.map { sample ->
+                    listOf(
+                        sample.measuredAtEpochMs,
+                        sample.receivedAtEpochMs,
+                        sample.valueMgDl,
+                        sample.source,
+                        sample.sensorId,
+                        sample.sessionId,
+                        sample.sequenceNumber,
+                    )
+                })
+                add(it.glucosePredictions.map { series ->
+                    series.kind to series.samples.map { sample -> sample.measuredAtEpochMs to sample.valueMgDl }
+                })
                 add(it.target)
                 add(it.targetHistory)
                 if (showBasal || showActivity) add(it.therapyHistory)
@@ -459,10 +482,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             // Like AAPS, the viewport is tied to real current time. A new CGM therefore advances
             // the same time axis instead of pinning the latest point while neighbours get squeezed.
             val liveEdge = now
-            val end = viewport.endEpochMs(liveEdge)
-            // The selected scale always describes real CGM history. Prediction time is
-            // appended to the right and never consumes part of the selected history span.
-            val start = end - viewport.futureWindowMs - (viewport.hours * HOUR_MS).toLong()
+            val timeWindow = GraphTimeWindow.endingAt(
+                viewportEndEpochMs = viewport.endEpochMs(liveEdge),
+                historyDurationMs = (viewport.hours * HOUR_MS).toLong(),
+                futureDurationMs = viewport.futureWindowMs,
+            )
+            val start = timeWindow.startEpochMs
+            val end = timeWindow.endEpochMs
             val allHistory = CanonicalCgmHistory.merge(
                 samples = buildList {
                     addAll(state?.glucoseHistory.orEmpty())
