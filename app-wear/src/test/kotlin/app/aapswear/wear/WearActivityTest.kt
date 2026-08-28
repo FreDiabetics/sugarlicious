@@ -1,9 +1,11 @@
 package app.aapswear.wear
 
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.complications.R as ComplicationR
@@ -68,6 +70,7 @@ class WearActivityTest {
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_iob).currentTextColor)
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_cob).currentTextColor)
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_basal).currentTextColor)
+        assertEquals(Gravity.CENTER, activity.findViewById<LinearLayout>(R.id.wear_basal_card).gravity)
     }
 
     @Test
@@ -105,7 +108,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata is larger grey and constrained by the primary row`() {
+    fun `glucose metadata stays on one line across the full round safe card width`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -125,8 +128,8 @@ class WearActivityTest {
         val density = activity.resources.displayMetrics.density
 
         glucose.text = "123"
-        delta.text = "+5"
-        age.text = "2 min"
+        delta.text = "Δ − · mg/dL"
+        age.text = "2 min ·"
         trend.visibility = View.VISIBLE
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
@@ -138,15 +141,18 @@ class WearActivityTest {
                 View.MeasureSpec.EXACTLY,
             ),
         )
+        root.layout(0, 0, root.measuredWidth, root.measuredHeight)
 
-        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, info.layoutParams.width)
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
         assertEquals(colors.textSecondary, delta.currentTextColor)
         assertEquals(colors.textSecondary, age.currentTextColor)
         assertEquals(delta.textSize, age.textSize, 0.5f)
-        assertEquals(primary.measuredWidth, info.measuredWidth)
+        assertTrue(info.measuredWidth > primary.measuredWidth)
         assertEquals(info.measuredWidth, meta.measuredWidth)
+        assertEquals(1, delta.lineCount)
+        assertEquals(1, age.lineCount)
         assertEquals(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,

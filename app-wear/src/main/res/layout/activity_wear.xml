@@ -58,7 +58,7 @@
 
                 <LinearLayout
                     android:id="@+id/wear_glucose_info_block"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:gravity="center_horizontal"
                     android:orientation="vertical">
@@ -76,6 +76,8 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:singleLine="true"
                             android:text="—"
                             android:textColor="@color/wear_text"
                             android:textSize="44sp"
@@ -132,6 +134,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:singleLine="true"
                             android:text="—"
                             android:textColor="@color/wear_text_secondary"
                             android:textSize="14sp"
@@ -145,7 +149,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="50dp"
                 android:layout_marginTop="7dp"
-                android:gravity="center_vertical"
+                android:gravity="center"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp">

@@ -35,11 +35,12 @@ class WidgetInstanceConfigurationTest {
     fun `two widget instances retain independent appearance and graph settings`() {
         val first = WidgetInstanceConfiguration(
             6, true, WidgetScaleMode.DYNAMIC, Color.argb(120, 10, 20, 30), "app.aapswear",
-            backgroundEnabled = false, glucoseScalePercent = 88, trendScalePercent = 112,
+            backgroundEnabled = false, graphCornerRadiusDp = 12, glucoseScalePercent = 88, trendScalePercent = 112,
             colorOverrides = mapOf(WidgetColorRole.TREND_HIGH to Color.MAGENTA),
         )
         val second = WidgetInstanceConfiguration(
             24, false, WidgetScaleMode.LOGARITHMIC, Color.BLACK, "com.eveningoutpost.dexdrip",
+            graphCornerRadiusDp = 26,
             colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to Color.GREEN),
         )
         WidgetInstanceConfigurationStore.save(context, 101, first)
@@ -96,14 +97,26 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `combined widget keeps value graph ratio and unit setting per instance`() {
-        val compactValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 22, showGlucoseUnit = false)
-        val largeValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 44, showGlucoseUnit = true)
+        val compactValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 35, showGlucoseUnit = false)
+        val largeValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 42, showGlucoseUnit = true)
         WidgetInstanceConfigurationStore.save(context, 909, compactValue)
         WidgetInstanceConfigurationStore.save(context, 910, largeValue)
 
         assertEquals(compactValue, WidgetInstanceConfigurationStore.read(context, 909))
         assertEquals(largeValue, WidgetInstanceConfigurationStore.read(context, 910))
-        assertTrue(combinedWidgetTopHeight(400, 22) < combinedWidgetTopHeight(400, 44))
+        assertTrue(combinedWidgetTopHeight(400, 35) < combinedWidgetTopHeight(400, 42))
+    }
+
+    @Test
+    fun `legacy oversized graph region migrates to balanced default`() {
+        val id = 911
+        context.getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("$id.glucose_graph_value_percent", 27)
+            .apply()
+
+        assertEquals(DEFAULT_COMBINED_WIDGET_VALUE_PERCENT, WidgetInstanceConfigurationStore.read(context, id).glucoseGraphValuePercent)
+        WidgetInstanceConfigurationStore.delete(context, id)
     }
 
     @Test

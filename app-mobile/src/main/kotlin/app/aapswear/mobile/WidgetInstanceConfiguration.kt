@@ -79,11 +79,12 @@ internal data class WidgetInstanceConfiguration(
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = Color.DKGRAY,
     val cornerRadiusDp: Int = 0,
+    val graphCornerRadiusDp: Int = DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
     val shapeMode: WidgetShapeMode = WidgetShapeMode.STANDARD,
     val glucoseScalePercent: Int = 100,
     val trendScalePercent: Int = 100,
     val colorOverrides: Map<WidgetColorRole, Int> = emptyMap(),
-    val glucoseGraphValuePercent: Int = 27,
+    val glucoseGraphValuePercent: Int = DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
     val showGlucoseUnit: Boolean = true,
 )
 
@@ -104,6 +105,10 @@ internal object WidgetInstanceConfigurationStore {
             outlineEnabled = prefs.getBoolean(key(appWidgetId, "outline_enabled"), false),
             outlineArgb = prefs.getInt(key(appWidgetId, "outline"), Color.DKGRAY),
             cornerRadiusDp = prefs.getInt(key(appWidgetId, "corner_radius"), 0).coerceIn(0, 32),
+            graphCornerRadiusDp = prefs.getInt(
+                key(appWidgetId, "graph_corner_radius"),
+                DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
+            ).coerceIn(MIN_WIDGET_GRAPH_CORNER_RADIUS_DP, MAX_WIDGET_GRAPH_CORNER_RADIUS_DP),
             shapeMode = runCatching {
                 WidgetShapeMode.valueOf(prefs.getString(key(appWidgetId, "shape"), WidgetShapeMode.STANDARD.name)!!)
             }.getOrDefault(WidgetShapeMode.STANDARD),
@@ -112,7 +117,11 @@ internal object WidgetInstanceConfigurationStore {
             colorOverrides = WidgetColorRole.entries.mapNotNull { role ->
                 key(appWidgetId, "color.${role.preferenceKey}").takeIf(prefs::contains)?.let { role to prefs.getInt(it, Color.BLACK) }
             }.toMap(),
-            glucoseGraphValuePercent = prefs.getInt(key(appWidgetId, "glucose_graph_value_percent"), 27).coerceIn(20, 50),
+            glucoseGraphValuePercent = prefs.getInt(
+                key(appWidgetId, "glucose_graph_value_percent"),
+                DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
+            ).takeIf { it in MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT }
+                ?: DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
             // One-time compatible fallback for widgets created before per-instance tap targets existed.
             // The configuration activity persists this resolved value for the individual widget.
@@ -131,6 +140,7 @@ internal object WidgetInstanceConfigurationStore {
             .putBoolean(key(appWidgetId, "outline_enabled"), value.outlineEnabled)
             .putInt(key(appWidgetId, "outline"), value.outlineArgb)
             .putInt(key(appWidgetId, "corner_radius"), value.cornerRadiusDp)
+            .putInt(key(appWidgetId, "graph_corner_radius"), value.graphCornerRadiusDp)
             .putString(key(appWidgetId, "shape"), value.shapeMode.name)
             .putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
@@ -250,7 +260,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             WidgetPercentSlider(
                                 "Wertbereich",
                                 value.glucoseGraphValuePercent,
-                                20..50,
+                                MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT,
                             ) { value = value.copy(glucoseGraphValuePercent = it) }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
@@ -260,6 +270,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     }
                     if (widgetKind.hasGraph) {
                         WidgetSettingsSection("Graph") {
+                        WidgetPercentSlider(
+                            "Graph-Eckenradius",
+                            value.graphCornerRadiusDp,
+                            MIN_WIDGET_GRAPH_CORNER_RADIUS_DP..MAX_WIDGET_GRAPH_CORNER_RADIUS_DP,
+                            "dp",
+                            DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
+                        ) { value = value.copy(graphCornerRadiusDp = it) }
                         Text("Zeitraum", color = ComposeColor.LightGray, fontSize = 11.sp)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(1, 2, 3, 6, 12, 24).forEach { hours ->
@@ -427,9 +444,21 @@ private fun WidgetPercentSlider(
     value: Int,
     range: IntRange = 70..130,
     suffix: String = "%",
+    resetValue: Int? = null,
     onChange: (Int) -> Unit,
 ) {
-    Text("$label · $value $suffix", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text("$label · $value $suffix", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+        if (resetValue != null && value != resetValue) {
+            Text(
+                "ZURÜCKSETZEN",
+                color = ComposeColor(0xFF6DE892),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable { onChange(resetValue) }.padding(vertical = 4.dp),
+            )
+        }
+    }
     Slider(value = value.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = range.first.toFloat()..range.last.toFloat())
 }
 

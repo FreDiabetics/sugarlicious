@@ -3,7 +3,9 @@ package app.aapswear.mobile
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Region
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -19,11 +21,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
     private val now = 20_000_000L
     private val thresholds = app.aapswear.model.CgmThresholds.DEFAULT
@@ -97,7 +101,10 @@ class WidgetPresentationTest {
         listOf(96 to 72, 160 to 90, 260 to 140, 420 to 180, 640 to 260).forEach { (width, height) ->
             val layout = responsiveWidgetLayout(width.toFloat(), height.toFloat())
             val metrics = widgetGraphMetrics(width, height, 1f, layout, Paint())
-            assertEquals(0f, metrics.plot.left, 0.01f)
+            assertTrue(metrics.graphBounds.left > 0f)
+            assertTrue(metrics.graphBounds.top > 0f)
+            assertTrue(metrics.plot.left > metrics.graphBounds.left)
+            assertTrue(metrics.plot.right < metrics.graphBounds.right)
             assertTrue(metrics.plot.right < width)
             assertTrue(metrics.plot.bottom < height)
             assertTrue(metrics.plot.width() > 0f)
@@ -142,6 +149,103 @@ class WidgetPresentationTest {
         assertEquals(440, bitmap.width)
         assertEquals(440, bitmap.height)
         assertFalse(bitmap.isRecycled)
+        val metrics = combinedWidgetMetrics(440, 440, 2f, DEFAULT_COMBINED_WIDGET_VALUE_PERCENT)
+        assertTrue(metrics.headerHeightPx in 160..175)
+        assertTrue(metrics.graphFrame.top > metrics.headerHeightPx)
+        assertEquals(440, metrics.graphFrame.bottom)
+    }
+
+    @Test
+    fun `widget graph clips every range fill to all four configured corners`() {
+        val high = state(listOf(sample(190.0, -10), sample(195.0, -5)), 195.0)
+        val low = state(listOf(sample(65.0, -10), sample(60.0, -5)), 60.0)
+        val inRange = state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0)
+        val configuration = WidgetInstanceConfiguration(
+            showTimeAxis = false,
+            backgroundEnabled = false,
+            graphCornerRadiusDp = 24,
+        )
+
+        listOf(high, low, inRange).forEach { current ->
+            val width = 320
+            val height = 180
+            val layout = responsiveWidgetLayout(width.toFloat(), height.toFloat())
+            val metrics = widgetGraphMetrics(
+                width,
+                height,
+                1f,
+                layout,
+                Paint(),
+                showTimeAxis = false,
+                graphCornerRadiusDp = configuration.graphCornerRadiusDp.toFloat(),
+            )
+            val bitmap = renderWidgetGraph(
+                current,
+                palette,
+                width,
+                height,
+                now,
+                thresholds,
+                layout,
+                1f,
+                configuration,
+                clipToWidgetShape = false,
+            )
+            val left = metrics.graphBounds.left.toInt()
+            val top = metrics.graphBounds.top.toInt()
+            val right = metrics.graphBounds.right.toInt() - 1
+            val bottom = metrics.graphBounds.bottom.toInt() - 1
+            val clipRegion = Region().apply {
+                setPath(
+                    widgetGraphClipPath(metrics),
+                    Region(Rect(left, top, right + 1, bottom + 1)),
+                )
+            }
+            assertTrue(clipRegion.contains(metrics.graphBounds.centerX().toInt(), metrics.graphBounds.centerY().toInt()))
+            listOf(left to top, right to top, left to bottom, right to bottom).forEach { (x, y) ->
+                assertFalse("rounded graph corner at $x,$y must stay outside the plot clip", clipRegion.contains(x, y))
+            }
+            assertFalse(bitmap.isRecycled)
+        }
+    }
+
+    @Test
+    fun `only combined widget aligns graph inset with glucose value`() {
+        val standalone = widgetGraphMetrics(
+            440,
+            260,
+            2f,
+            responsiveWidgetLayout(220f, 130f),
+            Paint(),
+        )
+        val combined = widgetGraphMetrics(
+            440,
+            260,
+            2f,
+            responsiveWidgetLayout(220f, 130f),
+            Paint(),
+            graphLeftInsetDp = 12f,
+        )
+
+        assertEquals(16f, standalone.graphBounds.left, 0.01f)
+        assertEquals(24f, combined.graphBounds.left, 0.01f)
+    }
+
+    @Test
+    fun `graph corner radius is responsive and remains bounded by graph geometry`() {
+        listOf(96 to 72, 320 to 180, 640 to 520).forEach { (width, height) ->
+            val metrics = widgetGraphMetrics(
+                width,
+                height,
+                1f,
+                responsiveWidgetLayout(width.toFloat(), height.toFloat()),
+                Paint(),
+                graphCornerRadiusDp = MAX_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
+            )
+            assertTrue(metrics.graphCornerRadiusPx <= metrics.graphBounds.width() / 2f)
+            assertTrue(metrics.graphCornerRadiusPx <= metrics.graphBounds.height() / 2f)
+            assertTrue(metrics.graphCornerRadiusPx >= 0f)
+        }
     }
 
     @Test
@@ -171,8 +275,8 @@ class WidgetPresentationTest {
         val output = System.getenv("WIDGET_MATRIX_DIR")?.let(::File) ?: return
         output.mkdirs()
         val state = state(
-            history = (0..36).map { index -> sample(105.0 + index * 1.8, -180 + index * 5) },
-            current = 170.0,
+            history = (0..36).map { index -> sample(105.0 + index * 3.8, -180 + index * 5) },
+            current = 242.0,
             currentMinutes = 0,
         )
         val density = 2f
