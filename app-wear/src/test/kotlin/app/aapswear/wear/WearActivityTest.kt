@@ -15,6 +15,7 @@ import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -22,6 +23,25 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
+    @Test
+    fun `settings are round safe and grouped into eight independent sections`() {
+        val activity = Robolectric.buildActivity(WearSettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<ViewGroup>(android.R.id.content)
+        val headers = mutableListOf<View>()
+
+        fun collect(view: View) {
+            if (view.tag?.toString()?.startsWith("settings-category-") == true) headers += view
+            if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+        }
+        collect(root)
+
+        assertEquals(
+            listOf("display", "glucose", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
+            headers.map { it.tag.toString().removePrefix("settings-category-") },
+        )
+        assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+    }
+
     @Test
     fun `therapy overview uses colored supplied icons and neutral values`() {
         val activity =

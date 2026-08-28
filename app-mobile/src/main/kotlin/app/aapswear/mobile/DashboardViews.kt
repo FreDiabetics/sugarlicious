@@ -307,48 +307,6 @@ class DashboardViewFactory(
         activeComposeView = null
         parent.addView(screenTitle())
 
-        addSettingsCategory(parent, "general", "Allgemein", R.drawable.ic_settings) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("DATENQUELLE"))
-                    addView(
-                        sourceChoiceRow(
-                            listOf(
-                                SourceChoice("Automatisch", R.drawable.ic_source_auto, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
-                                SourceChoice("AndroidAPS", R.drawable.ic_source_androidaps, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
-                                SourceChoice("xDrip+", R.drawable.ic_source_xdrip, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
-                                SourceChoice("Dexcom G7 Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
-                            ),
-                        ),
-                    )
-                    if (preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) {
-                        addView(divider())
-                        addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
-                    }
-                    addView(divider())
-                    addView(settingsGroupLabel("OPTIONALE TREATMENT-ANREICHERUNG"))
-                    val nightscout = NightscoutConfigurationStore.read(context)
-                    addView(actionRow("Nightscout Treatments", if (nightscout.enabled) "Aktiv" else "Aus") { callbacks.openNightscoutTreatments() })
-                    addView(divider())
-                    addView(settingsGroupLabel("EINHEIT"))
-                    addView(
-                        choiceRow(
-                            "Glukose-Einheit",
-                            listOf(
-                                Triple("Wie Datenquelle", preferences.unit == DisplayUnitPreference.AAPS) { callbacks.setUnit(DisplayUnitPreference.AAPS) },
-                                Triple("mg/dL", preferences.unit == DisplayUnitPreference.MG_DL) { callbacks.setUnit(DisplayUnitPreference.MG_DL) },
-                                Triple("mmol/L", preferences.unit == DisplayUnitPreference.MMOL_L) { callbacks.setUnit(DisplayUnitPreference.MMOL_L) },
-                            ),
-                        ),
-                    )
-                    addView(divider())
-                    addView(settingsGroupLabel("SYNCHRONISIERUNG"))
-                    addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
-                },
-                cardParams(top = 4),
-            )
-        }
-
         val colorContainer = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             visibility = if (colorSettingsExpanded) View.VISIBLE else View.GONE
@@ -375,43 +333,6 @@ class DashboardViewFactory(
                 },
                 fullWidth(),
             )
-        }
-        addSettingsCategory(parent, "display", "Anzeige", R.drawable.ic_foreground) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("THEME"))
-                    addView(
-                        choiceRow(
-                            "Darstellung",
-                            listOf(
-                                Triple("System", preferences.themeMode == DashboardThemeMode.SYSTEM) { callbacks.setThemeMode(DashboardThemeMode.SYSTEM) },
-                                Triple("Hell", preferences.themeMode == DashboardThemeMode.LIGHT) { callbacks.setThemeMode(DashboardThemeMode.LIGHT) },
-                                Triple("Dunkel", preferences.themeMode == DashboardThemeMode.DARK) { callbacks.setThemeMode(DashboardThemeMode.DARK) },
-                            ),
-                        ),
-                    )
-                    addView(divider())
-                    addView(settingsGroupLabel("ÜBERSICHT"))
-                    addView(switchRowCompact("Therapiedetails", preferences.showDetails, R.id.dashboard_details_switch, callbacks.setShowDetails))
-                    addView(divider())
-                    addView(switchRowCompact("Kompakte Übersicht", preferences.compact, R.id.dashboard_compact_switch, callbacks.setCompact))
-                    addView(divider())
-                    addView(settingsGroupLabel("FARBEN & DARSTELLUNG"))
-                    addView(actionRow("Farben & Darstellung", "Anpassen") {
-                        colorSettingsExpanded = !colorSettingsExpanded
-                        colorContainer.visibility = if (colorSettingsExpanded) View.VISIBLE else View.GONE
-                    })
-                    addView(divider())
-                    addView(settingsGroupLabel("WIDGETS"))
-                    addView(actionRow("Glukosewidget", "Farben") {
-                        widgetSettingsExpanded = !widgetSettingsExpanded
-                        widgetContainer.visibility = if (widgetSettingsExpanded) View.VISIBLE else View.GONE
-                    })
-                },
-                cardParams(top = 4),
-            )
-            addView(colorContainer, cardParams(top = 4))
-            addView(widgetContainer, cardParams(top = 4))
         }
 
         val predictionContainer = LinearLayout(context).apply {
@@ -452,67 +373,6 @@ class DashboardViewFactory(
                 fullWidth(),
             )
         }
-        addSettingsCategory(parent, "cgm_graph", "CGM-Graph", R.drawable.ic_health_glucose) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("GLUKOSEBEREICHE & ALARME"))
-                    fun thresholdRow(title: String, value: Double, minimum: Float, maximum: Float, update: (Double) -> CgmThresholds) =
-                        sugarliciousSliderRow(
-                            title = title,
-                            description = "${formatThreshold(value, preferences.unit)} · Reihenfolge: Sehr tief < Tief < Hoch < Sehr hoch",
-                            value = thresholdForUi(value, preferences.unit),
-                            minimum = thresholdForUi(minimum.toDouble(), preferences.unit),
-                            maximum = thresholdForUi(maximum.toDouble(), preferences.unit),
-                            decimals = if (preferences.unit == DisplayUnitPreference.MMOL_L) 1 else 0,
-                        ) { entered ->
-                            val mgDl = thresholdFromUi(entered, preferences.unit)
-                            CgmThresholdPreferences.save(dashboardPreferences, update(mgDl))
-                        }
-                    addView(thresholdRow("Sehr hoch", preferences.cgmThresholds.veryHighMgDl, 100f, 400f) { preferences.cgmThresholds.copy(veryHighMgDl = it) })
-                    addView(divider())
-                    addView(thresholdRow("Hoch", preferences.cgmThresholds.highMgDl, 80f, 300f) { preferences.cgmThresholds.copy(highMgDl = it) })
-                    addView(divider())
-                    addView(thresholdRow("Tief", preferences.cgmThresholds.lowMgDl, 40f, 180f) { preferences.cgmThresholds.copy(lowMgDl = it) })
-                    addView(divider())
-                    addView(thresholdRow("Sehr tief", preferences.cgmThresholds.veryLowMgDl, 20f, 120f) { preferences.cgmThresholds.copy(veryLowMgDl = it) })
-                    addView(divider())
-                    addView(settingsGroupLabel("SICHTBARKEIT"))
-                    addView(switchRowCompact("Graph anzeigen", preferences.showCgmGraph, View.generateViewId(), callbacks.setShowCgmGraph))
-                    if (preferences.showCgmGraph) {
-                        addView(divider())
-                        addView(settingsGroupLabel("EBENEN"))
-                        addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })
-                        addView(divider())
-                        addView(switchRowCompact("Basal", preferences.showCgmBasal, View.generateViewId()) { callbacks.setCgmStream("cgm.basal", it) })
-                        addView(divider())
-                        addView(switchRowCompact("Insulinaktivität", preferences.showCgmActivity, View.generateViewId()) { callbacks.setCgmStream("cgm.activity", it) })
-                        addView(divider())
-                        addView(switchRowCompact("IOB/COB-Graph", preferences.showMetabolicGraph, View.generateViewId(), callbacks.setShowMetabolicGraph))
-                        if (preferences.showMetabolicGraph) {
-                            addView(divider())
-                            addView(settingsGroupLabel("TREATMENT-MARKER"))
-                            addView(switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealBolus", it) })
-                            addView(divider())
-                            addView(switchRowCompact("Korrekturboli", preferences.showCorrectionMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.correction", it) })
-                            addView(divider())
-                            addView(switchRowCompact("SMB", preferences.showSmbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.smb", it) })
-                            addView(divider())
-                            addView(switchRowCompact("Mahlzeiten-Carbs", preferences.showMealCarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealCarbs", it) })
-                            addView(divider())
-                            addView(switchRowCompact("eCarbs", preferences.showECarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.eCarbs", it) })
-                        }
-                        addView(divider())
-                        addView(settingsGroupLabel("VORHERSAGEN"))
-                        addView(actionRow("Vorhersagen", if (preferences.anyCgmPredictionEnabled) "Aktiv" else "Aus") {
-                            predictionSettingsExpanded = !predictionSettingsExpanded
-                            predictionContainer.visibility = if (predictionSettingsExpanded) View.VISIBLE else View.GONE
-                        })
-                    }
-                },
-                cardParams(top = 4),
-            )
-            addView(predictionContainer, cardParams(top = 4))
-        }
 
         val notificationGraphCustomization = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
@@ -540,7 +400,168 @@ class DashboardViewFactory(
                 fullWidth(),
             )
         }
-        addSettingsCategory(parent, "notification", "Benachrichtigung", R.drawable.ic_notification_outlined) {
+
+        addSettingsCategory(parent, "general", "Allgemein", R.drawable.ic_settings) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("DARSTELLUNG"))
+                    addView(
+                        choiceRow(
+                            "Darstellung",
+                            listOf(
+                                Triple("System", preferences.themeMode == DashboardThemeMode.SYSTEM) { callbacks.setThemeMode(DashboardThemeMode.SYSTEM) },
+                                Triple("Hell", preferences.themeMode == DashboardThemeMode.LIGHT) { callbacks.setThemeMode(DashboardThemeMode.LIGHT) },
+                                Triple("Dunkel", preferences.themeMode == DashboardThemeMode.DARK) { callbacks.setThemeMode(DashboardThemeMode.DARK) },
+                            ),
+                        ),
+                    )
+                    addView(divider())
+                    addView(settingsGroupLabel("GLUKOSE-EINHEIT"))
+                    addView(
+                        choiceRow(
+                            "Glukose-Einheit",
+                            listOf(
+                                Triple("Wie Datenquelle", preferences.unit == DisplayUnitPreference.AAPS) { callbacks.setUnit(DisplayUnitPreference.AAPS) },
+                                Triple("mg/dL", preferences.unit == DisplayUnitPreference.MG_DL) { callbacks.setUnit(DisplayUnitPreference.MG_DL) },
+                                Triple("mmol/L", preferences.unit == DisplayUnitPreference.MMOL_L) { callbacks.setUnit(DisplayUnitPreference.MMOL_L) },
+                            ),
+                        ),
+                    )
+                },
+                cardParams(top = 4),
+            )
+        }
+
+        addSettingsCategory(parent, "sources", "Datenquellen", R.drawable.ic_source_auto) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("AKTIVE DATENQUELLE"))
+                    addView(
+                        sourceChoiceRow(
+                            listOf(
+                                SourceChoice("Automatisch", R.drawable.ic_source_auto, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
+                                SourceChoice("AndroidAPS", R.drawable.ic_source_androidaps, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
+                                SourceChoice("xDrip+", R.drawable.ic_source_xdrip, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
+                                SourceChoice("Dexcom G7 Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
+                            ),
+                        ),
+                    )
+                    if (preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) {
+                        addView(divider())
+                        addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
+                    }
+                },
+                cardParams(top = 4),
+            )
+        }
+
+        addSettingsCategory(parent, "glucose_ranges", "Glukose und Zielbereiche", R.drawable.ic_health_glucose) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("GLUKOSEBEREICHE"))
+                    fun thresholdRow(title: String, value: Double, minimum: Float, maximum: Float, update: (Double) -> CgmThresholds) =
+                        sugarliciousSliderRow(
+                            title = title,
+                            description = "${formatThreshold(value, preferences.unit)} · Reihenfolge: Sehr tief < Tief < Hoch < Sehr hoch",
+                            value = thresholdForUi(value, preferences.unit),
+                            minimum = thresholdForUi(minimum.toDouble(), preferences.unit),
+                            maximum = thresholdForUi(maximum.toDouble(), preferences.unit),
+                            decimals = if (preferences.unit == DisplayUnitPreference.MMOL_L) 1 else 0,
+                        ) { entered ->
+                            val mgDl = thresholdFromUi(entered, preferences.unit)
+                            CgmThresholdPreferences.save(dashboardPreferences, update(mgDl))
+                        }
+                    addView(thresholdRow("Sehr hoch", preferences.cgmThresholds.veryHighMgDl, 100f, 400f) { preferences.cgmThresholds.copy(veryHighMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Hoch", preferences.cgmThresholds.highMgDl, 80f, 300f) { preferences.cgmThresholds.copy(highMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Tief", preferences.cgmThresholds.lowMgDl, 40f, 180f) { preferences.cgmThresholds.copy(lowMgDl = it) })
+                    addView(divider())
+                    addView(thresholdRow("Sehr tief", preferences.cgmThresholds.veryLowMgDl, 20f, 120f) { preferences.cgmThresholds.copy(veryLowMgDl = it) })
+                    addView(helper("Diese lokalen Grenzwerte steuern Zielbereich, Graphfarben und Alarme der Mobile-App.", 3))
+                },
+                cardParams(top = 4),
+            )
+        }
+
+        addSettingsCategory(parent, "overview_graphs", "Übersicht und Graphen", R.drawable.ic_foreground) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("ÜBERSICHT"))
+                    addView(switchRowCompact("Therapiedetails", preferences.showDetails, R.id.dashboard_details_switch, callbacks.setShowDetails))
+                    addView(divider())
+                    addView(switchRowCompact("Kompakte Übersicht", preferences.compact, R.id.dashboard_compact_switch, callbacks.setCompact))
+                    addView(divider())
+                    addView(settingsGroupLabel("CGM-GRAPH"))
+                    addView(switchRowCompact("Graph anzeigen", preferences.showCgmGraph, View.generateViewId(), callbacks.setShowCgmGraph))
+                    if (preferences.showCgmGraph) {
+                        addView(divider())
+                        addView(settingsGroupLabel("EBENEN"))
+                        addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })
+                        addView(divider())
+                        addView(switchRowCompact("Basal", preferences.showCgmBasal, View.generateViewId()) { callbacks.setCgmStream("cgm.basal", it) })
+                        addView(divider())
+                        addView(switchRowCompact("Insulinaktivität", preferences.showCgmActivity, View.generateViewId()) { callbacks.setCgmStream("cgm.activity", it) })
+                        addView(divider())
+                        addView(switchRowCompact("IOB/COB-Graph", preferences.showMetabolicGraph, View.generateViewId(), callbacks.setShowMetabolicGraph))
+                        addView(divider())
+                        addView(settingsGroupLabel("VORHERSAGEN"))
+                        addView(actionRow("Vorhersagen", if (preferences.anyCgmPredictionEnabled) "Aktiv" else "Aus") {
+                            predictionSettingsExpanded = !predictionSettingsExpanded
+                            predictionContainer.visibility = if (predictionSettingsExpanded) View.VISIBLE else View.GONE
+                        })
+                    }
+                    addView(divider())
+                    addView(settingsGroupLabel("FARBEN & DARSTELLUNG"))
+                    addView(actionRow("Farben & Darstellung", "Anpassen") {
+                        colorSettingsExpanded = !colorSettingsExpanded
+                        colorContainer.visibility = if (colorSettingsExpanded) View.VISIBLE else View.GONE
+                    })
+                },
+                cardParams(top = 4),
+            )
+            addView(predictionContainer, cardParams(top = 4))
+            addView(colorContainer, cardParams(top = 4))
+        }
+
+        addSettingsCategory(parent, "treatments", "Treatments und Nightscout", R.drawable.ic_health_activity) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("NIGHTSCOUT"))
+                    val nightscout = NightscoutConfigurationStore.read(context)
+                    addView(actionRow("Nightscout Treatments", if (nightscout.enabled) "Aktiv" else "Aus") { callbacks.openNightscoutTreatments() })
+                    addView(divider())
+                    addView(settingsGroupLabel("TREATMENT-MARKER"))
+                    addView(switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealBolus", it) })
+                    addView(divider())
+                    addView(switchRowCompact("Korrekturboli", preferences.showCorrectionMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.correction", it) })
+                    addView(divider())
+                    addView(switchRowCompact("SMB", preferences.showSmbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.smb", it) })
+                    addView(divider())
+                    addView(switchRowCompact("Mahlzeiten-Carbs", preferences.showMealCarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealCarbs", it) })
+                    addView(divider())
+                    addView(switchRowCompact("eCarbs", preferences.showECarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.eCarbs", it) })
+                },
+                cardParams(top = 4),
+            )
+        }
+
+        addSettingsCategory(parent, "widgets", "Widgets", R.drawable.ic_foreground) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("WIDGET-DARSTELLUNG"))
+                    addView(actionRow("Glukosewidget", "Anpassen") {
+                        widgetSettingsExpanded = !widgetSettingsExpanded
+                        widgetContainer.visibility = if (widgetSettingsExpanded) View.VISIBLE else View.GONE
+                    })
+                    addView(helper("Die Einstellungen bleiben pro Widgettyp und pro Widgetinstanz getrennt.", 3))
+                },
+                cardParams(top = 4),
+            )
+            addView(widgetContainer, cardParams(top = 4))
+        }
+
+        addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("LIVE-ANZEIGE"))
@@ -555,18 +576,32 @@ class DashboardViewFactory(
                             notificationGraphCustomization.visibility = if (notificationGraphSettingsExpanded) View.VISIBLE else View.GONE
                         })
                     }
+                    addView(divider())
+                    addView(settingsGroupLabel("SYSTEMZUGRIFF"))
+                    addView(actionRow("Benachrichtigungen", AppRuntimeAccess.notificationLabel(context), callbacks.requestNotificationAccess))
                 },
                 cardParams(top = 4),
             )
             addView(notificationGraphCustomization, cardParams(top = 4))
         }
 
+        addSettingsCategory(parent, "wear", "Wear OS und Watchfaces", R.drawable.ic_watch_status) {
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("WATCHFACES"))
+                    addView(actionRow("Watchfaces verwalten", "Öffnen") { callbacks.navigate(DashboardScreen.WATCH) })
+                    addView(divider())
+                    addView(settingsGroupLabel("SYNCHRONISIERUNG"))
+                    addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
+                },
+                cardParams(top = 4),
+            )
+        }
+
         addSettingsCategory(parent, "data", "Datenverwaltung", R.drawable.ic_health_activity) {
             addView(
                 tile(null).apply {
-                    addView(settingsGroupLabel("BERECHTIGUNGEN & HINTERGRUND"))
-                    addView(actionRow("Benachrichtigungen", AppRuntimeAccess.notificationLabel(context), callbacks.requestNotificationAccess))
-                    addView(divider())
+                    addView(settingsGroupLabel("HINTERGRUNDBETRIEB"))
                     addView(actionRow("Dauerbetrieb", AppRuntimeAccess.batteryLabel(context), callbacks.requestUnrestrictedBattery))
                     addView(helper("Der sichtbare Sugarlicious-Dienst startet mit der App und nach einem Geräteneustart. Für zuverlässige Watch-Synchronisierung kann die Akku-Optimierung freigegeben werden.", 3))
                     addView(divider())
@@ -608,7 +643,7 @@ class DashboardViewFactory(
             )
         }
 
-        addSettingsCategory(parent, "about", "Über", R.drawable.ic_foreground) {
+        addSettingsCategory(parent, "about", "Über Sugarlicious", R.drawable.ic_foreground) {
             addView(aboutCard(), cardParams(top = 4, bottom = 10))
         }
     }

@@ -70,6 +70,10 @@ class G7SystemStatusActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        when (intent.getStringExtra(EXTRA_SECTION)) {
+            G7SettingsSection.HARDWARE_TEST.name -> hardwareExpanded = true
+            G7SettingsSection.DIAGNOSTICS.name -> diagnosticsExpanded = true
+        }
         G7RuntimeReconciler.reconcile(this, G7RuntimeEntryPoint.SYSTEM_STATUS)
         render()
     }
@@ -449,7 +453,8 @@ class G7SystemStatusActivity : Activity() {
     private fun buttonParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 7.dp }
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
-    private companion object {
+    companion object {
         const val PERMISSION_REQUEST = 17
+        const val EXTRA_SECTION = "g7.settings.section"
     }
 }

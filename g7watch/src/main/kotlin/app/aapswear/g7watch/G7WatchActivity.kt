@@ -127,7 +127,7 @@ class G7WatchActivity : Activity() {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             setPadding(12.dp, 12.dp, 12.dp, 12.dp)
             setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), PorterDuff.Mode.SRC_IN)
-            setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7AppearanceActivity::class.java)) }
+            setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7SettingsActivity::class.java)) }
             contentDescription = "Einstellungen"
         }, LinearLayout.LayoutParams(48.dp, 48.dp).apply {
             topMargin = 3.dp

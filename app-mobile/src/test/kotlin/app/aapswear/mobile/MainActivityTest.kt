@@ -230,7 +230,7 @@ class MainActivityTest {
         assertFalse(settingsText.contains("Unabhängiges Projekt"))
         assertTrue(settingsText.contains("GitHub"))
         assertTrue(settingsText.contains("E-Mail"))
-        assertFalse(settingsText.contains("Watchfaces"))
+        assertTrue(settingsText.contains("Wear OS und Watchfaces"))
 
         activity.findViewById<View>(R.id.dashboard_github).performClick()
         val githubIntent = shadowOf(activity).nextStartedActivity
@@ -278,7 +278,19 @@ class MainActivityTest {
 
         var headers = categories()
         assertEquals(
-            listOf("general", "display", "cgm_graph", "notification", "data", "diagnostics", "about"),
+            listOf(
+                "general",
+                "sources",
+                "glucose_ranges",
+                "overview_graphs",
+                "treatments",
+                "widgets",
+                "notifications",
+                "wear",
+                "data",
+                "diagnostics",
+                "about",
+            ),
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { contentAfter(it).visibility == View.GONE })

@@ -33,6 +33,27 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `collector settings keep live status above eight grouped sections`() {
+        val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        val headers = mutableListOf<android.view.View>()
+
+        fun collect(view: android.view.View) {
+            if (view.tag?.toString()?.startsWith("settings-category-") == true) headers += view
+            if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+        }
+        collect(root)
+
+        assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
+        assertEquals(
+            G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
+            headers.map { it.tag.toString() },
+        )
+        assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+        activity.finish()
+    }
+
+    @Test
     fun `collector overview contains only primary data and action elements`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()
@@ -107,7 +128,7 @@ class G7WatchActivityLayoutTest {
         assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
 
         findImageByDescription(root, "Einstellungen")!!.performClick()
-        assertEquals(G7AppearanceActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+        assertEquals(G7SettingsActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
         activity.finish()
     }
 

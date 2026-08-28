@@ -8,6 +8,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -136,7 +138,18 @@ class G7AppearanceActivity : Activity() {
             val color = currentColor()
             preview.background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 14f)
             hexInput.setText(toHex(color))
+            store.save(role, color)
         }
+        hexInput.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(text: Editable?) {
+                parseHex(text?.toString())?.let { color ->
+                    preview.background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 14f)
+                    store.save(role, color)
+                }
+            }
+        })
         fun slider(title: String, max: Int, initialProgress: Int, onChange: (Int) -> Unit) {
             root.addView(label(title, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply { gravity = Gravity.START })
             root.addView(SeekBar(this).apply {
@@ -160,16 +173,19 @@ class G7AppearanceActivity : Activity() {
         slider("Helligkeit", 100, (brightness * 100f).roundToInt()) { brightness = it / 100f }
         slider("Deckkraft / Alpha", 100, (alpha * 100f).roundToInt()) { alpha = it / 100f }
 
+        val scrollableEditor = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            addView(root)
+        }
         AlertDialog.Builder(this)
             .setTitle(role.label)
-            .setView(root)
-            .setNegativeButton("ABBRECHEN", null)
-            .setPositiveButton("SPEICHERN") { _, _ ->
-                val parsed = parseHex(hexInput.text?.toString())
-                store.save(role, parsed ?: currentColor())
-                render()
+            .setView(scrollableEditor)
+            .create()
+            .apply {
+                setOnDismissListener { render() }
+                show()
             }
-            .show()
     }
 
     private fun pill(textValue: String, fill: Int, textColor: Int, action: () -> Unit) = TextView(this).apply {
