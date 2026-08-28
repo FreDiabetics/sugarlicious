@@ -92,6 +92,9 @@ internal fun knownG7AddressMatches(knownAddress: String?, candidateAddress: Stri
 
 internal fun isConnectableG7Advertisement(connectable: Boolean): Boolean = connectable
 
+internal fun usableG7SharedKey(sharedKey: ByteArray?, bondState: Int?): ByteArray? =
+    if (sharedKey != null && bondState == BluetoothDevice.BOND_NONE) null else sharedKey
+
 internal enum class G7WriteCallbackDisposition {
     EXPECTED_SUCCESS,
     EXPECTED_FAILURE,
@@ -295,6 +298,7 @@ internal class AndroidG7Collector(
     private val scanner: G7Scanner = AndroidG7Scanner(context),
     private val packetParser: G7GlucosePacketParser = G7GlucosePacketParser(),
 ) {
+    @SuppressLint("MissingPermission")
     suspend fun collect(
         initialSensor: G7Sensor,
         credentials: StoredG7Credentials,
@@ -342,6 +346,20 @@ internal class AndroidG7Collector(
             ) {
                 sharedKey = null
             }
+
+            // An application key can already have been emitted immediately before Android starts
+            // its asynchronous bond. If that bond was interrupted, replaying the key while the
+            // platform still reports BOND_NONE enters the stored-session path and fails before a
+            // fresh createBond() can be requested. Keep the persisted key intact, but use the
+            // normal pairing exchange for this connection so Android can establish the bond.
+            val bondState = sensor.deviceAddress?.let { address ->
+                runCatching {
+                    context.getSystemService(BluetoothManager::class.java).adapter
+                        .getRemoteDevice(address)
+                        .bondState
+                }.getOrNull()
+            }
+            sharedKey = usableG7SharedKey(sharedKey, bondState)
 
             val connection = G7GattConnection(context, sensor, onTelemetry)
             try {

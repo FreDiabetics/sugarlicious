@@ -14,6 +14,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `stored key is not replayed when Android bond is absent`() {
+        val key = byteArrayOf(1, 2, 3)
+
+        assertEquals(null, usableG7SharedKey(key, BluetoothDevice.BOND_NONE))
+        assertTrue(usableG7SharedKey(key, BluetoothDevice.BOND_BONDING)!!.contentEquals(key))
+        assertTrue(usableG7SharedKey(key, BluetoothDevice.BOND_BONDED)!!.contentEquals(key))
+        assertTrue(usableG7SharedKey(key, null)!!.contentEquals(key))
+        assertEquals(null, usableG7SharedKey(null, BluetoothDevice.BOND_NONE))
+    }
+
     @Test fun `authenticated address anchors an addressless sensor change`() {
         val sensor = G7Sensor("new-sensor", sessionId = "new-session")
 
