@@ -809,7 +809,7 @@ internal fun renderGlucoseGraphWidget(
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(96)
-    val topHeight = (safeHeight * 0.27f).roundToInt().coerceIn(40, safeHeight - 64)
+    val topHeight = combinedWidgetTopHeight(safeHeight, configuration.glucoseGraphValuePercent)
     val graphHeight = safeHeight - topHeight
     val topLayout = responsiveWidgetLayout(safeWidth / pixelDensity, topHeight / pixelDensity)
     val top = renderMinimalGlucoseWidget(
@@ -842,7 +842,7 @@ internal fun renderGlucoseGraphWidget(
         GlucoseUnit.MG_DL -> "mg/dL"
         null -> ""
     }
-    if (unit.isNotBlank() && TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
+    if (configuration.showGlucoseUnit && unit.isNotBlank() && TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = palette.argb(WidgetColorRole.TEXT)
             alpha = 170
@@ -854,6 +854,13 @@ internal fun renderGlucoseGraphWidget(
     }
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, pixelDensity)
     return bitmap
+}
+
+internal fun combinedWidgetTopHeight(heightPx: Int, valuePercent: Int): Int {
+    val safeHeight = heightPx.coerceAtLeast(96)
+    return (safeHeight * valuePercent.coerceIn(20, 50) / 100f)
+        .roundToInt()
+        .coerceIn(40, safeHeight - 64)
 }
 
 internal fun canonicalWidgetSamples(

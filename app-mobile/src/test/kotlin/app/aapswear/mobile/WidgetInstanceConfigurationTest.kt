@@ -51,6 +51,26 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
+    fun `legacy global tap target is captured independently by each widget`() {
+        val sugarlicious = WidgetLaunchTarget("app.aapswear", "Sugarlicious")
+        val xdrip = WidgetLaunchTarget("com.eveningoutpost.dexdrip", "xDrip+")
+        try {
+            WidgetLaunchTargetStore.select(context, xdrip)
+            val migrated = WidgetInstanceConfigurationStore.read(context, 707)
+            assertEquals(xdrip.packageName, migrated.launchPackage)
+            WidgetInstanceConfigurationStore.save(context, 707, migrated)
+
+            WidgetLaunchTargetStore.select(context, sugarlicious)
+            assertEquals(xdrip.packageName, WidgetInstanceConfigurationStore.read(context, 707).launchPackage)
+            assertEquals(sugarlicious.packageName, WidgetInstanceConfigurationStore.read(context, 808).launchPackage)
+        } finally {
+            WidgetInstanceConfigurationStore.delete(context, 707)
+            WidgetInstanceConfigurationStore.delete(context, 808)
+            WidgetLaunchTargetStore.select(context, sugarlicious)
+        }
+    }
+
+    @Test
     fun `deleting one widget leaves the other configuration intact`() {
         val first = WidgetInstanceConfiguration(graphHours = 12)
         val second = WidgetInstanceConfiguration(graphHours = 2)
@@ -72,6 +92,18 @@ class WidgetInstanceConfigurationTest {
 
         assertEquals(standard, WidgetInstanceConfigurationStore.read(context, 505))
         assertEquals(pill, WidgetInstanceConfigurationStore.read(context, 606))
+    }
+
+    @Test
+    fun `combined widget keeps value graph ratio and unit setting per instance`() {
+        val compactValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 22, showGlucoseUnit = false)
+        val largeValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 44, showGlucoseUnit = true)
+        WidgetInstanceConfigurationStore.save(context, 909, compactValue)
+        WidgetInstanceConfigurationStore.save(context, 910, largeValue)
+
+        assertEquals(compactValue, WidgetInstanceConfigurationStore.read(context, 909))
+        assertEquals(largeValue, WidgetInstanceConfigurationStore.read(context, 910))
+        assertTrue(combinedWidgetTopHeight(400, 22) < combinedWidgetTopHeight(400, 44))
     }
 
     @Test

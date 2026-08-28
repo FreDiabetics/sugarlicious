@@ -74,7 +74,7 @@ internal data class WidgetInstanceConfiguration(
     val showTimeAxis: Boolean = false,
     val scaleMode: WidgetScaleMode = WidgetScaleMode.STATIC,
     val backgroundArgb: Int = Color.BLACK,
-    val launchPackage: String? = null,
+    val launchPackage: String? = "app.aapswear",
     val backgroundEnabled: Boolean = true,
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = Color.DKGRAY,
@@ -83,6 +83,8 @@ internal data class WidgetInstanceConfiguration(
     val glucoseScalePercent: Int = 100,
     val trendScalePercent: Int = 100,
     val colorOverrides: Map<WidgetColorRole, Int> = emptyMap(),
+    val glucoseGraphValuePercent: Int = 27,
+    val showGlucoseUnit: Boolean = true,
 )
 
 internal object WidgetInstanceConfigurationStore {
@@ -110,7 +112,12 @@ internal object WidgetInstanceConfigurationStore {
             colorOverrides = WidgetColorRole.entries.mapNotNull { role ->
                 key(appWidgetId, "color.${role.preferenceKey}").takeIf(prefs::contains)?.let { role to prefs.getInt(it, Color.BLACK) }
             }.toMap(),
-            launchPackage = prefs.getString(key(appWidgetId, "launch"), null),
+            glucoseGraphValuePercent = prefs.getInt(key(appWidgetId, "glucose_graph_value_percent"), 27).coerceIn(20, 50),
+            showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
+            // One-time compatible fallback for widgets created before per-instance tap targets existed.
+            // The configuration activity persists this resolved value for the individual widget.
+            launchPackage = prefs.getString(key(appWidgetId, "launch"), null)
+                ?: WidgetLaunchTargetStore.legacySelectedPackage(context),
         )
     }
 
@@ -127,6 +134,8 @@ internal object WidgetInstanceConfigurationStore {
             .putString(key(appWidgetId, "shape"), value.shapeMode.name)
             .putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
+            .putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
+            .putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
             .apply {
                 WidgetColorRole.entries.forEach { role ->
                     val roleKey = key(appWidgetId, "color.${role.preferenceKey}")
@@ -236,6 +245,19 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             }
                         }
                     }
+                    if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
+                        WidgetSettingsSection("Kombination") {
+                            WidgetPercentSlider(
+                                "Wertbereich",
+                                value.glucoseGraphValuePercent,
+                                20..50,
+                            ) { value = value.copy(glucoseGraphValuePercent = it) }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
+                                Text("Maßeinheit anzeigen", color = ComposeColor.White)
+                            }
+                        }
+                    }
                     if (widgetKind.hasGraph) {
                         WidgetSettingsSection("Graph") {
                         Text("Zeitraum", color = ComposeColor.LightGray, fontSize = 11.sp)
@@ -295,14 +317,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         label = "Widget-Hintergrund",
                         initialArgb = value.backgroundArgb,
                         onDismiss = { editBackground = false },
-                        onSave = { value = value.copy(backgroundArgb = it); editBackground = false },
+                        onChange = { value = value.copy(backgroundArgb = it) },
                     )
                 }
                 if (editOutline) {
                     ColorEditorDialog(
                         role = null, label = "Widget-Kontur", initialArgb = value.outlineArgb,
                         onDismiss = { editOutline = false },
-                        onSave = { value = value.copy(outlineArgb = it); editOutline = false },
+                        onChange = { value = value.copy(outlineArgb = it) },
                     )
                 }
                 editRole?.let { role ->
@@ -312,7 +334,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         label = role.label,
                         initialArgb = value.colorOverrides[role] ?: palette.argb(role),
                         onDismiss = { editRole = null },
-                        onSave = { color -> value = value.copy(colorOverrides = value.colorOverrides + (role to color)); editRole = null },
+                        onChange = { color -> value = value.copy(colorOverrides = value.colorOverrides + (role to color)) },
                     )
                 }
             }

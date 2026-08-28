@@ -24,12 +24,16 @@ internal object WidgetLaunchTargetStore {
             .distinctBy(WidgetLaunchTarget::packageName)
 
     fun selected(context: Context): WidgetLaunchTarget {
-        val packageName = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .getString(KEY, context.packageName)
-            .orEmpty()
+        val packageName = legacySelectedPackage(context)
         return available(context).firstOrNull { it.packageName == packageName }
             ?: WidgetLaunchTarget(context.packageName, "Sugarlicious")
     }
+
+    internal fun legacySelectedPackage(context: Context): String =
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getString(KEY, context.packageName)
+            .orEmpty()
+            .ifBlank { context.packageName }
 
     fun select(context: Context, target: WidgetLaunchTarget) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit().putString(KEY, target.packageName).apply()

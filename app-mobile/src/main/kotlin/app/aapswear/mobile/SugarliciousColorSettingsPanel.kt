@@ -258,10 +258,9 @@ internal fun SugarliciousColorSettingsPanel(
             label = role.label,
             initialArgb = palette.argb(role),
             onDismiss = { editingRole = null },
-            onSave = { argb ->
+            onChange = { argb ->
                 SugarliciousColorStore.save(preferences, role, argb)
                 reload()
-                editingRole = null
             },
         )
     }
@@ -273,8 +272,6 @@ internal fun WidgetColorSettingsPanel() {
     val scope = rememberCoroutineScope()
     var revision by remember { mutableStateOf(0) }
     var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
-    var choosingLaunchTarget by remember { mutableStateOf(false) }
-    var launchTarget by remember(revision) { mutableStateOf(WidgetLaunchTargetStore.selected(context)) }
     val palette = remember(revision, SugarliciousColors.palette.isLight) { WidgetColorStore.load(context) }
 
     fun refreshWidgets() {
@@ -290,28 +287,13 @@ internal fun WidgetColorSettingsPanel() {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("GLUKOSEWIDGET", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text("WIDGET-STANDARDFARBEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Text("Farben", color = SugarliciousColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Die Farben werden als eigene Kopie gespeichert und ändern sich danach unabhängig vom mobilen Graphen.",
+            "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
             color = SugarliciousColors.TextSecondary,
             fontSize = 10.sp,
         )
-        Text("BEIM ANTIPPEN ÖFFNEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-                .clickable { choosingLaunchTarget = true }
-                .padding(horizontal = 11.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(launchTarget.label, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Text("Gilt für alle Mobile-Widgets", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
-            }
-            Text("ÄNDERN", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-        }
         Button(
             onClick = {
                 WidgetColorStore.copyFromMobileGraph(context)
@@ -354,45 +336,13 @@ internal fun WidgetColorSettingsPanel() {
             label = "Widget: ${role.label}",
             initialArgb = palette.argb(role),
             onDismiss = { editingRole = null },
-            onSave = { argb ->
+            onChange = { argb ->
                 WidgetColorStore.save(context, role, argb)
-                editingRole = null
                 refreshWidgets()
             },
         )
     }
 
-    if (choosingLaunchTarget) {
-        AlertDialog(
-            onDismissRequest = { choosingLaunchTarget = false },
-            title = { Text("App beim Antippen") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    WidgetLaunchTargetStore.available(context).forEach { target ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    if (target.packageName == launchTarget.packageName) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
-                                    RoundedCornerShape(14.dp),
-                                )
-                                .clickable {
-                                    WidgetLaunchTargetStore.select(context, target)
-                                    launchTarget = target
-                                    choosingLaunchTarget = false
-                                    refreshWidgets()
-                                }
-                                .padding(12.dp),
-                        ) {
-                            Text(target.label, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { choosingLaunchTarget = false }) { Text("ABBRECHEN") } },
-        )
-    }
 }
 
 @Composable
@@ -787,7 +737,7 @@ internal fun ColorEditorDialog(
     label: String,
     initialArgb: Int,
     onDismiss: () -> Unit,
-    onSave: (Int) -> Unit,
+    onChange: (Int) -> Unit,
 ) {
     val initialHsv = remember(role, initialArgb) {
         FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
@@ -807,6 +757,15 @@ internal fun ColorEditorDialog(
 
     fun syncHex() {
         hex = toHex(currentArgb())
+    }
+
+    fun persist(h: Float = hue, s: Float = saturation, v: Float = brightness, a: Float = alpha) {
+        onChange(
+            AndroidColor.HSVToColor(
+                (a * 255f).roundToInt().coerceIn(0, 255),
+                floatArrayOf(h, s, v),
+            ),
+        )
     }
 
     AlertDialog(
@@ -841,6 +800,7 @@ internal fun ColorEditorDialog(
                             saturation = hsv[1]
                             brightness = hsv[2]
                             alpha = AndroidColor.alpha(parsed) / 255f
+                            onChange(parsed)
                         }
                     },
                     label = { Text("HEX") },
@@ -856,9 +816,14 @@ internal fun ColorEditorDialog(
                         saturation = newSaturation
                         brightness = newBrightness
                         syncHex()
+                        persist(s = newSaturation, v = newBrightness)
                     },
                 )
-                HuePicker(hue = hue, onChange = { hue = it; syncHex() })
+                HuePicker(hue = hue, onChange = {
+                    hue = it
+                    syncHex()
+                    persist(h = it)
+                })
                 Text(
                     text = "Transparenz ${(100f - alpha * 100f).roundToInt()} %",
                     color = SugarliciousColors.TextSecondary,
@@ -867,22 +832,17 @@ internal fun ColorEditorDialog(
                 AlphaPicker(
                     color = Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))),
                     alpha = alpha,
-                    onChange = { alpha = it; syncHex() },
+                    onChange = {
+                        alpha = it
+                        syncHex()
+                        persist(a = it)
+                    },
                 )
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(currentArgb()) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = SugarliciousColors.Primary,
-                    contentColor = SugarliciousColors.OnPrimary,
-                ),
-            ) { Text("SPEICHERN") }
-        },
-        dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("ABBRECHEN", color = SugarliciousColors.TextSecondary)
+                Text("FERTIG", color = SugarliciousColors.Primary)
             }
         },
         containerColor = SugarliciousColors.Surface,
@@ -1210,10 +1170,9 @@ internal fun NotificationGraphSettingsPanel() {
             label = role.label,
             initialArgb = resolved(role),
             onDismiss = { editingRole = null },
-            onSave = { argb ->
+            onChange = { argb ->
                 preferences.edit().putInt(key(role), argb).apply()
                 revision++
-                editingRole = null
             },
         )
     }
