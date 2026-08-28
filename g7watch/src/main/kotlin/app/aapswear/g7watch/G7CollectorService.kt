@@ -921,7 +921,7 @@ class G7CollectorService : Service() {
 }
 
 internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
-    if (state.sensor?.deviceAddress.isNullOrBlank()) {
+    if (state.sensor?.deviceAddress.isNullOrBlank() || state.lastReading == null) {
         G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L
     } else {
         3L * 60_000L

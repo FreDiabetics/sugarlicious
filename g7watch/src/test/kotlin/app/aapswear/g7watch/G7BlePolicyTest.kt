@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothDevice
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticAttempt
@@ -14,6 +15,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `known candidate without first reading retains initial pairing deadline`() {
+        val state = G7PersistedState(
+            sensor = G7Sensor("new-sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+        )
+
+        assertEquals(
+            G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L,
+            collectorAttemptDeadlineMs(state),
+        )
+    }
+
     @Test fun `stored key is not replayed when Android bond is absent`() {
         val key = byteArrayOf(1, 2, 3)
 
