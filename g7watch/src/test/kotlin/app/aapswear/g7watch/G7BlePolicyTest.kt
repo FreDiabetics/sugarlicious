@@ -22,6 +22,10 @@ class G7BlePolicyTest {
         assertTrue(usableG7SharedKey(key, BluetoothDevice.BOND_BONDED)!!.contentEquals(key))
         assertTrue(usableG7SharedKey(key, null)!!.contentEquals(key))
         assertEquals(null, usableG7SharedKey(null, BluetoothDevice.BOND_NONE))
+        assertTrue(shouldResumeG7Pairing(key, BluetoothDevice.BOND_NONE))
+        assertFalse(shouldResumeG7Pairing(key, BluetoothDevice.BOND_BONDING))
+        assertFalse(shouldResumeG7Pairing(key, BluetoothDevice.BOND_BONDED))
+        assertFalse(shouldResumeG7Pairing(null, BluetoothDevice.BOND_NONE))
     }
 
     @Test fun `authenticated address anchors an addressless sensor change`() {

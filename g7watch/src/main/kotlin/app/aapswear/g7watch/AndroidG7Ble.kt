@@ -95,6 +95,9 @@ internal fun isConnectableG7Advertisement(connectable: Boolean): Boolean = conne
 internal fun usableG7SharedKey(sharedKey: ByteArray?, bondState: Int?): ByteArray? =
     if (sharedKey != null && bondState == BluetoothDevice.BOND_NONE) null else sharedKey
 
+internal fun shouldResumeG7Pairing(sharedKey: ByteArray?, bondState: Int?): Boolean =
+    sharedKey != null && bondState == BluetoothDevice.BOND_NONE
+
 internal enum class G7WriteCallbackDisposition {
     EXPECTED_SUCCESS,
     EXPECTED_FAILURE,
@@ -312,10 +315,19 @@ internal class AndroidG7Collector(
         var sharedKey = credentials.sharedKey?.takeIf {
             credentials.sharedKeyAddress == null || credentials.sharedKeyAddress.equals(sensor.deviceAddress, true)
         }
+        val initialBondState = sensor.deviceAddress?.let { address ->
+            runCatching {
+                context.getSystemService(BluetoothManager::class.java).adapter
+                    .getRemoteDevice(address)
+                    .bondState
+            }.getOrNull()
+        }
+        val pairingRecoveryRequired = shouldResumeG7Pairing(sharedKey, initialBondState)
+        sharedKey = usableG7SharedKey(sharedKey, initialBondState)
         var bondReconnectAttempts = 0
         var gatt133Retries = 0
         var pendingGatt133: G7BleException? = null
-        var discoveryRequired = !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
+        var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
         (scanner as? AndroidG7Scanner)?.telemetryListener = onTelemetry
 
@@ -324,6 +336,7 @@ internal class AndroidG7Collector(
                 onState(G7ProtocolState.SCANNING)
                 val scanTimeout = when {
                     scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
+                    pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
                     fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
                     else -> g7ScanTimeoutMs(sensor)
                 }
@@ -352,15 +365,6 @@ internal class AndroidG7Collector(
             // platform still reports BOND_NONE enters the stored-session path and fails before a
             // fresh createBond() can be requested. Keep the persisted key intact, but use the
             // normal pairing exchange for this connection so Android can establish the bond.
-            val bondState = sensor.deviceAddress?.let { address ->
-                runCatching {
-                    context.getSystemService(BluetoothManager::class.java).adapter
-                        .getRemoteDevice(address)
-                        .bondState
-                }.getOrNull()
-            }
-            sharedKey = usableG7SharedKey(sharedKey, bondState)
-
             val connection = G7GattConnection(context, sensor, onTelemetry)
             try {
                 val outcome = withTimeout(SESSION_TIMEOUT_MS) {
