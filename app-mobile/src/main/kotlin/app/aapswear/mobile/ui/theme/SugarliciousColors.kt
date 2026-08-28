@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.edit
+import app.aapswear.model.AppearanceTerminology
 
 enum class SugarliciousColorGroup(val label: String) {
     APP("App-Oberfläche"),
@@ -30,18 +31,18 @@ enum class SugarliciousColorRole(
     ON_PRIMARY("on_primary", "Text auf Primärfarbe", SugarliciousColorGroup.APP, 0xFF181818.toInt(), 0xFF102114.toInt()),
     SECONDARY("secondary", "Sekundär / Cyan", SugarliciousColorGroup.APP, 0xFF19D7E8.toInt()),
     ON_SECONDARY("on_secondary", "Text auf Sekundärfarbe", SugarliciousColorGroup.APP, 0xFF181818.toInt()),
-    BACKGROUND("background", "App-Hintergrund", SugarliciousColorGroup.APP, 0xFF181818.toInt(), 0xFFF2F2F2.toInt(), true),
-    SURFACE("surface", "Tile-Hintergrund", SugarliciousColorGroup.APP, 0xFF242424.toInt(), 0xFFFDFDFD.toInt(), true),
+    BACKGROUND("background", AppearanceTerminology.APP_BACKGROUND, SugarliciousColorGroup.APP, 0xFF181818.toInt(), 0xFFF2F2F2.toInt(), true),
+    SURFACE("surface", AppearanceTerminology.SURFACE_BACKGROUND, SugarliciousColorGroup.APP, 0xFF242424.toInt(), 0xFFFDFDFD.toInt(), true),
     SURFACE_HIGH("surface_high", "Erhöhte Fläche", SugarliciousColorGroup.APP, 0xFF303030.toInt(), 0xFFE7E7E7.toInt()),
     SURFACE_RAISED("surface_raised", "Progress-/Raised-Fläche", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt()),
     SURFACE_SELECTED("surface_selected", "Ausgewählte Fläche", SugarliciousColorGroup.APP, 0xFF3A3A3A.toInt(), 0xFFDCE8DF.toInt()),
-    BORDER("border", "Tile-Kontur / Rahmen", SugarliciousColorGroup.APP, 0xFF404040.toInt(), 0xFFD0D0D0.toInt(), configurable = true),
-    TEXT_PRIMARY("text_primary", "Haupttext", SugarliciousColorGroup.APP, 0xFFF5F5F5.toInt(), 0xFF252525.toInt()),
-    TEXT_SECONDARY("text_secondary", "Sekundärtext", SugarliciousColorGroup.APP, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
+    BORDER("border", AppearanceTerminology.SURFACE_BORDER, SugarliciousColorGroup.APP, 0xFF404040.toInt(), 0xFFD0D0D0.toInt(), configurable = true),
+    TEXT_PRIMARY("text_primary", AppearanceTerminology.PRIMARY_TEXT, SugarliciousColorGroup.APP, 0xFFF5F5F5.toInt(), 0xFF252525.toInt()),
+    TEXT_SECONDARY("text_secondary", AppearanceTerminology.SECONDARY_TEXT, SugarliciousColorGroup.APP, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
 
-    GLUCOSE_LOW("glucose_low", "Zuckerwert · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
-    GLUCOSE_IN_RANGE("glucose_in_range", "Zuckerwert · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFF5F5F5.toInt(), 0xFF202020.toInt(), true),
-    GLUCOSE_HIGH("glucose_high", "Zuckerwert · hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
+    GLUCOSE_LOW("glucose_low", AppearanceTerminology.GLUCOSE_LOW, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    GLUCOSE_IN_RANGE("glucose_in_range", AppearanceTerminology.GLUCOSE_IN_RANGE, SugarliciousColorGroup.GLUCOSE, 0xFFF5F5F5.toInt(), 0xFF202020.toInt(), true),
+    GLUCOSE_HIGH("glucose_high", AppearanceTerminology.GLUCOSE_HIGH, SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     GLUCOSE_VERY_LOW("glucose_very_low", "Zuckerwert / CGM-Punkte · sehr tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
     GLUCOSE_VERY_HIGH("glucose_very_high", "Zuckerwert / CGM-Punkte · sehr hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     RANGE_LOW("range_low", "Bereich · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
@@ -50,9 +51,9 @@ enum class SugarliciousColorRole(
     PROGRESS_BELOW("progress_below", "Progressbar · unter Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
     PROGRESS_IN_RANGE("progress_in_range", "Progressbar · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF2E9C45.toInt(), true),
     PROGRESS_ABOVE("progress_above", "Progressbar · über Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
-    CGM_DOT_LOW("cgm_dot_low", "CGM-Punkte · tief", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
-    CGM_DOT_IN_RANGE("cgm_dot_in_range", "CGM-Punkte · im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF000000.toInt(), true),
-    CGM_DOT_HIGH("cgm_dot_high", "CGM-Punkte · hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
+    CGM_DOT_LOW("cgm_dot_low", AppearanceTerminology.GRAPH_DOT_LOW, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    CGM_DOT_IN_RANGE("cgm_dot_in_range", AppearanceTerminology.GRAPH_DOT_IN_RANGE, SugarliciousColorGroup.GLUCOSE, 0xFF54DF30.toInt(), 0xFF000000.toInt(), true),
+    CGM_DOT_HIGH("cgm_dot_high", AppearanceTerminology.GRAPH_DOT_HIGH, SugarliciousColorGroup.GLUCOSE, 0xFFFFD040.toInt(), 0xFFD47D00.toInt(), true),
     /**
      * Compatibility enum slot: the target range itself is rendered via RANGE_IN_RANGE since #51.
      * This role now owns the independent target_value preference for effective target line/text.
@@ -60,7 +61,7 @@ enum class SugarliciousColorRole(
      */
     TARGET_BAND(
         "target_value",
-        "Zielwert im Graph",
+        AppearanceTerminology.GRAPH_TARGET_VALUE,
         SugarliciousColorGroup.GLUCOSE,
         0xFF5AF034.toInt(),
         0xFF47F06A.toInt(),
@@ -74,17 +75,17 @@ enum class SugarliciousColorRole(
     PURPLE("purple", "Violett", SugarliciousColorGroup.THERAPY, 0xFFD69AFF.toInt()),
     RED("red", "Rot / Fehler", SugarliciousColorGroup.THERAPY, 0xFFFF5C69.toInt()),
 
-    PREDICTION_IOB("prediction_iob", "Prognose IOB", SugarliciousColorGroup.GRAPH, 0xFF52C1FF.toInt()),
-    PREDICTION_COB("prediction_cob", "Prognose COB / ACOB", SugarliciousColorGroup.GRAPH, 0xFFF4DE00.toInt()),
-    PREDICTION_UAM("prediction_uam", "Prognose UAM", SugarliciousColorGroup.GRAPH, 0xFFFFAE1F.toInt()),
-    PREDICTION_ZERO_TEMP("prediction_zero_temp", "Prognose Zero Temp", SugarliciousColorGroup.GRAPH, 0xFF30DBDE.toInt()),
-    GRAPH_BACKGROUND("graph_background", "Graph-Hintergrund", SugarliciousColorGroup.GRAPH, 0xFF202020.toInt(), 0xFFFFFFFF.toInt(), true),
+    PREDICTION_IOB("prediction_iob", AppearanceTerminology.PREDICTION_IOB, SugarliciousColorGroup.GRAPH, 0xFF52C1FF.toInt()),
+    PREDICTION_COB("prediction_cob", AppearanceTerminology.PREDICTION_COB, SugarliciousColorGroup.GRAPH, 0xFFF4DE00.toInt()),
+    PREDICTION_UAM("prediction_uam", AppearanceTerminology.PREDICTION_UAM, SugarliciousColorGroup.GRAPH, 0xFFFFAE1F.toInt()),
+    PREDICTION_ZERO_TEMP("prediction_zero_temp", AppearanceTerminology.PREDICTION_ZERO_TEMP, SugarliciousColorGroup.GRAPH, 0xFF30DBDE.toInt()),
+    GRAPH_BACKGROUND("graph_background", AppearanceTerminology.GRAPH_BACKGROUND, SugarliciousColorGroup.GRAPH, 0xFF202020.toInt(), 0xFFFFFFFF.toInt(), true),
     GRAPH_IOB("graph_iob", "IOB", SugarliciousColorGroup.GRAPH, 0xFF64BFFF.toInt(), 0xFF2479B7.toInt(), true),
     GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
     GRAPH_GRID("graph_grid", "Graph-Gitter", SugarliciousColorGroup.GRAPH, 0xFF464646.toInt(), 0xFFD5D5D5.toInt()),
-    GRAPH_LABEL("graph_label", "Achsenbeschriftung", SugarliciousColorGroup.GRAPH, 0xFFD2D2D2.toInt(), 0xFF575757.toInt()),
+    GRAPH_LABEL("graph_label", AppearanceTerminology.GRAPH_AXIS_TEXT, SugarliciousColorGroup.GRAPH, 0xFFD2D2D2.toInt(), 0xFF575757.toInt()),
     GRAPH_MUTED("graph_muted", "Graph-Hinweise / Trennlinie", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF777777.toInt()),
-    GRAPH_DIVIDER("graph_divider", "Trennlinie", SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF747474.toInt(), true),
+    GRAPH_DIVIDER("graph_divider", AppearanceTerminology.GRAPH_DIVIDER, SugarliciousColorGroup.GRAPH, 0xFF969696.toInt(), 0xFF747474.toInt(), true),
     GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0x46FF5C69, 0x38D11A2A, true),
     GRAPH_CURRENT_OUTLINE("graph_current_outline", "Aktueller Punkt · Kontur", SugarliciousColorGroup.GRAPH, 0xFF000000.toInt());
 

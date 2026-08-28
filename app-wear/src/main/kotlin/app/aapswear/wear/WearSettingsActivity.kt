@@ -1,5 +1,7 @@
 package app.aapswear.wear
 
+import app.aapswear.model.AppearanceTerminology
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.res.ColorStateList
@@ -161,17 +163,17 @@ class WearSettingsActivity : Activity() {
         )
 
         section("APP & TILES")
-        colorRow("App Hintergrund", current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
-        colorRow("Tile Hintergrund", current.uiColors.tileBackground) { updateUiColors { c -> c.copy(tileBackground = it) } }
-        colorRow("Tile Kontur", current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
-        colorRow("Haupttext", current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
-        colorRow("Sekundärtext", current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
-        colorRow("Akzent", current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
+        colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
+        colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground) { updateUiColors { c -> c.copy(tileBackground = it) } }
+        colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
+        colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
+        colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
+        colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
 
         section("GLUKOSE FARBEN")
-        colorRow("Zuckerwert niedrig", current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
-        colorRow("Zuckerwert im Ziel", current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
-        colorRow("Zuckerwert hoch", current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
+        colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
+        colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
+        colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
 
         section("THERAPIE FARBEN")
         colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
@@ -179,21 +181,21 @@ class WearSettingsActivity : Activity() {
         colorRow("Basal", current.uiColors.basal) { updateUiColors { c -> c.copy(basal = it) } }
 
         section("GRAPH FARBEN")
-        colorRow("Graph Hintergrund", current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }
-        colorRow("Bereich niedrig", current.graphColors.rangeLow) { updateGraphColors { c -> c.copy(rangeLow = it) } }
-        colorRow("Bereich im Ziel", current.graphColors.rangeInRange) { updateGraphColors { c -> c.copy(rangeInRange = it) } }
-        colorRow("Bereich hoch", current.graphColors.rangeHigh) { updateGraphColors { c -> c.copy(rangeHigh = it) } }
-        colorRow("CGM niedrig", current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
-        colorRow("CGM im Bereich", current.graphColors.cgmInRange) { updateGraphColors { c -> c.copy(cgmInRange = it) } }
-        colorRow("CGM hoch", current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
-        colorRow("Linien / Achsen", current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
-        colorRow("Dot Kontur", current.graphColors.outline) { updateGraphColors { c -> c.copy(outline = it) } }
+        colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }
+        colorRow(AppearanceTerminology.GRAPH_LOW_AREA, current.graphColors.rangeLow) { updateGraphColors { c -> c.copy(rangeLow = it) } }
+        colorRow(AppearanceTerminology.GRAPH_TARGET_AREA, current.graphColors.rangeInRange) { updateGraphColors { c -> c.copy(rangeInRange = it) } }
+        colorRow(AppearanceTerminology.GRAPH_HIGH_AREA, current.graphColors.rangeHigh) { updateGraphColors { c -> c.copy(rangeHigh = it) } }
+        colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
+        colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange) { updateGraphColors { c -> c.copy(cgmInRange = it) } }
+        colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
+        colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
+        colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) { updateGraphColors { c -> c.copy(outline = it) } }
 
         section("PROGNOSE FARBEN")
-        colorRow("IOB Prognose", current.graphColors.predictionIob) { updateGraphColors { c -> c.copy(predictionIob = it) } }
-        colorRow("COB Prognose", current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
-        colorRow("UAM Prognose", current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
-        colorRow("ZeroTemp Prognose", current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
+        colorRow(AppearanceTerminology.PREDICTION_IOB, current.graphColors.predictionIob) { updateGraphColors { c -> c.copy(predictionIob = it) } }
+        colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
+        colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
+        colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
 
         TextView(this).apply {
             text = "Sugarlicious Watch · Einstellungen werden lokal gespeichert"
