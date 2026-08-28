@@ -156,8 +156,10 @@ internal fun widgetGlucoseColorRole(
     highMgDl: Double,
 ): WidgetColorRole =
     widgetGlucoseColorRole(valueMgDl, app.aapswear.model.CgmThresholds(
-        veryHighMgDl = maxOf(250.0, highMgDl + 1.0), highMgDl = highMgDl,
-        lowMgDl = lowMgDl, veryLowMgDl = minOf(50.0, lowMgDl - 1.0),
+        veryHighMgDl = maxOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
+        highMgDl = highMgDl,
+        lowMgDl = lowMgDl,
+        veryLowMgDl = minOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
     ))
 
 internal fun widgetGlucoseColorRole(valueMgDl: Double, thresholds: app.aapswear.model.CgmThresholds): WidgetColorRole =

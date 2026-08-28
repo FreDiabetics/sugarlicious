@@ -127,6 +127,7 @@ object ComplicationPresentationFormatter {
         id: Int,
         state: TherapyDisplayState?,
         nowEpochMs: Long = System.currentTimeMillis(),
+        thresholds: CgmThresholds = CgmThresholds.DEFAULT,
     ): ComplicationPresentation {
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
@@ -213,9 +214,13 @@ object ComplicationPresentationFormatter {
                 p(DASH, desc = "Sensoralter nicht verfügbar")
 
             SugarliciousComplicationIds.TIR -> {
-                val tir = tirPercent(state, nowEpochMs)
+                val tir = tirPercent(state, nowEpochMs, thresholds)
                 val value = tir?.let { "$it%" } ?: DASH
-                p(value, "70–180", desc = "TIR $value")
+                p(
+                    value,
+                    "${thresholds.lowMgDl.roundToInt()}–${thresholds.highMgDl.roundToInt()}",
+                    desc = "TIR $value",
+                )
             }
 
             SugarliciousComplicationIds.DATE -> {
@@ -228,14 +233,21 @@ object ComplicationPresentationFormatter {
         }
     }
 
-    fun tirPercent(state: TherapyDisplayState?, nowEpochMs: Long): Int? {
+    fun tirPercent(
+        state: TherapyDisplayState?,
+        nowEpochMs: Long,
+        thresholds: CgmThresholds = CgmThresholds.DEFAULT,
+    ): Int? {
         val cutoff = nowEpochMs - 24L * 60L * 60_000L
         val samples = state?.glucoseHistory.orEmpty().filter {
             it.measuredAtEpochMs in cutoff..(nowEpochMs + FreshnessPolicy.FUTURE_TOLERANCE_MS) &&
                 it.valueMgDl in 20.0..1000.0
         }
         if (samples.isEmpty()) return null
-        return (samples.count { it.valueMgDl in 70.0..180.0 } * 100.0 / samples.size).roundToInt()
+        return (
+            samples.count { it.valueMgDl in thresholds.lowMgDl..thresholds.highMgDl } *
+                100.0 / samples.size
+        ).roundToInt()
     }
 
     private fun p(

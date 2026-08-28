@@ -56,6 +56,24 @@ class ComplicationPresentationTest {
         assertNull(TrendVisuals.spec(Trend.UNKNOWN))
     }
 
+    @Test fun `tir presentation uses configured central thresholds`() {
+        val thresholds = CgmThresholds(
+            veryHighMgDl = 240.0,
+            highMgDl = 160.0,
+            lowMgDl = 80.0,
+            veryLowMgDl = 55.0,
+        )
+        val presentation = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.TIR,
+            state,
+            now,
+            thresholds,
+        )
+
+        assertEquals("67%", presentation.text)
+        assertEquals("80–160", presentation.title)
+    }
+
     @Test fun `date weekdays always use the requested German abbreviations`() {
         val expected = listOf("MON", "DIE", "MIT", "DON", "FRE", "SAM", "SON")
         assertEquals(expected, DayOfWeek.entries.map(ComplicationPresentationFormatter::germanWeekday))

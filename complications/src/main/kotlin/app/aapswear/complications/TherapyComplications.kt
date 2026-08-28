@@ -28,6 +28,7 @@ import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DataCapability
@@ -917,8 +918,8 @@ abstract class TherapyComplicationService(
         private const val IOB_GAUGE_MAX = 10f
         private const val COB_GAUGE_MAX = 150f
         private const val SENSOR_AGE_GAUGE_MAX_DAYS = 14f
-        private const val TIR_LOW_MGDL = 70.0
-        private const val TIR_HIGH_MGDL = 180.0
+        private const val TIR_LOW_MGDL = CgmThresholds.DEFAULT_LOW_MG_DL
+        private const val TIR_HIGH_MGDL = CgmThresholds.DEFAULT_HIGH_MG_DL
         private const val TIR_GOAL_PERCENT = 70f
         private const val TIR_WINDOW_MS = 24 * 60 * 60_000L
 
