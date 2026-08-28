@@ -624,7 +624,10 @@ private class G7GattConnection(
             // Converted below into the stable, user-facing authentication error.
         }
         if (device.bondState != BluetoothDevice.BOND_BONDED) {
-            throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", false)
+            // The system consent UI is time limited. Missing that UI once must not leave initial
+            // setup permanently dead; the normal scheduler may offer it again in a later sensor
+            // window without deleting bonds, keys, or application data.
+            throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", true)
         }
     }
 
