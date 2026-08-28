@@ -3,10 +3,12 @@ package app.aapswear.mobile
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Bitmap
+import android.graphics.RectF
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
@@ -151,6 +153,17 @@ class WidgetPresentationTest {
 
         assertEquals(0, Color.alpha(graph.getPixel(0, 0)))
         assertEquals(0, Color.alpha(combined.getPixel(0, combined.height - 1)))
+    }
+
+    @Test
+    fun `widget point moves left when only clock advances`() {
+        val timestamp = now - 5L * 60_000L
+        val history = 3L * 60L * 60_000L
+        val plot = RectF(0f, 0f, 600f, 220f)
+        val first = widgetGraphPointX(timestamp, GraphTimeWindow.live(now, history), plot)
+        val oneMinuteLater = widgetGraphPointX(timestamp, GraphTimeWindow.live(now + 60_000L, history), plot)
+
+        assertTrue(oneMinuteLater < first)
     }
 
     @Test

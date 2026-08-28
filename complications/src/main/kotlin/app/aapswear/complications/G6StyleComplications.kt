@@ -267,10 +267,8 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), divider)
 
         val timeWindow = GraphTimeWindow.live(nowEpochMs, G6StylePresentationFormatter.GRAPH_WINDOW_MS)
-        fun xFor(timestamp: Long): Float {
-            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
-            return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
-        }
+        fun xFor(timestamp: Long): Float =
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         samples.forEach { sample ->

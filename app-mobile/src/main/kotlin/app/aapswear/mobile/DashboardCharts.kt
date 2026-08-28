@@ -639,15 +639,11 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 )
             }
 
-            // Keep the relative time axis anchored to the actual latest CGM reading. Using the
-            // newest point inside the panned window resets the labels for every swipe (typically
-            // leaving only "1h" visible) instead of showing how far that window is from now.
-            val currentDotTimestamp = allHistory.maxOfOrNull { it.measuredAtEpochMs }
-                ?: state?.glucose?.measuredAtEpochMs
-                ?: now
-            val currentDotX = mapX(currentDotTimestamp, start, end, plot).coerceIn(plot.left, plot.right)
-            val dividerX = (currentDotX + 5f.dp)
-                .coerceIn(plot.left, plot.right)
+            // The live marker belongs to the clock, not to the last packet. A delayed packet must
+            // remain at its measurement timestamp while the whole history keeps moving left.
+            val liveTimestamp = timeWindow.liveEdgeEpochMs
+            val liveX = timeWindow.plotX(liveTimestamp, plot.left, plot.width())
+            val dividerX = liveX
             val futureLaneVisible = end > now && now in start..end
             if (futureLaneVisible) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
@@ -658,18 +654,14 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             }
 
             history.forEachIndexed { index, point ->
-                val mappedX = mapX(point.measuredAtEpochMs, start, end, plot)
+                val mappedX = timeWindow.plotX(point.measuredAtEpochMs, plot.left, plot.width())
                 val y = mapGlucoseY(point.valueMgDl, plot)
                 val current = index == history.lastIndex
                 val dotRadius = (cgmDotRadiusDp + if (current) 0.1f else 0f).dp
                 val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
-                val historyRightEdge =
-                    if (futureLaneVisible) {
-                        graphCenterBeforeDivider(dividerX, dotRadius, outlineWidth, 2f.dp)
-                    } else {
-                        plot.right - dotRadius - outlineWidth / 2f - 2f.dp
-                    }
-                val x = min(mappedX, historyRightEdge).coerceAtLeast(plot.left + dotRadius + outlineWidth / 2f)
+                // Never collapse timestamp positions onto a radius-dependent edge. The rounded
+                // plot clip owns edge clipping; X remains a pure function of timestamp + viewport.
+                val x = mappedX
                 fillPaint.color = dotColor(point.valueMgDl, thresholds)
                 canvas.drawCircle(x, y, dotRadius, fillPaint)
                 if (cgmDotOutlineEnabled) {
@@ -686,7 +678,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             }
 
             canvas.restoreToCount(graphSave)
-            drawGrid(canvas, plot, scaleContainer.bottom, start, end, currentDotTimestamp, currentDotX)
+            drawGrid(canvas, plot, scaleContainer.bottom, start, end, liveTimestamp, liveX)
 
             if (showTargetRange) {
                 drawTargetScale(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), plot, targetTop, targetBottom, targetScaleOnRight)

@@ -471,12 +471,8 @@ internal fun renderWidgetGraph(
 
     val timeWindow = GraphTimeWindow.live(now, windowMs)
     val start = timeWindow.startEpochMs
-    val latestTimestamp = samples.maxOfOrNull(GlucoseSample::measuredAtEpochMs) ?: now
-    fun x(timestamp: Long): Float = plot.left + timeWindow.xFraction(timestamp) * plot.width()
-    val latestX = x(latestTimestamp).coerceIn(
-        plot.left + metrics.dotRadiusPx + metrics.outlineWidthPx,
-        plot.right - metrics.dotRadiusPx - metrics.outlineWidthPx,
-    )
+    fun x(timestamp: Long): Float = widgetGraphPointX(timestamp, timeWindow, plot)
+    val liveX = x(timeWindow.liveEdgeEpochMs)
     val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -484,10 +480,9 @@ internal fun renderWidgetGraph(
         color = palette.argb(WidgetColorRole.DOT_OUTLINE)
     }
     samples.forEach { sample ->
-        val pointX = x(sample.measuredAtEpochMs).coerceIn(
-            plot.left + metrics.dotRadiusPx + metrics.outlineWidthPx,
-            plot.right - metrics.dotRadiusPx - metrics.outlineWidthPx,
-        )
+        // The widget is redrawn as one bitmap. Do not pin multiple samples to an inner edge:
+        // clipping is handled by the widget shape and every X position remains timestamp-derived.
+        val pointX = x(sample.measuredAtEpochMs)
         val y = yScale.map(sample.valueMgDl, plot)
         pointPaint.color = palette.argb(
             when (widgetGlucoseColorRole(sample.valueMgDl, thresholds)) {
@@ -505,7 +500,7 @@ internal fun renderWidgetGraph(
     line.color = palette.argb(WidgetColorRole.DIVIDER)
     line.strokeWidth = metrics.lineWidthPx
     if (configuration.showTimeAxis) RelativeGraphTimeAxis.ticks(start, now, now, RelativeGraphTimeAxis.intervalHours(configuration.graphHours.toDouble())).forEach { tick ->
-        val tickX = if (tick.hoursBack == 0) latestX else x(tick.timestampEpochMs)
+        val tickX = if (tick.hoursBack == 0) liveX else x(tick.timestampEpochMs)
         if (tickX in plot.left..plot.right) {
             val labelSize = if (tick.hoursBack == 0) metrics.nowTextSizePx else metrics.axisTextSizePx
             textPaint.textSize = labelSize
@@ -522,6 +517,9 @@ internal fun renderWidgetGraph(
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, density)
     return bitmap
 }
+
+internal fun widgetGraphPointX(timestampEpochMs: Long, timeWindow: GraphTimeWindow, plot: RectF): Float =
+    timeWindow.plotX(timestampEpochMs, plot.left, plot.width())
 
 internal data class WidgetGraphMetrics(
     val plot: RectF,

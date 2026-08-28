@@ -22,6 +22,10 @@ data class GraphTimeWindow(
     fun xFraction(timestampEpochMs: Long): Float =
         ((timestampEpochMs - startEpochMs).toDouble() / durationMs.toDouble()).toFloat()
 
+    /** Maps an event timestamp directly into a renderer plot without retaining pixel state. */
+    fun plotX(timestampEpochMs: Long, plotLeft: Float, plotWidth: Float): Float =
+        plotLeft + xFraction(timestampEpochMs) * plotWidth
+
     companion object {
         fun endingAt(
             viewportEndEpochMs: Long,

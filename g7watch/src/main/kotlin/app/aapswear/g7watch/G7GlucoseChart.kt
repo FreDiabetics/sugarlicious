@@ -101,7 +101,7 @@ internal class G7GlucoseChart @JvmOverloads constructor(
 
         val timeWindow = GraphTimeWindow.live(nowEpochMs, WINDOW_MS)
         readings.forEachIndexed { index, reading ->
-            val x = left + timeWindow.xFraction(reading.timestampEpochMs).coerceIn(0f, 1f) * (right - left)
+            val x = timeWindow.plotX(reading.timestampEpochMs, left, right - left)
             val y = bottom - GlucoseGraphScale.ratio(reading.glucoseMgDl).toFloat() * (bottom - top)
             paint.style = Paint.Style.FILL
             paint.color = when (thresholds.classify(reading.glucoseMgDl)) {

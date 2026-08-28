@@ -624,10 +624,8 @@ abstract class TherapyComplicationService(
             return
         }
 
-        fun xFor(timestamp: Long): Float {
-            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
-            return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
-        }
+        fun xFor(timestamp: Long): Float =
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

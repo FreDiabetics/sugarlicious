@@ -566,10 +566,8 @@ internal object NotificationGraphRenderer {
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 
-        fun x(timestamp: Long): Float {
-            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
-            return (plotLeft + fraction * (plotRight - plotLeft)).toFloat()
-        }
+        fun x(timestamp: Long): Float =
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         paint.style = Paint.Style.FILL
         if (excursion == RangeExcursion.HIGH) {

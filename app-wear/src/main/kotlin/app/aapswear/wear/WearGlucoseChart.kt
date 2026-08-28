@@ -223,9 +223,7 @@ class WearGlucoseChart @JvmOverloads constructor(
         if (right <= left || bottom <= top) return
 
         fun xFor(timestamp: Long): Float =
-            left +
-                timeWindow.xFraction(timestamp).coerceIn(0f, 1f) *
-                (right - left)
+            timeWindow.plotX(timestamp, left, right - left)
 
         fun yFor(value: Double): Float =
             bottom -
@@ -314,7 +312,7 @@ class WearGlucoseChart @JvmOverloads constructor(
             targetLabelPaint,
         )
 
-        val dividerX = xFor(now)
+        val dividerX = xFor(timeWindow.liveEdgeEpochMs)
         if (visiblePredictions.isNotEmpty()) {
             linePaint.color = colors.divider
             linePaint.strokeWidth = 1f.dp

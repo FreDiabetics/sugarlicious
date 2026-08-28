@@ -54,6 +54,7 @@ import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.Trend
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -909,7 +910,8 @@ private fun MiniGlucosePreview(
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
     val now = System.currentTimeMillis()
     val windowMs = windowMinutes * 60_000L
-    val cutoff = now - windowMs
+    val timeWindow = GraphTimeWindow.live(now, windowMs)
+    val cutoff = timeWindow.startEpochMs
     val demoHours = maxOf(1, (windowMinutes + 59) / 60)
     val merged = (samples + listOfNotNull(current))
         .filter { it.measuredAtEpochMs in cutoff..(now + 5 * 60_000L) && it.valueMgDl in 20.0..1000.0 }
@@ -929,7 +931,7 @@ private fun MiniGlucosePreview(
         val right = size.width - 3.dp.toPx()
         val top = 3.dp.toPx()
         val bottom = size.height - 3.dp.toPx()
-        fun x(timestamp: Long) = left + (((timestamp - cutoff).toDouble() / windowMs.toDouble()).coerceIn(0.0, 1.0) * (right - left)).toFloat()
+        fun x(timestamp: Long) = timeWindow.plotX(timestamp, left, right - left)
         fun y(value: Double) = bottom - (GlucoseGraphScale.ratio(value) * (bottom - top)).toFloat()
         val low = 80.0
         val high = 160.0

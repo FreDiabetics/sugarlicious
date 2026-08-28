@@ -27,17 +27,12 @@ class G7CollectorGraphViewTest {
     private val background = Color.rgb(25, 25, 25)
 
     @Test
-    fun `latest cgm is centered on now line left of prediction divider`() {
+    fun `latest cgm keeps timestamp position at live edge`() {
         val left = 16f
         val divider = 369f
         val start = now - 3 * 60 * 60_000L
-        val radius = 3.1f
-        val gap = 1f
-        val nowLine = G7GraphLayout.nowLineX(divider, radius, gap)
 
         assertEquals(divider, G7GraphLayout.timeX(now, start, now, left, divider))
-        assertEquals(nowLine, G7GraphLayout.realCgmX(divider, nowLine))
-        assertEquals(divider - gap, nowLine + radius)
     }
 
     @Test
@@ -74,27 +69,20 @@ class G7CollectorGraphViewTest {
         val left = 16f
         val divider = 369f
         val start = now - 3 * 60 * 60_000L
-        val nowLine = G7GraphLayout.nowLineX(divider, 3.1f, 1f)
         val measuredAt = now - 2L * 60L * 60_000L
 
-        val measuredX = G7GraphLayout.realCgmX(
-            G7GraphLayout.timeX(measuredAt, start, now, left, divider),
-            nowLine,
-        )
+        val measuredX = G7GraphLayout.timeX(measuredAt, start, now, left, divider)
 
-        assertTrue(measuredX < nowLine - 100f)
+        assertTrue(measuredX < divider - 100f)
     }
 
     @Test
-    fun `maximum dot geometry cannot touch now divider from either lane`() {
+    fun `prediction lane starts after live divider`() {
         val divider = 369f
         val gap = 1f
-        val cgmRadius = 4.5f
         val predictionRadius = 5f
-        val nowLine = G7GraphLayout.nowLineX(divider, cgmRadius, gap)
         val predictionCenter = G7GraphLayout.predictionX(divider, divider, predictionRadius, gap)
 
-        assertTrue(nowLine + cgmRadius < divider)
         assertTrue(predictionCenter - predictionRadius > divider)
     }
 

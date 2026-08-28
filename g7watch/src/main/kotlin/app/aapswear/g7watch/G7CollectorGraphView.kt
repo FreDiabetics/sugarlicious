@@ -15,7 +15,6 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RelativeGraphTimeAxis
-import kotlin.math.min
 
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
@@ -92,7 +91,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         if (plotRight <= plotLeft || plotBottom <= plotTop) return
 
         fun x(timestamp: Long): Float =
-            plotLeft + timeWindow.xFraction(timestamp).coerceIn(0f, 1f) * (plotRight - plotLeft)
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         fun y(valueMgDl: Double): Float =
             plotBottom - GlucoseGraphScale.ratio(valueMgDl).toFloat() * (plotBottom - plotTop)
@@ -112,11 +111,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
             canvas.drawRect(plotLeft, targetBottom, plotRight, plotBottom, fillPaint)
         }
 
-        val nowLineX = G7GraphLayout.nowLineX(
-            dividerX = plotRight,
-            cgmOuterRadius = CGM_OUTER_RADIUS_DP.dp,
-            safetyGap = NOW_LANE_SAFETY_GAP_DP.dp,
-        )
+        val nowLineX = x(timeWindow.liveEdgeEpochMs)
         drawGridAndAxis(canvas, start, now, plotLeft, plotRight, nowLineX, plotTop, plotBottom)
 
         linePaint.pathEffect = null
@@ -150,7 +145,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         visible.forEach { reading ->
             // Every real CGM point keeps its measurement-time X coordinate. Only a genuinely
             // current point naturally reaches the live divider; stale points leave a visible gap.
-            val px = G7GraphLayout.realCgmX(x(reading.timestampEpochMs), nowLineX)
+            val px = x(reading.timestampEpochMs)
             val py = y(reading.glucoseMgDl)
             fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE)
             canvas.drawCircle(px, py, CGM_OUTER_RADIUS_DP.dp, fillPaint)
@@ -219,7 +214,6 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     private companion object {
         const val TILE_RADIUS_DP = 20f
         const val CGM_OUTER_RADIUS_DP = 3.1f
-        const val NOW_LANE_SAFETY_GAP_DP = 1f
         const val SCALE_LABEL_GAP_DP = 1.5f
     }
 }
@@ -230,11 +224,6 @@ internal object G7GraphLayout {
             ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L))
                 .coerceIn(0.0, 1.0)
                 .toFloat() * (right - left)
-
-    fun nowLineX(dividerX: Float, cgmOuterRadius: Float, safetyGap: Float): Float =
-        dividerX - cgmOuterRadius - safetyGap
-
-    fun realCgmX(mappedX: Float, nowLineX: Float): Float = min(mappedX, nowLineX)
 
     fun predictionX(mappedX: Float, dividerX: Float, outerRadius: Float, safetyGap: Float): Float =
         maxOf(mappedX, dividerX + outerRadius + safetyGap)
