@@ -55,11 +55,6 @@ data class WatchGraphColors(
     val cgmVeryLow: Int = cgmLow,
     val cgmVeryHigh: Int = cgmHigh,
     val divider: Int = 0xFF969696.toInt(),
-    val highLine: Int = rangeHigh,
-    val lowLine: Int = rangeLow,
-    val axisLabel: Int = divider,
-    val axisTick: Int = divider,
-    val nowLine: Int = divider,
     val outline: Int = 0xFF000000.toInt(),
     val predictionIob: Int = 0xFF52C1FF.toInt(),
     val predictionCob: Int = 0xFFF4DE00.toInt(),
@@ -77,7 +72,7 @@ data class WatchColorSync(
     val sentAtEpochMs: Long,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 3
+        const val CURRENT_SCHEMA = 2
     }
 }
 
@@ -153,7 +148,7 @@ data class WatchConfig(
     val sentAtEpochMs: Long = 0L,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 9
+        const val CURRENT_SCHEMA = 8
     }
 }
 

@@ -25,11 +25,6 @@ internal class G7GraphColorStore(context: Context) {
             cgmVeryLow = preferences.getInt("cgm_very_low", defaults.cgmVeryLow),
             cgmVeryHigh = preferences.getInt("cgm_very_high", defaults.cgmVeryHigh),
             divider = preferences.getInt("divider", defaults.divider),
-            highLine = preferences.getInt("high_line", defaults.highLine),
-            lowLine = preferences.getInt("low_line", defaults.lowLine),
-            axisLabel = preferences.getInt("axis_label", defaults.axisLabel),
-            axisTick = preferences.getInt("axis_tick", defaults.axisTick),
-            nowLine = preferences.getInt("now_line", defaults.nowLine),
             outline = preferences.getInt("outline", defaults.outline),
             predictionIob = preferences.getInt("prediction_iob", defaults.predictionIob),
             predictionCob = preferences.getInt("prediction_cob", defaults.predictionCob),
@@ -74,11 +69,6 @@ internal class G7GraphColorStore(context: Context) {
             .putFloat("threshold_low", sync.cgmThresholds.lowMgDl.toFloat())
             .putFloat("threshold_very_low", sync.cgmThresholds.veryLowMgDl.toFloat())
             .putInt("divider", colors.divider)
-            .putInt("high_line", colors.highLine)
-            .putInt("low_line", colors.lowLine)
-            .putInt("axis_label", colors.axisLabel)
-            .putInt("axis_tick", colors.axisTick)
-            .putInt("now_line", colors.nowLine)
             .putInt("outline", colors.outline)
             .putInt("prediction_iob", colors.predictionIob)
             .putInt("prediction_cob", colors.predictionCob)

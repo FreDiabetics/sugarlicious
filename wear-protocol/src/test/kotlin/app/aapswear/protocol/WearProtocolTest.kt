@@ -54,24 +54,10 @@ class WearProtocolTest {
    cgmInRange=0xFF00BB00.toInt(),
    cgmHigh=0xFFBBBB00.toInt(),
    divider=0xFF888888.toInt(),
-   highLine=0xFFCC9900.toInt(),
-   lowLine=0xFFCC2233.toInt(),
-   axisLabel=0xFFDDDDDD.toInt(),
-   axisTick=0xFF777777.toInt(),
-   nowLine=0xFF999999.toInt(),
    outline=0xFF121212.toInt(),
   )
   val config=WatchConfig(graphColors=colors,sentAtEpochMs=123)
   assertEquals(config,WearProtocol.decodeConfig(WearProtocol.encodeConfig(config)))
- }
- @Test fun legacyGraphColorsDeriveNewSemanticRolesWithoutResettingExistingColors() {
-  val legacy="""{"schemaVersion":8,"graphColors":{"rangeLow":-65536,"rangeHigh":-256,"divider":-7829368}}"""
-  val decoded=WearProtocol.decodeConfig(legacy.encodeToByteArray()).graphColors
-  assertEquals(decoded.rangeHigh,decoded.highLine)
-  assertEquals(decoded.rangeLow,decoded.lowLine)
-  assertEquals(decoded.divider,decoded.axisLabel)
-  assertEquals(decoded.divider,decoded.axisTick)
-  assertEquals(decoded.divider,decoded.nowLine)
  }
  @Test fun legacyWatchConfigUsesDefaultBasalColor() {
   val legacy="""{"schemaVersion":4,"uiColors":{}}"""

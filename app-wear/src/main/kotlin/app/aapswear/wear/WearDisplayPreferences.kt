@@ -101,11 +101,6 @@ internal data class WearDisplayPreferences(
                         cgmVeryLow = preferences.getInt(COLOR_PREFIX + "cgm_very_low", graphDefaults.cgmVeryLow),
                         cgmVeryHigh = preferences.getInt(COLOR_PREFIX + "cgm_very_high", graphDefaults.cgmVeryHigh),
                         divider = preferences.getInt(COLOR_PREFIX + "divider", graphDefaults.divider),
-                        highLine = preferences.getInt(COLOR_PREFIX + "high_line", graphDefaults.highLine),
-                        lowLine = preferences.getInt(COLOR_PREFIX + "low_line", graphDefaults.lowLine),
-                        axisLabel = preferences.getInt(COLOR_PREFIX + "axis_label", graphDefaults.axisLabel),
-                        axisTick = preferences.getInt(COLOR_PREFIX + "axis_tick", graphDefaults.axisTick),
-                        nowLine = preferences.getInt(COLOR_PREFIX + "now_line", graphDefaults.nowLine),
                         outline = preferences.getInt(COLOR_PREFIX + "outline", graphDefaults.outline),
                         predictionIob = preferences.getInt(COLOR_PREFIX + "prediction_iob", graphDefaults.predictionIob),
                         predictionCob = preferences.getInt(COLOR_PREFIX + "prediction_cob", graphDefaults.predictionCob),
@@ -235,11 +230,6 @@ internal data class WearDisplayPreferences(
                 .putFloat(THRESHOLD_LOW, sync.cgmThresholds.lowMgDl.toFloat())
                 .putFloat(THRESHOLD_VERY_LOW, sync.cgmThresholds.veryLowMgDl.toFloat())
                 .putInt(COLOR_PREFIX + "divider", colors.divider)
-                .putInt(COLOR_PREFIX + "high_line", colors.highLine)
-                .putInt(COLOR_PREFIX + "low_line", colors.lowLine)
-                .putInt(COLOR_PREFIX + "axis_label", colors.axisLabel)
-                .putInt(COLOR_PREFIX + "axis_tick", colors.axisTick)
-                .putInt(COLOR_PREFIX + "now_line", colors.nowLine)
                 .putInt(COLOR_PREFIX + "outline", colors.outline)
                 .putInt(COLOR_PREFIX + "prediction_iob", colors.predictionIob)
                 .putInt(COLOR_PREFIX + "prediction_cob", colors.predictionCob)
@@ -301,11 +291,6 @@ internal data class WearDisplayPreferences(
                 .putInt(COLOR_PREFIX + "cgm_very_low", value.graphColors.cgmVeryLow)
                 .putInt(COLOR_PREFIX + "cgm_very_high", value.graphColors.cgmVeryHigh)
                 .putInt(COLOR_PREFIX + "divider", value.graphColors.divider)
-                .putInt(COLOR_PREFIX + "high_line", value.graphColors.highLine)
-                .putInt(COLOR_PREFIX + "low_line", value.graphColors.lowLine)
-                .putInt(COLOR_PREFIX + "axis_label", value.graphColors.axisLabel)
-                .putInt(COLOR_PREFIX + "axis_tick", value.graphColors.axisTick)
-                .putInt(COLOR_PREFIX + "now_line", value.graphColors.nowLine)
                 .putInt(COLOR_PREFIX + "outline", value.graphColors.outline)
                 .putInt(COLOR_PREFIX + "prediction_iob", value.graphColors.predictionIob)
                 .putInt(COLOR_PREFIX + "prediction_cob", value.graphColors.predictionCob)
