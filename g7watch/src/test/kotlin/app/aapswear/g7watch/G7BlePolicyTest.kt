@@ -14,6 +14,35 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `authenticated address anchors an addressless sensor change`() {
+        val sensor = G7Sensor("new-sensor", sessionId = "new-session")
+
+        assertEquals(
+            "AA:BB:CC:DD:EE:FF",
+            restoreAuthenticatedG7Address(sensor, "AA:BB:CC:DD:EE:FF").deviceAddress,
+        )
+    }
+
+    @Test fun `authenticated address never replaces an established sensor address`() {
+        val sensor = G7Sensor(
+            "active-sensor",
+            sessionId = "active-session",
+            deviceAddress = "11:22:33:44:55:66",
+        )
+
+        assertEquals(
+            "11:22:33:44:55:66",
+            restoreAuthenticatedG7Address(sensor, "AA:BB:CC:DD:EE:FF").deviceAddress,
+        )
+    }
+
+    @Test fun `missing authenticated address leaves sensor discovery open`() {
+        val sensor = G7Sensor("new-sensor", sessionId = "new-session")
+
+        assertEquals(sensor, restoreAuthenticatedG7Address(sensor, null))
+        assertEquals(sensor, restoreAuthenticatedG7Address(sensor, ""))
+    }
+
     @Test fun `bonding waits through asynchronous initial bond none state`() {
         assertEquals(
             G7BondWaitDecision.KEEP_WAITING,

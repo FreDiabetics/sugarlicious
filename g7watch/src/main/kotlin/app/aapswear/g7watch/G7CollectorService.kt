@@ -26,6 +26,7 @@ import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7ReconnectScheduler
 import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SessionState
+import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.toCgm
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CancellationException
@@ -42,6 +43,13 @@ internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean =
 
 internal fun shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs: Long?): Boolean =
     receiverReceivedAtEpochMs == null
+
+internal fun restoreAuthenticatedG7Address(sensor: G7Sensor, sharedKeyAddress: String?): G7Sensor =
+    if (sensor.deviceAddress.isNullOrBlank() && !sharedKeyAddress.isNullOrBlank()) {
+        sensor.copy(deviceAddress = sharedKeyAddress)
+    } else {
+        sensor
+    }
 
 internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean =
     action != G7CollectorService.ACTION_RECONNECT
@@ -292,12 +300,21 @@ class G7CollectorService : Service() {
             return
         }
 
+        // A shared key is only emitted after the candidate completed the G7 application-level
+        // authentication exchange. Keep that authenticated address as the sensor-change anchor
+        // even when the following asynchronous Android bond has not completed yet. Otherwise the
+        // next discovery can pick the still-advertising removed sensor again.
+        val collectionSensor = restoreAuthenticatedG7Address(configuredSensor, storedCredentials.sharedKeyAddress)
+        if (collectionSensor != configuredSensor) {
+            store.save(store.read().copy(sensor = collectionSensor))
+        }
+
         try {
             val collector = AndroidG7Collector(this)
             val boundedScanTimeout =
                 if (request == CycleRequest.AUTOMATIC) null else G7_RECONNECT_SCAN_TIMEOUT_MS
             val result = collector.collect(
-                initialSensor = configuredSensor,
+                initialSensor = collectionSensor,
                 credentials = storedCredentials,
                 onState = { protocolState ->
                     val current = store.read()
@@ -310,7 +327,7 @@ class G7CollectorService : Service() {
                             if (protocolState == G7ProtocolState.SCANNING) now else current.scanStartedAtEpochMs,
                         scanTimeoutAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) {
-                                now + (boundedScanTimeout ?: g7ScanTimeoutMs(configuredSensor))
+                                now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
                             } else {
                                 current.scanTimeoutAtEpochMs
                             },
@@ -320,7 +337,7 @@ class G7CollectorService : Service() {
                     store.save(next)
                     updateAttemptCycleForProtocolState(attemptId, protocolState, now)
                     updateForeground(protocolState.label())
-                    recordAttemptProtocolState(attemptId, protocolState, configuredSensor.sensorId)
+                    recordAttemptProtocolState(attemptId, protocolState, collectionSensor.sensorId)
                     scope.launch {
                         applicationContext.recordG7Diagnostic(
                             protocolState.diagnosticCode(),
@@ -329,7 +346,13 @@ class G7CollectorService : Service() {
                         )
                     }
                 },
-                onSharedKey = credentials::saveSharedKey,
+                onSharedKey = { address, key ->
+                    credentials.saveSharedKey(address, key)
+                    val current = store.read()
+                    if (current.sensor?.deviceAddress.isNullOrBlank()) {
+                        store.save(current.copy(sensor = current.sensor?.copy(deviceAddress = address)))
+                    }
+                },
                 scanTimeoutMsOverride = boundedScanTimeout,
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
                 onTelemetry = { telemetry -> recordBleTelemetry(attemptId, telemetry) },
