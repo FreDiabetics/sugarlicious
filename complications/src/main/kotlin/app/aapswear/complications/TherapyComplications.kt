@@ -37,6 +37,7 @@ import app.aapswear.model.DeviceState
 import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
@@ -598,7 +599,8 @@ abstract class TherapyComplicationService(
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), targetLinePaint)
 
-        val cutoff = now - windowMs
+        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val cutoff = timeWindow.startEpochMs
         val merged = linkedMapOf<Long, GlucoseSample>()
         state?.glucoseHistory.orEmpty().forEach { merged[it.measuredAtEpochMs] = it }
         glucose?.let {
@@ -623,7 +625,7 @@ abstract class TherapyComplicationService(
         }
 
         fun xFor(timestamp: Long): Float {
-            val fraction = ((timestamp - cutoff).toDouble() / windowMs.toDouble()).coerceIn(0.0, 1.0)
+            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
             return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
         }
 

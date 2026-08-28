@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewOutlineProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RelativeGraphTimeAxis
 import kotlin.math.min
 
@@ -76,7 +77,8 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         if (width <= 0 || height <= 0) return
 
         val now = nowEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis()
-        val start = now - graphHours * RelativeGraphTimeAxis.HOUR_MS
+        val timeWindow = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+        val start = timeWindow.startEpochMs
         val visible = G7GraphPolicy.displayReadings(readings, start, now)
         val excursion = G7GraphPolicy.rangeExcursion(readings, targetLowMgDl, targetHighMgDl, now)
 
@@ -89,7 +91,8 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         val plotBottom = height - 20f.dp
         if (plotRight <= plotLeft || plotBottom <= plotTop) return
 
-        fun x(timestamp: Long): Float = G7GraphLayout.timeX(timestamp, start, now, plotLeft, plotRight)
+        fun x(timestamp: Long): Float =
+            plotLeft + timeWindow.xFraction(timestamp).coerceIn(0f, 1f) * (plotRight - plotLeft)
 
         fun y(valueMgDl: Double): Float =
             plotBottom - GlucoseGraphScale.ratio(valueMgDl).toFloat() * (plotBottom - plotTop)

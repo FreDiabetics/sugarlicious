@@ -24,6 +24,7 @@ import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayFormatter
@@ -265,9 +266,9 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         divider.strokeWidth = 3f
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), divider)
 
-        val cutoff = nowEpochMs - G6StylePresentationFormatter.GRAPH_WINDOW_MS
+        val timeWindow = GraphTimeWindow.live(nowEpochMs, G6StylePresentationFormatter.GRAPH_WINDOW_MS)
         fun xFor(timestamp: Long): Float {
-            val fraction = ((timestamp - cutoff).toDouble() / G6StylePresentationFormatter.GRAPH_WINDOW_MS.toDouble()).coerceIn(0.0, 1.0)
+            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
             return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
         }
 

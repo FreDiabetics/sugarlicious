@@ -22,9 +22,10 @@ class WearGlucoseChartTest {
                 showPredictions = true,
             )
 
-        assertEquals(current - 2L * 60L * 60_000L, window.first)
-        assertEquals(predictionEnd, window.last)
-        assertTrue(current in window)
+        assertEquals(current - 2L * 60L * 60_000L, window.startEpochMs)
+        assertEquals(current, window.liveEdgeEpochMs)
+        assertEquals(predictionEnd, window.endEpochMs)
+        assertTrue(window.xFraction(current) in 0f..1f)
     }
 
     @Test
@@ -39,8 +40,8 @@ class WearGlucoseChartTest {
                 showPredictions = false,
             )
 
-        assertEquals(current - 2L * 60L * 60_000L, window.first)
-        assertEquals(current, window.last)
+        assertEquals(current - 2L * 60L * 60_000L, window.startEpochMs)
+        assertEquals(current, window.endEpochMs)
     }
 
     @Test
@@ -56,8 +57,8 @@ class WearGlucoseChartTest {
                 showPredictions = true,
             )
 
-        assertEquals(later - 2L * 60L * 60_000L, window.first)
-        assertEquals(later, window.last)
+        assertEquals(later - 2L * 60L * 60_000L, window.startEpochMs)
+        assertEquals(later, window.endEpochMs)
     }
 
     @Test

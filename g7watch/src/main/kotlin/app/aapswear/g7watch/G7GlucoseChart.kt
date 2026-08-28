@@ -12,6 +12,7 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.CgmRangeClass
 import kotlin.math.max
@@ -98,8 +99,9 @@ internal class G7GlucoseChart @JvmOverloads constructor(
         }
         paint.alpha = 255
 
+        val timeWindow = GraphTimeWindow.live(nowEpochMs, WINDOW_MS)
         readings.forEachIndexed { index, reading ->
-            val x = left + ((reading.timestampEpochMs - (nowEpochMs - WINDOW_MS)).toFloat() / WINDOW_MS) * (right - left)
+            val x = left + timeWindow.xFraction(reading.timestampEpochMs).coerceIn(0f, 1f) * (right - left)
             val y = bottom - GlucoseGraphScale.ratio(reading.glucoseMgDl).toFloat() * (bottom - top)
             paint.style = Paint.Style.FILL
             paint.color = when (thresholds.classify(reading.glucoseMgDl)) {

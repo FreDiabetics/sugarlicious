@@ -214,6 +214,12 @@ class DashboardViewFactory(
         context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
     }
 
+    /** Advances only the visible Overview clock; no data reload or background renderer wakes. */
+    fun tickOverviewClock(nowEpochMs: Long) {
+        if (activeComposeScreen != DashboardScreen.OVERVIEW) return
+        overviewRenderState.value = overviewRenderState.value?.copy(now = nowEpochMs)
+    }
+
     fun render(
         parent: LinearLayout,
         screen: DashboardScreen,

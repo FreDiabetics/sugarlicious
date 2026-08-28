@@ -342,6 +342,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     private var predictionDotOutlineWidthDp = 0.70f
     private var stateSignature: List<Any?>? = null
     private var clockBucket: Long = Long.MIN_VALUE
+    private var renderNowEpochMs: Long = System.currentTimeMillis()
     private var boundDurationHours: Int? = null
 
     fun bind(
@@ -446,6 +447,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         this.predictionDotRadiusDp = resolvedPredictionRadius
         this.predictionDotOutlineWidthDp = resolvedPredictionOutlineWidth
         clockBucket = resolvedClockBucket
+        renderNowEpochMs = clockEpochMs
 
         if (durationChanged) viewport.setHours(resolvedDurationHours.toFloat(), resetPan = true)
         invalidate()
@@ -472,7 +474,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
             canvas.drawRect(contentBounds, fillPaint)
 
-            val now = System.currentTimeMillis()
+            val now = renderNowEpochMs
             val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
             val targetLow = thresholds.lowMgDl
             val targetHigh = thresholds.highMgDl

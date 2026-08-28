@@ -41,7 +41,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDate
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
+private const val GRAPH_MINUTE_MS = 60_000L
+
+internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
+    val remainder = Math.floorMod(nowEpochMs, GRAPH_MINUTE_MS)
+    return (GRAPH_MINUTE_MS - remainder).coerceAtLeast(1L).milliseconds
+}
 
 class MainActivity : ComponentActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -378,9 +386,8 @@ class MainActivity : ComponentActivity() {
         uiPreferences.registerOnSharedPreferenceChangeListener(uiListener)
         clockJob = scope.launch {
             while (true) {
-                runCatching { requestWatchRuntimeStatus(applicationContext) }
-                delay(30.seconds)
-                refresh()
+                delay(delayUntilNextGraphMinute(System.currentTimeMillis()))
+                if (::factory.isInitialized) factory.tickOverviewClock(System.currentTimeMillis())
             }
         }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }

@@ -30,6 +30,7 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TherapyDisplayFormatter
@@ -514,7 +515,8 @@ internal object NotificationGraphRenderer {
             .takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS }
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
-        val start = now - windowMs
+        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val start = timeWindow.startEpochMs
         val validSamples = CanonicalCgmHistory.merge(
             samples = buildList {
                 addAll(state?.glucoseHistory.orEmpty())
@@ -565,8 +567,7 @@ internal object NotificationGraphRenderer {
         }
 
         fun x(timestamp: Long): Float {
-            val fraction = ((timestamp - start).toDouble() / windowMs.toDouble())
-                .coerceIn(0.0, 1.0)
+            val fraction = timeWindow.xFraction(timestamp).coerceIn(0f, 1f)
             return (plotLeft + fraction * (plotRight - plotLeft)).toFloat()
         }
 

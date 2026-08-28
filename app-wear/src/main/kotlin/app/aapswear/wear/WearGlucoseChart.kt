@@ -18,6 +18,7 @@ import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.RelativeGraphTimeAxis
@@ -172,8 +173,8 @@ class WearGlucoseChart @JvmOverloads constructor(
                 durationHours = durationHours,
                 showPredictions = showPredictions,
             )
-        val start = timeWindow.start
-        val end = timeWindow.endInclusive
+        val start = timeWindow.startEpochMs
+        val end = timeWindow.endEpochMs
 
         val history =
             buildList {
@@ -223,12 +224,7 @@ class WearGlucoseChart @JvmOverloads constructor(
 
         fun xFor(timestamp: Long): Float =
             left +
-                (
-                    (timestamp - start).toDouble() /
-                        (end - start).coerceAtLeast(1L)
-                    )
-                    .coerceIn(0.0, 1.0)
-                    .toFloat() *
+                timeWindow.xFraction(timestamp).coerceIn(0f, 1f) *
                 (right - left)
 
         fun yFor(value: Double): Float =
@@ -501,20 +497,23 @@ internal fun wearChartTimeWindow(
     predictionEnd: Long,
     durationHours: Int,
     showPredictions: Boolean,
-): LongRange {
+): GraphTimeWindow {
     val historyDuration =
         durationHours
             .coerceAtLeast(1)
             .toLong() *
             WEAR_CHART_HOUR_MS
-    val start = (timelineNow - historyDuration).coerceAtLeast(0L)
     val end =
         if (showPredictions) {
             max(timelineNow, predictionEnd)
         } else {
             timelineNow
-        }.coerceAtLeast(start + 1L)
-    return start..end
+        }.coerceAtLeast(timelineNow)
+    return GraphTimeWindow.endingAt(
+        viewportEndEpochMs = end,
+        historyDurationMs = historyDuration,
+        futureDurationMs = end - timelineNow,
+    )
 }
 
 private const val WEAR_CHART_HOUR_MS = 60L * 60_000L
