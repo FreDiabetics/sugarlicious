@@ -162,7 +162,7 @@ class WearSettingsActivity : Activity() {
             cardParams(),
         )
 
-        section("APP & TILES")
+        section("ÜBERSICHT · APP")
         colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
         colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground) { updateUiColors { c -> c.copy(tileBackground = it) } }
         colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
@@ -179,6 +179,26 @@ class WearSettingsActivity : Activity() {
         colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
         colorRow("COB", current.uiColors.cob) { updateUiColors { c -> c.copy(cob = it) } }
         colorRow("Basal", current.uiColors.basal) { updateUiColors { c -> c.copy(basal = it) } }
+
+        val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE)
+        section("GLUKOSE-TILE · FARBEN")
+        tileBaseColorRows(WearTileKind.GLUCOSE, glucoseTileColors)
+        colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow) {
+            updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseLow = it) }
+        }
+        colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange) {
+            updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseInRange = it) }
+        }
+        colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh) {
+            updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) }
+        }
+
+        val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY)
+        section("THERAPIE-TILE · FARBEN")
+        tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
+        colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
+        colorRow("COB", therapyTileColors.cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
+        colorRow("Basal", therapyTileColors.basal) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(basal = it) } }
 
         section("GRAPH FARBEN")
         colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }
@@ -214,6 +234,33 @@ class WearSettingsActivity : Activity() {
 
     private fun updateUiColors(transform: (WatchUiColors) -> WatchUiColors) {
         save(current.copy(uiColors = transform(current.uiColors)))
+    }
+
+    private fun tileBaseColorRows(kind: WearTileKind, colors: WatchUiColors) {
+        colorRow(AppearanceTerminology.APP_BACKGROUND, colors.background) {
+            updateTileColors(kind) { value -> value.copy(background = it) }
+        }
+        colorRow(AppearanceTerminology.SURFACE_BACKGROUND, colors.tileBackground) {
+            updateTileColors(kind) { value -> value.copy(tileBackground = it) }
+        }
+        colorRow(AppearanceTerminology.SURFACE_BORDER, colors.tileBorder) {
+            updateTileColors(kind) { value -> value.copy(tileBorder = it) }
+        }
+        colorRow(AppearanceTerminology.PRIMARY_TEXT, colors.textPrimary) {
+            updateTileColors(kind) { value -> value.copy(textPrimary = it) }
+        }
+        colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary) {
+            updateTileColors(kind) { value -> value.copy(textSecondary = it) }
+        }
+        colorRow(AppearanceTerminology.ACCENT, colors.accent) {
+            updateTileColors(kind) { value -> value.copy(accent = it) }
+        }
+    }
+
+    private fun updateTileColors(kind: WearTileKind, transform: (WatchUiColors) -> WatchUiColors) {
+        WearTileAppearanceStore.write(this, kind, transform(WearTileAppearanceStore.read(this, kind)))
+        requestSugarliciousTileUpdates(this)
+        buildUi()
     }
 
     private fun section(text: String) {

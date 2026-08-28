@@ -16,6 +16,7 @@ import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders.Background
+import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
@@ -141,6 +142,7 @@ internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long)
 }
 
 abstract class SugarliciousTileService : TileService() {
+    protected abstract val tileKind: WearTileKind
     protected abstract fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): com.google.common.util.concurrent.ListenableFuture<Tile> {
@@ -148,7 +150,7 @@ abstract class SugarliciousTileService : TileService() {
             val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
             G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
         }
-        val colors = WearDisplayPreferences.read(this).uiColors
+        val colors = WearTileAppearanceStore.read(this, tileKind)
         return Futures.immediateFuture(
             Tile.Builder()
                 .setResourcesVersion(TILE_RESOURCES_VERSION)
@@ -175,6 +177,8 @@ abstract class SugarliciousTileService : TileService() {
 }
 
 class GlucoseTileService : SugarliciousTileService() {
+    override val tileKind: WearTileKind = WearTileKind.GLUCOSE
+
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
         val presentation = wearGlucoseTilePresentation(state, colors, now, WearDisplayPreferences.read(this).cgmThresholds)
         val primary = Row.Builder()
@@ -191,7 +195,7 @@ class GlucoseTileService : SugarliciousTileService() {
                 }
             }
             .build()
-        val card = roundedTileCard(colors.tileBackground, 14f, primary)
+        val card = roundedTileCard(colors, 14f, primary)
         val column = Column.Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
@@ -208,6 +212,8 @@ class GlucoseTileService : SugarliciousTileService() {
 }
 
 class TherapyTileService : SugarliciousTileService() {
+    override val tileKind: WearTileKind = WearTileKind.THERAPY
+
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
         val presentation = wearTherapyTilePresentation(state, now)
         val metrics = Row.Builder()
@@ -253,13 +259,14 @@ private fun metricCard(label: String, value: String, accent: Int, colors: WatchU
                         .setCorner(Corner.Builder().setRadius(dp(18f)).build())
                         .build(),
                 )
+                .setBorder(Border.Builder().setWidth(dp(1f)).setColor(argb(colors.tileBorder)).build())
                 .build(),
         )
         .addContent(content)
         .build()
 }
 
-private fun roundedTileCard(background: Int, padding: Float, child: LayoutElementBuilders.LayoutElement): Box =
+private fun roundedTileCard(colors: WatchUiColors, padding: Float, child: LayoutElementBuilders.LayoutElement): Box =
     Box.Builder()
         .setWidth(expand())
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
@@ -267,10 +274,11 @@ private fun roundedTileCard(background: Int, padding: Float, child: LayoutElemen
             Modifiers.Builder()
                 .setBackground(
                     Background.Builder()
-                        .setColor(argb(background))
+                        .setColor(argb(colors.tileBackground))
                         .setCorner(Corner.Builder().setRadius(dp(28f)).build())
                         .build(),
                 )
+                .setBorder(Border.Builder().setWidth(dp(1f)).setColor(argb(colors.tileBorder)).build())
                 .setPadding(Padding.Builder().setAll(dp(padding)).build())
                 .build(),
         )
