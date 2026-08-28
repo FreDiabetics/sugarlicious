@@ -32,7 +32,9 @@ object AppearanceTerminology {
     const val GRAPH_DOT_HIGH = "CGM-Punkte · hoch"
     const val GRAPH_DOT_OUTLINE = "CGM-Punktkontur"
     const val GRAPH_AXIS_TEXT = "Achsenbeschriftung"
-    const val GRAPH_DIVIDER = "Jetzt-Linie"
+    const val GRAPH_AXIS_TICK = "Achsenstriche"
+    const val GRAPH_NOW_LINE = "Jetzt-Linie"
+    const val GRAPH_DIVIDER = "Graph-Trennlinie"
     const val GRAPH_TARGET_VALUE = "Zielwertlinie"
 
     const val PREDICTION_IOB = "IOB-Prognose"

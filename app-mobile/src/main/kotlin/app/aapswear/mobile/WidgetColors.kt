@@ -25,8 +25,9 @@ internal enum class WidgetColorRole(
     DOT_HIGH("dot_high", AppearanceTerminology.GRAPH_DOT_HIGH),
     DOT_IN_RANGE("dot_in_range", AppearanceTerminology.GRAPH_DOT_IN_RANGE),
     DOT_LOW("dot_low", AppearanceTerminology.GRAPH_DOT_LOW),
-    DIVIDER("divider", AppearanceTerminology.GRAPH_DIVIDER),
+    DIVIDER("divider", AppearanceTerminology.GRAPH_NOW_LINE),
     AXIS("axis", AppearanceTerminology.GRAPH_AXIS_TEXT),
+    AXIS_TICK("axis_tick", AppearanceTerminology.GRAPH_AXIS_TICK),
     TEXT("text", "Text"),
     TREND("trend", AppearanceTerminology.TREND_ARROW),
     TREND_HIGH("trend_high", "Trend Hoch"),
@@ -96,14 +97,15 @@ internal object WidgetColorStore {
                             WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
                             WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
                             WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
-                            WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
-                            WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
+                            WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
+                            WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                             WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                             WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                             WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                             WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
-                            WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_DIVIDER
+                            WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
                             WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
+                            WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                             WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
                             WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
@@ -134,14 +136,15 @@ internal object WidgetColorStore {
                 WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
                 WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
                 WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
-                WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.RANGE_HIGH
-                WidgetColorRole.LOW_LINE -> SugarliciousColorRole.RANGE_LOW
+                WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
+                WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                 WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                 WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                 WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                 WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
-                WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_DIVIDER
+                WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
                 WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
+                WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                 WidgetColorRole.TEXT -> SugarliciousColorRole.TEXT_PRIMARY
                 WidgetColorRole.TREND -> SugarliciousColorRole.PRIMARY
                 WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH

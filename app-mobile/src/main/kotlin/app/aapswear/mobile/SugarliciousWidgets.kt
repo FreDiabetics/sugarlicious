@@ -497,7 +497,6 @@ internal fun renderWidgetGraph(
     }
 
     textPaint.textAlign = Paint.Align.CENTER
-    line.color = palette.argb(WidgetColorRole.DIVIDER)
     line.strokeWidth = metrics.lineWidthPx
     if (configuration.showTimeAxis) RelativeGraphTimeAxis.ticks(start, now, now, RelativeGraphTimeAxis.intervalHours(configuration.graphHours.toDouble())).forEach { tick ->
         val tickX = if (tick.hoursBack == 0) liveX else x(tick.timestampEpochMs)
@@ -506,6 +505,7 @@ internal fun renderWidgetGraph(
             textPaint.textSize = labelSize
             val labelHalfWidth = textPaint.measureText(tick.label) / 2f
             val labelX = tickX.coerceIn(labelHalfWidth + metrics.edgeGapPx, safeWidth - labelHalfWidth - metrics.edgeGapPx)
+            line.color = palette.argb(if (tick.hoursBack == 0) WidgetColorRole.DIVIDER else WidgetColorRole.AXIS_TICK)
             canvas.drawLine(labelX, plot.bottom + 2f * density, labelX, plot.bottom + 7f * density, line)
             canvas.drawText(tick.label, labelX, metrics.axisBaselinePx, textPaint)
             textPaint.textSize = metrics.axisTextSizePx

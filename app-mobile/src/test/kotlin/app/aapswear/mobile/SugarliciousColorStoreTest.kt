@@ -113,4 +113,31 @@ class SugarliciousColorStoreTest {
         assertEquals(SugarliciousColorRole.CGM_DOT_LOW.lightArgb, palette.argb(SugarliciousColorRole.CGM_DOT_LOW))
         assertEquals(SugarliciousColorRole.CGM_DOT_HIGH.lightArgb, palette.argb(SugarliciousColorRole.CGM_DOT_HIGH))
     }
+
+    @Test
+    fun `new semantic graph roles inherit legacy appearance until individually changed`() {
+        val preferences = context.getSharedPreferences("semantic_graph_role_migration", Context.MODE_PRIVATE)
+        val high = Color.rgb(181, 92, 7)
+        val low = Color.rgb(182, 8, 63)
+        val divider = Color.rgb(72, 81, 90)
+        preferences.edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .putInt("color.dark.range_high", high)
+            .putInt("color.dark.range_low", low)
+            .putInt("color.dark.graph_divider", divider)
+            .commit()
+
+        var palette = SugarliciousColorStore.load(preferences)
+        assertEquals(high, palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
+        assertEquals(low, palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
+        assertEquals(divider, palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK))
+        assertEquals(divider, palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE))
+
+        val independentNowLine = Color.rgb(9, 201, 211)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_NOW_LINE, independentNowLine)
+        palette = SugarliciousColorStore.load(preferences)
+        assertEquals(independentNowLine, palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE))
+        assertEquals(divider, palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK))
+    }
 }

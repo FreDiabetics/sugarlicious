@@ -9,7 +9,9 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.complications.R as ComplicationR
 import app.aapswear.model.BasalState
 import app.aapswear.protocol.WatchConfig
+import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGlucoseUnit
+import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -190,6 +192,7 @@ class WearActivityTest {
                 showPredictions = true,
                 glucoseUnit = WatchGlucoseUnit.MG_DL,
                 showTherapyStats = true,
+                graphColors = WatchGraphColors(nowLine = 0xFFABCDEF.toInt()),
                 uiColors = WatchUiColors(basal = 0xFFABCDEF.toInt()),
             ),
         )
@@ -201,6 +204,7 @@ class WearActivityTest {
                 showPredictions = false,
                 glucoseUnit = WatchGlucoseUnit.MMOL_L,
                 showTherapyStats = false,
+                graphColors = WatchGraphColors(nowLine = 0xFF123456.toInt()),
                 uiColors = WatchUiColors(basal = 0xFF123456.toInt()),
                 sentAtEpochMs = 1234L,
             ),
@@ -216,7 +220,28 @@ class WearActivityTest {
             preferences.glucoseUnit,
         )
         assertEquals(true, preferences.showTherapyStats)
+        assertEquals(0xFFABCDEF.toInt(), preferences.graphColors.nowLine)
         assertEquals(0xFFABCDEF.toInt(), preferences.uiColors.basal)
         assertEquals(1234L, preferences.syncedAtEpochMs)
+    }
+
+    @Test
+    fun `explicit color sync updates every semantic graph role`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val colors = WatchGraphColors(
+            highLine = 0xFF110001.toInt(),
+            lowLine = 0xFF220002.toInt(),
+            axisLabel = 0xFF330003.toInt(),
+            axisTick = 0xFF440004.toInt(),
+            nowLine = 0xFF550005.toInt(),
+            divider = 0xFF660006.toInt(),
+        )
+
+        WearDisplayPreferences.applySyncedColors(
+            context,
+            WatchColorSync(graphColors = colors, sentAtEpochMs = 4321L),
+        )
+
+        assertEquals(colors, WearDisplayPreferences.read(context).graphColors)
     }
 }

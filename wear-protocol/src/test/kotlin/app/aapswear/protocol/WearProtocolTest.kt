@@ -44,7 +44,7 @@ class WearProtocolTest {
   val future="""{"protocolVersion":999,"state":{"receivedAtEpochMs":2}}"""
   assertFailsWith<IllegalArgumentException>{WearProtocol.decode(future.encodeToByteArray())}
  }
- @Test fun graphColorsRoundTripWithWatchConfigSchemaTwo() {
+ @Test fun graphColorsRoundTripWithCurrentWatchConfigSchema() {
   val colors=WatchGraphColors(
    graphBackground=0xFF101010.toInt(),
    rangeLow=0xFFAA0000.toInt(),
@@ -54,6 +54,11 @@ class WearProtocolTest {
    cgmInRange=0xFF00BB00.toInt(),
    cgmHigh=0xFFBBBB00.toInt(),
    divider=0xFF888888.toInt(),
+   highLine=0xFF887700.toInt(),
+   lowLine=0xFF880022.toInt(),
+   axisLabel=0xFF778899.toInt(),
+   axisTick=0xFF667788.toInt(),
+   nowLine=0xFF556677.toInt(),
    outline=0xFF121212.toInt(),
   )
   val config=WatchConfig(graphColors=colors,sentAtEpochMs=123)

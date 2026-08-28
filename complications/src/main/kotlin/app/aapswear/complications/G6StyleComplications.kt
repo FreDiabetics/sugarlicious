@@ -2,7 +2,6 @@ package app.aapswear.complications
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
@@ -258,11 +257,11 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         }
 
         val divider = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.divider
             strokeWidth = 1f
         }
+        divider.color = colors.highLine
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), divider)
-        divider.color = colors.targetValue
+        divider.color = colors.lowLine
         divider.strokeWidth = 3f
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), divider)
 
@@ -281,7 +280,7 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         }
 
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = colors.axisLabel
             typeface = Typeface.DEFAULT_BOLD
             textSize = 19f
         }
@@ -293,7 +292,7 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
         if (samples.isEmpty()) {
             val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
             val statusPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = Color.WHITE
+                color = colors.axisLabel
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
                 textSize = 22f
@@ -320,6 +319,11 @@ class G6StyleGraphComplication : G6StyleComplicationService() {
             cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
             divider = preferences.getInt("graph_color_divider", defaults.divider),
+            highLine = preferences.getInt("graph_color_high_line", defaults.highLine),
+            lowLine = preferences.getInt("graph_color_low_line", defaults.lowLine),
+            axisLabel = preferences.getInt("graph_color_axis_label", defaults.axisLabel),
+            axisTick = preferences.getInt("graph_color_axis_tick", defaults.axisTick),
+            nowLine = preferences.getInt("graph_color_now_line", defaults.nowLine),
             outline = preferences.getInt("graph_color_outline", defaults.outline),
             predictionIob = defaults.predictionIob,
             predictionCob = defaults.predictionCob,

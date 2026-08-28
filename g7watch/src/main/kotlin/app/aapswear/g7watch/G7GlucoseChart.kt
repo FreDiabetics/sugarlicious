@@ -91,12 +91,13 @@ internal class G7GlucoseChart @JvmOverloads constructor(
         val top = 10f * density
         val bottom = height - 12f * density
         paint.strokeWidth = max(1f, density)
-        paint.color = colors.divider
         paint.alpha = 100
-        listOf(thresholds.lowMgDl, thresholds.highMgDl).forEach { threshold ->
-            val y = bottom - GlucoseGraphScale.ratio(threshold).toFloat() * (bottom - top)
-            canvas.drawLine(left, y, right, y, paint)
-        }
+        paint.color = colors.lowLine
+        val lowY = bottom - GlucoseGraphScale.ratio(thresholds.lowMgDl).toFloat() * (bottom - top)
+        canvas.drawLine(left, lowY, right, lowY, paint)
+        paint.color = colors.highLine
+        val highY = bottom - GlucoseGraphScale.ratio(thresholds.highMgDl).toFloat() * (bottom - top)
+        canvas.drawLine(left, highY, right, highY, paint)
         paint.alpha = 255
 
         val timeWindow = GraphTimeWindow.live(nowEpochMs, WINDOW_MS)

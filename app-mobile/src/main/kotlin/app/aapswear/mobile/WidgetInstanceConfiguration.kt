@@ -270,7 +270,8 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetColorRole.GRAPH_BACKGROUND, WidgetColorRole.RANGE_HIGH, WidgetColorRole.RANGE_IN_RANGE,
                                 WidgetColorRole.RANGE_LOW, WidgetColorRole.HIGH_LINE, WidgetColorRole.LOW_LINE,
                                 WidgetColorRole.DOT_HIGH, WidgetColorRole.DOT_IN_RANGE, WidgetColorRole.DOT_LOW,
-                                WidgetColorRole.DOT_OUTLINE, WidgetColorRole.AXIS, WidgetColorRole.DIVIDER,
+                                WidgetColorRole.DOT_OUTLINE, WidgetColorRole.AXIS, WidgetColorRole.AXIS_TICK,
+                                WidgetColorRole.DIVIDER,
                             ).forEach { role ->
                                 WidgetColorSetting(role.label, value.colorOverrides[role] ?: WidgetColorStore.load(this@WidgetConfigurationActivity).argb(role), { editRole = role }) {
                                     value = value.copy(colorOverrides = value.colorOverrides - role)

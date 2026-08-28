@@ -18,5 +18,14 @@ class AppearanceTerminologyMappingTest {
         assertEquals(AppearanceTerminology.GRAPH_DOT_HIGH, WidgetColorRole.DOT_HIGH.label)
         assertEquals(AppearanceTerminology.GRAPH_AXIS_TEXT, SugarliciousColorRole.GRAPH_LABEL.label)
         assertEquals(AppearanceTerminology.GRAPH_AXIS_TEXT, WidgetColorRole.AXIS.label)
+        assertEquals(AppearanceTerminology.GRAPH_AXIS_TICK, SugarliciousColorRole.GRAPH_AXIS_TICK.label)
+        assertEquals(AppearanceTerminology.GRAPH_AXIS_TICK, WidgetColorRole.AXIS_TICK.label)
+        assertEquals(AppearanceTerminology.GRAPH_HIGH_LINE, SugarliciousColorRole.GRAPH_HIGH_LINE.label)
+        assertEquals(AppearanceTerminology.GRAPH_HIGH_LINE, WidgetColorRole.HIGH_LINE.label)
+        assertEquals(AppearanceTerminology.GRAPH_LOW_LINE, SugarliciousColorRole.GRAPH_LOW_LINE.label)
+        assertEquals(AppearanceTerminology.GRAPH_LOW_LINE, WidgetColorRole.LOW_LINE.label)
+        assertEquals(AppearanceTerminology.GRAPH_NOW_LINE, SugarliciousColorRole.GRAPH_NOW_LINE.label)
+        assertEquals(AppearanceTerminology.GRAPH_NOW_LINE, WidgetColorRole.DIVIDER.label)
+        assertEquals(AppearanceTerminology.GRAPH_DIVIDER, SugarliciousColorRole.GRAPH_DIVIDER.label)
     }
 }

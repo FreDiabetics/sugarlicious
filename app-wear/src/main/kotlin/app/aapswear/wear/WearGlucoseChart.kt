@@ -137,9 +137,9 @@ class WearGlucoseChart @JvmOverloads constructor(
         this.colors = colors
         graphStyle = style
         this.thresholds = thresholds
-        emptyTextPaint.color = colors.divider
-        targetLabelPaint.color = colors.divider
-        axisLabelPaint.color = colors.divider
+        emptyTextPaint.color = colors.axisLabel
+        targetLabelPaint.color = colors.axisLabel
+        axisLabelPaint.color = colors.axisLabel
         invalidate()
     }
 
@@ -293,10 +293,11 @@ class WearGlucoseChart @JvmOverloads constructor(
             return
         }
 
-        linePaint.color = colors.divider
         linePaint.pathEffect = null
         linePaint.strokeWidth = 0.7f.dp
+        linePaint.color = colors.highLine
         canvas.drawLine(left, targetTop, right, targetTop, linePaint)
+        linePaint.color = colors.lowLine
         canvas.drawLine(left, targetBottom, right, targetBottom, linePaint)
 
         canvas.drawText(
@@ -314,7 +315,7 @@ class WearGlucoseChart @JvmOverloads constructor(
 
         val dividerX = xFor(timeWindow.liveEdgeEpochMs)
         if (visiblePredictions.isNotEmpty()) {
-            linePaint.color = colors.divider
+            linePaint.color = colors.nowLine
             linePaint.strokeWidth = 1f.dp
             linePaint.pathEffect =
                 DashPathEffect(
@@ -367,7 +368,10 @@ class WearGlucoseChart @JvmOverloads constructor(
         now: Long,
         xFor: (Long) -> Float,
     ) {
-        axisLabelPaint.color = colors.divider
+        axisLabelPaint.color = colors.axisLabel
+        linePaint.color = colors.axisTick
+        linePaint.strokeWidth = 0.8f.dp
+        linePaint.pathEffect = null
         RelativeGraphTimeAxis.ticks(start, end, now).forEach { tick ->
             val x = xFor(tick.timestampEpochMs)
             axisLabelPaint.textAlign =
@@ -382,6 +386,13 @@ class WearGlucoseChart @JvmOverloads constructor(
                     Paint.Align.RIGHT -> minOf(width - 3f.dp, x)
                     else -> x
                 }
+            canvas.drawLine(
+                labelX,
+                height - 13f.dp,
+                labelX,
+                height - 9f.dp,
+                linePaint,
+            )
             canvas.drawText(tick.label, labelX, height - 2f.dp, axisLabelPaint)
         }
     }

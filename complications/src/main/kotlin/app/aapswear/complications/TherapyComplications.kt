@@ -28,6 +28,8 @@ import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
@@ -44,6 +46,7 @@ import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
 import app.aapswear.model.ProfileState
 import app.aapswear.model.PumpState
+import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -134,7 +137,7 @@ abstract class TherapyComplicationService(
     }
 
     override fun getPreviewData(type: ComplicationType): ComplicationData =
-        build(declaredType ?: type, preview(), isPreview = true)
+        build(declaredType ?: type, preview())
 
     override suspend fun onComplicationRequest(
         request: ComplicationRequest,
@@ -150,7 +153,6 @@ abstract class TherapyComplicationService(
     private fun build(
         type: ComplicationType,
         state: TherapyDisplayState?,
-        isPreview: Boolean = false,
     ): ComplicationData {
         val now = System.currentTimeMillis()
         val glucose = state?.glucose
@@ -289,7 +291,6 @@ abstract class TherapyComplicationService(
                     state = therapyState,
                     kind = kind,
                     now = now,
-                    previewOnly = isPreview,
                 ),
             )
             return if (type == ComplicationType.PHOTO_IMAGE) {
@@ -489,7 +490,6 @@ abstract class TherapyComplicationService(
         state: TherapyDisplayState?,
         kind: ProviderKind,
         now: Long,
-        previewOnly: Boolean,
     ): Bitmap {
         val valueOnly = kind == ProviderKind.GLUCOSE_IMAGE
         val width = 400
@@ -514,7 +514,6 @@ abstract class TherapyComplicationService(
             height = height,
             now = now,
             windowMs = windowMs,
-            previewOnly = previewOnly,
         )
         return bitmap
     }
@@ -555,7 +554,6 @@ abstract class TherapyComplicationService(
         height: Int,
         now: Long,
         windowMs: Long,
-        previewOnly: Boolean,
     ) {
         val width = canvas.width
         val glucose = state?.glucose
@@ -579,44 +577,59 @@ abstract class TherapyComplicationService(
         fun yFor(valueMgDl: Double): Float =
             plotBottom - (GlucoseGraphScale.ratio(valueMgDl) * plotHeight).toFloat()
 
-        if (!previewOnly) {
-            val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
-            }
-            targetPaint.color = colors.rangeHigh
-            canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), targetPaint)
-            targetPaint.color = colors.rangeInRange
-            canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), targetPaint)
-            targetPaint.color = colors.rangeLow
-            canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, targetPaint)
-        }
-
-        val targetLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.divider
-            style = Paint.Style.STROKE
-            strokeWidth = 1.35f * density
-        }
-        canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)
-        canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), targetLinePaint)
-
         val timeWindow = GraphTimeWindow.live(now, windowMs)
         val cutoff = timeWindow.startEpochMs
         val merged = linkedMapOf<Long, GlucoseSample>()
         state?.glucoseHistory.orEmpty().forEach { merged[it.measuredAtEpochMs] = it }
         glucose?.let {
-            merged[it.measuredAtEpochMs] = GlucoseSample(it.valueMgDl, it.measuredAtEpochMs)
+            merged[it.measuredAtEpochMs] =
+                GlucoseSample(
+                    valueMgDl = it.valueMgDl,
+                    measuredAtEpochMs = it.measuredAtEpochMs,
+                    source = state.source,
+                    sensorId = it.sensorId,
+                    sessionId = it.sessionId,
+                    sequenceNumber = it.sequenceNumber,
+                    receivedAtEpochMs = it.receivedAtEpochMs,
+                    quality = it.quality,
+                )
         }
         val samples = merged.values.asSequence()
             .filter {
-                it.measuredAtEpochMs in cutoff..(now + FUTURE_TOLERANCE_MS) &&
+                it.measuredAtEpochMs in cutoff..timeWindow.endEpochMs &&
+                    it.quality == CgmQuality.VALID &&
                     it.valueMgDl in 20.0..1000.0
             }
             .sortedBy { it.measuredAtEpochMs }
             .toList()
+        val excursion = CgmGraphPolicy.rangeExcursion(samples, targetLow, targetHigh)
+
+        val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+        if (excursion == RangeExcursion.HIGH) {
+            targetPaint.color = colors.rangeHigh
+            canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), targetPaint)
+        }
+        targetPaint.color = colors.rangeInRange
+        canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), targetPaint)
+        if (excursion == RangeExcursion.LOW) {
+            targetPaint.color = colors.rangeLow
+            canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, targetPaint)
+        }
+
+        val targetLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 1.35f * density
+        }
+        targetLinePaint.color = colors.highLine
+        canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)
+        targetLinePaint.color = colors.lowLine
+        canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), targetLinePaint)
 
         if (samples.isEmpty()) {
             val emptyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = colors.divider
+                color = colors.axisLabel
                 textAlign = Paint.Align.CENTER
                 textSize = 26f
             }
@@ -679,6 +692,11 @@ abstract class TherapyComplicationService(
             cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
             divider = preferences.getInt("graph_color_divider", defaults.divider),
+            highLine = preferences.getInt("graph_color_high_line", defaults.highLine),
+            lowLine = preferences.getInt("graph_color_low_line", defaults.lowLine),
+            axisLabel = preferences.getInt("graph_color_axis_label", defaults.axisLabel),
+            axisTick = preferences.getInt("graph_color_axis_tick", defaults.axisTick),
+            nowLine = preferences.getInt("graph_color_now_line", defaults.nowLine),
             outline = preferences.getInt("graph_color_outline", defaults.outline),
         )
     }

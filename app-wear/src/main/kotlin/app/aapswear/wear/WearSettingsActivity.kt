@@ -208,7 +208,12 @@ class WearSettingsActivity : Activity() {
         colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
         colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange) { updateGraphColors { c -> c.copy(cgmInRange = it) } }
         colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
-        colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
+        colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, current.graphColors.highLine) { updateGraphColors { c -> c.copy(highLine = it) } }
+        colorRow(AppearanceTerminology.GRAPH_LOW_LINE, current.graphColors.lowLine) { updateGraphColors { c -> c.copy(lowLine = it) } }
+        colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.axisLabel) { updateGraphColors { c -> c.copy(axisLabel = it) } }
+        colorRow(AppearanceTerminology.GRAPH_AXIS_TICK, current.graphColors.axisTick) { updateGraphColors { c -> c.copy(axisTick = it) } }
+        colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
+        colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
         colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) { updateGraphColors { c -> c.copy(outline = it) } }
 
         section("PROGNOSE FARBEN")

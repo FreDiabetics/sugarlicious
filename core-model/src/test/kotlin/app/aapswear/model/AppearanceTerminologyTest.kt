@@ -25,6 +25,8 @@ class AppearanceTerminologyTest {
                 AppearanceTerminology.GRAPH_DOT_HIGH,
                 AppearanceTerminology.GRAPH_DOT_OUTLINE,
                 AppearanceTerminology.GRAPH_AXIS_TEXT,
+                AppearanceTerminology.GRAPH_AXIS_TICK,
+                AppearanceTerminology.GRAPH_NOW_LINE,
                 AppearanceTerminology.GRAPH_DIVIDER,
             )
         assertTrue(graphLabels.all(String::isNotBlank))
