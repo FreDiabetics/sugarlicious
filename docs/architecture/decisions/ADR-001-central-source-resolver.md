@@ -17,4 +17,3 @@ Source adapters publish candidates. The resolver records accepted, rejected and 
 
 ## Explicit non-goals
 Widgets, Tiles and Watchfaces do not contain their own source-selection fallback.
-

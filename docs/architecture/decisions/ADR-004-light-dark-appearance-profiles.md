@@ -17,4 +17,3 @@ Exports identify profile and schema version. New roles require defaults in both 
 
 ## Explicit non-goals
 No implicit copying between profiles after migration.
-

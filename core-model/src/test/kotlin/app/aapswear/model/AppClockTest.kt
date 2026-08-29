@@ -16,4 +16,3 @@ class AppClockTest {
         assertEquals(901_000L, clock.nowEpochMs())
     }
 }
-

@@ -17,4 +17,3 @@ New therapy fields enter the shared model and store contract before a renderer c
 
 ## Explicit non-goals
 Appearance settings are not globally coupled across applications or surfaces.
-

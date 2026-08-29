@@ -28,4 +28,3 @@ class PresentationSpecsTest {
         assertTrue(spec.time.anchorAtLatestCgm)
     }
 }
-

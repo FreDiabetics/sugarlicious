@@ -17,4 +17,3 @@ Cross-device messages retain origin and are rejected when they violate ownership
 
 ## Explicit non-goals
 No automatic Watch-to-Mobile CGM fallback is introduced.
-

@@ -17,4 +17,3 @@ Contract tests use shared histories against the core presentation state.
 
 ## Explicit non-goals
 Predictions and synthetic replacement values never count as real CGM readings.
-

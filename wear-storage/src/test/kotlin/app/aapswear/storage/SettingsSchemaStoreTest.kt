@@ -25,4 +25,3 @@ class SettingsSchemaStoreTest {
         assertEquals(4, preferences.getInt(SETTINGS_SCHEMA_VERSION_KEY, 0))
     }
 }
-

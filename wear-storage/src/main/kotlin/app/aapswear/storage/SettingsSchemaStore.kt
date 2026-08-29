@@ -18,4 +18,3 @@ fun SharedPreferences.ensureSettingsSchema(
     }
     return currentVersion
 }
-

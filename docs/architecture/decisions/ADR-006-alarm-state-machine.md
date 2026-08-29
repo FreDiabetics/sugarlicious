@@ -17,4 +17,3 @@ Invalid, stale, duplicate and out-of-order readings cannot confirm a glucose ala
 
 ## Explicit non-goals
 UI visibility does not own or drive alarm state.
-

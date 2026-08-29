@@ -26,4 +26,3 @@ Mobile, Widgets, Notifications, Wear, G7 Collector, Tiles, Complications and Wat
 4. Record state transitions with stable diagnostic codes.
 5. Update visual references intentionally and retain a diff for visual changes.
 6. Increment the applicable schema version and add a monotonic migration for persisted settings changes.
-

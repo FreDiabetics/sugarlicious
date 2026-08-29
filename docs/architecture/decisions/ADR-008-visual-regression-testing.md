@@ -17,4 +17,3 @@ Visual changes update references deliberately and include a diff artifact. CI re
 
 ## Explicit non-goals
 A successful bitmap comparison does not prove physical-device acceptance.
-

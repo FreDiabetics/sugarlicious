@@ -17,4 +17,3 @@ Renderers receive a semantic GraphSpec and may redraw only as their platform per
 
 ## Explicit non-goals
 No process-wide minute wake-up is required for Widgets, Tiles or Complications.
-

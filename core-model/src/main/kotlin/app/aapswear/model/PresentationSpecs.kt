@@ -81,4 +81,3 @@ object SettingsSchemaVersions {
     const val WEAR = 5
     const val COLLECTOR = 2
 }
-
