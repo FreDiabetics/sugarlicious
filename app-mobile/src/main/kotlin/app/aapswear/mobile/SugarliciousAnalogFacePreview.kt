@@ -24,6 +24,8 @@ import androidx.compose.ui.res.painterResource
 import app.aapswear.model.Freshness
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TrendVisuals
+import app.aapswear.uishared.TrendVectorPaths
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -94,7 +96,6 @@ internal fun SugarliciousAnalogFacePreview(
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val glucoseState = state?.glucose
     val glucose = if (displayable && glucoseState != null) TherapyDisplayFormatter.glucose(glucoseState) else "—"
-    val trend = if (displayable && glucoseState != null) TherapyDisplayFormatter.trendArrow(glucoseState.trend) else ""
     val age = TherapyDisplayFormatter.ageMinutes(glucoseState?.measuredAtEpochMs, now)
     val source = TherapyDisplayFormatter.sourceName(state?.source)
     val iob = state?.insulin?.totalIob?.let { TherapyDisplayFormatter.units(it, "U", 1) } ?: "1.2U"
@@ -251,6 +252,26 @@ internal fun SugarliciousAnalogFacePreview(
                 textPaint.color = color
                 drawIntoCanvas { it.nativeCanvas.drawText(value, x(px), y(py), textPaint) }
             }
+            fun trendIcon(centerX: Float, centerY: Float, height: Float) {
+                val spec = glucoseState?.trend?.let(TrendVisuals::spec) ?: return
+                val assetScale = height * scale / spec.canvasHeight
+                val iconWidth = spec.canvasWidth * assetScale
+                val iconHeight = spec.canvasHeight * assetScale
+                val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = 0xFFEB600A.toInt()
+                    style = Paint.Style.FILL
+                }
+                drawIntoCanvas { composeCanvas ->
+                    val native = composeCanvas.nativeCanvas
+                    native.save()
+                    native.translate(x(centerX) - iconWidth / 2f, y(centerY) - iconHeight / 2f)
+                    native.scale(assetScale, assetScale)
+                    TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
+                        native.drawPath(androidx.core.graphics.PathParser.createPathFromPathData(pathData), arrowPaint)
+                    }
+                    native.restore()
+                }
+            }
 
             text("74%", 105f, 89f, 18f, 0xFFEB600A.toInt())
             text("160U", 345f, 92f, 17f, 0xFFEB600A.toInt())
@@ -258,7 +279,8 @@ internal fun SugarliciousAnalogFacePreview(
             text("$iob · $basal", 100f, 329f, 14f, 0xFFEB600A.toInt())
             text(iob, 127f, 218f, 18f, 0xFFEB600A.toInt())
             text("IOB", 127f, 241f, 13f, Color.White.toArgb())
-            text(if (displayable) "$glucose$trend" else "—", 323f, 218f, 18f, 0xFFEB600A.toInt())
+            text(if (displayable) glucose else "—", 310f, 218f, 18f, 0xFFEB600A.toInt())
+            if (displayable) trendIcon(349f, 211f, 18f)
             text(age, 323f, 242f, 13f, Color.White.toArgb())
             text(if (displayable) glucose else "—", 225f, 310f, 34f, Color.White.toArgb())
             text(status, 225f, 342f, 11f, 0xFFEB600A.toInt())

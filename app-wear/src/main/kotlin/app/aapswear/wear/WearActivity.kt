@@ -26,6 +26,7 @@ import app.aapswear.model.TrendVisuals
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.wearGlucoseCardPresentation
+import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.CoroutineScope
@@ -55,7 +56,6 @@ class WearActivity : Activity() {
     private lateinit var glucose: TextView
     private lateinit var trendContainer: LinearLayout
     private lateinit var trendArrow1: ImageView
-    private lateinit var trendArrow2: ImageView
     private lateinit var delta: TextView
     private lateinit var age: TextView
     private lateinit var source: TextView
@@ -186,7 +186,6 @@ class WearActivity : Activity() {
         glucose = findViewById(R.id.wear_glucose)
         trendContainer = findViewById(R.id.wear_trend_container)
         trendArrow1 = findViewById(R.id.wear_trend_arrow_1)
-        trendArrow2 = findViewById(R.id.wear_trend_arrow_2)
         delta = findViewById(R.id.wear_delta)
         age = findViewById(R.id.wear_age)
         source = findViewById(R.id.wear_source)
@@ -279,6 +278,7 @@ class WearActivity : Activity() {
             )
             delta.text = presentation.primaryMeta
             age.text = presentation.secondaryMeta
+            age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
 
             findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, preferences.uiColors.tileBorder, WearGlucoseCardStyle.CARD_RADIUS_DP)
@@ -358,12 +358,14 @@ class WearActivity : Activity() {
             return
         }
         trendContainer.visibility = View.VISIBLE
-        trendArrow1.renderSugarliciousWearIcon(R.drawable.ic_trend_arrow, color, background)
-        trendArrow2.renderSugarliciousWearIcon(R.drawable.ic_trend_arrow, color, background)
-        trendArrow1.rotation = spec.rotationDegrees
-        trendArrow2.rotation = spec.rotationDegrees
+        trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background)
+        trendArrow1.rotation = 0f
+        val density = resources.displayMetrics.density
+        trendArrow1.layoutParams = trendArrow1.layoutParams.apply {
+            height = (WearGlucoseCardStyle.TREND_SIZE_DP * density).roundToInt()
+            width = (WearGlucoseCardStyle.TREND_SIZE_DP * spec.aspectRatio * density).roundToInt()
+        }
         trendArrow1.visibility = View.VISIBLE
-        trendArrow2.visibility = if (spec.arrowCount == 2) View.VISIBLE else View.GONE
     }
 
     private fun applyUiColors(preferences: WearDisplayPreferences) {

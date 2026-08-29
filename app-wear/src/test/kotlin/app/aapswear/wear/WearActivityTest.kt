@@ -129,7 +129,8 @@ class WearActivityTest {
 
         glucose.text = "123"
         delta.text = "Δ − · mg/dL"
-        age.text = "2 min ·"
+        age.text = ""
+        age.visibility = View.GONE
         trend.visibility = View.VISIBLE
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
@@ -147,12 +148,10 @@ class WearActivityTest {
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
         assertEquals(colors.textSecondary, delta.currentTextColor)
-        assertEquals(colors.textSecondary, age.currentTextColor)
-        assertEquals(delta.textSize, age.textSize, 0.5f)
+        assertEquals(View.GONE, age.visibility)
         assertTrue(info.measuredWidth > primary.measuredWidth)
         assertEquals(info.measuredWidth, meta.measuredWidth)
         assertEquals(1, delta.lineCount)
-        assertEquals(1, age.lineCount)
         assertEquals(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,

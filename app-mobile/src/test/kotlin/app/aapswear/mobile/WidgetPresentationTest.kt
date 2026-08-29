@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Region
+import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -24,6 +25,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -117,10 +119,29 @@ class WidgetPresentationTest {
     @Test
     fun `trend arrow keeps the same vector scale in every direction`() {
         val targetHeight = 48f
-        val scales = listOf(0f, 45f, 90f, 135f, 180f, 225f, 270f, 315f)
-            .map { rotation -> normalizedTrendArrowGeometry(targetHeight, rotation, 1).scalePx }
+        val scales = app.aapswear.model.TrendVisualAsset.entries
+            .map { asset -> trendArrowGeometry(targetHeight, app.aapswear.model.TrendVisualSpec(asset)).scalePx }
         scales.forEach { scale -> assertEquals(scales.first(), scale, 0.0001f) }
-        assertEquals(targetHeight, 83.65f * scales.first(), 0.05f)
+        assertEquals(targetHeight, 60f * scales.first(), 0.05f)
+    }
+
+    @Test
+    fun `notification renderer preserves every supplied trend canvas and double arrow aspect`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val expected = mapOf(
+            Trend.DOUBLE_UP to 96.5f / 60f,
+            Trend.SINGLE_UP to 1f,
+            Trend.FORTY_FIVE_UP to 1f,
+            Trend.FLAT to 1f,
+            Trend.FORTY_FIVE_DOWN to 1f,
+            Trend.SINGLE_DOWN to 1f,
+            Trend.DOUBLE_DOWN to 96.5f / 60f,
+        )
+        expected.forEach { (trend, aspect) ->
+            val bitmap = NotificationTrendRenderer.render(context, trend, 60)!!
+            assertEquals(60, bitmap.height)
+            assertEquals((60f * aspect).roundToInt(), bitmap.width)
+        }
     }
 
     @Test

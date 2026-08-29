@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.app.NotificationManager
+import android.media.AudioAttributes
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
@@ -15,6 +16,8 @@ import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -41,6 +44,48 @@ class G7CgmAlarmsTest {
             CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
         )
         assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundResource))
+    }
+
+    @Test
+    fun `all eight alarm channels use alarm audio high importance vibration and bundled sound`() {
+        val settings = G7AlarmSettingsStore.read(context)
+        G7CgmAlarmNotifier.ensureAllChannels(context, settings)
+
+        CgmAlarmType.entries.forEach { type ->
+            val channel = notificationManager.getNotificationChannel(G7CgmAlarmNotifier.channelId(context, type, settings))
+            assertNotNull(channel)
+            assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+            assertEquals(AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
+            assertTrue(channel.shouldVibrate())
+            assertTrue(channel.sound.toString().endsWith("/${g7AlarmSoundResource(type)}"))
+        }
+        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v3_") })
+    }
+
+    @Test
+    fun `test alarm uses dedicated notification without mutating real alarm state`() {
+        val statePreferences = context.getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE)
+        val before = statePreferences.all.toMap()
+        val settings = G7AlarmSettingsStore.read(context)
+
+        G7CgmAlarmNotifier.showTest(context, CgmAlarmType.RAPID_FALL, settings)
+
+        assertNotNull(shadowOf(notificationManager).getNotification(G7CgmAlarmNotifier.testNotificationId(CgmAlarmType.RAPID_FALL)))
+        assertEquals(before, statePreferences.all.toMap())
+    }
+
+    @Test
+    fun `alarm helpers cover every alarm class without changing unrelated flags`() {
+        val initial = G7AlarmSettingsStore.read(context)
+        CgmAlarmType.entries.forEach { type ->
+            val disabled = withAlarmEnabled(initial, type, false)
+            assertFalse(alarmEnabled(disabled, type))
+            CgmAlarmType.entries.filterNot { it == type }.forEach { other ->
+                assertEquals(alarmEnabled(initial, other), alarmEnabled(disabled, other))
+            }
+            assertTrue(g7AlarmTitle(type).isNotBlank())
+            assertTrue(g7AlarmSoundName(type).isNotBlank())
+        }
     }
 
     @Before

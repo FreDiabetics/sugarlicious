@@ -31,6 +31,7 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.wearGlucoseCardPresentation
+import app.aapswear.uishared.TrendDrawableResources
 import java.util.Locale
 
 class G7WatchActivity : Activity() {
@@ -189,7 +190,7 @@ class G7WatchActivity : Activity() {
                     CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
                     CgmReadingStatus.INVALID, null -> CgmQuality.INVALID
                 },
-                sourceLabel = "Watch Direct",
+                sourceLabel = "",
             ),
             G7GraphColorStore(this).readThresholds(),
             now,
@@ -225,7 +226,9 @@ class G7WatchActivity : Activity() {
             presentation.trend?.let { addView(trendIndicator(it, valueColor)) }
         })
         tile.addView(label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
-        tile.addView(label(presentation.secondaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        if (presentation.secondaryMeta.isNotBlank()) {
+            tile.addView(label(presentation.secondaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        }
         return tile
     }
 
@@ -390,17 +393,15 @@ class G7WatchActivity : Activity() {
         gravity = Gravity.CENTER
         setPadding(WearGlucoseCardStyle.TREND_GAP_DP.dp, 0, 0, 0)
         TrendVisuals.spec(trend)?.let { spec ->
-            repeat(spec.arrowCount) { index ->
-                addView(ImageView(this@G7WatchActivity).apply {
-                    setImageResource(R.drawable.ic_trend_arrow)
-                    setColorFilter(color, PorterDuff.Mode.SRC_IN)
-                    rotation = spec.rotationDegrees
-                    contentDescription = "Trend ${trend.name}"
-                    scaleType = ImageView.ScaleType.CENTER_INSIDE
-                }, LinearLayout.LayoutParams(WearGlucoseCardStyle.TREND_SIZE_DP.dp, WearGlucoseCardStyle.TREND_SIZE_DP.dp).apply {
-                    if (index > 0) marginStart = 1.dp
-                })
-            }
+            addView(ImageView(this@G7WatchActivity).apply {
+                setImageResource(TrendDrawableResources.forAsset(spec.asset))
+                setColorFilter(color, PorterDuff.Mode.SRC_IN)
+                contentDescription = "Trend ${trend.name}"
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }, LinearLayout.LayoutParams(
+                (WearGlucoseCardStyle.TREND_SIZE_DP * spec.aspectRatio).toInt().dp,
+                WearGlucoseCardStyle.TREND_SIZE_DP.dp,
+            ))
         }
     }
 

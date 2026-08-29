@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -38,7 +39,7 @@ internal fun G6StyleFacePreview(
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val glucose = state?.glucose
     val value = if (displayable && glucose != null) TherapyDisplayFormatter.glucose(glucose) else "—"
-    val arrow = if (displayable && glucose != null) TherapyDisplayFormatter.trendArrow(glucose.trend) else ""
+    val trend = glucose?.trend?.takeIf { displayable }
     val unit =
         if (displayable && glucose != null) {
             if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
@@ -101,13 +102,25 @@ internal fun G6StyleFacePreview(
             }
         }
 
-        Text(
-            text = listOf(value, arrow).filter(String::isNotBlank).joinToString(" "),
-            color = Color.White,
-            fontSize = (w.value * 0.25f).sp,
-            fontWeight = FontWeight.Bold,
+        Row(
             modifier = Modifier.align(Alignment.TopCenter).padding(top = h * 0.075f),
-        )
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = value,
+                color = Color.White,
+                fontSize = (w.value * 0.25f).sp,
+                fontWeight = FontWeight.Bold,
+            )
+            trend?.let {
+                SugarliciousTrendIndicator(
+                    trend = it,
+                    modifier = Modifier.padding(start = w * 0.02f),
+                    color = Color.White,
+                    arrowSize = w * 0.19f,
+                )
+            }
+        }
         Text(
             text = unit,
             color = Color.White,

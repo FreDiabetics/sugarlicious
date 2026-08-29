@@ -82,6 +82,9 @@ class G7SettingsActivity : Activity() {
                 G7SettingsSection.DISPLAY -> addView(actionCard("Farben & Darstellung", "Öffnen", palette) {
                     startActivity(Intent(this@G7SettingsActivity, G7AppearanceActivity::class.java))
                 }, cardParams())
+                G7SettingsSection.ALARMS -> addView(actionCard("Alarmkonfiguration", "Öffnen", palette) {
+                    startActivity(Intent(this@G7SettingsActivity, G7AlarmSettingsActivity::class.java))
+                }, cardParams())
                 G7SettingsSection.ABOUT -> {
                     val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
                     addView(infoCard("G7 Watch Collector", "Version $version", "Eigenständiger Dexcom-G7-Empfang auf der Watch.", palette), cardParams())

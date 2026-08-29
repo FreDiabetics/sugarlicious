@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders.argb
-import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.DimensionBuilders.sp
@@ -23,7 +22,6 @@ import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
-import androidx.wear.protolayout.ModifiersBuilders.Transformation
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.Resources
@@ -40,8 +38,10 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.TrendVisualAsset
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.wearGlucoseCardPresentation
+import app.aapswear.uishared.TrendDrawableResources
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.SettableFuture
 import java.util.Locale
@@ -103,7 +103,7 @@ internal fun g7TilePresentation(
                 CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
                 else -> CgmQuality.INVALID
             },
-            sourceLabel = "Watch Direct",
+            sourceLabel = "",
         ),
         thresholds,
         nowEpochMs,
@@ -118,7 +118,7 @@ internal fun g7TilePresentation(
     return G7TilePresentation(
         glucoseValue = shared.value,
         meta = shared.primaryMeta,
-        age = shared.secondaryMeta,
+        age = "",
         cardBackground = G7_TILE_CARD_BACKGROUND,
         cardForeground = valueColor,
         trend = shared.trend,
@@ -165,16 +165,20 @@ class G7CollectorTileService : TileService() {
         Futures.immediateFuture(
             Resources.Builder()
                 .setVersion(RESOURCES_VERSION)
-                .addIdToImageMapping(
-                    TREND_RESOURCE_ID,
-                    ImageResource.Builder()
-                        .setAndroidResourceByResId(
-                            AndroidImageResourceByResId.Builder()
-                                .setResourceId(R.drawable.ic_trend_arrow)
+                .apply {
+                    TrendVisualAsset.entries.forEach { asset ->
+                        addIdToImageMapping(
+                            trendResourceId(asset),
+                            ImageResource.Builder()
+                                .setAndroidResourceByResId(
+                                    AndroidImageResourceByResId.Builder()
+                                        .setResourceId(TrendDrawableResources.forAsset(asset))
+                                        .build(),
+                                )
                                 .build(),
                         )
-                        .build(),
-                )
+                    }
+                }
                 .addIdToImageMapping(
                     HEADER_RESOURCE_ID,
                     ImageResource.Builder()
@@ -212,10 +216,7 @@ class G7CollectorTileService : TileService() {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        repeat(spec.arrowCount) { index ->
-                            if (index > 0) addContent(Spacer.Builder().setWidth(dp(2f)).build())
-                            addContent(trendImage(spec.rotationDegrees, presentation.cardForeground))
-                        }
+                        addContent(trendImage(spec, presentation.cardForeground))
                     }
                 }
                 .build()
@@ -326,21 +327,12 @@ class G7CollectorTileService : TileService() {
             .addContent(text("●  ${presentation.label}", 10f, presentation.color, bold = true))
             .build()
 
-    private fun trendImage(rotationDegrees: Float, color: Int): Image =
+    private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
         Image.Builder()
-            .setResourceId(TREND_RESOURCE_ID)
-            .setWidth(dp(27f))
-            .setHeight(dp(25f))
+            .setResourceId(trendResourceId(spec.asset))
+            .setWidth(dp(27f * spec.aspectRatio))
+            .setHeight(dp(27f))
             .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
-            .setModifiers(
-                Modifiers.Builder()
-                    .setTransformation(
-                        Transformation.Builder()
-                            .setRotation(degrees(rotationDegrees))
-                            .build(),
-                    )
-                    .build(),
-            )
             .build()
 
     private fun text(value: String, size: Float, color: Int, bold: Boolean): Text =
@@ -357,8 +349,7 @@ class G7CollectorTileService : TileService() {
             .build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-4"
-        private const val TREND_RESOURCE_ID = "ic_trend"
+        private const val RESOURCES_VERSION = "g7-collector-5"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
 
@@ -367,6 +358,8 @@ class G7CollectorTileService : TileService() {
         }
     }
 }
+
+private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"
 
 internal fun withTileAlpha(color: Int, alpha: Int): Int =
     (alpha.coerceIn(0, 255) shl 24) or (color and 0x00FFFFFF)

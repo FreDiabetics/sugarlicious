@@ -2,7 +2,6 @@ package app.aapswear.wear
 
 import android.content.Context
 import androidx.wear.protolayout.ColorBuilders.argb
-import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.DimensionBuilders.sp
@@ -20,7 +19,6 @@ import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
-import androidx.wear.protolayout.ModifiersBuilders.Transformation
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.Resources
@@ -35,6 +33,8 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.TrendVisualAsset
+import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchUiColors
@@ -45,8 +45,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-private const val TILE_RESOURCES_VERSION = "sugarlicious-4"
-private const val TREND_RESOURCE_ID = "ic_trend"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-5"
 
 internal data class WearGlucoseTilePresentation(
     val value: String,
@@ -164,14 +163,20 @@ abstract class SugarliciousTileService : TileService() {
         Futures.immediateFuture(
             Resources.Builder()
                 .setVersion(TILE_RESOURCES_VERSION)
-                .addIdToImageMapping(
-                    TREND_RESOURCE_ID,
-                    ImageResource.Builder()
-                        .setAndroidResourceByResId(
-                            AndroidImageResourceByResId.Builder().setResourceId(R.drawable.ic_trend_arrow).build(),
+                .apply {
+                    TrendVisualAsset.entries.forEach { asset ->
+                        addIdToImageMapping(
+                            trendResourceId(asset),
+                            ImageResource.Builder()
+                                .setAndroidResourceByResId(
+                                    AndroidImageResourceByResId.Builder()
+                                        .setResourceId(TrendDrawableResources.forAsset(asset))
+                                        .build(),
+                                )
+                                .build(),
                         )
-                        .build(),
-                )
+                    }
+                }
                 .build(),
         )
 }
@@ -188,10 +193,7 @@ class GlucoseTileService : SugarliciousTileService() {
                 val spec = presentation.trend?.let(TrendVisuals::spec)
                 if (spec != null) {
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
-                    repeat(spec.arrowCount) { index ->
-                        if (index > 0) addContent(Spacer.Builder().setWidth(dp(2f)).build())
-                        addContent(tileTrendImage(spec.rotationDegrees, presentation.valueColor))
-                    }
+                    addContent(tileTrendImage(spec, presentation.valueColor))
                 }
             }
             .build()
@@ -300,18 +302,15 @@ private fun tileRoot(background: Int, child: LayoutElementBuilders.LayoutElement
         .addContent(child)
         .build()
 
-private fun tileTrendImage(rotationDegrees: Float, color: Int): Image =
+private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
     Image.Builder()
-        .setResourceId(TREND_RESOURCE_ID)
-        .setWidth(dp(28f))
-        .setHeight(dp(26f))
+        .setResourceId(trendResourceId(spec.asset))
+        .setWidth(dp(28f * spec.aspectRatio))
+        .setHeight(dp(28f))
         .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
-        .setModifiers(
-            Modifiers.Builder()
-                .setTransformation(Transformation.Builder().setRotation(degrees(rotationDegrees)).build())
-                .build(),
-        )
         .build()
+
+private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"
 
 private fun tileText(value: String, size: Float, color: Int, bold: Boolean): Text =
     Text.Builder()

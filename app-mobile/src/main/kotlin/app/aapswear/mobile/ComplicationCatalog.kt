@@ -731,9 +731,7 @@ private fun ComplicationDataPreview(
         CircularGlucoseComplicationPreview(
             glucoseValue = g?.valueMgDl ?: 123.0,
             glucoseText = g?.let { TherapyDisplayFormatter.glucose(it) } ?: "123",
-            trendText = g?.let { TherapyDisplayFormatter.trendArrow(it.trend) }
-                ?.ifBlank { "↗" }
-                ?: "↗",
+            trend = g?.trend ?: Trend.FORTY_FIVE_UP,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SugarliciousColors.Background, shape)
@@ -813,7 +811,7 @@ private fun ComplicationDataPreview(
 private fun CircularGlucoseComplicationPreview(
     glucoseValue: Double,
     glucoseText: String,
-    trendText: String,
+    trend: Trend,
     modifier: Modifier = Modifier,
 ) {
     val foreground = when {
@@ -887,13 +885,11 @@ private fun CircularGlucoseComplicationPreview(
                     fontWeight = FontWeight.Bold,
                 )
 
-                Text(
-                    text = trendText,
+                SugarliciousTrendIndicator(
+                    trend = trend,
                     modifier = Modifier.offset(y = (-4).dp),
                     color = SugarliciousColors.TextPrimary,
-                    fontSize = 37.sp,
-                    lineHeight = 33.sp,
-                    fontWeight = FontWeight.Bold,
+                    arrowSize = 37.dp,
                 )
             }
         }

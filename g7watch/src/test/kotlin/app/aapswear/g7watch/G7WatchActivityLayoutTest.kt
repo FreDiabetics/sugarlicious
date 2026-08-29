@@ -54,6 +54,22 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `alarm settings menu opens alarm configuration and not system status`() {
+        val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        val alarmHeaderText = findText(root, "Alarme")!!
+        (alarmHeaderText.parent.parent as android.view.View).performClick()
+        val alarmActionText = findText(root, "Alarmkonfiguration")!!
+        (alarmActionText.parent as android.view.View).performClick()
+
+        val intent = Shadows.shadowOf(activity).nextStartedActivity
+        assertEquals(G7AlarmSettingsActivity::class.java.name, intent.component?.className)
+        assertFalse(intent.component?.className == G7SystemStatusActivity::class.java.name)
+        activity.finish()
+    }
+
+    @Test
     fun `collector overview contains only primary data and action elements`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()
@@ -61,7 +77,7 @@ class G7WatchActivityLayoutTest {
 
         assertFalse(texts.any { it.contains("3h Verlauf", ignoreCase = true) })
         assertTrue("3h" in texts)
-        assertTrue("mg/dL" in texts)
+        assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val systemIndex = texts.indexOf("Systemstatus")
         val titleIndex = texts.indexOf("G7 Direct to Watch")
@@ -173,7 +189,7 @@ class G7WatchActivityLayoutTest {
         collectTrendArrows(activity.findViewById(android.R.id.content), arrows)
 
         assertEquals(1, arrows.size)
-        assertEquals(-45f, arrows.single().rotation)
+        assertEquals(0f, arrows.single().rotation)
         assertTrue(arrows.single().contentDescription.toString().contains("FORTY_FIVE_UP"))
         activity.finish()
     }

@@ -21,6 +21,7 @@ include(
     ":data-source-xdrip",
     ":wear-protocol",
     ":wear-storage",
+    ":ui-shared",
     ":complications",
     ":app-mobile",
     ":app-wear",

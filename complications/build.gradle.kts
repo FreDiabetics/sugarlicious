@@ -8,6 +8,7 @@ android {
 dependencies {
     api(project(":wear-storage"))
     implementation(project(":wear-protocol"))
+    implementation(project(":ui-shared"))
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     testImplementation("junit:junit:4.13.2")

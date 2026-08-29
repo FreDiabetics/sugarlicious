@@ -55,18 +55,18 @@ fun wearGlucoseCardPresentation(
         value.roundToInt().toString()
     }
     val delta = TherapyDisplayFormatter.signedDelta(input.deltaMgDl, input.displayUnit).ifBlank { "—" }
-    val age = TherapyDisplayFormatter.ageMinutesValue(input.measuredAtEpochMs, nowEpochMs)?.let { "$it min" }.orEmpty()
+    val age = TherapyDisplayFormatter.ageMinutesValue(input.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" }.orEmpty()
     val stateText = when (freshness) {
         Freshness.CURRENT -> age
-        Freshness.DELAYED -> listOf("Verzögert", age).filter(String::isNotBlank).joinToString(" · ")
+        Freshness.DELAYED -> age
         Freshness.STALE -> "Keine aktuellen CGM-Daten"
         Freshness.ERROR -> "Sensorfehler"
         Freshness.NO_DATA -> "Keine CGM-Daten"
     }
     return WearGlucoseCardPresentation(
         value = formattedValue,
-        primaryMeta = if (displayable) "Δ $delta · $unit" else unit,
-        secondaryMeta = listOf(stateText, input.sourceLabel).filter(String::isNotBlank).joinToString(" · "),
+        primaryMeta = if (displayable) listOf("$delta $unit", stateText).filter(String::isNotBlank).joinToString(" · ") else stateText,
+        secondaryMeta = "",
         trend = input.trend.takeIf { displayable && it != Trend.UNKNOWN },
         freshness = freshness,
         rangeClass = value?.takeIf { displayable }?.let(thresholds::classify),

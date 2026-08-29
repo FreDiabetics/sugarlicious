@@ -63,6 +63,8 @@ import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.TrendVisualSpec
+import app.aapswear.uishared.TrendVectorPaths
 import app.aapswear.storage.TherapyStateStore
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -694,7 +696,7 @@ internal fun renderMinimalGlucoseWidget(
     // The widget arrow intentionally sits 4 dp below the Mobile value height. It remains the
     // canonical Mobile vector and is uniformly scaled for every rotation.
     val arrowTargetHeight = widgetTrendArrowTargetHeight(textHeight, options.trendScale, pixelDensity)
-    val arrowGeometry = spec?.let { normalizedTrendArrowGeometry(arrowTargetHeight, it.rotationDegrees, it.arrowCount) }
+    val arrowGeometry = spec?.let { trendArrowGeometry(arrowTargetHeight, it) }
     val arrowSize = arrowGeometry?.scalePx ?: 0f
     val arrowWidth = arrowGeometry?.groupWidthPx ?: 0f
     val gap = if (spec != null) (paint.textSize * (6f / 42f)).coerceAtLeast(3f) else 0f
@@ -713,25 +715,16 @@ internal fun renderMinimalGlucoseWidget(
             )
             style = Paint.Style.FILL
         }
-        val count = spec.arrowCount
-        val spacing = arrowGeometry?.centerSpacingPx ?: 0f
-        val arrowPathData = "M88.61,35.97L52.23,2.14c-3.23,-3 -8.3,-2.82 -11.31,0.41 -1.46,1.57 -2.22,3.6 -2.14,5.74 0.08,2.14 0.98,4.12 2.55,5.57l21.47,19.96H8c-4.41,0 -8,3.59 -8,8s3.59,8 8,8h54.82l-21.49,19.97c-1.57,1.46 -2.47,3.44 -2.55,5.57 -0.08,2.14 0.68,4.18 2.14,5.74 1.57,1.69 3.71,2.54 5.86,2.54 1.95,0 3.91,-0.71 5.45,-2.14l36.38,-33.82c1.62,-1.51 2.55,-3.65 2.55,-5.86s-0.93,-4.35 -2.55,-5.86z"
-        repeat(count) { index ->
-            val centerX = startX + textWidth + gap + (arrowGeometry?.singleVisibleWidthPx ?: 0f) / 2f + index * spacing
-            val centerY = bitmap.height / 2f
-            val path = PathParser.createPathFromPathData(arrowPathData)
-            // Keep the canonical Mobile arrow untouched. Canvas transforms make the operation
-            // explicit: center the source vector, scale uniformly, rotate around its own visual
-            // center, then place it in the reserved arrow cell. Matrix post-order previously
-            // caused direction-dependent offsets and apparent distortion.
-            canvas.save()
-            canvas.translate(centerX, centerY)
-            canvas.rotate(spec.rotationDegrees)
-            canvas.scale(arrowSize, arrowSize)
-            canvas.translate(-91.16f / 2f, -83.65f / 2f)
+        val left = startX + textWidth + gap
+        val top = bitmap.height / 2f - arrowTargetHeight / 2f
+        canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(arrowSize, arrowSize)
+        TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
+            val path = PathParser.createPathFromPathData(pathData)
             canvas.drawPath(path, arrowPaint)
-            canvas.restore()
         }
+        canvas.restore()
     }
     drawWidgetOutline(canvas, bitmap.width, bitmap.height, options, pixelDensity)
     return bitmap
@@ -792,30 +785,14 @@ private fun clipWidgetCanvas(canvas: AndroidCanvas, width: Int, height: Int, rad
 
 internal data class TrendArrowGeometry(
     val scalePx: Float,
-    val singleVisibleWidthPx: Float,
-    val centerSpacingPx: Float,
     val groupWidthPx: Float,
 )
 
-internal fun normalizedTrendArrowGeometry(targetVisibleHeightPx: Float, rotationDegrees: Float, arrowCount: Int): TrendArrowGeometry {
-    val radians = Math.toRadians(rotationDegrees.toDouble())
-    val sine = kotlin.math.abs(kotlin.math.sin(radians)).toFloat()
-    val cosine = kotlin.math.abs(kotlin.math.cos(radians)).toFloat()
-    val rawWidth = 91.16f
-    val rawHeight = 83.65f
-    val rotatedWidth = rawWidth * cosine + rawHeight * sine
-    // Every trend direction is the exact same Mobile vector at the exact same uniform scale.
-    // Scaling against the rotated bounding-box height made the 45-degree variants visibly
-    // smaller even though their source artwork was identical.
-    val scale = targetVisibleHeightPx / rawHeight
-    val visibleWidth = rotatedWidth * scale
-    val spacing = visibleWidth + targetVisibleHeightPx * 0.04f
-    val count = arrowCount.coerceIn(1, 2)
+internal fun trendArrowGeometry(targetVisibleHeightPx: Float, spec: TrendVisualSpec): TrendArrowGeometry {
+    val scale = targetVisibleHeightPx / spec.canvasHeight
     return TrendArrowGeometry(
         scalePx = scale,
-        singleVisibleWidthPx = visibleWidth,
-        centerSpacingPx = spacing,
-        groupWidthPx = visibleWidth + (count - 1) * spacing,
+        groupWidthPx = spec.canvasWidth * scale,
     )
 }
 

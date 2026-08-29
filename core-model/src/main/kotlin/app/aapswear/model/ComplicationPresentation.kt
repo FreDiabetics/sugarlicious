@@ -19,20 +19,25 @@ data class ComplicationPresentation(
     val contentDescription: String,
 )
 
+enum class TrendVisualAsset { DOUBLE_UP, UP, FORTY_FIVE_UP, FLAT, FORTY_FIVE_DOWN, DOWN, DOUBLE_DOWN }
+
 data class TrendVisualSpec(
-    val rotationDegrees: Float,
-    val arrowCount: Int = 1,
-)
+    val asset: TrendVisualAsset,
+    val canvasWidth: Float = 60f,
+    val canvasHeight: Float = 60f,
+) {
+    val aspectRatio: Float get() = canvasWidth / canvasHeight
+}
 
 object TrendVisuals {
     fun spec(trend: Trend): TrendVisualSpec? = when (trend) {
-        Trend.DOUBLE_UP -> TrendVisualSpec(-90f, 2)
-        Trend.SINGLE_UP -> TrendVisualSpec(-90f)
-        Trend.FORTY_FIVE_UP -> TrendVisualSpec(-45f)
-        Trend.FLAT -> TrendVisualSpec(0f)
-        Trend.FORTY_FIVE_DOWN -> TrendVisualSpec(45f)
-        Trend.SINGLE_DOWN -> TrendVisualSpec(90f)
-        Trend.DOUBLE_DOWN -> TrendVisualSpec(90f, 2)
+        Trend.DOUBLE_UP -> TrendVisualSpec(TrendVisualAsset.DOUBLE_UP, 96.5f)
+        Trend.SINGLE_UP -> TrendVisualSpec(TrendVisualAsset.UP)
+        Trend.FORTY_FIVE_UP -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_UP)
+        Trend.FLAT -> TrendVisualSpec(TrendVisualAsset.FLAT)
+        Trend.FORTY_FIVE_DOWN -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_DOWN)
+        Trend.SINGLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOWN)
+        Trend.DOUBLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOUBLE_DOWN, 96.5f)
         Trend.UNKNOWN -> null
     }
 }

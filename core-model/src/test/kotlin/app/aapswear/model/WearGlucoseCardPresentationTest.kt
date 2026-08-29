@@ -17,8 +17,8 @@ class WearGlucoseCardPresentationTest {
             now,
         )
         assertEquals("123", result.value)
-        assertEquals("Δ +4 · mg/dL", result.primaryMeta)
-        assertEquals("2 min · AndroidAPS", result.secondaryMeta)
+        assertEquals("+4 mg/dL · 2m", result.primaryMeta)
+        assertEquals("", result.secondaryMeta)
         assertEquals(Trend.FORTY_FIVE_UP, result.trend)
         assertFalse(result.secondaryMeta.contains("Aktuell", ignoreCase = true))
     }
@@ -44,6 +44,18 @@ class WearGlucoseCardPresentationTest {
     }
 
     @Test
+    fun `missing delta keeps the canonical compact secondary line`() {
+        val result = wearGlucoseCardPresentation(
+            WearGlucoseCardInput(123.0, GlucoseUnit.MG_DL, null, Trend.FLAT, now),
+            CgmThresholds.DEFAULT,
+            now,
+        )
+
+        assertEquals("— mg/dL · 0m", result.primaryMeta)
+        assertEquals("", result.secondaryMeta)
+    }
+
+    @Test
     fun `range classification and mmol formatting use canonical thresholds`() {
         val result = wearGlucoseCardPresentation(
             WearGlucoseCardInput(252.0, GlucoseUnit.MMOL_L, -5.4, Trend.FLAT, now),
@@ -51,7 +63,7 @@ class WearGlucoseCardPresentationTest {
             now,
         )
         assertEquals("14.0", result.value)
-        assertEquals("Δ -0.3 · mmol/L", result.primaryMeta)
+        assertEquals("-0.3 mmol/L · 0m", result.primaryMeta)
         assertEquals(CgmRangeClass.VERY_HIGH, result.rangeClass)
         assertTrue(result.displayable)
     }

@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" />
     <uses-permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" />
     <permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" android:protectionLevel="signature" />
@@ -37,6 +38,9 @@
             android:exported="false" />
         <activity
             android:name=".G7SettingsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".G7AlarmSettingsActivity"
             android:exported="false" />
         <activity
             android:name=".G7SystemStatusActivity"

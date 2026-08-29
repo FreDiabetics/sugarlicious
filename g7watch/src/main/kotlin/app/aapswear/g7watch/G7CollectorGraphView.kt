@@ -3,18 +3,23 @@ package app.aapswear.g7watch
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Paint
-import android.graphics.Typeface
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
 import android.view.ViewOutlineProvider
 import app.aapswear.g7.CgmReading
-import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RelativeGraphTimeAxis
+import app.aapswear.uishared.SharedWearCgmGraphInput
+import app.aapswear.uishared.SharedWearCgmGraphPalette
+import app.aapswear.uishared.SharedWearCgmGraphRenderer
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
@@ -22,16 +27,6 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
     private val density = resources.displayMetrics.density
-    private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-    }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 8.5f, resources.displayMetrics)
-        typeface = Typeface.DEFAULT_BOLD
-    }
-
     private var readings: List<CgmReading> = emptyList()
     private var palette = G7AppearancePalette(G7AppearanceRole.entries.associateWith { it.defaultArgb })
     private var graphHours = G7AppearanceStore.DEFAULT_GRAPH_HOURS
@@ -42,8 +37,9 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     init {
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                if (view.width <= 0 || view.height <= 0) return
-                outline.setRoundRect(0, 0, view.width, view.height, TILE_RADIUS_DP.dp)
+                if (view.width > 0 && view.height > 0) {
+                    outline.setRoundRect(0, 0, view.width, view.height, TILE_RADIUS_DP * density)
+                }
             }
         }
         clipToOutline = true
@@ -73,164 +69,81 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (width <= 0 || height <= 0) return
-
         val now = nowEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis()
-        val timeWindow = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
-        val start = timeWindow.startEpochMs
-        val visible = G7GraphPolicy.displayReadings(readings, start, now)
-        val excursion = G7GraphPolicy.rangeExcursion(readings, targetLowMgDl, targetHighMgDl, now)
-
-        fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_BACKGROUND)
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), fillPaint)
-
-        val plotLeft = 16f.dp
-        val plotRight = width - 31f.dp
-        val plotTop = 7f.dp
-        val plotBottom = height - 20f.dp
-        if (plotRight <= plotLeft || plotBottom <= plotTop) return
-
-        fun x(timestamp: Long): Float =
-            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
-
-        fun y(valueMgDl: Double): Float =
-            plotBottom - GlucoseGraphScale.ratio(valueMgDl).toFloat() * (plotBottom - plotTop)
-
-        val targetTop = y(targetHighMgDl)
-        val targetBottom = y(targetLowMgDl)
-
-        fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_TARGET_AREA)
-        canvas.drawRect(plotLeft, targetTop, plotRight, targetBottom, fillPaint)
-
-        if (excursion == G7RangeExcursion.HIGH) {
-            fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_HIGH_AREA)
-            canvas.drawRect(plotLeft, plotTop, plotRight, targetTop, fillPaint)
-        }
-        if (excursion == G7RangeExcursion.LOW) {
-            fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_LOW_AREA)
-            canvas.drawRect(plotLeft, targetBottom, plotRight, plotBottom, fillPaint)
-        }
-
-        val nowLineX = x(timeWindow.liveEdgeEpochMs)
-        drawGridAndAxis(canvas, start, now, plotLeft, plotRight, nowLineX, plotTop, plotBottom)
-
-        linePaint.pathEffect = null
-        linePaint.strokeWidth = 1f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE)
-        canvas.drawLine(plotLeft, targetTop, plotRight, targetTop, linePaint)
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE)
-        canvas.drawLine(plotLeft, targetBottom, plotRight, targetBottom, linePaint)
-
-        textPaint.textAlign = Paint.Align.RIGHT
-        textPaint.color = Color.WHITE
-        textPaint.typeface = Typeface.DEFAULT_BOLD
-        canvas.drawText(
-            targetHighMgDl.toInt().toString(),
-            width - 5f.dp,
-            G7GraphLayout.highLabelBaseline(targetTop, textPaint.fontMetrics, SCALE_LABEL_GAP_DP.dp),
-            textPaint,
+        val window = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+        val thresholds = CgmThresholds(
+            veryHighMgDl = maxOf(CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, targetHighMgDl + 1.0),
+            highMgDl = targetHighMgDl,
+            lowMgDl = targetLowMgDl,
+            veryLowMgDl = minOf(CgmThresholds.DEFAULT_VERY_LOW_MG_DL, targetLowMgDl - 1.0),
         )
-        canvas.drawText(
-            targetLowMgDl.toInt().toString(),
-            width - 5f.dp,
-            G7GraphLayout.lowLabelBaseline(targetBottom, textPaint.fontMetrics, SCALE_LABEL_GAP_DP.dp),
-            textPaint,
-        )
-
-        linePaint.pathEffect = null
-        linePaint.strokeWidth = 0.7f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_GRID)
-        canvas.drawLine(plotRight, plotTop, plotRight, plotBottom, linePaint)
-
-        visible.forEach { reading ->
-            // Every real CGM point keeps its measurement-time X coordinate. Only a genuinely
-            // current point naturally reaches the live divider; stale points leave a visible gap.
-            val px = x(reading.timestampEpochMs)
-            val py = y(reading.glucoseMgDl)
-            fillPaint.color = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE)
-            canvas.drawCircle(px, py, CGM_OUTER_RADIUS_DP.dp, fillPaint)
-            fillPaint.color = when {
-                reading.glucoseMgDl < targetLowMgDl -> palette.argb(G7AppearanceRole.GRAPH_DOT_LOW)
-                reading.glucoseMgDl > targetHighMgDl -> palette.argb(G7AppearanceRole.GRAPH_DOT_HIGH)
-                else -> palette.argb(G7AppearanceRole.GRAPH_DOT_IN_RANGE)
-            }
-            canvas.drawCircle(px, py, 2.2f.dp, fillPaint)
-        }
-
-        if (visible.isEmpty()) {
-            textPaint.textAlign = Paint.Align.CENTER
-            textPaint.color = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT)
-            canvas.drawText("Noch keine CGM-Historie", width / 2f, height / 2f, textPaint)
-        }
-
-        drawContour(canvas)
-    }
-
-    private fun drawGridAndAxis(
-        canvas: Canvas,
-        start: Long,
-        now: Long,
-        plotLeft: Float,
-        plotRight: Float,
-        nowLineX: Float,
-        plotTop: Float,
-        plotBottom: Float,
-    ) {
-        val ticks = RelativeGraphTimeAxis.ticks(start, now, now)
-        linePaint.strokeWidth = 0.7f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_GRID)
-        linePaint.pathEffect = null
-
-        textPaint.color = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT)
-        textPaint.textAlign = Paint.Align.CENTER
-        ticks.forEach { tick ->
-            val fraction = ((tick.timestampEpochMs - start).toDouble() / (now - start).coerceAtLeast(1L)).coerceIn(0.0, 1.0)
-            val px = if (tick.hoursBack == 0) nowLineX else plotLeft + fraction.toFloat() * (plotRight - plotLeft)
-            canvas.drawLine(px, plotBottom + 2f.dp, px, plotBottom + 6f.dp, linePaint)
-            textPaint.textAlign = Paint.Align.CENTER
-            canvas.drawText(tick.label, px, height - 5f.dp, textPaint)
-        }
-        linePaint.pathEffect = null
-    }
-
-    private fun drawContour(canvas: Canvas) {
-        val inset = 0.5f.dp
-        linePaint.pathEffect = null
-        linePaint.strokeWidth = 1f.dp
-        linePaint.color = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER)
-        canvas.drawRoundRect(
-            inset,
-            inset,
-            width - inset,
-            height - inset,
-            TILE_RADIUS_DP.dp - inset,
-            TILE_RADIUS_DP.dp - inset,
-            linePaint,
+        SharedWearCgmGraphRenderer.render(
+            canvas,
+            width,
+            height,
+            density,
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 1f, resources.displayMetrics),
+            SharedWearCgmGraphInput(
+                history = readings.map { it.toGraphSample() },
+                timeWindow = window,
+                nowEpochMs = now,
+                thresholds = thresholds,
+                palette = palette.toSharedPalette(),
+                style = SharedWearCgmGraphStyle(cornerRadiusDp = TILE_RADIUS_DP),
+            ),
         )
     }
 
-    private val Float.dp: Float get() = this * density
+    private fun CgmReading.toGraphSample() = GlucoseSample(
+        valueMgDl = glucoseMgDl,
+        measuredAtEpochMs = timestampEpochMs,
+        source = source,
+        sensorId = sensorId,
+        sessionId = sessionId,
+        sequenceNumber = sequenceNumber,
+        receivedAtEpochMs = receivedAtEpochMs,
+        quality = when (status) {
+            CgmReadingStatus.VALID -> CgmQuality.VALID
+            CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+            CgmReadingStatus.INVALID -> CgmQuality.INVALID
+        },
+    )
+
+    private fun G7AppearancePalette.toSharedPalette() = SharedWearCgmGraphPalette(
+        background = argb(G7AppearanceRole.GRAPH_BACKGROUND),
+        targetArea = argb(G7AppearanceRole.GRAPH_TARGET_AREA),
+        highArea = argb(G7AppearanceRole.GRAPH_HIGH_AREA),
+        lowArea = argb(G7AppearanceRole.GRAPH_LOW_AREA),
+        highLine = argb(G7AppearanceRole.GRAPH_HIGH_LINE),
+        lowLine = argb(G7AppearanceRole.GRAPH_LOW_LINE),
+        dotHigh = argb(G7AppearanceRole.GRAPH_DOT_HIGH),
+        dotInRange = argb(G7AppearanceRole.GRAPH_DOT_IN_RANGE),
+        dotLow = argb(G7AppearanceRole.GRAPH_DOT_LOW),
+        dotOutline = argb(G7AppearanceRole.GRAPH_DOT_OUTLINE),
+        axisText = argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
+        axisTick = argb(G7AppearanceRole.GRAPH_GRID),
+        nowLine = argb(G7AppearanceRole.GRAPH_GRID),
+        border = argb(G7AppearanceRole.GRAPH_TILE_BORDER),
+        predictionIob = argb(G7AppearanceRole.GRAPH_PREDICTION),
+        predictionCob = argb(G7AppearanceRole.GRAPH_PREDICTION),
+        predictionUam = argb(G7AppearanceRole.GRAPH_PREDICTION),
+        predictionZeroTemp = argb(G7AppearanceRole.GRAPH_PREDICTION),
+    )
 
     private companion object {
         const val TILE_RADIUS_DP = 20f
-        const val CGM_OUTER_RADIUS_DP = 3.1f
-        const val SCALE_LABEL_GAP_DP = 1.5f
     }
 }
 
+/** Compatibility helpers kept for the older pure geometry tests. New rendering uses ui-shared. */
 internal object G7GraphLayout {
     fun timeX(timestamp: Long, start: Long, now: Long, left: Float, right: Float): Float =
-        left +
-            ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L))
-                .coerceIn(0.0, 1.0)
-                .toFloat() * (right - left)
+        left + ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L)).coerceIn(0.0, 1.0).toFloat() * (right - left)
 
     fun predictionX(mappedX: Float, dividerX: Float, outerRadius: Float, safetyGap: Float): Float =
         maxOf(mappedX, dividerX + outerRadius + safetyGap)
 
-    fun highLabelBaseline(lineY: Float, metrics: Paint.FontMetrics, gap: Float): Float =
-        lineY - gap - metrics.descent
+    fun highLabelBaseline(lineY: Float, metrics: Paint.FontMetrics, gap: Float): Float = lineY - gap - metrics.descent
 
-    fun lowLabelBaseline(lineY: Float, metrics: Paint.FontMetrics, gap: Float): Float =
-        lineY + gap - metrics.ascent
+    fun lowLabelBaseline(lineY: Float, metrics: Paint.FontMetrics, gap: Float): Float = lineY + gap - metrics.ascent
 }

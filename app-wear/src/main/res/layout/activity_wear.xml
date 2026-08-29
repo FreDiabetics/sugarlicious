@@ -96,18 +96,8 @@
                                 android:layout_width="27dp"
                                 android:layout_height="27dp"
                                 android:contentDescription="Trend"
-                                android:src="@drawable/ic_trend_arrow"
+                                android:src="@drawable/ic_trend_flat"
                                 android:tint="@color/wear_text" />
-
-                            <ImageView
-                                android:id="@+id/wear_trend_arrow_2"
-                                android:layout_width="27dp"
-                                android:layout_height="27dp"
-                                android:layout_marginStart="1dp"
-                                android:contentDescription="Trend"
-                                android:src="@drawable/ic_trend_arrow"
-                                android:tint="@color/wear_text"
-                                android:visibility="gone" />
                         </LinearLayout>
                     </LinearLayout>
 

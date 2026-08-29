@@ -20,6 +20,5 @@
         android:layout_height="52dp"
         android:layout_marginStart="7dp"
         android:contentDescription="@null"
-        android:rotation="-45"
-        android:src="@drawable/widget_trend_arrow_preview" />
+        android:src="@drawable/ic_trend_fortyfiveup" />
 </LinearLayout>

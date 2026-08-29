@@ -58,7 +58,7 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `tile shows vector trend delta unit source and age`() {
+    fun `tile shows vector trend delta unit and compact age without source`() {
         val presentation = g7TilePresentation(
             reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
             colors,
@@ -68,9 +68,10 @@ class G7CollectorTilePresentationTest {
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
         assertTrue(presentation.tileMeta.contains("+5"))
-        assertTrue(presentation.tileMeta.contains("2 min"))
+        assertTrue(presentation.tileMeta.contains("2m"))
         assertTrue(presentation.tileMeta.contains("mg/dL"))
-        assertTrue(presentation.tileMeta.contains("Watch Direct"))
+        assertFalse(presentation.tileMeta.contains("Watch Direct"))
+        assertFalse(presentation.tileMeta.contains("min"))
         assertFalse(presentation.tileMeta.contains("Aktuell", ignoreCase = true))
     }
 
@@ -89,8 +90,8 @@ class G7CollectorTilePresentationTest {
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)
-        assertEquals("Δ +5 · mg/dL", up.meta)
-        assertEquals("0 min · Watch Direct", up.age)
+        assertEquals("+5 mg/dL · 0m", up.meta)
+        assertEquals("", up.age)
         assertEquals(up.cardBackground, up.background)
         assertEquals(up.cardForeground, up.foreground)
     }
