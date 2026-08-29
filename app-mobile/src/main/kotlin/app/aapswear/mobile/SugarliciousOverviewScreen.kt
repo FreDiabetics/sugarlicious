@@ -45,6 +45,7 @@ import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.GlucoseVisualSpec
 import app.aapswear.storage.PredictionDisplayTimeline
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -192,8 +193,10 @@ internal fun SugarliciousOverviewScreen(
             age = age,
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
-            glucoseScale = GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent),
-            trendScale = GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent),
+            visualSpec = GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
+                preferences.glucoseScalePercent,
+                preferences.trendScalePercent,
+            ),
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
 
@@ -235,8 +238,7 @@ private fun GlucoseHeroCard(
     age: String,
     unitLabel: String,
     tirStats: TirStats,
-    glucoseScale: Float,
-    trendScale: Float,
+    visualSpec: GlucoseVisualSpec,
     heightDp: Int,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -278,8 +280,8 @@ private fun GlucoseHeroCard(
                         Text(
                             text = glucoseText,
                             color = glucoseColor,
-                            fontSize = (GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP * glucoseScale).sp,
-                            lineHeight = (GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP * glucoseScale).sp,
+                            fontSize = visualSpec.glucoseTextSize.sp,
+                            lineHeight = (visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP / GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP).sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = (-0.8).sp,
                         )
@@ -288,7 +290,7 @@ private fun GlucoseHeroCard(
 
                         SugarliciousTrendIndicator(
                             trend,
-                            arrowSize = (GlucoseTrendSizing.REFERENCE_TREND_HEIGHT_DP * trendScale).dp,
+                            arrowSize = visualSpec.trendHeight.dp,
                             color = glucoseColor,
                         )
                     }

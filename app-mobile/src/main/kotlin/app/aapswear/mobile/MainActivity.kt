@@ -30,6 +30,8 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.storage.TherapyStateStore
+import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.model.SettingsSchemaVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -184,6 +186,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         setContentView(R.layout.activity_main)
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {

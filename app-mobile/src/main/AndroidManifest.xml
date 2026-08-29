@@ -69,6 +69,13 @@
     <category android:name="android.intent.category.HEALTH_PERMISSIONS"/>
    </intent-filter>
   </activity-alias>
+  <provider
+   android:name="androidx.core.content.FileProvider"
+   android:authorities="${applicationId}.files"
+   android:exported="false"
+   android:grantUriPermissions="true">
+   <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/diagnostic_file_paths"/>
+  </provider>
   <receiver android:name=".AapsStatusReceiver" android:exported="true" tools:ignore="ExportedReceiver"><intent-filter><action android:name="info.nightscout.androidaps.status"/></intent-filter></receiver>
   <receiver android:name=".XdripStatusReceiver" android:exported="true" tools:ignore="ExportedReceiver">
    <intent-filter><action android:name="com.eveningoutpost.dexdrip.BgEstimate"/></intent-filter>

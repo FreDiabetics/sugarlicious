@@ -40,6 +40,8 @@ import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.TrendVisualAsset
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.GlucoseVisualSpec
+import app.aapswear.model.PresentationSurface
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
@@ -209,20 +211,23 @@ class G7CollectorTileService : TileService() {
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
         val statusPresentation = g7TileStatusPresentation(userStatus)
         val appearanceStore = G7AppearanceStore(this)
-        val glucoseTextSize = G7_TILE_VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(appearanceStore.glucoseScalePercent())
-        val trendHeight =
-            GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP) *
-                GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent())
+        val visualSpec =
+            GlucoseVisualSpec(
+                surface = PresentationSurface.TILE,
+                glucoseTextSize = G7_TILE_VALUE_TEXT_SP,
+                trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP),
+                spacing = 8f,
+            ).scaled(appearanceStore.glucoseScalePercent(), appearanceStore.trendScalePercent())
 
         val primaryRow =
             Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(text(presentation.tileValue, glucoseTextSize, presentation.cardForeground, bold = true))
+                .addContent(text(presentation.tileValue, visualSpec.glucoseTextSize, presentation.cardForeground, bold = true))
                 .apply {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        addContent(trendImage(spec, presentation.cardForeground, trendHeight))
+                        addContent(trendImage(spec, presentation.cardForeground, visualSpec.trendHeight))
                     }
                 }
                 .build()

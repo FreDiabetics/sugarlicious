@@ -13,6 +13,8 @@ import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.protocol.WatchDataSource
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.SettingsSchemaVersions
+import app.aapswear.storage.ensureSettingsSchema
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,6 +76,7 @@ internal data class WearDisplayPreferences(
                     PREFS,
                     Context.MODE_PRIVATE,
                 )
+            preferences.ensureSettingsSchema(SettingsSchemaVersions.WEAR)
             migrateAppearanceProfiles(preferences)
             val prefix = appearancePrefix(mode)
             val graphDefaults = WatchGraphColors()

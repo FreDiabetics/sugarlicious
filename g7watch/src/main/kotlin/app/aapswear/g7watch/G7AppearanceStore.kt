@@ -6,6 +6,8 @@ import android.content.res.Configuration
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.SettingsSchemaVersions
+import app.aapswear.storage.ensureSettingsSchema
 
 enum class G7AppearanceSection(val label: String) {
     MENU("Menü"),
@@ -65,6 +67,10 @@ data class G7AppearancePalette(
 class G7AppearanceStore(context: Context) {
     private val preferences: SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    init {
+        preferences.ensureSettingsSchema(SettingsSchemaVersions.COLLECTOR)
+    }
 
     fun activeMode(): AppearanceMode =
         preferences.getString(KEY_ACTIVE_MODE, null)
