@@ -186,15 +186,16 @@ class GlucoseTileService : SugarliciousTileService() {
     override val tileKind: WearTileKind = WearTileKind.GLUCOSE
 
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
-        val presentation = wearGlucoseTilePresentation(state, colors, now, WearDisplayPreferences.read(this).cgmThresholds)
+        val preferences = WearDisplayPreferences.read(this)
+        val presentation = wearGlucoseTilePresentation(state, colors, now, preferences.cgmThresholds)
         val primary = Row.Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .addContent(tileText(presentation.value, 42f, presentation.valueColor, bold = true))
+            .addContent(tileText(presentation.value, 42f * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent), presentation.valueColor, bold = true))
             .apply {
                 val spec = presentation.trend?.let(TrendVisuals::spec)
                 if (spec != null) {
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
-                    addContent(tileTrendImage(spec, presentation.valueColor))
+                    addContent(tileTrendImage(spec, presentation.valueColor, GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent)))
                 }
             }
             .build()
@@ -303,11 +304,11 @@ private fun tileRoot(background: Int, child: LayoutElementBuilders.LayoutElement
         .addContent(child)
         .build()
 
-private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
+private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, scale: Float = 1f): Image =
     Image.Builder()
         .setResourceId(trendResourceId(spec.asset))
-        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * spec.aspectRatio))
-        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f)))
+        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * scale * spec.aspectRatio))
+        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * scale))
         .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
         .build()
 

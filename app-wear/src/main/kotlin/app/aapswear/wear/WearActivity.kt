@@ -25,6 +25,7 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.protocol.WatchGlucoseUnit
@@ -256,11 +257,14 @@ class WearActivity : Activity() {
                 previousState?.target != state?.target ||
                 previousState?.source != state?.source ||
                 previousPreferences?.glucoseUnit != preferences.glucoseUnit ||
+                previousPreferences?.glucoseScalePercent != preferences.glucoseScalePercent ||
+                previousPreferences?.trendScalePercent != preferences.trendScalePercent ||
                 previousPreferences?.uiColors != preferences.uiColors
 
         if (glucoseSectionChanged) {
             val presentation = glucosePresentation
             glucose.text = presentation.value
+            glucose.textSize = WearGlucoseCardStyle.VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent)
             val valueColor = when {
                 !presentation.displayable -> preferences.uiColors.textPrimary
                 presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
@@ -275,6 +279,7 @@ class WearActivity : Activity() {
                 trend = presentation.trend,
                 color = valueColor,
                 background = glucoseFill,
+                scale = GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent),
             )
             delta.text = presentation.primaryMeta
             age.text = presentation.secondaryMeta
@@ -351,7 +356,7 @@ class WearActivity : Activity() {
         hasRendered = true
     }
 
-    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int) {
+    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int, scale: Float) {
         val spec = trend?.let(TrendVisuals::spec)
         if (spec == null) {
             trendContainer.visibility = View.GONE
@@ -362,8 +367,8 @@ class WearActivity : Activity() {
         trendArrow1.rotation = 0f
         val density = resources.displayMetrics.density
         trendArrow1.layoutParams = trendArrow1.layoutParams.apply {
-            height = (WearGlucoseCardStyle.TREND_SIZE_DP * density).roundToInt()
-            width = (WearGlucoseCardStyle.TREND_SIZE_DP * spec.aspectRatio * density).roundToInt()
+            height = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * density).roundToInt()
+            width = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * spec.aspectRatio * density).roundToInt()
         }
         trendArrow1.visibility = View.VISIBLE
     }

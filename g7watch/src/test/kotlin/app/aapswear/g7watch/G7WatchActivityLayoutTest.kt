@@ -60,8 +60,6 @@ class G7WatchActivityLayoutTest {
 
         val alarmHeaderText = findText(root, "Alarme")!!
         (alarmHeaderText.parent.parent as android.view.View).performClick()
-        val alarmActionText = findText(root, "Alarmkonfiguration")!!
-        (alarmActionText.parent as android.view.View).performClick()
 
         val intent = Shadows.shadowOf(activity).nextStartedActivity
         assertEquals(G7AlarmSettingsActivity::class.java.name, intent.component?.className)

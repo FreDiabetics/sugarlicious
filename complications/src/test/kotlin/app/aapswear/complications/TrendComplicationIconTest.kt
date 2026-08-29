@@ -18,13 +18,13 @@ class TrendComplicationIconTest {
     fun `all complication trends preserve supplied canvas geometry`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val expected = mapOf(
-            Trend.DOUBLE_UP to 97,
+            Trend.DOUBLE_UP to 125,
             Trend.SINGLE_UP to 60,
             Trend.FORTY_FIVE_UP to 60,
             Trend.FLAT to 60,
             Trend.FORTY_FIVE_DOWN to 60,
             Trend.SINGLE_DOWN to 60,
-            Trend.DOUBLE_DOWN to 97,
+            Trend.DOUBLE_DOWN to 125,
         )
         expected.forEach { (trend, expectedWidth) ->
             val bitmap = TrendComplicationIcon.render(context, trend, 60)

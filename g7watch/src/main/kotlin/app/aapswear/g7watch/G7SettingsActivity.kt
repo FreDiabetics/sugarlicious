@@ -74,27 +74,17 @@ class G7SettingsActivity : Activity() {
     }
 
     private fun addSection(section: G7SettingsSection, palette: G7AppearancePalette) {
-        val expanded = section in expandedSections
+        val isInlineSection = section == G7SettingsSection.ABOUT
+        val expanded = isInlineSection && section in expandedSections
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             visibility = if (expanded) View.VISIBLE else View.GONE
             when (section) {
-                G7SettingsSection.DISPLAY -> addView(actionCard("Farben & Darstellung", "Öffnen", palette) {
-                    startActivity(Intent(this@G7SettingsActivity, G7AppearanceActivity::class.java))
-                }, cardParams())
-                G7SettingsSection.ALARMS -> addView(actionCard("Alarmkonfiguration", "Öffnen", palette) {
-                    startActivity(Intent(this@G7SettingsActivity, G7AlarmSettingsActivity::class.java))
-                }, cardParams())
                 G7SettingsSection.ABOUT -> {
                     val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
                     addView(infoCard("G7 Watch Collector", "Version $version", "Eigenständiger Dexcom-G7-Empfang auf der Watch.", palette), cardParams())
                 }
-                else -> addView(actionCard(sectionActionTitle(section), "Öffnen", palette) {
-                    startActivity(
-                        Intent(this@G7SettingsActivity, G7SystemStatusActivity::class.java)
-                            .putExtra(G7SystemStatusActivity.EXTRA_SECTION, section.name),
-                    )
-                }, cardParams())
+                else -> Unit
             }
         }
         val chevron = text(if (expanded) "⌄" else "›", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
@@ -116,14 +106,29 @@ class G7SettingsActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
             setOnClickListener {
-                val wasExpanded = section in expandedSections
-                if (wasExpanded) expandedSections.remove(section) else expandedSections.add(section)
-                content.visibility = if (wasExpanded) View.GONE else View.VISIBLE
-                chevron.text = if (wasExpanded) "›" else "⌄"
+                if (isInlineSection) {
+                    val wasExpanded = section in expandedSections
+                    if (wasExpanded) expandedSections.remove(section) else expandedSections.add(section)
+                    content.visibility = if (wasExpanded) View.GONE else View.VISIBLE
+                    chevron.text = if (wasExpanded) "›" else "⌄"
+                } else {
+                    openSection(section)
+                }
             }
         }
         pageRoot.addView(header, cardParams(top = 6))
         pageRoot.addView(content, fullWidth())
+    }
+
+    private fun openSection(section: G7SettingsSection) {
+        val intent = when (section) {
+            G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
+            G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
+            G7SettingsSection.ABOUT -> return
+            else -> Intent(this, G7SystemStatusActivity::class.java)
+                .putExtra(G7SystemStatusActivity.EXTRA_SECTION, section.name)
+        }
+        startActivity(intent)
     }
 
     private fun sectionActionTitle(section: G7SettingsSection): String = when (section) {

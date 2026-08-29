@@ -17,6 +17,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.TherapyDisplayState
 import java.util.Locale
@@ -70,6 +71,8 @@ data class DashboardUiPreferences(
     val dataSource: DataSourcePreference = DataSourcePreference.AUTOMATIC,
     val themeMode: DashboardThemeMode = DashboardThemeMode.SYSTEM,
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
+    val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+    val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
 ) {
     val anyCgmPredictionEnabled: Boolean
         get() =
@@ -124,7 +127,14 @@ data class DashboardUiPreferences(
                     DashboardThemeMode.valueOf(preferences.getString("themeMode", "SYSTEM")!!)
                 }.getOrDefault(DashboardThemeMode.SYSTEM),
                 cgmThresholds = CgmThresholdPreferences.read(preferences),
+                glucoseScalePercent = preferences.getInt(MOBILE_GLUCOSE_SCALE_KEY, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                trendScalePercent = preferences.getInt(MOBILE_TREND_SCALE_KEY, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             )
+
+        const val MOBILE_GLUCOSE_SCALE_KEY = "visual.mobile.glucoseScalePercent"
+        const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
     }
 }
 
@@ -201,8 +211,6 @@ class DashboardViewFactory(
     private var activeComposeScreen: DashboardScreen? = null
     private var activeComposeView: androidx.compose.ui.platform.ComposeView? = null
     private var colorSettingsExpanded = false
-    private var widgetSettingsExpanded = false
-    private var predictionSettingsExpanded = false
     private var notificationGraphSettingsExpanded = false
     private val expandedSettingsCategories = linkedSetOf<String>()
 
@@ -323,35 +331,6 @@ class DashboardViewFactory(
             }
             addView(colorSettings, fullWidth())
         }
-        val widgetContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = if (widgetSettingsExpanded) View.VISIBLE else View.GONE
-            addView(
-                androidx.compose.ui.platform.ComposeView(context).apply {
-                    setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-                    setContent { SugarliciousTheme { WidgetColorSettingsPanel() } }
-                },
-                fullWidth(),
-            )
-        }
-
-        val predictionContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = if (predictionSettingsExpanded) View.VISIBLE else View.GONE
-            addView(
-                tile(null).apply {
-                    addView(switchRowCompact("IOB-Prognose", preferences.showCgmPredictionIob, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.iob", it) })
-                    addView(divider())
-                    addView(switchRowCompact("COB-Prognose", preferences.showCgmPredictionCob, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.cob", it) })
-                    addView(divider())
-                    addView(switchRowCompact("UAM-Prognose", preferences.showCgmPredictionUam, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.uam", it) })
-                    addView(divider())
-                    addView(switchRowCompact("ZeroTemp-Prognose", preferences.showCgmPredictionZeroTemp, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.zeroTemp", it) })
-                },
-                fullWidth(),
-            )
-        }
-
         val notificationGraphCustomization = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             visibility = if (notificationGraphSettingsExpanded) View.VISIBLE else View.GONE
@@ -394,25 +373,6 @@ class DashboardViewFactory(
                         ),
                     )
                     addView(divider())
-                    addView(settingsGroupLabel("GLUKOSE-EINHEIT"))
-                    addView(
-                        choiceRow(
-                            "Glukose-Einheit",
-                            listOf(
-                                Triple("Wie Datenquelle", preferences.unit == DisplayUnitPreference.AAPS) { callbacks.setUnit(DisplayUnitPreference.AAPS) },
-                                Triple("mg/dL", preferences.unit == DisplayUnitPreference.MG_DL) { callbacks.setUnit(DisplayUnitPreference.MG_DL) },
-                                Triple("mmol/L", preferences.unit == DisplayUnitPreference.MMOL_L) { callbacks.setUnit(DisplayUnitPreference.MMOL_L) },
-                            ),
-                        ),
-                    )
-                },
-                cardParams(top = 4),
-            )
-        }
-
-        addSettingsCategory(parent, "sources", "Datenquellen", R.drawable.ic_source_auto) {
-            addView(
-                tile(null).apply {
                     addView(settingsGroupLabel("AKTIVE DATENQUELLE"))
                     addView(
                         sourceChoiceRow(
@@ -428,25 +388,43 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
                     }
+                    addView(divider())
+                    addView(settingsGroupLabel("WATCH-VERBINDUNG"))
+                    addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
                 },
                 cardParams(top = 4),
             )
         }
 
         addSettingsCategory(parent, "glucose_ranges", "Glukose und Zielbereiche", R.drawable.ic_health_glucose) {
+            val selectedThresholdUnit = when (preferences.unitFor(state)) {
+                GlucoseUnit.MMOL_L -> DisplayUnitPreference.MMOL_L
+                GlucoseUnit.MG_DL -> DisplayUnitPreference.MG_DL
+            }
             addView(
                 tile(null).apply {
+                    addView(settingsGroupLabel("GLUKOSE-EINHEIT"))
+                    addView(
+                        choiceRow(
+                            "Glukose-Einheit",
+                            listOf(
+                                Triple("Wie Datenquelle", preferences.unit == DisplayUnitPreference.AAPS) { callbacks.setUnit(DisplayUnitPreference.AAPS) },
+                                Triple("mg/dL", preferences.unit == DisplayUnitPreference.MG_DL) { callbacks.setUnit(DisplayUnitPreference.MG_DL) },
+                                Triple("mmol/L", preferences.unit == DisplayUnitPreference.MMOL_L) { callbacks.setUnit(DisplayUnitPreference.MMOL_L) },
+                            ),
+                        ),
+                    )
+                    addView(divider())
                     addView(settingsGroupLabel("GLUKOSEBEREICHE"))
                     fun thresholdRow(title: String, value: Double, minimum: Float, maximum: Float, update: (Double) -> CgmThresholds) =
                         sugarliciousSliderRow(
                             title = title,
-                            description = "${formatThreshold(value, preferences.unit)} · Reihenfolge: Sehr tief < Tief < Hoch < Sehr hoch",
-                            value = thresholdForUi(value, preferences.unit),
-                            minimum = thresholdForUi(minimum.toDouble(), preferences.unit),
-                            maximum = thresholdForUi(maximum.toDouble(), preferences.unit),
-                            decimals = if (preferences.unit == DisplayUnitPreference.MMOL_L) 1 else 0,
+                            value = thresholdForUi(value, selectedThresholdUnit),
+                            minimum = thresholdForUi(minimum.toDouble(), selectedThresholdUnit),
+                            maximum = thresholdForUi(maximum.toDouble(), selectedThresholdUnit),
+                            valueFormatter = { formatThreshold(thresholdFromUi(it, selectedThresholdUnit), selectedThresholdUnit) },
                         ) { entered ->
-                            val mgDl = thresholdFromUi(entered, preferences.unit)
+                            val mgDl = thresholdFromUi(entered, selectedThresholdUnit)
                             CgmThresholdPreferences.save(dashboardPreferences, update(mgDl))
                         }
                     addView(thresholdRow("Sehr hoch", preferences.cgmThresholds.veryHighMgDl, 100f, 400f) { preferences.cgmThresholds.copy(veryHighMgDl = it) })
@@ -456,7 +434,27 @@ class DashboardViewFactory(
                     addView(thresholdRow("Tief", preferences.cgmThresholds.lowMgDl, 40f, 180f) { preferences.cgmThresholds.copy(lowMgDl = it) })
                     addView(divider())
                     addView(thresholdRow("Sehr tief", preferences.cgmThresholds.veryLowMgDl, 20f, 120f) { preferences.cgmThresholds.copy(veryLowMgDl = it) })
-                    addView(helper("Diese lokalen Grenzwerte steuern Zielbereich, Graphfarben und Alarme der Mobile-App.", 3))
+                    addView(divider())
+                    addView(settingsGroupLabel("GRÖSSE"))
+                    addView(
+                        sugarliciousSliderRow(
+                            title = "Glukosewert",
+                            value = preferences.glucoseScalePercent.toFloat(),
+                            minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
+                            maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
+                            valueFormatter = { "${it.toInt()} %" },
+                        ) { dashboardPreferences.edit().putInt(DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY, it.toInt()).apply() },
+                    )
+                    addView(divider())
+                    addView(
+                        sugarliciousSliderRow(
+                            title = "Trendpfeil",
+                            value = preferences.trendScalePercent.toFloat(),
+                            minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
+                            maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
+                            valueFormatter = { "${it.toInt()} %" },
+                        ) { dashboardPreferences.edit().putInt(DashboardUiPreferences.MOBILE_TREND_SCALE_KEY, it.toInt()).apply() },
+                    )
                 },
                 cardParams(top = 4),
             )
@@ -474,7 +472,7 @@ class DashboardViewFactory(
                     addView(switchRowCompact("Graph anzeigen", preferences.showCgmGraph, View.generateViewId(), callbacks.setShowCgmGraph))
                     if (preferences.showCgmGraph) {
                         addView(divider())
-                        addView(settingsGroupLabel("EBENEN"))
+                        addView(settingsGroupLabel("DATENSTRÖME"))
                         addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })
                         addView(divider())
                         addView(switchRowCompact("Basal", preferences.showCgmBasal, View.generateViewId()) { callbacks.setCgmStream("cgm.basal", it) })
@@ -483,11 +481,26 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(switchRowCompact("IOB/COB-Graph", preferences.showMetabolicGraph, View.generateViewId(), callbacks.setShowMetabolicGraph))
                         addView(divider())
-                        addView(settingsGroupLabel("VORHERSAGEN"))
-                        addView(actionRow("Vorhersagen", if (preferences.anyCgmPredictionEnabled) "Aktiv" else "Aus") {
-                            predictionSettingsExpanded = !predictionSettingsExpanded
-                            predictionContainer.visibility = if (predictionSettingsExpanded) View.VISIBLE else View.GONE
-                        })
+                        addView(switchRowCompact("IOB-Prognose", preferences.showCgmPredictionIob, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.iob", it) })
+                        addView(divider())
+                        addView(switchRowCompact("COB-Prognose", preferences.showCgmPredictionCob, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.cob", it) })
+                        addView(divider())
+                        addView(switchRowCompact("UAM-Prognose", preferences.showCgmPredictionUam, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.uam", it) })
+                        addView(divider())
+                        addView(switchRowCompact("ZeroTemp-Prognose", preferences.showCgmPredictionZeroTemp, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.zeroTemp", it) })
+                        addView(divider())
+                        addView(switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealBolus", it) })
+                        addView(divider())
+                        addView(switchRowCompact("Korrekturboli", preferences.showCorrectionMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.correction", it) })
+                        addView(divider())
+                        addView(switchRowCompact("SMB", preferences.showSmbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.smb", it) })
+                        addView(divider())
+                        addView(switchRowCompact("Mahlzeiten-Carbs", preferences.showMealCarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealCarbs", it) })
+                        addView(divider())
+                        addView(switchRowCompact("eCarbs", preferences.showECarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.eCarbs", it) })
+                        addView(divider())
+                        val nightscout = NightscoutConfigurationStore.read(context)
+                        addView(actionRow("Nightscout Treatment-Anreicherung", if (nightscout.enabled) "Aktiv" else "Aus") { callbacks.openNightscoutTreatments() })
                     }
                     addView(divider())
                     addView(settingsGroupLabel("FARBEN & DARSTELLUNG"))
@@ -498,45 +511,7 @@ class DashboardViewFactory(
                 },
                 cardParams(top = 4),
             )
-            addView(predictionContainer, cardParams(top = 4))
             addView(colorContainer, cardParams(top = 4))
-        }
-
-        addSettingsCategory(parent, "treatments", "Treatments und Nightscout", R.drawable.ic_health_activity) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("NIGHTSCOUT"))
-                    val nightscout = NightscoutConfigurationStore.read(context)
-                    addView(actionRow("Nightscout Treatments", if (nightscout.enabled) "Aktiv" else "Aus") { callbacks.openNightscoutTreatments() })
-                    addView(divider())
-                    addView(settingsGroupLabel("TREATMENT-MARKER"))
-                    addView(switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealBolus", it) })
-                    addView(divider())
-                    addView(switchRowCompact("Korrekturboli", preferences.showCorrectionMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.correction", it) })
-                    addView(divider())
-                    addView(switchRowCompact("SMB", preferences.showSmbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.smb", it) })
-                    addView(divider())
-                    addView(switchRowCompact("Mahlzeiten-Carbs", preferences.showMealCarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.mealCarbs", it) })
-                    addView(divider())
-                    addView(switchRowCompact("eCarbs", preferences.showECarbMarkers, View.generateViewId()) { callbacks.setCgmStream("treatment.eCarbs", it) })
-                },
-                cardParams(top = 4),
-            )
-        }
-
-        addSettingsCategory(parent, "widgets", "Widgets", R.drawable.ic_foreground) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("WIDGET-DARSTELLUNG"))
-                    addView(actionRow("Glukosewidget", "Anpassen") {
-                        widgetSettingsExpanded = !widgetSettingsExpanded
-                        widgetContainer.visibility = if (widgetSettingsExpanded) View.VISIBLE else View.GONE
-                    })
-                    addView(helper("Die Einstellungen bleiben pro Widgettyp und pro Widgetinstanz getrennt.", 3))
-                },
-                cardParams(top = 4),
-            )
-            addView(widgetContainer, cardParams(top = 4))
         }
 
         addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
@@ -561,19 +536,6 @@ class DashboardViewFactory(
                 cardParams(top = 4),
             )
             addView(notificationGraphCustomization, cardParams(top = 4))
-        }
-
-        addSettingsCategory(parent, "wear", "Wear OS und Watchfaces", R.drawable.ic_watch_status) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("WATCHFACES"))
-                    addView(actionRow("Watchfaces verwalten", "Öffnen") { callbacks.navigate(DashboardScreen.WATCH) })
-                    addView(divider())
-                    addView(settingsGroupLabel("SYNCHRONISIERUNG"))
-                    addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
-                },
-                cardParams(top = 4),
-            )
         }
 
         addSettingsCategory(parent, "data", "Datenverwaltung", R.drawable.ic_health_activity) {
@@ -628,8 +590,6 @@ class DashboardViewFactory(
 
     private fun collapseSettingsSections() {
         colorSettingsExpanded = false
-        widgetSettingsExpanded = false
-        predictionSettingsExpanded = false
         notificationGraphSettingsExpanded = false
         expandedSettingsCategories.clear()
     }
@@ -843,11 +803,11 @@ class DashboardViewFactory(
 
     private fun sugarliciousSliderRow(
         title: String,
-        description: String,
+        description: String? = null,
         value: Float,
         minimum: Float,
         maximum: Float,
-        decimals: Int,
+        valueFormatter: (Float) -> String,
         callback: (Float) -> Unit,
     ) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -874,7 +834,9 @@ class DashboardViewFactory(
                     addView(this@DashboardViewFactory.value(title, text, 13f, 1).apply {
                         typeface = Typeface.create(typeface, Typeface.NORMAL)
                     })
-                    addView(helper(description, 1).apply { textSize = 10f })
+                    if (!description.isNullOrBlank()) {
+                        addView(helper(description, 1).apply { textSize = 10f })
+                    }
                 },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
             )
@@ -884,8 +846,7 @@ class DashboardViewFactory(
         val steps = 1000
         fun progressToValue(progress: Int): Float = minimum + (maximum - minimum) * progress.toFloat() / steps.toFloat()
         fun valueToProgress(current: Float): Int = (((current.coerceIn(minimum, maximum) - minimum) / (maximum - minimum)) * steps).toInt().coerceIn(0, steps)
-        fun format(current: Float): String = String.format(Locale.getDefault(), "%.${decimals}f dp", current)
-        valueLabel.text = format(value)
+        valueLabel.text = valueFormatter(value)
         addView(
             SeekBar(context).apply {
                 max = steps
@@ -899,7 +860,7 @@ class DashboardViewFactory(
                         private var currentValue = value.coerceIn(minimum, maximum)
                         override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                             currentValue = progressToValue(progress)
-                            valueLabel.text = format(currentValue)
+                            valueLabel.text = valueFormatter(currentValue)
                         }
                         override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
                         override fun onStopTrackingTouch(seekBar: SeekBar?) = callback(currentValue)

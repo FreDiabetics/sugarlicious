@@ -31,13 +31,13 @@ data class TrendVisualSpec(
 
 object TrendVisuals {
     fun spec(trend: Trend): TrendVisualSpec? = when (trend) {
-        Trend.DOUBLE_UP -> TrendVisualSpec(TrendVisualAsset.DOUBLE_UP, 96.5f)
+        Trend.DOUBLE_UP -> TrendVisualSpec(TrendVisualAsset.DOUBLE_UP, 125f)
         Trend.SINGLE_UP -> TrendVisualSpec(TrendVisualAsset.UP)
         Trend.FORTY_FIVE_UP -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_UP)
         Trend.FLAT -> TrendVisualSpec(TrendVisualAsset.FLAT)
         Trend.FORTY_FIVE_DOWN -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_DOWN)
         Trend.SINGLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOWN)
-        Trend.DOUBLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOUBLE_DOWN, 96.5f)
+        Trend.DOUBLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOUBLE_DOWN, 125f)
         Trend.UNKNOWN -> null
     }
 }

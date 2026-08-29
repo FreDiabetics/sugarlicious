@@ -12,6 +12,7 @@ import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.protocol.WatchDataSource
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseTrendSizing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -33,6 +34,8 @@ internal data class WearDisplayPreferences(
     val graphStyle: WatchGraphStyle = WatchGraphStyle(),
     val uiColors: WatchUiColors = WatchUiColors(),
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
+    val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+    val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
 ) {
     companion object {
         const val PREFS = "watch_display"
@@ -41,6 +44,8 @@ internal data class WearDisplayPreferences(
         private const val KEY_GLUCOSE_UNIT = "glucose_unit"
         private const val KEY_DATA_SOURCE = "data_source"
         private const val KEY_SHOW_THERAPY_STATS = "show_therapy_stats"
+        private const val KEY_GLUCOSE_SCALE = "glucose_scale_percent"
+        private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_SYNCED_AT = "synced_at"
         private const val KEY_LOCAL_CUSTOMIZED = "local_customized"
         private const val COLOR_PREFIX = "graph_color_"
@@ -101,6 +106,10 @@ internal data class WearDisplayPreferences(
                 }.getOrDefault(WatchDataSource.AUTOMATIC),
                 showTherapyStats =
                     preferences.getBoolean(KEY_SHOW_THERAPY_STATS, true),
+                glucoseScalePercent = preferences.getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                trendScalePercent = preferences.getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
                 syncedAtEpochMs =
                     preferences.getLong(KEY_SYNCED_AT, 0L),
                 graphColors =
@@ -262,6 +271,8 @@ internal data class WearDisplayPreferences(
                 putString(KEY_GLUCOSE_UNIT, value.glucoseUnit.name)
                 putString(KEY_DATA_SOURCE, value.dataSource.name)
                 putBoolean(KEY_SHOW_THERAPY_STATS, value.showTherapyStats)
+                putInt(KEY_GLUCOSE_SCALE, value.glucoseScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
+                putInt(KEY_TREND_SCALE, value.trendScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
                 putLong(KEY_SYNCED_AT, value.syncedAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
                 putBoolean(KEY_LOCAL_CUSTOMIZED, markLocal)
                 putFloat(THRESHOLD_VERY_HIGH, value.cgmThresholds.veryHighMgDl.toFloat())

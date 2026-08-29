@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.GlucoseTrendSizing
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -28,7 +29,7 @@ class WearSettingsActivity : Activity() {
     private lateinit var scrollView: ScrollView
     private var current = WearDisplayPreferences()
     private var selectedAppearanceMode = AppearanceMode.DARK
-    private val expandedSettingsCategories = linkedSetOf<String>()
+    private var selectedSettingsCategory: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,7 +67,14 @@ class WearSettingsActivity : Activity() {
                     gravity = Gravity.CENTER
                     setTextColor(ui.textPrimary)
                     background = compactActionBackground()
-                    setOnClickListener { finish() }
+                    setOnClickListener {
+                        if (selectedSettingsCategory != null) {
+                            selectedSettingsCategory = null
+                            buildUi()
+                        } else {
+                            finish()
+                        }
+                    }
                 },
                 LinearLayout.LayoutParams(40.dp, 40.dp),
             )
@@ -130,6 +138,19 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
+            section("GRÖSSE")
+            root.addView(
+                sliderCard("Glukosewert", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.glucoseScalePercent, { "$it %" }) {
+                    save(current.copy(glucoseScalePercent = it), rebuild = false)
+                },
+                cardParams(),
+            )
+            root.addView(
+                sliderCard("Trendpfeil", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.trendScalePercent, { "$it %" }) {
+                    save(current.copy(trendScalePercent = it), rebuild = false)
+                },
+                cardParams(),
+            )
         }
 
         settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
@@ -284,18 +305,12 @@ class WearSettingsActivity : Activity() {
         summary: String,
         buildContent: () -> Unit,
     ) {
-        val pageRoot = root
-        val expanded = key in expandedSettingsCategories
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = if (expanded) View.VISIBLE else View.GONE
+        if (selectedSettingsCategory != null) {
+            if (selectedSettingsCategory == key) buildContent()
+            return
         }
-        root = content
-        buildContent()
-        root = pageRoot
-
         val chevron = TextView(this).apply {
-            text = if (expanded) "⌄" else "›"
+            text = "›"
             textSize = 19f
             gravity = Gravity.CENTER
             setTextColor(current.uiColors.textSecondary)
@@ -326,14 +341,11 @@ class WearSettingsActivity : Activity() {
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
             setOnClickListener {
-                val wasExpanded = key in expandedSettingsCategories
-                if (wasExpanded) expandedSettingsCategories.remove(key) else expandedSettingsCategories.add(key)
-                content.visibility = if (wasExpanded) View.GONE else View.VISIBLE
-                chevron.text = if (wasExpanded) "›" else "⌄"
+                selectedSettingsCategory = key
+                buildUi()
             }
         }
-        pageRoot.addView(header, cardParams())
-        pageRoot.addView(content, fullWidth())
+        root.addView(header, cardParams())
     }
 
     private fun infoCard(title: String, detail: String): View =

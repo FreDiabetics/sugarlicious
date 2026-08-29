@@ -14,7 +14,18 @@ enum class AppearanceMode(val storageKey: String) {
  * arrow height from this ratio. The asset aspect ratio remains untouched.
  */
 object GlucoseTrendSizing {
+    const val MIN_SCALE_PERCENT = 70
+    const val DEFAULT_SCALE_PERCENT = 100
+    const val MAX_SCALE_PERCENT = 200
+
+    /** Exact visual reference of the accepted 220 x 220 dp combined 2x2 widget. */
+    const val REFERENCE_GLUCOSE_TEXT_SP = 40.38f
+    const val REFERENCE_GLUCOSE_LINE_HEIGHT_SP = 42.30f
+    const val REFERENCE_TREND_HEIGHT_DP = 18.62f
     const val REFERENCE_ARROW_TO_GLUCOSE_HEIGHT = 0.642f
+
+    fun scaleFactor(percent: Int): Float =
+        percent.coerceIn(MIN_SCALE_PERCENT, MAX_SCALE_PERCENT) / 100f
 
     fun arrowHeightForGlucoseHeight(
         glucoseVisualHeight: Float,

@@ -230,7 +230,9 @@ class MainActivityTest {
         assertFalse(settingsText.contains("Unabhängiges Projekt"))
         assertTrue(settingsText.contains("GitHub"))
         assertTrue(settingsText.contains("E-Mail"))
-        assertTrue(settingsText.contains("Wear OS und Watchfaces"))
+        assertFalse(settingsText.contains("Wear OS und Watchfaces"))
+        assertFalse(settingsText.contains("Treatments und Nightscout"))
+        assertFalse(settingsText.contains("Datenquellen"))
 
         activity.findViewById<View>(R.id.dashboard_github).performClick()
         val githubIntent = shadowOf(activity).nextStartedActivity
@@ -280,13 +282,9 @@ class MainActivityTest {
         assertEquals(
             listOf(
                 "general",
-                "sources",
                 "glucose_ranges",
                 "overview_graphs",
-                "treatments",
-                "widgets",
                 "notifications",
-                "wear",
                 "data",
                 "diagnostics",
                 "about",

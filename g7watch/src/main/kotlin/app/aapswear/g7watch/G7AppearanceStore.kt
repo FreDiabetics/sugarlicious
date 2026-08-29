@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.content.res.Configuration
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.GlucoseTrendSizing
 
 enum class G7AppearanceSection(val label: String) {
     MENU("Menü"),
@@ -66,6 +67,30 @@ class G7AppearanceStore(context: Context) {
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     fun activeMode(): AppearanceMode =
+        preferences.getString(KEY_ACTIVE_MODE, null)
+            ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
+            ?: systemMode()
+
+    fun setActiveMode(mode: AppearanceMode) {
+        // The next activity draw must see the selection immediately, even when Android pauses us.
+        preferences.edit().putString(KEY_ACTIVE_MODE, mode.storageKey).commit()
+    }
+
+    fun glucoseScalePercent(): Int = preferences.getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+        .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun trendScalePercent(): Int = preferences.getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+        .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun setGlucoseScalePercent(value: Int) {
+        preferences.edit().putInt(KEY_GLUCOSE_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
+    }
+
+    fun setTrendScalePercent(value: Int) {
+        preferences.edit().putInt(KEY_TREND_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
+    }
+
+    private fun systemMode(): AppearanceMode =
         if ((preferencesContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
 
     private val preferencesContext = context.applicationContext
@@ -143,6 +168,9 @@ class G7AppearanceStore(context: Context) {
         val ALLOWED_GRAPH_HOURS = listOf(1, 2, 3, 6, 12, 24)
         const val DEFAULT_GRAPH_HOURS = 3
         private const val PREFERENCES = "g7_appearance"
+        private const val KEY_ACTIVE_MODE = "active_mode"
+        private const val KEY_GLUCOSE_SCALE = "glucose_scale_percent"
+        private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_GRAPH_HOURS = "graph_hours"
     }
 }

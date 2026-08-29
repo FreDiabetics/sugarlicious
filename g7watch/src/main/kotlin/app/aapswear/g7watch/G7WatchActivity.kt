@@ -30,6 +30,7 @@ import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import java.util.Locale
@@ -222,7 +223,7 @@ class G7WatchActivity : Activity() {
         tile.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            addView(label(presentation.value, WearGlucoseCardStyle.VALUE_TEXT_SP, valueColor, true))
+            addView(label(presentation.value, WearGlucoseCardStyle.VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(appearanceStore.glucoseScalePercent()), valueColor, true))
             presentation.trend?.let { addView(trendIndicator(it, valueColor)) }
         })
         tile.addView(label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
@@ -399,8 +400,8 @@ class G7WatchActivity : Activity() {
                 contentDescription = "Trend ${trend.name}"
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }, LinearLayout.LayoutParams(
-                (WearGlucoseCardStyle.TREND_SIZE_DP * spec.aspectRatio).toInt().dp,
-                WearGlucoseCardStyle.TREND_SIZE_DP.dp,
+                (WearGlucoseCardStyle.TREND_SIZE_DP * GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent()) * spec.aspectRatio).toInt().dp,
+                (WearGlucoseCardStyle.TREND_SIZE_DP * GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent())).toInt().dp,
             ))
         }
     }

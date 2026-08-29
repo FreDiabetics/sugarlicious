@@ -21,6 +21,7 @@ import android.widget.TextView
 import java.util.Locale
 import kotlin.math.roundToInt
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.GlucoseTrendSizing
 
 class G7AppearanceActivity : Activity() {
     private lateinit var store: G7AppearanceStore
@@ -45,6 +46,12 @@ class G7AppearanceActivity : Activity() {
         }
         content.addView(topBar(palette))
         content.addView(themeSelector(palette), params(top = 8))
+        content.addView(label("GRÖSSE", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+            letterSpacing = 0.10f
+            setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+        })
+        content.addView(scaleRow("Glukosewert", store.glucoseScalePercent(), palette, store::setGlucoseScalePercent), params(top = 5))
+        content.addView(scaleRow("Trendpfeil", store.trendScalePercent(), palette, store::setTrendScalePercent), params(top = 5))
 
         G7AppearanceSection.entries.forEach { section ->
             content.addView(label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
@@ -108,6 +115,28 @@ class G7AppearanceActivity : Activity() {
                 render()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp))
             setOnClickListener { openColorEditor(role) }
+        }
+
+    private fun scaleRow(title: String, initial: Int, palette: G7AppearancePalette, save: (Int) -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
+            val valueLabel = label("$title · $initial %", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
+            addView(valueLabel)
+            addView(SeekBar(this@G7AppearanceActivity).apply {
+                max = GlucoseTrendSizing.MAX_SCALE_PERCENT - GlucoseTrendSizing.MIN_SCALE_PERCENT
+                progress = initial - GlucoseTrendSizing.MIN_SCALE_PERCENT
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        val value = progress + GlucoseTrendSizing.MIN_SCALE_PERCENT
+                        valueLabel.text = "$title · $value %"
+                        if (fromUser) save(value)
+                    }
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+                })
+            })
         }
 
     private fun openColorEditor(role: G7AppearanceRole) {
@@ -212,6 +241,7 @@ class G7AppearanceActivity : Activity() {
                 if (selectedMode == mode) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
             ) {
                 selectedMode = mode
+                store.setActiveMode(mode)
                 render()
             }, LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 6.dp })
         }

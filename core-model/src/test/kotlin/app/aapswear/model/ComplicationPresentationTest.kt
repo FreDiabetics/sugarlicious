@@ -54,7 +54,7 @@ class ComplicationPresentationTest {
         assertEquals(TrendVisualAsset.FORTY_FIVE_UP, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.asset)
         assertEquals(1f, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.aspectRatio)
         assertEquals(TrendVisualAsset.DOUBLE_DOWN, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.asset)
-        assertEquals(96.5f / 60f, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.aspectRatio)
+        assertEquals(125f / 60f, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.aspectRatio)
         assertNull(TrendVisuals.spec(Trend.UNKNOWN))
     }
 

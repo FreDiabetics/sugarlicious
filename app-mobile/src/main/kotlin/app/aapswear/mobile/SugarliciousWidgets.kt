@@ -744,7 +744,7 @@ internal data class GlucoseWidgetRenderOptions(
     val cornerRadiusDp: Float = 20f,
 )
 
-private fun configurationScale(percent: Int): Float = percent.coerceIn(70, 130) / 100f
+private fun configurationScale(percent: Int): Float = GlucoseTrendSizing.scaleFactor(percent)
 
 internal fun widgetTrendArrowTargetHeight(textHeightPx: Float, trendScale: Float, pixelDensity: Float): Float =
     GlucoseTrendSizing.arrowHeightForGlucoseHeight(textHeightPx, trendScale)

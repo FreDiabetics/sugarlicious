@@ -129,13 +129,13 @@ class WidgetPresentationTest {
     fun `notification renderer preserves every supplied trend canvas and double arrow aspect`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val expected = mapOf(
-            Trend.DOUBLE_UP to 96.5f / 60f,
+            Trend.DOUBLE_UP to 125f / 60f,
             Trend.SINGLE_UP to 1f,
             Trend.FORTY_FIVE_UP to 1f,
             Trend.FLAT to 1f,
             Trend.FORTY_FIVE_DOWN to 1f,
             Trend.SINGLE_DOWN to 1f,
-            Trend.DOUBLE_DOWN to 96.5f / 60f,
+            Trend.DOUBLE_DOWN to 125f / 60f,
         )
         expected.forEach { (trend, aspect) ->
             val bitmap = NotificationTrendRenderer.render(context, trend, 60)!!
@@ -174,6 +174,26 @@ class WidgetPresentationTest {
         assertTrue(metrics.headerHeightPx in 160..175)
         assertTrue(metrics.graphFrame.top > metrics.headerHeightPx)
         assertEquals(440, metrics.graphFrame.bottom)
+    }
+
+    @Test
+    fun `two by two widget renders 200 percent value and widest double arrow without failure`() {
+        val bitmap = renderGlucoseGraphWidget(
+            state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).copy(
+                glucose = state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).glucose?.copy(trend = Trend.DOUBLE_UP),
+            ),
+            palette,
+            440,
+            440,
+            now,
+            thresholds,
+            responsiveWidgetLayout(220f, 220f),
+            2f,
+            WidgetInstanceConfiguration(glucoseScalePercent = 200, trendScalePercent = 200),
+        )
+        assertEquals(440, bitmap.width)
+        assertEquals(440, bitmap.height)
+        assertFalse(bitmap.isRecycled)
     }
 
     @Test

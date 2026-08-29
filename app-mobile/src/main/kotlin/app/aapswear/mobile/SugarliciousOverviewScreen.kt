@@ -192,6 +192,8 @@ internal fun SugarliciousOverviewScreen(
             age = age,
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
+            glucoseScale = GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent),
+            trendScale = GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent),
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
 
@@ -233,6 +235,8 @@ private fun GlucoseHeroCard(
     age: String,
     unitLabel: String,
     tirStats: TirStats,
+    glucoseScale: Float,
+    trendScale: Float,
     heightDp: Int,
 ) {
     val shape = RoundedCornerShape(28.dp)
@@ -274,8 +278,8 @@ private fun GlucoseHeroCard(
                         Text(
                             text = glucoseText,
                             color = glucoseColor,
-                            fontSize = 42.sp,
-                            lineHeight = 44.sp,
+                            fontSize = (GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP * glucoseScale).sp,
+                            lineHeight = (GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP * glucoseScale).sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = (-0.8).sp,
                         )
@@ -284,7 +288,7 @@ private fun GlucoseHeroCard(
 
                         SugarliciousTrendIndicator(
                             trend,
-                            arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f).dp,
+                            arrowSize = (GlucoseTrendSizing.REFERENCE_TREND_HEIGHT_DP * trendScale).dp,
                             color = glucoseColor,
                         )
                     }

@@ -43,6 +43,7 @@ import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
@@ -158,8 +159,8 @@ internal object WidgetInstanceConfigurationStore {
             shapeMode = runCatching {
                 WidgetShapeMode.valueOf(prefs.getString(key(appWidgetId, "shape"), WidgetShapeMode.STANDARD.name)!!)
             }.getOrDefault(WidgetShapeMode.STANDARD),
-            glucoseScalePercent = prefs.getInt(key(appWidgetId, "glucose_scale"), 100).coerceIn(70, 130),
-            trendScalePercent = prefs.getInt(key(appWidgetId, "trend_scale"), 100).coerceIn(70, 130),
+            glucoseScalePercent = prefs.getInt(key(appWidgetId, "glucose_scale"), 100).coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+            trendScalePercent = prefs.getInt(key(appWidgetId, "trend_scale"), 100).coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             colorOverrides = overrides(AppearanceMode.DARK),
             lightBackgroundArgb = prefs.getInt(key(appWidgetId, "light.background"), legacyBackground),
             lightOutlineArgb = prefs.getInt(key(appWidgetId, "light.outline"), legacyOutline),
@@ -508,7 +509,7 @@ private fun WidgetColorSetting(label: String, argb: Int, onEdit: () -> Unit, onR
 private fun WidgetPercentSlider(
     label: String,
     value: Int,
-    range: IntRange = 70..130,
+    range: IntRange = GlucoseTrendSizing.MIN_SCALE_PERCENT..GlucoseTrendSizing.MAX_SCALE_PERCENT,
     suffix: String = "%",
     resetValue: Int? = null,
     onChange: (Int) -> Unit,

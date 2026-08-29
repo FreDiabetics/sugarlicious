@@ -47,4 +47,23 @@ class G7AppearanceStoreTest {
         assertEquals(0xFFEEDDCC.toInt(), store.load(AppearanceMode.LIGHT).argb(G7AppearanceRole.MENU_BACKGROUND))
         assertEquals(0xFF112233.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.MENU_BACKGROUND))
     }
+
+    @Test fun `explicit dark mode survives activity and store recreation`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        G7AppearanceStore(context).setActiveMode(AppearanceMode.DARK)
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).activeMode())
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).load().mode)
+    }
+
+    @Test fun `glucose and trend scales persist independently through 200 percent`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        G7AppearanceStore(context).apply {
+            setGlucoseScalePercent(200)
+            setTrendScalePercent(125)
+        }
+        assertEquals(200, G7AppearanceStore(context).glucoseScalePercent())
+        assertEquals(125, G7AppearanceStore(context).trendScalePercent())
+    }
 }

@@ -208,16 +208,21 @@ class G7CollectorTileService : TileService() {
         val colorStore = G7GraphColorStore(this)
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
         val statusPresentation = g7TileStatusPresentation(userStatus)
+        val appearanceStore = G7AppearanceStore(this)
+        val glucoseTextSize = G7_TILE_VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(appearanceStore.glucoseScalePercent())
+        val trendHeight =
+            GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP) *
+                GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent())
 
         val primaryRow =
             Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(text(presentation.tileValue, 38f, presentation.cardForeground, bold = true))
+                .addContent(text(presentation.tileValue, glucoseTextSize, presentation.cardForeground, bold = true))
                 .apply {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        addContent(trendImage(spec, presentation.cardForeground))
+                        addContent(trendImage(spec, presentation.cardForeground, trendHeight))
                     }
                 }
                 .build()
@@ -328,11 +333,11 @@ class G7CollectorTileService : TileService() {
             .addContent(text("●  ${presentation.label}", 10f, presentation.color, bold = true))
             .build()
 
-    private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
+    private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, height: Float): Image =
         Image.Builder()
             .setResourceId(trendResourceId(spec.asset))
-            .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(38f) * spec.aspectRatio))
-            .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(38f)))
+            .setWidth(dp(height * spec.aspectRatio))
+            .setHeight(dp(height))
             .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
             .build()
 
@@ -353,6 +358,7 @@ class G7CollectorTileService : TileService() {
         private const val RESOURCES_VERSION = "g7-collector-5"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
+        private const val G7_TILE_VALUE_TEXT_SP = 38f
 
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
