@@ -2,6 +2,7 @@ package app.aapswear.mobile
 
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.model.AppearanceMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -49,6 +50,37 @@ class WidgetInstanceConfigurationTest {
         assertEquals(first, WidgetInstanceConfigurationStore.read(context, 101))
         assertEquals(second, WidgetInstanceConfigurationStore.read(context, 202))
         assertNotEquals(WidgetInstanceConfigurationStore.read(context, 101), WidgetInstanceConfigurationStore.read(context, 202))
+    }
+
+    @Test
+    fun `one widget retains independent light and dark appearance profiles`() {
+        val darkBackground = Color.rgb(7, 11, 18)
+        val lightBackground = Color.rgb(242, 236, 219)
+        val darkDot = Color.CYAN
+        val lightDot = Color.BLUE
+        val value = WidgetInstanceConfiguration(
+            backgroundArgb = darkBackground,
+            lightBackgroundArgb = lightBackground,
+            backgroundEnabled = false,
+            lightBackgroundEnabled = true,
+            outlineEnabled = true,
+            lightOutlineEnabled = false,
+            colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to darkDot),
+            lightColorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to lightDot),
+        )
+
+        WidgetInstanceConfigurationStore.save(context, 212, value)
+        val stored = WidgetInstanceConfigurationStore.read(context, 212)
+
+        assertEquals(darkBackground, stored.resolvedAppearance(AppearanceMode.DARK).backgroundArgb)
+        assertEquals(lightBackground, stored.resolvedAppearance(AppearanceMode.LIGHT).backgroundArgb)
+        assertFalse(stored.resolvedAppearance(AppearanceMode.DARK).backgroundEnabled)
+        assertTrue(stored.resolvedAppearance(AppearanceMode.LIGHT).backgroundEnabled)
+        assertTrue(stored.resolvedAppearance(AppearanceMode.DARK).outlineEnabled)
+        assertFalse(stored.resolvedAppearance(AppearanceMode.LIGHT).outlineEnabled)
+        assertEquals(darkDot, stored.resolvedAppearance(AppearanceMode.DARK).colorOverrides[WidgetColorRole.DOT_IN_RANGE])
+        assertEquals(lightDot, stored.resolvedAppearance(AppearanceMode.LIGHT).colorOverrides[WidgetColorRole.DOT_IN_RANGE])
+        WidgetInstanceConfigurationStore.delete(context, 212)
     }
 
     @Test

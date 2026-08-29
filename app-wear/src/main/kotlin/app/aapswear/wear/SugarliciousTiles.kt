@@ -34,6 +34,7 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.TrendVisualAsset
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
@@ -305,8 +306,8 @@ private fun tileRoot(background: Int, child: LayoutElementBuilders.LayoutElement
 private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
     Image.Builder()
         .setResourceId(trendResourceId(spec.asset))
-        .setWidth(dp(28f * spec.aspectRatio))
-        .setHeight(dp(28f))
+        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * spec.aspectRatio))
+        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f)))
         .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
         .build()
 

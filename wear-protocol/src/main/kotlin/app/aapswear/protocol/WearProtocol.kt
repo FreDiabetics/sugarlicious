@@ -73,13 +73,22 @@ data class WatchGraphColors(
 data class WatchColorSync(
     val schemaVersion: Int = CURRENT_SCHEMA,
     val graphColors: WatchGraphColors,
+    val lightProfile: WatchAppearanceProfile? = null,
+    val darkProfile: WatchAppearanceProfile? = null,
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val sentAtEpochMs: Long,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 3
+        const val CURRENT_SCHEMA = 4
     }
 }
+
+@Serializable
+data class WatchAppearanceProfile(
+    val graphColors: WatchGraphColors = WatchGraphColors(),
+    val graphStyle: WatchGraphStyle = WatchGraphStyle(),
+    val uiColors: WatchUiColors = WatchUiColors(),
+)
 
 @Serializable
 data class G7ReadingBatch(

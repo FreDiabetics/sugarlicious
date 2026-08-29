@@ -48,6 +48,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousIconSize
 import app.aapswear.mobile.ui.theme.SugarliciousRadius
 import app.aapswear.mobile.ui.theme.SugarliciousSpacing
@@ -64,6 +65,7 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.TrendVisualSpec
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.uishared.TrendVectorPaths
 import app.aapswear.storage.TherapyStateStore
 import java.util.Locale
@@ -103,13 +105,15 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
     @SuppressLint("RestrictedApi")
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val appWidgetId = (id as? AppWidgetId)?.appWidgetId ?: android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID
-        val instance = WidgetInstanceConfigurationStore.read(context, appWidgetId)
+        val dashboardPreferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        val appearanceMode = SugarliciousColorStore.activeMode(dashboardPreferences)
+        val instance = WidgetInstanceConfigurationStore.read(context, appWidgetId).resolvedAppearance(appearanceMode)
         val state = TherapyStateStore(context).state.first()
         val activitySnapshot = if (kind == WidgetKind.ACTIVITY) HealthConnectIntegration.snapshot(context) else null
         val palette = WidgetColorStore.load(context)
             .with(instance.colorOverrides)
             .with(WidgetColorRole.BACKGROUND, if (instance.backgroundEnabled) instance.backgroundArgb else AndroidColor.TRANSPARENT)
-        val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
+        val thresholds = CgmThresholdPreferences.read(dashboardPreferences)
         provideContent { WidgetShell(kind, state, activitySnapshot, palette, thresholds, instance) }
     }
 }
@@ -743,7 +747,8 @@ internal data class GlucoseWidgetRenderOptions(
 private fun configurationScale(percent: Int): Float = percent.coerceIn(70, 130) / 100f
 
 internal fun widgetTrendArrowTargetHeight(textHeightPx: Float, trendScale: Float, pixelDensity: Float): Float =
-    (textHeightPx * trendScale - 4f * pixelDensity.coerceIn(1f, 4f)).coerceAtLeast(8f * pixelDensity)
+    GlucoseTrendSizing.arrowHeightForGlucoseHeight(textHeightPx, trendScale)
+        .coerceAtLeast(8f * pixelDensity.coerceIn(1f, 4f))
 
 private fun drawWidgetOutline(
     canvas: AndroidCanvas,
@@ -853,7 +858,9 @@ internal fun renderGlucoseGraphWidget(
         state, palette, safeWidth, topHeight, now, thresholds, topLayout, pixelDensity,
         GlucoseWidgetRenderOptions(
             glucoseScale = configurationScale(configuration.glucoseScalePercent) * 0.78f,
-            trendScale = configurationScale(configuration.trendScalePercent) * 0.78f,
+            // The reference ratio was measured from this 2x2 composition. Scaling the glucose
+            // typography keeps the accepted reference appearance; the arrow then follows it.
+            trendScale = configurationScale(configuration.trendScalePercent),
             leftAligned = true,
             leftInsetDp = 12f,
         ),

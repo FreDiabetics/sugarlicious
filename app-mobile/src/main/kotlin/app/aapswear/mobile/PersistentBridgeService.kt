@@ -328,12 +328,18 @@ internal object NotificationGraphDotStyleStore {
     fun read(
         preferences: SharedPreferences,
         profile: NotificationGraphProfile,
+    ): NotificationGraphDotStyle = read(preferences, SugarliciousColorStore.activeMode(preferences), profile)
+
+    fun read(
+        preferences: SharedPreferences,
+        mode: app.aapswear.model.AppearanceMode,
+        profile: NotificationGraphProfile,
     ): NotificationGraphDotStyle {
         ensureMigrated(preferences)
         return NotificationGraphDotStyle(
-            cgmRadiusDp = preferences.getFloat(radiusKey(profile), profile.defaultDotRadiusDp).coerceIn(1.5f, 6.0f),
-            cgmOutlineEnabled = preferences.getBoolean(outlineEnabledKey(profile), true),
-            cgmOutlineWidthDp = preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp).coerceIn(0.25f, 3.0f),
+            cgmRadiusDp = preferences.getFloat(modeKey(mode, radiusKey(profile)), preferences.getFloat(radiusKey(profile), profile.defaultDotRadiusDp)).coerceIn(1.5f, 6.0f),
+            cgmOutlineEnabled = preferences.getBoolean(modeKey(mode, outlineEnabledKey(profile)), preferences.getBoolean(outlineEnabledKey(profile), true)),
+            cgmOutlineWidthDp = preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)).coerceIn(0.25f, 3.0f),
         )
     }
 
@@ -341,12 +347,19 @@ internal object NotificationGraphDotStyleStore {
         preferences: SharedPreferences,
         profile: NotificationGraphProfile,
         style: NotificationGraphDotStyle,
+    ) = save(preferences, SugarliciousColorStore.activeMode(preferences), profile, style)
+
+    fun save(
+        preferences: SharedPreferences,
+        mode: app.aapswear.model.AppearanceMode,
+        profile: NotificationGraphProfile,
+        style: NotificationGraphDotStyle,
     ) {
         ensureMigrated(preferences)
         preferences.edit()
-            .putFloat(radiusKey(profile), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
-            .putBoolean(outlineEnabledKey(profile), style.cgmOutlineEnabled)
-            .putFloat(outlineWidthKey(profile), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
+            .putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
+            .putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
+            .putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
             .apply()
     }
 
@@ -376,6 +389,15 @@ internal object NotificationGraphDotStyleStore {
                 NotificationGraphProfile.EXPANDED.defaultOutlineWidthDp,
             )
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            .apply {
+                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                    NotificationGraphProfile.entries.forEach { profile ->
+                        putFloat(modeKey(mode, radiusKey(profile)), profile.defaultDotRadiusDp)
+                        putBoolean(modeKey(mode, outlineEnabledKey(profile)), true)
+                        putFloat(modeKey(mode, outlineWidthKey(profile)), profile.defaultOutlineWidthDp)
+                    }
+                }
+            }
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS)
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED)
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH)
@@ -384,6 +406,16 @@ internal object NotificationGraphDotStyleStore {
 
     private fun ensureMigrated(preferences: SharedPreferences) {
         if (preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, false)) return
+
+        val hasLegacy = listOf(
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS,
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED,
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH,
+            MOBILE_RADIUS,
+            MOBILE_OUTLINE_ENABLED,
+            MOBILE_OUTLINE_WIDTH,
+        ).any(preferences::contains)
+        if (!hasLegacy) return
 
         val collapsedRadius = preferences.getFloat(
             PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS,
@@ -411,8 +443,21 @@ internal object NotificationGraphDotStyleStore {
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, collapsedOutline)
             .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH, expandedOutlineWidth)
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            .apply {
+                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.COLLAPSED)), collapsedRadius)
+                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.COLLAPSED)), collapsedOutline)
+                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.COLLAPSED)), collapsedOutlineWidth)
+                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.EXPANDED)), expandedRadius)
+                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.EXPANDED)), collapsedOutline)
+                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.EXPANDED)), expandedOutlineWidth)
+                }
+            }
             .apply()
     }
+
+    private fun modeKey(mode: app.aapswear.model.AppearanceMode, key: String): String =
+        "notification.${mode.storageKey}.$key"
 
     private fun radiusKey(profile: NotificationGraphProfile): String = when (profile) {
         NotificationGraphProfile.COLLAPSED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_RADIUS

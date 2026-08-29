@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.core.content.edit
 import app.aapswear.model.AppearanceTerminology
+import app.aapswear.model.AppearanceMode
 
 enum class SugarliciousColorGroup(val label: String) {
     APP("App-Oberfläche"),
@@ -104,11 +105,8 @@ data class SugarliciousPalette(
     private val values: Map<SugarliciousColorRole, Int>,
     val isLight: Boolean = false,
 ) {
-    fun argb(role: SugarliciousColorRole): Int = when {
-        isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> AndroidColor.WHITE
-        isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> AndroidColor.BLACK
-        else -> values[role] ?: if (isLight) role.lightArgb else role.defaultArgb
-    }
+    fun argb(role: SugarliciousColorRole): Int =
+        values[role] ?: if (isLight) role.lightArgb else role.defaultArgb
 
     fun compose(role: SugarliciousColorRole): Color =
         Color(argb(role))
@@ -143,23 +141,22 @@ object SugarliciousColorStore {
         (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) !=
             Configuration.UI_MODE_NIGHT_YES
 
-    private fun isLight(preferences: SharedPreferences): Boolean =
+    fun activeMode(preferences: SharedPreferences): AppearanceMode =
         when (preferences.getString("themeMode", "SYSTEM")) {
-            "LIGHT" -> true
-            "DARK" -> false
-            else -> systemIsLight()
+            "LIGHT" -> AppearanceMode.LIGHT
+            "DARK" -> AppearanceMode.DARK
+            else -> if (systemIsLight()) AppearanceMode.LIGHT else AppearanceMode.DARK
         }
 
-    fun load(preferences: SharedPreferences): SugarliciousPalette {
-        val light = isLight(preferences)
+    fun load(preferences: SharedPreferences): SugarliciousPalette = load(preferences, activeMode(preferences))
+
+    fun load(preferences: SharedPreferences, mode: AppearanceMode): SugarliciousPalette {
+        val light = mode == AppearanceMode.LIGHT
         val prefix = if (light) LIGHT_PREFIX else DARK_PREFIX
 
         val values =
             SugarliciousColorRole.entries.associateWith { role ->
                     val modeKey = prefix + role.preferenceKey
-                    val overrideKey = OVERRIDE_PREFIX + role.preferenceKey
-                    val legacyKey =
-                        LEGACY_PREFIX + role.preferenceKey
 
                     when {
                         preferences.contains(modeKey) ->
@@ -172,15 +169,11 @@ object SugarliciousColorStore {
                                 },
                             )
 
-                        !light && preferences.contains(overrideKey) ->
-                            preferences.getInt(overrideKey, role.defaultArgb)
+                        preferences.contains(OVERRIDE_PREFIX + role.preferenceKey) ->
+                            preferences.getInt(OVERRIDE_PREFIX + role.preferenceKey, if (light) role.lightArgb else role.defaultArgb)
 
-                        !light &&
-                            preferences.contains(legacyKey) ->
-                            preferences.getInt(
-                                legacyKey,
-                                role.defaultArgb,
-                            )
+                        preferences.contains(LEGACY_PREFIX + role.preferenceKey) ->
+                            preferences.getInt(LEGACY_PREFIX + role.preferenceKey, if (light) role.lightArgb else role.defaultArgb)
 
                         light ->
                             role.lightArgb
@@ -190,17 +183,15 @@ object SugarliciousColorStore {
                     }
                 }.toMutableMap()
         val targetRole = SugarliciousColorRole.TARGET_VALUE
-        val targetHasExplicitColor =
-            preferences.contains(prefix + targetRole.preferenceKey) ||
-                (!light && preferences.contains(OVERRIDE_PREFIX + targetRole.preferenceKey)) ||
-                (!light && preferences.contains(LEGACY_PREFIX + targetRole.preferenceKey))
+        val targetHasExplicitColor = preferences.contains(prefix + targetRole.preferenceKey) ||
+            preferences.contains(OVERRIDE_PREFIX + targetRole.preferenceKey) ||
+            preferences.contains(LEGACY_PREFIX + targetRole.preferenceKey)
         if (!targetHasExplicitColor) {
             values[targetRole] = derivedTargetValueArgb(values.getValue(SugarliciousColorRole.RANGE_IN_RANGE))
         }
-        fun hasExplicit(role: SugarliciousColorRole): Boolean =
-            preferences.contains(prefix + role.preferenceKey) ||
-                (!light && preferences.contains(OVERRIDE_PREFIX + role.preferenceKey)) ||
-                (!light && preferences.contains(LEGACY_PREFIX + role.preferenceKey))
+        fun hasExplicit(role: SugarliciousColorRole): Boolean = preferences.contains(prefix + role.preferenceKey) ||
+            preferences.contains(OVERRIDE_PREFIX + role.preferenceKey) ||
+            preferences.contains(LEGACY_PREFIX + role.preferenceKey)
         if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_LOW)
         }
@@ -232,10 +223,18 @@ object SugarliciousColorStore {
         preferences: SharedPreferences,
         role: SugarliciousColorRole,
         argb: Int,
+    ) = save(preferences, activeMode(preferences), role, argb)
+
+    fun save(
+        preferences: SharedPreferences,
+        mode: AppearanceMode,
+        role: SugarliciousColorRole,
+        argb: Int,
     ) {
+        migrateLegacy(preferences)
         preferences.edit {
             putInt(
-                (if (isLight(preferences)) LIGHT_PREFIX else DARK_PREFIX) +
+                (if (mode == AppearanceMode.LIGHT) LIGHT_PREFIX else DARK_PREFIX) +
                     role.preferenceKey,
                 argb,
             )
@@ -245,21 +244,20 @@ object SugarliciousColorStore {
     fun reset(
         preferences: SharedPreferences,
         role: SugarliciousColorRole,
+    ) = reset(preferences, activeMode(preferences), role)
+
+    fun reset(
+        preferences: SharedPreferences,
+        mode: AppearanceMode,
+        role: SugarliciousColorRole,
     ) {
-        val light = isLight(preferences)
+        val light = mode == AppearanceMode.LIGHT
         preferences.edit {
             remove(
                 (if (light) LIGHT_PREFIX else DARK_PREFIX) +
                     role.preferenceKey,
             )
 
-            if (!light) {
-                remove(OVERRIDE_PREFIX + role.preferenceKey)
-                remove(
-                    LEGACY_PREFIX +
-                        role.preferenceKey,
-                )
-            }
         }
     }
 
@@ -289,10 +287,40 @@ object SugarliciousColorStore {
     fun hasUserOverride(
         preferences: SharedPreferences,
         role: SugarliciousColorRole,
-    ): Boolean =
-        preferences.contains((if (isLight(preferences)) LIGHT_PREFIX else DARK_PREFIX) + role.preferenceKey) ||
-            (!isLight(preferences) && preferences.contains(OVERRIDE_PREFIX + role.preferenceKey)) ||
-            (!isLight(preferences) && preferences.contains(LEGACY_PREFIX + role.preferenceKey))
+    ): Boolean = hasUserOverride(preferences, activeMode(preferences), role)
+
+    fun hasUserOverride(
+        preferences: SharedPreferences,
+        mode: AppearanceMode,
+        role: SugarliciousColorRole,
+    ): Boolean = preferences.contains(
+        (if (mode == AppearanceMode.LIGHT) LIGHT_PREFIX else DARK_PREFIX) + role.preferenceKey,
+    )
+
+    private fun migrateLegacy(preferences: SharedPreferences) {
+        if (preferences.getBoolean("appearance.profiles.v1", false)) return
+        val hasLegacy = SugarliciousColorRole.entries.any { role ->
+            preferences.contains(OVERRIDE_PREFIX + role.preferenceKey) ||
+                preferences.contains(LEGACY_PREFIX + role.preferenceKey)
+        }
+        if (!hasLegacy) return
+        preferences.edit {
+            SugarliciousColorRole.entries.forEach { role ->
+                val legacy = when {
+                    preferences.contains(OVERRIDE_PREFIX + role.preferenceKey) ->
+                        preferences.getInt(OVERRIDE_PREFIX + role.preferenceKey, role.defaultArgb)
+                    preferences.contains(LEGACY_PREFIX + role.preferenceKey) ->
+                        preferences.getInt(LEGACY_PREFIX + role.preferenceKey, role.defaultArgb)
+                    else -> null
+                }
+                if (legacy != null) {
+                    if (!preferences.contains(DARK_PREFIX + role.preferenceKey)) putInt(DARK_PREFIX + role.preferenceKey, legacy)
+                    if (!preferences.contains(LIGHT_PREFIX + role.preferenceKey)) putInt(LIGHT_PREFIX + role.preferenceKey, legacy)
+                }
+            }
+            putBoolean("appearance.profiles.v1", true)
+        }
+    }
 }
 
 /**

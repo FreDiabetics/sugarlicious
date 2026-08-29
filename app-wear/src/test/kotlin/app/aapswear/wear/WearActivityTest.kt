@@ -12,6 +12,8 @@ import app.aapswear.complications.R as ComplicationR
 import app.aapswear.model.BasalState
 import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchColorSync
+import app.aapswear.protocol.WatchAppearanceProfile
+import app.aapswear.model.AppearanceMode
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -268,5 +270,24 @@ class WearActivityTest {
         )
 
         assertEquals(colors, WearDisplayPreferences.read(context).graphColors)
+    }
+
+    @Test
+    fun `explicit color sync keeps light and dark profiles independent`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val light = WatchGraphColors(graphBackground = 0xFFF4F4F4.toInt())
+        val dark = WatchGraphColors(graphBackground = 0xFF090909.toInt())
+        WearDisplayPreferences.applySyncedColors(
+            context,
+            WatchColorSync(
+                graphColors = dark,
+                lightProfile = WatchAppearanceProfile(graphColors = light),
+                darkProfile = WatchAppearanceProfile(graphColors = dark),
+                sentAtEpochMs = 555L,
+            ),
+        )
+        assertEquals(light, WearDisplayPreferences.read(context, AppearanceMode.LIGHT).graphColors)
+        assertEquals(dark, WearDisplayPreferences.read(context, AppearanceMode.DARK).graphColors)
     }
 }

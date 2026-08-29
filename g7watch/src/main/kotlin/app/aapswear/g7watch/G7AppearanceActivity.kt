@@ -20,18 +20,21 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.util.Locale
 import kotlin.math.roundToInt
+import app.aapswear.model.AppearanceMode
 
 class G7AppearanceActivity : Activity() {
     private lateinit var store: G7AppearanceStore
+    private var selectedMode: AppearanceMode = AppearanceMode.DARK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = G7AppearanceStore(this)
+        selectedMode = store.activeMode()
         render()
     }
 
     private fun render() {
-        val palette = store.load()
+        val palette = store.load(selectedMode)
         window.statusBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         window.navigationBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
 
@@ -41,6 +44,7 @@ class G7AppearanceActivity : Activity() {
             setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
         }
         content.addView(topBar(palette))
+        content.addView(themeSelector(palette), params(top = 8))
 
         G7AppearanceSection.entries.forEach { section ->
             content.addView(label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
@@ -100,21 +104,21 @@ class G7AppearanceActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
             addView(pill("RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
-                store.reset(role)
+                store.reset(selectedMode, role)
                 render()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp))
             setOnClickListener { openColorEditor(role) }
         }
 
     private fun openColorEditor(role: G7AppearanceRole) {
-        val initial = store.load().argb(role)
+        val initial = store.load(selectedMode).argb(role)
         val hsv = FloatArray(3).also { Color.colorToHSV(initial, it) }
         var hue = hsv[0]
         var saturation = hsv[1]
         var brightness = hsv[2]
         var alpha = Color.alpha(initial) / 255f
 
-        val palette = store.load()
+        val palette = store.load(selectedMode)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(8.dp, 4.dp, 8.dp, 4.dp)
@@ -138,7 +142,7 @@ class G7AppearanceActivity : Activity() {
             val color = currentColor()
             preview.background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 14f)
             hexInput.setText(toHex(color))
-            store.save(role, color)
+            store.save(selectedMode, role, color)
         }
         hexInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -146,7 +150,7 @@ class G7AppearanceActivity : Activity() {
             override fun afterTextChanged(text: Editable?) {
                 parseHex(text?.toString())?.let { color ->
                     preview.background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 14f)
-                    store.save(role, color)
+                    store.save(selectedMode, role, color)
                 }
             }
         })
@@ -197,6 +201,20 @@ class G7AppearanceActivity : Activity() {
         setPadding(13.dp, 7.dp, 13.dp, 7.dp)
         background = rounded(fill, textColor, 999f)
         setOnClickListener { action() }
+    }
+
+    private fun themeSelector(palette: G7AppearancePalette) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        listOf(AppearanceMode.LIGHT to "LIGHT", AppearanceMode.DARK to "DARK").forEach { (mode, title) ->
+            addView(pill(
+                title,
+                if (selectedMode == mode) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                if (selectedMode == mode) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            ) {
+                selectedMode = mode
+                render()
+            }, LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 6.dp })
+        }
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {

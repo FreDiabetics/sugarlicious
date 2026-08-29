@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 
@@ -117,7 +118,7 @@ internal fun G6StyleFacePreview(
                     trend = it,
                     modifier = Modifier.padding(start = w * 0.02f),
                     color = Color.White,
-                    arrowSize = w * 0.19f,
+                    arrowSize = w * (0.25f * GlucoseTrendSizing.REFERENCE_ARROW_TO_GLUCOSE_HEIGHT),
                 )
             }
         }

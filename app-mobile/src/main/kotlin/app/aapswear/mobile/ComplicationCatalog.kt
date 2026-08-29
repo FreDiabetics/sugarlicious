@@ -52,6 +52,7 @@ import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.Trend
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
@@ -542,7 +543,11 @@ private fun CompactComplicationPreview(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 preview.trend?.let {
-                    SugarliciousTrendIndicator(it, arrowSize = 17.dp, color = preview.color)
+                    SugarliciousTrendIndicator(
+                        it,
+                        arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(14f).dp,
+                        color = preview.color,
+                    )
                 }
             }
         }
@@ -889,7 +894,7 @@ private fun CircularGlucoseComplicationPreview(
                     trend = trend,
                     modifier = Modifier.offset(y = (-4).dp),
                     color = SugarliciousColors.TextPrimary,
-                    arrowSize = 37.dp,
+                    arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(30f).dp,
                 )
             }
         }
@@ -914,11 +919,12 @@ private fun MiniGlucosePreview(
         .distinctBy { it.measuredAtEpochMs }
         .sortedBy { it.measuredAtEpochMs }
         .ifEmpty { demoHistory(now, demoHours).filter { it.measuredAtEpochMs >= cutoff } }
+    val graphStyle = readMobileGraphStyle(preferences)
     val dotRadiusDp =
-        (preferences.getFloat("cgm.dotRadiusDp", 2.4f) - 0.5f)
+        (graphStyle.cgmDotRadiusDp - 0.5f)
             .coerceIn(1.0f, 5.5f)
-    val outlineEnabled = preferences.getBoolean("cgm.dotOutlineEnabled", true)
-    val outlineWidthDp = preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f).coerceIn(0.25f, 3f)
+    val outlineEnabled = graphStyle.cgmDotOutlineEnabled
+    val outlineWidthDp = graphStyle.cgmDotOutlineWidthDp
     Canvas(
         Modifier.fillMaxWidth().height(52.dp)
             .background(SugarliciousColors.color(SugarliciousColorRole.GRAPH_BACKGROUND)),

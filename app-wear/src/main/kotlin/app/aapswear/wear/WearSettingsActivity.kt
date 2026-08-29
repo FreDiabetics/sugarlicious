@@ -1,6 +1,7 @@
 package app.aapswear.wear
 
 import app.aapswear.model.AppearanceTerminology
+import app.aapswear.model.AppearanceMode
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -26,17 +27,19 @@ class WearSettingsActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var scrollView: ScrollView
     private var current = WearDisplayPreferences()
+    private var selectedAppearanceMode = AppearanceMode.DARK
     private val expandedSettingsCategories = linkedSetOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        current = WearDisplayPreferences.read(this)
+        selectedAppearanceMode = WearDisplayPreferences.activeAppearanceMode(this)
+        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         buildUi()
     }
 
     private fun buildUi() {
         val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0
-        current = WearDisplayPreferences.read(this)
+        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         val ui = current.uiColors
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -89,6 +92,16 @@ class WearSettingsActivity : Activity() {
             )
         }
         root.addView(header, fullWidth())
+        root.addView(
+            choiceRow(
+                listOf("Light" to AppearanceMode.LIGHT, "Dark" to AppearanceMode.DARK),
+                selectedAppearanceMode,
+            ) { mode ->
+                selectedAppearanceMode = mode
+                buildUi()
+            },
+            cardParams(),
+        )
 
         settingsCategory("display", "Anzeige", "App-Flächen, Texte und Therapiefarben") {
             section("APP")
@@ -197,14 +210,14 @@ class WearSettingsActivity : Activity() {
         }
 
         settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {
-            val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE)
+            val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE, selectedAppearanceMode)
             section("GLUKOSE-TILE")
             tileBaseColorRows(WearTileKind.GLUCOSE, glucoseTileColors)
             colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseLow = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseInRange = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) } }
 
-            val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY)
+            val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
             section("THERAPIE-TILE")
             tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
             colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
@@ -260,7 +273,7 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun updateTileColors(kind: WearTileKind, transform: (WatchUiColors) -> WatchUiColors) {
-        WearTileAppearanceStore.write(this, kind, transform(WearTileAppearanceStore.read(this, kind)))
+        WearTileAppearanceStore.write(this, kind, selectedAppearanceMode, transform(WearTileAppearanceStore.read(this, kind, selectedAppearanceMode)))
         requestSugarliciousTileUpdates(this)
         buildUi()
     }
@@ -404,10 +417,10 @@ class WearSettingsActivity : Activity() {
             })
         }
 
-    private fun choiceRow(
-        choices: List<Pair<String, WatchGlucoseUnit>>,
-        selected: WatchGlucoseUnit,
-        changed: (WatchGlucoseUnit) -> Unit,
+    private fun <T> choiceRow(
+        choices: List<Pair<String, T>>,
+        selected: T,
+        changed: (T) -> Unit,
     ): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
@@ -538,7 +551,7 @@ class WearSettingsActivity : Activity() {
 
     private fun save(value: WearDisplayPreferences, rebuild: Boolean = true) {
         current = value
-        WearDisplayPreferences.saveLocal(this, current)
+        WearDisplayPreferences.saveLocal(this, selectedAppearanceMode, current)
         if (rebuild) buildUi()
     }
 

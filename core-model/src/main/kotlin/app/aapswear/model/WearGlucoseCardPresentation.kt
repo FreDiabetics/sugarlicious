@@ -30,7 +30,7 @@ object WearGlucoseCardStyle {
     const val CARD_HEIGHT_DP = 110
     const val HORIZONTAL_PADDING_DP = 14
     const val VERTICAL_PADDING_DP = 8
-    const val TREND_SIZE_DP = 27
+    val TREND_SIZE_DP: Int = GlucoseTrendSizing.arrowHeightForGlucoseHeight(VALUE_TEXT_SP).roundToInt()
     const val TREND_GAP_DP = 6
 }
 

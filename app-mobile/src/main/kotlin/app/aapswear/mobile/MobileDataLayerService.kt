@@ -9,6 +9,8 @@ import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchColorSync
+import app.aapswear.protocol.WatchAppearanceProfile
+import app.aapswear.model.AppearanceMode
 import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchDataSource
@@ -232,21 +234,7 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
             signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
         ),
-        graphStyle = WatchGraphStyle(
-            cgmDotRadiusDp =
-                preferences
-                    .getFloat("cgm.dotRadiusDp", 2.4f)
-                    .coerceIn(1.5f, 6.0f),
-            cgmDotOutlineEnabled =
-                preferences.getBoolean(
-                    "cgm.dotOutlineEnabled",
-                    true,
-                ),
-            cgmDotOutlineWidthDp =
-                preferences
-                    .getFloat("cgm.dotOutlineWidthDp", 0.95f)
-                    .coerceIn(0.25f, 3.0f),
-        ),
+        graphStyle = readMobileGraphStyle(preferences),
         uiColors = WatchUiColors(
             background = palette.argb(SugarliciousColorRole.BACKGROUND),
             tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
@@ -268,6 +256,54 @@ internal fun readWatchConfig(context: Context): WatchConfig {
     )
 }
 
+internal fun readWatchAppearanceProfile(context: Context, mode: AppearanceMode): WatchAppearanceProfile {
+    val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+    val palette = SugarliciousColorStore.load(preferences, mode)
+    return WatchAppearanceProfile(
+        graphColors = WatchGraphColors(
+            graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
+            rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
+            rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
+            rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
+            cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
+            cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
+            cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
+            cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+            cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+            divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
+            highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
+            lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
+            axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
+            axisTick = palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK),
+            nowLine = palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE),
+            outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
+            predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
+            predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
+            predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
+            predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
+            targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
+            signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
+        ),
+        graphStyle = readMobileGraphStyle(preferences, mode),
+        uiColors = WatchUiColors(
+            background = palette.argb(SugarliciousColorRole.BACKGROUND),
+            tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
+            tileBorder = palette.argb(SugarliciousColorRole.BORDER),
+            textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
+            textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
+            accent = palette.argb(SugarliciousColorRole.PRIMARY),
+            glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
+            glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
+            glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
+            glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+            glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+            iob = palette.argb(SugarliciousColorRole.BLUE),
+            cob = palette.argb(SugarliciousColorRole.ORANGE),
+            basal = palette.argb(SugarliciousColorRole.SECONDARY),
+        ),
+    )
+}
+
 internal suspend fun publishWatchConfig(context: Context) {
     val request =
         PutDataRequest
@@ -286,14 +322,18 @@ internal suspend fun publishWatchConfig(context: Context) {
 }
 
 internal suspend fun publishWatchColors(context: Context) {
-    val colors = readWatchConfig(context).graphColors
+    val active = readWatchConfig(context)
+    val light = readWatchAppearanceProfile(context, AppearanceMode.LIGHT)
+    val dark = readWatchAppearanceProfile(context, AppearanceMode.DARK)
     val request =
         PutDataRequest
             .create(WearProtocol.WATCH_COLOR_SYNC_PATH)
             .setData(
                 WearProtocol.encodeWatchColorSync(
                     WatchColorSync(
-                        graphColors = colors,
+                        graphColors = active.graphColors,
+                        lightProfile = light,
+                        darkProfile = dark,
                         cgmThresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)),
                         sentAtEpochMs = System.currentTimeMillis(),
                     ),

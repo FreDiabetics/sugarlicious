@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
+import app.aapswear.model.AppearanceMode
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -35,5 +36,15 @@ class G7AppearanceStoreTest {
         assertEquals(1, store.nextGraphHours())
         assertEquals(2, store.nextGraphHours())
         assertEquals(3, store.nextGraphHours())
+    }
+
+    @Test fun `light and dark profiles are independent`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7AppearanceStore(context)
+        store.save(AppearanceMode.LIGHT, G7AppearanceRole.MENU_BACKGROUND, 0xFFEEDDCC.toInt())
+        store.save(AppearanceMode.DARK, G7AppearanceRole.MENU_BACKGROUND, 0xFF112233.toInt())
+        assertEquals(0xFFEEDDCC.toInt(), store.load(AppearanceMode.LIGHT).argb(G7AppearanceRole.MENU_BACKGROUND))
+        assertEquals(0xFF112233.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.MENU_BACKGROUND))
     }
 }

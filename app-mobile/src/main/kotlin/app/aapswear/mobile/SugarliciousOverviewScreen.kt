@@ -44,6 +44,7 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.storage.PredictionDisplayTimeline
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -281,7 +282,11 @@ private fun GlucoseHeroCard(
 
                         Spacer(Modifier.width(6.dp))
 
-                        SugarliciousTrendIndicator(trend, color = glucoseColor)
+                        SugarliciousTrendIndicator(
+                            trend,
+                            arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f).dp,
+                            color = glucoseColor,
+                        )
                     }
 
                     Spacer(Modifier.height(3.dp))

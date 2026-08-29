@@ -367,8 +367,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val resolvedOutlineWidth = cgmDotOutlineWidthDp.coerceIn(0.25f, 3.0f)
         val stylePreferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         val resolvedDurationHours = resolveOverviewGraphHoursPreference(stylePreferences, durationHours)
-        val resolvedPredictionRadius = stylePreferences.getFloat("cgm.prediction.dotRadiusDp", 1.75f).coerceIn(1.0f, 6.0f)
-        val resolvedPredictionOutlineWidth = stylePreferences.getFloat("cgm.prediction.dotOutlineWidthDp", 0.70f).coerceIn(0.0f, 3.0f)
+        val resolvedPredictionRadius = readMobilePredictionDotRadius(stylePreferences)
+        val resolvedPredictionOutlineWidth = readMobilePredictionDotOutlineWidth(stylePreferences)
         val resolvedClockBucket = clockEpochMs / CLOCK_REFRESH_MS
         viewport.setAvailablePastWindow(availableGlucoseHistoryWindowMs(state, clockEpochMs))
         val newStateSignature = state?.let {

@@ -39,6 +39,7 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.TrendVisualAsset
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
@@ -330,8 +331,8 @@ class G7CollectorTileService : TileService() {
     private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int): Image =
         Image.Builder()
             .setResourceId(trendResourceId(spec.asset))
-            .setWidth(dp(27f * spec.aspectRatio))
-            .setHeight(dp(27f))
+            .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(38f) * spec.aspectRatio))
+            .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(38f)))
             .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
             .build()
 

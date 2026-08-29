@@ -37,6 +37,7 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.math.abs
+import app.aapswear.model.GlucoseTrendSizing
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -92,7 +93,7 @@ class PersistentBridgeServiceTest {
             assertEquals(primary.measuredWidth, info.measuredWidth)
             assertEquals(info.measuredWidth, meta.measuredWidth)
             assertTrue(
-                abs(digitBounds.height() - trend.layoutParams.height) <= 3f * density,
+                abs(value.textSize * GlucoseTrendSizing.REFERENCE_ARROW_TO_GLUCOSE_HEIGHT - trend.layoutParams.height) <= 3f * density,
             )
         }
     }

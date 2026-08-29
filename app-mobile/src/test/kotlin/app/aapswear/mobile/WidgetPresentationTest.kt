@@ -145,10 +145,10 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `widget trend arrow is exactly four dp shorter than value at every density`() {
+    fun `widget trend arrow follows the 2x2 reference ratio at every density`() {
         listOf(1f, 2f, 3f, 4f).forEach { density ->
             val textHeight = 48f * density
-            assertEquals(textHeight - 4f * density, widgetTrendArrowTargetHeight(textHeight, 1f, density), 0.01f)
+            assertEquals(textHeight * 0.642f, widgetTrendArrowTargetHeight(textHeight, 1f, density), 0.01f)
         }
     }
 

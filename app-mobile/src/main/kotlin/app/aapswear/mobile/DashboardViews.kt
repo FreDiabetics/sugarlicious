@@ -106,11 +106,11 @@ data class DashboardUiPreferences(
                 showSmbMarkers = preferences.getBoolean("treatment.smb", true),
                 showMealCarbMarkers = preferences.getBoolean("treatment.mealCarbs", true),
                 showECarbMarkers = preferences.getBoolean("treatment.eCarbs", true),
-                cgmDotRadiusDp = preferences.getFloat("cgm.dotRadiusDp", 2.4f).coerceIn(1.5f, 6.0f),
-                cgmDotOutlineEnabled = preferences.getBoolean("cgm.dotOutlineEnabled", true),
-                cgmDotOutlineWidthDp = preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f).coerceIn(0.25f, 3.0f),
-                predictionDotRadiusDp = preferences.getFloat("cgm.prediction.dotRadiusDp", 1.75f).coerceIn(1.0f, 6.0f),
-                predictionDotOutlineWidthDp = preferences.getFloat("cgm.prediction.dotOutlineWidthDp", 0.70f).coerceIn(0.0f, 3.0f),
+                cgmDotRadiusDp = readMobileGraphStyle(preferences).cgmDotRadiusDp,
+                cgmDotOutlineEnabled = readMobileGraphStyle(preferences).cgmDotOutlineEnabled,
+                cgmDotOutlineWidthDp = readMobileGraphStyle(preferences).cgmDotOutlineWidthDp,
+                predictionDotRadiusDp = readMobilePredictionDotRadius(preferences),
+                predictionDotOutlineWidthDp = readMobilePredictionDotOutlineWidth(preferences),
                 compact = preferences.getBoolean("compact", true),
                 graphHours = preferences.getInt("graphHours", 3).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3,
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
@@ -347,28 +347,6 @@ class DashboardViewFactory(
                     addView(switchRowCompact("UAM-Prognose", preferences.showCgmPredictionUam, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.uam", it) })
                     addView(divider())
                     addView(switchRowCompact("ZeroTemp-Prognose", preferences.showCgmPredictionZeroTemp, View.generateViewId()) { callbacks.setCgmStream("cgm.prediction.zeroTemp", it) })
-                    addView(divider())
-                    addView(
-                        sugarliciousSliderRow(
-                            title = "Prediction-Punktgröße",
-                            description = "Größe der Vorhersagepunkte im CGM-Graph",
-                            value = preferences.predictionDotRadiusDp,
-                            minimum = 1.0f,
-                            maximum = 6.0f,
-                            decimals = 1,
-                        ) { dashboardPreferences.edit().putFloat("cgm.prediction.dotRadiusDp", it).apply() },
-                    )
-                    addView(divider())
-                    addView(
-                        sugarliciousSliderRow(
-                            title = "Prediction-Konturdicke",
-                            description = "0,00 dp blendet die Kontur aus",
-                            value = preferences.predictionDotOutlineWidthDp,
-                            minimum = 0.0f,
-                            maximum = 3.0f,
-                            decimals = 2,
-                        ) { dashboardPreferences.edit().putFloat("cgm.prediction.dotOutlineWidthDp", it).apply() },
-                    )
                 },
                 fullWidth(),
             )
