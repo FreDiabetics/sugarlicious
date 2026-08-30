@@ -33,4 +33,15 @@ class TrendComplicationIconTest {
             assertEquals(expectedWidth, bitmap.width)
         }
     }
+
+    @Test
+    fun scaledDoubleArrowsKeepIntrinsicAspectRatioAtAllSupportedScales() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(70, 100, 150, 200).forEach { scale ->
+            listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
+                val bitmap = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, scale))
+                assertEquals(125f / 60f, bitmap.width.toFloat() / bitmap.height, 0.02f)
+            }
+        }
+    }
 }

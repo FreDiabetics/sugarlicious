@@ -11,6 +11,15 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WearTileAppearanceStoreTest {
+    @Test
+    fun `each system tile persists its content independently`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GRAPH)
+        WearTileContentStore.write(context, WearTileKind.THERAPY, WearTileContent.PUMP)
+
+        assertEquals(WearTileContent.GRAPH, WearTileContentStore.read(context, WearTileKind.GLUCOSE))
+        assertEquals(WearTileContent.PUMP, WearTileContentStore.read(context, WearTileKind.THERAPY))
+    }
     private val context
         get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 

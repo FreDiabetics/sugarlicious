@@ -191,6 +191,7 @@ internal fun ComplicationStudio(
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf(loadComplicationPreset(context)) }
     var graphHours by remember { mutableStateOf(loadComplicationGraphHours(context)) }
+    var previewTrend by remember { mutableStateOf(Trend.FORTY_FIVE_UP) }
     var variantDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
     var syncLabel by remember {
         mutableStateOf(
@@ -212,6 +213,9 @@ internal fun ComplicationStudio(
     }
 
     val shape = RoundedCornerShape(24.dp)
+    val previewState = (state ?: previewTherapyState(System.currentTimeMillis())).let { source ->
+        source.copy(glucose = source.glucose?.copy(trend = previewTrend))
+    }
 
     Column(
         modifier = Modifier
@@ -222,6 +226,41 @@ internal fun ComplicationStudio(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetStrip(selected)
+
+        Text(
+            "PREVIEW-TREND",
+            color = SugarliciousColors.TextSecondary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            listOf(
+                Trend.DOUBLE_UP,
+                Trend.SINGLE_UP,
+                Trend.FORTY_FIVE_UP,
+                Trend.FLAT,
+                Trend.FORTY_FIVE_DOWN,
+                Trend.SINGLE_DOWN,
+                Trend.DOUBLE_DOWN,
+            ).forEach { trend ->
+                Surface(
+                    modifier = Modifier.weight(1f).clickable { previewTrend = trend },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (previewTrend == trend) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
+                ) {
+                    Box(Modifier.height(34.dp), contentAlignment = Alignment.Center) {
+                        SugarliciousTrendIndicator(
+                            trend = trend,
+                            arrowSize = 17.dp,
+                            color = if (previewTrend == trend) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+        }
 
         Button(
             onClick = {
@@ -298,7 +337,7 @@ internal fun ComplicationStudio(
                         modifier = Modifier.weight(1f),
                         entry = entry,
                         variant = selectedVariant,
-                        state = state,
+                        state = previewState,
                         graphHours = graphHours,
                         selected = entry.variants.any { it.id in selected },
                         onToggle = {
@@ -324,7 +363,7 @@ internal fun ComplicationStudio(
         ComplicationVariantDialog(
             entry = entry,
             currentVariant = currentVariant,
-            state = state,
+            state = previewState,
             graphHours = graphHours,
             onDismiss = { variantDialogEntry = null },
             onSelect = { variant ->

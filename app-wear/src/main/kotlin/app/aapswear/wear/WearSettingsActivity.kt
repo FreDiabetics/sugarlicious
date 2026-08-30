@@ -6,6 +6,7 @@ import app.aapswear.model.GlucoseTrendSizing
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -19,6 +20,8 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -232,14 +235,18 @@ class WearSettingsActivity : Activity() {
 
         settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {
             val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE, selectedAppearanceMode)
-            section("GLUKOSE-TILE")
+            section("TILE 1 · INHALT")
+            tileContentRows(WearTileKind.GLUCOSE)
+            section("TILE 1 · FARBEN")
             tileBaseColorRows(WearTileKind.GLUCOSE, glucoseTileColors)
             colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseLow = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseInRange = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) } }
 
             val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
-            section("THERAPIE-TILE")
+            section("TILE 2 · INHALT")
+            tileContentRows(WearTileKind.THERAPY)
+            section("TILE 2 · FARBEN")
             tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
             colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
             colorRow("COB", therapyTileColors.cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
@@ -297,6 +304,20 @@ class WearSettingsActivity : Activity() {
         WearTileAppearanceStore.write(this, kind, selectedAppearanceMode, transform(WearTileAppearanceStore.read(this, kind, selectedAppearanceMode)))
         requestSugarliciousTileUpdates(this)
         buildUi()
+    }
+
+    private fun tileContentRows(kind: WearTileKind) {
+        val selected = WearTileContentStore.read(this, kind)
+        WearTileContent.entries.chunked(3).forEach { rowItems ->
+            root.addView(
+                choiceRow(rowItems.map { it.label to it }, selected) { content ->
+                    WearTileContentStore.write(this, kind, content)
+                    requestSugarliciousTileUpdates(this)
+                    buildUi()
+                },
+                cardParams(),
+            )
+        }
     }
 
     private fun settingsCategory(
@@ -562,8 +583,15 @@ class WearSettingsActivity : Activity() {
     private fun GridLayout.children(): List<View> = (0 until childCount).map(::getChildAt)
 
     private fun save(value: WearDisplayPreferences, rebuild: Boolean = true) {
+        val trendChanged = current.trendScalePercent != value.trendScalePercent
         current = value
         WearDisplayPreferences.saveLocal(this, selectedAppearanceMode, current)
+        requestSugarliciousTileUpdates(this)
+        if (trendChanged) {
+            ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
+                ComplicationDataSourceUpdateRequester.create(this, ComponentName(this, provider)).requestUpdateAll()
+            }
+        }
         if (rebuild) buildUi()
     }
 

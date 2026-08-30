@@ -151,11 +151,23 @@ abstract class SugarliciousTileService : TileService() {
             G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
         }
         val colors = WearTileAppearanceStore.read(this, tileKind)
+        val content = WearTileContentStore.read(this, tileKind)
         return Futures.immediateFuture(
             Tile.Builder()
                 .setResourcesVersion(TILE_RESOURCES_VERSION)
                 .setFreshnessIntervalMillis(60_000L)
-                .setTileTimeline(Timeline.fromLayoutElement(tileContent(state, colors, System.currentTimeMillis())))
+                .setTileTimeline(
+                    Timeline.fromLayoutElement(
+                        when (content) {
+                            WearTileContent.GLUCOSE -> glucoseTileContent(state, colors, System.currentTimeMillis(), WearDisplayPreferences.read(this))
+                            WearTileContent.GRAPH -> graphTileContent(state, colors, System.currentTimeMillis(), WearDisplayPreferences.read(this))
+                            WearTileContent.IOB -> metricTileContent("IOB", state?.insulin?.totalIob, "U", colors.iob, colors, state, System.currentTimeMillis())
+                            WearTileContent.COB -> metricTileContent("COB", state?.carbs?.cobGrams, "g", colors.cob, colors, state, System.currentTimeMillis())
+                            WearTileContent.BASAL -> metricTileContent("BASAL", state?.basal?.currentUnitsPerHour, "U/h", colors.basal, colors, state, System.currentTimeMillis(), 2)
+                            WearTileContent.PUMP -> pumpTileContent(state, colors, System.currentTimeMillis())
+                        },
+                    ),
+                )
                 .build(),
         )
     }
@@ -186,7 +198,16 @@ class GlucoseTileService : SugarliciousTileService() {
     override val tileKind: WearTileKind = WearTileKind.GLUCOSE
 
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
-        val preferences = WearDisplayPreferences.read(this)
+        return glucoseTileContent(state, colors, now, WearDisplayPreferences.read(this))
+    }
+}
+
+private fun glucoseTileContent(
+    state: TherapyDisplayState?,
+    colors: WatchUiColors,
+    now: Long,
+    preferences: WearDisplayPreferences,
+): LayoutElementBuilders.LayoutElement {
         val presentation = wearGlucoseTilePresentation(state, colors, now, preferences.cgmThresholds)
         val primary = Row.Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
@@ -203,16 +224,14 @@ class GlucoseTileService : SugarliciousTileService() {
         val column = Column.Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(tileText("SUGARLICIOUS  ·  ${presentation.status}", 11f, presentation.statusColor, bold = true))
-            .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+            .addContent(tileText(presentation.status, 10f, presentation.statusColor, bold = true))
+            .addContent(Spacer.Builder().setHeight(dp(6f)).build())
             .addContent(card)
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-            .addContent(tileText(presentation.meta, 16f, colors.textPrimary, bold = true))
+            .addContent(tileText(presentation.meta.replace("  ·  mg/dL", "") + presentation.footer.substringAfterLast("vor ", "").let { if (it.isBlank()) "" else " · ${it.replace(" min", "m")}" }, 14f, colors.textPrimary, bold = true))
             .addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            .addContent(tileText(presentation.footer, 11f, colors.textSecondary, bold = false))
             .build()
         return tileRoot(colors.background, column)
-    }
 }
 
 class TherapyTileService : SugarliciousTileService() {
@@ -242,6 +261,80 @@ class TherapyTileService : SugarliciousTileService() {
             .build()
         return tileRoot(colors.background, column)
     }
+}
+
+private fun metricTileContent(
+    label: String,
+    rawValue: Double?,
+    unit: String,
+    accent: Int,
+    colors: WatchUiColors,
+    state: TherapyDisplayState?,
+    now: Long,
+    decimals: Int = if (label == "COB") 0 else 1,
+): LayoutElementBuilders.LayoutElement {
+    val freshness = TherapyDisplayFormatter.freshness(state, now)
+    val valid = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+    val value = rawValue?.takeIf { valid && it.isFinite() }?.let { String.format(Locale.US, "%.${decimals}f", it) } ?: "—"
+    val status = if (valid && rawValue != null) TherapyDisplayFormatter.freshnessLabel(freshness) else "KEINE DATEN"
+    val column = Column.Builder()
+        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText(label, 13f, accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(value, 42f, colors.textPrimary, bold = true))
+        .addContent(tileText(if (value == "—") "" else unit, 14f, colors.textSecondary, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(status, 10f, if (valid) colors.accent else colors.glucoseLow, bold = true))
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 16f, column))
+}
+
+private fun pumpTileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
+    val freshness = TherapyDisplayFormatter.freshness(state, now)
+    val pump = state?.pump
+    val valid = (freshness == Freshness.CURRENT || freshness == Freshness.DELAYED) && pump != null
+    val reservoir = pump?.reservoirUnits?.takeIf { valid }?.let { String.format(Locale.US, "%.0f U", it) } ?: "—"
+    val column = Column.Builder()
+        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText("PUMPE", 13f, colors.accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(reservoir, 34f, colors.textPrimary, bold = true))
+        .addContent(tileText(pump?.status?.takeIf { valid && it.isNotBlank() } ?: "KEINE DATEN", 11f, colors.textSecondary, bold = true))
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 16f, column))
+}
+
+private fun graphTileContent(
+    state: TherapyDisplayState?,
+    colors: WatchUiColors,
+    now: Long,
+    preferences: WearDisplayPreferences,
+): LayoutElementBuilders.LayoutElement {
+    val cutoff = now - preferences.graphHours * 60L * 60_000L
+    val samples = state?.glucoseHistory.orEmpty().filter { it.measuredAtEpochMs in cutoff..now }.sortedBy { it.measuredAtEpochMs }.takeLast(18)
+    val dots = Row.Builder().setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER).apply {
+        samples.forEach { sample ->
+            val color = when (preferences.cgmThresholds.classify(sample.valueMgDl)) {
+                CgmRangeClass.VERY_LOW, CgmRangeClass.LOW -> colors.glucoseLow
+                CgmRangeClass.HIGH, CgmRangeClass.VERY_HIGH -> colors.glucoseHigh
+                else -> colors.glucoseInRange
+            }
+            addContent(
+                Box.Builder().setWidth(dp(7f)).setHeight(dp(7f)).setModifiers(
+                    Modifiers.Builder().setBackground(
+                        Background.Builder().setColor(argb(color)).setCorner(Corner.Builder().setRadius(dp(4f)).build()).build(),
+                    ).build(),
+                ).build(),
+            )
+            addContent(Spacer.Builder().setWidth(dp(2f)).build())
+        }
+    }.build()
+    val column = Column.Builder().setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText("CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(18f)).build())
+        .addContent(if (samples.isEmpty()) tileText("KEINE CGM-HISTORIE", 12f, colors.textSecondary, bold = true) else dots)
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 18f, column))
 }
 
 private fun metricCard(label: String, value: String, accent: Int, colors: WatchUiColors): Box {

@@ -9,6 +9,34 @@ enum class WearTileKind(internal val preferenceName: String) {
     THERAPY("wear_tile_therapy_appearance"),
 }
 
+enum class WearTileContent(val label: String) {
+    GLUCOSE("Glukose"),
+    GRAPH("Graph"),
+    IOB("IOB"),
+    COB("COB"),
+    BASAL("Basal"),
+    PUMP("Pumpe"),
+}
+
+/** The two system tile slots keep their own content choice; no global fake tile state. */
+internal object WearTileContentStore {
+    private const val PREFERENCES = "wear_tile_content"
+
+    fun read(context: Context, kind: WearTileKind): WearTileContent {
+        val fallback = if (kind == WearTileKind.GLUCOSE) WearTileContent.GLUCOSE else WearTileContent.IOB
+        val raw = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getString(kind.name, fallback.name)
+        return WearTileContent.entries.firstOrNull { it.name == raw } ?: fallback
+    }
+
+    fun write(context: Context, kind: WearTileKind, content: WearTileContent) {
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putString(kind.name, content.name)
+            .apply()
+    }
+}
+
 /** Independent appearance state for each Wear OS tile. */
 internal object WearTileAppearanceStore {
     private const val PREFIX = "color."
