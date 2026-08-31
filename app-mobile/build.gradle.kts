@@ -19,6 +19,20 @@ val syncSugarliciousAnalogPreviewAssets =
         ) {
             rename { "sugarlicious_analog_second_hand.png" }
         }
+        from(
+            rootProject.file(
+                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/hour_hand.png",
+            ),
+        ) {
+            rename { "sugarlicious_analog_hour_hand.png" }
+        }
+        from(
+            rootProject.file(
+                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/minute_hand.png",
+            ),
+        ) {
+            rename { "sugarlicious_analog_minute_hand.png" }
+        }
         into(generatedAnalogPreviewRes)
         eachFile { path = "drawable-nodpi/$name" }
         includeEmptyDirs = false

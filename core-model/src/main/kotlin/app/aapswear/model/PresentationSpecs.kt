@@ -51,6 +51,44 @@ data class GraphAxisSpec(
     val targetScaleSide: AxisSide = AxisSide.RIGHT,
 )
 
+/** Shared semantic spacing for the plot -> tick -> label relationship on every graph surface. */
+data class GraphAxisLayoutSpec(
+    val plotToTickGapDp: Float = 2f,
+    val tickLengthDp: Float = 5f,
+    val tickToLabelGapDp: Float = 3f,
+    val outerEdgePaddingDp: Float = 6f,
+) {
+    init {
+        require(plotToTickGapDp >= 0f)
+        require(tickLengthDp > 0f)
+        require(tickToLabelGapDp >= 0f)
+        require(outerEdgePaddingDp >= 0f)
+    }
+
+    companion object {
+        val DEFAULT = GraphAxisLayoutSpec()
+        val COMPACT = GraphAxisLayoutSpec(1.5f, 4f, 2.5f, 4f)
+    }
+}
+
+/** System trend size plus sparse surface overrides; null means inherit the system value. */
+data class TrendAppearance(
+    val systemTrendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+    val surfaceOverrides: Map<PresentationSurface, Int> = emptyMap(),
+) {
+    fun resolvedPercent(surface: PresentationSurface): Int =
+        (surfaceOverrides[surface] ?: systemTrendScalePercent)
+            .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun withOverride(surface: PresentationSurface, percent: Int?): TrendAppearance = copy(
+        surfaceOverrides = if (percent == null || percent == systemTrendScalePercent) {
+            surfaceOverrides - surface
+        } else {
+            surfaceOverrides + (surface to percent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
+        },
+    )
+}
+
 enum class AxisSide { LEFT, RIGHT }
 
 data class GraphRangeSpec(

@@ -13,6 +13,7 @@ import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.RelativeGraphTimeAxis
@@ -167,8 +168,8 @@ object SharedWearCgmGraphRenderer {
         line.color = palette.lowLine
         canvas.drawLine(plot.left, metrics.lowY, plot.right, metrics.lowY, line)
 
-        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, plot.right, widthPx, dp(4f), axisText, line, palette.axisTick)
-        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, plot.right, widthPx, dp(4f), axisText, line, palette.axisTick)
+        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, plot.right, widthPx, density, axisText, line, palette.axisTick)
+        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, plot.right, widthPx, density, axisText, line, palette.axisTick)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
         if (predictions.isNotEmpty()) {
@@ -241,19 +242,25 @@ object SharedWearCgmGraphRenderer {
         y: Float,
         plotRight: Float,
         widthPx: Int,
-        tickLength: Float,
+        density: Float,
         text: Paint,
         line: Paint,
         tickColor: Int,
     ) {
+        val spec = GraphAxisLayoutSpec.COMPACT
+        val gap = spec.plotToTickGapDp * density
+        val tickLength = spec.tickLengthDp * density
+        val labelGap = spec.tickToLabelGapDp * density
         line.color = tickColor
-        line.strokeWidth = tickLength / 5f
+        line.strokeWidth = 0.8f * density
         line.pathEffect = null
-        canvas.drawLine(plotRight + tickLength * 0.4f, y, plotRight + tickLength * 1.4f, y, line)
-        text.textAlign = Paint.Align.RIGHT
-        text.color = text.color
+        val tickStart = plotRight + gap
+        val tickEnd = tickStart + tickLength
+        canvas.drawLine(tickStart, y, tickEnd, y, line)
+        text.textAlign = Paint.Align.LEFT
         val baseline = y - (text.ascent() + text.descent()) / 2f
-        canvas.drawText(value.toInt().toString(), widthPx - tickLength, baseline, text)
+        val labelX = minOf(tickEnd + labelGap, widthPx - spec.outerEdgePaddingDp * density - text.measureText(value.toInt().toString()))
+        canvas.drawText(value.toInt().toString(), labelX, baseline, text)
     }
 
     private fun drawTimeAxis(

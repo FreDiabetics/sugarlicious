@@ -31,7 +31,9 @@ import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -123,10 +125,18 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             if (notificationGraphEnabled) {
                 NotificationGraphRenderer.renderExpanded(this, latestState, uiPreferences)
             } else null
-        val collapsedView =
-            notificationRemoteView(R.layout.notification_sugarlicious_collapsed, display, collapsedGraph)
-        val expandedView =
-            notificationRemoteView(R.layout.notification_sugarlicious_expanded, display, expandedGraph)
+        val collapsedView = notificationRemoteView(
+            R.layout.notification_sugarlicious_collapsed,
+            NotificationGraphProfile.COLLAPSED,
+            display,
+            collapsedGraph,
+        )
+        val expandedView = notificationRemoteView(
+            R.layout.notification_sugarlicious_expanded,
+            NotificationGraphProfile.EXPANDED,
+            display,
+            expandedGraph,
+        )
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_outlined)
@@ -165,6 +175,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
 
     private fun notificationRemoteView(
         layoutId: Int,
+        profile: NotificationGraphProfile,
         display: NotificationDisplay,
         graph: Bitmap?,
     ): RemoteViews {
@@ -172,13 +183,35 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY)
         val textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY)
 
+        val layout = NotificationLayoutSettingsStore.read(uiPreferences, profile)
+        val systemTrendScale = DashboardUiPreferences.read(uiPreferences).trendScalePercent
+        val valueBaseSp = if (profile == NotificationGraphProfile.COLLAPSED) 29f else 36f
+        val metaBaseSp = if (profile == NotificationGraphProfile.COLLAPSED) 11f else 13f
+        val trendBaseDp = if (profile == NotificationGraphProfile.COLLAPSED) 19f else 23f
+        val trendSizeDp = trendBaseDp * layout.resolvedTrendPercent(systemTrendScale) / 100f
+        val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
             setTextViewText(R.id.notification_value, display.title)
             setTextViewText(R.id.notification_meta, display.subtitle)
+            setTextViewTextSize(R.id.notification_value, android.util.TypedValue.COMPLEX_UNIT_SP, valueBaseSp * layout.glucoseScalePercent / 100f)
+            setTextViewTextSize(R.id.notification_meta, android.util.TypedValue.COMPLEX_UNIT_SP, metaBaseSp * layout.metaScalePercent / 100f)
+            setFloat(R.id.notification_value, "setTranslationX", layout.glucoseXPercent / 100f * 40f * density)
+            setFloat(R.id.notification_value, "setTranslationY", layout.glucoseYPercent / 100f * 24f * density)
+            setFloat(R.id.notification_trend, "setTranslationX", layout.trendXPercent / 100f * 40f * density)
+            setFloat(R.id.notification_trend, "setTranslationY", layout.trendYPercent / 100f * 24f * density)
+            setViewLayoutWidth(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+            setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
             setTextColor(R.id.notification_value, textPrimary)
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
-                display.trend?.let { NotificationTrendRenderer.render(this@PersistentBridgeService, it, tint = textPrimary) }
+                display.trend?.let {
+                    NotificationTrendRenderer.render(
+                        this@PersistentBridgeService,
+                        it,
+                        sizePx = (trendSizeDp * density).roundToInt(),
+                        tint = textPrimary,
+                    )
+                }
             if (trendBitmap != null) {
                 setViewVisibility(R.id.notification_trend, View.VISIBLE)
                 setImageViewBitmap(R.id.notification_trend, trendBitmap)
@@ -600,10 +633,21 @@ internal object NotificationGraphRenderer {
         val minValue = min(targetLow - 24.0, lowest - max(12.0, lowest * 0.08))
         val maxValue = max(targetHigh + 24.0, highest + max(12.0, highest * 0.08))
 
-        val plotLeft = bounds.left
-        val plotRight = bounds.right
-        val plotTop = bounds.top
-        val plotBottom = bounds.bottom
+        val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
+        fun dp(value: Float) = value * renderDensity
+        val axisText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = graphColor(SugarliciousColorRole.GRAPH_LABEL)
+            textSize = dp(if (profile == NotificationGraphProfile.COLLAPSED) 7f else 8.5f)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val widestYLabel = maxOf(axisText.measureText(targetHigh.roundToInt().toString()), axisText.measureText(targetLow.roundToInt().toString()))
+        val timeBand = if (profile == NotificationGraphProfile.EXPANDED) {
+            (axisText.fontMetrics.descent - axisText.fontMetrics.ascent) + dp(axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp)
+        } else 0f
+        val plotLeft = bounds.left + dp(axis.outerEdgePaddingDp)
+        val plotRight = bounds.right - dp(axis.outerEdgePaddingDp + axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp) - widestYLabel
+        val plotTop = bounds.top + dp(axis.outerEdgePaddingDp)
+        val plotBottom = bounds.bottom - dp(axis.outerEdgePaddingDp) - timeBand
 
         fun y(value: Double): Float {
             val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
@@ -632,6 +676,20 @@ internal object NotificationGraphRenderer {
         canvas.drawLine(plotLeft, y(targetHigh), plotRight, y(targetHigh), paint)
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
         canvas.drawLine(plotLeft, y(targetLow), plotRight, y(targetLow), paint)
+
+        fun drawYTick(value: Double) {
+            val py = y(value)
+            val tickStart = plotRight + dp(axis.plotToTickGapDp)
+            val tickEnd = tickStart + dp(axis.tickLengthDp)
+            paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
+            paint.strokeWidth = max(1f, dp(0.8f))
+            canvas.drawLine(tickStart, py, tickEnd, py, paint)
+            axisText.textAlign = Paint.Align.LEFT
+            val baseline = py - (axisText.fontMetrics.ascent + axisText.fontMetrics.descent) / 2f
+            canvas.drawText(value.roundToInt().toString(), tickEnd + dp(axis.tickToLabelGapDp), baseline, axisText)
+        }
+        drawYTick(targetHigh)
+        drawYTick(targetLow)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
         val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity
@@ -665,6 +723,25 @@ internal object NotificationGraphRenderer {
                 dotRadius + if (current) currentExtra else 0f,
                 paint,
             )
+        }
+
+
+        if (profile == NotificationGraphProfile.EXPANDED) {
+            RelativeGraphTimeAxis.ticks(start, now, now, RelativeGraphTimeAxis.intervalHours(graphHours.toDouble())).forEach { tick ->
+                val px = x(tick.timestampEpochMs)
+                if (px in plotLeft..plotRight) {
+                    val tickTop = plotBottom + dp(axis.plotToTickGapDp)
+                    val tickBottom = tickTop + dp(axis.tickLengthDp)
+                    paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
+                    canvas.drawLine(px, tickTop, px, tickBottom, paint)
+                    axisText.textAlign = when {
+                        tick.hoursBack == 0 -> Paint.Align.RIGHT
+                        tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
+                        else -> Paint.Align.CENTER
+                    }
+                    canvas.drawText(tick.label, px, tickBottom + dp(axis.tickToLabelGapDp) - axisText.fontMetrics.ascent, axisText)
+                }
+            }
         }
 
         return bitmap

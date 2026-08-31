@@ -57,6 +57,7 @@ import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.RangeExcursion
@@ -541,9 +542,12 @@ internal fun renderWidgetGraph(
             textPaint.textSize = metrics.axisTextSizePx
         }
     }
-    textPaint.textAlign = Paint.Align.LEFT
-    canvas.drawText(targetHigh.roundToInt().toString(), graphBounds.right + 4f * density, targetTop - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
-    canvas.drawText(targetLow.roundToInt().toString(), graphBounds.right + 4f * density, targetBottom - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
+    textPaint.textAlign = Paint.Align.RIGHT
+    line.color = palette.argb(WidgetColorRole.AXIS_TICK)
+    listOf(targetTop to targetHigh, targetBottom to targetLow).forEach { (targetY, value) ->
+        canvas.drawLine(metrics.yTickStartPx, targetY, metrics.yTickEndPx, targetY, line)
+        canvas.drawText(value.roundToInt().toString(), metrics.yLabelRightPx, targetY - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
+    }
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, density)
     return bitmap
 }
@@ -562,6 +566,9 @@ internal data class WidgetGraphMetrics(
     val outlineWidthPx: Float,
     val lineWidthPx: Float,
     val edgeGapPx: Float,
+    val yTickStartPx: Float,
+    val yTickEndPx: Float,
+    val yLabelRightPx: Float,
 )
 
 internal fun widgetGraphClipPath(metrics: WidgetGraphMetrics): Path = Path().apply {
@@ -615,8 +622,13 @@ internal fun widgetGraphMetrics(
     val graphVerticalInset = (if (lowSurface) 4f else 8f) * safeDensity
     val graphLeft = graphLeftInset
     val graphTop = graphVerticalInset
-    val graphRightInset = maxOf(yLabelWidth + 10f * safeDensity, nowLabelHalf + edgeGap) + graphLeftInset
-    val graphRight = (widthPx - graphRightInset).coerceAtLeast(graphLeft + 24f * safeDensity)
+    val axisSpec = if (lowSurface) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
+    val labelRight = widthPx - graphLeftInset
+    val labelLeft = labelRight - yLabelWidth
+    val yTickEnd = labelLeft - axisSpec.tickToLabelGapDp * safeDensity
+    val yTickStart = yTickEnd - axisSpec.tickLengthDp * safeDensity
+    val graphRight = (yTickStart - axisSpec.plotToTickGapDp * safeDensity)
+        .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
     val graphBounds = RectF(graphLeft, graphTop, graphRight, graphBottom)
     val pointInset = (dotRadius + outline / 2f).coerceAtMost(minOf(graphBounds.width(), graphBounds.height()) * 0.12f)
@@ -642,6 +654,9 @@ internal fun widgetGraphMetrics(
         outlineWidthPx = outline,
         lineWidthPx = lineWidth,
         edgeGapPx = edgeGap,
+        yTickStartPx = yTickStart,
+        yTickEndPx = yTickEnd,
+        yLabelRightPx = labelRight,
     )
 }
 
@@ -706,7 +721,8 @@ internal fun renderMinimalGlucoseWidget(
     val gap = if (spec != null) (paint.textSize * (6f / 42f)).coerceAtLeast(3f) else 0f
     val groupWidth = textWidth + gap + arrowWidth
     val startX = if (options.leftAligned) options.leftInsetDp * pixelDensity else (bitmap.width - groupWidth) / 2f
-    val baseline = bitmap.height / 2f - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
+    val centerY = bitmap.height / 2f + options.verticalOffsetDp * pixelDensity
+    val baseline = centerY - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
     canvas.drawText(value, startX, baseline, paint)
     if (spec != null) {
         val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -720,7 +736,7 @@ internal fun renderMinimalGlucoseWidget(
             style = Paint.Style.FILL
         }
         val left = startX + textWidth + gap
-        val top = bitmap.height / 2f - arrowTargetHeight / 2f
+        val top = centerY - arrowTargetHeight / 2f
         canvas.save()
         canvas.translate(left, top)
         canvas.scale(arrowSize, arrowSize)
@@ -739,6 +755,7 @@ internal data class GlucoseWidgetRenderOptions(
     val trendScale: Float = 1f,
     val leftAligned: Boolean = false,
     val leftInsetDp: Float = 12f,
+    val verticalOffsetDp: Float = 0f,
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = AndroidColor.DKGRAY,
     val cornerRadiusDp: Float = 20f,
@@ -863,6 +880,7 @@ internal fun renderGlucoseGraphWidget(
             trendScale = configurationScale(configuration.trendScalePercent),
             leftAligned = true,
             leftInsetDp = 12f,
+            verticalOffsetDp = -4f,
         ),
     )
     val graph = renderWidgetGraph(
@@ -902,7 +920,7 @@ internal fun renderGlucoseGraphWidget(
             textSize = (10f * pixelDensity).coerceAtMost(topHeight * 0.15f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
-        canvas.drawText(unit, 12f * pixelDensity, topHeight - 2f * pixelDensity, paint)
+        canvas.drawText(unit, 12f * pixelDensity, topHeight - 6f * pixelDensity, paint)
     }
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, pixelDensity)
     return bitmap
@@ -931,7 +949,9 @@ internal fun combinedWidgetMetrics(
     val safeDensity = density.coerceIn(1f, 4f)
     val headerHeight = combinedWidgetTopHeight(safeHeight, valuePercent)
     val sectionGap = (2f * safeDensity).roundToInt().coerceAtLeast(1)
-    val graphTop = (headerHeight + sectionGap).coerceAtMost(safeHeight - 64)
+    val graphTop = (headerHeight + sectionGap - (4f * safeDensity).roundToInt())
+        .coerceAtLeast(40)
+        .coerceAtMost(safeHeight - 64)
     return CombinedWidgetMetrics(
         headerHeightPx = headerHeight,
         graphFrame = Rect(0, graphTop, safeWidth, safeHeight),

@@ -1090,6 +1090,17 @@ internal fun NotificationGraphSettingsPanel() {
     var expandedRadius by remember(revision) { mutableFloatStateOf(expandedInitial.cgmRadiusDp) }
     var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.cgmOutlineEnabled) }
     var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.cgmOutlineWidthDp) }
+    var collapsedLayout by remember(revision) {
+        mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.COLLAPSED))
+    }
+    var expandedLayout by remember(revision) {
+        mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.EXPANDED))
+    }
+
+    fun saveLayout(profile: NotificationGraphProfile, value: NotificationLayoutSettings) {
+        NotificationLayoutSettingsStore.save(preferences, profile, value)
+        PersistentBridgeService.refresh(context)
+    }
 
     fun saveCollapsed() {
         NotificationGraphDotStyleStore.save(
@@ -1190,6 +1201,13 @@ internal fun NotificationGraphSettingsPanel() {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 5.dp),
         )
+        NotificationLayoutControls(
+            value = collapsedLayout,
+            onChange = {
+                collapsedLayout = it
+                saveLayout(NotificationGraphProfile.COLLAPSED, it)
+            },
+        )
         SugarliciousSettingSlider(
             title = "Punktgröße",
             description = "CGM-Dots im eingeklappten Notification-Graph",
@@ -1226,6 +1244,13 @@ internal fun NotificationGraphSettingsPanel() {
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
+        )
+        NotificationLayoutControls(
+            value = expandedLayout,
+            onChange = {
+                expandedLayout = it
+                saveLayout(NotificationGraphProfile.EXPANDED, it)
+            },
         )
         SugarliciousSettingSlider(
             title = "Punktgröße",
@@ -1305,6 +1330,32 @@ internal fun NotificationGraphSettingsPanel() {
             },
         )
     }
+}
+
+@Composable
+private fun NotificationLayoutControls(
+    value: NotificationLayoutSettings,
+    onChange: (NotificationLayoutSettings) -> Unit,
+) {
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    SugarliciousSettingSlider("CGM-Größe", "Nur der Glukosewert", value.glucoseScalePercent.toFloat(), 70f..200f, "${value.glucoseScalePercent} %", { onChange(value.copy(glucoseScalePercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("CGM X", "Relative horizontale Position", value.glucoseXPercent.toFloat(), -40f..40f, "${value.glucoseXPercent} %", { onChange(value.copy(glucoseXPercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("CGM Y", "Relative vertikale Position", value.glucoseYPercent.toFloat(), -40f..40f, "${value.glucoseYPercent} %", { onChange(value.copy(glucoseYPercent = it.toInt())) }, {})
+    SugarliciousSettingSlider(
+        "Trendpfeilgröße",
+        if (value.trendScalePercent == null) "Systemstandard" else "Notification-Override",
+        (value.trendScalePercent ?: 100).toFloat(),
+        70f..200f,
+        value.trendScalePercent?.let { "$it %" } ?: "System",
+        { onChange(value.copy(trendScalePercent = it.toInt())) },
+        {},
+    )
+    TextButton(onClick = { onChange(value.copy(trendScalePercent = null)) }) {
+        Text("SYSTEMSTANDARD VERWENDEN", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+    }
+    SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", { onChange(value.copy(trendXPercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("Trend Y", "Relative vertikale Position", value.trendYPercent.toFloat(), -40f..40f, "${value.trendYPercent} %", { onChange(value.copy(trendYPercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("Delta/Age-Größe", "Sekundärzeile", value.metaScalePercent.toFloat(), 70f..160f, String.format(locale, "%d %%", value.metaScalePercent), { onChange(value.copy(metaScalePercent = it.toInt())) }, {})
 }
 
 internal fun toHex(argb: Int): String =

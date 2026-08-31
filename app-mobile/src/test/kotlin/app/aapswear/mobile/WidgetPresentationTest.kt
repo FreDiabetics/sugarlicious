@@ -172,7 +172,8 @@ class WidgetPresentationTest {
         assertFalse(bitmap.isRecycled)
         val metrics = combinedWidgetMetrics(440, 440, 2f, DEFAULT_COMBINED_WIDGET_VALUE_PERCENT)
         assertTrue(metrics.headerHeightPx in 160..175)
-        assertTrue(metrics.graphFrame.top > metrics.headerHeightPx)
+        assertTrue(metrics.graphFrame.top < metrics.headerHeightPx)
+        assertTrue(metrics.headerHeightPx - metrics.graphFrame.top <= 8)
         assertEquals(440, metrics.graphFrame.bottom)
     }
 

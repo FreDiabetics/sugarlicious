@@ -1,6 +1,9 @@
 package app.aapswear.mobile
 
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PathMeasure
+import android.graphics.RectF
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -16,7 +19,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -70,20 +72,6 @@ internal object SugarliciousAnalogGeometry {
     const val bottomArcSweep = 284f
     const val bottomArcStroke = 10f
 
-    const val handConnectorX = 222.14f
-    const val handConnectorY = 197.57f
-    const val handConnectorWidth = 5.72f
-    const val handConnectorHeight = 25.98f
-    const val hourHandX = 216.21f
-    const val hourHandY = 102.76f
-    const val hourHandWidth = 17.58f
-    const val hourHandHeight = 94.93f
-    const val minuteHandX = 216.21f
-    const val minuteHandY = 33.28f
-    const val minuteHandWidth = 17.58f
-    const val minuteHandHeight = 164.36f
-    const val handCorner = 6.51f
-    const val handOutline = 5.27f
 }
 
 @Composable
@@ -111,7 +99,7 @@ internal fun SugarliciousAnalogFacePreview(
     val accent = Color(0xFFEB600A)
 
     Box(
-        modifier = modifier.clip(CircleShape).background(Color(0xFF1D1D1B)),
+        modifier = modifier.clip(CircleShape).background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.fillMaxSize()) {
@@ -252,6 +240,27 @@ internal fun SugarliciousAnalogFacePreview(
                 textPaint.color = color
                 drawIntoCanvas { it.nativeCanvas.drawText(value, x(px), y(py), textPaint) }
             }
+            fun curvedOuterText(value: String, arc: AnalogArcGeometry, textSize: Float, color: Int) {
+                textPaint.textSize = textSize * scale
+                textPaint.color = color
+                textPaint.textAlign = Paint.Align.LEFT
+                val radius = (SugarliciousAnalogGeometry.outerDiameter / 2f - 17f) * scale
+                val cx = x(SugarliciousAnalogGeometry.outerCenter)
+                val cy = y(SugarliciousAnalogGeometry.outerCenter)
+                val path = Path().apply {
+                    addArc(
+                        RectF(cx - radius, cy - radius, cx + radius, cy + radius),
+                        arc.startAngle,
+                        sweep(arc),
+                    )
+                }
+                val pathLength = PathMeasure(path, false).length
+                val textWidth = textPaint.measureText(value)
+                drawIntoCanvas {
+                    it.nativeCanvas.drawTextOnPath(value, path, ((pathLength - textWidth) / 2f).coerceAtLeast(0f), 0f, textPaint)
+                }
+                textPaint.textAlign = Paint.Align.CENTER
+            }
             fun trendIcon(centerX: Float, centerY: Float, height: Float) {
                 val spec = glucoseState?.trend?.let(TrendVisuals::spec) ?: return
                 val assetScale = height * scale / spec.canvasHeight
@@ -276,7 +285,12 @@ internal fun SugarliciousAnalogFacePreview(
             text("74%", 105f, 89f, 18f, 0xFFEB600A.toInt())
             text("160U", 345f, 92f, 17f, 0xFFEB600A.toInt())
             text(cob, 349f, 330f, 18f, 0xFFEB600A.toInt())
-            text("$iob · $basal", 100f, 329f, 14f, 0xFFEB600A.toInt())
+            curvedOuterText(
+                "$iob · $basal",
+                SugarliciousAnalogGeometry.outerLowerLeft,
+                14f,
+                0xFFEB600A.toInt(),
+            )
             text(iob, 127f, 218f, 18f, 0xFFEB600A.toInt())
             text("IOB", 127f, 241f, 13f, Color.White.toArgb())
             text(if (displayable) glucose else "—", 310f, 218f, 18f, 0xFFEB600A.toInt())
@@ -285,62 +299,16 @@ internal fun SugarliciousAnalogFacePreview(
             text(if (displayable) glucose else "—", 225f, 310f, 34f, Color.White.toArgb())
             text(status, 225f, 342f, 11f, 0xFFEB600A.toInt())
 
-            val center = androidx.compose.ui.geometry.Offset(x(225f), y(225f))
-            val angles = fixedWatchPreviewHandAngles
-            fun connectorAndHand(
-                angle: Float,
-                hx: Float,
-                hy: Float,
-                hw: Float,
-                hh: Float,
-            ) {
-                withTransform({ rotate(angle, center) }) {
-                    drawRect(
-                        Color.White,
-                        androidx.compose.ui.geometry.Offset(x(SugarliciousAnalogGeometry.handConnectorX), y(SugarliciousAnalogGeometry.handConnectorY)),
-                        androidx.compose.ui.geometry.Size(
-                            SugarliciousAnalogGeometry.handConnectorWidth * scale,
-                            SugarliciousAnalogGeometry.handConnectorHeight * scale,
-                        ),
-                    )
-                    drawRoundRect(
-                        Color.White.copy(alpha = 0.30f),
-                        androidx.compose.ui.geometry.Offset(x(hx), y(hy)),
-                        androidx.compose.ui.geometry.Size(hw * scale, hh * scale),
-                        androidx.compose.ui.geometry.CornerRadius(
-                            SugarliciousAnalogGeometry.handCorner * scale,
-                            SugarliciousAnalogGeometry.handCorner * scale,
-                        ),
-                    )
-                    drawRoundRect(
-                        Color.White,
-                        androidx.compose.ui.geometry.Offset(x(hx), y(hy)),
-                        androidx.compose.ui.geometry.Size(hw * scale, hh * scale),
-                        androidx.compose.ui.geometry.CornerRadius(
-                            SugarliciousAnalogGeometry.handCorner * scale,
-                            SugarliciousAnalogGeometry.handCorner * scale,
-                        ),
-                        style = Stroke(SugarliciousAnalogGeometry.handOutline * scale),
-                    )
-                }
-            }
-
-            connectorAndHand(
-                angles.hour,
-                SugarliciousAnalogGeometry.hourHandX,
-                SugarliciousAnalogGeometry.hourHandY,
-                SugarliciousAnalogGeometry.hourHandWidth,
-                SugarliciousAnalogGeometry.hourHandHeight,
-            )
-            connectorAndHand(
-                angles.minute,
-                SugarliciousAnalogGeometry.minuteHandX,
-                SugarliciousAnalogGeometry.minuteHandY,
-                SugarliciousAnalogGeometry.minuteHandWidth,
-                SugarliciousAnalogGeometry.minuteHandHeight,
-            )
-            drawCircle(Color(0xFFBCBCBC), 10.5f * scale, center)
         }
+
+        AnalogPreviewHand(
+            drawable = R.drawable.sugarlicious_analog_hour_hand,
+            rotation = fixedWatchPreviewHandAngles.hour,
+        )
+        AnalogPreviewHand(
+            drawable = R.drawable.sugarlicious_analog_minute_hand,
+            rotation = fixedWatchPreviewHandAngles.minute,
+        )
 
         Image(
             painter = painterResource(R.drawable.sugarlicious_analog_second_hand),
@@ -358,4 +326,19 @@ internal fun SugarliciousAnalogFacePreview(
             drawCircle(Color.Black, size.minDimension * (4f / 450f), center)
         }
     }
+}
+
+@Composable
+private fun AnalogPreviewHand(drawable: Int, rotation: Float) {
+    Image(
+        painter = painterResource(drawable),
+        contentDescription = null,
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = rotation
+                    transformOrigin = TransformOrigin.Center
+                },
+    )
 }
