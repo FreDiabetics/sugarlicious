@@ -482,20 +482,16 @@ abstract class TherapyComplicationService(
         }
 
         val shortText = presentation?.text ?: pair.first
-        val inlineTrend = presentation?.trend.takeIf { kind.usesInlineShortTextTrend() }
-        val displayedShortText = inlineTrend
-            ?.let { "$shortText\u2009${arrow(it)}" }
-            ?: shortText
         val shortBuilder = ShortTextComplicationData.Builder(
             PlainComplicationText.Builder(
-                if (kind == ProviderKind.IOB_COB_BASAL) displayedShortText else displayedShortText.take(16),
+                if (kind == ProviderKind.IOB_COB_BASAL) shortText else shortText.take(16),
             ).build(),
             description,
         ).setTapAction(tap)
         (presentation?.title ?: pair.second.takeIf { presentation == null && (kind == ProviderKind.IOB_COB_BASAL || kind == ProviderKind.RESERVOIR) })?.let {
             shortBuilder.setTitle(PlainComplicationText.Builder(if (kind == ProviderKind.IOB_COB_BASAL) it else it.take(16)).build())
         }
-        presentation?.trend?.takeUnless { inlineTrend != null }?.let { trend ->
+        presentation?.trend?.let { trend ->
             TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(shortBuilder::setMonochromaticImage)
         }
         complicationIcon(kind, therapyState)?.let(shortBuilder::setMonochromaticImage)
@@ -770,14 +766,6 @@ abstract class TherapyComplicationService(
             else -> return null
         }
         return MonochromaticImage.Builder(Icon.createWithResource(this, resource)).build()
-    }
-
-    private fun ProviderKind.usesInlineShortTextTrend(): Boolean = when (this) {
-        ProviderKind.GLUCOSE_TREND,
-        ProviderKind.GLUCOSE_TREND_AGE,
-        ProviderKind.GLUCOSE_TREND_DELTA,
-        ProviderKind.GLUCOSE_TREND_DELTA_AGE -> true
-        else -> false
     }
 
     private fun basalIconResource(basal: BasalState?): Int {

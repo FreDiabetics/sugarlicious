@@ -48,15 +48,15 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `glucose trend short text keeps arrow directly after glucose`() {
+    fun `glucose trend short text uses the shared vector arrow`() {
         val service = Robolectric.buildService(GlucoseTrendComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("123\u2009↗", data.text.getTextAt(service.resources, Instant.now()).toString())
-        assertNull(data.monochromaticImage)
+        assertEquals("123", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertNotNull(data.monochromaticImage)
     }
 
     @Test
-    fun `all short glucose trend combinations place arrow after glucose`() {
+    fun `all short glucose trend combinations use the shared vector arrow`() {
         listOf(
             GlucoseTrendComplication::class.java,
             GlucoseTrendAgeComplication::class.java,
@@ -65,8 +65,8 @@ class TherapyComplicationsTest {
         ).forEach { provider ->
             val service = Robolectric.buildService(provider).create().get()
             val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-            assertTrue(data.text.getTextAt(service.resources, Instant.now()).toString().startsWith("123\u2009↗"))
-            assertNull(data.monochromaticImage)
+            assertEquals("123", data.text.getTextAt(service.resources, Instant.now()).toString())
+            assertNotNull(data.monochromaticImage)
         }
     }
 
@@ -103,12 +103,12 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `trend only exposes one large text arrow without a duplicate icon`() {
+    fun `trend only exposes the shared vector arrow without duplicate text`() {
         val service = Robolectric.buildService(TrendOnlyComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("↗", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("", data.text.getTextAt(service.resources, Instant.now()).toString())
         assertNull(data.title)
-        assertNull(data.monochromaticImage)
+        assertNotNull(data.monochromaticImage)
     }
 
     @Test

@@ -149,7 +149,8 @@ object ComplicationPresentationFormatter {
 
             SugarliciousComplicationIds.TREND_ONLY ->
                 p(
-                    text = trend?.let(TherapyDisplayFormatter::trendArrow).orEmpty().ifBlank { DASH },
+                    text = "",
+                    trend = trend,
                     desc = trend?.let { "Glukosetrend ${TherapyDisplayFormatter.trendArrow(it)}" } ?: "Kein Glukosetrend",
                 )
 

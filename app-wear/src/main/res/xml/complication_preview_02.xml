@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <complications>
-    <complication type="SHORT_TEXT">
-        <text><plain value="123 ↗"/></text>
+    <complication type="SHORT_TEXT" monochromaticImage="@drawable/ic_trend_fortyfiveup">
+        <text><plain value="123" valueType="integer"/></text>
     </complication>
     <complication type="LONG_TEXT" monochromaticImage="@drawable/ic_trend_fortyfiveup">
         <text><plain value="123" valueType="integer"/></text>
