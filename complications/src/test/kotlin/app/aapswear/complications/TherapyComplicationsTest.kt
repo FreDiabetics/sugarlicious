@@ -48,11 +48,26 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `glucose trend also supplies short text`() {
+    fun `glucose trend short text keeps arrow directly after glucose`() {
         val service = Robolectric.buildService(GlucoseTrendComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("123", data.text.getTextAt(service.resources, Instant.now()).toString())
-        assertNotNull(data.monochromaticImage)
+        assertEquals("123 ↗", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertNull(data.monochromaticImage)
+    }
+
+    @Test
+    fun `all short glucose trend combinations place arrow after glucose`() {
+        listOf(
+            GlucoseTrendComplication::class.java,
+            GlucoseTrendAgeComplication::class.java,
+            GlucoseTrendDeltaComplication::class.java,
+            GlucoseTrendDeltaAgeComplication::class.java,
+        ).forEach { provider ->
+            val service = Robolectric.buildService(provider).create().get()
+            val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+            assertTrue(data.text.getTextAt(service.resources, Instant.now()).toString().startsWith("123 ↗"))
+            assertNull(data.monochromaticImage)
+        }
     }
 
     @Test

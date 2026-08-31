@@ -53,6 +53,49 @@ function Draw-TrendArrow([System.Drawing.Graphics]$graphics, [float]$offsetX = 0
     }
 }
 
+function Draw-ProviderGlyph([System.Drawing.Graphics]$graphics, [string]$icon, [float]$centerX, [float]$centerY, [float]$size = 48) {
+    $pen = [System.Drawing.Pen]::new($white, [Math]::Max(5, $size * 0.11))
+    $pen.StartCap = $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $brush = [System.Drawing.SolidBrush]::new($white)
+    try {
+        switch ($icon) {
+            "Xdrip" {
+                $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
+                try {
+                    $path.AddBezier($centerX, $centerY - $size * 0.55, $centerX - $size * 0.35, $centerY - $size * 0.15, $centerX - $size * 0.42, $centerY + $size * 0.12, $centerX, $centerY + $size * 0.48)
+                    $path.AddBezier($centerX, $centerY + $size * 0.48, $centerX + $size * 0.42, $centerY + $size * 0.12, $centerX + $size * 0.35, $centerY - $size * 0.15, $centerX, $centerY - $size * 0.55)
+                    $graphics.FillPath($brush, $path)
+                    $cutoutPen = [System.Drawing.Pen]::new([System.Drawing.Color]::Black, $size * 0.08)
+                    try {
+                        $graphics.DrawLine($cutoutPen, $centerX, $centerY - $size * 0.28, $centerX, $centerY + $size * 0.30)
+                    } finally { $cutoutPen.Dispose() }
+                } finally { $path.Dispose() }
+            }
+            "Iob" {
+                $graphics.DrawLine($pen, $centerX - $size * 0.38, $centerY + $size * 0.38, $centerX + $size * 0.28, $centerY - $size * 0.28)
+                $graphics.DrawLine($pen, $centerX + $size * 0.10, $centerY - $size * 0.45, $centerX + $size * 0.45, $centerY - $size * 0.10)
+                $graphics.DrawLine($pen, $centerX - $size * 0.42, $centerY + $size * 0.18, $centerX - $size * 0.18, $centerY + $size * 0.42)
+            }
+            "Cob" {
+                $graphics.DrawLine($pen, $centerX, $centerY + $size * 0.48, $centerX, $centerY - $size * 0.45)
+                foreach ($direction in @(-1, 1)) {
+                    foreach ($offset in @(-0.28, -0.05, 0.18)) {
+                        $graphics.DrawLine($pen, $centerX, $centerY + $size * $offset, $centerX + $direction * $size * 0.27, $centerY + $size * ($offset - 0.15))
+                    }
+                }
+            }
+            "BasalMore" {
+                $graphics.DrawLine($pen, $centerX - $size * 0.45, $centerY + $size * 0.22, $centerX + $size * 0.15, $centerY + $size * 0.22)
+                $graphics.DrawLine($pen, $centerX + $size * 0.15, $centerY + $size * 0.22, $centerX + $size * 0.15, $centerY - $size * 0.22)
+                $graphics.DrawLine($pen, $centerX + $size * 0.15, $centerY - $size * 0.22, $centerX + $size * 0.45, $centerY - $size * 0.22)
+            }
+        }
+    } finally {
+        $brush.Dispose()
+        $pen.Dispose()
+    }
+}
+
 function Draw-Gauge(
     [System.Drawing.Graphics]$graphics,
     [float]$progress,
@@ -137,7 +180,9 @@ function Render-ProviderIcon([hashtable]$spec) {
             "Ranged" {
                 Draw-Gauge $graphics $spec.Progress $white
                 $size = if ($spec.Text.Length -gt 7) { 35 } else { 52 }
-                Draw-CenteredText $graphics $spec.Text ([System.Drawing.RectangleF]::new(38, 72, 180, 105)) $size
+                $bounds = if ($spec.Icon) { [System.Drawing.RectangleF]::new(85, 72, 133, 105) } else { [System.Drawing.RectangleF]::new(38, 72, 180, 105) }
+                if ($spec.Icon) { Draw-ProviderGlyph $graphics $spec.Icon 64 126 42 }
+                Draw-CenteredText $graphics $spec.Text $bounds $size
                 if ($spec.Trend) { Draw-TrendArrow $graphics -18 62 }
             }
             "Goal" {
@@ -159,6 +204,10 @@ function Render-ProviderIcon([hashtable]$spec) {
                 if ($spec.Trend) {
                     $mainBounds = [System.Drawing.RectangleF]::new(10, $mainBounds.Y, 172, $mainBounds.Height)
                 }
+                if ($spec.Icon) {
+                    Draw-ProviderGlyph $graphics $spec.Icon 50 ($mainBounds.Y + $mainBounds.Height / 2) 44
+                    $mainBounds = [System.Drawing.RectangleF]::new(79, $mainBounds.Y, 159, $mainBounds.Height)
+                }
                 Draw-CenteredText $graphics $spec.Text $mainBounds $mainSize
                 if ($spec.Trend) { Draw-TrendArrow $graphics 0 -11 }
                 if ($hasTitle) {
@@ -177,9 +226,9 @@ function Render-ProviderIcon([hashtable]$spec) {
 }
 
 $specs = @(
-    @{ Name = "01a"; Kind = "Text"; Text = "123" },
-    @{ Name = "01b"; Kind = "Text"; Text = "123" },
-    @{ Name = "01c"; Kind = "Ranged"; Text = "123"; Progress = 0.377 },
+    @{ Name = "01a"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
+    @{ Name = "01b"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
+    @{ Name = "01c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Icon = "Xdrip" },
     @{ Name = "02a"; Kind = "Text"; Text = "123"; Trend = $true },
     @{ Name = "02b"; Kind = "Text"; Text = "123"; Trend = $true },
     @{ Name = "02c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Trend = $true },
@@ -198,13 +247,13 @@ $specs = @(
     @{ Name = "11"; Kind = "Text"; Text = "+5"; Title = "2m" },
     @{ Name = "12a"; Kind = "Text"; Text = "—" },
     @{ Name = "12b"; Kind = "Ranged"; Text = "—"; Progress = 0 },
-    @{ Name = "13"; Kind = "Text"; Text = "0.80U/h" },
-    @{ Name = "14a"; Kind = "Text"; Text = "1.20U" },
-    @{ Name = "14b"; Kind = "Ranged"; Text = "1.20U"; Progress = 0.12 },
-    @{ Name = "15a"; Kind = "Text"; Text = "15g" },
-    @{ Name = "15b"; Kind = "Ranged"; Text = "15g"; Progress = 0.10 },
-    @{ Name = "16a"; Kind = "Text"; Text = "0.80/1.2/15"; Title = "B/I/C" },
-    @{ Name = "16b"; Kind = "Text"; Text = "0.80U/h · 1.2U · 15g"; Title = "Basal · IOB · COB" },
+    @{ Name = "13"; Kind = "Text"; Text = "0.80U/h"; Icon = "BasalMore" },
+    @{ Name = "14a"; Kind = "Text"; Text = "1.20U"; Icon = "Iob" },
+    @{ Name = "14b"; Kind = "Ranged"; Text = "1.20U"; Progress = 0.12; Icon = "Iob" },
+    @{ Name = "15a"; Kind = "Text"; Text = "15g"; Icon = "Cob" },
+    @{ Name = "15b"; Kind = "Ranged"; Text = "15g"; Progress = 0.10; Icon = "Cob" },
+    @{ Name = "16a"; Kind = "Text"; Text = "1.2U · 15g"; Title = "0.80U/h" },
+    @{ Name = "16b"; Kind = "Text"; Text = "1.2U · 15g"; Title = "0.80U/h" },
     @{ Name = "17a"; Kind = "Text"; Text = "●" },
     @{ Name = "17b"; Kind = "Icon" },
     @{ Name = "18a"; Kind = "Text"; Text = "120U"; Title = "OK" },
