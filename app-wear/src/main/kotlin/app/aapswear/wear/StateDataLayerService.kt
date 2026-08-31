@@ -328,8 +328,9 @@ class StateDataLayerService : WearableListenerService() {
 
     private fun persistComplicationAppearance(event: DataEvent) {
         val dataMap = runCatching { DataMapItem.fromDataItem(event.dataItem).dataMap }.getOrNull() ?: return
-        val catalogId = dataMap.getInt("catalogId", -1)
-        if (catalogId !in SugarliciousComplicationIds.all) return
+        val rawCatalogId = dataMap.getInt("catalogId", -1)
+        if (rawCatalogId !in SugarliciousComplicationIds.all) return
+        val catalogId = SugarliciousComplicationIds.baseId(rawCatalogId)
         val scale = dataMap.getInt("trendScale", 0)
         getSharedPreferences("complication_appearance", Context.MODE_PRIVATE).edit()
             .apply {

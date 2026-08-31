@@ -126,6 +126,9 @@ abstract class TherapyComplicationService(
             else -> null
         }
 
+    private val appearanceCatalogId: Int?
+        get() = catalogId?.let(SugarliciousComplicationIds::baseId)
+
     override fun onComplicationActivated(complicationInstanceId: Int, type: ComplicationType) {
         super.onComplicationActivated(complicationInstanceId, type)
         ActiveComplicationRegistry.activate(this, complicationInstanceId, catalogId)
@@ -357,7 +360,7 @@ abstract class TherapyComplicationService(
                         )
                     }
                     presentation?.trend?.let { trend ->
-                        TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(builder::setMonochromaticImage)
+                        TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(builder::setMonochromaticImage)
                     }
 
                     return builder.build()
@@ -464,7 +467,7 @@ abstract class TherapyComplicationService(
                 builder.setTitle(PlainComplicationText.Builder(it).build())
             }
             presentation?.trend?.let { trend ->
-                TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(builder::setMonochromaticImage)
+                TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(builder::setMonochromaticImage)
             }
             complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
             return builder.build()
@@ -479,7 +482,7 @@ abstract class TherapyComplicationService(
             shortBuilder.setTitle(PlainComplicationText.Builder(if (kind == ProviderKind.IOB_COB_BASAL) it else it.take(16)).build())
         }
         presentation?.trend?.let { trend ->
-            TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(shortBuilder::setMonochromaticImage)
+            TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(shortBuilder::setMonochromaticImage)
         }
         complicationIcon(kind, therapyState)?.let(shortBuilder::setMonochromaticImage)
         return shortBuilder.build()

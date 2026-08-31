@@ -199,8 +199,8 @@ object ComplicationPresentationFormatter {
                 val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, " U", 1)
                 val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, " g", 0)
                 p(
-                    text = "IOB $iob · COB $cob",
-                    title = "Basal $basal",
+                    text = "$iob · $cob",
+                    title = basal,
                     desc = "Basal $basal, IOB $iob, COB $cob",
                 )
             }

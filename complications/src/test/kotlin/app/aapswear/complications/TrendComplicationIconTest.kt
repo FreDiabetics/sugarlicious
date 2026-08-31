@@ -4,6 +4,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.Trend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -43,5 +44,17 @@ class TrendComplicationIconTest {
                 assertEquals(125f / 60f, bitmap.width.toFloat() / bitmap.height, 0.02f)
             }
         }
+    }
+
+    @Test
+    fun complicationScaleUsesMostOfHostIconAtDefaultAndStillGrows() {
+        val small = TrendComplicationIcon.glyphFillFraction(70)
+        val default = TrendComplicationIcon.glyphFillFraction(100)
+        val large = TrendComplicationIcon.glyphFillFraction(200)
+
+        assertEquals(0.70f, small, 0.001f)
+        assertTrue(default >= 0.75f)
+        assertTrue(default > small)
+        assertEquals(1.0f, large, 0.001f)
     }
 }

@@ -40,11 +40,11 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `basal IOB COB stays readable in short text`() {
+    fun `basal IOB COB shows values without redundant labels`() {
         val service = Robolectric.buildService(IobCobBasalComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("IOB 1.2 U · COB 15 g", data.text.getTextAt(service.resources, Instant.now()).toString())
-        assertEquals("Basal 0.80 U/h", data.title!!.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("1.2 U · 15 g", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("0.80 U/h", data.title!!.getTextAt(service.resources, Instant.now()).toString())
     }
 
     @Test

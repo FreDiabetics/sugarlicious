@@ -34,8 +34,9 @@ internal object TrendComplicationIcon {
     }
 
     /**
-     * Keeps a stable 200% canvas and scales the glyph uniformly inside it. Wear OS therefore
-     * cannot squeeze wide double arrows into a square icon box and 70..200% remains visible.
+     * Keeps a stable canvas so every direction retains identical geometry. The percentage is
+     * calibrated to the icon box supplied by third-party watch faces: 100% occupies most of the
+     * available height, while 70..200% still produces a visible size change without distortion.
      */
     internal fun renderScaled(
         context: Context,
@@ -48,7 +49,7 @@ internal object TrendComplicationIcon {
         val spec = TrendVisuals.spec(trend) ?: return null
         val canvasHeight = referenceHeightPx * 2
         val canvasWidth = (canvasHeight * spec.aspectRatio).roundToInt().coerceAtLeast(1)
-        val targetHeight = (referenceHeightPx * GlucoseTrendSizing.scaleFactor(scalePercent)).roundToInt().coerceAtLeast(1)
+        val targetHeight = (canvasHeight * glyphFillFraction(scalePercent)).roundToInt().coerceAtLeast(1)
         val targetWidth = (targetHeight * spec.aspectRatio).roundToInt().coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
         val drawable = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate() ?: return null
@@ -58,6 +59,15 @@ internal object TrendComplicationIcon {
         drawable.setBounds(left, top, left + targetWidth, top + targetHeight)
         drawable.draw(Canvas(bitmap))
         return bitmap
+    }
+
+    internal fun glyphFillFraction(scalePercent: Int): Float {
+        val normalized = (scalePercent.coerceIn(
+            GlucoseTrendSizing.MIN_SCALE_PERCENT,
+            GlucoseTrendSizing.MAX_SCALE_PERCENT,
+        ) - GlucoseTrendSizing.MIN_SCALE_PERCENT).toFloat() /
+            (GlucoseTrendSizing.MAX_SCALE_PERCENT - GlucoseTrendSizing.MIN_SCALE_PERCENT)
+        return 0.70f + normalized * 0.30f
     }
 
     fun render(
