@@ -123,6 +123,9 @@ class StateDataLayerService : WearableListenerService() {
                 WearProtocol.COMPLICATION_PRESET_PATH ->
                     persistComplicationPreset(event)
 
+                WearProtocol.COMPLICATION_APPEARANCE_PATH ->
+                    persistComplicationAppearance(event)
+
                 WearProtocol.WATCH_CONFIG_PATH ->
                     persistWatchConfig(event)
 
@@ -321,6 +324,22 @@ class StateDataLayerService : WearableListenerService() {
                 metadata = mapOf("count" to ids.size, "graphHours" to graphHours),
             )
         }
+    }
+
+    private fun persistComplicationAppearance(event: DataEvent) {
+        val dataMap = runCatching { DataMapItem.fromDataItem(event.dataItem).dataMap }.getOrNull() ?: return
+        val catalogId = dataMap.getInt("catalogId", -1)
+        if (catalogId !in SugarliciousComplicationIds.all) return
+        val scale = dataMap.getInt("trendScale", 0)
+        getSharedPreferences("complication_appearance", Context.MODE_PRIVATE).edit()
+            .apply {
+                if (scale == 0) remove("$catalogId.trendScale")
+                else putInt("$catalogId.trendScale", scale.coerceIn(70, 200))
+                putInt("$catalogId.trendX", dataMap.getInt("trendX", 0).coerceIn(-50, 50))
+                putInt("$catalogId.trendY", dataMap.getInt("trendY", 0).coerceIn(-50, 50))
+            }
+            .apply()
+        requestAllComplicationUpdates()
     }
 
     private fun persistWatchConfig(event: DataEvent) {

@@ -195,10 +195,14 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.IOB_COB_BASAL -> {
-                val basal = TherapyDisplayFormatter.units(state?.basal?.currentUnitsPerHour, "", 2)
-                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, "", 1)
-                val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, "", 0)
-                p("$basal/$iob/$cob", "B/I/C", desc = "Basal $basal U/h, IOB $iob U, COB $cob g")
+                val basal = TherapyDisplayFormatter.units(state?.basal?.currentUnitsPerHour, " U/h", 2)
+                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, " U", 1)
+                val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, " g", 0)
+                p(
+                    text = "IOB $iob · COB $cob",
+                    title = "Basal $basal",
+                    desc = "Basal $basal, IOB $iob, COB $cob",
+                )
             }
 
             SugarliciousComplicationIds.LOOP -> {

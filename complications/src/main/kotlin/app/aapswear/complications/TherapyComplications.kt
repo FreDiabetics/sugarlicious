@@ -357,7 +357,7 @@ abstract class TherapyComplicationService(
                         )
                     }
                     presentation?.trend?.let { trend ->
-                        TrendComplicationIcon.monochromaticImage(this, trend)?.let(builder::setMonochromaticImage)
+                        TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(builder::setMonochromaticImage)
                     }
 
                     return builder.build()
@@ -454,12 +454,8 @@ abstract class TherapyComplicationService(
             kind == ProviderKind.LONG_STATUS ||
             type == ComplicationType.LONG_TEXT
         ) {
-            val longText =
-                if (kind == ProviderKind.IOB_COB_BASAL) combinedTherapyText(therapyState)
-                else presentation?.text ?: pair.first
-            val longTitle =
-                if (kind == ProviderKind.IOB_COB_BASAL) "Basal · IOB · COB"
-                else presentation?.title ?: pair.second.takeIf { presentation == null }
+            val longText = presentation?.text ?: pair.first
+            val longTitle = presentation?.title ?: pair.second.takeIf { presentation == null }
             val builder = LongTextComplicationData.Builder(
                 PlainComplicationText.Builder(longText).build(),
                 description,
@@ -468,21 +464,22 @@ abstract class TherapyComplicationService(
                 builder.setTitle(PlainComplicationText.Builder(it).build())
             }
             presentation?.trend?.let { trend ->
-                TrendComplicationIcon.monochromaticImage(this, trend)?.let(builder::setMonochromaticImage)
+                TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(builder::setMonochromaticImage)
             }
             complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
             return builder.build()
         }
 
+        val shortText = presentation?.text ?: pair.first
         val shortBuilder = ShortTextComplicationData.Builder(
-            PlainComplicationText.Builder((presentation?.text ?: pair.first).take(16)).build(),
+            PlainComplicationText.Builder(if (kind == ProviderKind.IOB_COB_BASAL) shortText else shortText.take(16)).build(),
             description,
         ).setTapAction(tap)
         (presentation?.title ?: pair.second.takeIf { presentation == null && (kind == ProviderKind.IOB_COB_BASAL || kind == ProviderKind.RESERVOIR) })?.let {
-            shortBuilder.setTitle(PlainComplicationText.Builder(it.take(16)).build())
+            shortBuilder.setTitle(PlainComplicationText.Builder(if (kind == ProviderKind.IOB_COB_BASAL) it else it.take(16)).build())
         }
         presentation?.trend?.let { trend ->
-            TrendComplicationIcon.monochromaticImage(this, trend)?.let(shortBuilder::setMonochromaticImage)
+            TrendComplicationIcon.monochromaticImage(this, trend, catalogId = catalogId)?.let(shortBuilder::setMonochromaticImage)
         }
         complicationIcon(kind, therapyState)?.let(shortBuilder::setMonochromaticImage)
         return shortBuilder.build()

@@ -173,6 +173,7 @@ object WearProtocol {
     const val WATCH_CONFIG_PATH = "/aaps-display/v1/watch-config"
     const val WATCH_CONFIG_REQUEST_PATH = "/aaps-display/v1/watch-config-request"
     const val COMPLICATION_PRESET_PATH = "/aaps-display/v1/complication-preset"
+    const val COMPLICATION_APPEARANCE_PATH = "/aaps-display/v1/complication-appearance"
     const val WATCH_FACE_APPLY_PATH = "/aaps-display/v1/watchface-apply"
     const val WATCH_FACE_STATUS_PATH = "/aaps-display/v1/watchface-status"
     const val WATCH_RUNTIME_STATUS_PATH = "/aaps-display/v1/watch-runtime-status"

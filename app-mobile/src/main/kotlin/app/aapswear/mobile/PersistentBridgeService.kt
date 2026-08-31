@@ -199,8 +199,10 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             setFloat(R.id.notification_value, "setTranslationY", layout.glucoseYPercent / 100f * 24f * density)
             setFloat(R.id.notification_trend, "setTranslationX", layout.trendXPercent / 100f * 40f * density)
             setFloat(R.id.notification_trend, "setTranslationY", layout.trendYPercent / 100f * 24f * density)
-            setViewLayoutWidth(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
-            setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setViewLayoutWidth(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+                setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+            }
             setTextColor(R.id.notification_value, textPrimary)
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =

@@ -58,6 +58,22 @@ class ComplicationPresentationTest {
         assertNull(TrendVisuals.spec(Trend.UNKNOWN))
     }
 
+    @Test fun `combined therapy presents basal above labelled IOB and COB`() {
+        val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB_BASAL, state, now)
+        assertEquals("Basal 0.70 U/h", p.title)
+        assertEquals("IOB 1.2 U · COB 15 g", p.text)
+    }
+
+    @Test fun `combined therapy never invents zero for missing values`() {
+        val p = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB_BASAL,
+            state.copy(insulin = null, carbs = null, basal = null),
+            now,
+        )
+        assertEquals("Basal —", p.title)
+        assertEquals("IOB — · COB —", p.text)
+    }
+
     @Test fun `tir presentation uses configured central thresholds`() {
         val thresholds = CgmThresholds(
             veryHighMgDl = 240.0,

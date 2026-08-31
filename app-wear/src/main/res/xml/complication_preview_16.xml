@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <complications>
     <complication type="SHORT_TEXT">
-        <text><plain value="0.80/1.2/15"/></text>
-        <title><plain value="B/I/C"/></title>
+        <text><plain value="IOB 1.2 U · COB 15 g"/></text>
+        <title><plain value="Basal 0.80 U/h"/></title>
     </complication>
     <complication type="LONG_TEXT">
-        <text><plain value="0.80U/h · 1.2U · 15g"/></text>
-        <title><plain value="Basal · IOB · COB"/></title>
+        <text><plain value="IOB 1.2 U · COB 15 g"/></text>
+        <title><plain value="Basal 0.80 U/h"/></title>
     </complication>
 </complications>
