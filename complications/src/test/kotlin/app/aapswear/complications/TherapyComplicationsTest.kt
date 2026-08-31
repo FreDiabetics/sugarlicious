@@ -51,7 +51,7 @@ class TherapyComplicationsTest {
     fun `glucose trend short text keeps arrow directly after glucose`() {
         val service = Robolectric.buildService(GlucoseTrendComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("123 ↗", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("123\u2009↗", data.text.getTextAt(service.resources, Instant.now()).toString())
         assertNull(data.monochromaticImage)
     }
 
@@ -65,7 +65,7 @@ class TherapyComplicationsTest {
         ).forEach { provider ->
             val service = Robolectric.buildService(provider).create().get()
             val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-            assertTrue(data.text.getTextAt(service.resources, Instant.now()).toString().startsWith("123 ↗"))
+            assertTrue(data.text.getTextAt(service.resources, Instant.now()).toString().startsWith("123\u2009↗"))
             assertNull(data.monochromaticImage)
         }
     }
@@ -234,6 +234,8 @@ class TherapyComplicationsTest {
             ComplicationType.PHOTO_IMAGE,
             (large.getPreviewData(ComplicationType.SMALL_IMAGE) as PhotoImageComplicationData).type,
         )
+        assertEquals(256 to 256, complicationImageSize(ProviderKind.GRAPH))
+        assertEquals(400 to 240, complicationImageSize(ProviderKind.GRAPH_LARGE))
     }
 
     @Test

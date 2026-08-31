@@ -209,7 +209,9 @@ function Render-ProviderIcon([hashtable]$spec) {
                     $mainBounds = [System.Drawing.RectangleF]::new(79, $mainBounds.Y, 159, $mainBounds.Height)
                 }
                 Draw-CenteredText $graphics $spec.Text $mainBounds $mainSize
-                if ($spec.Trend) { Draw-TrendArrow $graphics 0 -11 }
+                if ($spec.Trend) {
+                    if ($spec.InlineTrend) { Draw-TrendArrow $graphics -10 -19 } else { Draw-TrendArrow $graphics 0 -11 }
+                }
                 if ($hasTitle) {
                     $titleSize = if ($spec.Title.Length -gt 14) { 21 } elseif ($spec.Title.Length -gt 8) { 25 } else { 32 }
                     Draw-CenteredText $graphics $spec.Title ([System.Drawing.RectangleF]::new(18, 145, 220, 76)) $titleSize
@@ -229,15 +231,15 @@ $specs = @(
     @{ Name = "01a"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
     @{ Name = "01b"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
     @{ Name = "01c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Icon = "Xdrip" },
-    @{ Name = "02a"; Kind = "Text"; Text = "123"; Trend = $true },
+    @{ Name = "02a"; Kind = "Text"; Text = "123"; Trend = $true; InlineTrend = $true },
     @{ Name = "02b"; Kind = "Text"; Text = "123"; Trend = $true },
     @{ Name = "02c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Trend = $true },
     @{ Name = "03a"; Kind = "Text"; Text = "123"; Title = "+5" },
     @{ Name = "03b"; Kind = "Text"; Text = "123"; Title = "+5" },
-    @{ Name = "04a"; Kind = "Text"; Text = "123"; Title = "2m"; Trend = $true },
+    @{ Name = "04a"; Kind = "Text"; Text = "123"; Title = "2m"; Trend = $true; InlineTrend = $true },
     @{ Name = "04b"; Kind = "Text"; Text = "123"; Title = "2m"; Trend = $true },
-    @{ Name = "05"; Kind = "Text"; Text = "123"; Title = "+5"; Trend = $true },
-    @{ Name = "06a"; Kind = "Text"; Text = "123"; Title = "+5 · 2m"; Trend = $true },
+    @{ Name = "05"; Kind = "Text"; Text = "123"; Title = "+5"; Trend = $true; InlineTrend = $true },
+    @{ Name = "06a"; Kind = "Text"; Text = "123"; Title = "+5 · 2m"; Trend = $true; InlineTrend = $true },
     @{ Name = "06b"; Kind = "Text"; Text = "123"; Title = "+5 · 2m"; Trend = $true },
     @{ Name = "07a"; Kind = "GraphSmall" },
     @{ Name = "07b"; Kind = "GraphLarge" },

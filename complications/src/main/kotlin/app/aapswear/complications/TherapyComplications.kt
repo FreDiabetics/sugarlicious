@@ -95,6 +95,13 @@ enum class ProviderKind {
     DATE,
 }
 
+internal fun complicationImageSize(kind: ProviderKind): Pair<Int, Int> = when (kind) {
+    ProviderKind.GRAPH -> 256 to 256
+    ProviderKind.GRAPH_LARGE -> 400 to 240
+    ProviderKind.GLUCOSE_IMAGE -> 400 to 200
+    else -> 400 to 240
+}
+
 abstract class TherapyComplicationService(
     private val kind: ProviderKind,
     private val declaredType: ComplicationType? = null,
@@ -477,7 +484,7 @@ abstract class TherapyComplicationService(
         val shortText = presentation?.text ?: pair.first
         val inlineTrend = presentation?.trend.takeIf { kind.usesInlineShortTextTrend() }
         val displayedShortText = inlineTrend
-            ?.let { "$shortText ${arrow(it)}" }
+            ?.let { "$shortText\u2009${arrow(it)}" }
             ?: shortText
         val shortBuilder = ShortTextComplicationData.Builder(
             PlainComplicationText.Builder(
@@ -501,8 +508,7 @@ abstract class TherapyComplicationService(
         now: Long,
     ): Bitmap {
         val valueOnly = kind == ProviderKind.GLUCOSE_IMAGE
-        val width = 400
-        val height = if (valueOnly) 200 else 240
+        val (width, height) = complicationImageSize(kind)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
