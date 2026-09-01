@@ -96,7 +96,9 @@ enum class ProviderKind {
 }
 
 internal fun complicationImageSize(kind: ProviderKind): Pair<Int, Int> = when (kind) {
-    ProviderKind.GRAPH -> 256 to 256
+    // Every WFF consumer presents this as a wide chart. Rendering the bitmap in that native
+    // aspect ratio prevents WFF from stretching circular dots and horizontal range bands.
+    ProviderKind.GRAPH -> 400 to 140
     ProviderKind.GRAPH_LARGE -> 400 to 240
     ProviderKind.GLUCOSE_IMAGE -> 400 to 200
     else -> 400 to 240

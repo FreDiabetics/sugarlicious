@@ -3,9 +3,9 @@
     android:height="450dp"
     android:viewportWidth="450"
     android:viewportHeight="450">
-    <!-- Graph slot 7: exact WFF bounds 78,68 294x103. -->
-    <path android:fillColor="#FF111416" android:pathData="M78,68H372V171H78Z" />
-    <path android:fillColor="#2219D7E8" android:pathData="M78,101H372V139H78Z" />
+    <!-- Graph slot 7: WFF 96,78 320x112 scaled into the 450 preview canvas. -->
+    <path android:fillColor="#FF111416" android:pathData="M84,69H366V167H84Z" />
+    <path android:fillColor="#2219D7E8" android:pathData="M84,98H366V136H84Z" />
     <path android:fillColor="#FFF5F5F5" android:pathData="M91,146a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M122,140a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M153,143a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M184,131a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M215,135a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M246,124a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M277,128a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M308,116a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M339,121a3,3 0,1 0,6 0a3,3 0,1 0,-6 0" />
 
     <!-- Exact outer complication arc geometry from watchface.xml. -->

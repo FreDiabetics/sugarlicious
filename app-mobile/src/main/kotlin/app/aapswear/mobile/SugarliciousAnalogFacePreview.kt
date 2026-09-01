@@ -38,6 +38,8 @@ internal data class AnalogRectGeometry(
     val height: Float,
 )
 
+internal data class AnalogPointGeometry(val x: Float, val y: Float)
+
 internal data class AnalogArcGeometry(
     val startAngle: Float,
     val endAngle: Float,
@@ -50,18 +52,22 @@ internal data class AnalogArcGeometry(
  */
 internal object SugarliciousAnalogGeometry {
     const val CANVAS = 512f
-    val graph = AnalogRectGeometry(89f, 77f, 335f, 117f)
+    val center = AnalogPointGeometry(256f, 256f)
+    const val watchRadius = 256f
+    const val safeRadius = 236f
+    const val centerSafetyRadius = 24f
+    val graph = AnalogRectGeometry(96f, 78f, 320f, 112f)
     val middleLeft = AnalogRectGeometry(82f, 193f, 125f, 125f)
-    val middleRight = AnalogRectGeometry(305f, 193f, 125f, 125f)
+    val middleRight = mirrorHorizontally(middleLeft)
     val bottomCenter = AnalogRectGeometry(182f, 283f, 148f, 148f)
 
     const val outerCenter = 256f
-    const val outerDiameter = 438f
-    const val outerStroke = 13.65f
-    val outerUpperLeft = AnalogArcGeometry(250f, 336f, true)
-    val outerUpperRight = AnalogArcGeometry(8f, 67f, true)
-    val outerLowerRight = AnalogArcGeometry(96f, 158f, true)
-    val outerLowerLeft = AnalogArcGeometry(266f, 190f, false)
+    const val outerDiameter = 448f
+    const val outerStroke = 12f
+    val outerUpperLeft = AnalogArcGeometry(284f, 342f, true)
+    val outerUpperRight = AnalogArcGeometry(18f, 76f, true)
+    val outerLowerRight = AnalogArcGeometry(104f, 162f, true)
+    val outerLowerLeft = AnalogArcGeometry(256f, 198f, false)
 
     const val middleArcDiameter = 104f
     const val middleArcStart = 215f
@@ -71,6 +77,12 @@ internal object SugarliciousAnalogGeometry {
     const val bottomArcStart = 218f
     const val bottomArcSweep = 284f
     const val bottomArcStroke = 10f
+
+    fun mirrorHorizontally(rect: AnalogRectGeometry): AnalogRectGeometry =
+        rect.copy(x = CANVAS - rect.x - rect.width)
+
+    fun centerOf(rect: AnalogRectGeometry): AnalogPointGeometry =
+        AnalogPointGeometry(rect.x + rect.width / 2f, rect.y + rect.height / 2f)
 
 }
 
