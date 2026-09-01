@@ -65,6 +65,8 @@ class ComplicationStaticPreviewTest {
         ComplicationType.SHORT_TEXT,
         ComplicationType.LONG_TEXT,
         ComplicationType.SHORT_TEXT,
+        ComplicationType.LONG_TEXT,
+        ComplicationType.SHORT_TEXT,
         ComplicationType.MONOCHROMATIC_IMAGE,
         ComplicationType.SHORT_TEXT,
         ComplicationType.RANGED_VALUE,
@@ -79,7 +81,7 @@ class ComplicationStaticPreviewTest {
 
     @Test
     fun `all providers expose their declared dynamic preview type`() {
-        assertEquals(39, AllProviders.classes.size)
+        assertEquals(41, AllProviders.classes.size)
         assertEquals(AllProviders.classes.size, expectedTypes.size)
 
         AllProviders.classes.zip(expectedTypes).forEach { (provider, expectedType) ->
@@ -124,8 +126,8 @@ class ComplicationStaticPreviewTest {
             assertMatchingFields(provider, staticData, dynamicData)
         }
 
-        assertEquals(37, staticResourceIds.size)
-        assertEquals(39, providerIconIds.size)
+        assertEquals(39, staticResourceIds.size)
+        assertEquals(41, providerIconIds.size)
     }
 
     private fun assertMatchingFields(

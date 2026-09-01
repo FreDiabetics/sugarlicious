@@ -118,6 +118,8 @@ object ComplicationUpdatePlanner {
         )
     private val combinedTherapyProviders =
         listOf(
+            IobCobComplication::class.java,
+            IobCobLongTextComplication::class.java,
             IobCobBasalComplication::class.java,
             IobCobBasalLongTextComplication::class.java,
         )

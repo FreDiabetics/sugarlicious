@@ -63,6 +63,7 @@ object SugarliciousComplicationIds {
     const val TREND_ONLY = 35
     const val DELTA_ONLY = 36
     const val DATE = 53
+    const val IOB_COB = 54
 
     const val GLUCOSE_LONG = 37
     const val GLUCOSE_RANGED = 38
@@ -80,6 +81,7 @@ object SugarliciousComplicationIds {
     const val TIR_GOAL = 50
     const val TIR_WEIGHTED = 51
     const val GRAPH_LARGE = 52
+    const val IOB_COB_LONG = 55
 
     val ordered = listOf(
         GLUCOSE,
@@ -97,6 +99,7 @@ object SugarliciousComplicationIds {
         BASAL,
         IOB,
         COB,
+        IOB_COB,
         IOB_COB_BASAL,
         LOOP,
         RESERVOIR,
@@ -113,6 +116,7 @@ object SugarliciousComplicationIds {
         GLUCOSE_TREND_AGE to listOf(GLUCOSE_TREND_AGE, GLUCOSE_TREND_AGE_LONG),
         GLUCOSE_TREND_DELTA_AGE to listOf(GLUCOSE_TREND_DELTA_AGE, GLUCOSE_TREND_DELTA_AGE_LONG),
         IOB_COB_BASAL to listOf(IOB_COB_BASAL, IOB_COB_BASAL_LONG),
+        IOB_COB to listOf(IOB_COB, IOB_COB_LONG),
         LOOP to listOf(LOOP, LOOP_ICON),
         RESERVOIR to listOf(RESERVOIR, RESERVOIR_RANGED),
         SENSOR_AGE to listOf(SENSOR_AGE, SENSOR_AGE_RANGED),
@@ -173,6 +177,23 @@ object ComplicationPresentationFormatter {
             SugarliciousComplicationIds.COB -> {
                 val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, "g", 0)
                 p(cob, desc = "COB $cob")
+            }
+
+            SugarliciousComplicationIds.IOB_COB -> {
+                val iob = therapyUnits(state?.insulin?.totalIob, " U", 1)
+                val cob = therapyUnits(state?.carbs?.cobGrams, " g", 0)
+                val freshnessLabel = when (freshness) {
+                    Freshness.CURRENT -> null
+                    Freshness.DELAYED -> "verzögert"
+                    Freshness.STALE -> "veraltet"
+                    Freshness.ERROR -> "Sensorfehler"
+                    Freshness.NO_DATA -> if (state == null) "keine Quelle" else "keine aktuellen CGM-Daten"
+                }
+                p(
+                    text = "COB $cob",
+                    title = "IOB $iob",
+                    desc = listOfNotNull(freshnessLabel, "IOB $iob", "COB $cob").joinToString(", "),
+                )
             }
 
             SugarliciousComplicationIds.GLUCOSE_TREND ->
@@ -266,6 +287,9 @@ object ComplicationPresentationFormatter {
         trend: Trend? = null,
         desc: String,
     ) = ComplicationPresentation(text = text, title = title, trend = trend, contentDescription = desc)
+
+    private fun therapyUnits(value: Double?, suffix: String, digits: Int): String =
+        TherapyDisplayFormatter.units(value?.takeIf(Double::isFinite), suffix, digits)
 
     internal fun germanWeekday(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
         DayOfWeek.MONDAY -> "MON"

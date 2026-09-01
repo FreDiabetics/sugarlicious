@@ -56,6 +56,8 @@ class ComplicationUpdatePlannerTest {
             setOf(
                 IobComplication::class.java,
                 IobRangedValueComplication::class.java,
+                IobCobComplication::class.java,
+                IobCobLongTextComplication::class.java,
                 IobCobBasalComplication::class.java,
                 IobCobBasalLongTextComplication::class.java,
                 AapsStatusComplication::class.java,

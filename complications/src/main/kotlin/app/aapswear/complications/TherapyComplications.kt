@@ -119,6 +119,7 @@ abstract class TherapyComplicationService(
             ProviderKind.BASAL -> SugarliciousComplicationIds.BASAL
             ProviderKind.IOB -> SugarliciousComplicationIds.IOB
             ProviderKind.COB -> SugarliciousComplicationIds.COB
+            ProviderKind.IOB_COB -> SugarliciousComplicationIds.IOB_COB
             ProviderKind.GLUCOSE_TREND -> SugarliciousComplicationIds.GLUCOSE_TREND
             ProviderKind.GLUCOSE_PLUS_DELTA -> SugarliciousComplicationIds.GLUCOSE_PLUS_DELTA
             ProviderKind.GLUCOSE_DELTA -> SugarliciousComplicationIds.TIME_DELTA
@@ -203,6 +204,7 @@ abstract class TherapyComplicationService(
             ProviderKind.GLUCOSE_AGE -> SugarliciousComplicationIds.GLUCOSE_AGE
             ProviderKind.IOB -> SugarliciousComplicationIds.IOB
             ProviderKind.COB -> SugarliciousComplicationIds.COB
+            ProviderKind.IOB_COB -> SugarliciousComplicationIds.IOB_COB
             ProviderKind.IOB_COB_BASAL -> SugarliciousComplicationIds.IOB_COB_BASAL
             ProviderKind.BASAL -> SugarliciousComplicationIds.BASAL
             ProviderKind.LOOP -> SugarliciousComplicationIds.LOOP
@@ -1114,7 +1116,14 @@ class CobRangedValueComplication :
     )
 
 class IobCobComplication :
-    TherapyComplicationService(ProviderKind.IOB_COB)
+    TherapyComplicationService(ProviderKind.IOB_COB, ComplicationType.SHORT_TEXT)
+
+class IobCobLongTextComplication :
+    TherapyComplicationService(
+        ProviderKind.IOB_COB,
+        ComplicationType.LONG_TEXT,
+        SugarliciousComplicationIds.IOB_COB_LONG,
+    )
 
 class IobCobBasalComplication :
     TherapyComplicationService(ProviderKind.IOB_COB_BASAL, ComplicationType.SHORT_TEXT)
@@ -1204,6 +1213,8 @@ object AllProviders {
         IobRangedValueComplication::class.java,
         CobComplication::class.java,
         CobRangedValueComplication::class.java,
+        IobCobComplication::class.java,
+        IobCobLongTextComplication::class.java,
         IobCobBasalComplication::class.java,
         IobCobBasalLongTextComplication::class.java,
         LoopComplication::class.java,

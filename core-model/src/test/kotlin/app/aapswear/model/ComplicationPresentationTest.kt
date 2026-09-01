@@ -8,8 +8,8 @@ import kotlin.test.assertNull
 class ComplicationPresentationTest {
     @Test
     fun `typed provider ids remain unique and resolve to their presentation family`() {
-        assertEquals(36, SugarliciousComplicationIds.all.size)
-        assertEquals(36, SugarliciousComplicationIds.all.distinct().size)
+        assertEquals(38, SugarliciousComplicationIds.all.size)
+        assertEquals(38, SugarliciousComplicationIds.all.distinct().size)
         assertEquals(
             SugarliciousComplicationIds.GLUCOSE_TREND,
             SugarliciousComplicationIds.baseId(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED),
@@ -72,6 +72,72 @@ class ComplicationPresentationTest {
         )
         assertEquals("—", p.title)
         assertEquals("— · —", p.text)
+    }
+
+    @Test fun `IOB COB maps IOB to title and COB to text`() {
+        val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, state, now)
+        assertEquals("IOB 1.2 U", p.title)
+        assertEquals("COB 15 g", p.text)
+        assertEquals("IOB 1.2 U, COB 15 g", p.contentDescription)
+    }
+
+    @Test fun `IOB COB preserves either available value without inventing zero`() {
+        val iobOnly = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(carbs = null),
+            now,
+        )
+        assertEquals("IOB 1.2 U", iobOnly.title)
+        assertEquals("COB —", iobOnly.text)
+
+        val cobOnly = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = null),
+            now,
+        )
+        assertEquals("IOB —", cobOnly.title)
+        assertEquals("COB 15 g", cobOnly.text)
+
+        val neither = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = null, carbs = null),
+            now,
+        )
+        assertEquals("IOB —", neither.title)
+        assertEquals("COB —", neither.text)
+    }
+
+    @Test fun `IOB COB rejects invalid numbers and describes freshness without discarding last state`() {
+        val invalid = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = InsulinState(totalIob = Double.NaN), carbs = CarbState(cobGrams = Double.POSITIVE_INFINITY)),
+            now,
+        )
+        assertEquals("IOB —", invalid.title)
+        assertEquals("COB —", invalid.text)
+
+        val stale = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
+            now,
+        )
+        assertEquals("IOB 1.2 U", stale.title)
+        assertEquals("COB 15 g", stale.text)
+        assertEquals("veraltet, IOB 1.2 U, COB 15 g", stale.contentDescription)
+
+        val error = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
+            now,
+        )
+        assertEquals("IOB 1.2 U", error.title)
+        assertEquals("COB 15 g", error.text)
+        assertEquals("Sensorfehler, IOB 1.2 U, COB 15 g", error.contentDescription)
+
+        val noSource = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, null, now)
+        assertEquals("IOB —", noSource.title)
+        assertEquals("COB —", noSource.text)
+        assertEquals("keine Quelle, IOB —, COB —", noSource.contentDescription)
     }
 
     @Test fun `tir presentation uses configured central thresholds`() {
