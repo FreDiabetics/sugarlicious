@@ -51,8 +51,8 @@ class TherapyComplicationsTest {
     fun `IOB COB short and long providers share title text and description semantics`() {
         val shortService = Robolectric.buildService(IobCobComplication::class.java).create().get()
         val short = shortService.getPreviewData(ComplicationType.LONG_TEXT) as ShortTextComplicationData
-        assertEquals("IOB 1.2 U", short.title!!.getTextAt(shortService.resources, Instant.now()).toString())
-        assertEquals("COB 15 g", short.text.getTextAt(shortService.resources, Instant.now()).toString())
+        assertEquals("1.2 U", short.title!!.getTextAt(shortService.resources, Instant.now()).toString())
+        assertEquals("15 g", short.text.getTextAt(shortService.resources, Instant.now()).toString())
         assertEquals(
             "IOB 1.2 U, COB 15 g",
             short.contentDescription!!.getTextAt(shortService.resources, Instant.now()).toString(),
@@ -60,12 +60,21 @@ class TherapyComplicationsTest {
 
         val longService = Robolectric.buildService(IobCobLongTextComplication::class.java).create().get()
         val long = longService.getPreviewData(ComplicationType.SHORT_TEXT) as LongTextComplicationData
-        assertEquals("IOB 1.2 U", long.title!!.getTextAt(longService.resources, Instant.now()).toString())
-        assertEquals("COB 15 g", long.text.getTextAt(longService.resources, Instant.now()).toString())
+        assertEquals("1.2 U", long.title!!.getTextAt(longService.resources, Instant.now()).toString())
+        assertEquals("15 g", long.text.getTextAt(longService.resources, Instant.now()).toString())
         assertEquals(
             short.contentDescription!!.getTextAt(shortService.resources, Instant.now()).toString(),
             long.contentDescription!!.getTextAt(longService.resources, Instant.now()).toString(),
         )
+    }
+
+    @Test
+    fun `loop short complication exposes app state text and icon instead of circle glyph`() {
+        val service = Robolectric.buildService(LoopComplication::class.java).create().get()
+        val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        assertEquals("Closed", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("Closed Loop", data.contentDescription!!.getTextAt(service.resources, Instant.now()).toString())
+        assertNotNull(data.monochromaticImage)
     }
 
     @Test

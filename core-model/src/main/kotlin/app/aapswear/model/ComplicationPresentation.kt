@@ -190,8 +190,8 @@ object ComplicationPresentationFormatter {
                     Freshness.NO_DATA -> if (state == null) "keine Quelle" else "keine aktuellen CGM-Daten"
                 }
                 p(
-                    text = "COB $cob",
-                    title = "IOB $iob",
+                    text = cob,
+                    title = iob,
                     desc = listOfNotNull(freshnessLabel, "IOB $iob", "COB $cob").joinToString(", "),
                 )
             }
@@ -228,12 +228,8 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.LOOP -> {
-                val loop = when (state?.loop?.status?.lowercase()) {
-                    "enacted", "closed", "loop", "on", "enabled", "suggested" -> "●"
-                    null -> "○"
-                    else -> "○"
-                }
-                p(loop, desc = "AndroidAPS Loop $loop")
+                val loop = loopPresentation(state)
+                p(loop.shortText, desc = loop.label)
             }
 
             SugarliciousComplicationIds.RESERVOIR -> {

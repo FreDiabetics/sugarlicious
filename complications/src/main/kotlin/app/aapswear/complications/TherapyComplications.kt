@@ -44,6 +44,8 @@ import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
+import app.aapswear.model.LoopVisualState
+import app.aapswear.model.loopPresentation
 import app.aapswear.model.ProfileState
 import app.aapswear.model.PumpState
 import app.aapswear.model.RangeExcursion
@@ -256,16 +258,7 @@ abstract class TherapyComplicationService(
         )
 
         if (kind == ProviderKind.LOOP && type == ComplicationType.MONOCHROMATIC_IMAGE) {
-            val image = MonochromaticImage.Builder(
-                Icon.createWithResource(
-                    this,
-                    if (loopRunning(therapyState?.loop?.status)) {
-                        R.drawable.ic_complication_loop_closed
-                    } else {
-                        R.drawable.ic_complication_loop_open
-                    },
-                ),
-            ).build()
+            val image = loopComplicationIcon(therapyState)
             return MonochromaticImageComplicationData.Builder(image, description)
                 .setTapAction(tap)
                 .build()
@@ -767,6 +760,7 @@ abstract class TherapyComplicationService(
             ProviderKind.BASAL -> basalIconResource(state?.basal)
             ProviderKind.IOB -> R.drawable.ic_complication_iob
             ProviderKind.COB -> R.drawable.ic_complication_carbs
+            ProviderKind.LOOP -> return loopComplicationIcon(state)
             else -> return null
         }
         return MonochromaticImage.Builder(Icon.createWithResource(this, resource)).build()
@@ -789,8 +783,16 @@ abstract class TherapyComplicationService(
         }
     }
 
-    private fun loopRunning(status: String?): Boolean =
-        status?.lowercase() in setOf("enacted", "closed", "loop", "on", "enabled", "suggested")
+    private fun loopComplicationIcon(state: TherapyDisplayState?): MonochromaticImage {
+        val resource = when (loopPresentation(state).visualState) {
+            LoopVisualState.CLOSED -> R.drawable.ic_complication_loop_closed
+            LoopVisualState.SUSPENDED -> R.drawable.ic_complication_loop_suspended
+            LoopVisualState.DEACTIVATED,
+            LoopVisualState.UNKNOWN -> R.drawable.ic_complication_loop_open
+            LoopVisualState.PUMP_SUSPENDED -> R.drawable.ic_complication_pump_suspended
+        }
+        return MonochromaticImage.Builder(Icon.createWithResource(this, resource)).build()
+    }
     private fun glucoseColor(glucose: GlucoseState?): Int =
         when {
             glucose == null -> Color.GRAY

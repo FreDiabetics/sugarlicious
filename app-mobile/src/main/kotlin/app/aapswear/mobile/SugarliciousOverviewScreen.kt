@@ -43,6 +43,8 @@ import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.LoopVisualState
+import app.aapswear.model.loopPresentation
 import app.aapswear.model.Trend
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseVisualSpec
@@ -464,19 +466,15 @@ private fun QuickStatsRow(
 internal data class OverviewLoopTileState(val iconRes: Int, val label: String, val accent: Color)
 
 internal fun overviewLoopTileState(state: TherapyDisplayState?): OverviewLoopTileState {
-    val pump = state?.pump?.status.orEmpty().lowercase(Locale.ROOT)
-    val loop = state?.loop?.status.orEmpty().lowercase(Locale.ROOT)
-    return when {
-        listOf("suspend", "paused", "disconnect", "stopped").any(pump::contains) ->
-            OverviewLoopTileState(R.drawable.ic_pump_suspended, "Pumpe pausiert", SugarliciousColors.Red)
-        listOf("suspend", "paused").any(loop::contains) ->
-            OverviewLoopTileState(R.drawable.ic_loop_suspended, "Loop pausiert", SugarliciousColors.Orange)
-        loop.isBlank() ->
-            OverviewLoopTileState(R.drawable.ic_loop_deactivated, "Loop unbekannt", SugarliciousColors.TextSecondary)
-        listOf("disabled", "off", "open", "deactivated").any(loop::contains) ->
-            OverviewLoopTileState(R.drawable.ic_loop_deactivated, "Loop aus", SugarliciousColors.TextSecondary)
-        else -> OverviewLoopTileState(R.drawable.ic_loop_closed, "Closed Loop", SugarliciousColors.Green)
+    val presentation = loopPresentation(state)
+    val (icon, color) = when (presentation.visualState) {
+        LoopVisualState.PUMP_SUSPENDED -> R.drawable.ic_pump_suspended to SugarliciousColors.Red
+        LoopVisualState.SUSPENDED -> R.drawable.ic_loop_suspended to SugarliciousColors.Orange
+        LoopVisualState.DEACTIVATED,
+        LoopVisualState.UNKNOWN -> R.drawable.ic_loop_deactivated to SugarliciousColors.TextSecondary
+        LoopVisualState.CLOSED -> R.drawable.ic_loop_closed to SugarliciousColors.Green
     }
+    return OverviewLoopTileState(icon, presentation.label, color)
 }
 
 @Composable

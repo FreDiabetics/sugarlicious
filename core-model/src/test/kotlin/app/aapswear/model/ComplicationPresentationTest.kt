@@ -76,8 +76,8 @@ class ComplicationPresentationTest {
 
     @Test fun `IOB COB maps IOB to title and COB to text`() {
         val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, state, now)
-        assertEquals("IOB 1.2 U", p.title)
-        assertEquals("COB 15 g", p.text)
+        assertEquals("1.2 U", p.title)
+        assertEquals("15 g", p.text)
         assertEquals("IOB 1.2 U, COB 15 g", p.contentDescription)
     }
 
@@ -87,24 +87,24 @@ class ComplicationPresentationTest {
             state.copy(carbs = null),
             now,
         )
-        assertEquals("IOB 1.2 U", iobOnly.title)
-        assertEquals("COB —", iobOnly.text)
+        assertEquals("1.2 U", iobOnly.title)
+        assertEquals("—", iobOnly.text)
 
         val cobOnly = ComplicationPresentationFormatter.format(
             SugarliciousComplicationIds.IOB_COB,
             state.copy(insulin = null),
             now,
         )
-        assertEquals("IOB —", cobOnly.title)
-        assertEquals("COB 15 g", cobOnly.text)
+        assertEquals("—", cobOnly.title)
+        assertEquals("15 g", cobOnly.text)
 
         val neither = ComplicationPresentationFormatter.format(
             SugarliciousComplicationIds.IOB_COB,
             state.copy(insulin = null, carbs = null),
             now,
         )
-        assertEquals("IOB —", neither.title)
-        assertEquals("COB —", neither.text)
+        assertEquals("—", neither.title)
+        assertEquals("—", neither.text)
     }
 
     @Test fun `IOB COB rejects invalid numbers and describes freshness without discarding last state`() {
@@ -113,16 +113,16 @@ class ComplicationPresentationTest {
             state.copy(insulin = InsulinState(totalIob = Double.NaN), carbs = CarbState(cobGrams = Double.POSITIVE_INFINITY)),
             now,
         )
-        assertEquals("IOB —", invalid.title)
-        assertEquals("COB —", invalid.text)
+        assertEquals("—", invalid.title)
+        assertEquals("—", invalid.text)
 
         val stale = ComplicationPresentationFormatter.format(
             SugarliciousComplicationIds.IOB_COB,
             state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
             now,
         )
-        assertEquals("IOB 1.2 U", stale.title)
-        assertEquals("COB 15 g", stale.text)
+        assertEquals("1.2 U", stale.title)
+        assertEquals("15 g", stale.text)
         assertEquals("veraltet, IOB 1.2 U, COB 15 g", stale.contentDescription)
 
         val error = ComplicationPresentationFormatter.format(
@@ -130,14 +130,32 @@ class ComplicationPresentationTest {
             state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
             now,
         )
-        assertEquals("IOB 1.2 U", error.title)
-        assertEquals("COB 15 g", error.text)
+        assertEquals("1.2 U", error.title)
+        assertEquals("15 g", error.text)
         assertEquals("Sensorfehler, IOB 1.2 U, COB 15 g", error.contentDescription)
 
         val noSource = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, null, now)
-        assertEquals("IOB —", noSource.title)
-        assertEquals("COB —", noSource.text)
+        assertEquals("—", noSource.title)
+        assertEquals("—", noSource.text)
         assertEquals("keine Quelle, IOB —, COB —", noSource.contentDescription)
+    }
+
+    @Test fun `loop complication uses the shared app state instead of circle glyphs`() {
+        val closed = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.LOOP,
+            state.copy(loop = LoopState(status = "enacted")),
+            now,
+        )
+        assertEquals("Closed", closed.text)
+        assertEquals("Closed Loop", closed.contentDescription)
+
+        val paused = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.LOOP,
+            state.copy(loop = LoopState(status = "paused")),
+            now,
+        )
+        assertEquals("Pausiert", paused.text)
+        assertEquals("Loop pausiert", paused.contentDescription)
     }
 
     @Test fun `tir presentation uses configured central thresholds`() {
