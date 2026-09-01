@@ -29,6 +29,7 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
 import app.aapswear.uishared.TrendVectorPaths
 import kotlin.math.cos
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 internal data class AnalogRectGeometry(
@@ -51,32 +52,42 @@ internal data class AnalogArcGeometry(
  * Keep the contract test green whenever the WFF layout is changed.
  */
 internal object SugarliciousAnalogGeometry {
+    const val WFS_REFERENCE_CANVAS = 450f
     const val CANVAS = 512f
+    const val WFS_TO_WFF_SCALE = CANVAS / WFS_REFERENCE_CANVAS
     val center = AnalogPointGeometry(256f, 256f)
     const val watchRadius = 256f
     const val safeRadius = 236f
     const val centerSafetyRadius = 24f
-    val graph = AnalogRectGeometry(96f, 78f, 320f, 112f)
-    val middleLeft = AnalogRectGeometry(82f, 193f, 125f, 125f)
-    val middleRight = mirrorHorizontally(middleLeft)
-    val bottomCenter = AnalogRectGeometry(182f, 283f, 148f, 148f)
+    val handPivot = center
+    val graph = fromWfsRect(51.8748f, 54.9999f, 346.2504f, 121.3336f)
+    val middleLeft = fromWfsRect(73f, 171f, 108.3334f, 108.3334f)
+    val middleRight = fromWfsRect(269f, 171f, 108.3334f, 108.3334f)
+    val bottomCenter = fromWfsRect(158.9996f, 247f, 132.0008f, 130.9996f)
 
     const val outerCenter = 256f
-    const val outerDiameter = 448f
-    const val outerStroke = 12f
-    val outerUpperLeft = AnalogArcGeometry(284f, 342f, true)
-    val outerUpperRight = AnalogArcGeometry(18f, 76f, true)
-    val outerLowerRight = AnalogArcGeometry(104f, 162f, true)
-    val outerLowerLeft = AnalogArcGeometry(256f, 198f, false)
+    val outerTextDiameter = fromWfsValue(376f)
+    val outerProgressDiameter = fromWfsValue(359f)
+    val outerStroke = fromWfsValue(15f)
+    val outerUpperLeft = AnalogArcGeometry(285f, 333f, true)
+    val outerUpperRight = AnalogArcGeometry(15f, 63f, true)
+    val outerLowerRight = AnalogArcGeometry(103f, 151f, true)
+    val outerLowerLeft = AnalogArcGeometry(253f, 205f, false)
 
-    const val middleArcDiameter = 104f
-    const val middleArcStart = 215f
-    const val middleArcSweep = 290f
-    const val middleArcStroke = 6f
-    const val bottomArcDiameter = 116f
-    const val bottomArcStart = 218f
-    const val bottomArcSweep = 284f
-    const val bottomArcStroke = 10f
+    val bottomArcDiameter = fromWfsValue(120f)
+    const val bottomArcStart = 220f
+    const val bottomArcSweep = 280f
+    val bottomArcStroke = fromWfsValue(10f)
+
+    private fun fromWfsValue(value: Float): Float = (value * WFS_TO_WFF_SCALE).roundToInt().toFloat()
+
+    private fun fromWfsRect(x: Float, y: Float, width: Float, height: Float) =
+        AnalogRectGeometry(
+            x = fromWfsValue(x),
+            y = fromWfsValue(y),
+            width = fromWfsValue(width),
+            height = fromWfsValue(height),
+        )
 
     fun mirrorHorizontally(rect: AnalogRectGeometry): AnalogRectGeometry =
         rect.copy(x = CANVAS - rect.x - rect.width)
@@ -164,7 +175,7 @@ internal fun SugarliciousAnalogFacePreview(
                     -((arc.startAngle - arc.endAngle + 360f) % 360f)
                 }
             fun outerArc(arc: AnalogArcGeometry, progress: Float) {
-                val diameter = SugarliciousAnalogGeometry.outerDiameter * scale
+                val diameter = SugarliciousAnalogGeometry.outerProgressDiameter * scale
                 val left = x(SugarliciousAnalogGeometry.outerCenter) - diameter / 2f
                 val top = y(SugarliciousAnalogGeometry.outerCenter) - diameter / 2f
                 drawArc(
@@ -219,22 +230,6 @@ internal fun SugarliciousAnalogFacePreview(
             }
 
             roundSlot(
-                SugarliciousAnalogGeometry.middleLeft,
-                SugarliciousAnalogGeometry.middleArcDiameter,
-                SugarliciousAnalogGeometry.middleArcStart,
-                SugarliciousAnalogGeometry.middleArcSweep,
-                SugarliciousAnalogGeometry.middleArcStroke,
-                0.58f,
-            )
-            roundSlot(
-                SugarliciousAnalogGeometry.middleRight,
-                SugarliciousAnalogGeometry.middleArcDiameter,
-                SugarliciousAnalogGeometry.middleArcStart,
-                SugarliciousAnalogGeometry.middleArcSweep,
-                SugarliciousAnalogGeometry.middleArcStroke,
-                if (displayable) 0.66f else 0f,
-            )
-            roundSlot(
                 SugarliciousAnalogGeometry.bottomCenter,
                 SugarliciousAnalogGeometry.bottomArcDiameter,
                 SugarliciousAnalogGeometry.bottomArcStart,
@@ -256,7 +251,7 @@ internal fun SugarliciousAnalogFacePreview(
                 textPaint.textSize = textSize * scale
                 textPaint.color = color
                 textPaint.textAlign = Paint.Align.LEFT
-                val radius = (SugarliciousAnalogGeometry.outerDiameter / 2f - 17f) * scale
+                val radius = (SugarliciousAnalogGeometry.outerTextDiameter / 2f) * scale
                 val cx = x(SugarliciousAnalogGeometry.outerCenter)
                 val cy = y(SugarliciousAnalogGeometry.outerCenter)
                 val path = Path().apply {
