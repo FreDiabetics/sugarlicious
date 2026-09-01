@@ -181,6 +181,13 @@ class G7BlePolicyTest {
         )
     }
 
+    @Test fun `no callback receives one clean direct retry before fallback`() {
+        assertTrue(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = false))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 1, fallbackUsed = false))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = true))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_GATT_133_ERROR_CODE, 0, fallbackUsed = false))
+    }
+
     @Test fun `known sensor address rejects a different nearby G7`() {
         assertFalse(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "11:22:33:44:55:66")!!)
         assertTrue(knownG7AddressMatches("AA:BB:CC:DD:EE:FF", "aa:bb:cc:dd:ee:ff")!!)

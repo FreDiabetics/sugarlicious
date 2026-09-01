@@ -139,6 +139,28 @@ class G7ReadingDatabaseTest {
         )
     }
 
+    @Test
+    fun `duplicate sensor error sequence is retained only once`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val error = CgmReading(
+            id = "error-1",
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a",
+            sessionId = "session-a",
+            glucoseMgDl = 0.0,
+            timestampEpochMs = now,
+            receivedAtEpochMs = now,
+            status = CgmReadingStatus.SENSOR_ERROR,
+            sequenceNumber = 42L,
+        )
+
+        assertEquals(true, database.insert(error))
+        assertEquals(false, database.insert(error.copy(id = "error-2", receivedAtEpochMs = now + 300_000L)))
+        assertEquals(1, database.query().size)
+        assertEquals(true, database.insert(error.copy(id = "error-3", sequenceNumber = 43L)))
+        assertEquals(2, database.query().size)
+    }
+
     private companion object {
         const val DATABASE_NAME = "g7_readings.db"
     }

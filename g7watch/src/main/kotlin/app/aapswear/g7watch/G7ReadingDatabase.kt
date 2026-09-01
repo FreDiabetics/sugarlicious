@@ -39,6 +39,9 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
     }
 
     override suspend fun insert(reading: CgmReading): Boolean {
+        if (reading.status == CgmReadingStatus.SENSOR_ERROR && hasSameSensorError(reading)) {
+            return false
+        }
         val values = ContentValues().apply {
             put("id", reading.id); put("sensor_id", reading.sensorId); put("session_id", reading.sessionId)
             put("glucose", reading.glucoseMgDl); put("measured_at", reading.timestampEpochMs); put("received_at", reading.receivedAtEpochMs)
@@ -66,6 +69,22 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             G7CollectorTileService.requestUpdate(appContext)
         }
         return inserted
+    }
+
+    /** Sensor-error packets can be replayed on later windows; retain one diagnostic row per
+     * sensor/session/sequence/error signature without changing valid-reading deduplication. */
+    private fun hasSameSensorError(reading: CgmReading): Boolean {
+        val sequence = reading.sequenceNumber ?: return false
+        return readableDatabase.query(
+            "readings",
+            arrayOf("id"),
+            "sensor_id=? AND session_id=? AND sequence_number=? AND status=?",
+            arrayOf(reading.sensorId, reading.sessionId, sequence.toString(), CgmReadingStatus.SENSOR_ERROR.name),
+            null,
+            null,
+            null,
+            "1",
+        ).use { it.moveToFirst() }
     }
 
     private fun prune(nowEpochMs: Long = System.currentTimeMillis()) {

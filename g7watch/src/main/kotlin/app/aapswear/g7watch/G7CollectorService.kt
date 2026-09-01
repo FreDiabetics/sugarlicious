@@ -710,7 +710,7 @@ class G7CollectorService : Service() {
                     attemptId,
                     CollectorDiagnosticStage.SCANNING,
                     CollectorDiagnosticResult.INFO,
-                    "Scan beendet · total=${telemetry.totalResults} · connectable=${telemetry.connectableResults} · g7=${telemetry.namedG7Results} · known=${telemetry.exactAddressResults} · duplicates=${telemetry.duplicateResults} · rssi=${telemetry.minRssi ?: "—"}..${telemetry.maxRssi ?: "—"}",
+                    "Scan beendet · total=${telemetry.totalResults} · connectable=${telemetry.connectableResults} · manufacturer=${telemetry.manufacturerDataResults} · g7=${telemetry.namedG7Results} · known=${telemetry.exactAddressResults} · rejectedNonConnectable=${telemetry.rejectedNotConnectable} · rejectedIdentity=${telemetry.rejectedByIdentity} · duplicates=${telemetry.duplicateResults} · rssi=${telemetry.minRssi ?: "—"}..${telemetry.maxRssi ?: "—"}",
                     durationMs = telemetry.durationMs,
                     nowEpochMs = telemetry.endedAtEpochMs,
                 )

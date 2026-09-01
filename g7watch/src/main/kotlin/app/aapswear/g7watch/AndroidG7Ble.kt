@@ -65,7 +65,10 @@ internal data class G7ScanTelemetry(
     val connectableResults: Int,
     val namedG7Results: Int,
     val exactAddressResults: Int,
+    val manufacturerDataResults: Int,
     val duplicateResults: Int,
+    val rejectedNotConnectable: Int,
+    val rejectedByIdentity: Int,
     val minRssi: Int?,
     val maxRssi: Int?,
     val adapterState: Int,
@@ -83,6 +86,15 @@ internal fun shouldUseFallbackDiscovery(
     recoverable: Boolean,
 ): Boolean =
     !fallbackUsed && recoverable && shouldUseDirectReconnect(strategy, address)
+
+internal fun shouldRetryNoCallbackDirectly(
+    errorCode: String,
+    retriesUsed: Int,
+    fallbackUsed: Boolean,
+): Boolean =
+    errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE &&
+        retriesUsed < 1 &&
+        !fallbackUsed
 
 internal fun g7ScanTimeoutMs(sensor: G7Sensor): Long =
     if (sensor.deviceAddress.isNullOrBlank()) G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS else G7_RECONNECT_SCAN_TIMEOUT_MS
@@ -154,7 +166,10 @@ internal class AndroidG7Scanner(
             val connectableResults = AtomicInteger(0)
             val namedG7Results = AtomicInteger(0)
             val exactAddressResults = AtomicInteger(0)
+            val manufacturerDataResults = AtomicInteger(0)
             val duplicateResults = AtomicInteger(0)
+            val rejectedNotConnectable = AtomicInteger(0)
+            val rejectedByIdentity = AtomicInteger(0)
             val seenAddresses = mutableSetOf<String>()
             var minRssi: Int? = null
             var maxRssi: Int? = null
@@ -177,7 +192,10 @@ internal class AndroidG7Scanner(
                         connectableResults.get(),
                         namedG7Results.get(),
                         exactAddressResults.get(),
+                        manufacturerDataResults.get(),
                         duplicateResults.get(),
+                        rejectedNotConnectable.get(),
+                        rejectedByIdentity.get(),
                         minRssi,
                         maxRssi,
                         adapter.state,
@@ -197,13 +215,22 @@ internal class AndroidG7Scanner(
                     minRssi = minRssi?.let { minOf(it, result.rssi) } ?: result.rssi
                     maxRssi = maxRssi?.let { maxOf(it, result.rssi) } ?: result.rssi
                     val advertisedName = result.scanRecord?.deviceName
+                    if ((result.scanRecord?.manufacturerSpecificData?.size() ?: 0) > 0) {
+                        manufacturerDataResults.incrementAndGet()
+                    }
                     if (isG7AdvertisedName(advertisedName)) namedG7Results.incrementAndGet()
                     if (knownG7AddressMatches(sensor?.deviceAddress, result.device.address) == true) {
                         exactAddressResults.incrementAndGet()
                     }
-                    if (!isConnectableG7Advertisement(result.isConnectable)) return
+                    if (!isConnectableG7Advertisement(result.isConnectable)) {
+                        rejectedNotConnectable.incrementAndGet()
+                        return
+                    }
                     connectableResults.incrementAndGet()
-                    if (!matcher.matches(result.device, advertisedName, sensor)) return
+                    if (!matcher.matches(result.device, advertisedName, sensor)) {
+                        rejectedByIdentity.incrementAndGet()
+                        return
+                    }
                     val name = advertisedName ?: runCatching { result.device.name }.getOrNull() ?: sensor?.deviceName
                     val sensorId = sensor?.sensorId ?: name ?: "Dexcom-G7"
                     finish(
@@ -326,6 +353,7 @@ internal class AndroidG7Collector(
         sharedKey = usableG7SharedKey(sharedKey, initialBondState)
         var bondReconnectAttempts = 0
         var gatt133Retries = 0
+        var noCallbackRetries = 0
         var pendingGatt133: G7BleException? = null
         var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
@@ -390,7 +418,15 @@ internal class AndroidG7Collector(
                 onState(G7ProtocolState.RECOVERING)
                 delay(BOND_RECONNECT_DELAY_MS)
             } catch (error: G7BleException) {
-                if (error.errorCode == G7_GATT_133_ERROR_CODE &&
+                // close-before-retry is deliberate: no delay or new connect may overlap the
+                // terminal lifecycle of the generation that just failed.
+                connection.close()
+                if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
+                    noCallbackRetries += 1
+                    discoveryRequired = false
+                    onState(G7ProtocolState.RECOVERING)
+                    delay(NO_CALLBACK_STACK_SETTLE_DELAY_MS)
+                } else if (error.errorCode == G7_GATT_133_ERROR_CODE &&
                     gatt133Retries < maxGatt133RetriesForCycle(fallbackUsed)
                 ) {
                     pendingGatt133 = error
@@ -407,6 +443,7 @@ internal class AndroidG7Collector(
                     throw pendingGatt133 ?: error
                 }
             } catch (timeout: TimeoutCancellationException) {
+                connection.close()
                 val error = G7BleException(
                     G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
                     "Direkte G7-Verbindung hat das begrenzte Zeitfenster überschritten",
@@ -432,6 +469,7 @@ internal class AndroidG7Collector(
         const val MAX_BOND_RECONNECT_ATTEMPTS = 2
         const val BOND_RECONNECT_DELAY_MS = 1_500L
         const val GATT_133_STACK_SETTLE_DELAY_MS = 1_500L
+        const val NO_CALLBACK_STACK_SETTLE_DELAY_MS = 2_500L
     }
 }
 
