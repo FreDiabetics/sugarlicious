@@ -519,7 +519,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
             val targetTop = mapGlucoseY(targetHigh, plot)
             val targetBottom = mapGlucoseY(targetLow, plot)
-            val excursion = if (signalLost) null else sustainedRangeExcursion(allHistory, targetLow, targetHigh)
+            // Signal loss changes freshness only. The last confirmed range excursion remains
+            // active until a new validated CGM value performs a real range transition.
+            val excursion = sustainedRangeExcursion(allHistory, targetLow, targetHigh)
             val graphSave = canvas.save()
             canvas.clipPath(Path().apply { addRoundRect(plot, radius, radius, Path.Direction.CW) })
 

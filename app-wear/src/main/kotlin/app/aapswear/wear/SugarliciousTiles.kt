@@ -66,7 +66,8 @@ internal fun wearGlucoseTilePresentation(
 ): WearGlucoseTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val glucose = state?.glucose
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val fresh = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val displayable = TherapyDisplayFormatter.isGlucoseKnown(state) && glucose != null
     val statusColor = when (freshness) {
         Freshness.CURRENT -> colors.accent
         Freshness.DELAYED -> colors.glucoseHigh
@@ -106,7 +107,7 @@ internal fun wearGlucoseTilePresentation(
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         valueColor = valueColor,
         statusColor = statusColor,
-        trend = glucose.trend.takeUnless { it == Trend.UNKNOWN },
+        trend = glucose.trend.takeIf { fresh && it != Trend.UNKNOWN },
     )
 }
 
@@ -121,14 +122,18 @@ internal data class WearTherapyTilePresentation(
 
 internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long): WearTherapyTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
+    val displayable = state?.let { it.insulin != null || it.carbs != null || it.basal != null } == true
     return WearTherapyTilePresentation(
-        iob = state?.insulin?.totalIob?.takeIf { displayable }?.let { String.format(Locale.US, "%.1f U", it) } ?: "—",
-        cob = state?.carbs?.cobGrams?.takeIf { displayable }?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
-        basal = state?.basal?.currentUnitsPerHour?.takeIf { displayable }?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
+        iob = state?.insulin?.totalIob?.let { String.format(Locale.US, "%.1f U", it) } ?: "—",
+        cob = state?.carbs?.cobGrams?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
+        basal = state?.basal?.currentUnitsPerHour?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         footer = if (displayable) {
-            listOf(TherapyDisplayFormatter.sourceName(state?.source), state?.loop?.status.orEmpty()).filter(String::isNotBlank).joinToString("  ·  ")
+            buildList {
+                add(TherapyDisplayFormatter.sourceName(state?.source))
+                state?.loop?.status?.takeIf { it.isNotBlank() }?.let(::add)
+                if (freshness != Freshness.CURRENT) add("letzter Stand")
+            }.joinToString("  ·  ")
         } else {
             when (freshness) {
                 Freshness.STALE -> "THERAPIEDATEN AUSGEBLENDET"

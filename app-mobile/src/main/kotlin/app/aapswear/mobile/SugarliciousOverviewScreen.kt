@@ -61,6 +61,7 @@ internal fun SugarliciousOverviewScreen(
     val unit = preferences.unitFor(state)
     val glucose = state?.glucose
     val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
+    val knownGlucose = app.aapswear.model.TherapyDisplayFormatter.isGlucoseKnown(state)
     val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
     val density = LocalDensity.current
     val screenHeightDp = with(density) {
@@ -151,7 +152,7 @@ internal fun SugarliciousOverviewScreen(
         )
     }
 
-    val glucoseText = if (displayable && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
+    val glucoseText = if (knownGlucose && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
     val rangePresentation = widgetRangePresentation(
         state = state,
         samples = canonicalWidgetSamples(state, now, 24L * 60L * 60_000L),
@@ -163,7 +164,7 @@ internal fun SugarliciousOverviewScreen(
         WidgetColorRole.LOW -> SugarliciousColors.GlucoseLow
         WidgetColorRole.IN_RANGE -> SugarliciousColors.GlucoseInRange
         else -> SugarliciousColors.TextPrimary
-    }
+    }.let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = glucose?.measuredAtEpochMs?.let { "${((now - it).coerceAtLeast(0L) / 60_000L)} min" } ?: "—"
     val tirStats = calculateTirStats(state, now)
@@ -470,7 +471,9 @@ internal fun overviewLoopTileState(state: TherapyDisplayState?): OverviewLoopTil
             OverviewLoopTileState(R.drawable.ic_pump_suspended, "Pumpe pausiert", SugarliciousColors.Red)
         listOf("suspend", "paused").any(loop::contains) ->
             OverviewLoopTileState(R.drawable.ic_loop_suspended, "Loop pausiert", SugarliciousColors.Orange)
-        loop.isBlank() || listOf("disabled", "off", "open", "deactivated").any(loop::contains) ->
+        loop.isBlank() ->
+            OverviewLoopTileState(R.drawable.ic_loop_deactivated, "Loop unbekannt", SugarliciousColors.TextSecondary)
+        listOf("disabled", "off", "open", "deactivated").any(loop::contains) ->
             OverviewLoopTileState(R.drawable.ic_loop_deactivated, "Loop aus", SugarliciousColors.TextSecondary)
         else -> OverviewLoopTileState(R.drawable.ic_loop_closed, "Closed Loop", SugarliciousColors.Green)
     }

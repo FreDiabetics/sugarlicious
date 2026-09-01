@@ -170,16 +170,16 @@ abstract class TherapyComplicationService(
         val thresholds = readCgmThresholds()
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, now)
-        val displayable =
-            freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
-        val therapyState = state.takeIf { displayable }
+        val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+        val displayable = TherapyDisplayFormatter.isGlucoseKnown(state)
+        val therapyState = state
 
         val glucoseText =
             if (displayable && glucose != null) glucose(glucose) else DASH
         val trendText =
-            if (displayable && glucose != null) arrow(glucose.trend) else ""
+            if (fresh && glucose != null) arrow(glucose.trend) else ""
         val deltaText =
-            if (displayable && glucose != null) {
+            if (fresh && glucose != null) {
                 signed(glucose.deltaMgDl, glucose.displayUnit)
             } else {
                 ""

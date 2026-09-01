@@ -64,6 +64,23 @@ class CgmAlarmEngineTest {
     }
 
     @Test
+    fun `signal loss never resolves an already active high alarm`() {
+        val activeHigh = CgmAlarmEngine.evaluate(reading(190.0), emptyMap(), settings, now)
+        val stale = CgmAlarmEngine.evaluate(
+            reading(190.0, now - 16 * minute),
+            activeHigh,
+            settings,
+            now,
+        )
+
+        assertEquals(CgmAlarmState.ACTIVE, state(stale, CgmAlarmType.HIGH))
+        assertEquals(CgmAlarmState.ACTIVE, state(stale, CgmAlarmType.SIGNAL_LOSS))
+
+        val recovered = CgmAlarmEngine.evaluate(reading(120.0), stale, settings, now + minute)
+        assertEquals(CgmAlarmState.RESOLVED, state(recovered, CgmAlarmType.HIGH))
+    }
+
+    @Test
     fun `very low low high and very high are mutually prioritized`() {
         val urgent = CgmAlarmEngine.evaluate(reading(40.0), emptyMap(), settings, now)
         assertEquals(CgmAlarmState.ACTIVE, state(urgent, CgmAlarmType.VERY_LOW))
@@ -100,7 +117,7 @@ class CgmAlarmEngineTest {
         assertEquals(CgmAlarmState.ACTIVE, state(sensorError, CgmAlarmType.SENSOR_ERROR))
         assertNull(state(sensorError, CgmAlarmType.VERY_HIGH))
         assertEquals(CgmAlarmState.RESOLVED, state(sensorError, CgmAlarmType.RAPID_RISE))
-        assertEquals(CgmAlarmState.RESOLVED, state(sensorError, CgmAlarmType.RAPID_FALL))
+        assertEquals(CgmAlarmState.ACTIVE, state(sensorError, CgmAlarmType.RAPID_FALL))
     }
 
     @Test

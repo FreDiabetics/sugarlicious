@@ -45,9 +45,10 @@ fun wearGlucoseCardPresentation(
         input.quality != CgmQuality.VALID || value == null || !value.isFinite() || value !in 20.0..1_000.0 -> Freshness.NO_DATA
         else -> FreshnessPolicy.classify(input.measuredAtEpochMs, nowEpochMs)
     }
-    val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+    val displayable = input.quality == CgmQuality.VALID && value != null && value.isFinite() && value in 20.0..1_000.0
+    val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
     val unit = if (input.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
-    val formattedValue = if (!displayable || value == null) {
+    val formattedValue = if (!displayable) {
         "—"
     } else if (input.displayUnit == GlucoseUnit.MMOL_L) {
         String.format(java.util.Locale.US, "%.1f", value / 18.0)
@@ -67,7 +68,7 @@ fun wearGlucoseCardPresentation(
         value = formattedValue,
         primaryMeta = if (displayable) listOf("$delta $unit", stateText).filter(String::isNotBlank).joinToString(" · ") else stateText,
         secondaryMeta = "",
-        trend = input.trend.takeIf { displayable && it != Trend.UNKNOWN },
+        trend = input.trend.takeIf { fresh && it != Trend.UNKNOWN },
         freshness = freshness,
         rangeClass = value?.takeIf { displayable }?.let(thresholds::classify),
         displayable = displayable,

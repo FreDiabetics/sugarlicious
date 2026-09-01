@@ -82,14 +82,28 @@ internal object DisplayHistoryAccumulator {
             .sortedBy { it.timestampEpochMs }
             .toList()
 
+        val retained = current.copy(
+            // A missing field in a transport update is absence of new information, not a
+            // clinical transition to zero/off/unknown. Explicit values still replace prior ones.
+            glucose = current.glucose ?: previous?.glucose,
+            insulin = current.insulin ?: previous?.insulin,
+            carbs = current.carbs ?: previous?.carbs,
+            basal = current.basal ?: previous?.basal,
+            target = current.target ?: previous?.target,
+            loop = current.loop ?: previous?.loop,
+            pump = current.pump ?: previous?.pump,
+            device = current.device ?: previous?.device,
+            profile = profile,
+            capabilities = current.capabilities + previous?.capabilities.orEmpty(),
+        )
+
         return PersistentPredictionCache.merge(
             previous = previous,
             incoming =
-                current.copy(
+                retained.copy(
                     glucoseHistory = glucose,
                     therapyHistory = therapy,
                     therapyEvents = therapyEvents,
-                    profile = profile,
                     targetHistory = mergeTargetHistory(previous?.targetHistory.orEmpty(), current.targetHistory, nowEpochMs),
                 ),
             nowEpochMs = nowEpochMs,

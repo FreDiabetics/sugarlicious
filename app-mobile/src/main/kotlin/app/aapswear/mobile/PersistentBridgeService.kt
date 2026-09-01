@@ -236,7 +236,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-        if (glucose == null || !TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
+        if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null)
         }
 
@@ -251,10 +251,20 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, selectedUnit)
                 .ifBlank { "—" }
         val age = ((now - glucose.measuredAtEpochMs).coerceAtLeast(0L) / 60_000L)
-        val prefix = if (freshness == Freshness.DELAYED) "Verzögert · " else ""
+        val prefix = when (freshness) {
+            Freshness.CURRENT -> ""
+            Freshness.DELAYED -> "Verzögert · "
+            Freshness.STALE -> "Signalverlust · "
+            Freshness.ERROR -> "Sensorfehler · "
+            Freshness.NO_DATA -> "Keine Quelle · "
+        }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
         val subtitle = "$prefix$delta · $age min alt"
-        return NotificationDisplay(value, subtitle, glucose.trend)
+        return NotificationDisplay(
+            value,
+            subtitle,
+            glucose.trend.takeIf { freshness == Freshness.CURRENT || freshness == Freshness.DELAYED },
+        )
     }
 
     private fun createNotificationChannel() {

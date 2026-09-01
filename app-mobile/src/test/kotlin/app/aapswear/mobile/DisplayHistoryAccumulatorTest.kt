@@ -8,6 +8,9 @@ import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
+import app.aapswear.model.BasalState
+import app.aapswear.model.PumpState
+import app.aapswear.model.TargetState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
@@ -18,6 +21,48 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
+    @Test
+    fun `partial transport update retains last validated therapy and loop state`() {
+        val now = 20_000_000L
+        val previous = TherapyDisplayState(
+            receivedAtEpochMs = now - 5 * 60_000L,
+            glucose = GlucoseState(176.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now - 5 * 60_000L),
+            insulin = InsulinState(totalIob = 2.4),
+            carbs = CarbState(cobGrams = 32.0),
+            basal = BasalState(currentUnitsPerHour = 0.7),
+            target = TargetState(lowMgDl = 80.0, highMgDl = 160.0),
+            loop = LoopState(status = "enacted", lastRunAtEpochMs = now - 6 * 60_000L),
+            pump = PumpState(status = "normal", reservoirUnits = 120.0),
+        )
+        val transportOnly = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(176.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now - 5 * 60_000L),
+        )
+
+        val merged = DisplayHistoryAccumulator.merge(previous, transportOnly, now)
+
+        assertEquals(previous.loop, merged.loop)
+        assertEquals(previous.insulin, merged.insulin)
+        assertEquals(previous.carbs, merged.carbs)
+        assertEquals(previous.basal, merged.basal)
+        assertEquals(previous.target, merged.target)
+        assertEquals(previous.pump, merged.pump)
+    }
+
+    @Test
+    fun `explicit loop off replaces retained loop on`() {
+        val now = 20_000_000L
+        val previous = TherapyDisplayState(
+            receivedAtEpochMs = now - 60_000L,
+            loop = LoopState(status = "enacted", lastRunAtEpochMs = now - 60_000L),
+        )
+        val explicitOff = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            loop = LoopState(status = "off", lastRunAtEpochMs = now),
+        )
+
+        assertEquals("off", DisplayHistoryAccumulator.merge(previous, explicitOff, now).loop?.status)
+    }
     @Test fun `treatment events keep stable ids and do not duplicate on reload`() {
         val now = DisplayHistoryAccumulator.WINDOW_MS * 2
         val event = TherapyEvent("bolus:42", TherapyEventKind.MEAL_BOLUS, now - 60_000L, 7.6)

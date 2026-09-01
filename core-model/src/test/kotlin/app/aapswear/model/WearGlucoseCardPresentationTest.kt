@@ -24,7 +24,7 @@ class WearGlucoseCardPresentationTest {
     }
 
     @Test
-    fun `stale and sensor error never present an old glucose as current`() {
+    fun `stale preserves validated glucose while sensor error remains hidden`() {
         val stale = wearGlucoseCardPresentation(
             WearGlucoseCardInput(123.0, GlucoseUnit.MG_DL, 4.0, Trend.FLAT, now - 20 * 60_000L),
             CgmThresholds.DEFAULT,
@@ -35,11 +35,11 @@ class WearGlucoseCardPresentationTest {
             CgmThresholds.DEFAULT,
             now,
         )
-        assertEquals("—", stale.value)
+        assertEquals("123", stale.value)
         assertEquals("—", error.value)
         assertNull(stale.trend)
         assertNull(error.trend)
-        assertFalse(stale.displayable)
+        assertTrue(stale.displayable)
         assertFalse(error.displayable)
     }
 

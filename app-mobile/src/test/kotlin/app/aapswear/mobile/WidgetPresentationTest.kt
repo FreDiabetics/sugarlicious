@@ -78,9 +78,10 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `stale glucose is hidden and renders no colored current value`() {
+    fun `stale glucose preserves the last confirmed range role`() {
         val stale = state(listOf(sample(190.0, -40), sample(195.0, -35)), 195.0, currentMinutes = -35)
-        assertEquals(WidgetColorRole.TEXT, presentation(stale).visibleRole)
+        assertEquals(WidgetColorRole.HIGH, presentation(stale).visibleRole)
+        assertEquals(app.aapswear.model.RangeExcursion.HIGH, presentation(stale).excursion)
     }
 
     @Test

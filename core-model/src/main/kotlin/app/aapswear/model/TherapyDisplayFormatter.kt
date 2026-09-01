@@ -5,6 +5,17 @@ import kotlin.math.roundToInt
 
 /** Pure, deterministic display formatting shared by complications, Tiles, widgets and tests. */
 object TherapyDisplayFormatter {
+    /**
+     * Whether a real, validated glucose value is known, independent from its age.
+     * Freshness is presentation metadata and must never destroy the last clinical state.
+     */
+    fun isGlucoseKnown(state: TherapyDisplayState?): Boolean {
+        val glucose = state?.glucose ?: return false
+        return glucose.quality == CgmQuality.VALID &&
+            glucose.valueMgDl.isFinite() &&
+            glucose.valueMgDl in 20.0..1_000.0
+    }
+
     fun glucose(glucose: GlucoseState): String =
         if (glucose.displayUnit == GlucoseUnit.MMOL_L) {
             String.format(Locale.US, "%.1f", glucose.valueMgDl / 18.0)
@@ -66,14 +77,7 @@ object TherapyDisplayFormatter {
     }
 
     fun isGlucoseDisplayable(state: TherapyDisplayState?, nowEpochMs: Long): Boolean {
-        val glucose = state?.glucose ?: return false
-        if (
-            glucose.quality != CgmQuality.VALID ||
-            !glucose.valueMgDl.isFinite() ||
-            glucose.valueMgDl !in 20.0..1_000.0
-        ) {
-            return false
-        }
+        if (!isGlucoseKnown(state)) return false
         return when (freshness(state, nowEpochMs)) {
             Freshness.CURRENT, Freshness.DELAYED -> true
             Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> false

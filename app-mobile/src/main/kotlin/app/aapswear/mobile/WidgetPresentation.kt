@@ -62,7 +62,7 @@ internal fun widgetRangePresentation(
     thresholds: CgmThresholds,
     now: Long,
 ): WidgetRangePresentation {
-    if (!TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
+    if (!TherapyDisplayFormatter.isGlucoseKnown(state)) {
         return WidgetRangePresentation(null, WidgetColorRole.TEXT)
     }
     val excursion = CgmGraphPolicy.rangeExcursion(samples, thresholds)

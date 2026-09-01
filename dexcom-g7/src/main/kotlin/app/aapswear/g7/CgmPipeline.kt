@@ -215,24 +215,29 @@ object CgmAlarmEngine {
         val low = settings.lowEnabled && !veryLow && value != null &&
             (value <= settings.lowThreshold || (wasActive(CgmAlarmType.LOW) && value <= settings.lowThreshold + settings.hysteresisMgDl))
 
-        update(CgmAlarmType.VERY_HIGH, veryHigh)
-        update(CgmAlarmType.HIGH, high)
-        update(CgmAlarmType.VERY_LOW, veryLow)
-        update(CgmAlarmType.LOW, low)
-        update(CgmAlarmType.RAPID_RISE, settings.rapidRiseEnabled && validReading?.trendRateMgDlPerMinute?.let { it >= settings.rapidRiseThreshold } == true)
-        update(CgmAlarmType.RAPID_FALL, settings.rapidFallEnabled && validReading?.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true)
+        // A range/rate alarm may only recover from a new validated, fresh CGM reading. A stale
+        // timeout is a freshness transition and must not manufacture a normal glucose event.
+        if (validReading != null) {
+            update(CgmAlarmType.VERY_HIGH, veryHigh)
+            update(CgmAlarmType.HIGH, high)
+            update(CgmAlarmType.VERY_LOW, veryLow)
+            update(CgmAlarmType.LOW, low)
+            update(CgmAlarmType.RAPID_RISE, settings.rapidRiseEnabled && validReading.trendRateMgDlPerMinute?.let { it >= settings.rapidRiseThreshold } == true)
+            update(CgmAlarmType.RAPID_FALL, settings.rapidFallEnabled && validReading.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true)
+        }
         update(
             CgmAlarmType.SIGNAL_LOSS,
             settings.signalLossEnabled &&
                 reading != null &&
                 nowEpochMs - reading.timestampEpochMs >= signalLossMs,
         )
-        update(
-            CgmAlarmType.SENSOR_ERROR,
-            settings.sensorErrorEnabled &&
-                reading?.status == CgmReadingStatus.SENSOR_ERROR &&
-                nowEpochMs - reading.timestampEpochMs in 0L until signalLossMs,
-        )
+        val freshSensorStatus = reading?.takeIf { nowEpochMs - it.timestampEpochMs in 0L until signalLossMs }
+        if (freshSensorStatus != null) {
+            update(
+                CgmAlarmType.SENSOR_ERROR,
+                settings.sensorErrorEnabled && freshSensorStatus.status == CgmReadingStatus.SENSOR_ERROR,
+            )
+        }
         return next
     }
 

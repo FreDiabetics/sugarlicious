@@ -346,18 +346,18 @@ private fun GraphWidgetContent(
 private fun MetabolicWidgetContent(state: TherapyDisplayState?, compact: Boolean, palette: WidgetPalette) {
     val now = System.currentTimeMillis()
     val freshness = TherapyDisplayFormatter.freshness(state, now)
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
+    val hasTherapy = state?.let { it.insulin != null || it.carbs != null || it.basal != null } == true
     val horizontalInset = if (compact) 16.dp else 32.dp
     val width = ((LocalSize.current.width - horizontalInset) / 3).coerceAtLeast(if (compact) 48.dp else 56.dp)
 
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
-        FlatMetric("IOB", state?.insulin?.totalIob?.takeIf { displayable }?.let { String.format(Locale.US, "%.1f U", it) } ?: "–", WidgetIob, GlanceModifier.width(width), compact, palette)
-        FlatMetric("COB", state?.carbs?.cobGrams?.takeIf { displayable }?.let { String.format(Locale.US, "%.0f g", it) } ?: "–", WidgetCob, GlanceModifier.width(width), compact, palette)
-        FlatMetric("BASAL", state?.basal?.currentUnitsPerHour?.takeIf { displayable }?.let { String.format(Locale.US, "%.2f", it) } ?: "–", WidgetBasal, GlanceModifier.width(width), compact, palette)
+        FlatMetric("IOB", state?.insulin?.totalIob?.let { String.format(Locale.US, "%.1f U", it) } ?: "–", WidgetIob, GlanceModifier.width(width), compact, palette)
+        FlatMetric("COB", state?.carbs?.cobGrams?.let { String.format(Locale.US, "%.0f g", it) } ?: "–", WidgetCob, GlanceModifier.width(width), compact, palette)
+        FlatMetric("BASAL", state?.basal?.currentUnitsPerHour?.let { String.format(Locale.US, "%.2f", it) } ?: "–", WidgetBasal, GlanceModifier.width(width), compact, palette)
     }
     Spacer(GlanceModifier.height(if (compact) SugarliciousSpacing.Xs else SugarliciousSpacing.Sm))
     Text(
-        if (displayable) widgetStatusLine(state, freshness, now, compact) else TherapyDisplayFormatter.freshnessLabel(freshness),
+        if (hasTherapy && freshness != Freshness.CURRENT) "${TherapyDisplayFormatter.freshnessLabel(freshness)} · letzter Stand" else widgetStatusLine(state, freshness, now, compact),
         style = TextStyle(color = statusColor(freshness, palette), fontWeight = FontWeight.Medium, fontSize = if (compact) 9.sp else 11.sp),
     )
 }
@@ -468,9 +468,8 @@ internal fun renderWidgetGraph(
     val targetHigh = thresholds.highMgDl
     val windowMs = configuration.graphHours.toLong() * 60L * 60_000L
     val allSamples = canonicalWidgetSamples(state, now, windowMs)
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
-    val samples = if (displayable) allSamples else emptyList()
-    val excursion = if (displayable) CgmGraphPolicy.rangeExcursion(allSamples, thresholds) else null
+    val samples = allSamples
+    val excursion = CgmGraphPolicy.rangeExcursion(allSamples, thresholds)
     val yScale = widgetYScale(configuration.scaleMode, allSamples.map(GlucoseSample::valueMgDl), targetLow, targetHigh)
     val targetTop = yScale.map(targetHigh, plot)
     val targetBottom = yScale.map(targetLow, plot)
@@ -698,11 +697,12 @@ internal fun renderMinimalGlucoseWidget(
     clipWidgetCanvas(canvas, bitmap.width, bitmap.height, options.cornerRadiusDp, pixelDensity)
     canvas.drawColor(palette.argb(WidgetColorRole.BACKGROUND))
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
+    val known = TherapyDisplayFormatter.isGlucoseKnown(state)
     val samples = canonicalWidgetSamples(state, now)
     val presentation = widgetRangePresentation(state, samples, thresholds, now)
     val glucose = state?.glucose
-    val value = if (displayable && glucose != null) TherapyDisplayFormatter.glucose(glucose) else "–"
-    val color = palette.argb(if (displayable) presentation.visibleRole else WidgetColorRole.TEXT)
+    val value = if (known && glucose != null) TherapyDisplayFormatter.glucose(glucose) else "–"
+    val color = palette.argb(if (known) presentation.visibleRole else WidgetColorRole.TEXT)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
         textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * options.glucoseScale

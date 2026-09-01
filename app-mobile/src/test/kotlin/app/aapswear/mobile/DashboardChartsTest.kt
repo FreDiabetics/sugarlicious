@@ -150,6 +150,37 @@ class DashboardChartsTest {
         SugarliciousColors.apply(SugarliciousPalette.defaults())
     }
 
+    @Test fun `stale signal keeps confirmed high background until a new valid transition`() {
+        val preferences = context.getSharedPreferences("chart_stale_high_color", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val high = Color.rgb(213, 151, 17)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, high)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        val now = System.currentTimeMillis()
+        val measured = now - 20L * 60_000L
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(176.0, GlucoseUnit.MG_DL, measuredAtEpochMs = measured),
+            glucoseHistory = listOf(
+                GlucoseSample(170.0, measured - 5L * 60_000L),
+                GlucoseSample(176.0, measured),
+            ),
+            target = TargetState(80.0, 160.0),
+        )
+        val bitmap = render(
+            GlucoseDashboardChart(context).apply {
+                bind(state, GlucoseUnit.MG_DL, false, 3, showTargetRange = true, clockEpochMs = now)
+            },
+            230,
+        )
+
+        assertTrue(
+            count(bitmap) { Color.red(it) > 80 && Color.green(it) > 45 && Color.blue(it) < 45 } > 100,
+        )
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
+    }
+
     @Test fun `glucose chart keeps cached predictions visible right of now divider`() {
         val now = System.currentTimeMillis()
         val state =
