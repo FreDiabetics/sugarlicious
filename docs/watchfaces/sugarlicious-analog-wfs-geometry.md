@@ -16,9 +16,18 @@ Runtime WFF coordinates use a 512 x 512 canvas and the scale 512 / 450.
 | Center right | 269 | 171 | 108.3334 | 108.3334 | 306, 195, 123, 123 |
 | Center bottom | 158.9996 | 247 | 132.0008 | 130.9996 | 181, 281, 150, 149 |
 
-The dial, large indices and small indices are full-canvas image layers. Their
-combined repository template already matches the extracted WFS assets, so it
-is retained rather than rasterized again.
+The dial artwork is generated from the authoritative 450 x 450 SVG sources
+provided with the WFS revision. `indices_hours.png`, `indices_dots.png`, and
+`graph_mask.png` retain that native canvas. The runtime
+`sugarlicious_analog_template.png` composites those exact paths with the three
+WFS complication outlines; the graph mask contributes its silhouette while
+the obscuring area remains the watch face's black background.
+
+Source SVG SHA-256 fingerprints:
+
+- `indizies_hours.svg`: `CED1896A0090F515A39E08A66E9CAEAAF5FC4DA26BDDCF543B01579773993C67`
+- `indizies_dots.svg`: `9A0768C05316DB0844E406B91AC31833E1802F81E1D322101DA2FCF503FE07B8`
+- `template_graphmask.svg`: `E0CF7D73C5DDA7A6AAAF82147CF0A9CEBBA714143029236D5B7A3C541A68D330`
 
 ## Outer curved geometry
 

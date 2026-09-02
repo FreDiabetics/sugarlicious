@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import java.io.File
+import javax.imageio.ImageIO
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -75,6 +76,22 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertFalse(preview.contains("sugarlicious_analog_preview_target"))
     }
 
+    @Test
+    fun `authoritative WFS artwork remains on its native 450 canvas`() {
+        listOf(
+            "indices_hours.png",
+            "indices_dots.png",
+            "graph_mask.png",
+            "sugarlicious_analog_template.png",
+        ).forEach { name ->
+            val image = requireNotNull(
+                ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
+            ) { "$name must be a readable PNG" }
+            assertTrue("$name must be 450 px wide", image.width == 450)
+            assertTrue("$name must be 450 px high", image.height == 450)
+        }
+    }
+
     private fun watchfaceFile(): File = repoFile(
         "watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml",
     )
@@ -84,7 +101,7 @@ class SugarliciousAnalogPreviewGeometryTest {
     )
 
     private fun repoFile(path: String): File {
-        val cwd = File(System.getProperty("user.dir"))
+        val cwd = File(requireNotNull(System.getProperty("user.dir")))
         val candidates = listOf(File(cwd, path), File(cwd.parentFile, path))
         return candidates.firstOrNull(File::isFile)
             ?: error("Repository file not found: $path from ${cwd.absolutePath}")
