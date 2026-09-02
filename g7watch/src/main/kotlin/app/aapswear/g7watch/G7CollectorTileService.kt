@@ -40,9 +40,14 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.google.common.util.concurrent.SettableFuture
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 internal data class G7TilePresentation(
     val glucoseValue: String,
@@ -160,14 +165,28 @@ internal fun tileForegroundFor(backgroundArgb: Int): Int =
     if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
 class G7CollectorTileService : TileService() {
-    override fun onTileRequest(requestParams: RequestBuilders.TileRequest) =
-        Futures.immediateFuture(
-            Tile.Builder()
-                .setResourcesVersion(RESOURCES_VERSION)
-                .setFreshnessIntervalMillis(60_000L)
-                .setTileTimeline(Timeline.fromLayoutElement(layout()))
-                .build(),
-        )
+    private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<Tile> {
+        val future = SettableFuture.create<Tile>()
+        tileScope.launch {
+            runCatching {
+                val reading = G7ReadingDatabase(this@G7CollectorTileService).let { database ->
+                    try {
+                        database.getLatest()
+                    } finally {
+                        database.close()
+                    }
+                }
+                Tile.Builder()
+                    .setResourcesVersion(RESOURCES_VERSION)
+                    .setFreshnessIntervalMillis(60_000L)
+                    .setTileTimeline(Timeline.fromLayoutElement(layout(reading)))
+                    .build()
+            }.onSuccess(future::set).onFailure(future::setException)
+        }
+        return future
+    }
 
     override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest) =
         Futures.immediateFuture(
@@ -196,17 +215,12 @@ class G7CollectorTileService : TileService() {
                 .build(),
         )
 
-    private fun layout(): LayoutElementBuilders.LayoutElement {
-        val reading =
-            runBlocking(Dispatchers.IO) {
-                G7ReadingDatabase(this@G7CollectorTileService).let { database ->
-                    try {
-                        database.getLatest()
-                    } finally {
-                        database.close()
-                    }
-                }
-            }
+    override fun onDestroy() {
+        tileScope.cancel()
+        super.onDestroy()
+    }
+
+    private fun layout(reading: CgmReading?): LayoutElementBuilders.LayoutElement {
         val persistedState = G7SensorStateStore(this).read()
         val credentialsPresent = G7CredentialStore(this).read() != null
         val userStatus = deriveG7UserStatus(persistedState, credentialsPresent)
