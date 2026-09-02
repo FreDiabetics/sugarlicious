@@ -280,6 +280,7 @@ class WearActivity : Activity() {
                 color = valueColor,
                 background = glucoseFill,
                 scale = GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent),
+                style = preferences.trendArrowStyle,
             )
             delta.text = presentation.primaryMeta
             age.text = presentation.secondaryMeta
@@ -356,14 +357,14 @@ class WearActivity : Activity() {
         hasRendered = true
     }
 
-    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int, scale: Float) {
+    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int, scale: Float, style: app.aapswear.model.TrendArrowStyle) {
         val spec = trend?.let(TrendVisuals::spec)
         if (spec == null) {
             trendContainer.visibility = View.GONE
             return
         }
         trendContainer.visibility = View.VISIBLE
-        trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background)
+        trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background, trendStyle = style.copy(fillColor = color))
         trendArrow1.rotation = 0f
         val density = resources.displayMetrics.density
         trendArrow1.layoutParams = trendArrow1.layoutParams.apply {

@@ -127,6 +127,7 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     result.onSuccess { restored ->
                         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+                        MobileTrendArrowAppearance.apply(uiPreferences)
                         PersistentBridgeService.refresh(this@MainActivity)
                         SugarliciousWidgets.update(applicationContext)
                         refresh(forceSettingsRender = true)
@@ -151,6 +152,7 @@ class MainActivity : ComponentActivity() {
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnUiThread {
                 SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+                MobileTrendArrowAppearance.apply(uiPreferences)
                 if (screen == DashboardScreen.SETTINGS && isInteractiveAppearancePreference(key)) {
                     // Keep the active color picker/slider and expanded section alive. Rebuilding the
                     // complete Settings hierarchy here used to close the configurator on every drag.
@@ -188,6 +190,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+        MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
             uiPreferences.edit { putInt("graphHours", 3); putBoolean("graphHoursDefault3Migrated", true) }
@@ -423,6 +426,7 @@ class MainActivity : ComponentActivity() {
     private fun refresh(forceSettingsRender: Boolean = false) {
         if (!::content.isInitialized || !::factory.isInitialized) return
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+        MobileTrendArrowAppearance.apply(uiPreferences)
         applyRuntimeColors()
         val diagnosticState = DiagnosticsSnapshot.read(diagnostics)
         val uiState = DashboardUiPreferences.read(uiPreferences)

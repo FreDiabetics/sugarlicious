@@ -25,6 +25,7 @@ import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
+import app.aapswear.uishared.SharedColorEditor
 import kotlin.math.roundToInt
 
 class WearSettingsActivity : Activity() {
@@ -150,10 +151,27 @@ class WearSettingsActivity : Activity() {
             )
             root.addView(
                 sliderCard("Trendpfeil", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.trendScalePercent, { "$it %" }) {
-                    save(current.copy(trendScalePercent = it), rebuild = false)
+                    save(current.copy(trendScalePercent = it, trendArrowStyle = current.trendArrowStyle.copy(sizePercent = it)), rebuild = false)
                 },
                 cardParams(),
             )
+            colorRow("Trendpfeil · Füllfarbe", current.trendArrowStyle.fillColor) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(fillColor = it)))
+            }
+            root.addView(switchRow("Trendpfeil-Kontur", current.trendArrowStyle.outlineEnabled) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineEnabled = it)))
+            }, cardParams())
+            if (current.trendArrowStyle.outlineEnabled) {
+                colorRow("Trendpfeil · Konturfarbe", current.trendArrowStyle.outlineColor) {
+                    save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineColor = it)))
+                }
+                root.addView(sliderCard("Konturdicke", 25, 400, (current.trendArrowStyle.outlineThicknessDp * 100).roundToInt(), { "${it / 100f} dp" }) {
+                    save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineThicknessDp = it / 100f)), rebuild = false)
+                }, cardParams())
+            }
+            root.addView(sliderCard("Trend-Deckkraft", 0, 100, (current.trendArrowStyle.alpha * 100).roundToInt(), { "$it %" }) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(alpha = it / 100f)), rebuild = false)
+            }, cardParams())
         }
 
         settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
@@ -549,38 +567,14 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun showColorPicker(title: String, selected: Int, changed: (Int) -> Unit) {
-        val grid = GridLayout(this).apply {
-            columnCount = 4
-            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
-            setBackgroundColor(current.uiColors.tileBackground)
-        }
-        COLOR_CHOICES.forEach { color ->
-            grid.addView(View(this).apply { background = colorCircle(color, color == selected) }, GridLayout.LayoutParams().apply {
-                width = 42.dp
-                height = 42.dp
-                setMargins(4.dp, 4.dp, 4.dp, 4.dp)
-            })
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(grid)
-            .setNegativeButton("Abbrechen", null)
-            .create()
-        grid.children().forEach { child ->
-            child.setOnClickListener {
-                val color = COLOR_CHOICES[grid.indexOfChild(child)]
-                changed(color)
-                dialog.dismiss()
-            }
-        }
-        dialog.setOnShowListener {
-            dialog.window?.setBackgroundDrawable(cardBackground(26f))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(current.uiColors.accent)
-        }
-        dialog.show()
+        SharedColorEditor.show(
+            this, title, selected,
+            current.uiColors.tileBackground, current.uiColors.textPrimary, current.uiColors.tileBorder,
+            selected,
+            onChange = changed,
+            onReset = { changed(selected) },
+        )
     }
-
-    private fun GridLayout.children(): List<View> = (0 until childCount).map(::getChildAt)
 
     private fun save(value: WearDisplayPreferences, rebuild: Boolean = true) {
         val trendChanged = current.trendScalePercent != value.trendScalePercent
@@ -632,14 +626,4 @@ class WearSettingsActivity : Activity() {
     private val Int.dp: Int
         get() = (this * resources.displayMetrics.density).roundToInt()
 
-    companion object {
-        private val COLOR_CHOICES = intArrayOf(
-            0xFF181818.toInt(), 0xFF202020.toInt(), 0xFF242424.toInt(), 0xFF404040.toInt(),
-            0xFFF5F5F5.toInt(), 0xFFB5B5B5.toInt(), 0xFF6DE892.toInt(), 0xFF54DF30.toInt(),
-            0xFF19D7E8.toInt(), 0xFF52C1FF.toInt(), 0xFF64BFFF.toInt(), 0xFF9575CD.toInt(),
-            0xFFD69AFF.toInt(), 0xFFFF5C69.toInt(), 0xFFFF9D18.toInt(), 0xFFFFAE1F.toInt(),
-            0xFFFFD040.toInt(), 0xFFF4DE00.toInt(), 0xFF30DBDE.toInt(), 0xFF969696.toInt(),
-            0xFF000000.toInt(),
-        )
-    }
 }

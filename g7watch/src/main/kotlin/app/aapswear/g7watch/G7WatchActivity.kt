@@ -394,15 +394,26 @@ class G7WatchActivity : Activity() {
         gravity = Gravity.CENTER
         setPadding(WearGlucoseCardStyle.TREND_GAP_DP.dp, 0, 0, 0)
         TrendVisuals.spec(trend)?.let { spec ->
-            addView(ImageView(this@G7WatchActivity).apply {
-                setImageResource(TrendDrawableResources.forAsset(spec.asset))
-                setColorFilter(color, PorterDuff.Mode.SRC_IN)
+            val style = appearanceStore.trendArrowStyle().copy(fillColor = color).renderSpec()
+            val height = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale).toInt().dp
+            val width = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale * spec.aspectRatio).toInt().dp
+            addView(android.widget.FrameLayout(this@G7WatchActivity).apply {
+                fun arrow(tint: Int, x: Float = 0f, y: Float = 0f) = ImageView(this@G7WatchActivity).apply {
+                    setImageResource(TrendDrawableResources.forAsset(spec.asset))
+                    setColorFilter(tint, PorterDuff.Mode.SRC_IN)
+                    translationX = x
+                    translationY = y
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+                if (style.outlineThicknessDp > 0f) {
+                    val offset = style.outlineThicknessDp * resources.displayMetrics.density
+                    listOf(-offset to 0f, offset to 0f, 0f to -offset, 0f to offset).forEach { (x, y) ->
+                        addView(arrow(style.outlineColor, x, y), android.widget.FrameLayout.LayoutParams(width, height))
+                    }
+                }
+                addView(arrow(style.fillColor), android.widget.FrameLayout.LayoutParams(width, height))
                 contentDescription = "Trend ${trend.name}"
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            }, LinearLayout.LayoutParams(
-                (WearGlucoseCardStyle.TREND_SIZE_DP * GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent()) * spec.aspectRatio).toInt().dp,
-                (WearGlucoseCardStyle.TREND_SIZE_DP * GlucoseTrendSizing.scaleFactor(appearanceStore.trendScalePercent())).toInt().dp,
-            ))
+            }, LinearLayout.LayoutParams(width, height))
         }
     }
 

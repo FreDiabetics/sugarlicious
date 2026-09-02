@@ -15,6 +15,8 @@ import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.SettingsSchemaVersions
 import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.storage.TrendArrowStylePreferences
+import app.aapswear.model.TrendArrowStyle
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,6 +40,7 @@ internal data class WearDisplayPreferences(
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
     val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+    val trendArrowStyle: TrendArrowStyle = TrendArrowStyle.defaults(AppearanceMode.DARK, WatchUiColors().glucoseInRange),
 ) {
     companion object {
         const val PREFS = "watch_display"
@@ -93,6 +96,12 @@ internal data class WearDisplayPreferences(
                     )
                 }.getOrDefault(WatchGlucoseUnit.AAPS)
 
+            val trendStyle = TrendArrowStylePreferences.read(
+                preferences,
+                mode,
+                uiDefaults.glucoseInRange,
+                legacyScaleKey = KEY_TREND_SCALE,
+            )
             return WearDisplayPreferences(
                 graphHours =
                     preferences
@@ -113,6 +122,7 @@ internal data class WearDisplayPreferences(
                     .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
                 trendScalePercent = preferences.getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
                     .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                trendArrowStyle = trendStyle,
                 syncedAtEpochMs =
                     preferences.getLong(KEY_SYNCED_AT, 0L),
                 graphColors =
@@ -284,6 +294,11 @@ internal data class WearDisplayPreferences(
                 putFloat(THRESHOLD_VERY_LOW, value.cgmThresholds.veryLowMgDl.toFloat())
                 putAppearanceProfile(mode, WatchAppearanceProfile(value.graphColors, style, value.uiColors))
             }.apply()
+            TrendArrowStylePreferences.write(
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE),
+                mode,
+                value.trendArrowStyle.copy(sizePercent = value.trendScalePercent),
+            )
         }
 
         private fun android.content.SharedPreferences.Editor.putAppearanceProfile(

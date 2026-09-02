@@ -55,6 +55,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
+import app.aapswear.model.TrendArrowStyle
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -79,6 +80,8 @@ internal fun SugarliciousColorSettingsPanel(
     var editingRole by remember {
         mutableStateOf<SugarliciousColorRole?>(null)
     }
+    var editingTrendColor by remember { mutableStateOf<String?>(null) }
+    var trendStyle by remember(selectedMode) { mutableStateOf(MobileTrendArrowAppearance.load(preferences, selectedMode)) }
     var watchSyncStatus by remember { mutableStateOf<String?>(null) }
     var cgmDotRadiusDp by remember(showCgmGraph, selectedMode) {
         mutableFloatStateOf(preferences.getFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), preferences.getFloat("cgm.dotRadiusDp", 2.4f)).coerceIn(1.5f, 6.0f))
@@ -98,6 +101,7 @@ internal fun SugarliciousColorSettingsPanel(
 
     fun reload() {
         palette = SugarliciousColorStore.load(preferences, selectedMode)
+        trendStyle = MobileTrendArrowAppearance.load(preferences, selectedMode)
         if (selectedMode == SugarliciousColorStore.activeMode(preferences)) {
             SugarliciousColors.apply(palette)
         }
@@ -159,6 +163,28 @@ internal fun SugarliciousColorSettingsPanel(
         }
 
         AppearanceThemePreview(palette)
+
+        Text("TRENDPFEIL", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, false, { editingTrendColor = "fill" }) {
+            trendStyle = TrendArrowStyle.defaults(selectedMode, palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE))
+            MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+        }
+        GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
+            trendStyle = trendStyle.copy(outlineEnabled = it)
+            MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+        }
+        if (trendStyle.outlineEnabled) {
+            ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, false, { editingTrendColor = "outline" }) {
+                trendStyle = trendStyle.copy(outlineColor = TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor)
+                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+            }
+            SugarliciousSettingSlider("Konturdicke", "Trendpfeil-Kontur", trendStyle.outlineThicknessDp, 0.25f..4f, "${String.format(locale, "%.2f", trendStyle.outlineThicknessDp)} dp", {
+                trendStyle = trendStyle.copy(outlineThicknessDp = it)
+            }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
+        }
+        SugarliciousSettingSlider("Deckkraft", "Trendpfeil", trendStyle.alpha * 100f, 0f..100f, "${(trendStyle.alpha * 100).roundToInt()} %", {
+            trendStyle = trendStyle.copy(alpha = it / 100f)
+        }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
 
         Button(
             onClick = {
@@ -305,6 +331,18 @@ internal fun SugarliciousColorSettingsPanel(
             onChange = { argb ->
                 SugarliciousColorStore.save(preferences, selectedMode, role, argb)
                 reload()
+            },
+        )
+    }
+    editingTrendColor?.let { field ->
+        ColorEditorDialog(
+            role = null,
+            label = if (field == "fill") "Trendpfeil · Füllfarbe" else "Trendpfeil · Konturfarbe",
+            initialArgb = if (field == "fill") trendStyle.fillColor else trendStyle.outlineColor,
+            onDismiss = { editingTrendColor = null },
+            onChange = { color ->
+                trendStyle = if (field == "fill") trendStyle.copy(fillColor = color) else trendStyle.copy(outlineColor = color)
+                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
             },
         )
     }
@@ -620,7 +658,8 @@ internal fun SugarliciousSettingSlider(
 
 @Composable
 private fun ColorSettingRow(
-    role: SugarliciousColorRole,
+    role: SugarliciousColorRole?,
+    label: String = role?.label ?: "Farbe",
     argb: Int,
     isDefault: Boolean,
     onEdit: () -> Unit,
@@ -642,7 +681,7 @@ private fun ColorSettingRow(
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text(text = role.label, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(text = label, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
             Text(text = toHex(argb), color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
         }
         if (!isDefault) {
@@ -651,11 +690,9 @@ private fun ColorSettingRow(
             }
         }
         Spacer(Modifier.width(6.dp))
-        ColorRoleExample(
-            role = role,
-            argb = argb,
-            modifier = Modifier.width(88.dp).height(42.dp),
-        )
+        if (role != null) {
+            ColorRoleExample(role = role, argb = argb, modifier = Modifier.width(88.dp).height(42.dp))
+        }
     }
 }
 

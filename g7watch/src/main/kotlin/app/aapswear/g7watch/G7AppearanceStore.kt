@@ -7,7 +7,9 @@ import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.SettingsSchemaVersions
+import app.aapswear.model.TrendArrowStyle
 import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.storage.TrendArrowStylePreferences
 
 enum class G7AppearanceSection(val label: String) {
     MENU("Menü"),
@@ -87,6 +89,23 @@ class G7AppearanceStore(context: Context) {
 
     fun trendScalePercent(): Int = preferences.getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
         .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun trendArrowStyle(mode: AppearanceMode = activeMode()): TrendArrowStyle =
+        TrendArrowStylePreferences.read(
+            preferences,
+            mode,
+            load(mode).argb(G7AppearanceRole.GLUCOSE_TREND),
+            legacyScaleKey = KEY_TREND_SCALE,
+            legacyFillKey = colorKey(mode, G7AppearanceRole.GLUCOSE_TREND),
+        )
+
+    fun saveTrendArrowStyle(mode: AppearanceMode, style: TrendArrowStyle) {
+        TrendArrowStylePreferences.write(preferences, mode, style)
+    }
+
+    fun resetTrendArrowStyle(mode: AppearanceMode) {
+        TrendArrowStylePreferences.reset(preferences, mode)
+    }
 
     fun setGlucoseScalePercent(value: Int) {
         preferences.edit().putInt(KEY_GLUCOSE_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
