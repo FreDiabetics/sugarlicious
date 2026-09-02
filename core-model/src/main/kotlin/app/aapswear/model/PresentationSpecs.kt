@@ -114,8 +114,8 @@ data class GraphSpec(
 
 /** Persisted schema versions. Every incompatible settings change must add a migration. */
 object SettingsSchemaVersions {
-    const val APPEARANCE = AppearanceSchema.VERSION
+    const val APPEARANCE = 4
     const val WIDGET = 3
-    const val WEAR = 6
-    const val COLLECTOR = 3
+    const val WEAR = 5
+    const val COLLECTOR = 2
 }

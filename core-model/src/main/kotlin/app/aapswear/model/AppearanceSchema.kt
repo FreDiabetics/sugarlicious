@@ -111,7 +111,8 @@ object ArgbColor {
 }
 
 object AppearanceSchema {
-    const val VERSION = 5
+    /** Version of the shared definition catalog; persistence versions advance only with migrations. */
+    const val VERSION = 1
     val trendArrow = listOf(
         AppearanceSettingDefinition("trend.fill", AppearanceValueType.COLOR_ARGB, "#FFFFFFFF"),
         AppearanceSettingDefinition("trend.outline.enabled", AppearanceValueType.BOOLEAN, "false"),
