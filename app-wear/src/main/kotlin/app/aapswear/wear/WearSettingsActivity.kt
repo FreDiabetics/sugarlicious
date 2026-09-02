@@ -3,6 +3,7 @@ package app.aapswear.wear
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.TrendArrowStyle
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -171,6 +172,10 @@ class WearSettingsActivity : Activity() {
             }
             root.addView(sliderCard("Trend-Deckkraft", 0, 100, (current.trendArrowStyle.alpha * 100).roundToInt(), { "$it %" }) {
                 save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(alpha = it / 100f)), rebuild = false)
+            }, cardParams())
+            root.addView(actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
+                WearDisplayPreferences.resetTrendArrowStyle(this, selectedAppearanceMode)
+                buildUi()
             }, cardParams())
         }
 

@@ -53,6 +53,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousIconSize
 import app.aapswear.mobile.ui.theme.SugarliciousRadius
 import app.aapswear.mobile.ui.theme.SugarliciousSpacing
 import app.aapswear.model.Freshness
+import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
@@ -266,6 +267,9 @@ private fun GlucoseWidgetContent(
 ) {
     val size = LocalSize.current
     val pixelDensity = LocalContext.current.resources.displayMetrics.density.coerceAtLeast(1f)
+    val context = LocalContext.current
+    val mode = if ((context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
+    val trendStyle = instance.trendStyle(mode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode))
     val bitmap = renderMinimalGlucoseWidget(
         state = state,
         palette = palette,
@@ -280,6 +284,7 @@ private fun GlucoseWidgetContent(
             outlineEnabled = instance.outlineEnabled,
             outlineArgb = instance.outlineArgb,
             cornerRadiusDp = instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp,
+            trendStyle = trendStyle,
         ),
     )
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
@@ -668,12 +673,15 @@ private fun GlucoseGraphWidgetContent(
     instance: WidgetInstanceConfiguration,
 ) {
     val size = LocalSize.current
-    val density = LocalContext.current.resources.displayMetrics.density.coerceAtLeast(1f)
+    val context = LocalContext.current
+    val density = context.resources.displayMetrics.density.coerceAtLeast(1f)
+    val mode = if ((context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
+    val trendStyle = instance.trendStyle(mode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode))
     val bitmap = renderGlucoseGraphWidget(
         state, palette,
         (size.width.value * density).roundToInt().coerceAtLeast(96),
         (size.height.value * density).roundToInt().coerceAtLeast(96),
-        System.currentTimeMillis(), thresholds, layout, density, instance,
+        System.currentTimeMillis(), thresholds, layout, density, instance, trendStyle,
     )
     Image(ImageProvider(bitmap), "Glukose, Trend und CGM-Graph", GlanceModifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
 }
@@ -726,14 +734,17 @@ internal fun renderMinimalGlucoseWidget(
     canvas.drawText(value, startX, baseline, paint)
     if (spec != null) {
         val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = palette.argb(
-                when (presentation.visibleRole) {
-                    WidgetColorRole.HIGH, WidgetColorRole.VERY_HIGH -> WidgetColorRole.TREND_HIGH
-                    WidgetColorRole.LOW, WidgetColorRole.URGENT_LOW -> WidgetColorRole.TREND_LOW
-                    else -> WidgetColorRole.TREND_IN_RANGE
-                },
-            )
+            this.color = options.trendStyle.fillColor
             style = Paint.Style.FILL
+            alpha = (255 * options.trendStyle.alpha).roundToInt().coerceIn(0, 255)
+        }
+        val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = options.trendStyle.outlineColor
+            style = Paint.Style.STROKE
+            strokeJoin = Paint.Join.ROUND
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = options.trendStyle.outlineThicknessDp * pixelDensity / arrowSize.coerceAtLeast(0.01f)
+            alpha = (255 * options.trendStyle.alpha).roundToInt().coerceIn(0, 255)
         }
         val left = startX + textWidth + gap
         val top = centerY - arrowTargetHeight / 2f
@@ -742,6 +753,7 @@ internal fun renderMinimalGlucoseWidget(
         canvas.scale(arrowSize, arrowSize)
         TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
             val path = PathParser.createPathFromPathData(pathData)
+            if (options.trendStyle.outlineEnabled) canvas.drawPath(path, outlinePaint)
             canvas.drawPath(path, arrowPaint)
         }
         canvas.restore()
@@ -759,6 +771,7 @@ internal data class GlucoseWidgetRenderOptions(
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = AndroidColor.DKGRAY,
     val cornerRadiusDp: Float = 20f,
+    val trendStyle: app.aapswear.model.TrendArrowStyle = app.aapswear.model.TrendArrowStyle.defaults(AppearanceMode.DARK, AndroidColor.WHITE),
 )
 
 private fun configurationScale(percent: Int): Float = GlucoseTrendSizing.scaleFactor(percent)
@@ -858,6 +871,7 @@ internal fun renderGlucoseGraphWidget(
     layout: ResponsiveWidgetLayout = responsiveWidgetLayout(width.toFloat(), height.toFloat()),
     pixelDensity: Float = 1f,
     configuration: WidgetInstanceConfiguration = WidgetInstanceConfiguration(),
+    trendStyle: app.aapswear.model.TrendArrowStyle = app.aapswear.model.TrendArrowStyle.defaults(AppearanceMode.DARK, AndroidColor.WHITE),
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(96)
@@ -881,6 +895,7 @@ internal fun renderGlucoseGraphWidget(
             leftAligned = true,
             leftInsetDp = 12f,
             verticalOffsetDp = -4f,
+            trendStyle = trendStyle,
         ),
     )
     val graph = renderWidgetGraph(

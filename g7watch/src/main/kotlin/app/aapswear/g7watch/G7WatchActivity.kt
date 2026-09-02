@@ -394,7 +394,7 @@ class G7WatchActivity : Activity() {
         gravity = Gravity.CENTER
         setPadding(WearGlucoseCardStyle.TREND_GAP_DP.dp, 0, 0, 0)
         TrendVisuals.spec(trend)?.let { spec ->
-            val style = appearanceStore.trendArrowStyle().copy(fillColor = color).renderSpec()
+            val style = appearanceStore.trendArrowStyle().renderSpec()
             val height = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale).toInt().dp
             val width = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale * spec.aspectRatio).toInt().dp
             addView(android.widget.FrameLayout(this@G7WatchActivity).apply {
@@ -411,7 +411,7 @@ class G7WatchActivity : Activity() {
                         addView(arrow(style.outlineColor, x, y), android.widget.FrameLayout.LayoutParams(width, height))
                     }
                 }
-                addView(arrow(style.fillColor), android.widget.FrameLayout.LayoutParams(width, height))
+                addView(arrow(style.fillColor).apply { contentDescription = "Trend ${trend.name}" }, android.widget.FrameLayout.LayoutParams(width, height))
                 contentDescription = "Trend ${trend.name}"
             }, LinearLayout.LayoutParams(width, height))
         }

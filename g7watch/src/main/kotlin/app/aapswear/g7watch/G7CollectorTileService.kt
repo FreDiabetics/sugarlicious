@@ -211,13 +211,15 @@ class G7CollectorTileService : TileService() {
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
         val statusPresentation = g7TileStatusPresentation(userStatus)
         val appearanceStore = G7AppearanceStore(this)
+        val configuredTrendStyle = appearanceStore.trendArrowStyle()
+        val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =
             GlucoseVisualSpec(
                 surface = PresentationSurface.TILE,
                 glucoseTextSize = G7_TILE_VALUE_TEXT_SP,
                 trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP),
                 spacing = 8f,
-            ).scaled(appearanceStore.glucoseScalePercent(), appearanceStore.trendScalePercent())
+            ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
 
         val primaryRow =
             Row.Builder()
@@ -227,7 +229,7 @@ class G7CollectorTileService : TileService() {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        addContent(trendImage(spec, presentation.cardForeground, visualSpec.trendHeight))
+                        addContent(trendImage(spec, trendStyle.fillColor, visualSpec.trendHeight))
                     }
                 }
                 .build()

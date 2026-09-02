@@ -364,7 +364,7 @@ class WearActivity : Activity() {
             return
         }
         trendContainer.visibility = View.VISIBLE
-        trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background, trendStyle = style.copy(fillColor = color))
+        trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background, trendStyle = style)
         trendArrow1.rotation = 0f
         val density = resources.displayMetrics.density
         trendArrow1.layoutParams = trendArrow1.layoutParams.apply {

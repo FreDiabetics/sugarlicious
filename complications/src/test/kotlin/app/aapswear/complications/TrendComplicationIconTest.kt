@@ -2,6 +2,8 @@ package app.aapswear.complications
 
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.Trend
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TrendArrowStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -56,5 +58,13 @@ class TrendComplicationIconTest {
         assertTrue(default >= 0.75f)
         assertTrue(default > small)
         assertEquals(1.0f, large, 0.001f)
+    }
+
+    @Test fun `runtime renderer accepts the same outline style used by previews`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val style = TrendArrowStyle.defaults(AppearanceMode.DARK, 0xFFFFFFFF.toInt()).copy(outlineEnabled = false, alpha = 0.6f)
+        val bitmap = TrendComplicationIcon.renderScaled(context, Trend.FLAT, 60, 100, style = style)
+        assertNotNull(bitmap)
+        assertTrue(bitmap!!.hasAlpha())
     }
 }

@@ -3,6 +3,8 @@ package app.aapswear.mobile
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TrendArrowStyle
+import app.aapswear.model.TrendArrowStyleOverride
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -81,6 +83,25 @@ class WidgetInstanceConfigurationTest {
         assertEquals(darkDot, stored.resolvedAppearance(AppearanceMode.DARK).colorOverrides[WidgetColorRole.DOT_IN_RANGE])
         assertEquals(lightDot, stored.resolvedAppearance(AppearanceMode.LIGHT).colorOverrides[WidgetColorRole.DOT_IN_RANGE])
         WidgetInstanceConfigurationStore.delete(context, 212)
+    }
+
+    @Test
+    fun `widget trend overrides persist independently and inherit missing values`() {
+        val parent = TrendArrowStyle.defaults(AppearanceMode.DARK, Color.WHITE)
+        val value = WidgetInstanceConfiguration(
+            trendScalePercent = 135,
+            darkTrendStyle = TrendArrowStyleOverride(outlineEnabled = false, alpha = 0.55f),
+            lightTrendStyle = TrendArrowStyleOverride(outlineColor = Color.MAGENTA, outlineThicknessDp = 1.25f),
+        )
+        WidgetInstanceConfigurationStore.save(context, 213, value)
+        val stored = WidgetInstanceConfigurationStore.read(context, 213)
+
+        assertFalse(stored.trendStyle(AppearanceMode.DARK, parent).outlineEnabled)
+        assertEquals(0.55f, stored.trendStyle(AppearanceMode.DARK, parent).alpha, 0.001f)
+        assertEquals(Color.MAGENTA, stored.trendStyle(AppearanceMode.LIGHT, parent).outlineColor)
+        assertEquals(1.25f, stored.trendStyle(AppearanceMode.LIGHT, parent).outlineThicknessDp, 0.001f)
+        assertEquals(135, stored.trendStyle(AppearanceMode.DARK, parent).sizePercent)
+        WidgetInstanceConfigurationStore.delete(context, 213)
     }
 
     @Test

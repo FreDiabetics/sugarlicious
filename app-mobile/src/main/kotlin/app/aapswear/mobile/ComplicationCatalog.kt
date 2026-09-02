@@ -28,6 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
@@ -576,13 +577,30 @@ private fun ComplicationAppearanceDialog(
                     )
                     Slider(
                         value = (appearance.trendScalePercent ?: GlucoseTrendSizing.DEFAULT_SCALE_PERCENT).toFloat(),
-                        onValueChange = { update(appearance.copy(trendScalePercent = it.toInt().coerceIn(70, 200))) },
+                        onValueChange = {
+                            val size = it.toInt().coerceIn(70, 200)
+                            update(appearance.copy(trendScalePercent = size, trendStyleOverride = appearance.trendStyleOverride.copy(sizePercent = size)))
+                        },
                         valueRange = 70f..200f,
                     )
                     Text("POSITION X · ${appearance.trendOffsetXPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
                     Slider(value = appearance.trendOffsetXPercent.toFloat(), onValueChange = { update(appearance.copy(trendOffsetXPercent = it.toInt())) }, valueRange = -50f..50f)
                     Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
                     Slider(value = appearance.trendOffsetYPercent.toFloat(), onValueChange = { update(appearance.copy(trendOffsetYPercent = it.toInt())) }, valueRange = -50f..50f)
+                    val resolvedTrend = appearance.trendStyleOverride.resolve(MobileTrendArrowAppearance.style)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("KONTUR", color = SugarliciousColors.TextSecondary, fontSize = 9.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = resolvedTrend.outlineEnabled,
+                            onCheckedChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineEnabled = it))) },
+                        )
+                    }
+                    if (resolvedTrend.outlineEnabled) {
+                        Text("KONTURDICKE · ${String.format("%.2f", resolvedTrend.outlineThicknessDp)} dp", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                        Slider(value = resolvedTrend.outlineThicknessDp, onValueChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it))) }, valueRange = 0.25f..4f)
+                    }
+                    Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                    Slider(value = resolvedTrend.alpha * 100f, onValueChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(alpha = it / 100f))) }, valueRange = 0f..100f)
                     Button(
                         onClick = { update(ComplicationAppearanceSettings()) },
                         modifier = Modifier.fillMaxWidth(),
@@ -623,6 +641,7 @@ private fun CompactComplicationPreview(
     }
 
     val preview = previewFor(variant.id, state)
+    val previewTrendStyle = appearance?.trendStyleOverride?.resolve(MobileTrendArrowAppearance.style) ?: MobileTrendArrowAppearance.style
 
     when (variant.type) {
         ComplicationVariantType.RANGED_VALUE,
@@ -675,6 +694,7 @@ private fun CompactComplicationPreview(
                 ),
                 arrowSize = (25f * GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100)).dp,
                 color = preview.color,
+                style = previewTrendStyle,
             )
         } else {
             Row(
@@ -703,6 +723,7 @@ private fun CompactComplicationPreview(
                             GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100),
                         ).dp,
                         color = preview.color,
+                        style = previewTrendStyle,
                     )
                 }
             }

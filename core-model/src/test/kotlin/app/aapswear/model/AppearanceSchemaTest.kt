@@ -7,6 +7,13 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 
 class AppearanceSchemaTest {
+    @Test
+    fun `diagnostic resolution keeps source and default visible`() {
+        val scope = AppearanceScope(AppearanceOwner.WEAR, AppearanceScopeLevel.COMPONENT, PresentationSurface.TILE, "glucose")
+        val resolution = AppearanceResolution("trend.alpha", scope, AppearanceScopeLevel.COMPONENT, 0.6f, 1f)
+        assertEquals(AppearanceScopeLevel.COMPONENT, resolution.sourceLevel)
+        assertEquals(1f, resolution.defaultValue)
+    }
     @Test fun `argb conversion accepts rgb and argb`() {
         assertEquals(0xFF12AB34.toInt(), ArgbColor.parse("#12AB34"))
         assertEquals(0x8012AB34.toInt(), ArgbColor.parse("8012ab34"))
@@ -30,5 +37,13 @@ class AppearanceSchemaTest {
     @Test fun `owners represent isolated persistence domains`() {
         assertNotEquals(AppearanceOwner.MOBILE, AppearanceOwner.WEAR)
         assertNotEquals(AppearanceOwner.WEAR, AppearanceOwner.COLLECTOR)
+    }
+
+    @Test fun `sparse override changes only selected component fields`() {
+        val parent = TrendArrowStyle.defaults(AppearanceMode.DARK, 11)
+        val resolved = TrendArrowStyleOverride(outlineEnabled = false, sizePercent = 150).resolve(parent)
+        assertEquals(11, resolved.fillColor)
+        assertFalse(resolved.outlineEnabled)
+        assertEquals(150, resolved.sizePercent)
     }
 }

@@ -56,6 +56,15 @@ class G7AppearanceActivity : Activity() {
         content.addView(scaleRow("Glukosewert", store.glucoseScalePercent(), palette, store::setGlucoseScalePercent), params(top = 5))
         content.addView(scaleRow("Trendpfeil", store.trendScalePercent(), palette, store::setTrendScalePercent), params(top = 5))
         val trendStyle = store.trendArrowStyle(selectedMode)
+        content.addView(simpleColorRow("Trendpfeil · Füllfarbe", trendStyle.fillColor, palette) {
+            SharedColorEditor.show(
+                this, "Trendpfeil · Füllfarbe", trendStyle.fillColor,
+                palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER),
+                TrendArrowStyle.defaults(selectedMode, palette.argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
+                onChange = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(fillColor = it)) },
+                onReset = { store.resetTrendArrowStyle(selectedMode); render() },
+            )
+        }, params(top = 5))
         content.addView(toggleRow("Trendpfeil-Kontur", trendStyle.outlineEnabled, palette) {
             store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineEnabled = it))
             render()
@@ -77,6 +86,10 @@ class G7AppearanceActivity : Activity() {
         content.addView(scaleRow("Deckkraft", (trendStyle.alpha * 100).roundToInt(), palette, {
             store.saveTrendArrowStyle(selectedMode, trendStyle.copy(alpha = it / 100f))
         }, min = 0, max = 100, format = { "Deckkraft · $it %" }), params(top = 5))
+        content.addView(pill("TREND-STIL RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+            store.resetTrendArrowStyle(selectedMode)
+            render()
+        }, params(top = 5))
 
         G7AppearanceSection.entries.forEach { section ->
             content.addView(label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {

@@ -95,7 +95,10 @@ object SharedColorEditor {
         val scroll = ScrollView(activity).apply { isFillViewport = true; addView(root) }
         AlertDialog.Builder(activity).setTitle(title).setView(scroll)
             .setNeutralButton("Standard") { _, _ -> onReset() }
-            .setNegativeButton("Fertig", null).create().apply { window?.setBackgroundDrawable(background(surfaceArgb, 24f)); show() }
+            .setNegativeButton("Fertig", null).create().apply {
+                setOnShowListener { window?.setBackgroundDrawable(background(surfaceArgb, 24f)) }
+                show()
+            }
     }
 
     private fun remember(color: Int) {

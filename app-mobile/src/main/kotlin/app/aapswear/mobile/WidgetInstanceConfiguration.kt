@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.model.DataSourceId
@@ -44,6 +45,8 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.TrendArrowStyle
+import app.aapswear.model.TrendArrowStyleOverride
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
@@ -94,7 +97,17 @@ internal data class WidgetInstanceConfiguration(
     val lightColorOverrides: Map<WidgetColorRole, Int> = colorOverrides,
     val glucoseGraphValuePercent: Int = DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
     val showGlucoseUnit: Boolean = true,
+    val darkTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
+    val lightTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
 )
+
+internal fun WidgetInstanceConfiguration.trendStyle(mode: AppearanceMode, parent: TrendArrowStyle): TrendArrowStyle =
+    (if (mode == AppearanceMode.LIGHT) lightTrendStyle else darkTrendStyle)
+        .copy(sizePercent = trendScalePercent)
+        .resolve(parent)
+
+internal fun WidgetInstanceConfiguration.withTrendStyle(mode: AppearanceMode, value: TrendArrowStyleOverride): WidgetInstanceConfiguration =
+    if (mode == AppearanceMode.LIGHT) copy(lightTrendStyle = value) else copy(darkTrendStyle = value)
 
 internal fun WidgetInstanceConfiguration.resolvedAppearance(mode: AppearanceMode): WidgetInstanceConfiguration =
     if (mode == AppearanceMode.LIGHT) copy(
@@ -179,6 +192,8 @@ internal object WidgetInstanceConfigurationStore {
             ).takeIf { it in MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT }
                 ?: DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
+            darkTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.DARK),
+            lightTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.LIGHT),
             // One-time compatible fallback for widgets created before per-instance tap targets existed.
             // The configuration activity persists this resolved value for the individual widget.
             launchPackage = prefs.getString(key(appWidgetId, "launch"), null)
@@ -206,6 +221,7 @@ internal object WidgetInstanceConfigurationStore {
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
             .putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
             .putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
+            .apply { writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle); writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle) }
             .apply {
                 WidgetColorRole.entries.forEach { role ->
                     val roleKey = key(appWidgetId, "dark.color.${role.preferenceKey}")
@@ -222,6 +238,24 @@ internal object WidgetInstanceConfigurationStore {
         val prefix = "$appWidgetId."
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.edit().apply { prefs.all.keys.filter { it.startsWith(prefix) }.forEach(::remove) }.apply()
+    }
+
+    private fun readTrendStyle(prefs: android.content.SharedPreferences, id: Int, mode: AppearanceMode): TrendArrowStyleOverride {
+        val p = key(id, "${mode.storageKey}.trend.")
+        return TrendArrowStyleOverride(
+            outlineEnabled = if (prefs.contains(p + "outlineEnabled")) prefs.getBoolean(p + "outlineEnabled", false) else null,
+            outlineColor = prefs.getInt(p + "outlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+            outlineThicknessDp = prefs.getFloat(p + "outlineThickness", Float.NaN).takeUnless { it.isNaN() },
+            alpha = prefs.getFloat(p + "alpha", Float.NaN).takeUnless { it.isNaN() },
+        )
+    }
+
+    private fun writeTrendStyle(editor: android.content.SharedPreferences.Editor, id: Int, mode: AppearanceMode, style: TrendArrowStyleOverride) {
+        val p = key(id, "${mode.storageKey}.trend.")
+        style.outlineEnabled?.let { editor.putBoolean(p + "outlineEnabled", it) } ?: editor.remove(p + "outlineEnabled")
+        style.outlineColor?.let { editor.putInt(p + "outlineColor", it) } ?: editor.remove(p + "outlineColor")
+        style.outlineThicknessDp?.let { editor.putFloat(p + "outlineThickness", it) } ?: editor.remove(p + "outlineThickness")
+        style.alpha?.let { editor.putFloat(p + "alpha", it) } ?: editor.remove(p + "alpha")
     }
 }
 
@@ -251,10 +285,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 var value by remember { mutableStateOf(initial) }
                 var editBackground by remember { mutableStateOf(false) }
                 var editOutline by remember { mutableStateOf(false) }
+                var editTrendOutline by remember { mutableStateOf(false) }
                 var editRole by remember { mutableStateOf<WidgetColorRole?>(null) }
                 val dashboardPreferences = remember { getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
                 var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(dashboardPreferences)) }
                 val appearance = value.resolvedAppearance(selectedMode)
+                val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
+                val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
                 currentConfiguration = value
                 LaunchedEffect(value) {
                     WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
@@ -319,6 +356,24 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     value = value.withColorOverride(selectedMode, role, null)
                                 }
                             }
+                            val trendOverride = if (selectedMode == AppearanceMode.LIGHT) value.lightTrendStyle else value.darkTrendStyle
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(trendAppearance.outlineEnabled, { value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineEnabled = it)) })
+                                Text("Kontur anzeigen", color = ComposeColor.White)
+                            }
+                            if (trendAppearance.outlineEnabled) {
+                                WidgetColorSetting("Trend-Kontur", trendAppearance.outlineColor, { editTrendOutline = true }) {
+                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineColor = null))
+                                }
+                                WidgetPercentSlider("Konturdicke", (trendAppearance.outlineThicknessDp * 100).roundToInt(), 25..400, "×0,01 dp") {
+                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineThicknessDp = it / 100f))
+                                }
+                            }
+                            WidgetPercentSlider("Deckkraft", (trendAppearance.alpha * 100).roundToInt(), 0..100, "%") {
+                                value = value.withTrendStyle(selectedMode, trendOverride.copy(alpha = it / 100f))
+                            }
+                            Text("TREND-STIL ZURÜCKSETZEN", color = ComposeColor(0xFF6DE892), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable { value = value.withTrendStyle(selectedMode, TrendArrowStyleOverride()) }.padding(vertical = 8.dp))
                         }
                     }
                     if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
@@ -410,6 +465,16 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         onChange = { value = value.withOutline(selectedMode, it) },
                     )
                 }
+                if (editTrendOutline) {
+                    ColorEditorDialog(
+                        role = null, label = "Trendpfeil-Kontur", initialArgb = trendAppearance.outlineColor,
+                        onDismiss = { editTrendOutline = false },
+                        onChange = { color ->
+                            val current = if (selectedMode == AppearanceMode.LIGHT) value.lightTrendStyle else value.darkTrendStyle
+                            value = value.withTrendStyle(selectedMode, current.copy(outlineColor = color))
+                        },
+                    )
+                }
                 editRole?.let { role ->
                     val palette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
                     ColorEditorDialog(
@@ -452,12 +517,13 @@ private fun WidgetConfigurationPreview(kind: ConfigurableWidgetKind, configurati
         pillAllowed = kind == ConfigurableWidgetKind.GLUCOSE,
     )
     val renderConfiguration = themedConfiguration.copy(cornerRadiusDp = previewRadius.toInt())
-    val bitmap = remember(kind, renderConfiguration, state, palette) {
+    val previewTrendStyle = configuration.trendStyle(mode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode))
+    val bitmap = remember(kind, renderConfiguration, state, palette, previewTrendStyle) {
         when (kind) {
             ConfigurableWidgetKind.GRAPH -> renderWidgetGraph(state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT, previewLayout, 2f, renderConfiguration)
             ConfigurableWidgetKind.GLUCOSE_GRAPH -> renderGlucoseGraphWidget(
                 state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT,
-                previewLayout, 2f, renderConfiguration,
+                previewLayout, 2f, renderConfiguration, previewTrendStyle,
             )
             else -> renderMinimalGlucoseWidget(
                 state, palette, previewWidth, previewHeight, now, app.aapswear.model.CgmThresholds.DEFAULT, previewLayout, 2f,
@@ -467,6 +533,7 @@ private fun WidgetConfigurationPreview(kind: ConfigurableWidgetKind, configurati
                     outlineEnabled = configuration.outlineEnabled,
                     outlineArgb = configuration.outlineArgb,
                     cornerRadiusDp = previewRadius,
+                    trendStyle = previewTrendStyle,
                 ),
             )
         }

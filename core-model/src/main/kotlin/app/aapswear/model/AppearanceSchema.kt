@@ -31,6 +31,15 @@ data class AppearanceScope(
 
 enum class AppearanceValueType { COLOR_ARGB, BOOLEAN, FLOAT, INTEGER, ENUM }
 
+/** Developer-facing provenance for the effective value shown by a renderer. */
+data class AppearanceResolution<T>(
+    val settingKey: String,
+    val scope: AppearanceScope,
+    val sourceLevel: AppearanceScopeLevel,
+    val value: T,
+    val defaultValue: T,
+)
+
 data class AppearanceSettingDefinition(
     val key: String,
     val type: AppearanceValueType,
@@ -91,6 +100,28 @@ data class TrendArrowRenderSpec(
     val outlineThicknessDp: Float,
     val scale: Float,
 )
+
+/** Sparse component/instance override; null always means inherit from the parent scope. */
+data class TrendArrowStyleOverride(
+    val fillColor: Int? = null,
+    val outlineEnabled: Boolean? = null,
+    val outlineColor: Int? = null,
+    val outlineThicknessDp: Float? = null,
+    val sizePercent: Int? = null,
+    val alpha: Float? = null,
+) {
+    fun resolve(parent: TrendArrowStyle): TrendArrowStyle = parent.copy(
+        fillColor = fillColor ?: parent.fillColor,
+        outlineEnabled = outlineEnabled ?: parent.outlineEnabled,
+        outlineColor = outlineColor ?: parent.outlineColor,
+        outlineThicknessDp = outlineThicknessDp ?: parent.outlineThicknessDp,
+        sizePercent = sizePercent ?: parent.sizePercent,
+        alpha = alpha ?: parent.alpha,
+    ).normalized()
+
+    val isEmpty: Boolean get() = fillColor == null && outlineEnabled == null && outlineColor == null &&
+        outlineThicknessDp == null && sizePercent == null && alpha == null
+}
 
 /** Platform-independent ARGB conversion used by every color editor. */
 object ArgbColor {

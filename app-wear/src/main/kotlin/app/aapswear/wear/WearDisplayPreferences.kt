@@ -73,6 +73,12 @@ internal data class WearDisplayPreferences(
 
         fun read(context: Context): WearDisplayPreferences = read(context, activeAppearanceMode(context))
 
+        fun resetTrendArrowStyle(context: Context, mode: AppearanceMode) {
+            val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            TrendArrowStylePreferences.reset(preferences, mode)
+            preferences.edit().remove(KEY_TREND_SCALE).apply()
+        }
+
         fun read(context: Context, mode: AppearanceMode): WearDisplayPreferences {
             val preferences =
                 context.getSharedPreferences(

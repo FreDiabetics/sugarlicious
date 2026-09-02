@@ -221,7 +221,7 @@ private fun glucoseTileContent(
                 val spec = presentation.trend?.let(TrendVisuals::spec)
                 if (spec != null) {
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
-                    addContent(tileTrendImage(spec, presentation.valueColor, GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent)))
+                    addContent(tileTrendImage(spec, preferences.trendArrowStyle.renderSpec()))
                 }
             }
             .build()
@@ -402,12 +402,12 @@ private fun tileRoot(background: Int, child: LayoutElementBuilders.LayoutElement
         .addContent(child)
         .build()
 
-private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, scale: Float = 1f): Image =
+private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, style: app.aapswear.model.TrendArrowRenderSpec): Image =
     Image.Builder()
         .setResourceId(trendResourceId(spec.asset))
-        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * scale * spec.aspectRatio))
-        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * scale))
-        .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
+        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale * spec.aspectRatio))
+        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale))
+        .setColorFilter(ColorFilter.Builder().setTint(argb(style.fillColor)).build())
         .build()
 
 private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"

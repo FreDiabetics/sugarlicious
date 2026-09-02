@@ -338,6 +338,13 @@ class StateDataLayerService : WearableListenerService() {
                 else putInt("$catalogId.trendScale", scale.coerceIn(70, 200))
                 putInt("$catalogId.trendX", dataMap.getInt("trendX", 0).coerceIn(-50, 50))
                 putInt("$catalogId.trendY", dataMap.getInt("trendY", 0).coerceIn(-50, 50))
+                fun putIntOrRemove(key: String, value: Int) { if (value == Int.MIN_VALUE) remove(key) else putInt(key, value) }
+                fun putFloatOrRemove(key: String, value: Float) { if (value.isNaN()) remove(key) else putFloat(key, value) }
+                putIntOrRemove("$catalogId.trendFill", dataMap.getInt("trendFill", Int.MIN_VALUE))
+                if (dataMap.getBoolean("trendOutlinePresent", false)) putBoolean("$catalogId.trendOutlineEnabled", dataMap.getBoolean("trendOutlineEnabled", false)) else remove("$catalogId.trendOutlineEnabled")
+                putIntOrRemove("$catalogId.trendOutlineColor", dataMap.getInt("trendOutlineColor", Int.MIN_VALUE))
+                putFloatOrRemove("$catalogId.trendOutlineThickness", dataMap.getFloat("trendOutlineThickness", Float.NaN))
+                putFloatOrRemove("$catalogId.trendAlpha", dataMap.getFloat("trendAlpha", Float.NaN))
             }
             .apply()
         requestAllComplicationUpdates()
