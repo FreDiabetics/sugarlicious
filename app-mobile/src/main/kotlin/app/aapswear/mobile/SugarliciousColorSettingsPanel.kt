@@ -54,6 +54,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.ArgbColor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -1358,20 +1359,6 @@ private fun NotificationLayoutControls(
     SugarliciousSettingSlider("Delta/Age-Größe", "Sekundärzeile", value.metaScalePercent.toFloat(), 70f..160f, String.format(locale, "%d %%", value.metaScalePercent), { onChange(value.copy(metaScalePercent = it.toInt())) }, {})
 }
 
-internal fun toHex(argb: Int): String =
-    String.format(
-        "#%02X%02X%02X%02X",
-        AndroidColor.alpha(argb),
-        AndroidColor.red(argb),
-        AndroidColor.green(argb),
-        AndroidColor.blue(argb),
-    )
+internal fun toHex(argb: Int): String = ArgbColor.format(argb)
 
-private fun parseHex(value: String): Int? {
-    val cleaned = value.removePrefix("#")
-    return when (cleaned.length) {
-        6 -> cleaned.toIntOrNull(16)?.let { 0xFF000000.toInt() or it }
-        8 -> cleaned.toLongOrNull(16)?.toInt()
-        else -> null
-    }
-}
+private fun parseHex(value: String): Int? = ArgbColor.parse(value)

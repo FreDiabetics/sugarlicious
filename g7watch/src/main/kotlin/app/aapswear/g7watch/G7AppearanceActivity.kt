@@ -21,6 +21,7 @@ import android.widget.TextView
 import java.util.Locale
 import kotlin.math.roundToInt
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseTrendSizing
 
 class G7AppearanceActivity : Activity() {
@@ -265,20 +266,9 @@ class G7AppearanceActivity : Activity() {
         cornerRadius = radiusDp * resources.displayMetrics.density
     }
 
-    private fun toHex(argb: Int): String = String.format(
-        Locale.US,
-        "#%02X%02X%02X%02X",
-        Color.alpha(argb), Color.red(argb), Color.green(argb), Color.blue(argb),
-    )
+    private fun toHex(argb: Int): String = ArgbColor.format(argb)
 
-    private fun parseHex(value: String?): Int? {
-        val cleaned = value.orEmpty().trim().removePrefix("#")
-        return when (cleaned.length) {
-            6 -> cleaned.toLongOrNull(16)?.toInt()?.let { 0xFF000000.toInt() or it }
-            8 -> cleaned.toLongOrNull(16)?.toInt()
-            else -> null
-        }
-    }
+    private fun parseHex(value: String?): Int? = ArgbColor.parse(value)
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }
