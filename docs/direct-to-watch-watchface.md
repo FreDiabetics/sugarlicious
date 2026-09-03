@@ -1,6 +1,6 @@
-# Direct to Watch Watchface
+# Vigil Watchface
 
-`Sugarlicious Direct to Watch` is the renamed, in-place successor to the former G6-style package. The application id and face-selection index intentionally remain stable so existing installations and selections migrate without being reset.
+`Vigil` is the renamed, in-place successor to the former G6-style package. The application id and face-selection index intentionally remain stable so existing installations and selections migrate without being reset.
 
 The face is deliberately bound to `WATCH_DIRECT` and never uses AndroidAPS or Mobile CGM as a fallback. It consumes the validated G7 Watch Collector model, timestamps, trend, delta, quality and freshness. Missing, stale and sensor-error data are shown as `NO_SOURCE`, `STALE` or `SIGNAL LOSS`; no synthetic glucose or delta is created.
 
@@ -18,6 +18,6 @@ Tapping the complete glucose block opens the exported launcher activity of `app.
 
 Trend appearance uses the shared `TrendArrowStyle` and `TrendArrowStylePreferences` schema (fill, outline enabled, outline color, outline thickness, size and alpha) with a separate Direct-to-Watch preference file. Light and dark modes resolve independently. The graph is intentionally hidden in ambient mode, preserving the existing WFF AOD policy; glucose, trend, delta/unit and time remain visible.
 
-The Wear settings contain a dedicated `Direct to Watch` category. Its graph controls cover the time scale, CGM point size and outline, graph background, LOW/TARGET/HIGH areas, LOW/IN-RANGE/HIGH points, boundary lines, axes, now line and border. These settings and their reset action use only the `direct_to_watch` preference surface and therefore do not alter the Mobile graph or another watchface.
+The G7 Watch Collector settings contain a dedicated `Direct to Watch` category with the subtitle `Watchface`. Its graph controls cover the time scale, CGM point size and outline, graph background, LOW/TARGET/HIGH areas, LOW/IN-RANGE/HIGH points, boundary lines, axes, now line and border. Trend size, fill, outline, outline color, thickness and alpha are configurable there as separate Light/Dark profiles. The values are transferred through a signature-protected explicit app channel and affect only Vigil.
 
 > This watchface is intentionally bound to WATCH_DIRECT and does not use AndroidAPS/Mobile as a CGM fallback.

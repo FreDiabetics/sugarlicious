@@ -170,6 +170,8 @@ object DirectToWatchPreferences {
             cgmLow = p.getInt("graph_color_cgm_low", defaults.cgmLow),
             cgmInRange = p.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = p.getInt("graph_color_cgm_high", defaults.cgmHigh),
+            cgmVeryLow = p.getInt("graph_color_cgm_very_low", defaults.cgmVeryLow),
+            cgmVeryHigh = p.getInt("graph_color_cgm_very_high", defaults.cgmVeryHigh),
             divider = p.getInt("graph_color_divider", defaults.divider),
             highLine = p.getInt("graph_color_high_line", defaults.highLine),
             lowLine = p.getInt("graph_color_low_line", defaults.lowLine),
@@ -179,6 +181,10 @@ object DirectToWatchPreferences {
             outline = p.getInt("graph_color_outline", defaults.outline),
             targetValue = p.getInt("graph_color_target_value", defaults.targetValue),
             signalLoss = p.getInt("graph_color_signal_loss", defaults.signalLoss),
+            predictionIob = p.getInt("graph_color_prediction_iob", defaults.predictionIob),
+            predictionCob = p.getInt("graph_color_prediction_cob", defaults.predictionCob),
+            predictionUam = p.getInt("graph_color_prediction_uam", defaults.predictionUam),
+            predictionZeroTemp = p.getInt("graph_color_prediction_zero_temp", defaults.predictionZeroTemp),
         )
     }
 
@@ -191,6 +197,8 @@ object DirectToWatchPreferences {
             .putInt("graph_color_cgm_low", colors.cgmLow)
             .putInt("graph_color_cgm_in", colors.cgmInRange)
             .putInt("graph_color_cgm_high", colors.cgmHigh)
+            .putInt("graph_color_cgm_very_low", colors.cgmVeryLow)
+            .putInt("graph_color_cgm_very_high", colors.cgmVeryHigh)
             .putInt("graph_color_divider", colors.divider)
             .putInt("graph_color_high_line", colors.highLine)
             .putInt("graph_color_low_line", colors.lowLine)
@@ -200,6 +208,10 @@ object DirectToWatchPreferences {
             .putInt("graph_color_outline", colors.outline)
             .putInt("graph_color_target_value", colors.targetValue)
             .putInt("graph_color_signal_loss", colors.signalLoss)
+            .putInt("graph_color_prediction_iob", colors.predictionIob)
+            .putInt("graph_color_prediction_cob", colors.predictionCob)
+            .putInt("graph_color_prediction_uam", colors.predictionUam)
+            .putInt("graph_color_prediction_zero_temp", colors.predictionZeroTemp)
             .apply()
         requestUpdates(context)
     }
@@ -211,6 +223,7 @@ object DirectToWatchPreferences {
             dotRadiusDp = p.getFloat(KEY_GRAPH_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             dotOutlineEnabled = p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.dotOutlineEnabled),
             dotOutlineWidthDp = p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(0.25f, 3f),
+            cornerRadiusDp = p.getFloat("graph_style_corner_radius", defaults.cornerRadiusDp).coerceIn(0f, 40f),
         )
     }
 
@@ -219,6 +232,7 @@ object DirectToWatchPreferences {
             .putFloat(KEY_GRAPH_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
             .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, style.dotOutlineEnabled)
             .putFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(0.25f, 3f))
+            .putFloat("graph_style_corner_radius", style.cornerRadiusDp.coerceIn(0f, 40f))
             .apply()
         requestUpdates(context)
     }
@@ -404,7 +418,8 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val density = resources.displayMetrics.density
-        val radius = 20f * density
+        val graphStyle = DirectToWatchPreferences.graphStyle(this)
+        val radius = graphStyle.cornerRadiusDp * density
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         val colors = DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
@@ -420,7 +435,7 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 nowEpochMs = nowEpochMs,
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),
-                style = DirectToWatchPreferences.graphStyle(this),
+                style = graphStyle,
                 emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs).secondary,
             ),
         )
@@ -435,8 +450,10 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         highLine = highLine,
         lowLine = lowLine,
         dotHigh = cgmHigh,
+        dotVeryHigh = cgmVeryHigh,
         dotInRange = cgmInRange,
         dotLow = cgmLow,
+        dotVeryLow = cgmVeryLow,
         dotOutline = outline,
         axisText = axisLabel,
         axisTick = axisTick,
@@ -446,6 +463,8 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         predictionCob = predictionCob,
         predictionUam = predictionUam,
         predictionZeroTemp = predictionZeroTemp,
+        targetText = targetValue,
+        emptyText = signalLoss,
     )
 }
 

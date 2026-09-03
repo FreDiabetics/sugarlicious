@@ -38,6 +38,10 @@ data class SharedWearCgmGraphPalette(
     val predictionCob: Int,
     val predictionUam: Int,
     val predictionZeroTemp: Int,
+    val dotVeryHigh: Int = dotHigh,
+    val dotVeryLow: Int = dotLow,
+    val targetText: Int = axisText,
+    val emptyText: Int = axisText,
 )
 
 data class SharedWearCgmGraphStyle(
@@ -122,6 +126,7 @@ object SharedWearCgmGraphRenderer {
             typeface = Typeface.DEFAULT_BOLD
         }
         val emptyText = Paint(axisText).apply {
+            color = palette.emptyText
             textAlign = Paint.Align.CENTER
             textSize = 10f * scaledDensity
         }
@@ -168,8 +173,9 @@ object SharedWearCgmGraphRenderer {
         line.color = palette.lowLine
         canvas.drawLine(plot.left, metrics.lowY, plot.right, metrics.lowY, line)
 
-        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, plot.right, widthPx, density, axisText, line, palette.axisTick)
-        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, plot.right, widthPx, density, axisText, line, palette.axisTick)
+        val targetText = Paint(axisText).apply { color = palette.targetText }
+        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, plot.right, widthPx, density, targetText, line, palette.axisTick)
+        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, plot.right, widthPx, density, targetText, line, palette.axisTick)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
         if (predictions.isNotEmpty()) {
@@ -190,8 +196,10 @@ object SharedWearCgmGraphRenderer {
                 canvas.drawCircle(x, y, radius + outline, fill)
             }
             fill.color = when (input.thresholds.classify(sample.valueMgDl)) {
-                CgmRangeClass.VERY_LOW, CgmRangeClass.LOW -> palette.dotLow
-                CgmRangeClass.HIGH, CgmRangeClass.VERY_HIGH -> palette.dotHigh
+                CgmRangeClass.VERY_LOW -> palette.dotVeryLow
+                CgmRangeClass.LOW -> palette.dotLow
+                CgmRangeClass.HIGH -> palette.dotHigh
+                CgmRangeClass.VERY_HIGH -> palette.dotVeryHigh
                 else -> palette.dotInRange
             }
             canvas.drawCircle(x, y, radius, fill)
@@ -216,7 +224,7 @@ object SharedWearCgmGraphRenderer {
 
         drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty()) {
-            emptyText.color = palette.axisText
+            emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)
         }
 

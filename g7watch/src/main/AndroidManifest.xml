@@ -37,6 +37,9 @@
             android:name=".G7AppearanceActivity"
             android:exported="false" />
         <activity
+            android:name=".G7DirectToWatchSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".G7SettingsActivity"
             android:exported="false" />
         <activity

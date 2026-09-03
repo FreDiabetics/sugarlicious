@@ -4,7 +4,7 @@ $ACTIVE_WATCHFACES = @(
     [pscustomobject]@{ Name = 'Orbit'; Module = 'sugarlicious-orbit'; Out = 'sugarlicious_orbit'; Asset = 'sugarlicious_orbit.apk' }
     [pscustomobject]@{ Name = 'Rings'; Module = 'sugarlicious-rings'; Out = 'sugarlicious_rings'; Asset = 'sugarlicious_rings.apk' }
     [pscustomobject]@{ Name = 'Graph'; Module = 'sugarlicious-graph'; Out = 'sugarlicious_graph'; Asset = 'sugarlicious_graph.apk' }
-    [pscustomobject]@{ Name = 'Direct to Watch'; Module = 'sugarlicious-direct-to-watch'; Out = 'sugarlicious_direct_to_watch'; Asset = 'sugarlicious_direct_to_watch.apk' }
+    [pscustomobject]@{ Name = 'Vigil'; Module = 'sugarlicious-direct-to-watch'; Out = 'sugarlicious_direct_to_watch'; Asset = 'sugarlicious_direct_to_watch.apk' }
 )
 
 # These packages remain buildable and validated so regressions are caught. They are deliberately

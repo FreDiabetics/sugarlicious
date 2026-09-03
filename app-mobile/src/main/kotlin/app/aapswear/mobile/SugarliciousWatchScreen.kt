@@ -96,7 +96,7 @@ internal val sugarliciousWatchFaceCards =
             features = listOf("Glukose", "Graph", "AOD"),
         ),
         SugarliciousWatchFaceCard(
-            name = "Sugarlicious Direct to Watch",
+            name = "Vigil",
             style = "G7 Collector",
             slots = 3,
             features = listOf("G7 Collector", "3h Graph", "AOD", "Fixed Layout"),

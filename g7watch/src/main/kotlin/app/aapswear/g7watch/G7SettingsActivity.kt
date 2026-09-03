@@ -17,6 +17,7 @@ internal enum class G7SettingsSection(val title: String, val summary: String) {
     SENSOR_SESSION("Sensor und Session", "Sensoridentität, Laufzeit und Kopplung"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
+    DIRECT_TO_WATCH("Direct to Watch", "Watchface"),
     HARDWARE_TEST("Hardwaretest", "BLE-, GATT- und Sensorfenster-Diagnose"),
     DIAGNOSTICS("Diagnose", "Attempts, Fehlercodes und Recovery"),
     DATA_MANAGEMENT("Datenverwaltung", "Lokale Collector- und Sitzungsdaten"),
@@ -123,6 +124,7 @@ class G7SettingsActivity : Activity() {
     private fun openSection(section: G7SettingsSection) {
         val intent = when (section) {
             G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
+            G7SettingsSection.DIRECT_TO_WATCH -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
             G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
             G7SettingsSection.ABOUT -> return
             else -> Intent(this, G7SystemStatusActivity::class.java)
@@ -138,7 +140,7 @@ class G7SettingsActivity : Activity() {
         G7SettingsSection.HARDWARE_TEST -> "Hardwaretest öffnen"
         G7SettingsSection.DIAGNOSTICS -> "Collector-Diagnose öffnen"
         G7SettingsSection.DATA_MANAGEMENT -> "Lokale Daten und Status"
-        G7SettingsSection.DISPLAY, G7SettingsSection.ABOUT -> section.title
+        G7SettingsSection.DISPLAY, G7SettingsSection.DIRECT_TO_WATCH, G7SettingsSection.ABOUT -> section.title
     }
 
     private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {

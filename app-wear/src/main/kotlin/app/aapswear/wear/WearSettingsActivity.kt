@@ -23,7 +23,6 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
-import app.aapswear.complications.DirectToWatchPreferences
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -255,90 +254,6 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
             colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
             colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
-        }
-
-        settingsCategory("direct_to_watch", "Direct to Watch", "Eigene Graph- und Trendgestaltung nur für dieses Watchface") {
-            val style = DirectToWatchPreferences.trendStyle(this, selectedAppearanceMode)
-            val graphColors = DirectToWatchPreferences.graphColors(this)
-            val graphStyle = DirectToWatchPreferences.graphStyle(this)
-            section("GRAPH · ZEITSKALA")
-            root.addView(
-                choiceRow(
-                    DirectToWatchPreferences.graphHourOptions.map { "${it}h" to it },
-                    DirectToWatchPreferences.graphHours(this),
-                ) {
-                    DirectToWatchPreferences.saveGraphHours(this, it)
-                    buildUi()
-                },
-                cardParams(),
-            )
-            section("GRAPH · PUNKTE")
-            root.addView(
-                sliderCard("Punktgröße", 15, 60, (graphStyle.dotRadiusDp * 10).roundToInt(), { String.format("%.1f dp", it / 10f) }) {
-                    DirectToWatchPreferences.saveGraphStyle(this, graphStyle.copy(dotRadiusDp = it / 10f))
-                },
-                cardParams(),
-            )
-            root.addView(switchRow("Punktkontur", graphStyle.dotOutlineEnabled) {
-                DirectToWatchPreferences.saveGraphStyle(this, graphStyle.copy(dotOutlineEnabled = it))
-                buildUi()
-            }, cardParams())
-            if (graphStyle.dotOutlineEnabled) {
-                root.addView(
-                    sliderCard("Konturbreite", 25, 300, (graphStyle.dotOutlineWidthDp * 100).roundToInt(), { String.format("%.2f dp", it / 100f) }) {
-                        DirectToWatchPreferences.saveGraphStyle(this, graphStyle.copy(dotOutlineWidthDp = it / 100f))
-                    },
-                    cardParams(),
-                )
-            }
-            section("GRAPH · FARBEN")
-            colorRow(AppearanceTerminology.GRAPH_BACKGROUND, graphColors.graphBackground) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(graphBackground = it)) }
-            colorRow(AppearanceTerminology.GRAPH_LOW_AREA, graphColors.rangeLow) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(rangeLow = it)) }
-            colorRow(AppearanceTerminology.GRAPH_TARGET_AREA, graphColors.rangeInRange) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(rangeInRange = it)) }
-            colorRow(AppearanceTerminology.GRAPH_HIGH_AREA, graphColors.rangeHigh) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(rangeHigh = it)) }
-            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, graphColors.cgmLow) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(cgmLow = it)) }
-            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, graphColors.cgmInRange) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(cgmInRange = it)) }
-            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, graphColors.cgmHigh) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(cgmHigh = it)) }
-            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, graphColors.outline) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(outline = it)) }
-            colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, graphColors.highLine) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(highLine = it)) }
-            colorRow(AppearanceTerminology.GRAPH_LOW_LINE, graphColors.lowLine) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(lowLine = it)) }
-            colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, graphColors.axisLabel) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(axisLabel = it)) }
-            colorRow(AppearanceTerminology.GRAPH_AXIS_TICK, graphColors.axisTick) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(axisTick = it)) }
-            colorRow(AppearanceTerminology.GRAPH_NOW_LINE, graphColors.nowLine) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(nowLine = it)) }
-            colorRow(AppearanceTerminology.GRAPH_DIVIDER, graphColors.divider) { DirectToWatchPreferences.saveGraphColors(this, graphColors.copy(divider = it)) }
-            root.addView(actionCard("Graph zurücksetzen", "Nur Direct to Watch") {
-                DirectToWatchPreferences.resetGraphAppearance(this)
-                buildUi()
-            }, cardParams())
-            section("TRENDPFEIL")
-            root.addView(
-                sliderCard("Größe", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, style.sizePercent, { "$it %" }) {
-                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(sizePercent = it))
-                },
-                cardParams(),
-            )
-            colorRow("Füllfarbe", style.fillColor) {
-                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(fillColor = it))
-            }
-            root.addView(switchRow("Kontur", style.outlineEnabled) {
-                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineEnabled = it))
-                buildUi()
-            }, cardParams())
-            if (style.outlineEnabled) {
-                colorRow("Konturfarbe", style.outlineColor) {
-                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineColor = it))
-                }
-                root.addView(sliderCard("Konturdicke", 25, 400, (style.outlineThicknessDp * 100).roundToInt(), { "${it / 100f} dp" }) {
-                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineThicknessDp = it / 100f))
-                }, cardParams())
-            }
-            root.addView(sliderCard("Deckkraft", 0, 100, (style.alpha * 100).roundToInt(), { "$it %" }) {
-                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(alpha = it / 100f))
-            }, cardParams())
-            root.addView(actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
-                DirectToWatchPreferences.resetTrendStyle(this, selectedAppearanceMode)
-                buildUi()
-            }, cardParams())
         }
 
         settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {

@@ -4,7 +4,7 @@
         android:allowBackup="false"
         android:hasCode="false"
         android:icon="@drawable/preview"
-        android:label="Sugarlicious Direct to Watch"
+        android:label="Vigil"
         android:usesCleartextTraffic="false">
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
         <property android:name="com.google.wear.watchface.format.version" android:value="1" />

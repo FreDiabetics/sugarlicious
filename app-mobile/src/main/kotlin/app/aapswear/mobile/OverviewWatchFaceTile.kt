@@ -66,7 +66,7 @@ internal val sugarliciousWatchFaceNames =
         "Sugarlicious Rings",
         "Sugarlicious Graph",
         "Sugarlicious Digital",
-        "Sugarlicious Direct to Watch",
+        "Vigil",
     )
 
 private const val carouselPages = 400

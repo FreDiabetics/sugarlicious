@@ -46,7 +46,7 @@ Telefonen oder Watches kann die Auswahl mit `-PhoneSerial` beziehungsweise
 
 Anschließend erscheinen `Sugarlicious Digital`, `Sugarlicious Analog`,
 `Sugarlicious Orbit`, `Sugarlicious Rings`, `Sugarlicious Graph` und
-`Sugarlicious Direct to Watch` in der Watchface-Auswahl. Das Direct-to-Watch-Watchface wird in
+`Vigil` in der Watchface-Auswahl. Das Direct-to-Watch-Watchface wird in
 der Sugarlicious-Auswahl freigegeben, sobald die Dexcom-G7-Watch-Datenquelle
 aktiviert oder als aktive Quelle erkannt ist. Falls Galaxy Wearable die Liste
 noch zwischengespeichert hat, die Auswahl auf der Uhr durch langes Drücken des

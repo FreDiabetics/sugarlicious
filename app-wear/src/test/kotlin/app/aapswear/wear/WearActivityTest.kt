@@ -40,7 +40,7 @@ class WearActivityTest {
         collect(root)
 
         assertEquals(
-            listOf("display", "glucose", "graph", "direct_to_watch", "tiles", "watchfaces", "connection", "diagnostics", "about"),
+            listOf("display", "glucose", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })

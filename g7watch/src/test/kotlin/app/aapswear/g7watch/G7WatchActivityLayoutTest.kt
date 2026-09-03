@@ -68,6 +68,26 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `direct to watch category opens complete watchface settings`() {
+        val settings = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = settings.findViewById<android.view.View>(android.R.id.content)
+        val header = findText(root, "Direct to Watch")!!
+        (header.parent.parent as android.view.View).performClick()
+        assertEquals(G7DirectToWatchSettingsActivity::class.java.name, Shadows.shadowOf(settings).nextStartedActivity.component?.className)
+
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val texts = mutableListOf<String>()
+        collectText(activity.findViewById(android.R.id.content), texts)
+        assertTrue("Watchface" in texts)
+        assertTrue(texts.any { it.startsWith("Größe ·") })
+        assertTrue("LOW-Bereich" in texts)
+        assertTrue("Zielbereich" in texts)
+        assertTrue("HIGH-Bereich" in texts)
+        assertTrue("Eckenrundung · 20.0 dp" in texts)
+        assertTrue("Prognose · Zero Temp" in texts)
+    }
+
+    @Test
     fun `collector overview contains only primary data and action elements`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()

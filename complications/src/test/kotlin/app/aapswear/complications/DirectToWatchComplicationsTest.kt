@@ -101,14 +101,19 @@ class DirectToWatchComplicationsTest {
             graphBackground = 0xFF112233.toInt(),
             rangeInRange = 0xFF445566.toInt(),
             cgmInRange = 0xFF778899.toInt(),
+            cgmVeryHigh = 0xFFABCDEF.toInt(),
+            predictionUam = 0xFF123456.toInt(),
         )
-        val style = SharedWearCgmGraphStyle(dotRadiusDp = 4.2f, dotOutlineEnabled = false, dotOutlineWidthDp = 1.7f)
+        val style = SharedWearCgmGraphStyle(dotRadiusDp = 4.2f, dotOutlineEnabled = false, dotOutlineWidthDp = 1.7f, cornerRadiusDp = 31f)
         DirectToWatchPreferences.saveGraphColors(context, colors)
         DirectToWatchPreferences.saveGraphStyle(context, style)
 
         assertEquals(colors.graphBackground, DirectToWatchPreferences.graphColors(context).graphBackground)
         assertEquals(colors.rangeInRange, DirectToWatchPreferences.graphColors(context).rangeInRange)
+        assertEquals(colors.cgmVeryHigh, DirectToWatchPreferences.graphColors(context).cgmVeryHigh)
+        assertEquals(colors.predictionUam, DirectToWatchPreferences.graphColors(context).predictionUam)
         assertEquals(4.2f, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
+        assertEquals(31f, DirectToWatchPreferences.graphStyle(context).cornerRadiusDp)
         assertFalse(DirectToWatchPreferences.graphStyle(context).dotOutlineEnabled)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
 

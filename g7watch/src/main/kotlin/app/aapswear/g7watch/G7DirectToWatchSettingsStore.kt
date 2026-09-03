@@ -1,0 +1,94 @@
+package app.aapswear.g7watch
+
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TrendArrowStyle
+import app.aapswear.protocol.DirectToWatchSettingsContract
+import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.storage.TrendArrowStylePreferences
+import app.aapswear.uishared.SharedWearCgmGraphStyle
+
+class G7DirectToWatchSettingsStore(private val context: Context) {
+    private val preferences = context.getSharedPreferences(DirectToWatchSettingsContract.PREFERENCES, Context.MODE_PRIVATE)
+
+    fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
+    fun saveGraphHours(value: Int) = update { putInt(KEY_HOURS, value.takeIf { it in HOUR_OPTIONS } ?: 3) }
+
+    fun graphStyle(): SharedWearCgmGraphStyle {
+        val defaults = SharedWearCgmGraphStyle()
+        return defaults.copy(
+            dotRadiusDp = preferences.getFloat(KEY_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
+            dotOutlineEnabled = preferences.getBoolean(KEY_DOT_OUTLINE, defaults.dotOutlineEnabled),
+            dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
+            cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
+        )
+    }
+
+    fun saveGraphStyle(value: SharedWearCgmGraphStyle) = update {
+        putFloat(KEY_DOT_RADIUS, value.dotRadiusDp.coerceIn(1.5f, 6f))
+        putBoolean(KEY_DOT_OUTLINE, value.dotOutlineEnabled)
+        putFloat(KEY_DOT_OUTLINE_WIDTH, value.dotOutlineWidthDp.coerceIn(.25f, 3f))
+        putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
+    }
+
+    fun graphColors(): WatchGraphColors {
+        val d = WatchGraphColors()
+        return d.copy(
+            graphBackground = color("graph_color_background", d.graphBackground),
+            rangeLow = color("graph_color_range_low", d.rangeLow), rangeInRange = color("graph_color_range_in", d.rangeInRange), rangeHigh = color("graph_color_range_high", d.rangeHigh),
+            cgmLow = color("graph_color_cgm_low", d.cgmLow), cgmInRange = color("graph_color_cgm_in", d.cgmInRange), cgmHigh = color("graph_color_cgm_high", d.cgmHigh),
+            cgmVeryLow = color("graph_color_cgm_very_low", d.cgmVeryLow), cgmVeryHigh = color("graph_color_cgm_very_high", d.cgmVeryHigh),
+            divider = color("graph_color_divider", d.divider), highLine = color("graph_color_high_line", d.highLine), lowLine = color("graph_color_low_line", d.lowLine),
+            axisLabel = color("graph_color_axis_label", d.axisLabel), axisTick = color("graph_color_axis_tick", d.axisTick), nowLine = color("graph_color_now_line", d.nowLine), outline = color("graph_color_outline", d.outline),
+            predictionIob = color("graph_color_prediction_iob", d.predictionIob), predictionCob = color("graph_color_prediction_cob", d.predictionCob),
+            predictionUam = color("graph_color_prediction_uam", d.predictionUam), predictionZeroTemp = color("graph_color_prediction_zero_temp", d.predictionZeroTemp),
+            targetValue = color("graph_color_target_value", d.targetValue), signalLoss = color("graph_color_signal_loss", d.signalLoss),
+        )
+    }
+
+    fun saveGraphColors(value: WatchGraphColors) = update {
+        putInt("graph_color_background", value.graphBackground)
+        putInt("graph_color_range_low", value.rangeLow); putInt("graph_color_range_in", value.rangeInRange); putInt("graph_color_range_high", value.rangeHigh)
+        putInt("graph_color_cgm_low", value.cgmLow); putInt("graph_color_cgm_in", value.cgmInRange); putInt("graph_color_cgm_high", value.cgmHigh)
+        putInt("graph_color_cgm_very_low", value.cgmVeryLow); putInt("graph_color_cgm_very_high", value.cgmVeryHigh)
+        putInt("graph_color_divider", value.divider); putInt("graph_color_high_line", value.highLine); putInt("graph_color_low_line", value.lowLine)
+        putInt("graph_color_axis_label", value.axisLabel); putInt("graph_color_axis_tick", value.axisTick); putInt("graph_color_now_line", value.nowLine); putInt("graph_color_outline", value.outline)
+        putInt("graph_color_prediction_iob", value.predictionIob); putInt("graph_color_prediction_cob", value.predictionCob)
+        putInt("graph_color_prediction_uam", value.predictionUam); putInt("graph_color_prediction_zero_temp", value.predictionZeroTemp)
+        putInt("graph_color_target_value", value.targetValue); putInt("graph_color_signal_loss", value.signalLoss)
+    }
+
+    fun trendStyle(mode: AppearanceMode): TrendArrowStyle = TrendArrowStylePreferences.read(preferences, mode, 0xFFFFFFFF.toInt())
+    fun saveTrendStyle(mode: AppearanceMode, value: TrendArrowStyle) {
+        TrendArrowStylePreferences.write(preferences, mode, value)
+        sync()
+    }
+    fun resetTrendStyle(mode: AppearanceMode) { TrendArrowStylePreferences.reset(preferences, mode); sync() }
+
+    fun resetGraph() = update {
+        preferences.all.keys.filter { it.startsWith("graph_") }.forEach(::remove)
+    }
+
+    fun sync() {
+        val values = Bundle().apply {
+            preferences.all.forEach { (key, value) -> when (value) {
+                is Int -> putInt(key, value); is Float -> putFloat(key, value); is Boolean -> putBoolean(key, value); is String -> putString(key, value)
+            } }
+        }
+        context.sendBroadcast(Intent(DirectToWatchSettingsContract.ACTION_APPLY).setPackage(DirectToWatchSettingsContract.TARGET_PACKAGE).putExtra(DirectToWatchSettingsContract.EXTRA_VALUES, values))
+    }
+
+    private fun color(key: String, default: Int) = preferences.getInt(key, default)
+    private inline fun update(block: android.content.SharedPreferences.Editor.() -> Unit) { preferences.edit().apply(block).apply(); sync() }
+
+    companion object {
+        val HOUR_OPTIONS = listOf(1, 3, 6, 12, 24)
+        private const val KEY_HOURS = "graph.hours"
+        private const val KEY_DOT_RADIUS = "graph_style_dot_radius"
+        private const val KEY_DOT_OUTLINE = "graph_style_dot_outline_enabled"
+        private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+        private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
+    }
+}

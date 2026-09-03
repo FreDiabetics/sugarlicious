@@ -1,5 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
+        <receiver
+            android:name=".DirectToWatchSettingsReceiver"
+            android:exported="true"
+            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
+            <intent-filter><action android:name="app.aapswear.APPLY_DIRECT_TO_WATCH_SETTINGS" /></intent-filter>
+        </receiver>
         <service android:name=".DirectToWatchHeaderComplication" android:label="Direct to Watch · Glukose" android:icon="@drawable/ic_direct_to_watch_header" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
             <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
