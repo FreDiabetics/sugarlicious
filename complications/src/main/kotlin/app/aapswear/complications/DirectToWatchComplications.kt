@@ -137,6 +137,9 @@ internal object DirectToWatchPresentationFormatter {
 object DirectToWatchPreferences {
     const val NAME = "direct_to_watch"
     private const val KEY_GRAPH_HOURS = "graph.hours"
+    private const val KEY_GRAPH_DOT_RADIUS = "graph_style_dot_radius"
+    private const val KEY_GRAPH_DOT_OUTLINE_ENABLED = "graph_style_dot_outline_enabled"
+    private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
     val graphHourOptions = listOf(1, 3, 6, 12, 24)
 
     fun graphHours(context: Context): Int =
@@ -148,6 +151,84 @@ object DirectToWatchPreferences {
         val next = graphHourOptions[(graphHourOptions.indexOf(current) + 1) % graphHourOptions.size]
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt(KEY_GRAPH_HOURS, next).apply()
         return next
+    }
+
+    fun saveGraphHours(context: Context, hours: Int) {
+        require(hours in graphHourOptions)
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit().putInt(KEY_GRAPH_HOURS, hours).apply()
+        requestUpdates(context)
+    }
+
+    fun graphColors(context: Context): WatchGraphColors {
+        val defaults = WatchGraphColors()
+        val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        return WatchGraphColors(
+            graphBackground = p.getInt("graph_color_background", defaults.graphBackground),
+            rangeLow = p.getInt("graph_color_range_low", defaults.rangeLow),
+            rangeInRange = p.getInt("graph_color_range_in", defaults.rangeInRange),
+            rangeHigh = p.getInt("graph_color_range_high", defaults.rangeHigh),
+            cgmLow = p.getInt("graph_color_cgm_low", defaults.cgmLow),
+            cgmInRange = p.getInt("graph_color_cgm_in", defaults.cgmInRange),
+            cgmHigh = p.getInt("graph_color_cgm_high", defaults.cgmHigh),
+            divider = p.getInt("graph_color_divider", defaults.divider),
+            highLine = p.getInt("graph_color_high_line", defaults.highLine),
+            lowLine = p.getInt("graph_color_low_line", defaults.lowLine),
+            axisLabel = p.getInt("graph_color_axis_label", defaults.axisLabel),
+            axisTick = p.getInt("graph_color_axis_tick", defaults.axisTick),
+            nowLine = p.getInt("graph_color_now_line", defaults.nowLine),
+            outline = p.getInt("graph_color_outline", defaults.outline),
+            targetValue = p.getInt("graph_color_target_value", defaults.targetValue),
+            signalLoss = p.getInt("graph_color_signal_loss", defaults.signalLoss),
+        )
+    }
+
+    fun saveGraphColors(context: Context, colors: WatchGraphColors) {
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit()
+            .putInt("graph_color_background", colors.graphBackground)
+            .putInt("graph_color_range_low", colors.rangeLow)
+            .putInt("graph_color_range_in", colors.rangeInRange)
+            .putInt("graph_color_range_high", colors.rangeHigh)
+            .putInt("graph_color_cgm_low", colors.cgmLow)
+            .putInt("graph_color_cgm_in", colors.cgmInRange)
+            .putInt("graph_color_cgm_high", colors.cgmHigh)
+            .putInt("graph_color_divider", colors.divider)
+            .putInt("graph_color_high_line", colors.highLine)
+            .putInt("graph_color_low_line", colors.lowLine)
+            .putInt("graph_color_axis_label", colors.axisLabel)
+            .putInt("graph_color_axis_tick", colors.axisTick)
+            .putInt("graph_color_now_line", colors.nowLine)
+            .putInt("graph_color_outline", colors.outline)
+            .putInt("graph_color_target_value", colors.targetValue)
+            .putInt("graph_color_signal_loss", colors.signalLoss)
+            .apply()
+        requestUpdates(context)
+    }
+
+    fun graphStyle(context: Context): SharedWearCgmGraphStyle {
+        val defaults = SharedWearCgmGraphStyle()
+        val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        return defaults.copy(
+            dotRadiusDp = p.getFloat(KEY_GRAPH_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
+            dotOutlineEnabled = p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.dotOutlineEnabled),
+            dotOutlineWidthDp = p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(0.25f, 3f),
+        )
+    }
+
+    fun saveGraphStyle(context: Context, style: SharedWearCgmGraphStyle) {
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit()
+            .putFloat(KEY_GRAPH_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
+            .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, style.dotOutlineEnabled)
+            .putFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(0.25f, 3f))
+            .apply()
+        requestUpdates(context)
+    }
+
+    fun resetGraphAppearance(context: Context) {
+        val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        p.edit().apply {
+            p.all.keys.filter { it.startsWith("graph_color_") || it.startsWith("graph_style_") }.forEach(::remove)
+        }.apply()
+        requestUpdates(context)
     }
 
     fun trendStyle(context: Context, mode: AppearanceMode) =
@@ -325,7 +406,7 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val density = resources.displayMetrics.density
         val radius = 20f * density
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
-        val colors = readGraphColors()
+        val colors = DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
@@ -339,38 +420,11 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 nowEpochMs = nowEpochMs,
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),
-                style = SharedWearCgmGraphStyle(cornerRadiusDp = 20f),
+                style = DirectToWatchPreferences.graphStyle(this),
                 emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs).secondary,
             ),
         )
         return bitmap
-    }
-
-    private fun readGraphColors(): WatchGraphColors {
-        val defaults = WatchGraphColors()
-        val p = getSharedPreferences(DirectToWatchPreferences.NAME, MODE_PRIVATE)
-        return WatchGraphColors(
-            graphBackground = p.getInt("graph_color_background", defaults.graphBackground),
-            rangeLow = p.getInt("graph_color_range_low", defaults.rangeLow),
-            rangeInRange = p.getInt("graph_color_range_in", defaults.rangeInRange),
-            rangeHigh = p.getInt("graph_color_range_high", defaults.rangeHigh),
-            cgmLow = p.getInt("graph_color_cgm_low", defaults.cgmLow),
-            cgmInRange = p.getInt("graph_color_cgm_in", defaults.cgmInRange),
-            cgmHigh = p.getInt("graph_color_cgm_high", defaults.cgmHigh),
-            divider = p.getInt("graph_color_divider", defaults.divider),
-            highLine = p.getInt("graph_color_high_line", defaults.highLine),
-            lowLine = p.getInt("graph_color_low_line", defaults.lowLine),
-            axisLabel = p.getInt("graph_color_axis_label", defaults.axisLabel),
-            axisTick = p.getInt("graph_color_axis_tick", defaults.axisTick),
-            nowLine = p.getInt("graph_color_now_line", defaults.nowLine),
-            outline = p.getInt("graph_color_outline", defaults.outline),
-            predictionIob = defaults.predictionIob,
-            predictionCob = defaults.predictionCob,
-            predictionUam = defaults.predictionUam,
-            predictionZeroTemp = defaults.predictionZeroTemp,
-            targetValue = p.getInt("graph_color_target_value", defaults.targetValue),
-            signalLoss = p.getInt("graph_color_signal_loss", defaults.signalLoss),
-        )
     }
 
     private fun WatchGraphColors.toSharedPalette() = SharedWearCgmGraphPalette(
