@@ -49,7 +49,21 @@ data class SharedWearCgmGraphStyle(
     val dotOutlineWidthDp: Float = 0.95f,
     val dotOutlineEnabled: Boolean = true,
     val cornerRadiusDp: Float = 20f,
+    val borderEnabled: Boolean = true,
+    val timeAxisEnabled: Boolean = true,
+    val targetTicksEnabled: Boolean = true,
+    val targetLabelsOutsideRange: Boolean = false,
 )
+
+object DirectToWatchGraphDefaults {
+    fun style() = SharedWearCgmGraphStyle(
+        dotOutlineWidthDp = 0.35f,
+        borderEnabled = false,
+        timeAxisEnabled = false,
+        targetTicksEnabled = false,
+        targetLabelsOutsideRange = true,
+    )
+}
 
 data class SharedWearCgmGraphInput(
     val history: List<GlucoseSample>,
@@ -86,12 +100,13 @@ object SharedWearCgmGraphRenderer {
         heightPx: Int,
         density: Float,
         thresholds: CgmThresholds,
+        style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
     ): SharedWearCgmGraphMetrics {
         fun dp(value: Float) = value * density
         val left = dp(6f)
         val axisLeft = widthPx - dp(29f)
         val top = dp(6f)
-        val bottom = heightPx - dp(20f)
+        val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
         val plot = RectF(left, top, axisLeft, bottom)
         fun y(value: Double): Float =
             plot.bottom - GlucoseGraphScale.ratio(value).toFloat() * plot.height()
@@ -130,7 +145,7 @@ object SharedWearCgmGraphRenderer {
             textAlign = Paint.Align.CENTER
             textSize = 10f * scaledDensity
         }
-        val metrics = metrics(widthPx, heightPx, density, input.thresholds)
+        val metrics = metrics(widthPx, heightPx, density, input.thresholds, input.style)
         val plot = metrics.plot
         if (plot.width() <= 0f || plot.height() <= 0f) return null
 
@@ -174,8 +189,8 @@ object SharedWearCgmGraphRenderer {
         canvas.drawLine(plot.left, metrics.lowY, plot.right, metrics.lowY, line)
 
         val targetText = Paint(axisText).apply { color = palette.targetText }
-        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, plot.right, widthPx, density, targetText, line, palette.axisTick)
-        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, plot.right, widthPx, density, targetText, line, palette.axisTick)
+        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
+        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
         if (predictions.isNotEmpty()) {
@@ -222,25 +237,23 @@ object SharedWearCgmGraphRenderer {
             }
         }
 
-        drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
+        if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty()) {
             emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)
         }
 
-        val borderInset = dp(0.5f)
-        line.color = palette.border
-        line.strokeWidth = dp(1f)
-        line.pathEffect = null
-        canvas.drawRoundRect(
-            borderInset,
-            borderInset,
-            widthPx - borderInset,
-            heightPx - borderInset,
-            (dp(input.style.cornerRadiusDp) - borderInset).coerceAtLeast(0f),
-            (dp(input.style.cornerRadiusDp) - borderInset).coerceAtLeast(0f),
-            line,
-        )
+        if (input.style.borderEnabled) {
+            val borderInset = dp(0.5f)
+            line.color = palette.border
+            line.strokeWidth = dp(1f)
+            line.pathEffect = null
+            canvas.drawRoundRect(
+                borderInset, borderInset, widthPx - borderInset, heightPx - borderInset,
+                (dp(input.style.cornerRadiusDp) - borderInset).coerceAtLeast(0f),
+                (dp(input.style.cornerRadiusDp) - borderInset).coerceAtLeast(0f), line,
+            )
+        }
         return metrics.copy(liveX = liveX)
     }
 
@@ -248,12 +261,14 @@ object SharedWearCgmGraphRenderer {
         canvas: Canvas,
         value: Double,
         y: Float,
+        isHigh: Boolean,
         plotRight: Float,
         widthPx: Int,
         density: Float,
         text: Paint,
         line: Paint,
         tickColor: Int,
+        style: SharedWearCgmGraphStyle,
     ) {
         val spec = GraphAxisLayoutSpec.COMPACT
         val gap = spec.plotToTickGapDp * density
@@ -263,11 +278,13 @@ object SharedWearCgmGraphRenderer {
         line.strokeWidth = 0.8f * density
         line.pathEffect = null
         val tickStart = plotRight + gap
-        val tickEnd = tickStart + tickLength
-        canvas.drawLine(tickStart, y, tickEnd, y, line)
+        val tickEnd = if (style.targetTicksEnabled) tickStart + tickLength else tickStart
+        if (style.targetTicksEnabled) canvas.drawLine(tickStart, y, tickEnd, y, line)
         text.textAlign = Paint.Align.LEFT
-        val baseline = y - (text.ascent() + text.descent()) / 2f
-        val labelX = minOf(tickEnd + labelGap, widthPx - spec.outerEdgePaddingDp * density - text.measureText(value.toInt().toString()))
+        val baseline = if (style.targetLabelsOutsideRange) {
+            if (isHigh) y - 2f * density - text.descent() else y + 2f * density - text.ascent()
+        } else y - (text.ascent() + text.descent()) / 2f
+        val labelX = minOf(tickEnd + if (style.targetTicksEnabled) labelGap else 1.5f * density, widthPx - spec.outerEdgePaddingDp * density - text.measureText(value.toInt().toString()))
         canvas.drawText(value.toInt().toString(), labelX, baseline, text)
     }
 

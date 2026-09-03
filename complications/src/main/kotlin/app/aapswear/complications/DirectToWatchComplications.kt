@@ -41,11 +41,13 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
+import app.aapswear.uishared.DirectToWatchGraphDefaults
 import java.time.Instant
 
 internal data class DirectToWatchHeaderPresentation(
@@ -160,7 +162,7 @@ object DirectToWatchPreferences {
     }
 
     fun graphColors(context: Context): WatchGraphColors {
-        val defaults = WatchGraphColors()
+        val defaults = DirectToWatchGraphColorDefaults.create()
         val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
         return WatchGraphColors(
             graphBackground = p.getInt("graph_color_background", defaults.graphBackground),
@@ -217,13 +219,17 @@ object DirectToWatchPreferences {
     }
 
     fun graphStyle(context: Context): SharedWearCgmGraphStyle {
-        val defaults = SharedWearCgmGraphStyle()
+        val defaults = DirectToWatchGraphDefaults.style()
         val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
         return defaults.copy(
             dotRadiusDp = p.getFloat(KEY_GRAPH_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             dotOutlineEnabled = p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.dotOutlineEnabled),
             dotOutlineWidthDp = p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(0.25f, 3f),
             cornerRadiusDp = p.getFloat("graph_style_corner_radius", defaults.cornerRadiusDp).coerceIn(0f, 40f),
+            borderEnabled = p.getBoolean("graph_style_border_enabled", defaults.borderEnabled),
+            timeAxisEnabled = p.getBoolean("graph_style_time_axis_enabled", defaults.timeAxisEnabled),
+            targetTicksEnabled = p.getBoolean("graph_style_target_ticks_enabled", defaults.targetTicksEnabled),
+            targetLabelsOutsideRange = true,
         )
     }
 
@@ -233,6 +239,9 @@ object DirectToWatchPreferences {
             .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, style.dotOutlineEnabled)
             .putFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(0.25f, 3f))
             .putFloat("graph_style_corner_radius", style.cornerRadiusDp.coerceIn(0f, 40f))
+            .putBoolean("graph_style_border_enabled", style.borderEnabled)
+            .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
+            .putBoolean("graph_style_target_ticks_enabled", style.targetTicksEnabled)
             .apply()
         requestUpdates(context)
     }
@@ -354,7 +363,7 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
     }
 
     internal fun renderHeader(presentation: DirectToWatchHeaderPresentation): Bitmap {
-        val width = 310
+        val width = 340
         val height = 108
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -368,7 +377,7 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             color = SECONDARY_TEXT
             textSize = 23f
             typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
+            textAlign = Paint.Align.LEFT
         }
         val mode = if ((resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
         val style = DirectToWatchPreferences.trendStyle(this, mode)
@@ -377,11 +386,10 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
         }
         val gap = if (arrow == null) 0f else 8f
         val valueWidth = valuePaint.measureText(presentation.glucose)
-        val arrowWidth = arrow?.width?.toFloat() ?: 0f
-        val groupLeft = ((width - valueWidth - gap - arrowWidth) / 2f).coerceAtLeast(0f)
+        val groupLeft = 0f
         canvas.drawText(presentation.glucose, groupLeft, 58f, valuePaint)
         arrow?.let { canvas.drawBitmap(it, groupLeft + valueWidth + gap, 0f, null) }
-        canvas.drawText(presentation.secondary, width / 2f, 96f, secondaryPaint)
+        canvas.drawText(presentation.secondary, groupLeft, 96f, secondaryPaint)
         return bitmap
     }
 
@@ -414,7 +422,7 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
 
     internal fun renderGraph(state: TherapyDisplayState?, nowEpochMs: Long, hours: Int): Bitmap {
         val width = 410
-        val height = 184
+        val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val density = resources.displayMetrics.density

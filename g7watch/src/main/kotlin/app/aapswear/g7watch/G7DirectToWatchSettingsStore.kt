@@ -7,8 +7,10 @@ import app.aapswear.model.AppearanceMode
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.protocol.DirectToWatchSettingsContract
 import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.uishared.SharedWearCgmGraphStyle
+import app.aapswear.uishared.DirectToWatchGraphDefaults
 
 class G7DirectToWatchSettingsStore(private val context: Context) {
     private val preferences = context.getSharedPreferences(DirectToWatchSettingsContract.PREFERENCES, Context.MODE_PRIVATE)
@@ -17,12 +19,16 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     fun saveGraphHours(value: Int) = update { putInt(KEY_HOURS, value.takeIf { it in HOUR_OPTIONS } ?: 3) }
 
     fun graphStyle(): SharedWearCgmGraphStyle {
-        val defaults = SharedWearCgmGraphStyle()
+        val defaults = DirectToWatchGraphDefaults.style()
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             dotOutlineEnabled = preferences.getBoolean(KEY_DOT_OUTLINE, defaults.dotOutlineEnabled),
             dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
+            borderEnabled = preferences.getBoolean(KEY_BORDER_ENABLED, defaults.borderEnabled),
+            timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
+            targetTicksEnabled = preferences.getBoolean(KEY_TARGET_TICKS_ENABLED, defaults.targetTicksEnabled),
+            targetLabelsOutsideRange = true,
         )
     }
 
@@ -31,10 +37,13 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         putBoolean(KEY_DOT_OUTLINE, value.dotOutlineEnabled)
         putFloat(KEY_DOT_OUTLINE_WIDTH, value.dotOutlineWidthDp.coerceIn(.25f, 3f))
         putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
+        putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
+        putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
+        putBoolean(KEY_TARGET_TICKS_ENABLED, value.targetTicksEnabled)
     }
 
     fun graphColors(): WatchGraphColors {
-        val d = WatchGraphColors()
+        val d = DirectToWatchGraphColorDefaults.create()
         return d.copy(
             graphBackground = color("graph_color_background", d.graphBackground),
             rangeLow = color("graph_color_range_low", d.rangeLow), rangeInRange = color("graph_color_range_in", d.rangeInRange), rangeHigh = color("graph_color_range_high", d.rangeHigh),
@@ -90,5 +99,8 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_DOT_OUTLINE = "graph_style_dot_outline_enabled"
         private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
         private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
+        private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
+        private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"
+        private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
     }
 }

@@ -11,7 +11,9 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.uishared.SharedWearCgmGraphStyle
+import app.aapswear.uishared.DirectToWatchGraphDefaults
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -118,8 +120,10 @@ class DirectToWatchComplicationsTest {
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
 
         DirectToWatchPreferences.resetGraphAppearance(context)
-        assertEquals(WatchGraphColors().graphBackground, DirectToWatchPreferences.graphColors(context).graphBackground)
-        assertEquals(SharedWearCgmGraphStyle().dotRadiusDp, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
+        assertEquals(DirectToWatchGraphColorDefaults.create().graphBackground, DirectToWatchPreferences.graphColors(context).graphBackground)
+        assertEquals(DirectToWatchGraphDefaults.style().dotRadiusDp, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).borderEnabled)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
     }
 

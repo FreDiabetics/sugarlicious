@@ -58,6 +58,15 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(slider("Eckenrundung", 0, 400, (graphStyle.cornerRadiusDp * 10).roundToInt(), palette, { "Eckenrundung · ${it / 10f} dp" }) {
             settings.saveGraphStyle(graphStyle.copy(cornerRadiusDp = it / 10f))
         }, params(5))
+        root.addView(toggle("Graphkontur", graphStyle.borderEnabled, palette) {
+            settings.saveGraphStyle(graphStyle.copy(borderEnabled = it)); render()
+        }, params(5))
+        root.addView(toggle("Zeitachsenskala", graphStyle.timeAxisEnabled, palette) {
+            settings.saveGraphStyle(graphStyle.copy(timeAxisEnabled = it)); render()
+        }, params(5))
+        root.addView(toggle("Horizontale Zielwert-Striche", graphStyle.targetTicksEnabled, palette) {
+            settings.saveGraphStyle(graphStyle.copy(targetTicksEnabled = it)); render()
+        }, params(5))
 
         val colors = settings.graphColors()
         section(root, "GRAPH · FARBEN", palette)

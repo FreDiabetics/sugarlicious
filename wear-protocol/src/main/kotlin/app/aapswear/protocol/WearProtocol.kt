@@ -69,6 +69,15 @@ data class WatchGraphColors(
     val signalLoss: Int = 0x46FF5C69,
 )
 
+object DirectToWatchGraphColorDefaults {
+    fun create() = WatchGraphColors(
+        graphBackground = 0xFF000000.toInt(),
+        rangeInRange = 0x665C5C5C,
+        rangeHigh = 0x4DFFD040,
+        rangeLow = 0x4DFF5C69,
+    )
+}
+
 @Serializable
 data class WatchColorSync(
     val schemaVersion: Int = CURRENT_SCHEMA,

@@ -84,6 +84,9 @@ class G7WatchActivityLayoutTest {
         assertTrue("Zielbereich" in texts)
         assertTrue("HIGH-Bereich" in texts)
         assertTrue("Eckenrundung · 20.0 dp" in texts)
+        assertTrue("Graphkontur" in texts)
+        assertTrue("Zeitachsenskala" in texts)
+        assertTrue("Horizontale Zielwert-Striche" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
     }
 
