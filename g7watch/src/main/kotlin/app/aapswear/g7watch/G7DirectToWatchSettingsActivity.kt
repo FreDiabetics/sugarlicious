@@ -48,6 +48,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
         section(root, "GLUKOSE · EINHEIT", palette)
         root.addView(glucoseUnitRow(settings.glucoseUnit(), palette), params(5))
+        root.addView(toggle("Zuckerwert fett", settings.glucoseBold(), palette) {
+            settings.saveGlucoseBold(it)
+        }, params(5))
         val thresholds = settings.thresholds()
         section(root, "GLUKOSE · ZIELBEREICH", palette)
         root.addView(slider("Tief", 51, (thresholds.highMgDl.toInt() - 1).coerceAtLeast(51), thresholds.lowMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {

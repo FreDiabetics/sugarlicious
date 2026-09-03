@@ -88,6 +88,7 @@ class G7WatchActivityLayoutTest {
         assertTrue("Eckenrundung · 20.0 dp" in texts)
         assertTrue("Graphkontur" in texts)
         assertTrue("Zeitachsenskala" in texts)
+        assertTrue("Zuckerwert fett" in texts)
         assertTrue("Horizontale Zielwert-Striche" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
@@ -102,9 +103,11 @@ class G7WatchActivityLayoutTest {
         val thresholds = CgmThresholds(250.0, 168.0, 81.0, 50.0)
 
         store.saveGlucoseUnit(GlucoseUnit.MMOL_L)
+        store.saveGlucoseBold(false)
         assertTrue(store.saveThresholds(thresholds))
 
         assertEquals(GlucoseUnit.MMOL_L, store.glucoseUnit())
+        assertFalse(store.glucoseBold())
         assertEquals(thresholds, store.thresholds())
     }
 

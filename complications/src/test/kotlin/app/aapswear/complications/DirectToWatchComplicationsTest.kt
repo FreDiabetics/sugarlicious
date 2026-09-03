@@ -31,6 +31,7 @@ class DirectToWatchComplicationsTest {
         assertEquals("152", header.glucose)
         assertEquals("+1 mg/dL", header.secondary)
         assertEquals(Trend.FLAT, header.trend)
+        assertEquals("3h • 2m", DirectToWatchPresentationFormatter.graphStatus(directState(now - 2 * 60_000L), now, 3).text)
     }
 
     @Test fun `direct presentation applies its own mmol unit without changing source data`() {

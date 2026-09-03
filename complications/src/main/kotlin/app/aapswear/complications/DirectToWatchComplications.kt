@@ -88,7 +88,7 @@ internal object DirectToWatchPresentationFormatter {
 
     fun graphStatus(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): DirectToWatchGraphStatusPresentation {
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
-        val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "$it min" } ?: "—"
+        val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
         val detail = if (isDirect(state) && state?.glucose != null) age else unavailableLabel(state, freshness)
         return DirectToWatchGraphStatusPresentation("${graphHours}h • $detail")
     }
@@ -152,6 +152,7 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_DOT_OUTLINE_ENABLED = "graph_style_dot_outline_enabled"
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
     private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
+    private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
     private const val KEY_TARGET_LOW = "target.low_mg_dl"
     private const val KEY_TARGET_HIGH = "target.high_mg_dl"
     val graphHourOptions = listOf(1, 3, 6, 12, 24)
@@ -166,6 +167,9 @@ object DirectToWatchPreferences {
                 .getString(KEY_GLUCOSE_UNIT, GlucoseUnit.MG_DL.name)!!,
         )
     }.getOrDefault(GlucoseUnit.MG_DL)
+
+    fun glucoseBold(context: Context): Boolean =
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_GLUCOSE_BOLD, true)
 
     fun thresholds(context: Context): CgmThresholds {
         val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -375,7 +379,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
 class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
         val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this))
-        val bitmap = renderHeader(presentation)
+        val bitmap = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this))
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder("Direct to Watch ${presentation.glucose}, ${presentation.secondary}").build(),
@@ -385,7 +389,7 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             .build()
     }
 
-    internal fun renderHeader(presentation: DirectToWatchHeaderPresentation): Bitmap {
+    internal fun renderHeader(presentation: DirectToWatchHeaderPresentation, glucoseBold: Boolean = true): Bitmap {
         val width = 340
         val height = 108
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -393,7 +397,7 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
         val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = 61f
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = if (glucoseBold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             textAlign = Paint.Align.LEFT
         }
         val secondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

@@ -26,6 +26,9 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     fun saveGlucoseUnit(value: GlucoseUnit) = update { putString(KEY_GLUCOSE_UNIT, value.name) }
 
+    fun glucoseBold(): Boolean = preferences.getBoolean(KEY_GLUCOSE_BOLD, true)
+    fun saveGlucoseBold(value: Boolean) = update { putBoolean(KEY_GLUCOSE_BOLD, value) }
+
     fun thresholds(): CgmThresholds = CgmThresholds(
         veryHighMgDl = CgmThresholds.DEFAULT_VERY_HIGH_MG_DL,
         highMgDl = preferences.getFloat(KEY_TARGET_HIGH, CgmThresholds.DEFAULT_HIGH_MG_DL.toFloat()).toDouble(),
@@ -120,6 +123,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         val HOUR_OPTIONS = listOf(1, 3, 6, 12, 24)
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
+        private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
         private const val KEY_TARGET_LOW = "target.low_mg_dl"
         private const val KEY_TARGET_HIGH = "target.high_mg_dl"
         private const val KEY_DOT_RADIUS = "graph_style_dot_radius"
