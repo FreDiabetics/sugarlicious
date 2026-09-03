@@ -151,6 +151,7 @@ internal fun SugarliciousOverviewScreen(
                 predictionFutureWindowMs,
                 metabolicFutureWindowMs,
             ),
+            now,
         )
     }
 
@@ -227,6 +228,7 @@ internal fun SugarliciousOverviewScreen(
                 preferences = preferences,
                 viewport = metabolicChartViewport,
                 chartHeightDp = metabolicGraphHeightDp,
+                now = now,
             )
         }
     }
@@ -581,9 +583,9 @@ private fun GlucoseGraphSurface(
     now: Long,
     onGraphHours: (Int) -> Unit,
 ) {
-    var visibleHours by remember(viewport) { mutableFloatStateOf(viewport.hours) }
+    var visibleHours by remember(viewport) { mutableFloatStateOf(viewport.visibleHours) }
     DisposableEffect(viewport) {
-        val listener = { visibleHours = viewport.hours }
+        val listener = { visibleHours = viewport.visibleHours }
         viewport.addListener(listener)
         onDispose { viewport.removeListener(listener) }
     }
@@ -655,6 +657,7 @@ private fun MetabolicGraphSurface(
     preferences: DashboardUiPreferences,
     viewport: ChartViewport,
     chartHeightDp: Int,
+    now: Long,
 ) {
     AndroidView(
         modifier = Modifier.fillMaxWidth().height(chartHeightDp.dp),
@@ -675,6 +678,7 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
+                now,
             )
         },
     )

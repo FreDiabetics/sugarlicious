@@ -494,21 +494,22 @@ class DashboardChartsTest {
 
     @Test
     fun `viewport zoom out and pan stop at available history and absolute twenty four hours`() {
+        val now = System.currentTimeMillis()
         val viewport = ChartViewport(6)
-        viewport.setAvailablePastWindow(8L * 60L * 60_000L)
+        viewport.setAvailablePastWindow(8L * 60L * 60_000L, now)
         viewport.setHours(24f)
         assertEquals(8f, viewport.hours, 0.0001f)
 
         viewport.zoom(0.01f)
         assertEquals(8f, viewport.hours, 0.0001f)
         viewport.setHours(2f)
-        viewport.pan(100_000f, 100f)
+        viewport.pan(100_000f, 100f, now)
         assertEquals(-6L * 60L * 60_000L, viewport.panMs)
-        val boundaryEnd = viewport.endEpochMs(10L * 60L * 60_000L)
-        repeat(20) { viewport.pan(100_000f, 100f, 10L * 60L * 60_000L) }
-        assertEquals(boundaryEnd, viewport.endEpochMs(10L * 60L * 60_000L))
+        val boundaryEnd = viewport.endEpochMs(now)
+        repeat(20) { viewport.pan(100_000f, 100f, now) }
+        assertEquals(boundaryEnd, viewport.endEpochMs(now))
 
-        viewport.setAvailablePastWindow(30L * 60L * 60_000L)
+        viewport.setAvailablePastWindow(30L * 60L * 60_000L, now)
         viewport.setHours(30f)
         assertEquals(24f, viewport.hours, 0.0001f)
     }

@@ -15,7 +15,9 @@ import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
+import android.view.VelocityTracker
 import android.view.View
+import android.widget.OverScroller
 import androidx.core.graphics.withClip
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
@@ -50,6 +52,8 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 private const val HOUR_MS = 60L * 60_000L
+internal const val MAX_VISIBLE_GRAPH_HOURS = 24f
+internal const val MIN_VISIBLE_HISTORY_HOURS = 1f
 private const val BASAL_HEIGHT_FRACTION = 0.28f
 private const val ACTIVITY_HEIGHT_FRACTION = 0.92f
 private const val GRAPH_CORNER_RADIUS_DP = 18f
@@ -121,11 +125,20 @@ internal fun graphCenterAfterDivider(
     safetyPx: Float,
 ): Float = dividerX
 
+internal data class GraphViewportSnapshot(
+    val startEpochMs: Long,
+    val liveEdgeEpochMs: Long,
+    val endEpochMs: Long,
+) {
+    val durationMs: Long get() = endEpochMs - startEpochMs
+    val visibleHours: Float get() = durationMs.toFloat() / HOUR_MS
+}
+
 internal class ChartViewport(initialHours: Int) {
     enum class Mode { LIVE_FOLLOW, USER_NAVIGATING }
     private val listeners = LinkedHashSet<() -> Unit>()
     private var availablePastWindowMs = 24L * HOUR_MS
-    private var requestedHours = initialHours.toFloat().coerceIn(1f, 24f)
+    private var requestedHours = initialHours.toFloat().coerceIn(MIN_VISIBLE_HISTORY_HOURS, MAX_VISIBLE_GRAPH_HOURS)
     var hours = requestedHours
         private set
     var panMs = 0L
@@ -138,8 +151,10 @@ internal class ChartViewport(initialHours: Int) {
     var axisIntervalHours: Int? = null
         private set
 
+    val visibleHours: Float get() = hours + futureWindowMs.toFloat() / HOUR_MS
+
     fun setHours(value: Float, resetPan: Boolean = false) {
-        requestedHours = value.coerceIn(1f, 24f)
+        requestedHours = value.coerceIn(MIN_VISIBLE_HISTORY_HOURS, MAX_VISIBLE_GRAPH_HOURS)
         val next = requestedHours.coerceAtMost(maximumHours())
         val changed = next != hours || (resetPan && panMs != 0L)
         hours = next
@@ -148,34 +163,41 @@ internal class ChartViewport(initialHours: Int) {
             mode = Mode.LIVE_FOLLOW
             navigationEndEpochMs = null
         }
-        clampPan()
+        clampNavigation(System.currentTimeMillis())
         if (changed) notifyChanged()
     }
 
-    fun setFutureWindow(valueMs: Long) {
+    fun setFutureWindow(valueMs: Long, referenceNow: Long = System.currentTimeMillis()) {
         val next = valueMs.coerceIn(0L, 2L * HOUR_MS)
         if (next == futureWindowMs) return
         futureWindowMs = next
         hours = requestedHours.coerceAtMost(maximumHours())
-        clampPan()
+        clampNavigation(referenceNow)
         notifyChanged()
     }
 
-    fun setAvailablePastWindow(valueMs: Long) {
-        val next = valueMs.coerceIn(0L, 24L * HOUR_MS)
+    fun setAvailablePastWindow(valueMs: Long, referenceNow: Long = System.currentTimeMillis()) {
+        val next = valueMs.coerceIn(0L, MAX_VISIBLE_GRAPH_HOURS.toLong() * HOUR_MS)
         if (next == availablePastWindowMs) return
         availablePastWindowMs = next
         hours = requestedHours.coerceAtMost(maximumHours())
-        clampPan()
+        clampNavigation(referenceNow)
         notifyChanged()
     }
 
-    fun endEpochMs(now: Long): Long =
-        if (mode == Mode.USER_NAVIGATING) navigationEndEpochMs ?: now + futureWindowMs + panMs
-        else now + futureWindowMs
+    fun endEpochMs(now: Long): Long = snapshot(now).endEpochMs
+
+    fun snapshot(now: Long): GraphViewportSnapshot {
+        val liveEnd = now + futureWindowMs
+        val earliestEnd = now - availablePastWindowMs + (hours * HOUR_MS).toLong() + futureWindowMs
+        val requestedEnd = if (mode == Mode.USER_NAVIGATING) navigationEndEpochMs ?: liveEnd else liveEnd
+        val end = requestedEnd.coerceIn(minOf(earliestEnd, liveEnd), liveEnd)
+        val start = end - (visibleHours * HOUR_MS).toLong()
+        return GraphViewportSnapshot(start, end - futureWindowMs, end)
+    }
 
     fun beginScale() {
-        axisIntervalHours = RelativeGraphTimeAxis.intervalHours(hours.toDouble())
+        axisIntervalHours = RelativeGraphTimeAxis.intervalHours(visibleHours.toDouble())
     }
 
     fun endScale() {
@@ -183,25 +205,30 @@ internal class ChartViewport(initialHours: Int) {
         notifyChanged()
     }
 
-    fun zoom(scaleFactor: Float) {
+    fun zoom(scaleFactor: Float, focalFraction: Float = 1f, referenceNow: Long = System.currentTimeMillis()) {
+        val oldSnapshot = snapshot(referenceNow)
         val oldHours = hours
-        requestedHours = (hours / scaleFactor.coerceAtLeast(0.05f)).coerceIn(1f, 24f)
+        requestedHours = (hours / scaleFactor.coerceAtLeast(0.05f)).coerceIn(MIN_VISIBLE_HISTORY_HOURS, MAX_VISIBLE_GRAPH_HOURS)
         hours = requestedHours.coerceAtMost(maximumHours())
-        clampPan()
-        if (hours != oldHours) notifyChanged()
-    }
-
-    fun pan(deltaPixels: Float, width: Float, referenceNow: Long = System.currentTimeMillis()) {
-        if (width <= 0f) return
-        val oldPan = panMs
-        val deltaMs = (deltaPixels / width * hours * HOUR_MS).toLong()
-        panMs -= deltaMs
-        clampPan()
-        if (panMs != oldPan) {
-            navigationEndEpochMs = referenceNow + futureWindowMs + panMs
-            mode = Mode.USER_NAVIGATING
+        if (hours != oldHours) {
+            val focal = focalFraction.coerceIn(0f, 1f)
+            val focalEpochMs = oldSnapshot.startEpochMs + (oldSnapshot.durationMs * focal).toLong()
+            val desiredEnd = focalEpochMs + ((visibleHours * HOUR_MS) * (1f - focal)).toLong()
+            navigateToEnd(desiredEnd, referenceNow)
             notifyChanged()
         }
+    }
+
+    fun pan(deltaPixels: Float, width: Float, referenceNow: Long = System.currentTimeMillis()): Boolean {
+        if (width <= 0f) return false
+        val oldEnd = snapshot(referenceNow).endEpochMs
+        val deltaMs = (deltaPixels / width * visibleHours * HOUR_MS).toLong()
+        navigateToEnd(oldEnd - deltaMs, referenceNow)
+        if (snapshot(referenceNow).endEpochMs != oldEnd) {
+            notifyChanged()
+            return true
+        }
+        return false
     }
 
     fun returnToNow() {
@@ -216,13 +243,23 @@ internal class ChartViewport(initialHours: Int) {
     internal fun removeListener(listener: () -> Unit) { listeners -= listener }
     private fun notifyChanged() { listeners.toList().forEach { it() } }
     private fun maximumHours(): Float =
-        (availablePastWindowMs.toFloat() / HOUR_MS)
-            .coerceIn(1f, 24f)
+        minOf(
+            availablePastWindowMs.toFloat() / HOUR_MS,
+            MAX_VISIBLE_GRAPH_HOURS - futureWindowMs.toFloat() / HOUR_MS,
+        ).coerceAtLeast(MIN_VISIBLE_HISTORY_HOURS)
 
-    private fun clampPan(maximumPanMs: Long = 0L) {
-        val visiblePastWindowMs = (hours * HOUR_MS).toLong()
-        val minimumPanMs = (visiblePastWindowMs - availablePastWindowMs).coerceAtMost(0L)
-        panMs = panMs.coerceIn(minimumPanMs, maximumPanMs)
+    private fun navigateToEnd(desiredEndEpochMs: Long, referenceNow: Long) {
+        val liveEnd = referenceNow + futureWindowMs
+        val earliestEnd = referenceNow - availablePastWindowMs + (hours * HOUR_MS).toLong() + futureWindowMs
+        val resolvedEnd = desiredEndEpochMs.coerceIn(minOf(earliestEnd, liveEnd), liveEnd)
+        panMs = resolvedEnd - liveEnd
+        navigationEndEpochMs = resolvedEnd.takeIf { it < liveEnd }
+        mode = if (navigationEndEpochMs == null) Mode.LIVE_FOLLOW else Mode.USER_NAVIGATING
+    }
+
+    private fun clampNavigation(referenceNow: Long) {
+        val desiredEnd = navigationEndEpochMs ?: (referenceNow + futureWindowMs + panMs)
+        navigateToEnd(desiredEnd, referenceNow)
     }
 
 }
@@ -236,6 +273,9 @@ internal abstract class InteractiveChartView(
     private var downX = 0f
     private var downY = 0f
     private var moving = false
+    private var velocityTracker: VelocityTracker? = null
+    private val flingScroller = OverScroller(context)
+    private var flingX = 0
     private val viewportListener: () -> Unit = { invalidate() }
     private val scaleDetector = ScaleGestureDetector(
         context,
@@ -247,7 +287,7 @@ internal abstract class InteractiveChartView(
             }
 
             override fun onScale(detector: ScaleGestureDetector): Boolean {
-                viewport.zoom(detector.scaleFactor)
+                viewport.zoom(detector.scaleFactor, detector.focusX / width.coerceAtLeast(1), System.currentTimeMillis())
                 parent?.requestDisallowInterceptTouchEvent(true)
                 return true
             }
@@ -273,6 +313,9 @@ internal abstract class InteractiveChartView(
         scaleDetector.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                flingScroller.forceFinished(true)
+                velocityTracker?.recycle()
+                velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                 lastX = event.x
                 downX = event.x
                 downY = event.y
@@ -284,6 +327,7 @@ internal abstract class InteractiveChartView(
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
+                velocityTracker?.addMovement(event)
                 if (!scaleDetector.isInProgress && event.pointerCount == 1) {
                     val delta = event.x - lastX
                     val horizontalGesture = abs(event.x - downX) > abs(event.y - downY) + 4f
@@ -300,6 +344,20 @@ internal abstract class InteractiveChartView(
             MotionEvent.ACTION_CANCEL,
             -> {
                 parent?.requestDisallowInterceptTouchEvent(false)
+                if (event.actionMasked == MotionEvent.ACTION_UP && moving) {
+                    velocityTracker?.apply {
+                        addMovement(event)
+                        computeCurrentVelocity(1000)
+                        val velocity = xVelocity.toInt()
+                        if (abs(velocity) >= 250) {
+                            flingX = 0
+                            flingScroller.fling(0, 0, velocity, 0, Int.MIN_VALUE, Int.MAX_VALUE, 0, 0)
+                            postInvalidateOnAnimation()
+                        }
+                    }
+                }
+                velocityTracker?.recycle()
+                velocityTracker = null
                 if (!moving) performClick()
                 return true
             }
@@ -308,6 +366,14 @@ internal abstract class InteractiveChartView(
     }
 
     override fun performClick(): Boolean = super.performClick()
+
+    override fun computeScroll() {
+        if (!flingScroller.computeScrollOffset()) return
+        val nextX = flingScroller.currX
+        val moved = viewport.pan((nextX - flingX).toFloat(), width.toFloat())
+        flingX = nextX
+        if (moved) postInvalidateOnAnimation() else flingScroller.forceFinished(true)
+    }
 }
 
 @SuppressLint("DrawAllocation")
@@ -370,7 +436,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val resolvedPredictionRadius = readMobilePredictionDotRadius(stylePreferences)
         val resolvedPredictionOutlineWidth = readMobilePredictionDotOutlineWidth(stylePreferences)
         val resolvedClockBucket = clockEpochMs / CLOCK_REFRESH_MS
-        viewport.setAvailablePastWindow(availableGlucoseHistoryWindowMs(state, clockEpochMs))
+        viewport.setAvailablePastWindow(availableGlucoseHistoryWindowMs(state, clockEpochMs), clockEpochMs)
         val newStateSignature = state?.let {
             buildList {
                 add(it.source)
@@ -484,10 +550,11 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             // Like AAPS, the viewport is tied to real current time. A new CGM therefore advances
             // the same time axis instead of pinning the latest point while neighbours get squeezed.
             val liveEdge = now
-            val timeWindow = GraphTimeWindow.endingAt(
-                viewportEndEpochMs = viewport.endEpochMs(liveEdge),
-                historyDurationMs = (viewport.hours * HOUR_MS).toLong(),
-                futureDurationMs = viewport.futureWindowMs,
+            val viewportSnapshot = viewport.snapshot(liveEdge)
+            val timeWindow = GraphTimeWindow(
+                startEpochMs = viewportSnapshot.startEpochMs,
+                liveEdgeEpochMs = viewportSnapshot.liveEdgeEpochMs,
+                endEpochMs = viewportSnapshot.endEpochMs,
             )
             val start = timeWindow.startEpochMs
             val end = timeWindow.endEpochMs
@@ -902,14 +969,17 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var boundDurationHours: Int? = null
     private var stateSignature: List<Any?>? = null
     private var markerVisibility = TreatmentMarkerVisibility()
+    private var renderNowEpochMs: Long = System.currentTimeMillis()
 
-    fun bind(state: TherapyDisplayState?, durationHours: Int, markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility()) {
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility) }
+    fun bind(state: TherapyDisplayState?, durationHours: Int, markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(), clockEpochMs: Long = System.currentTimeMillis()) {
+        val clockBucket = clockEpochMs / 30_000L
+        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, clockBucket) }
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
         boundDurationHours = durationHours
         this.markerVisibility = markerVisibility
+        renderNowEpochMs = clockEpochMs
         if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
         invalidate()
     }
@@ -923,10 +993,10 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         canvas.withClip(clip) {
             fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
             canvas.drawRoundRect(outer, radius, radius, fillPaint)
-            val chartNow = System.currentTimeMillis()
-            val liveEdge = if (viewport.futureWindowMs == 0L) state?.glucose?.measuredAtEpochMs?.coerceAtMost(chartNow) ?: chartNow else chartNow
-            val end = viewport.endEpochMs(liveEdge)
-            val start = end - viewport.futureWindowMs - (viewport.hours * HOUR_MS).toLong()
+            val chartNow = renderNowEpochMs
+            val viewportSnapshot = viewport.snapshot(chartNow)
+            val end = viewportSnapshot.endEpochMs
+            val start = viewportSnapshot.startEpochMs
             val allPoints = state?.therapyHistory.orEmpty()
             val points = allPoints.filter { it.measuredAtEpochMs in start..end }
             val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
@@ -944,10 +1014,10 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val cobPlot = RectF(cobLanePlot.left, cobLanePlot.top + markerHeadroom, cobLanePlot.right, cobLanePlot.bottom)
             val iobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.totalIob })
             val cobRange = toolkitMetabolicRange(allPoints.mapNotNull { it.cobGrams }, sharedZeroRatio = iobRange.zeroRatio)
-            val projectionNow = state?.glucose?.measuredAtEpochMs ?: System.currentTimeMillis()
-            val currentDotX = mapX(projectionNow, start, end, iobDataPlot).coerceIn(iobDataPlot.left, iobDataPlot.right)
-            val dividerX = (currentDotX + 5f.dp).coerceIn(iobDataPlot.left, iobDataPlot.right)
-            drawSharedGrid(canvas, iobPlot, cobPlot, outer.bottom, start, end, projectionNow, currentDotX)
+            val projectionNow = state?.glucose?.measuredAtEpochMs ?: chartNow
+            val dividerTimestamp = viewportSnapshot.liveEdgeEpochMs
+            val dividerX = mapX(dividerTimestamp, start, end, iobDataPlot).coerceIn(iobDataPlot.left, iobDataPlot.right)
+            drawSharedGrid(canvas, iobPlot, cobPlot, outer.bottom, start, end, dividerTimestamp, dividerX)
             val graphSave = canvas.save()
             canvas.clipPath(Path().apply {
                 addRoundRect(iobPlot, radius, radius, Path.Direction.CW)
@@ -956,7 +1026,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
             drawInsulinActivity(canvas, iobDataPlot, allPoints, points, start, end, iobRange.zeroRatio)
             drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
-            if (projectionNow in start..end) {
+            if (dividerTimestamp in start..end) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
