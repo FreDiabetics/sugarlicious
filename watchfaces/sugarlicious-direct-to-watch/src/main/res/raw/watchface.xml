@@ -24,5 +24,10 @@
             <Complication type="SHORT_TEXT"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
+        <DigitalClock x="150" y="398" width="150" height="34">
+            <TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER">
+                <Font family="SYNC_TO_DEVICE" size="24" weight="NORMAL" color="#FFA8A8BA" />
+            </TimeText>
+        </DigitalClock>
     </Scene>
 </WatchFace>
