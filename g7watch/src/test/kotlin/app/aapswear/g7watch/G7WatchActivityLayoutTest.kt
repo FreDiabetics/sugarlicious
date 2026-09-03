@@ -9,6 +9,8 @@ import android.widget.ImageView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.Trend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
@@ -88,6 +90,38 @@ class G7WatchActivityLayoutTest {
         assertTrue("Zeitachsenskala" in texts)
         assertTrue("Horizontale Zielwert-Striche" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
+        assertTrue("GLUKOSE · EINHEIT" in texts)
+        assertTrue("GLUKOSE · ZIELBEREICH" in texts)
+    }
+
+    @Test
+    fun `direct to watch keeps independent unit and target range`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(app.aapswear.protocol.DirectToWatchSettingsContract.PREFERENCES, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7DirectToWatchSettingsStore(context)
+        val thresholds = CgmThresholds(250.0, 168.0, 81.0, 50.0)
+
+        store.saveGlucoseUnit(GlucoseUnit.MMOL_L)
+        assertTrue(store.saveThresholds(thresholds))
+
+        assertEquals(GlucoseUnit.MMOL_L, store.glucoseUnit())
+        assertEquals(thresholds, store.thresholds())
+    }
+
+    @Test
+    fun `direct to watch settings preserve scroll when a choice rebuilds the page`() {
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        var scroll = findScrollView(root)!!
+        measureAndLayout(root)
+        scroll.scrollTo(0, 180)
+
+        findText(root, "mmol/L")!!.performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        scroll = findScrollView(activity.findViewById(android.R.id.content))!!
+        assertEquals(180, scroll.scrollY)
+        activity.finish()
     }
 
     @Test

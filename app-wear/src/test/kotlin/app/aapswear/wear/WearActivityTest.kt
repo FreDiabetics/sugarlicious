@@ -14,6 +14,7 @@ import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -270,6 +271,25 @@ class WearActivityTest {
         )
 
         assertEquals(colors, WearDisplayPreferences.read(context).graphColors)
+    }
+
+    @Test
+    fun `explicit color sync never overwrites local glucose unit or target range`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val localThresholds = CgmThresholds(240.0, 165.0, 82.0, 55.0)
+        WearDisplayPreferences.saveLocal(
+            context,
+            WearDisplayPreferences(glucoseUnit = WatchGlucoseUnit.MMOL_L, cgmThresholds = localThresholds),
+        )
+
+        WearDisplayPreferences.applySyncedColors(
+            context,
+            WatchColorSync(graphColors = WatchGraphColors(), cgmThresholds = CgmThresholds.DEFAULT, sentAtEpochMs = 9876L),
+        )
+
+        val result = WearDisplayPreferences.read(context)
+        assertEquals(WatchGlucoseUnit.MMOL_L, result.glucoseUnit)
+        assertEquals(localThresholds, result.cgmThresholds)
     }
 
     @Test

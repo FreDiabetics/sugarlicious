@@ -250,10 +250,6 @@ internal data class WearDisplayPreferences(
             val fallback = WatchAppearanceProfile(graphColors = sync.graphColors)
             preferences.edit().apply {
                 putLong(KEY_SYNCED_AT, sync.sentAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
-                putFloat(THRESHOLD_VERY_HIGH, sync.cgmThresholds.veryHighMgDl.toFloat())
-                putFloat(THRESHOLD_HIGH, sync.cgmThresholds.highMgDl.toFloat())
-                putFloat(THRESHOLD_LOW, sync.cgmThresholds.lowMgDl.toFloat())
-                putFloat(THRESHOLD_VERY_LOW, sync.cgmThresholds.veryLowMgDl.toFloat())
                 putAppearanceProfile(AppearanceMode.LIGHT, sync.lightProfile ?: fallback)
                 putAppearanceProfile(AppearanceMode.DARK, sync.darkProfile ?: fallback)
             }.apply()

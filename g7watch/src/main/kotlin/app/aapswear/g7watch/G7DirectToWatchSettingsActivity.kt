@@ -14,6 +14,7 @@ import android.widget.Switch
 import android.widget.TextView
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.uishared.SharedColorEditor
@@ -23,16 +24,19 @@ class G7DirectToWatchSettingsActivity : Activity() {
     private lateinit var settings: G7DirectToWatchSettingsStore
     private lateinit var appearance: G7AppearanceStore
     private var mode = AppearanceMode.DARK
+    private var scrollView: ScrollView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         settings = G7DirectToWatchSettingsStore(this)
         appearance = G7AppearanceStore(this)
         mode = appearance.activeMode()
+        settings.sync()
         render()
     }
 
     private fun render() {
+        val restoreScrollY = scrollView?.scrollY ?: 0
         val palette = appearance.load(mode)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -41,6 +45,17 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }
         root.addView(topBar(palette))
         root.addView(modeSelector(palette), params(8))
+
+        section(root, "GLUKOSE · EINHEIT", palette)
+        root.addView(glucoseUnitRow(settings.glucoseUnit(), palette), params(5))
+        val thresholds = settings.thresholds()
+        section(root, "GLUKOSE · ZIELBEREICH", palette)
+        root.addView(slider("Tief", 51, (thresholds.highMgDl.toInt() - 1).coerceAtLeast(51), thresholds.lowMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
+            settings.saveThresholds(thresholds.copy(lowMgDl = it.toDouble()))
+        }, params(5))
+        root.addView(slider("Hoch", (thresholds.lowMgDl.toInt() + 1).coerceAtMost(249), 249, thresholds.highMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
+            settings.saveThresholds(thresholds.copy(highMgDl = it.toDouble()))
+        }, params(5))
 
         section(root, "GRAPH · ZEITSKALA", palette)
         root.addView(choiceRow(settings.graphHours(), palette), params(5))
@@ -91,7 +106,13 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }, params(5))
         root.addView(button("TREND-STIL ZURÜCKSETZEN", palette) { settings.resetTrendStyle(mode); render() }, params(8))
 
-        setContentView(ScrollView(this).apply { isFillViewport = true; addView(root) })
+        val newScrollView = ScrollView(this).apply {
+            isFillViewport = true
+            addView(root)
+            post { scrollTo(0, restoreScrollY) }
+        }
+        scrollView = newScrollView
+        setContentView(newScrollView)
     }
 
     private fun graphColorRows(root: LinearLayout, c: WatchGraphColors, p: G7AppearancePalette) {
@@ -142,6 +163,19 @@ class G7DirectToWatchSettingsActivity : Activity() {
             addView(button("${hour}h", p, hour == current) { settings.saveGraphHours(hour); render() }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
         }
     }
+
+    private fun glucoseUnitRow(current: GlucoseUnit, p: G7AppearancePalette) = LinearLayout(this).apply {
+        listOf(GlucoseUnit.MG_DL to "mg/dL", GlucoseUnit.MMOL_L to "mmol/L").forEach { (unit, title) ->
+            addView(button(title, p, unit == current) {
+                settings.saveGlucoseUnit(unit)
+                render()
+            }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
+        }
+    }
+
+    private fun formatThreshold(valueMgDl: Int, unit: GlucoseUnit): String =
+        if (unit == GlucoseUnit.MMOL_L) String.format(java.util.Locale.GERMANY, "%.1f mmol/L", valueMgDl / 18.0)
+        else "$valueMgDl mg/dL"
 
     private fun slider(title: String, min: Int, max: Int, initial: Int, p: G7AppearancePalette, format: (Int) -> String, save: (Int) -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(10.dp, 8.dp, 10.dp, 8.dp); background = card(p)

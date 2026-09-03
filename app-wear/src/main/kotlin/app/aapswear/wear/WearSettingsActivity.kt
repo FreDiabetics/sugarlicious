@@ -139,6 +139,31 @@ class WearSettingsActivity : Activity() {
                 ) { save(current.copy(glucoseUnit = it)) },
                 cardParams(),
             )
+            section("ZIELBEREICH")
+            root.addView(
+                sliderCard(
+                    "Tief",
+                    (current.cgmThresholds.veryLowMgDl.toInt() + 1).coerceAtLeast(40),
+                    (current.cgmThresholds.highMgDl.toInt() - 1).coerceAtLeast(40),
+                    current.cgmThresholds.lowMgDl.toInt(),
+                    { formatGlucoseThreshold(it, current.glucoseUnit) },
+                ) { value ->
+                    save(current.copy(cgmThresholds = current.cgmThresholds.copy(lowMgDl = value.toDouble())))
+                },
+                cardParams(),
+            )
+            root.addView(
+                sliderCard(
+                    "Hoch",
+                    (current.cgmThresholds.lowMgDl.toInt() + 1).coerceAtMost(300),
+                    (current.cgmThresholds.veryHighMgDl.toInt() - 1).coerceAtLeast(current.cgmThresholds.lowMgDl.toInt() + 1),
+                    current.cgmThresholds.highMgDl.toInt(),
+                    { formatGlucoseThreshold(it, current.glucoseUnit) },
+                ) { value ->
+                    save(current.copy(cgmThresholds = current.cgmThresholds.copy(highMgDl = value.toDouble())))
+                },
+                cardParams(),
+            )
             section("FARBEN")
             colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
             colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
@@ -580,6 +605,13 @@ class WearSettingsActivity : Activity() {
             onReset = { changed(selected) },
         )
     }
+
+    private fun formatGlucoseThreshold(valueMgDl: Int, unit: WatchGlucoseUnit): String =
+        if (unit == WatchGlucoseUnit.MMOL_L) {
+            String.format(java.util.Locale.GERMANY, "%.1f mmol/L", valueMgDl / 18.0)
+        } else {
+            "$valueMgDl mg/dL"
+        }
 
     private fun save(value: WearDisplayPreferences, rebuild: Boolean = true) {
         val trendChanged = current.trendScalePercent != value.trendScalePercent

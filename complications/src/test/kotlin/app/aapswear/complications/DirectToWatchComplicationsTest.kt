@@ -33,6 +33,14 @@ class DirectToWatchComplicationsTest {
         assertEquals(Trend.FLAT, header.trend)
     }
 
+    @Test fun `direct presentation applies its own mmol unit without changing source data`() {
+        val state = directState(now - 2 * 60_000L)
+        val header = DirectToWatchPresentationFormatter.header(state, now, GlucoseUnit.MMOL_L)
+        assertEquals("8.4", header.glucose)
+        assertEquals("+0.1 mmol/L", header.secondary)
+        assertEquals(GlucoseUnit.MG_DL, state.glucose?.displayUnit)
+    }
+
     @Test fun `stale direct value is not rendered as current`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
         assertEquals("—", header.glucose)

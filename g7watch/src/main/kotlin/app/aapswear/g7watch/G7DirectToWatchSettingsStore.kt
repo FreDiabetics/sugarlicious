@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.protocol.DirectToWatchSettingsContract
 import app.aapswear.protocol.WatchGraphColors
@@ -17,6 +19,28 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
     fun saveGraphHours(value: Int) = update { putInt(KEY_HOURS, value.takeIf { it in HOUR_OPTIONS } ?: 3) }
+
+    fun glucoseUnit(): GlucoseUnit = runCatching {
+        GlucoseUnit.valueOf(preferences.getString(KEY_GLUCOSE_UNIT, GlucoseUnit.MG_DL.name)!!)
+    }.getOrDefault(GlucoseUnit.MG_DL)
+
+    fun saveGlucoseUnit(value: GlucoseUnit) = update { putString(KEY_GLUCOSE_UNIT, value.name) }
+
+    fun thresholds(): CgmThresholds = CgmThresholds(
+        veryHighMgDl = CgmThresholds.DEFAULT_VERY_HIGH_MG_DL,
+        highMgDl = preferences.getFloat(KEY_TARGET_HIGH, CgmThresholds.DEFAULT_HIGH_MG_DL.toFloat()).toDouble(),
+        lowMgDl = preferences.getFloat(KEY_TARGET_LOW, CgmThresholds.DEFAULT_LOW_MG_DL.toFloat()).toDouble(),
+        veryLowMgDl = CgmThresholds.DEFAULT_VERY_LOW_MG_DL,
+    ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+
+    fun saveThresholds(value: CgmThresholds): Boolean {
+        if (!value.isValid) return false
+        update {
+            putFloat(KEY_TARGET_LOW, value.lowMgDl.toFloat())
+            putFloat(KEY_TARGET_HIGH, value.highMgDl.toFloat())
+        }
+        return true
+    }
 
     fun graphStyle(): SharedWearCgmGraphStyle {
         val defaults = DirectToWatchGraphDefaults.style()
@@ -95,6 +119,9 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     companion object {
         val HOUR_OPTIONS = listOf(1, 3, 6, 12, 24)
         private const val KEY_HOURS = "graph.hours"
+        private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
+        private const val KEY_TARGET_LOW = "target.low_mg_dl"
+        private const val KEY_TARGET_HIGH = "target.high_mg_dl"
         private const val KEY_DOT_RADIUS = "graph_style_dot_radius"
         private const val KEY_DOT_OUTLINE = "graph_style_dot_outline_enabled"
         private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"

@@ -59,7 +59,11 @@ internal data class DirectToWatchHeaderPresentation(
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
 
 internal object DirectToWatchPresentationFormatter {
-    fun header(state: TherapyDisplayState?, nowEpochMs: Long): DirectToWatchHeaderPresentation {
+    fun header(
+        state: TherapyDisplayState?,
+        nowEpochMs: Long,
+        displayUnit: GlucoseUnit? = null,
+    ): DirectToWatchHeaderPresentation {
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
             return DirectToWatchHeaderPresentation(
@@ -68,10 +72,15 @@ internal object DirectToWatchPresentationFormatter {
             )
         }
         val glucose = requireNotNull(state?.glucose)
-        val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, glucose.displayUnit)
-        val unit = if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+        val resolvedUnit = displayUnit ?: glucose.displayUnit
+        val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, resolvedUnit)
+        val unit = if (resolvedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
         return DirectToWatchHeaderPresentation(
-            glucose = TherapyDisplayFormatter.glucose(glucose),
+            glucose = if (resolvedUnit == GlucoseUnit.MMOL_L) {
+                String.format(java.util.Locale.getDefault(), "%.1f", glucose.valueMgDl / 18.0)
+            } else {
+                glucose.valueMgDl.toInt().toString()
+            },
             secondary = listOf(delta, unit).filter(String::isNotBlank).joinToString(" "),
             trend = glucose.trend.takeIf { TherapyDisplayFormatter.trendArrow(it).isNotBlank() },
         )
@@ -142,11 +151,31 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_DOT_RADIUS = "graph_style_dot_radius"
     private const val KEY_GRAPH_DOT_OUTLINE_ENABLED = "graph_style_dot_outline_enabled"
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+    private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
+    private const val KEY_TARGET_LOW = "target.low_mg_dl"
+    private const val KEY_TARGET_HIGH = "target.high_mg_dl"
     val graphHourOptions = listOf(1, 3, 6, 12, 24)
 
     fun graphHours(context: Context): Int =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
             .getInt(KEY_GRAPH_HOURS, 3).takeIf { it in graphHourOptions } ?: 3
+
+    fun glucoseUnit(context: Context): GlucoseUnit = runCatching {
+        GlucoseUnit.valueOf(
+            context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+                .getString(KEY_GLUCOSE_UNIT, GlucoseUnit.MG_DL.name)!!,
+        )
+    }.getOrDefault(GlucoseUnit.MG_DL)
+
+    fun thresholds(context: Context): CgmThresholds {
+        val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+        return CgmThresholds(
+            veryHighMgDl = CgmThresholds.DEFAULT_VERY_HIGH_MG_DL,
+            highMgDl = preferences.getFloat(KEY_TARGET_HIGH, CgmThresholds.DEFAULT_HIGH_MG_DL.toFloat()).toDouble(),
+            lowMgDl = preferences.getFloat(KEY_TARGET_LOW, CgmThresholds.DEFAULT_LOW_MG_DL.toFloat()).toDouble(),
+            veryLowMgDl = CgmThresholds.DEFAULT_VERY_LOW_MG_DL,
+        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+    }
 
     fun cycleGraphHours(context: Context): Int {
         val current = graphHours(context)
@@ -307,13 +336,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
         )
 
     protected fun readThresholds(): CgmThresholds {
-        val preferences = getSharedPreferences("watch_display", MODE_PRIVATE)
-        return CgmThresholds(
-            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
-            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
-            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
-            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
-        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+        return DirectToWatchPreferences.thresholds(this)
     }
 
     private fun previewState(): TherapyDisplayState {
@@ -351,7 +374,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
 
 class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
-        val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs)
+        val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this))
         val bitmap = renderHeader(presentation)
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
@@ -444,7 +467,7 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),
                 style = graphStyle,
-                emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs).secondary,
+                emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this)).secondary,
             ),
         )
         return bitmap
