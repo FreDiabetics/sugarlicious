@@ -85,6 +85,7 @@ object G7LocalReadingResolver {
             )
         writeMemory(context, resolution.memory)
 
+        val watchOnly = selectedSource == WatchDataSource.DEXCOM_G7_WATCH
         val directSensorError =
             latestDirectEvent
                 ?.takeIf {
@@ -96,19 +97,21 @@ object G7LocalReadingResolver {
         val fallbackSensorError =
             fallback
                 ?.glucose
-                ?.takeIf { it.quality == CgmQuality.SENSOR_ERROR }
+                ?.takeIf { !watchOnly && it.quality == CgmQuality.SENSOR_ERROR }
         val chosenGlucose =
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.glucose
                 CgmCanonicalSource.WATCH_G7_DIRECT -> latestDirect?.toGlucoseState()
-                CgmCanonicalSource.NONE -> directSensorError ?: fallbackSensorError
+                CgmCanonicalSource.NONE ->
+                    directSensorError ?: latestDirect?.takeIf { watchOnly }?.toGlucoseState() ?: fallbackSensorError
             }
 
         val chosenSource =
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.source ?: DataSourceId.ANDROID_APS
                 CgmCanonicalSource.WATCH_G7_DIRECT -> DataSourceId.DEXCOM_G7_WATCH
-                CgmCanonicalSource.NONE -> chosenGlucose?.source ?: fallback?.source ?: DataSourceId.OTHER
+                CgmCanonicalSource.NONE ->
+                    chosenGlucose?.source ?: if (watchOnly && latestDirectEvent != null) DataSourceId.DEXCOM_G7_WATCH else DataSourceId.OTHER
             }
 
         val sourceVersion =
@@ -116,19 +119,19 @@ object G7LocalReadingResolver {
                 CgmCanonicalSource.WATCH_G7_DIRECT -> "G7 Watch Collector"
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.sourceVersion
                 CgmCanonicalSource.NONE ->
-                    if (directSensorError != null) "G7 Watch Collector" else fallback?.sourceVersion
+                    if (directSensorError != null || (watchOnly && latestDirectEvent != null)) "G7 Watch Collector" else fallback?.sourceVersion
             }
 
         val capabilities =
             if (chosenGlucose?.quality == CgmQuality.VALID) {
-                fallback?.capabilities.orEmpty() +
+                (if (watchOnly) emptySet() else fallback?.capabilities.orEmpty()) +
                     setOf(
                         DataCapability.GLUCOSE,
                         DataCapability.TREND,
                         DataCapability.DELTA,
                     )
             } else {
-                fallback?.capabilities.orEmpty() -
+                (if (watchOnly) emptySet() else fallback?.capabilities.orEmpty()) -
                     setOf(
                         DataCapability.GLUCOSE,
                         DataCapability.TREND,
@@ -144,6 +147,7 @@ object G7LocalReadingResolver {
                 nowEpochMs = nowEpochMs,
                 watchIsCanonical = resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT,
                 preferredSource = chosenSource,
+                watchOnly = watchOnly,
             )
 
         return TherapyDisplayState(
@@ -172,6 +176,18 @@ object G7LocalReadingResolver {
             capabilities = capabilities,
         )
     }
+
+    /** Resolves the collector stream without ever exposing phone/AAPS glucose or history. */
+    fun resolveWatchDirect(
+        context: Context,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): TherapyDisplayState? =
+        resolve(
+            context = context,
+            fallback = null,
+            nowEpochMs = nowEpochMs,
+            dataSource = WatchDataSource.DEXCOM_G7_WATCH,
+        )
 
     fun sourceState(state: TherapyDisplayState?): CgmSourceState? =
         state
@@ -229,6 +245,7 @@ object G7LocalReadingResolver {
         nowEpochMs: Long,
         watchIsCanonical: Boolean,
         preferredSource: DataSourceId,
+        watchOnly: Boolean,
     ): List<GlucoseSample> {
         val directSamples =
             direct.map {
@@ -244,7 +261,7 @@ object G7LocalReadingResolver {
                 )
             }
         return canonicalWearHistory(
-            phone = phone,
+            phone = if (watchOnly) emptyList() else phone,
             direct = directSamples,
             nowEpochMs = nowEpochMs,
             watchIsCanonical = watchIsCanonical,

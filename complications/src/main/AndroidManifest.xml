@@ -1,20 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <service android:name=".G6StyleHeaderComplication" android:label="G6 Style · Glukose" android:icon="@drawable/ic_g6_style_header" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
-            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
-            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/>
-            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_g6_header"/>
-        </service>
-        <service android:name=".G6StyleGraphComplication" android:label="G6 Style · 3h Graph" android:icon="@drawable/ic_g6_style_graph" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+        <service android:name=".DirectToWatchHeaderComplication" android:label="Direct to Watch · Glukose" android:icon="@drawable/ic_direct_to_watch_header" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
             <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
-            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_g6_graph"/>
+            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_direct_to_watch_header"/>
         </service>
-        <service android:name=".G6StyleStatusComplication" android:label="G6 Style · Quelle/Status" android:icon="@drawable/ic_g6_style_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+        <service android:name=".DirectToWatchGraphComplication" android:label="Direct to Watch · Graph" android:icon="@drawable/ic_direct_to_watch_graph" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_direct_to_watch_graph"/>
+        </service>
+        <service android:name=".DirectToWatchStatusComplication" android:label="Direct to Watch · Skala/Alter" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
             <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/>
             <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
-            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_g6_status"/>
+            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_direct_to_watch_status"/>
         </service>
+        <receiver android:name=".DirectToWatchGraphScaleReceiver" android:exported="false" />
     </application>
 </manifest>

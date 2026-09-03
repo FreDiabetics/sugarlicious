@@ -15,12 +15,12 @@ import org.junit.Test
 
 class ComplicationUpdatePlannerTest {
     @Test
-    fun `managed provider set includes fixed G6 style providers`() {
+    fun `managed provider set includes fixed direct to watch providers`() {
         val providers = ComplicationUpdatePlanner.allManagedProviders
 
-        assertTrue(G6StyleHeaderComplication::class.java in providers)
-        assertTrue(G6StyleGraphComplication::class.java in providers)
-        assertTrue(G6StyleStatusComplication::class.java in providers)
+        assertTrue(DirectToWatchHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchGraphComplication::class.java in providers)
+        assertTrue(DirectToWatchStatusComplication::class.java in providers)
         assertEquals(providers.size, providers.distinct().size)
     }
 
@@ -38,9 +38,9 @@ class ComplicationUpdatePlannerTest {
 
         assertTrue(GlucoseComplication::class.java in affected)
         assertTrue(GlucoseGraphComplication::class.java in affected)
-        assertTrue(G6StyleHeaderComplication::class.java in affected)
-        assertTrue(G6StyleGraphComplication::class.java in affected)
-        assertTrue(G6StyleStatusComplication::class.java in affected)
+        assertTrue(DirectToWatchHeaderComplication::class.java in affected)
+        assertTrue(DirectToWatchGraphComplication::class.java in affected)
+        assertTrue(DirectToWatchStatusComplication::class.java in affected)
         assertFalse(IobComplication::class.java in affected)
         assertFalse(CobComplication::class.java in affected)
         assertFalse(BasalComplication::class.java in affected)
@@ -102,10 +102,10 @@ class ComplicationUpdatePlannerTest {
         val affected = ComplicationUpdatePlanner.affectedProviders(old, new)
 
         assertTrue(GlucoseGraphComplication::class.java in affected)
-        assertTrue(G6StyleGraphComplication::class.java in affected)
+        assertTrue(DirectToWatchGraphComplication::class.java in affected)
         assertTrue(TirComplication::class.java in affected)
         assertFalse(GlucoseComplication::class.java in affected)
-        assertFalse(G6StyleHeaderComplication::class.java in affected)
+        assertFalse(DirectToWatchHeaderComplication::class.java in affected)
     }
 
     private fun state() =

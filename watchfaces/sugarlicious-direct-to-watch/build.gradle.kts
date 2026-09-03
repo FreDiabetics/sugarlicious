@@ -1,7 +1,7 @@
 plugins { id("com.android.application") }
 android {
     enableKotlin=false
-    namespace="app.aapswear.watchface.sugarlicious.g6style"
+    namespace="app.aapswear.watchface.sugarlicious.directtowatch"
     compileSdk=36
     defaultConfig {
         applicationId="app.aapswear.watchfacepush.g6style"

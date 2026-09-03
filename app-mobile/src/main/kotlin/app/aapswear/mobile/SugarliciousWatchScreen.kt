@@ -36,7 +36,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayState
 import kotlinx.coroutines.launch
 
-internal const val SUGARLICIOUS_G6_STYLE_FACE_INDEX = 5
+internal const val DIRECT_TO_WATCH_FACE_INDEX = 5
 
 internal enum class WatchFaceSelectionEvent {
     USER_SELECTION,
@@ -96,7 +96,7 @@ internal val sugarliciousWatchFaceCards =
             features = listOf("Glukose", "Graph", "AOD"),
         ),
         SugarliciousWatchFaceCard(
-            name = "Sugarlicious G6 Style",
+            name = "Sugarlicious Direct to Watch",
             style = "G7 Collector",
             slots = 3,
             features = listOf("G7 Collector", "3h Graph", "AOD", "Fixed Layout"),
@@ -140,8 +140,8 @@ internal fun SugarliciousWatchScreen(
     val context = LocalContext.current
     val appContext = context.applicationContext
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
-    val g6StyleRelevant =
-        SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(appContext, state, preferences)
+    val directToWatchRelevant =
+        SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state, preferences)
     var activeFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
     var editingFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
@@ -168,7 +168,7 @@ internal fun SugarliciousWatchScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 indices.forEach { index ->
-                    val enabled = index != SUGARLICIOUS_G6_STYLE_FACE_INDEX || g6StyleRelevant
+                    val enabled = index != DIRECT_TO_WATCH_FACE_INDEX || directToWatchRelevant
                     WatchFaceTile(
                         modifier = Modifier.weight(1f),
                         face = sugarliciousWatchFaceCards[index],
@@ -209,7 +209,7 @@ internal fun SugarliciousWatchScreen(
         )
 
         key(editingFaceIndex) {
-            if (editingFaceIndex == SUGARLICIOUS_G6_STYLE_FACE_INDEX) {
+            if (editingFaceIndex == DIRECT_TO_WATCH_FACE_INDEX) {
                 Surface(
                     color = SugarliciousColors.SurfaceHigh,
                     shape = RoundedCornerShape(18.dp),
@@ -217,10 +217,10 @@ internal fun SugarliciousWatchScreen(
                 ) {
                     Text(
                         text =
-                            if (g6StyleRelevant) {
-                                "G6 Style nutzt drei feste, nicht austauschbare Slots für Glukose/Trend, den 3-Stunden-Graphen und Quelle/Freshness. Alle Werte kommen aus dem zentralen Sugarlicious-Resolver."
+                            if (directToWatchRelevant) {
+                                "Direct to Watch nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten G7-Watch-Collector-Datenstrom."
                             } else {
-                                "G6 Style wird verfügbar, sobald der G7 Watch Collector eingerichtet oder als Datenquelle aktiv ist."
+                                "Direct to Watch wird verfügbar, sobald der G7 Watch Collector eingerichtet oder als Datenquelle aktiv ist."
                             },
                         color = SugarliciousColors.TextSecondary,
                         fontSize = 12.sp,
@@ -315,7 +315,7 @@ private fun WatchFaceTile(
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
-            if (index == SUGARLICIOUS_G6_STYLE_FACE_INDEX) {
+            if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
                     text = if (enabled) "G7 Collector Style" else "G7 Collector erforderlich",
                     color = if (enabled) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,

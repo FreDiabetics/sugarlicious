@@ -28,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
-    fun `settings are round safe and grouped into eight independent sections`() {
+    fun `settings are round safe and grouped into independent sections`() {
         val activity = Robolectric.buildActivity(WearSettingsActivity::class.java).setup().get()
         val root = activity.findViewById<ViewGroup>(android.R.id.content)
         val headers = mutableListOf<View>()
@@ -40,7 +40,7 @@ class WearActivityTest {
         collect(root)
 
         assertEquals(
-            listOf("display", "glucose", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
+            listOf("display", "glucose", "graph", "direct_to_watch", "tiles", "watchfaces", "connection", "diagnostics", "about"),
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })

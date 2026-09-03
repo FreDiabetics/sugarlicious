@@ -24,11 +24,11 @@ internal object SugarliciousWatchFaceSelectionStore {
             .apply()
     }
 
-    fun isG6StyleRelevant(
+    fun isDirectToWatchRelevant(
         context: Context,
         state: TherapyDisplayState?,
     ): Boolean =
-        isG6StyleRelevant(
+        isDirectToWatchRelevant(
             context = context,
             state = state,
             preferences =
@@ -37,7 +37,7 @@ internal object SugarliciousWatchFaceSelectionStore {
                 ),
         )
 
-    fun isG6StyleRelevant(
+    fun isDirectToWatchRelevant(
         context: Context,
         state: TherapyDisplayState?,
         preferences: DashboardUiPreferences,
@@ -50,18 +50,18 @@ internal object SugarliciousWatchFaceSelectionStore {
 
     fun isSelectable(
         faceIndex: Int,
-        g6StyleRelevant: Boolean,
+        directToWatchRelevant: Boolean,
     ): Boolean =
         faceIndex in sugarliciousWatchFaceCards.indices &&
-            (faceIndex != SUGARLICIOUS_G6_STYLE_FACE_INDEX || g6StyleRelevant)
+            (faceIndex != DIRECT_TO_WATCH_FACE_INDEX || directToWatchRelevant)
 
     fun resolveSelectableFallback(
         savedFaceIndex: Int,
         legacyFallback: Int,
-        g6StyleRelevant: Boolean,
+        directToWatchRelevant: Boolean,
     ): Int {
         val saved = savedFaceIndex.coerceIn(sugarliciousWatchFaceCards.indices)
-        if (isSelectable(saved, g6StyleRelevant)) return saved
-        return legacyFallback.coerceIn(0, SUGARLICIOUS_G6_STYLE_FACE_INDEX - 1)
+        if (isSelectable(saved, directToWatchRelevant)) return saved
+        return legacyFallback.coerceIn(0, DIRECT_TO_WATCH_FACE_INDEX - 1)
     }
 }

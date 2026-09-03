@@ -101,18 +101,17 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `G6 header uses normalized trend icon and every G6 preview is tappable`() {
-        val headerService = Robolectric.buildService(G6StyleHeaderComplication::class.java).create().get()
-        val header = headerService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("152", header.text.getTextAt(headerService.resources, Instant.now()).toString())
-        assertNotNull(header.monochromaticImage)
+    fun `direct to watch header image and every preview is tappable`() {
+        val headerService = Robolectric.buildService(DirectToWatchHeaderComplication::class.java).create().get()
+        val header = headerService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
+        assertNotNull(header.smallImage)
         assertNotNull(header.tapAction)
 
-        val statusService = Robolectric.buildService(G6StyleStatusComplication::class.java).create().get()
+        val statusService = Robolectric.buildService(DirectToWatchStatusComplication::class.java).create().get()
         val status = statusService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
         assertNotNull(status.tapAction)
 
-        val graphService = Robolectric.buildService(G6StyleGraphComplication::class.java).create().get()
+        val graphService = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val graph = graphService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
         assertNotNull(graph.tapAction)
     }

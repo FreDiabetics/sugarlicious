@@ -66,7 +66,7 @@ internal val sugarliciousWatchFaceNames =
         "Sugarlicious Rings",
         "Sugarlicious Graph",
         "Sugarlicious Digital",
-        "Sugarlicious G6 Style",
+        "Sugarlicious Direct to Watch",
     )
 
 private const val carouselPages = 400
@@ -184,13 +184,13 @@ internal fun OverviewWatchFaceTile(
         runCatching { requestWatchRuntimeStatus(appContext) }
     }
 
-    val g6StyleRelevant = SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(appContext, state)
+    val directToWatchRelevant = SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state)
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, selectedFaceIndex)
     val selectableSavedFaceIndex =
         SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
             savedFaceIndex = savedFaceIndex,
             legacyFallback = selectedFaceIndex,
-            g6StyleRelevant = g6StyleRelevant,
+            directToWatchRelevant = directToWatchRelevant,
         )
     // Runtime status may refresh complications and connectivity, but only local user input owns
     // carousel selection. This prevents G7/CGM Data-Layer traffic from jumping the visible face.
@@ -220,10 +220,10 @@ internal fun OverviewWatchFaceTile(
         if (currentIndex != selected) pager.scrollToPage(aligned + selected)
     }
 
-    LaunchedEffect(pager.settledPage, g6StyleRelevant) {
+    LaunchedEffect(pager.settledPage, directToWatchRelevant) {
         val index = pager.settledPage % sugarliciousWatchFaceNames.size
         if (index != selected) {
-            if (SugarliciousWatchFaceSelectionStore.isSelectable(index, g6StyleRelevant)) {
+            if (SugarliciousWatchFaceSelectionStore.isSelectable(index, directToWatchRelevant)) {
                 SugarliciousWatchFaceSelectionStore.write(appContext, index)
                 onSelectedFace(index)
             } else {
@@ -247,7 +247,7 @@ internal fun OverviewWatchFaceTile(
             contentAlignment = Alignment.Center,
         ) {
             val oneStepSwipe =
-                Modifier.pointerInput(pager.settledPage, g6StyleRelevant) {
+                Modifier.pointerInput(pager.settledPage, directToWatchRelevant) {
                     var dragDistance = 0f
                     detectHorizontalDragGestures(
                         onDragStart = { dragDistance = 0f },
@@ -260,7 +260,7 @@ internal fun OverviewWatchFaceTile(
                             val targetIndex = target % sugarliciousWatchFaceNames.size
                             if (
                                 target != pager.settledPage &&
-                                SugarliciousWatchFaceSelectionStore.isSelectable(targetIndex, g6StyleRelevant)
+                                SugarliciousWatchFaceSelectionStore.isSelectable(targetIndex, directToWatchRelevant)
                             ) {
                                 carouselScope.launch { pager.animateScrollToPage(target) }
                             }
@@ -411,7 +411,7 @@ internal fun FaceDial(
 ) {
     when (index) {
         0 -> SugarliciousAnalogFacePreview(state = state, modifier = modifier)
-        SUGARLICIOUS_G6_STYLE_FACE_INDEX -> G6StyleFacePreview(state = state, modifier = modifier)
+        DIRECT_TO_WATCH_FACE_INDEX -> DirectToWatchFacePreview(state = state, modifier = modifier)
         else ->
             SugarliciousFacePreview(
                 index = index,

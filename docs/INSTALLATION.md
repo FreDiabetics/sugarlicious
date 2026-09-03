@@ -46,7 +46,7 @@ Telefonen oder Watches kann die Auswahl mit `-PhoneSerial` beziehungsweise
 
 Anschließend erscheinen `Sugarlicious Digital`, `Sugarlicious Analog`,
 `Sugarlicious Orbit`, `Sugarlicious Rings`, `Sugarlicious Graph` und
-`Sugarlicious G6 Style` in der Watchface-Auswahl. Das G6-Style-Watchface wird in
+`Sugarlicious Direct to Watch` in der Watchface-Auswahl. Das Direct-to-Watch-Watchface wird in
 der Sugarlicious-Auswahl freigegeben, sobald die Dexcom-G7-Watch-Datenquelle
 aktiviert oder als aktive Quelle erkannt ist. Falls Galaxy Wearable die Liste
 noch zwischengespeichert hat, die Auswahl auf der Uhr durch langes Drücken des
@@ -90,7 +90,7 @@ Für kontrollierte Optik stehen die Bild-/Graph-Provider und die mitgelieferten
 WFF-Pakete bereit.
 
 Die Originalpakete heißen Sugarlicious Digital, Analog, Orbit, Rings, Graph und
-G6 Style. Die vier analogen Varianten besitzen kräftige eigene Baton-Zeiger,
+Direct to Watch. Die vier analogen Varianten besitzen kräftige eigene Baton-Zeiger,
 AOD sowie Graph- und kreisförmig nutzbare `RANGED_VALUE`-Slots. Die Zeiger sind
 eine Eigenentwicklung und keine kopierten Apple-Assets.
 

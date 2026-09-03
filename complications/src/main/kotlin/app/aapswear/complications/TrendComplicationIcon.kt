@@ -24,6 +24,7 @@ internal object TrendComplicationIcon {
         trend: Trend,
         sizePx: Int = 72,
         catalogId: Int? = null,
+        stylePreferencesName: String = "watch_display",
     ): MonochromaticImage? {
         val systemScale = context.getSharedPreferences("watch_display", Context.MODE_PRIVATE)
             .getInt("trend_scale_percent", GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
@@ -36,8 +37,8 @@ internal object TrendComplicationIcon {
         val offsetY = catalogId?.let { appearance.getInt("$it.trendY", 0) } ?: 0
         val mode = if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
         val parent = TrendArrowStylePreferences.read(
-            context.getSharedPreferences("watch_display", Context.MODE_PRIVATE), mode, Color.WHITE,
-            legacyScaleKey = "trend_scale_percent",
+            context.getSharedPreferences(stylePreferencesName, Context.MODE_PRIVATE), mode, Color.WHITE,
+            legacyScaleKey = if (stylePreferencesName == "watch_display") "trend_scale_percent" else null,
         )
         val override = catalogId?.let { id ->
             TrendArrowStyleOverride(
@@ -74,7 +75,7 @@ internal object TrendComplicationIcon {
         val targetWidth = (targetHeight * spec.aspectRatio).roundToInt().coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
         val drawable = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate() ?: return null
-        val render = style.copy(sizePercent = scalePercent, fillColor = Color.WHITE, outlineColor = Color.WHITE).renderSpec()
+        val render = style.copy(sizePercent = scalePercent).renderSpec()
         drawable.setTint(render.fillColor)
         val left = ((canvasWidth - targetWidth) / 2f + referenceHeightPx * offsetXPercent.coerceIn(-50, 50) / 100f).roundToInt()
         val top = ((canvasHeight - targetHeight) / 2f + referenceHeightPx * offsetYPercent.coerceIn(-50, 50) / 100f).roundToInt()

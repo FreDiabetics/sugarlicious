@@ -74,8 +74,8 @@ internal object SugarliciousWatchFacePush {
             ),
             FaceSpec(
                 "app.aapswear.watchfacepush.g6style",
-                "watchfaces/sugarlicious_g6_style.apk",
-                "watchfaces/sugarlicious_g6_style_token.txt",
+                "watchfaces/sugarlicious_direct_to_watch.apk",
+                "watchfaces/sugarlicious_direct_to_watch_token.txt",
             ),
         )
 

@@ -23,6 +23,7 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
+import app.aapswear.complications.DirectToWatchPreferences
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -254,6 +255,39 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
             colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
             colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
+        }
+
+        settingsCategory("direct_to_watch", "Direct to Watch", "Eigener Trendstil ohne Kopplung an andere Oberflächen") {
+            val style = DirectToWatchPreferences.trendStyle(this, selectedAppearanceMode)
+            section("TRENDPFEIL")
+            root.addView(
+                sliderCard("Größe", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, style.sizePercent, { "$it %" }) {
+                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(sizePercent = it))
+                },
+                cardParams(),
+            )
+            colorRow("Füllfarbe", style.fillColor) {
+                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(fillColor = it))
+            }
+            root.addView(switchRow("Kontur", style.outlineEnabled) {
+                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineEnabled = it))
+                buildUi()
+            }, cardParams())
+            if (style.outlineEnabled) {
+                colorRow("Konturfarbe", style.outlineColor) {
+                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineColor = it))
+                }
+                root.addView(sliderCard("Konturdicke", 25, 400, (style.outlineThicknessDp * 100).roundToInt(), { "${it / 100f} dp" }) {
+                    DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(outlineThicknessDp = it / 100f))
+                }, cardParams())
+            }
+            root.addView(sliderCard("Deckkraft", 0, 100, (style.alpha * 100).roundToInt(), { "$it %" }) {
+                DirectToWatchPreferences.saveTrendStyle(this, selectedAppearanceMode, style.copy(alpha = it / 100f))
+            }, cardParams())
+            root.addView(actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
+                DirectToWatchPreferences.resetTrendStyle(this, selectedAppearanceMode)
+                buildUi()
+            }, cardParams())
         }
 
         settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {
