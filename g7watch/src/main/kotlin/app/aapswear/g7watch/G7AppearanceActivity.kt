@@ -13,6 +13,7 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -29,11 +30,16 @@ import app.aapswear.uishared.SharedColorEditor
 class G7AppearanceActivity : Activity() {
     private lateinit var store: G7AppearanceStore
     private var selectedMode: AppearanceMode = AppearanceMode.DARK
+    private lateinit var scrollView: ScrollView
+    private lateinit var pageRoot: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = G7AppearanceStore(this)
         selectedMode = store.activeMode()
+        pageRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scrollView = ScrollView(this).apply { isFillViewport = true; addView(pageRoot) }
+        setContentView(scrollView)
         render()
     }
 
@@ -42,7 +48,9 @@ class G7AppearanceActivity : Activity() {
         window.statusBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         window.navigationBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
 
-        val content = LinearLayout(this).apply {
+        val restoreScrollY = scrollView.scrollY
+        val content = pageRoot.apply {
+            removeAllViews()
             orientation = LinearLayout.VERTICAL
             setPadding(18.dp, 18.dp, 18.dp, 28.dp)
             setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
@@ -118,27 +126,18 @@ class G7AppearanceActivity : Activity() {
             render()
         }, params(top = 14))
 
-        setContentView(ScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
-            addView(content)
+        scrollView.setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                val maxScroll = (pageRoot.measuredHeight - scrollView.height).coerceAtLeast(0)
+                scrollView.scrollTo(0, restoreScrollY.coerceAtMost(maxScroll))
+                return true
+            }
         })
     }
 
-    private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(TextView(this@G7AppearanceActivity).apply {
-            text = "←"
-            textSize = 27f
-            gravity = Gravity.CENTER
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-            setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(48.dp, 48.dp))
-        addView(label("Farben & Darstellung", 18f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-    }
+    private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Farben & Darstellung", palette)
 
     private fun colorRow(role: G7AppearanceRole, palette: G7AppearancePalette): LinearLayout =
         LinearLayout(this).apply {

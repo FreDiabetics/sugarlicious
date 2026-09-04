@@ -341,8 +341,8 @@ class G7WatchActivityLayoutTest {
         ).forEach {
             assertTrue("Missing status field $it", texts.contains(it))
         }
-        assertTrue(texts.any { it.startsWith("←") && it.contains("Systemstatus") })
-        findTextStartingWith(activity.findViewById(android.R.id.content), "←")!!.performClick()
+        assertTrue(texts.contains("Systemstatus"))
+        findTextStartingWith(activity.findViewById(android.R.id.content), "‹")!!.performClick()
         assertTrue(activity.isFinishing)
     }
 

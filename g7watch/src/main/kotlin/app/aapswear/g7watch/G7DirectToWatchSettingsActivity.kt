@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -114,7 +115,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }, params(5))
         root.addView(button("TREND-STIL ZURÜCKSETZEN", palette) { settings.resetTrendStyle(mode); render() }, params(8))
 
-        scrollView.post { scrollView.scrollTo(0, restoreScrollY) }
+        restoreScrollPosition(restoreScrollY)
     }
 
     private fun graphColorRows(root: LinearLayout, c: WatchGraphColors, p: G7AppearancePalette) {
@@ -144,14 +145,17 @@ class G7DirectToWatchSettingsActivity : Activity() {
         add("Prognose · Zero Temp", c.predictionZeroTemp) { x, v -> x.copy(predictionZeroTemp = v) }
     }
 
-    private fun topBar(p: G7AppearancePalette) = LinearLayout(this).apply {
-        gravity = Gravity.CENTER_VERTICAL
-        addView(label("‹", 26f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.CENTER; setOnClickListener { finish() } }, LinearLayout.LayoutParams(48.dp, 48.dp))
-        addView(LinearLayout(this@G7DirectToWatchSettingsActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(label("DIRECT TO WATCH", 8f, p.argb(G7AppearanceRole.MENU_PRIMARY), true))
-            addView(label("Watchface", 17f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    private fun topBar(p: G7AppearancePalette) = g7SettingsHeader("Watchface", p)
+
+    private fun restoreScrollPosition(scrollY: Int) {
+        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                val maxScroll = (pageRoot.measuredHeight - scrollView.height).coerceAtLeast(0)
+                scrollView.scrollTo(0, scrollY.coerceAtMost(maxScroll))
+                return true
+            }
+        })
     }
 
     private fun modeSelector(p: G7AppearancePalette) = LinearLayout(this).apply {

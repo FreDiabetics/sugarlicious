@@ -532,6 +532,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
         }
         val contentBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        val graphVisualBounds = RectF(scaleContainer.left, scaleContainer.top, scaleContainer.right, plot.bottom)
         if (plot.width() <= 24f || plot.height() <= 24f) return
         val radius = GRAPH_CORNER_RADIUS_DP.dp
         val contentClip = Path().apply { addRoundRect(contentBounds, radius + outlineInset, radius + outlineInset, Path.Direction.CW) }
@@ -595,13 +596,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (showTargetRange) {
                 if (excursion == RangeExcursion.HIGH) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH)
-                    canvas.drawRect(plot.left, plot.top, plot.right, targetTop, fillPaint)
+                    canvas.drawRect(graphVisualBounds.left, graphVisualBounds.top, graphVisualBounds.right, targetTop, fillPaint)
                 }
                 fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_IN_RANGE)
-                canvas.drawRect(plot.left, targetTop, plot.right, targetBottom, fillPaint)
+                canvas.drawRect(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetBottom, fillPaint)
                 if (excursion == RangeExcursion.LOW) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW)
-                    canvas.drawRect(plot.left, targetBottom, plot.right, plot.bottom, fillPaint)
+                    canvas.drawRect(graphVisualBounds.left, targetBottom, graphVisualBounds.right, graphVisualBounds.bottom, fillPaint)
                 }
             }
 
@@ -624,11 +625,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
             if (showTargetRange) {
                 linePaint.strokeWidth = 1f.dp
+                linePaint.strokeCap = Paint.Cap.BUTT
                 linePaint.pathEffect = null
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
-                canvas.drawLine(plot.left, targetTop, plot.right, targetTop, linePaint)
+                canvas.drawLine(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetTop, linePaint)
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
-                canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, linePaint)
+                canvas.drawLine(graphVisualBounds.left, targetBottom, graphVisualBounds.right, targetBottom, linePaint)
+                linePaint.strokeCap = Paint.Cap.ROUND
             }
 
             if (showTargetValue) {
@@ -816,19 +819,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val x = if (onRight) plot.right + 15f.dp else plot.left - 15f.dp
         canvas.drawText(highValue, x, highBaseline, paint)
         canvas.drawText(lowValue, x, lowBaseline, paint)
-        drawTargetScaleTick(canvas, plot, targetTop, onRight)
-        drawTargetScaleTick(canvas, plot, targetBottom, onRight)
-    }
-
-    private fun drawTargetScaleTick(canvas: Canvas, plot: RectF, centerY: Float, onRight: Boolean) {
-        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
-        linePaint.strokeWidth = 1f.dp
-        linePaint.pathEffect = null
-        if (onRight) {
-            canvas.drawLine(plot.right + 7f.dp, centerY, plot.right + 13f.dp, centerY, linePaint)
-        } else {
-            canvas.drawLine(plot.left - 13f.dp, centerY, plot.left - 7f.dp, centerY, linePaint)
-        }
     }
 
 

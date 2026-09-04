@@ -104,8 +104,8 @@ class WidgetPresentationTest {
         listOf(96 to 72, 160 to 90, 260 to 140, 420 to 180, 640 to 260).forEach { (width, height) ->
             val layout = responsiveWidgetLayout(width.toFloat(), height.toFloat())
             val metrics = widgetGraphMetrics(width, height, 1f, layout, Paint())
-            assertTrue(metrics.graphBounds.left > 0f)
-            assertTrue(metrics.graphBounds.top > 0f)
+            assertEquals(0f, metrics.graphBounds.left, 0.01f)
+            assertEquals(0f, metrics.graphBounds.top, 0.01f)
             assertTrue(metrics.plot.left > metrics.graphBounds.left)
             assertTrue(metrics.plot.right < metrics.graphBounds.right)
             assertTrue(metrics.plot.right < width)
@@ -270,8 +270,9 @@ class WidgetPresentationTest {
             graphLeftInsetDp = 12f,
         )
 
-        assertEquals(16f, standalone.graphBounds.left, 0.01f)
-        assertEquals(24f, combined.graphBounds.left, 0.01f)
+        assertEquals(0f, standalone.graphBounds.left, 0.01f)
+        assertEquals(0f, combined.graphBounds.left, 0.01f)
+        assertEquals(standalone.plot.left, combined.plot.left, 0.01f)
     }
 
     @Test

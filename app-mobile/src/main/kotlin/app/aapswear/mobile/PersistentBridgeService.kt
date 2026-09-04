@@ -640,10 +640,9 @@ internal object NotificationGraphRenderer {
                 validSamples,
                 thresholds,
             )
-        val lowest = points.minOf { it.value }
         val highest = points.maxOf { it.value }
-        val minValue = min(targetLow - 24.0, lowest - max(12.0, lowest * 0.08))
-        val maxValue = max(targetHigh + 24.0, highest + max(12.0, highest * 0.08))
+        val minValue = 40.0
+        val maxValue = max(400.0, highest + max(12.0, highest * 0.08))
 
         val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
         fun dp(value: Float) = value * renderDensity
@@ -660,6 +659,9 @@ internal object NotificationGraphRenderer {
         val plotRight = bounds.right - dp(axis.outerEdgePaddingDp + axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp) - widestYLabel
         val plotTop = bounds.top + dp(axis.outerEdgePaddingDp)
         val plotBottom = bounds.bottom - dp(axis.outerEdgePaddingDp) - timeBand
+        val visualLeft = bounds.left
+        val visualRight = bounds.right
+        val visualTop = bounds.top
 
         fun y(value: Double): Float {
             val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
@@ -673,32 +675,28 @@ internal object NotificationGraphRenderer {
         paint.style = Paint.Style.FILL
         if (excursion == RangeExcursion.HIGH) {
             paint.color = graphColor(SugarliciousColorRole.RANGE_HIGH)
-            canvas.drawRect(plotLeft, plotTop, plotRight, y(targetHigh), paint)
+            canvas.drawRect(visualLeft, visualTop, visualRight, y(targetHigh), paint)
         }
         paint.color = graphColor(SugarliciousColorRole.RANGE_IN_RANGE)
-        canvas.drawRect(plotLeft, y(targetHigh), plotRight, y(targetLow), paint)
+        canvas.drawRect(visualLeft, y(targetHigh), visualRight, y(targetLow), paint)
         if (excursion == RangeExcursion.LOW) {
             paint.color = graphColor(SugarliciousColorRole.RANGE_LOW)
-            canvas.drawRect(plotLeft, y(targetLow), plotRight, plotBottom, paint)
+            canvas.drawRect(visualLeft, y(targetLow), visualRight, plotBottom, paint)
         }
 
         paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = max(1f, renderDensity)
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
-        canvas.drawLine(plotLeft, y(targetHigh), plotRight, y(targetHigh), paint)
+        canvas.drawLine(visualLeft, y(targetHigh), visualRight, y(targetHigh), paint)
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
-        canvas.drawLine(plotLeft, y(targetLow), plotRight, y(targetLow), paint)
+        canvas.drawLine(visualLeft, y(targetLow), visualRight, y(targetLow), paint)
 
         fun drawYTick(value: Double) {
             val py = y(value)
-            val tickStart = plotRight + dp(axis.plotToTickGapDp)
-            val tickEnd = tickStart + dp(axis.tickLengthDp)
-            paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
-            paint.strokeWidth = max(1f, dp(0.8f))
-            canvas.drawLine(tickStart, py, tickEnd, py, paint)
             axisText.textAlign = Paint.Align.LEFT
             val baseline = py - (axisText.fontMetrics.ascent + axisText.fontMetrics.descent) / 2f
-            canvas.drawText(value.roundToInt().toString(), tickEnd + dp(axis.tickToLabelGapDp), baseline, axisText)
+            canvas.drawText(value.roundToInt().toString(), plotRight + dp(axis.plotToTickGapDp), baseline, axisText)
         }
         drawYTick(targetHigh)
         drawYTick(targetLow)

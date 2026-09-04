@@ -109,7 +109,7 @@ class G7CollectorService : Service() {
             cancelAction = { collectionJob?.cancel() },
         )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "G7 Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL, "Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter Dexcom G7 Watch Collector"
                 setSound(null, null)
                 enableVibration(false)
@@ -869,7 +869,7 @@ class G7CollectorService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_g7_notification)
             .setColor(0xFF6DE892.toInt())
-            .setContentTitle("G7 Direct to Watch")
+            .setContentTitle("Direct to Watch")
             .setContentText(message)
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_SERVICE)

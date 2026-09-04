@@ -21,6 +21,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -125,15 +126,7 @@ class G7SystemStatusActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(18.dp, 8.dp, 18.dp, 30.dp)
             setBackgroundColor(background)
-            addView(TextView(this@G7SystemStatusActivity).apply {
-                text = "←  Systemstatus"
-                textSize = 17f
-                gravity = Gravity.CENTER
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                setOnClickListener { finish() }
-                contentDescription = "Zurück zur Übersicht"
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 48.dp))
+            addView(g7SettingsHeader("Systemstatus", palette), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
             addView(group("LIVE COLLECTOR STATUS", palette).apply {
                 val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
@@ -244,13 +237,25 @@ class G7SystemStatusActivity : Activity() {
             ).apply { setPadding(8.dp, 6.dp, 8.dp, 0) })
         }
 
-        scrollView = ScrollView(this).apply {
-            isFillViewport = true
+        val currentScroll = scrollView
+        if (currentScroll == null) {
+            scrollView = ScrollView(this).apply { isFillViewport = true }
+            setContentView(scrollView)
+        } else {
+            currentScroll.removeAllViews()
+        }
+        scrollView?.apply {
             setBackgroundColor(background)
             addView(content)
+            viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    viewTreeObserver.removeOnPreDrawListener(this)
+                    val maxScroll = (content.measuredHeight - height).coerceAtLeast(0)
+                    scrollTo(0, oldScrollY.coerceAtMost(maxScroll))
+                    return true
+                }
+            })
         }
-        setContentView(scrollView)
-        scrollView?.post { scrollView?.scrollTo(0, oldScrollY) }
     }
 
     private fun liveCollectorPath(cycle: CollectorCycleTiming?, phase: String): String = when {

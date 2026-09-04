@@ -323,7 +323,7 @@ internal object G7CgmAlarmNotifier {
         val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${g7AlarmSoundResource(type)}") else null
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Eigenständiger G7-Watch-Alarm: ${title(type)}"
+                description = "Eigenständiger Direct-to-Watch-Alarm: ${title(type)}"
                 enableVibration(settings.vibrationEnabled)
                 setSound(
                     sound,
@@ -339,20 +339,20 @@ internal object G7CgmAlarmNotifier {
     }
 
     private fun title(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.VERY_HIGH -> "G7 sehr hoch"
-        CgmAlarmType.HIGH -> "G7 hoch"
-        CgmAlarmType.LOW -> "G7 tief"
-        CgmAlarmType.VERY_LOW -> "G7 sehr tief"
-        CgmAlarmType.RAPID_RISE -> "G7 steigt schnell"
-        CgmAlarmType.RAPID_FALL -> "G7 fällt schnell"
-        CgmAlarmType.SIGNAL_LOSS -> "G7 Signalverlust"
-        CgmAlarmType.SENSOR_ERROR -> "G7 Sensorfehler"
+        CgmAlarmType.VERY_HIGH -> "Glukose sehr hoch"
+        CgmAlarmType.HIGH -> "Glukose hoch"
+        CgmAlarmType.LOW -> "Glukose tief"
+        CgmAlarmType.VERY_LOW -> "Glukose sehr tief"
+        CgmAlarmType.RAPID_RISE -> "Glukose steigt schnell"
+        CgmAlarmType.RAPID_FALL -> "Glukose fällt schnell"
+        CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
+        CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
     }
 
     private fun body(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider Watch-G7-Wert."
+        CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider direkter Watch-Wert."
         CgmAlarmType.VERY_LOW -> "Glukosewert liegt bei oder unter 40 mg/dL."
-        else -> "Der direkte G7 Watch Collector hat den Alarmzustand ${title(type)} erkannt."
+        else -> "Direct to Watch hat den Alarmzustand ${title(type)} erkannt."
     }
 
     private fun color(type: CgmAlarmType): Int =
@@ -384,7 +384,13 @@ internal object G7AlarmNotificationPolicy {
     fun isAccessGranted(context: Context): Boolean =
         context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
 
-    fun settingsIntent(): Intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+    fun settingsIntent(context: Context): Intent {
+        val detail = Intent("android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS").apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        return if (detail.resolveActivity(context.packageManager) != null) detail
+        else Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+    }
 }
 
 internal fun g7AlarmSoundResource(type: CgmAlarmType): Int = when (type) {

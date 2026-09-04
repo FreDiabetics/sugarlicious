@@ -552,7 +552,6 @@ internal fun renderWidgetGraph(
     textPaint.textAlign = Paint.Align.RIGHT
     line.color = palette.argb(WidgetColorRole.AXIS_TICK)
     listOf(targetTop to targetHigh, targetBottom to targetLow).forEach { (targetY, value) ->
-        canvas.drawLine(metrics.yTickStartPx, targetY, metrics.yTickEndPx, targetY, line)
         canvas.drawText(value.roundToInt().toString(), metrics.yLabelRightPx, targetY - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
     }
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, renderDensity)
@@ -627,8 +626,8 @@ internal fun widgetGraphMetrics(
     }
     val graphLeftInset = (graphLeftInsetDp ?: if (lowSurface) 4f else 8f) * safeDensity
     val graphVerticalInset = (if (lowSurface) 4f else 8f) * safeDensity
-    val graphLeft = graphLeftInset
-    val graphTop = graphVerticalInset
+    val graphLeft = 0f
+    val graphTop = 0f
     val axisSpec = if (lowSurface) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
     val labelRight = widthPx - graphLeftInset
     val labelLeft = labelRight - yLabelWidth
@@ -637,12 +636,12 @@ internal fun widgetGraphMetrics(
     val graphRight = (yTickStart - axisSpec.plotToTickGapDp * safeDensity)
         .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
-    val graphBounds = RectF(graphLeft, graphTop, graphRight, graphBottom)
+    val graphBounds = RectF(0f, 0f, widthPx.toFloat(), graphBottom)
     val pointInset = (dotRadius + outline / 2f).coerceAtMost(minOf(graphBounds.width(), graphBounds.height()) * 0.12f)
     val plot = RectF(
-        graphBounds.left + pointInset,
-        graphBounds.top + pointInset,
-        graphBounds.right - pointInset,
+        graphLeft + pointInset,
+        graphTop + pointInset,
+        graphRight - pointInset,
         graphBounds.bottom - pointInset,
     )
     val cornerRadius = (graphCornerRadiusDp.coerceIn(

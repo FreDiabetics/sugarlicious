@@ -53,7 +53,7 @@ data class SharedWearCgmGraphStyle(
     val cornerRadiusDp: Float = 20f,
     val borderEnabled: Boolean = true,
     val timeAxisEnabled: Boolean = true,
-    val targetTicksEnabled: Boolean = true,
+    val targetTicksEnabled: Boolean = false,
     val targetLabelsOutsideRange: Boolean = false,
     val targetLabelsInsidePlot: Boolean = false,
     val rangeBackgroundEnabled: Boolean = true,
@@ -97,6 +97,7 @@ data class SharedWearCgmGraphInput(
 )
 
 data class SharedWearCgmGraphMetrics(
+    val visualBounds: RectF,
     val plot: RectF,
     val axisLeftPx: Float,
     val highY: Float,
@@ -123,14 +124,15 @@ object SharedWearCgmGraphRenderer {
         style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
     ): SharedWearCgmGraphMetrics {
         fun dp(value: Float) = value * density
-        val left = dp(6f)
+        val left = 0f
         val axisLeft = widthPx - dp(if (style.targetLabelsInsidePlot) 6f else 29f)
-        val top = dp(6f)
+        val top = 0f
         val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
         val plot = RectF(left, top, axisLeft, bottom)
         fun y(value: Double): Float =
             plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
         return SharedWearCgmGraphMetrics(
+            visualBounds = RectF(0f, 0f, widthPx.toFloat(), bottom),
             plot = plot,
             axisLeftPx = axisLeft,
             highY = y(thresholds.highMgDl),
@@ -167,6 +169,7 @@ object SharedWearCgmGraphRenderer {
         }
         val metrics = metrics(widthPx, heightPx, density, input.thresholds, input.style)
         val plot = metrics.plot
+        val visual = metrics.visualBounds
         if (plot.width() <= 0f || plot.height() <= 0f) return null
 
         val cornerRadius = dp(input.style.cornerRadiusDp).coerceAtLeast(0f)
@@ -194,25 +197,27 @@ object SharedWearCgmGraphRenderer {
         }.filter { it.samples.isNotEmpty() }
 
         fill.color = palette.targetArea
-        canvas.drawRect(plot.left, metrics.highY, plot.right, metrics.lowY, fill)
+        canvas.drawRect(visual.left, metrics.highY, visual.right, metrics.lowY, fill)
         when (CgmGraphPolicy.rangeExcursion(history, input.thresholds).takeIf { input.style.rangeBackgroundEnabled }) {
             RangeExcursion.HIGH -> {
                 fill.color = palette.highArea
-                canvas.drawRect(plot.left, plot.top, plot.right, metrics.highY, fill)
+                canvas.drawRect(visual.left, visual.top, visual.right, metrics.highY, fill)
             }
             RangeExcursion.LOW -> {
                 fill.color = palette.lowArea
-                canvas.drawRect(plot.left, metrics.lowY, plot.right, plot.bottom, fill)
+                canvas.drawRect(visual.left, metrics.lowY, visual.right, visual.bottom, fill)
             }
             null -> Unit
         }
 
         line.pathEffect = null
         line.strokeWidth = dp(0.8f)
+        line.strokeCap = Paint.Cap.BUTT
         line.color = palette.highLine
-        canvas.drawLine(plot.left, metrics.highY, plot.right, metrics.highY, line)
+        canvas.drawLine(visual.left, metrics.highY, visual.right, metrics.highY, line)
         line.color = palette.lowLine
-        canvas.drawLine(plot.left, metrics.lowY, plot.right, metrics.lowY, line)
+        canvas.drawLine(visual.left, metrics.lowY, visual.right, metrics.lowY, line)
+        line.strokeCap = Paint.Cap.ROUND
 
         val targetText = Paint(axisText).apply { color = palette.targetText }
         drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)

@@ -87,7 +87,7 @@ class G7CollectorGraphViewTest {
     }
 
     @Test
-    fun `range fill ends at current time marker and leaves label gutter clear`() {
+    fun `range fill is full bleed through label gutter`() {
         val graph = render(
             readings = listOf(reading("1", 120.0, now)),
             graphHours = 3,
@@ -95,7 +95,7 @@ class G7CollectorGraphViewTest {
             palette = testPalette(),
         )
 
-        assertEquals(background, graph.getPixel(380, 75))
+        assertEquals(Color.rgb(88, 88, 88), graph.getPixel(380, 75))
     }
 
     @Test

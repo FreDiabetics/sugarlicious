@@ -571,9 +571,9 @@ abstract class TherapyComplicationService(
         val targetLow = thresholds.lowMgDl
         val targetHigh = thresholds.highMgDl
         val density = resources.displayMetrics.density
-        val plotLeft = 1f
-        val plotRight = width - 1f
-        val plotTop = 1f
+        val plotLeft = 0f
+        val plotRight = width.toFloat()
+        val plotTop = 0f
         val plotBottom = height - 1f
         val plotHeight = plotBottom - plotTop
 
@@ -630,6 +630,7 @@ abstract class TherapyComplicationService(
         val targetLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = 1.35f * density
+            strokeCap = Paint.Cap.BUTT
         }
         targetLinePaint.color = colors.highLine
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)

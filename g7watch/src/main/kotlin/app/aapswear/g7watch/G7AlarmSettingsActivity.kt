@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,10 +20,18 @@ import java.util.Locale
 /** Immediate-save alarm configuration. Test notifications never touch the real alarm state. */
 class G7AlarmSettingsActivity : Activity() {
     private lateinit var root: LinearLayout
+    private lateinit var scrollView: ScrollView
     private var lastDndState: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scrollView = ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            addView(root)
+        }
+        setContentView(scrollView)
         render()
     }
 
@@ -35,13 +44,15 @@ class G7AlarmSettingsActivity : Activity() {
     }
 
     private fun render() {
+        val restoreScrollY = scrollView.scrollY
         val palette = G7AppearanceStore(this).load()
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         window.statusBarColor = background
         window.navigationBarColor = background
         val settings = G7AlarmSettingsStore.read(this)
 
-        root = LinearLayout(this).apply {
+        root.apply {
+            removeAllViews()
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(18.dp, 8.dp, 18.dp, 28.dp)
@@ -51,22 +62,18 @@ class G7AlarmSettingsActivity : Activity() {
             addView(globalCard(settings, palette), cardParams(7))
             CgmAlarmType.entries.forEach { type -> addView(alarmCard(type, settings, palette), cardParams(7)) }
         }
-        setContentView(ScrollView(this).apply {
-            isFillViewport = true
-            isVerticalScrollBarEnabled = false
-            addView(root)
-        })
+        restoreScrollPosition(restoreScrollY)
     }
 
     private fun dndCard(palette: G7AppearancePalette): LinearLayout {
         val granted = G7AlarmNotificationPolicy.isAccessGranted(this)
         lastDndState = granted
         return card(palette).apply {
-            addView(label("NICHT-STÖREN-ÜBERSTEUERUNG", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+            addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
             addView(label(if (granted) "Aktiv" else "Systemfreigabe erforderlich", 12f, if (granted) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE), true))
             addView(label("Damit kritische Glukose- und Sensoralarme auch bei Nicht stören hörbar bleiben.", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
             if (!granted) addView(actionButton("Systemfreigabe öffnen", palette) {
-                runCatching { startActivity(G7AlarmNotificationPolicy.settingsIntent()) }
+                runCatching { startActivity(G7AlarmNotificationPolicy.settingsIntent(this@G7AlarmSettingsActivity)) }
                     .onFailure { Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe konnte nicht geöffnet werden", Toast.LENGTH_LONG).show() }
             })
         }
@@ -111,20 +118,17 @@ class G7AlarmSettingsActivity : Activity() {
         render()
     }
 
-    private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(label("‹", 25f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-            gravity = Gravity.CENTER
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
-            setOnClickListener { finish() }
-        }, LinearLayout.LayoutParams(44.dp, 44.dp))
-        addView(LinearLayout(this@G7AlarmSettingsActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(10.dp, 0, 0, 0)
-            addView(label("G7 DIRECT TO WATCH", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-            addView(label("Alarme", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+    private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Alarme", palette)
+
+    private fun restoreScrollPosition(scrollY: Int) {
+        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                val maxScroll = (root.measuredHeight - scrollView.height).coerceAtLeast(0)
+                scrollView.scrollTo(0, scrollY.coerceAtMost(maxScroll))
+                return true
+            }
+        })
     }
 
     @Suppress("DEPRECATION")
