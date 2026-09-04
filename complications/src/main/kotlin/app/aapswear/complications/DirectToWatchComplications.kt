@@ -417,9 +417,14 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
         }?.let(TrendComplicationIcon::cropTransparentPadding)
         val gap = if (arrow == null) 0f else 6f
         val valueWidth = valuePaint.measureText(presentation.glucose)
-        canvas.drawText(presentation.glucose, 0f, 58f, valuePaint)
+        val valueBaseline = 58f
+        val valueBounds = android.graphics.Rect().also {
+            valuePaint.getTextBounds(presentation.glucose, 0, presentation.glucose.length, it)
+        }
+        val valueCenterY = valueBaseline + (valueBounds.top + valueBounds.bottom) / 2f
+        canvas.drawText(presentation.glucose, 0f, valueBaseline, valuePaint)
         arrow?.let {
-            val arrowTop = (34f - it.height / 2f).coerceAtLeast(0f)
+            val arrowTop = valueCenterY - it.height / 2f
             canvas.drawBitmap(it, valueWidth + gap, arrowTop, null)
         }
         canvas.drawText(presentation.secondary, 0f, 96f, secondaryPaint)
