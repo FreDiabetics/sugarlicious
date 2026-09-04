@@ -121,6 +121,7 @@ class G7AlarmSettingsActivity : Activity() {
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Alarme", palette)
 
     private fun showThresholdEditor(type: CgmAlarmType, settings: CgmAlarmSettings, palette: G7AppearancePalette) {
+        val restoreScrollY = scrollView.scrollY
         val current = thresholdValue(type, settings) ?: return
         val input = EditText(this).apply {
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
@@ -147,6 +148,7 @@ class G7AlarmSettingsActivity : Activity() {
                 }
             }
         }
+        dialog.setOnDismissListener { restoreScrollPosition(restoreScrollY) }
         dialog.show()
         input.requestFocus()
     }

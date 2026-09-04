@@ -207,6 +207,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }
 
     private fun showTargetThresholdEditor(title: String, currentMgDl: Double, isHigh: Boolean, p: G7AppearancePalette) {
+        val restoreScrollY = scrollView.scrollY
         val unit = settings.glucoseUnit()
         val shown = if (unit == GlucoseUnit.MMOL_L) String.format(java.util.Locale.US, "%.1f", currentMgDl / 18.0) else currentMgDl.roundToInt().toString()
         val input = EditText(this).apply {
@@ -237,6 +238,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 }
             }
         }
+        dialog.setOnDismissListener { restoreScrollPosition(restoreScrollY) }
         dialog.show()
         input.requestFocus()
     }
