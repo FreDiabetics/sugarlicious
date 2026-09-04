@@ -416,13 +416,13 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
         }?.let(TrendComplicationIcon::cropTransparentPadding)
         val gap = if (arrow == null) 0f else 6f
-        val valueLeft = arrow?.let { it.width + gap } ?: 0f
+        val valueWidth = valuePaint.measureText(presentation.glucose)
+        canvas.drawText(presentation.glucose, 0f, 58f, valuePaint)
         arrow?.let {
             val arrowTop = (34f - it.height / 2f).coerceAtLeast(0f)
-            canvas.drawBitmap(it, 0f, arrowTop, null)
+            canvas.drawBitmap(it, valueWidth + gap, arrowTop, null)
         }
-        canvas.drawText(presentation.glucose, valueLeft, 58f, valuePaint)
-        canvas.drawText(presentation.secondary, valueLeft, 96f, secondaryPaint)
+        canvas.drawText(presentation.secondary, 0f, 96f, secondaryPaint)
         return bitmap
     }
 
