@@ -69,6 +69,18 @@ class TrendComplicationIconTest {
         assertTrue(nonTransparentHeight(large) >= nonTransparentHeight(normal) * 1.8f)
     }
 
+    @Test
+    fun croppedRuntimeGlyphHasNoInvisibleLayoutPadding() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val padded = requireNotNull(TrendComplicationIcon.renderScaled(context, Trend.FLAT, 34, 80))
+        val cropped = TrendComplicationIcon.cropTransparentPadding(padded)
+
+        assertTrue(cropped.width < padded.width)
+        assertTrue(cropped.height < padded.height)
+        assertTrue((0 until cropped.height).any { y -> android.graphics.Color.alpha(cropped.getPixel(0, y)) > 0 })
+        assertTrue((0 until cropped.height).any { y -> android.graphics.Color.alpha(cropped.getPixel(cropped.width - 1, y)) > 0 })
+    }
+
     @Test fun `runtime renderer accepts the same outline style used by previews`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val style = TrendArrowStyle.defaults(AppearanceMode.DARK, 0xFFFFFFFF.toInt()).copy(outlineEnabled = false, alpha = 0.6f)

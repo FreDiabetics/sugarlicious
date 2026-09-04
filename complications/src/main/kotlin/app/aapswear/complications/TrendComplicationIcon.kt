@@ -97,6 +97,26 @@ internal object TrendComplicationIcon {
         return GlucoseTrendSizing.scaleFactor(scalePercent) / 2f
     }
 
+    /** Removes the stable host canvas padding when a glyph participates in a text layout. */
+    internal fun cropTransparentPadding(bitmap: Bitmap): Bitmap {
+        var left = bitmap.width
+        var top = bitmap.height
+        var right = -1
+        var bottom = -1
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                if (Color.alpha(bitmap.getPixel(x, y)) != 0) {
+                    left = minOf(left, x)
+                    top = minOf(top, y)
+                    right = maxOf(right, x)
+                    bottom = maxOf(bottom, y)
+                }
+            }
+        }
+        return if (right < left || bottom < top) bitmap
+        else Bitmap.createBitmap(bitmap, left, top, right - left + 1, bottom - top + 1)
+    }
+
     fun render(
         context: Context,
         trend: Trend,
