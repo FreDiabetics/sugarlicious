@@ -18,6 +18,11 @@ import app.aapswear.uishared.DirectToWatchGraphDefaults
 class G7DirectToWatchSettingsStore(private val context: Context) {
     private val preferences = context.getSharedPreferences(DirectToWatchSettingsContract.PREFERENCES, Context.MODE_PRIVATE)
 
+    init {
+        // Range confirmation is a system-wide graph policy, not a per-watchface preference.
+        preferences.edit().remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED).apply()
+    }
+
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
     fun saveGraphHours(value: Int) = update { putInt(KEY_HOURS, value.takeIf { it in HOUR_OPTIONS } ?: 3) }
 
@@ -64,7 +69,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
             targetTicksEnabled = preferences.getBoolean(KEY_TARGET_TICKS_ENABLED, defaults.targetTicksEnabled),
             targetLabelsOutsideRange = true,
-            rangeBackgroundEnabled = preferences.getBoolean(KEY_RANGE_BACKGROUND_ENABLED, defaults.rangeBackgroundEnabled),
+            rangeBackgroundEnabled = true,
         )
     }
 
@@ -76,7 +81,6 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
         putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
         putBoolean(KEY_TARGET_TICKS_ENABLED, value.targetTicksEnabled)
-        putBoolean(KEY_RANGE_BACKGROUND_ENABLED, value.rangeBackgroundEnabled)
     }
 
     fun graphColors(): WatchGraphColors {
@@ -148,6 +152,6 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
         private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
-        private const val KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
+        private const val LEGACY_KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
     }
 }

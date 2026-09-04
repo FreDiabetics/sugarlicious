@@ -93,10 +93,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(toggle("Horizontale Zielwert-Striche", graphStyle.targetTicksEnabled, palette) {
             settings.saveGraphStyle(settings.graphStyle().copy(targetTicksEnabled = it))
         }, params(5))
-        root.addView(toggle("Range-Hintergrundfärbung", graphStyle.rangeBackgroundEnabled, palette) {
-            settings.saveGraphStyle(settings.graphStyle().copy(rangeBackgroundEnabled = it))
-        }, params(5))
-
         val colors = settings.graphColors()
         section(root, "GRAPH · FARBEN", palette)
         graphColorRows(root, colors, palette)

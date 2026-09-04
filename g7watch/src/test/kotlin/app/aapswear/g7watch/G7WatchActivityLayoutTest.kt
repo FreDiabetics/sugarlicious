@@ -93,7 +93,7 @@ class G7WatchActivityLayoutTest {
         assertTrue("Zeitachsenskala" in texts)
         assertTrue("Zuckerwert fett" in texts)
         assertTrue("Horizontale Zielwert-Striche" in texts)
-        assertTrue("Range-Hintergrundfärbung" in texts)
+        assertFalse("Range-Hintergrundfärbung" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
         assertTrue("GLUKOSE · ZIELBEREICH" in texts)
@@ -131,7 +131,7 @@ class G7WatchActivityLayoutTest {
         store.saveTrendStyle(AppearanceMode.DARK, store.trendStyle(AppearanceMode.DARK).copy(alpha = .4f))
 
         assertEquals(5f, store.graphStyle().dotRadiusDp)
-        assertFalse(store.graphStyle().rangeBackgroundEnabled)
+        assertTrue(store.graphStyle().rangeBackgroundEnabled)
         assertEquals(0xFF010203.toInt(), store.graphColors().graphBackground)
         assertEquals(0x44112233, store.graphColors().rangeHigh)
         assertEquals(200, store.trendStyle(AppearanceMode.DARK).sizePercent)

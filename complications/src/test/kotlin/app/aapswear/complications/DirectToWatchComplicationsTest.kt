@@ -158,7 +158,7 @@ class DirectToWatchComplicationsTest {
         assertEquals(200, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).sizePercent)
         assertEquals(.35f, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).alpha)
         assertEquals(app.aapswear.model.AppearanceMode.DARK, DirectToWatchPreferences.activeAppearanceMode(context))
-        assertFalse(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
         assertEquals(0xFF010203.toInt(), DirectToWatchPreferences.graphColors(context).graphBackground)
     }
 

@@ -259,7 +259,8 @@ object DirectToWatchPreferences {
             timeAxisEnabled = p.getBoolean("graph_style_time_axis_enabled", defaults.timeAxisEnabled),
             targetTicksEnabled = p.getBoolean("graph_style_target_ticks_enabled", defaults.targetTicksEnabled),
             targetLabelsOutsideRange = true,
-            rangeBackgroundEnabled = p.getBoolean("graph_style_range_background_enabled", defaults.rangeBackgroundEnabled),
+            // Vigil follows the canonical graph policy unconditionally; this is not a face-local toggle.
+            rangeBackgroundEnabled = true,
         )
     }
 
@@ -272,7 +273,7 @@ object DirectToWatchPreferences {
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
             .putBoolean("graph_style_target_ticks_enabled", style.targetTicksEnabled)
-            .putBoolean("graph_style_range_background_enabled", style.rangeBackgroundEnabled)
+            .remove("graph_style_range_background_enabled")
             .apply()
         requestUpdates(context)
     }
