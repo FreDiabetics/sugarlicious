@@ -40,13 +40,19 @@ internal const val G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS = 30 * 60_000L
 internal const val G7_RECONNECT_SCAN_TIMEOUT_MS = 60_000L
 internal const val G7_GATT_133_ERROR_CODE = "G7-GATT-133"
 internal const val G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE = "G7-GATT-215"
+internal const val G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS = 20_000L
 internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
 internal enum class G7ReconnectStrategy { BOUNDED_SCAN, KNOWN_ADDRESS_DIRECT }
 
 internal sealed interface G7BleTelemetry
 
-internal data class G7DirectConnectStarted(val timestampEpochMs: Long, val elapsedRealtimeMs: Long) : G7BleTelemetry
+internal data class G7DirectConnectStarted(
+    val timestampEpochMs: Long,
+    val elapsedRealtimeMs: Long,
+    val attemptId: Long = 0L,
+    val gattGeneration: Long = 0L,
+) : G7BleTelemetry
 
 internal data class G7DirectConnectCompleted(
     val timestampEpochMs: Long,
@@ -55,7 +61,45 @@ internal data class G7DirectConnectCompleted(
     val result: DirectConnectResult,
     val status: Int? = null,
     val newState: Int? = null,
+    val attemptId: Long = 0L,
+    val gattGeneration: Long = 0L,
 ) : G7BleTelemetry
+
+internal data class G7GattCleanupTelemetry(
+    val timestampEpochMs: Long,
+    val attemptId: Long,
+    val gattGeneration: Long,
+    val disconnected: Boolean,
+    val started: Boolean,
+) : G7BleTelemetry
+
+internal data class G7StaleGattCallbackTelemetry(
+    val timestampEpochMs: Long,
+    val attemptId: Long,
+    val gattGeneration: Long,
+    val callback: String,
+) : G7BleTelemetry
+
+internal data class G7GattOwnership(val attemptId: Long, val generation: Long)
+
+internal object G7GattGenerationRegistry {
+    private val nextGeneration = java.util.concurrent.atomic.AtomicLong(0L)
+    @Volatile private var active: G7GattOwnership? = null
+
+    @Synchronized fun acquire(attemptId: Long): G7GattOwnership =
+        G7GattOwnership(attemptId, nextGeneration.incrementAndGet()).also { active = it }
+
+    fun isActive(ownership: G7GattOwnership): Boolean = active == ownership
+
+    @Synchronized fun invalidate(ownership: G7GattOwnership) {
+        if (active == ownership) active = null
+    }
+
+    @Synchronized internal fun resetForTest() {
+        active = null
+        nextGeneration.set(0L)
+    }
+}
 
 internal data class G7ScanTelemetry(
     val startedAtEpochMs: Long,
@@ -337,6 +381,7 @@ internal class AndroidG7Collector(
         scanTimeoutMsOverride: Long? = null,
         reconnectStrategy: G7ReconnectStrategy = G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
         onTelemetry: (G7BleTelemetry) -> Unit = {},
+        attemptId: Long = 0L,
     ): G7CollectionResult {
         var sensor = initialSensor
         var sharedKey = credentials.sharedKey?.takeIf {
@@ -393,7 +438,12 @@ internal class AndroidG7Collector(
             // platform still reports BOND_NONE enters the stored-session path and fails before a
             // fresh createBond() can be requested. Keep the persisted key intact, but use the
             // normal pairing exchange for this connection so Android can establish the bond.
-            val connection = G7GattConnection(context, sensor, onTelemetry)
+            val connection = G7GattConnection(
+                context,
+                sensor,
+                onTelemetry,
+                G7GattGenerationRegistry.acquire(attemptId),
+            )
             try {
                 val outcome = withTimeout(SESSION_TIMEOUT_MS) {
                     connection.collect(
@@ -489,6 +539,7 @@ private class G7GattConnection(
     private val context: Context,
     private val sensor: G7Sensor,
     private val onTelemetry: (G7BleTelemetry) -> Unit,
+    private val ownership: G7GattOwnership,
 ) {
     private val manager = context.getSystemService(BluetoothManager::class.java)
     private val connectionEvents = Channel<Pair<Int, Int>>(Channel.UNLIMITED)
@@ -504,6 +555,7 @@ private class G7GattConnection(
 
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+            if (!acceptCallback(gatt, "CONNECTION_STATE")) return
             connected = status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED
             val result = classifyDirectConnectCallback(status, newState)
             recordDirectResult(result, status, newState)
@@ -511,23 +563,28 @@ private class G7GattConnection(
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+            if (!acceptCallback(gatt, "SERVICES_DISCOVERED")) return
             serviceEvents.trySend(status)
         }
 
         override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (!acceptCallback(gatt, "DESCRIPTOR_WRITE")) return
             descriptorEvents.trySend(descriptor.characteristic.uuid to status)
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            if (!acceptCallback(gatt, "CHARACTERISTIC_WRITE")) return
             writeEvents.trySend(characteristic.uuid to status)
         }
 
         @Deprecated("Deprecated in Android 13")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            if (!acceptCallback(gatt, "CHARACTERISTIC_CHANGED_LEGACY")) return
             notifications.trySend(characteristic.uuid to characteristic.value.copyOf())
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            if (!acceptCallback(gatt, "CHARACTERISTIC_CHANGED")) return
             notifications.trySend(characteristic.uuid to value.copyOf())
         }
     }
@@ -552,7 +609,14 @@ private class G7GattConnection(
         onState(G7ProtocolState.CONNECTING)
         connectStartedAtEpochMs = System.currentTimeMillis()
         connectStartedElapsedMs = SystemClock.elapsedRealtime()
-        onTelemetry(G7DirectConnectStarted(requireNotNull(connectStartedAtEpochMs), requireNotNull(connectStartedElapsedMs)))
+        onTelemetry(
+            G7DirectConnectStarted(
+                requireNotNull(connectStartedAtEpochMs),
+                requireNotNull(connectStartedElapsedMs),
+                ownership.attemptId,
+                ownership.generation,
+            ),
+        )
         gatt = try {
             device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
         } catch (security: SecurityException) {
@@ -560,7 +624,7 @@ private class G7GattConnection(
             throw security
         }
         val (connectStatus, connectState) = try {
-            withTimeout(CONNECTION_TIMEOUT_MS) { connectionEvents.receive() }
+            withTimeout(G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS) { connectionEvents.receive() }
         } catch (timeout: TimeoutCancellationException) {
             recordDirectResult(DirectConnectResult.NO_CALLBACK)
             throw G7BleException(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, "Direkter G7-Connect ohne Callback", true, timeout)
@@ -754,15 +818,47 @@ private class G7GattConnection(
     @SuppressLint("MissingPermission")
     fun close() {
         val current = gatt
+        onTelemetry(
+            G7GattCleanupTelemetry(
+                System.currentTimeMillis(), ownership.attemptId, ownership.generation,
+                disconnected = current != null, started = true,
+            ),
+        )
+        G7GattGenerationRegistry.invalidate(ownership)
         gatt = null
         connected = false
         runCatching { current?.disconnect() }
         runCatching { current?.close() }
+        onTelemetry(
+            G7GattCleanupTelemetry(
+                System.currentTimeMillis(),
+                ownership.attemptId,
+                ownership.generation,
+                disconnected = current != null,
+                started = false,
+            ),
+        )
         connectionEvents.close()
         serviceEvents.close()
         descriptorEvents.close()
         writeEvents.close()
         notifications.close()
+    }
+
+    private fun acceptCallback(callbackGatt: BluetoothGatt, callbackName: String): Boolean {
+        if (G7GattGenerationRegistry.isActive(ownership) && (gatt == null || callbackGatt === gatt)) {
+            if (gatt == null) gatt = callbackGatt
+            return true
+        }
+        onTelemetry(
+            G7StaleGattCallbackTelemetry(
+                System.currentTimeMillis(),
+                ownership.attemptId,
+                ownership.generation,
+                callbackName,
+            ),
+        )
+        return false
     }
 
     private fun recordDirectResult(result: DirectConnectResult, status: Int? = null, newState: Int? = null) {
@@ -776,6 +872,8 @@ private class G7GattConnection(
                 result = result,
                 status = status,
                 newState = newState,
+                attemptId = ownership.attemptId,
+                gattGeneration = ownership.generation,
             ),
         )
     }
@@ -800,7 +898,6 @@ private class G7GattConnection(
     private companion object {
         val GLUCOSE_REQUEST = byteArrayOf(0x4e)
         const val GATT_ERROR_133 = 133
-        const val CONNECTION_TIMEOUT_MS = 20_000L
         const val OPERATION_TIMEOUT_MS = 15_000L
         const val BOND_TIMEOUT_MS = 35_000L
         const val BOND_STATE_POLL_MS = 250L

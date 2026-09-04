@@ -118,6 +118,7 @@ class G7SystemStatusActivity : Activity() {
         val diagnostics = G7CollectorDiagnosticStore(this)
         val attempt = diagnostics.snapshot().firstOrNull()
         val cycle = attempt?.cycle ?: diagnostics.pendingScheduledCycle()
+        val hardwareMetrics = G7ExpectedWindowLedger(this).metrics()
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -192,7 +193,22 @@ class G7SystemStatusActivity : Activity() {
                     hardwareExpanded = !hardwareExpanded
                     render()
                 })
-                if (hardwareExpanded) addCycleRows(this, cycle, palette)
+                if (hardwareExpanded) {
+                    addCycleRows(this, cycle, palette)
+                    addView(row("Erwartete Fenster", hardwareMetrics.expectedWindows.toString(), palette))
+                    addView(row("Versuchte Fenster", hardwareMetrics.attemptedWindows.toString(), palette))
+                    addView(row("Erfolgreiche Fenster", hardwareMetrics.successfulWindows.toString(), palette))
+                    addView(row("Verpasste Fenster", hardwareMetrics.missedWindows.toString(), palette))
+                    addView(row("First Attempt", hardwareMetrics.firstAttemptSuccess.toString(), palette))
+                    addView(row("Retry-Erfolg", hardwareMetrics.retrySuccess.toString(), palette))
+                    addView(row("GATT 133", hardwareMetrics.gatt133Count.toString(), palette))
+                    addView(row("No Callback", hardwareMetrics.noCallbackCount.toString(), palette))
+                    addView(row("Fallback Scans", hardwareMetrics.fallbackScanCount.toString(), palette))
+                    addView(row("Verfügbarkeit", "%.1f %%".format(hardwareMetrics.availabilityPercent), palette))
+                    addView(row("Längste Wertelücke", hardwareMetrics.longestReadingGapMs?.let(::formatDurationMs) ?: "—", palette))
+                    addView(row("Median Empfang", hardwareMetrics.medianReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                    addView(row("p95 Empfang", hardwareMetrics.p95ReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                }
 
                 addView(expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
                     diagnosticsExpanded = !diagnosticsExpanded
@@ -260,6 +276,8 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Advertisement", formatTimestamp(cycle?.advertisementFoundAt), palette))
         target.addView(row("RSSI", cycle?.advertisementRssi?.let { "$it dBm" } ?: "—", palette))
         target.addView(row("GATT Start", formatTimestamp(cycle?.connectGattStartedAt), palette))
+        target.addView(row("Fenster-ID", cycle?.expectedWindowId ?: "—", palette))
+        target.addView(row("GATT-Generation", cycle?.gattGeneration?.toString() ?: "—", palette))
         target.addView(row("Direct-Ergebnis", cycle?.directConnectResult?.name ?: "—", palette))
         target.addView(row("Direct-Versuche", cycle?.directConnectAttempts?.toString() ?: "—", palette))
         target.addView(row("Direct-Status", cycle?.directConnectStatus?.toString() ?: "—", palette))
