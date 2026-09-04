@@ -161,6 +161,23 @@ class G7ReadingDatabaseTest {
         assertEquals(2, database.query().size)
     }
 
+    @Test
+    fun `validated live and backfill identity deduplicates without a migration index`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live-42", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 123.0,
+            timestampEpochMs = now, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, sequenceNumber = 42L,
+            rawSourceTimestamp = 12_600L,
+        )
+
+        assertEquals(true, database.insert(live))
+        assertEquals(false, database.insert(live.copy(id = "backfill-42", receivedAtEpochMs = now + 10_000L)))
+        assertEquals(true, database.insert(live.copy(id = "later-42", timestampEpochMs = now + 300_000L, rawSourceTimestamp = 12_900L)))
+        assertEquals(2, database.query().size)
+    }
+
     private companion object {
         const val DATABASE_NAME = "g7_readings.db"
     }

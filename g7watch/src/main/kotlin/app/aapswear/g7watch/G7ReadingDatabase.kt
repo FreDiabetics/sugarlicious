@@ -25,7 +25,6 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         db.execSQL("CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE', synced INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE INDEX readings_measured_at ON readings(measured_at DESC)")
         db.execSQL("CREATE INDEX readings_pending ON readings(synced, measured_at)")
-        db.execSQL("CREATE UNIQUE INDEX readings_sensor_identity ON readings(sensor_id, session_id, sequence_number) WHERE sequence_number IS NOT NULL")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) {
@@ -40,12 +39,14 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         }
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE readings ADD COLUMN origin TEXT NOT NULL DEFAULT 'LIVE'")
-            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS readings_sensor_identity ON readings(sensor_id, session_id, sequence_number) WHERE sequence_number IS NOT NULL")
         }
     }
 
     override suspend fun insert(reading: CgmReading): Boolean {
         if (reading.status == CgmReadingStatus.SENSOR_ERROR && hasSameSensorError(reading)) {
+            return false
+        }
+        if (reading.status == CgmReadingStatus.VALID && hasSameValidIdentity(reading)) {
             return false
         }
         val values = ContentValues().apply {
@@ -87,6 +88,39 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             arrayOf("id"),
             "sensor_id=? AND session_id=? AND sequence_number=? AND status=?",
             arrayOf(reading.sensorId, reading.sessionId, sequence.toString(), CgmReadingStatus.SENSOR_ERROR.name),
+            null,
+            null,
+            null,
+            "1",
+        ).use { it.moveToFirst() }
+    }
+
+    /** Old installations may already contain repeated sequence numbers. Avoid a schema-level
+     * unique index that would make their migration fail; deduplicate new validated rows using the
+     * complete session identity plus a close event timestamp or the exact sensor clock. */
+    private fun hasSameValidIdentity(reading: CgmReading): Boolean {
+        val clauses = mutableListOf<String>()
+        val args = mutableListOf(
+            reading.sensorId,
+            reading.sessionId,
+            CgmReadingStatus.VALID.name,
+        )
+        reading.sequenceNumber?.let { sequence ->
+            clauses += "(sequence_number=? AND measured_at BETWEEN ? AND ?)"
+            args += sequence.toString()
+            args += (reading.timestampEpochMs - IDENTITY_TIME_TOLERANCE_MS).toString()
+            args += (reading.timestampEpochMs + IDENTITY_TIME_TOLERANCE_MS).toString()
+        }
+        reading.rawSourceTimestamp?.let { sensorClock ->
+            clauses += "sensor_clock=?"
+            args += sensorClock.toString()
+        }
+        if (clauses.isEmpty()) return false
+        return readableDatabase.query(
+            "readings",
+            arrayOf("id"),
+            "sensor_id=? AND session_id=? AND status=? AND (${clauses.joinToString(" OR ")})",
+            args.toTypedArray(),
             null,
             null,
             null,
@@ -225,5 +259,6 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
         const val MAX_ROWS = 2_000
+        const val IDENTITY_TIME_TOLERANCE_MS = 60_000L
     }
 }
