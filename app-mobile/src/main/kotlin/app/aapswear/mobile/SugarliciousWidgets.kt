@@ -102,7 +102,7 @@ enum class WidgetKind { GLUCOSE, GRAPH, GLUCOSE_GRAPH, METABOLIC, ACTIVITY }
 
 private abstract class SugarliciousWidget : GlanceAppWidget() {
     protected abstract val kind: WidgetKind
-    final override val sizeMode: SizeMode = SizeMode.Exact
+    override val sizeMode: SizeMode = SizeMode.Exact
 
     @SuppressLint("RestrictedApi")
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -427,8 +427,8 @@ private fun statusColor(freshness: Freshness, palette: WidgetPalette): ColorProv
 internal fun renderWidgetGraph(
     state: TherapyDisplayState?,
     palette: WidgetPalette,
-    width: Int = 800,
-    height: Int = 360,
+    width: Int,
+    height: Int,
     now: Long = System.currentTimeMillis(),
     thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
     layout: ResponsiveWidgetLayout = responsiveWidgetLayout(width.toFloat(), height.toFloat()),
@@ -436,6 +436,8 @@ internal fun renderWidgetGraph(
     configuration: WidgetInstanceConfiguration = WidgetInstanceConfiguration(showTimeAxis = true),
     clipToWidgetShape: Boolean = true,
     graphLeftInsetDp: Float? = null,
+    density: Float = pixelDensity,
+    scaledDensity: Float = density,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(72)
@@ -451,16 +453,17 @@ internal fun renderWidgetGraph(
 
     // LocalSize is expressed in dp while an ImageProvider bitmap is pixel based. Rendering at
     // dp resolution makes launchers upscale the bitmap, producing the blurred/stretched result.
-    val density = pixelDensity.coerceIn(1f, 4f)
+    val renderDensity = density.coerceIn(0.5f, 4f)
+    val renderScaledDensity = scaledDensity.coerceIn(0.5f, 4f)
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = text
-        textSize = layout.graphAxisTextSp * density
+        textSize = layout.graphAxisTextSp * renderScaledDensity
         typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
     }
     val metrics = widgetGraphMetrics(
         safeWidth,
         safeHeight,
-        density,
+        renderDensity,
         layout,
         textPaint,
         configuration.showTimeAxis,
@@ -541,7 +544,7 @@ internal fun renderWidgetGraph(
             val labelHalfWidth = textPaint.measureText(tick.label) / 2f
             val labelX = tickX.coerceIn(labelHalfWidth + metrics.edgeGapPx, safeWidth - labelHalfWidth - metrics.edgeGapPx)
             line.color = palette.argb(if (tick.hoursBack == 0) WidgetColorRole.DIVIDER else WidgetColorRole.AXIS_TICK)
-            canvas.drawLine(labelX, graphBounds.bottom + 2f * density, labelX, graphBounds.bottom + 7f * density, line)
+            canvas.drawLine(labelX, graphBounds.bottom + 2f * renderDensity, labelX, graphBounds.bottom + 7f * renderDensity, line)
             canvas.drawText(tick.label, labelX, metrics.axisBaselinePx, textPaint)
             textPaint.textSize = metrics.axisTextSizePx
         }
@@ -552,7 +555,7 @@ internal fun renderWidgetGraph(
         canvas.drawLine(metrics.yTickStartPx, targetY, metrics.yTickEndPx, targetY, line)
         canvas.drawText(value.roundToInt().toString(), metrics.yLabelRightPx, targetY - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
     }
-    drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, density)
+    drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, renderDensity)
     return bitmap
 }
 

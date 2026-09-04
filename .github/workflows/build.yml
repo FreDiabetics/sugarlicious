@@ -66,6 +66,13 @@ jobs:
           path: g7watch/build/reports/g7-visual-qa/*.png
           if-no-files-found: error
           retention-days: 14
+      - name: Upload Android widget visual QA previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-widget-visual-qa
+          path: app-mobile/build/reports/widget-visual-qa/*.png
+          if-no-files-found: error
+          retention-days: 14
       - name: Lint Mobile and Wear frontend
         run: ./gradlew :app-mobile:lintDebug :app-wear:lintDebug
       - name: Validate Watch Face Format XML
