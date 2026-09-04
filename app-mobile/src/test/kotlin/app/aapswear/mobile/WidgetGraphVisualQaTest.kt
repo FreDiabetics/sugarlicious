@@ -60,15 +60,17 @@ class WidgetGraphVisualQaTest {
     fun `widget uses same two-reading high activation and clears on first in-range reading`() {
         val width = 440
         val height = 280
-        val metrics = WidgetGraphLayoutMetrics.resolve(width, height, density, density)
-        val sampleX = (metrics.plotLeftPx + metrics.plotRightPx) / 2f
-        val sampleY = (metrics.plotTopPx + widgetGlucoseYForTest(160.0, metrics.plotRect)) / 2f
+        val layout = responsiveWidgetLayout(width / density, height / density)
+        val metrics = widgetGraphMetrics(width, height, density, layout)
+        val scale = widgetYScale(WidgetScaleMode.LOGARITHMIC, emptyList(), 70.0, 180.0)
+        val sampleX = metrics.graphBounds.centerX()
+        val sampleY = (metrics.graphBounds.top + scale.map(180.0, metrics.plot)) / 2f
         val x = sampleX.toInt().coerceIn(0, width - 1)
         val y = sampleY.toInt().coerceIn(0, height - 1)
 
-        val oneHigh = render(stateFromHistory(listOf(120.0, 166.0)), width, height)
-        val twoHigh = render(stateFromHistory(listOf(166.0, 171.0)), width, height)
-        val backInRange = render(stateFromHistory(listOf(166.0, 171.0, 158.0)), width, height)
+        val oneHigh = render(stateFromHistory(listOf(120.0, 186.0)), width, height)
+        val twoHigh = render(stateFromHistory(listOf(186.0, 191.0)), width, height)
+        val backInRange = render(stateFromHistory(listOf(186.0, 191.0, 178.0)), width, height)
 
         assertNotEquals(oneHigh.getPixel(x, y), twoHigh.getPixel(x, y))
         assertEquals(oneHigh.getPixel(x, y), backInRange.getPixel(x, y))

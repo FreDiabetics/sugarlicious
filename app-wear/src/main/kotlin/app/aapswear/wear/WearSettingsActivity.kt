@@ -1,7 +1,13 @@
 package app.aapswear.wear
 
+import app.aapswear.model.AppearanceTerminology
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.TrendArrowStyle
+
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.ComponentName
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -15,25 +21,31 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
+import app.aapswear.uishared.SharedColorEditor
 import kotlin.math.roundToInt
 
 class WearSettingsActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var scrollView: ScrollView
     private var current = WearDisplayPreferences()
+    private var selectedAppearanceMode = AppearanceMode.DARK
+    private var selectedSettingsCategory: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        current = WearDisplayPreferences.read(this)
+        selectedAppearanceMode = WearDisplayPreferences.activeAppearanceMode(this)
+        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         buildUi()
     }
 
     private fun buildUi() {
         val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0
-        current = WearDisplayPreferences.read(this)
+        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         val ui = current.uiColors
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -60,7 +72,14 @@ class WearSettingsActivity : Activity() {
                     gravity = Gravity.CENTER
                     setTextColor(ui.textPrimary)
                     background = compactActionBackground()
-                    setOnClickListener { finish() }
+                    setOnClickListener {
+                        if (selectedSettingsCategory != null) {
+                            selectedSettingsCategory = null
+                            buildUi()
+                        } else {
+                            finish()
+                        }
+                    }
                 },
                 LinearLayout.LayoutParams(40.dp, 40.dp),
             )
@@ -86,122 +105,216 @@ class WearSettingsActivity : Activity() {
             )
         }
         root.addView(header, fullWidth())
-
-        section("ZEITSKALA")
-        val hoursRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(5.dp, 5.dp, 5.dp, 5.dp)
-            background = cardBackground()
-        }
-        WearDisplayPreferences.allowedGraphHours.forEach { hours ->
-            val selected = current.graphHours == hours
-            hoursRow.addView(
-                Button(this).apply {
-                    text = "${hours}h"
-                    textSize = 9f
-                    minWidth = 0
-                    minimumWidth = 0
-                    setPadding(1.dp, 0, 1.dp, 0)
-                    isAllCaps = false
-                    setTextColor(if (selected) ui.background else ui.textPrimary)
-                    background = pillBackground(selected)
-                    setOnClickListener { save(current.copy(graphHours = hours)) }
-                },
-                LinearLayout.LayoutParams(0, 34.dp, 1f).apply {
-                    marginStart = 1.dp
-                    marginEnd = 1.dp
-                },
-            )
-        }
-        root.addView(hoursRow, cardParams())
-
-        root.addView(switchRow("Prognosen anzeigen", current.showPredictions) { save(current.copy(showPredictions = it)) }, cardParams())
-        root.addView(switchRow("IOB / COB / Basal anzeigen", current.showTherapyStats) { save(current.copy(showTherapyStats = it)) }, cardParams())
-
-        section("GLUKOSE")
         root.addView(
             choiceRow(
-                listOf("Auto" to WatchGlucoseUnit.AAPS, "mg/dL" to WatchGlucoseUnit.MG_DL, "mmol/L" to WatchGlucoseUnit.MMOL_L),
-                current.glucoseUnit,
-            ) { save(current.copy(glucoseUnit = it)) },
-            cardParams(),
-        )
-
-        section("CGM DOTS")
-        root.addView(
-            sliderCard(
-                title = "Punktgröße",
-                min = 15,
-                max = 60,
-                progress = (current.graphStyle.cgmDotRadiusDp * 10f).roundToInt(),
-                value = { String.format("%.1f dp", it / 10f) },
-            ) { progress ->
-                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotRadiusDp = progress / 10f)), rebuild = false)
-            },
-            cardParams(),
-        )
-        root.addView(
-            switchRow("Kontur", current.graphStyle.cgmDotOutlineEnabled) {
-                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = it)))
-            },
-            cardParams(),
-        )
-        root.addView(
-            sliderCard(
-                title = "Konturbreite",
-                min = 25,
-                max = 300,
-                progress = (current.graphStyle.cgmDotOutlineWidthDp * 100f).roundToInt(),
-                value = { String.format("%.2f dp", it / 100f) },
-            ) { progress ->
-                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)), rebuild = false)
+                listOf("Light" to AppearanceMode.LIGHT, "Dark" to AppearanceMode.DARK),
+                selectedAppearanceMode,
+            ) { mode ->
+                selectedAppearanceMode = mode
+                buildUi()
             },
             cardParams(),
         )
 
-        section("APP & TILES")
-        colorRow("App Hintergrund", current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
-        colorRow("Tile Hintergrund", current.uiColors.tileBackground) { updateUiColors { c -> c.copy(tileBackground = it) } }
-        colorRow("Tile Kontur", current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
-        colorRow("Haupttext", current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
-        colorRow("Sekundärtext", current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
-        colorRow("Akzent", current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
+        settingsCategory("display", "Anzeige", "App-Flächen, Texte und Therapiefarben") {
+            section("APP")
+            colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
+            colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground) { updateUiColors { c -> c.copy(tileBackground = it) } }
+            colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
+            colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
+            colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
+            colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
+            section("THERAPIE")
+            colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
+            colorRow("COB", current.uiColors.cob) { updateUiColors { c -> c.copy(cob = it) } }
+            colorRow("Basal", current.uiColors.basal) { updateUiColors { c -> c.copy(basal = it) } }
+        }
 
-        section("GLUKOSE FARBEN")
-        colorRow("Zuckerwert niedrig", current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
-        colorRow("Zuckerwert im Ziel", current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
-        colorRow("Zuckerwert hoch", current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
+        settingsCategory("glucose", "Glukose", "Einheit und Bereichsfarben") {
+            section("EINHEIT")
+            root.addView(
+                choiceRow(
+                    listOf("Auto" to WatchGlucoseUnit.AAPS, "mg/dL" to WatchGlucoseUnit.MG_DL, "mmol/L" to WatchGlucoseUnit.MMOL_L),
+                    current.glucoseUnit,
+                ) { save(current.copy(glucoseUnit = it)) },
+                cardParams(),
+            )
+            section("ZIELBEREICH")
+            root.addView(
+                sliderCard(
+                    "Tief",
+                    (current.cgmThresholds.veryLowMgDl.toInt() + 1).coerceAtLeast(40),
+                    (current.cgmThresholds.highMgDl.toInt() - 1).coerceAtLeast(40),
+                    current.cgmThresholds.lowMgDl.toInt(),
+                    { formatGlucoseThreshold(it, current.glucoseUnit) },
+                ) { value ->
+                    save(current.copy(cgmThresholds = current.cgmThresholds.copy(lowMgDl = value.toDouble())))
+                },
+                cardParams(),
+            )
+            root.addView(
+                sliderCard(
+                    "Hoch",
+                    (current.cgmThresholds.lowMgDl.toInt() + 1).coerceAtMost(300),
+                    (current.cgmThresholds.veryHighMgDl.toInt() - 1).coerceAtLeast(current.cgmThresholds.lowMgDl.toInt() + 1),
+                    current.cgmThresholds.highMgDl.toInt(),
+                    { formatGlucoseThreshold(it, current.glucoseUnit) },
+                ) { value ->
+                    save(current.copy(cgmThresholds = current.cgmThresholds.copy(highMgDl = value.toDouble())))
+                },
+                cardParams(),
+            )
+            section("FARBEN")
+            colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange) { updateUiColors { c -> c.copy(glucoseInRange = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
+            section("GRÖSSE")
+            root.addView(
+                sliderCard("Glukosewert", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.glucoseScalePercent, { "$it %" }) {
+                    save(current.copy(glucoseScalePercent = it), rebuild = false)
+                },
+                cardParams(),
+            )
+            root.addView(
+                sliderCard("Trendpfeil", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.trendScalePercent, { "$it %" }) {
+                    save(current.copy(trendScalePercent = it, trendArrowStyle = current.trendArrowStyle.copy(sizePercent = it)), rebuild = false)
+                },
+                cardParams(),
+            )
+            colorRow("Trendpfeil · Füllfarbe", current.trendArrowStyle.fillColor) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(fillColor = it)))
+            }
+            root.addView(switchRow("Trendpfeil-Kontur", current.trendArrowStyle.outlineEnabled) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineEnabled = it)))
+            }, cardParams())
+            if (current.trendArrowStyle.outlineEnabled) {
+                colorRow("Trendpfeil · Konturfarbe", current.trendArrowStyle.outlineColor) {
+                    save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineColor = it)))
+                }
+                root.addView(sliderCard("Konturdicke", 25, 400, (current.trendArrowStyle.outlineThicknessDp * 100).roundToInt(), { "${it / 100f} dp" }) {
+                    save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineThicknessDp = it / 100f)), rebuild = false)
+                }, cardParams())
+            }
+            root.addView(sliderCard("Trend-Deckkraft", 0, 100, (current.trendArrowStyle.alpha * 100).roundToInt(), { "$it %" }) {
+                save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(alpha = it / 100f)), rebuild = false)
+            }, cardParams())
+            root.addView(actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
+                WearDisplayPreferences.resetTrendArrowStyle(this, selectedAppearanceMode)
+                buildUi()
+            }, cardParams())
+        }
 
-        section("THERAPIE FARBEN")
-        colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
-        colorRow("COB", current.uiColors.cob) { updateUiColors { c -> c.copy(cob = it) } }
-        colorRow("Basal", current.uiColors.basal) { updateUiColors { c -> c.copy(basal = it) } }
+        settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
+            section("ZEITSKALA")
+            val hoursRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(5.dp, 5.dp, 5.dp, 5.dp)
+                background = cardBackground()
+            }
+            WearDisplayPreferences.allowedGraphHours.forEach { hours ->
+                val selected = current.graphHours == hours
+                hoursRow.addView(
+                    Button(this).apply {
+                        text = "${hours}h"
+                        textSize = 9f
+                        minWidth = 0
+                        minimumWidth = 0
+                        setPadding(1.dp, 0, 1.dp, 0)
+                        isAllCaps = false
+                        setTextColor(if (selected) ui.background else ui.textPrimary)
+                        background = pillBackground(selected)
+                        setOnClickListener { save(current.copy(graphHours = hours)) }
+                    },
+                    LinearLayout.LayoutParams(0, 34.dp, 1f).apply {
+                        marginStart = 1.dp
+                        marginEnd = 1.dp
+                    },
+                )
+            }
+            root.addView(hoursRow, cardParams())
+            root.addView(switchRow("Prognosen anzeigen", current.showPredictions) { save(current.copy(showPredictions = it)) }, cardParams())
+            root.addView(switchRow("IOB / COB / Basal anzeigen", current.showTherapyStats) { save(current.copy(showTherapyStats = it)) }, cardParams())
 
-        section("GRAPH FARBEN")
-        colorRow("Graph Hintergrund", current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }
-        colorRow("Bereich niedrig", current.graphColors.rangeLow) { updateGraphColors { c -> c.copy(rangeLow = it) } }
-        colorRow("Bereich im Ziel", current.graphColors.rangeInRange) { updateGraphColors { c -> c.copy(rangeInRange = it) } }
-        colorRow("Bereich hoch", current.graphColors.rangeHigh) { updateGraphColors { c -> c.copy(rangeHigh = it) } }
-        colorRow("CGM niedrig", current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
-        colorRow("CGM im Bereich", current.graphColors.cgmInRange) { updateGraphColors { c -> c.copy(cgmInRange = it) } }
-        colorRow("CGM hoch", current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
-        colorRow("Linien / Achsen", current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
-        colorRow("Dot Kontur", current.graphColors.outline) { updateGraphColors { c -> c.copy(outline = it) } }
+            section("CGM-PUNKTE")
+            root.addView(
+                sliderCard(
+                    title = "Punktgröße",
+                    min = 15,
+                    max = 60,
+                    progress = (current.graphStyle.cgmDotRadiusDp * 10f).roundToInt(),
+                    value = { String.format("%.1f dp", it / 10f) },
+                ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotRadiusDp = progress / 10f)), rebuild = false) },
+                cardParams(),
+            )
+            root.addView(switchRow("Kontur", current.graphStyle.cgmDotOutlineEnabled) { save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = it))) }, cardParams())
+            root.addView(
+                sliderCard(
+                    title = "Konturbreite",
+                    min = 25,
+                    max = 300,
+                    progress = (current.graphStyle.cgmDotOutlineWidthDp * 100f).roundToInt(),
+                    value = { String.format("%.2f dp", it / 100f) },
+                ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)), rebuild = false) },
+                cardParams(),
+            )
 
-        section("PROGNOSE FARBEN")
-        colorRow("IOB Prognose", current.graphColors.predictionIob) { updateGraphColors { c -> c.copy(predictionIob = it) } }
-        colorRow("COB Prognose", current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
-        colorRow("UAM Prognose", current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
-        colorRow("ZeroTemp Prognose", current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
+            section("FARBEN")
+            colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }
+            colorRow(AppearanceTerminology.GRAPH_LOW_AREA, current.graphColors.rangeLow) { updateGraphColors { c -> c.copy(rangeLow = it) } }
+            colorRow(AppearanceTerminology.GRAPH_TARGET_AREA, current.graphColors.rangeInRange) { updateGraphColors { c -> c.copy(rangeInRange = it) } }
+            colorRow(AppearanceTerminology.GRAPH_HIGH_AREA, current.graphColors.rangeHigh) { updateGraphColors { c -> c.copy(rangeHigh = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange) { updateGraphColors { c -> c.copy(cgmInRange = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
+            colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, current.graphColors.highLine) { updateGraphColors { c -> c.copy(highLine = it) } }
+            colorRow(AppearanceTerminology.GRAPH_LOW_LINE, current.graphColors.lowLine) { updateGraphColors { c -> c.copy(lowLine = it) } }
+            colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.axisLabel) { updateGraphColors { c -> c.copy(axisLabel = it) } }
+            colorRow(AppearanceTerminology.GRAPH_AXIS_TICK, current.graphColors.axisTick) { updateGraphColors { c -> c.copy(axisTick = it) } }
+            colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) { updateGraphColors { c -> c.copy(outline = it) } }
+            section("PROGNOSEN")
+            colorRow(AppearanceTerminology.PREDICTION_IOB, current.graphColors.predictionIob) { updateGraphColors { c -> c.copy(predictionIob = it) } }
+            colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob) { updateGraphColors { c -> c.copy(predictionCob = it) } }
+            colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam) { updateGraphColors { c -> c.copy(predictionUam = it) } }
+            colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp) { updateGraphColors { c -> c.copy(predictionZeroTemp = it) } }
+        }
 
-        TextView(this).apply {
-            text = "Sugarlicious Watch · Einstellungen werden lokal gespeichert"
-            textSize = 8f
-            setTextColor(ui.textSecondary)
-            gravity = Gravity.CENTER
-            setPadding(6.dp, 16.dp, 6.dp, 0)
-            root.addView(this, fullWidth())
+        settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {
+            val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE, selectedAppearanceMode)
+            section("TILE 1 · INHALT")
+            tileContentRows(WearTileKind.GLUCOSE)
+            section("TILE 1 · FARBEN")
+            tileBaseColorRows(WearTileKind.GLUCOSE, glucoseTileColors)
+            colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseLow = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseInRange = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh) { updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) } }
+
+            val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
+            section("TILE 2 · INHALT")
+            tileContentRows(WearTileKind.THERAPY)
+            section("TILE 2 · FARBEN")
+            tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
+            colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
+            colorRow("COB", therapyTileColors.cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
+            colorRow("Basal", therapyTileColors.basal) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(basal = it) } }
+        }
+
+        settingsCategory("watchfaces", "Watchfaces", "Auswahl und weitere Gestaltung in der Mobile-App") {
+            root.addView(infoCard("Watchface-Auswahl", "Sugarlicious Mobile öffnen und den Bereich Watchfaces wählen."), cardParams())
+        }
+        settingsCategory("connection", "Verbindung", "Synchronisierung und Hintergrundzugriff") {
+            root.addView(actionCard("Akku-Optimierung", if (WearBackgroundAccess.isBatteryUnrestricted(this)) "Freigegeben" else "Prüfen") {
+                WearBackgroundAccess.openBatterySettings(this)
+            }, cardParams())
+        }
+        settingsCategory("diagnostics", "Diagnose", "Status, Freshness und Datenquelle") {
+            root.addView(infoCard("Live-Status", "Zurück in der Übersicht werden Quelle, Alter und Verbindungsstatus angezeigt."), cardParams())
+        }
+        settingsCategory("about", "Über", "Sugarlicious Wear") {
+            val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+            root.addView(infoCard("Sugarlicious Wear", "Version $version · Einstellungen werden lokal gespeichert."), cardParams())
         }
         scroll.post { scroll.scrollTo(0, restoreScrollY) }
     }
@@ -213,6 +326,137 @@ class WearSettingsActivity : Activity() {
     private fun updateUiColors(transform: (WatchUiColors) -> WatchUiColors) {
         save(current.copy(uiColors = transform(current.uiColors)))
     }
+
+    private fun tileBaseColorRows(kind: WearTileKind, colors: WatchUiColors) {
+        colorRow(AppearanceTerminology.APP_BACKGROUND, colors.background) {
+            updateTileColors(kind) { value -> value.copy(background = it) }
+        }
+        colorRow(AppearanceTerminology.SURFACE_BACKGROUND, colors.tileBackground) {
+            updateTileColors(kind) { value -> value.copy(tileBackground = it) }
+        }
+        colorRow(AppearanceTerminology.SURFACE_BORDER, colors.tileBorder) {
+            updateTileColors(kind) { value -> value.copy(tileBorder = it) }
+        }
+        colorRow(AppearanceTerminology.PRIMARY_TEXT, colors.textPrimary) {
+            updateTileColors(kind) { value -> value.copy(textPrimary = it) }
+        }
+        colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary) {
+            updateTileColors(kind) { value -> value.copy(textSecondary = it) }
+        }
+        colorRow(AppearanceTerminology.ACCENT, colors.accent) {
+            updateTileColors(kind) { value -> value.copy(accent = it) }
+        }
+    }
+
+    private fun updateTileColors(kind: WearTileKind, transform: (WatchUiColors) -> WatchUiColors) {
+        WearTileAppearanceStore.write(this, kind, selectedAppearanceMode, transform(WearTileAppearanceStore.read(this, kind, selectedAppearanceMode)))
+        requestSugarliciousTileUpdates(this)
+        buildUi()
+    }
+
+    private fun tileContentRows(kind: WearTileKind) {
+        val selected = WearTileContentStore.read(this, kind)
+        WearTileContent.entries.chunked(3).forEach { rowItems ->
+            root.addView(
+                choiceRow(rowItems.map { it.label to it }, selected) { content ->
+                    WearTileContentStore.write(this, kind, content)
+                    requestSugarliciousTileUpdates(this)
+                    buildUi()
+                },
+                cardParams(),
+            )
+        }
+    }
+
+    private fun settingsCategory(
+        key: String,
+        title: String,
+        summary: String,
+        buildContent: () -> Unit,
+    ) {
+        if (selectedSettingsCategory != null) {
+            if (selectedSettingsCategory == key) buildContent()
+            return
+        }
+        val chevron = TextView(this).apply {
+            text = "›"
+            textSize = 19f
+            gravity = Gravity.CENTER
+            setTextColor(current.uiColors.textSecondary)
+        }
+        val header = LinearLayout(this).apply {
+            tag = "settings-category-$key"
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = 58.dp
+            setPadding(13.dp, 8.dp, 8.dp, 8.dp)
+            background = cardBackground()
+            isClickable = true
+            isFocusable = true
+            addView(LinearLayout(this@WearSettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(TextView(this@WearSettingsActivity).apply {
+                    text = title
+                    textSize = 11f
+                    setTextColor(current.uiColors.textPrimary)
+                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                })
+                addView(TextView(this@WearSettingsActivity).apply {
+                    text = summary
+                    textSize = 8f
+                    maxLines = 2
+                    setTextColor(current.uiColors.textSecondary)
+                })
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
+            setOnClickListener {
+                selectedSettingsCategory = key
+                buildUi()
+            }
+        }
+        root.addView(header, cardParams())
+    }
+
+    private fun infoCard(title: String, detail: String): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(13.dp, 10.dp, 13.dp, 10.dp)
+            background = cardBackground()
+            addView(TextView(this@WearSettingsActivity).apply {
+                text = title
+                textSize = 10f
+                setTextColor(current.uiColors.textPrimary)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            })
+            addView(TextView(this@WearSettingsActivity).apply {
+                text = detail
+                textSize = 8.5f
+                setTextColor(current.uiColors.textSecondary)
+            })
+        }
+
+    private fun actionCard(title: String, value: String, action: () -> Unit): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(13.dp, 10.dp, 13.dp, 10.dp)
+            background = cardBackground()
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { action() }
+            addView(TextView(this@WearSettingsActivity).apply {
+                text = title
+                textSize = 10f
+                setTextColor(current.uiColors.textPrimary)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(TextView(this@WearSettingsActivity).apply {
+                text = value
+                textSize = 9f
+                setTextColor(current.uiColors.accent)
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+            })
+        }
 
     private fun section(text: String) {
         root.addView(
@@ -254,10 +498,10 @@ class WearSettingsActivity : Activity() {
             })
         }
 
-    private fun choiceRow(
-        choices: List<Pair<String, WatchGlucoseUnit>>,
-        selected: WatchGlucoseUnit,
-        changed: (WatchGlucoseUnit) -> Unit,
+    private fun <T> choiceRow(
+        choices: List<Pair<String, T>>,
+        selected: T,
+        changed: (T) -> Unit,
     ): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
@@ -353,42 +597,32 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun showColorPicker(title: String, selected: Int, changed: (Int) -> Unit) {
-        val grid = GridLayout(this).apply {
-            columnCount = 4
-            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
-            setBackgroundColor(current.uiColors.tileBackground)
-        }
-        COLOR_CHOICES.forEach { color ->
-            grid.addView(View(this).apply { background = colorCircle(color, color == selected) }, GridLayout.LayoutParams().apply {
-                width = 42.dp
-                height = 42.dp
-                setMargins(4.dp, 4.dp, 4.dp, 4.dp)
-            })
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(grid)
-            .setNegativeButton("Abbrechen", null)
-            .create()
-        grid.children().forEach { child ->
-            child.setOnClickListener {
-                val color = COLOR_CHOICES[grid.indexOfChild(child)]
-                changed(color)
-                dialog.dismiss()
-            }
-        }
-        dialog.setOnShowListener {
-            dialog.window?.setBackgroundDrawable(cardBackground(26f))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(current.uiColors.accent)
-        }
-        dialog.show()
+        SharedColorEditor.show(
+            this, title, selected,
+            current.uiColors.tileBackground, current.uiColors.textPrimary, current.uiColors.tileBorder,
+            selected,
+            onChange = changed,
+            onReset = { changed(selected) },
+        )
     }
 
-    private fun GridLayout.children(): List<View> = (0 until childCount).map(::getChildAt)
+    private fun formatGlucoseThreshold(valueMgDl: Int, unit: WatchGlucoseUnit): String =
+        if (unit == WatchGlucoseUnit.MMOL_L) {
+            String.format(java.util.Locale.GERMANY, "%.1f mmol/L", valueMgDl / 18.0)
+        } else {
+            "$valueMgDl mg/dL"
+        }
 
     private fun save(value: WearDisplayPreferences, rebuild: Boolean = true) {
+        val trendChanged = current.trendScalePercent != value.trendScalePercent
         current = value
-        WearDisplayPreferences.saveLocal(this, current)
+        WearDisplayPreferences.saveLocal(this, selectedAppearanceMode, current)
+        requestSugarliciousTileUpdates(this)
+        if (trendChanged) {
+            ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
+                ComplicationDataSourceUpdateRequester.create(this, ComponentName(this, provider)).requestUpdateAll()
+            }
+        }
         if (rebuild) buildUi()
     }
 
@@ -429,14 +663,4 @@ class WearSettingsActivity : Activity() {
     private val Int.dp: Int
         get() = (this * resources.displayMetrics.density).roundToInt()
 
-    companion object {
-        private val COLOR_CHOICES = intArrayOf(
-            0xFF181818.toInt(), 0xFF202020.toInt(), 0xFF242424.toInt(), 0xFF404040.toInt(),
-            0xFFF5F5F5.toInt(), 0xFFB5B5B5.toInt(), 0xFF6DE892.toInt(), 0xFF54DF30.toInt(),
-            0xFF19D7E8.toInt(), 0xFF52C1FF.toInt(), 0xFF64BFFF.toInt(), 0xFF9575CD.toInt(),
-            0xFFD69AFF.toInt(), 0xFFFF5C69.toInt(), 0xFFFF9D18.toInt(), 0xFFFFAE1F.toInt(),
-            0xFFFFD040.toInt(), 0xFFF4DE00.toInt(), 0xFF30DBDE.toInt(), 0xFF969696.toInt(),
-            0xFF000000.toInt(),
-        )
-    }
 }

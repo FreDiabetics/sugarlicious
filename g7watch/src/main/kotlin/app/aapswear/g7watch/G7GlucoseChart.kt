@@ -12,7 +12,9 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RangeExcursion
+import app.aapswear.model.CgmRangeClass
 import kotlin.math.max
 
 internal fun currentG7SessionReadings(
@@ -72,7 +74,8 @@ internal class G7GlucoseChart @JvmOverloads constructor(
                 quality = if (reading.status == app.aapswear.g7.CgmReadingStatus.VALID) CgmQuality.VALID else CgmQuality.INVALID,
             )
         }
-        val excursion = CgmGraphPolicy.rangeExcursion(samples, LOW_MG_DL, HIGH_MG_DL)
+        val thresholds = G7GraphColorStore(context).readThresholds()
+        val excursion = CgmGraphPolicy.rangeExcursion(samples, thresholds)
         if (excursion != null) {
             paint.color = when (excursion) {
                 RangeExcursion.LOW -> colors.rangeLow
@@ -88,22 +91,27 @@ internal class G7GlucoseChart @JvmOverloads constructor(
         val top = 10f * density
         val bottom = height - 12f * density
         paint.strokeWidth = max(1f, density)
-        paint.color = colors.divider
         paint.alpha = 100
-        listOf(LOW_MG_DL, HIGH_MG_DL).forEach { threshold ->
-            val y = bottom - GlucoseGraphScale.ratio(threshold).toFloat() * (bottom - top)
-            canvas.drawLine(left, y, right, y, paint)
-        }
+        paint.color = colors.lowLine
+        val lowY = bottom - GlucoseGraphScale.ratio(thresholds.lowMgDl).toFloat() * (bottom - top)
+        canvas.drawLine(left, lowY, right, lowY, paint)
+        paint.color = colors.highLine
+        val highY = bottom - GlucoseGraphScale.ratio(thresholds.highMgDl).toFloat() * (bottom - top)
+        canvas.drawLine(left, highY, right, highY, paint)
         paint.alpha = 255
 
+        val timeWindow = GraphTimeWindow.live(nowEpochMs, WINDOW_MS)
         readings.forEachIndexed { index, reading ->
-            val x = left + ((reading.timestampEpochMs - (nowEpochMs - WINDOW_MS)).toFloat() / WINDOW_MS) * (right - left)
+            val x = timeWindow.plotX(reading.timestampEpochMs, left, right - left)
             val y = bottom - GlucoseGraphScale.ratio(reading.glucoseMgDl).toFloat() * (bottom - top)
             paint.style = Paint.Style.FILL
-            paint.color = when {
-                reading.glucoseMgDl < LOW_MG_DL -> colors.cgmLow
-                reading.glucoseMgDl > HIGH_MG_DL -> colors.cgmHigh
-                else -> colors.cgmInRange
+            paint.color = when (thresholds.classify(reading.glucoseMgDl)) {
+                CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
+                CgmRangeClass.LOW -> colors.cgmLow
+                CgmRangeClass.IN_RANGE -> colors.cgmInRange
+                CgmRangeClass.HIGH -> colors.cgmHigh
+                CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
+                null -> colors.cgmInRange
             }
             canvas.drawCircle(x, y, if (index == readings.lastIndex) 4.2f * density else 3.0f * density, paint)
             if (index == readings.lastIndex) {
@@ -120,7 +128,5 @@ internal class G7GlucoseChart @JvmOverloads constructor(
     private companion object {
         const val WINDOW_MS = 3L * 60L * 60_000L
         const val FUTURE_TOLERANCE_MS = 5L * 60_000L
-        const val LOW_MG_DL = 80.0
-        const val HIGH_MG_DL = 160.0
     }
 }

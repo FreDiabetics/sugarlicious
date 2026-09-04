@@ -30,7 +30,10 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -122,10 +125,18 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             if (notificationGraphEnabled) {
                 NotificationGraphRenderer.renderExpanded(this, latestState, uiPreferences)
             } else null
-        val collapsedView =
-            notificationRemoteView(R.layout.notification_sugarlicious_collapsed, display, collapsedGraph)
-        val expandedView =
-            notificationRemoteView(R.layout.notification_sugarlicious_expanded, display, expandedGraph)
+        val collapsedView = notificationRemoteView(
+            R.layout.notification_sugarlicious_collapsed,
+            NotificationGraphProfile.COLLAPSED,
+            display,
+            collapsedGraph,
+        )
+        val expandedView = notificationRemoteView(
+            R.layout.notification_sugarlicious_expanded,
+            NotificationGraphProfile.EXPANDED,
+            display,
+            expandedGraph,
+        )
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_outlined)
@@ -164,6 +175,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
 
     private fun notificationRemoteView(
         layoutId: Int,
+        profile: NotificationGraphProfile,
         display: NotificationDisplay,
         graph: Bitmap?,
     ): RemoteViews {
@@ -171,13 +183,37 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY)
         val textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY)
 
+        val layout = NotificationLayoutSettingsStore.read(uiPreferences, profile)
+        val systemTrendScale = DashboardUiPreferences.read(uiPreferences).trendScalePercent
+        val valueBaseSp = if (profile == NotificationGraphProfile.COLLAPSED) 29f else 36f
+        val metaBaseSp = if (profile == NotificationGraphProfile.COLLAPSED) 11f else 13f
+        val trendBaseDp = if (profile == NotificationGraphProfile.COLLAPSED) 19f else 23f
+        val trendSizeDp = trendBaseDp * layout.resolvedTrendPercent(systemTrendScale) / 100f
+        val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
             setTextViewText(R.id.notification_value, display.title)
             setTextViewText(R.id.notification_meta, display.subtitle)
+            setTextViewTextSize(R.id.notification_value, android.util.TypedValue.COMPLEX_UNIT_SP, valueBaseSp * layout.glucoseScalePercent / 100f)
+            setTextViewTextSize(R.id.notification_meta, android.util.TypedValue.COMPLEX_UNIT_SP, metaBaseSp * layout.metaScalePercent / 100f)
+            setFloat(R.id.notification_value, "setTranslationX", layout.glucoseXPercent / 100f * 40f * density)
+            setFloat(R.id.notification_value, "setTranslationY", layout.glucoseYPercent / 100f * 24f * density)
+            setFloat(R.id.notification_trend, "setTranslationX", layout.trendXPercent / 100f * 40f * density)
+            setFloat(R.id.notification_trend, "setTranslationY", layout.trendYPercent / 100f * 24f * density)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setViewLayoutWidth(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+                setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+            }
             setTextColor(R.id.notification_value, textPrimary)
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
-                display.trend?.let { NotificationTrendRenderer.render(this@PersistentBridgeService, it, tint = textPrimary) }
+                display.trend?.let {
+                    NotificationTrendRenderer.render(
+                        this@PersistentBridgeService,
+                        it,
+                        sizePx = (trendSizeDp * density).roundToInt(),
+                        tint = textPrimary,
+                    )
+                }
             if (trendBitmap != null) {
                 setViewVisibility(R.id.notification_trend, View.VISIBLE)
                 setImageViewBitmap(R.id.notification_trend, trendBitmap)
@@ -200,7 +236,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-        if (glucose == null || !TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
+        if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null)
         }
 
@@ -215,10 +251,20 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, selectedUnit)
                 .ifBlank { "—" }
         val age = ((now - glucose.measuredAtEpochMs).coerceAtLeast(0L) / 60_000L)
-        val prefix = if (freshness == Freshness.DELAYED) "Verzögert · " else ""
+        val prefix = when (freshness) {
+            Freshness.CURRENT -> ""
+            Freshness.DELAYED -> "Verzögert · "
+            Freshness.STALE -> "Signalverlust · "
+            Freshness.ERROR -> "Sensorfehler · "
+            Freshness.NO_DATA -> "Keine Quelle · "
+        }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
         val subtitle = "$prefix$delta · $age min alt"
-        return NotificationDisplay(value, subtitle, glucose.trend)
+        return NotificationDisplay(
+            value,
+            subtitle,
+            glucose.trend.takeIf { freshness == Freshness.CURRENT || freshness == Freshness.DELAYED },
+        )
     }
 
     private fun createNotificationChannel() {
@@ -327,12 +373,18 @@ internal object NotificationGraphDotStyleStore {
     fun read(
         preferences: SharedPreferences,
         profile: NotificationGraphProfile,
+    ): NotificationGraphDotStyle = read(preferences, SugarliciousColorStore.activeMode(preferences), profile)
+
+    fun read(
+        preferences: SharedPreferences,
+        mode: app.aapswear.model.AppearanceMode,
+        profile: NotificationGraphProfile,
     ): NotificationGraphDotStyle {
         ensureMigrated(preferences)
         return NotificationGraphDotStyle(
-            cgmRadiusDp = preferences.getFloat(radiusKey(profile), profile.defaultDotRadiusDp).coerceIn(1.5f, 6.0f),
-            cgmOutlineEnabled = preferences.getBoolean(outlineEnabledKey(profile), true),
-            cgmOutlineWidthDp = preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp).coerceIn(0.25f, 3.0f),
+            cgmRadiusDp = preferences.getFloat(modeKey(mode, radiusKey(profile)), preferences.getFloat(radiusKey(profile), profile.defaultDotRadiusDp)).coerceIn(1.5f, 6.0f),
+            cgmOutlineEnabled = preferences.getBoolean(modeKey(mode, outlineEnabledKey(profile)), preferences.getBoolean(outlineEnabledKey(profile), true)),
+            cgmOutlineWidthDp = preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)).coerceIn(0.25f, 3.0f),
         )
     }
 
@@ -340,12 +392,19 @@ internal object NotificationGraphDotStyleStore {
         preferences: SharedPreferences,
         profile: NotificationGraphProfile,
         style: NotificationGraphDotStyle,
+    ) = save(preferences, SugarliciousColorStore.activeMode(preferences), profile, style)
+
+    fun save(
+        preferences: SharedPreferences,
+        mode: app.aapswear.model.AppearanceMode,
+        profile: NotificationGraphProfile,
+        style: NotificationGraphDotStyle,
     ) {
         ensureMigrated(preferences)
         preferences.edit()
-            .putFloat(radiusKey(profile), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
-            .putBoolean(outlineEnabledKey(profile), style.cgmOutlineEnabled)
-            .putFloat(outlineWidthKey(profile), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
+            .putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
+            .putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
+            .putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
             .apply()
     }
 
@@ -375,6 +434,15 @@ internal object NotificationGraphDotStyleStore {
                 NotificationGraphProfile.EXPANDED.defaultOutlineWidthDp,
             )
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            .apply {
+                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                    NotificationGraphProfile.entries.forEach { profile ->
+                        putFloat(modeKey(mode, radiusKey(profile)), profile.defaultDotRadiusDp)
+                        putBoolean(modeKey(mode, outlineEnabledKey(profile)), true)
+                        putFloat(modeKey(mode, outlineWidthKey(profile)), profile.defaultOutlineWidthDp)
+                    }
+                }
+            }
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS)
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED)
             .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH)
@@ -383,6 +451,16 @@ internal object NotificationGraphDotStyleStore {
 
     private fun ensureMigrated(preferences: SharedPreferences) {
         if (preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, false)) return
+
+        val hasLegacy = listOf(
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS,
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED,
+            PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH,
+            MOBILE_RADIUS,
+            MOBILE_OUTLINE_ENABLED,
+            MOBILE_OUTLINE_WIDTH,
+        ).any(preferences::contains)
+        if (!hasLegacy) return
 
         val collapsedRadius = preferences.getFloat(
             PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS,
@@ -410,8 +488,21 @@ internal object NotificationGraphDotStyleStore {
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, collapsedOutline)
             .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH, expandedOutlineWidth)
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            .apply {
+                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.COLLAPSED)), collapsedRadius)
+                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.COLLAPSED)), collapsedOutline)
+                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.COLLAPSED)), collapsedOutlineWidth)
+                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.EXPANDED)), expandedRadius)
+                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.EXPANDED)), collapsedOutline)
+                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.EXPANDED)), expandedOutlineWidth)
+                }
+            }
             .apply()
     }
+
+    private fun modeKey(mode: app.aapswear.model.AppearanceMode, key: String): String =
+        "notification.${mode.storageKey}.$key"
 
     private fun radiusKey(profile: NotificationGraphProfile): String = when (profile) {
         NotificationGraphProfile.COLLAPSED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_RADIUS
@@ -511,10 +602,11 @@ internal object NotificationGraphRenderer {
         val now = System.currentTimeMillis()
         val graphHours = graphHoursOverride ?: preferences
             .getInt("graphHours", 3)
-            .takeIf { it in listOf(3, 6, 12, 24) }
+            .takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS }
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
-        val start = now - windowMs
+        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val start = timeWindow.startEpochMs
         val validSamples = CanonicalCgmHistory.merge(
             samples = buildList {
                 addAll(state?.glucoseHistory.orEmpty())
@@ -540,23 +632,34 @@ internal object NotificationGraphRenderer {
         val points = validSamples.associate { it.measuredAtEpochMs to it.valueMgDl }.entries.sortedBy { it.key }
         if (points.isEmpty()) return bitmap
 
-        val targetLow = state?.target?.lowMgDl ?: 80.0
-        val targetHigh = state?.target?.highMgDl ?: 160.0
+        val thresholds = CgmThresholdPreferences.read(preferences)
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val excursion =
             CgmGraphPolicy.rangeExcursion(
                 validSamples,
-                targetLow,
-                targetHigh,
+                thresholds,
             )
         val lowest = points.minOf { it.value }
         val highest = points.maxOf { it.value }
         val minValue = min(targetLow - 24.0, lowest - max(12.0, lowest * 0.08))
         val maxValue = max(targetHigh + 24.0, highest + max(12.0, highest * 0.08))
 
-        val plotLeft = bounds.left
-        val plotRight = bounds.right
-        val plotTop = bounds.top
-        val plotBottom = bounds.bottom
+        val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
+        fun dp(value: Float) = value * renderDensity
+        val axisText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = graphColor(SugarliciousColorRole.GRAPH_LABEL)
+            textSize = dp(if (profile == NotificationGraphProfile.COLLAPSED) 7f else 8.5f)
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val widestYLabel = maxOf(axisText.measureText(targetHigh.roundToInt().toString()), axisText.measureText(targetLow.roundToInt().toString()))
+        val timeBand = if (profile == NotificationGraphProfile.EXPANDED) {
+            (axisText.fontMetrics.descent - axisText.fontMetrics.ascent) + dp(axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp)
+        } else 0f
+        val plotLeft = bounds.left + dp(axis.outerEdgePaddingDp)
+        val plotRight = bounds.right - dp(axis.outerEdgePaddingDp + axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp) - widestYLabel
+        val plotTop = bounds.top + dp(axis.outerEdgePaddingDp)
+        val plotBottom = bounds.bottom - dp(axis.outerEdgePaddingDp) - timeBand
 
         fun y(value: Double): Float {
             val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
@@ -564,11 +667,8 @@ internal object NotificationGraphRenderer {
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 
-        fun x(timestamp: Long): Float {
-            val fraction = ((timestamp - start).toDouble() / windowMs.toDouble())
-                .coerceIn(0.0, 1.0)
-            return (plotLeft + fraction * (plotRight - plotLeft)).toFloat()
-        }
+        fun x(timestamp: Long): Float =
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         paint.style = Paint.Style.FILL
         if (excursion == RangeExcursion.HIGH) {
@@ -584,10 +684,24 @@ internal object NotificationGraphRenderer {
 
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = max(1f, renderDensity)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.RANGE_HIGH))
+        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
         canvas.drawLine(plotLeft, y(targetHigh), plotRight, y(targetHigh), paint)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.RANGE_LOW))
+        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
         canvas.drawLine(plotLeft, y(targetLow), plotRight, y(targetLow), paint)
+
+        fun drawYTick(value: Double) {
+            val py = y(value)
+            val tickStart = plotRight + dp(axis.plotToTickGapDp)
+            val tickEnd = tickStart + dp(axis.tickLengthDp)
+            paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
+            paint.strokeWidth = max(1f, dp(0.8f))
+            canvas.drawLine(tickStart, py, tickEnd, py, paint)
+            axisText.textAlign = Paint.Align.LEFT
+            val baseline = py - (axisText.fontMetrics.ascent + axisText.fontMetrics.descent) / 2f
+            canvas.drawText(value.roundToInt().toString(), tickEnd + dp(axis.tickToLabelGapDp), baseline, axisText)
+        }
+        drawYTick(targetHigh)
+        drawYTick(targetLow)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
         val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity
@@ -621,6 +735,25 @@ internal object NotificationGraphRenderer {
                 dotRadius + if (current) currentExtra else 0f,
                 paint,
             )
+        }
+
+
+        if (profile == NotificationGraphProfile.EXPANDED) {
+            RelativeGraphTimeAxis.ticks(start, now, now, RelativeGraphTimeAxis.intervalHours(graphHours.toDouble())).forEach { tick ->
+                val px = x(tick.timestampEpochMs)
+                if (px in plotLeft..plotRight) {
+                    val tickTop = plotBottom + dp(axis.plotToTickGapDp)
+                    val tickBottom = tickTop + dp(axis.tickLengthDp)
+                    paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
+                    canvas.drawLine(px, tickTop, px, tickBottom, paint)
+                    axisText.textAlign = when {
+                        tick.hoursBack == 0 -> Paint.Align.RIGHT
+                        tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
+                        else -> Paint.Align.CENTER
+                    }
+                    canvas.drawText(tick.label, px, tickBottom + dp(axis.tickToLabelGapDp) - axisText.fontMetrics.ascent, axisText)
+                }
+            }
         }
 
         return bitmap

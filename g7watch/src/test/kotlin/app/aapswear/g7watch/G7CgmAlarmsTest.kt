@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.app.NotificationManager
+import android.media.AudioAttributes
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
@@ -15,6 +16,8 @@ import org.junit.After
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,6 +30,63 @@ import org.robolectric.annotation.Config
 class G7CgmAlarmsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val notificationManager by lazy { context.getSystemService(NotificationManager::class.java) }
+
+    @Test
+    fun `every collector alarm keeps its dedicated bundled sound`() {
+        val expected = mapOf(
+            CgmAlarmType.VERY_HIGH to R.raw.alerts_sounds_high_alert,
+            CgmAlarmType.HIGH to R.raw.alerts_sounds_high,
+            CgmAlarmType.LOW to R.raw.alerts_sounds_low,
+            CgmAlarmType.VERY_LOW to R.raw.alerts_sounds_urgent_low_alarm,
+            CgmAlarmType.RAPID_RISE to R.raw.alerts_sounds_rise_rate,
+            CgmAlarmType.RAPID_FALL to R.raw.alerts_sounds_fall_rate,
+            CgmAlarmType.SIGNAL_LOSS to R.raw.alerts_sounds_signal_loss_alert,
+            CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
+        )
+        assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundResource))
+    }
+
+    @Test
+    fun `all eight alarm channels use alarm audio high importance vibration and bundled sound`() {
+        val settings = G7AlarmSettingsStore.read(context)
+        G7CgmAlarmNotifier.ensureAllChannels(context, settings)
+
+        CgmAlarmType.entries.forEach { type ->
+            val channel = notificationManager.getNotificationChannel(G7CgmAlarmNotifier.channelId(context, type, settings))
+            assertNotNull(channel)
+            assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+            assertEquals(AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
+            assertTrue(channel.shouldVibrate())
+            assertTrue(channel.sound.toString().endsWith("/${g7AlarmSoundResource(type)}"))
+        }
+        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v3_") })
+    }
+
+    @Test
+    fun `test alarm uses dedicated notification without mutating real alarm state`() {
+        val statePreferences = context.getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE)
+        val before = statePreferences.all.toMap()
+        val settings = G7AlarmSettingsStore.read(context)
+
+        G7CgmAlarmNotifier.showTest(context, CgmAlarmType.RAPID_FALL, settings)
+
+        assertNotNull(shadowOf(notificationManager).getNotification(G7CgmAlarmNotifier.testNotificationId(CgmAlarmType.RAPID_FALL)))
+        assertEquals(before, statePreferences.all.toMap())
+    }
+
+    @Test
+    fun `alarm helpers cover every alarm class without changing unrelated flags`() {
+        val initial = G7AlarmSettingsStore.read(context)
+        CgmAlarmType.entries.forEach { type ->
+            val disabled = withAlarmEnabled(initial, type, false)
+            assertFalse(alarmEnabled(disabled, type))
+            CgmAlarmType.entries.filterNot { it == type }.forEach { other ->
+                assertEquals(alarmEnabled(initial, other), alarmEnabled(disabled, other))
+            }
+            assertTrue(g7AlarmTitle(type).isNotBlank())
+            assertTrue(g7AlarmSoundName(type).isNotBlank())
+        }
+    }
 
     @Before
     fun setUp() {
@@ -81,13 +141,13 @@ class G7CgmAlarmsTest {
     }
 
     @Test
-    fun `urgent low threshold remains forty even with stale persisted preferences`() {
+    fun `urgent low threshold uses canonical default despite stale legacy alarm preference`() {
         context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_low", 30f)
             .commit()
 
-        assertEquals(40.0, G7AlarmSettingsStore.read(context).veryLowThreshold, 0.0)
+        assertEquals(50.0, G7AlarmSettingsStore.read(context).veryLowThreshold, 0.0)
     }
 
     @Test
@@ -98,7 +158,7 @@ class G7CgmAlarmsTest {
                 veryHighThreshold = 280.0,
                 highThreshold = 190.0,
                 lowThreshold = 75.0,
-                veryLowThreshold = 40.0,
+                veryLowThreshold = 45.0,
                 rapidRiseThreshold = 3.0,
                 rapidFallThreshold = 2.5,
                 signalLossMinutes = 16,
@@ -112,7 +172,7 @@ class G7CgmAlarmsTest {
         assertEquals(280.0, restored.veryHighThreshold, 0.0)
         assertEquals(190.0, restored.highThreshold, 0.0)
         assertEquals(75.0, restored.lowThreshold, 0.0)
-        assertEquals(40.0, restored.veryLowThreshold, 0.0)
+        assertEquals(45.0, restored.veryLowThreshold, 0.0)
         assertEquals(16, restored.signalLossMinutes)
         assertEquals(30, restored.repeatIntervalMinutes)
         assertEquals(false, restored.soundEnabled)

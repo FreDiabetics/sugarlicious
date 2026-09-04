@@ -46,6 +46,10 @@ abstract class InstallSugarliciousDebugTask
                     .map { it.trim() }
                     .filter { it.isNotEmpty() && it.endsWith("\tdevice") }
                     .map { it.substringBefore('\t') }
+                    // Wireless debugging may publish the same physical device through more than
+                    // one mDNS alias. Keep the safety gate for multiple real devices, but do not
+                    // reject duplicate transports that report the same hardware serial number.
+                    .distinctBy(::physicalId)
                     .toList()
 
             check(devices.isNotEmpty()) {
@@ -87,6 +91,11 @@ abstract class InstallSugarliciousDebugTask
                 .trim()
                 .ifBlank { "unbekannt" }
 
+        private fun physicalId(serial: String): String =
+            adb("-s", serial, "shell", "getprop", "ro.serialno")
+                .trim()
+                .ifBlank { serial }
+
         private fun describe(serials: List<String>): String =
             if (serials.isEmpty()) "0"
             else serials.joinToString { serial -> "${model(serial)} [$serial]" }
@@ -106,9 +115,9 @@ abstract class InstallSugarliciousDebugTask
 
         private fun removeAccidentalPhoneCollector(serial: String) {
             val installed =
-                adb("-s", serial, "shell", "pm", "path", G7_WATCH_PACKAGE)
+                adb("-s", serial, "shell", "pm", "list", "packages", "--user", "0", G7_WATCH_PACKAGE)
                     .lineSequence()
-                    .any { it.trim().startsWith("package:") }
+                    .any { it.trim() == "package:$G7_WATCH_PACKAGE" }
             if (!installed) return
 
             logger.lifecycle(

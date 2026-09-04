@@ -8,6 +8,8 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputFilter
 import android.text.InputType
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -18,18 +20,25 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.util.Locale
 import kotlin.math.roundToInt
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.ArgbColor
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.TrendArrowStyle
+import app.aapswear.uishared.SharedColorEditor
 
 class G7AppearanceActivity : Activity() {
     private lateinit var store: G7AppearanceStore
+    private var selectedMode: AppearanceMode = AppearanceMode.DARK
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = G7AppearanceStore(this)
+        selectedMode = store.activeMode()
         render()
     }
 
     private fun render() {
-        val palette = store.load()
+        val palette = store.load(selectedMode)
         window.statusBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         window.navigationBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
 
@@ -39,6 +48,48 @@ class G7AppearanceActivity : Activity() {
             setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
         }
         content.addView(topBar(palette))
+        content.addView(themeSelector(palette), params(top = 8))
+        content.addView(label("GRÖSSE", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+            letterSpacing = 0.10f
+            setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+        })
+        content.addView(scaleRow("Glukosewert", store.glucoseScalePercent(), palette, store::setGlucoseScalePercent), params(top = 5))
+        content.addView(scaleRow("Trendpfeil", store.trendScalePercent(), palette, store::setTrendScalePercent), params(top = 5))
+        val trendStyle = store.trendArrowStyle(selectedMode)
+        content.addView(simpleColorRow("Trendpfeil · Füllfarbe", trendStyle.fillColor, palette) {
+            SharedColorEditor.show(
+                this, "Trendpfeil · Füllfarbe", trendStyle.fillColor,
+                palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER),
+                TrendArrowStyle.defaults(selectedMode, palette.argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
+                onChange = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(fillColor = it)) },
+                onReset = { store.resetTrendArrowStyle(selectedMode); render() },
+            )
+        }, params(top = 5))
+        content.addView(toggleRow("Trendpfeil-Kontur", trendStyle.outlineEnabled, palette) {
+            store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineEnabled = it))
+            render()
+        }, params(top = 5))
+        if (trendStyle.outlineEnabled) {
+            content.addView(simpleColorRow("Trendpfeil · Konturfarbe", trendStyle.outlineColor, palette) {
+                SharedColorEditor.show(
+                    this, "Trendpfeil · Konturfarbe", trendStyle.outlineColor,
+                    palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER),
+                    TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor,
+                    onChange = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineColor = it)) },
+                    onReset = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineColor = TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor)); render() },
+                )
+            }, params(top = 5))
+            content.addView(scaleRow("Konturdicke", (trendStyle.outlineThicknessDp * 100).roundToInt(), palette, {
+                store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineThicknessDp = it / 100f))
+            }, min = 25, max = 400, format = { "Konturdicke · ${it / 100f} dp" }), params(top = 5))
+        }
+        content.addView(scaleRow("Deckkraft", (trendStyle.alpha * 100).roundToInt(), palette, {
+            store.saveTrendArrowStyle(selectedMode, trendStyle.copy(alpha = it / 100f))
+        }, min = 0, max = 100, format = { "Deckkraft · $it %" }), params(top = 5))
+        content.addView(pill("TREND-STIL RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+            store.resetTrendArrowStyle(selectedMode)
+            render()
+        }, params(top = 5))
 
         G7AppearanceSection.entries.forEach { section ->
             content.addView(label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
@@ -98,56 +149,35 @@ class G7AppearanceActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
             addView(pill("RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
-                store.reset(role)
+                store.reset(selectedMode, role)
                 render()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp))
             setOnClickListener { openColorEditor(role) }
         }
 
-    private fun openColorEditor(role: G7AppearanceRole) {
-        val initial = store.load().argb(role)
-        val hsv = FloatArray(3).also { Color.colorToHSV(initial, it) }
-        var hue = hsv[0]
-        var saturation = hsv[1]
-        var brightness = hsv[2]
-        var alpha = Color.alpha(initial) / 255f
-
-        val palette = store.load()
-        val root = LinearLayout(this).apply {
+    private fun scaleRow(
+        title: String,
+        initial: Int,
+        palette: G7AppearancePalette,
+        save: (Int) -> Unit,
+        min: Int = GlucoseTrendSizing.MIN_SCALE_PERCENT,
+        max: Int = GlucoseTrendSizing.MAX_SCALE_PERCENT,
+        format: (Int) -> String = { "$title · $it %" },
+    ) =
+        LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(8.dp, 4.dp, 8.dp, 4.dp)
-        }
-        val preview = View(this).apply { background = rounded(initial, palette.argb(G7AppearanceRole.MENU_BORDER), 14f) }
-        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 46.dp))
-
-        val hexInput = EditText(this).apply {
-            setText(toHex(initial))
-            inputType = InputType.TYPE_CLASS_TEXT
-            filters = arrayOf(InputFilter.LengthFilter(9))
-            setSelectAllOnFocus(true)
-        }
-        root.addView(hexInput)
-
-        fun currentColor(): Int = Color.HSVToColor(
-            (alpha * 255f).roundToInt().coerceIn(0, 255),
-            floatArrayOf(hue, saturation, brightness),
-        )
-        fun refreshFromSliders() {
-            val color = currentColor()
-            preview.background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 14f)
-            hexInput.setText(toHex(color))
-        }
-        fun slider(title: String, max: Int, initialProgress: Int, onChange: (Int) -> Unit) {
-            root.addView(label(title, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply { gravity = Gravity.START })
-            root.addView(SeekBar(this).apply {
-                this.max = max
-                progress = initialProgress.coerceIn(0, max)
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
+            val valueLabel = label(format(initial), 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
+            addView(valueLabel)
+            addView(SeekBar(this@G7AppearanceActivity).apply {
+                this.max = max - min
+                progress = initial.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                        if (fromUser) {
-                            onChange(progress)
-                            refreshFromSliders()
-                        }
+                        val value = progress + min
+                        valueLabel.text = format(value)
+                        if (fromUser) save(value)
                     }
                     override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
                     override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
@@ -155,21 +185,41 @@ class G7AppearanceActivity : Activity() {
             })
         }
 
-        slider("Farbton", 360, hue.roundToInt()) { hue = it.toFloat() }
-        slider("Sättigung", 100, (saturation * 100f).roundToInt()) { saturation = it / 100f }
-        slider("Helligkeit", 100, (brightness * 100f).roundToInt()) { brightness = it / 100f }
-        slider("Deckkraft / Alpha", 100, (alpha * 100f).roundToInt()) { alpha = it / 100f }
+    private fun toggleRow(title: String, checked: Boolean, palette: G7AppearancePalette, save: (Boolean) -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
+            addView(label(title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(android.widget.Switch(this@G7AppearanceActivity).apply {
+                isChecked = checked
+                setOnCheckedChangeListener { _, value -> save(value) }
+            })
+        }
 
-        AlertDialog.Builder(this)
-            .setTitle(role.label)
-            .setView(root)
-            .setNegativeButton("ABBRECHEN", null)
-            .setPositiveButton("SPEICHERN") { _, _ ->
-                val parsed = parseHex(hexInput.text?.toString())
-                store.save(role, parsed ?: currentColor())
-                render()
-            }
-            .show()
+    private fun simpleColorRow(title: String, color: Int, palette: G7AppearancePalette, edit: () -> Unit) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
+            addView(label(title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            addView(View(this@G7AppearanceActivity).apply { background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 12f); setOnClickListener { edit() } }, LinearLayout.LayoutParams(32.dp, 32.dp))
+            setOnClickListener { edit() }
+        }
+
+    private fun openColorEditor(role: G7AppearanceRole) {
+        val initial = store.load(selectedMode).argb(role)
+        val palette = store.load(selectedMode)
+        SharedColorEditor.show(
+            this, role.label, initial,
+            palette.argb(G7AppearanceRole.MENU_SURFACE),
+            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            palette.argb(G7AppearanceRole.MENU_BORDER),
+            if (selectedMode == AppearanceMode.LIGHT) role.lightArgb else role.defaultArgb,
+            onChange = { store.save(selectedMode, role, it) },
+            onReset = { store.reset(selectedMode, role); render() },
+        )
     }
 
     private fun pill(textValue: String, fill: Int, textColor: Int, action: () -> Unit) = TextView(this).apply {
@@ -181,6 +231,21 @@ class G7AppearanceActivity : Activity() {
         setPadding(13.dp, 7.dp, 13.dp, 7.dp)
         background = rounded(fill, textColor, 999f)
         setOnClickListener { action() }
+    }
+
+    private fun themeSelector(palette: G7AppearancePalette) = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        listOf(AppearanceMode.LIGHT to "LIGHT", AppearanceMode.DARK to "DARK").forEach { (mode, title) ->
+            addView(pill(
+                title,
+                if (selectedMode == mode) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                if (selectedMode == mode) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            ) {
+                selectedMode = mode
+                store.setActiveMode(mode)
+                render()
+            }, LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 6.dp })
+        }
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
@@ -201,20 +266,9 @@ class G7AppearanceActivity : Activity() {
         cornerRadius = radiusDp * resources.displayMetrics.density
     }
 
-    private fun toHex(argb: Int): String = String.format(
-        Locale.US,
-        "#%02X%02X%02X%02X",
-        Color.alpha(argb), Color.red(argb), Color.green(argb), Color.blue(argb),
-    )
+    private fun toHex(argb: Int): String = ArgbColor.format(argb)
 
-    private fun parseHex(value: String?): Int? {
-        val cleaned = value.orEmpty().trim().removePrefix("#")
-        return when (cleaned.length) {
-            6 -> cleaned.toLongOrNull(16)?.toInt()?.let { 0xFF000000.toInt() or it }
-            8 -> cleaned.toLongOrNull(16)?.toInt()
-            else -> null
-        }
-    }
+    private fun parseHex(value: String?): Int? = ArgbColor.parse(value)
 
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }

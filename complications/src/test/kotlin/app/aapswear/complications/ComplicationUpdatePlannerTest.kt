@@ -1,10 +1,12 @@
 package app.aapswear.complications
 
 import app.aapswear.model.CarbState
+import app.aapswear.model.DeviceState
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
+import app.aapswear.model.PumpState
 import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,12 +15,12 @@ import org.junit.Test
 
 class ComplicationUpdatePlannerTest {
     @Test
-    fun `managed provider set includes fixed G6 style providers`() {
+    fun `managed provider set includes fixed direct to watch providers`() {
         val providers = ComplicationUpdatePlanner.allManagedProviders
 
-        assertTrue(G6StyleHeaderComplication::class.java in providers)
-        assertTrue(G6StyleGraphComplication::class.java in providers)
-        assertTrue(G6StyleStatusComplication::class.java in providers)
+        assertTrue(DirectToWatchHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchGraphComplication::class.java in providers)
+        assertTrue(DirectToWatchStatusComplication::class.java in providers)
         assertEquals(providers.size, providers.distinct().size)
     }
 
@@ -36,9 +38,9 @@ class ComplicationUpdatePlannerTest {
 
         assertTrue(GlucoseComplication::class.java in affected)
         assertTrue(GlucoseGraphComplication::class.java in affected)
-        assertTrue(G6StyleHeaderComplication::class.java in affected)
-        assertTrue(G6StyleGraphComplication::class.java in affected)
-        assertTrue(G6StyleStatusComplication::class.java in affected)
+        assertTrue(DirectToWatchHeaderComplication::class.java in affected)
+        assertTrue(DirectToWatchGraphComplication::class.java in affected)
+        assertTrue(DirectToWatchStatusComplication::class.java in affected)
         assertFalse(IobComplication::class.java in affected)
         assertFalse(CobComplication::class.java in affected)
         assertFalse(BasalComplication::class.java in affected)
@@ -54,11 +56,35 @@ class ComplicationUpdatePlannerTest {
             setOf(
                 IobComplication::class.java,
                 IobRangedValueComplication::class.java,
+                IobCobComplication::class.java,
+                IobCobLongTextComplication::class.java,
                 IobCobBasalComplication::class.java,
                 IobCobBasalLongTextComplication::class.java,
+                AapsStatusComplication::class.java,
             ),
             affected.toSet(),
         )
+    }
+
+    @Test
+    fun `pump and phone battery providers receive their own updates`() {
+        val old = state()
+
+        val pumpAffected =
+            ComplicationUpdatePlanner.affectedProviders(
+                old,
+                old.copy(pump = PumpState(reservoirUnits = 120.0, batteryPercent = 72)),
+            )
+        assertTrue(PumpBatteryComplication::class.java in pumpAffected)
+        assertTrue(ReservoirComplication::class.java in pumpAffected)
+        assertFalse(PhoneBatteryComplication::class.java in pumpAffected)
+
+        val phoneAffected =
+            ComplicationUpdatePlanner.affectedProviders(
+                old,
+                old.copy(device = DeviceState(phoneBatteryPercent = 85)),
+            )
+        assertEquals(listOf(PhoneBatteryComplication::class.java), phoneAffected)
     }
 
     @Test
@@ -76,10 +102,10 @@ class ComplicationUpdatePlannerTest {
         val affected = ComplicationUpdatePlanner.affectedProviders(old, new)
 
         assertTrue(GlucoseGraphComplication::class.java in affected)
-        assertTrue(G6StyleGraphComplication::class.java in affected)
+        assertTrue(DirectToWatchGraphComplication::class.java in affected)
         assertTrue(TirComplication::class.java in affected)
         assertFalse(GlucoseComplication::class.java in affected)
-        assertFalse(G6StyleHeaderComplication::class.java in affected)
+        assertFalse(DirectToWatchHeaderComplication::class.java in affected)
     }
 
     private fun state() =

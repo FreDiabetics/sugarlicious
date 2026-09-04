@@ -26,6 +26,8 @@ object AapsPayloadAdapter {
   val cob=values.number("cob")?.takeIf { it>=0 }
   val futureCarbs=values.number("futureCarbs")
   val profile=values["profile"] as? String
+  val diaHours=sequenceOf("dia","diaHours","insulinActionDurationHours")
+   .mapNotNull { key -> values.number(key) }.firstOrNull()?.takeIf { it in 1.0..24.0 }
   val baseBasal=values.number("baseBasal")
   val tempStart=values.number("tempBasalStart")?.toLong()
   val tempDuration=values.number("tempBasalDurationInMinutes")?.toLong()?.takeIf { it>=0 }
@@ -35,6 +37,8 @@ object AapsPayloadAdapter {
   val enactedAt=values.number("enactedTimeStamp")?.toLong()?.takeIf { it>0 }
   val suggestedPayload=values["suggested"] as? String
   val enactedPayload=values["enacted"] as? String
+  val explicitLoopEnabled = values.boolean("loopEnabled")
+  val explicitLoopStatus = (values["loopStatus"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
   val parsedTarget=AapsTargetParser.parseTarget(suggestedPayload)?:AapsTargetParser.parseTarget(enactedPayload)
   val targetValue=parsedTarget?.valueMgDl
   val targetStart=values.number("tempTargetStart")?.toLong()?.takeIf { it>0 }
@@ -42,6 +46,7 @@ object AapsPayloadAdapter {
   val targetEnd=values.number("tempTargetEnd")?.toLong()?.takeIf { it>0 }
    ?:targetStart?.let { start -> targetDuration?.let { duration -> start+duration*60_000L } }
   val smb=AapsSmbParser.parse(enactedPayload,enactedAt)
+  val therapyEvents=AapsTherapyEventParser.parse(values["therapyEvents"] as? String)
   val predictions=AapsPredictionParser.parse(suggestedPayload?:enactedPayload,suggestedAt?:enactedAt?:measured)
   val pumpStatus=values["pumpStatus"] as? String
   val reservoir=values.number("pumpReservoir")
@@ -51,13 +56,20 @@ object AapsPayloadAdapter {
   val caps=buildSet {
    add(DataCapability.GLUCOSE); if(trend!=Trend.UNKNOWN)add(DataCapability.TREND); if(delta!=null)add(DataCapability.DELTA); if(averageDelta!=null)add(DataCapability.AVERAGE_DELTA)
    if(low!=null||high!=null||targetValue!=null)add(DataCapability.TARGET); if(parsedTarget?.temporary==true||targetStart!=null)add(DataCapability.TEMP_TARGET); if(iob!=null)add(DataCapability.IOB); if(bolusIob!=null)add(DataCapability.BOLUS_IOB); if(basalIob!=null)add(DataCapability.BASAL_IOB)
-   if(smb!=null)add(DataCapability.SMB); if(cob!=null)add(DataCapability.COB); if(futureCarbs!=null)add(DataCapability.FUTURE_CARBS); if(baseBasal!=null)add(DataCapability.BASAL); if(tempStart!=null||tempAbsolute!=null||tempPercent!=null)add(DataCapability.TEMP_BASAL); if(predictions.isNotEmpty())add(DataCapability.PREDICTIONS)
-   if(profile!=null)add(DataCapability.PROFILE); if(suggestedAt!=null||enactedAt!=null)add(DataCapability.LOOP); if(pumpStatus!=null)add(DataCapability.PUMP); if(reservoir!=null)add(DataCapability.RESERVOIR); if(pumpBattery!=null)add(DataCapability.PUMP_BATTERY); if(phoneBattery!=null)add(DataCapability.PHONE_BATTERY)
+   if(smb!=null)add(DataCapability.SMB); if(cob!=null)add(DataCapability.COB); if(futureCarbs!=null)add(DataCapability.FUTURE_CARBS); if(therapyEvents.isNotEmpty())add(DataCapability.TREATMENTS); if(baseBasal!=null)add(DataCapability.BASAL); if(tempStart!=null||tempAbsolute!=null||tempPercent!=null)add(DataCapability.TEMP_BASAL); if(predictions.isNotEmpty())add(DataCapability.PREDICTIONS)
+   if(profile!=null||diaHours!=null)add(DataCapability.PROFILE); if(suggestedAt!=null||enactedAt!=null||explicitLoopEnabled!=null||explicitLoopStatus!=null)add(DataCapability.LOOP); if(pumpStatus!=null)add(DataCapability.PUMP); if(reservoir!=null)add(DataCapability.RESERVOIR); if(pumpBattery!=null)add(DataCapability.PUMP_BATTERY); if(phoneBattery!=null)add(DataCapability.PHONE_BATTERY)
   }
   val detectedContract=AapsCapabilityDetector.detectContract(values).id
-  val loopState = if (suggestedAt != null || enactedAt != null) {
+  val loopState = if (suggestedAt != null || enactedAt != null || explicitLoopEnabled != null || explicitLoopStatus != null) {
    LoopState(
-    status = if (enactedAt != null) "enacted" else "suggested",
+    status = when {
+     explicitLoopEnabled == false -> "off"
+     explicitLoopStatus != null -> explicitLoopStatus
+     enactedAt != null -> "enacted"
+     suggestedAt != null -> "suggested"
+     explicitLoopEnabled == true -> "on"
+     else -> null
+    },
     lastRunAtEpochMs = enactedAt ?: suggestedAt,
     suggestedAtEpochMs = suggestedAt,
     enactedAtEpochMs = enactedAt,
@@ -75,6 +87,7 @@ object AapsPayloadAdapter {
     listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget?.temporary==true||targetStart!=null))
    }.orEmpty(),
    glucosePredictions=predictions,
+   therapyEvents=therapyEvents,
    insulin=if(iob!=null||bolusIob!=null||basalIob!=null) InsulinState(iob,bolusIob,basalIob) else null,
    carbs=if(cob!=null||futureCarbs!=null) CarbState(cob,futureCarbs) else null,
    basal=if(baseBasal!=null||tempStart!=null||tempAbsolute!=null||tempPercent!=null) BasalState(baseBasal,tempAbsolute,tempPercent,tempStart,tempDuration,tempStart?.let{s->tempDuration?.let{d->s+d*60_000}},values["tempBasalString"] as? String) else null,
@@ -82,8 +95,14 @@ object AapsPayloadAdapter {
    loop=loopState,
    pump=if(pumpStatus!=null||reservoir!=null||pumpBattery!=null) PumpState(pumpStatus,reservoir,pumpBattery) else null,
    device=if(phoneBattery!=null||rigBattery!=null) DeviceState(phoneBattery,rigBattery) else null,
-   profile=profile?.let{ProfileState(it)}, capabilities=caps
+   profile=if(profile!=null||diaHours!=null) ProfileState(profile,diaHours) else null, capabilities=caps
   )
  }
  private fun Map<String,Any?>.number(key:String):Double? = get(key)?.let { when(it){ is Number->it.toDouble(); is String->it.toDoubleOrNull(); else->null } }?.takeIf{it.isFinite()}
+ private fun Map<String,Any?>.boolean(key:String):Boolean? = when(val value=get(key)) {
+  is Boolean -> value
+  is Number -> value.toInt()!=0
+  is String -> when(value.trim().lowercase()) { "true","1","on","enabled"->true; "false","0","off","disabled"->false; else->null }
+  else -> null
+ }
 }

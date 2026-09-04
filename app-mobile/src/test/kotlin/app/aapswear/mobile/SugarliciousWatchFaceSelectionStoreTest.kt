@@ -25,31 +25,31 @@ class SugarliciousWatchFaceSelectionStoreTest {
 
     @Test
     fun `sixth Sugarlicious face persists without legacy clamp`() {
-        SugarliciousWatchFaceSelectionStore.write(context, SUGARLICIOUS_G6_STYLE_FACE_INDEX)
-        assertEquals(SUGARLICIOUS_G6_STYLE_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
+        SugarliciousWatchFaceSelectionStore.write(context, DIRECT_TO_WATCH_FACE_INDEX)
+        assertEquals(DIRECT_TO_WATCH_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
     }
 
     @Test
-    fun `g6 style becomes relevant for explicit collector source`() {
+    fun `direct to watch becomes relevant for explicit collector source`() {
         val preferences = DashboardUiPreferences(dataSource = DataSourcePreference.DEXCOM_G7_WATCH)
-        assertTrue(SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(context, null, preferences))
+        assertTrue(SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(context, null, preferences))
     }
 
     @Test
-    fun `g6 style availability reads explicit collector source from dashboard preferences`() {
+    fun `direct to watch availability reads explicit collector source from dashboard preferences`() {
         context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
             .edit()
             .putString("dataSource", DataSourcePreference.DEXCOM_G7_WATCH.name)
             .commit()
 
-        assertTrue(SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(context, null))
+        assertTrue(SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(context, null))
     }
 
     @Test
-    fun `g6 style becomes relevant for canonical watch direct state`() {
+    fun `direct to watch becomes relevant for canonical watch direct state`() {
         val state = TherapyDisplayState(source = DataSourceId.DEXCOM_G7_WATCH, receivedAtEpochMs = 1L)
         assertTrue(
-            SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(
+            SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(
                 context,
                 state,
                 DashboardUiPreferences(),
@@ -58,9 +58,9 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
-    fun `g6 style is not marked relevant without setup or collector state`() {
+    fun `direct to watch is not marked relevant without setup or collector state`() {
         assertFalse(
-            SugarliciousWatchFaceSelectionStore.isG6StyleRelevant(
+            SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(
                 context,
                 null,
                 DashboardUiPreferences(),
@@ -69,37 +69,37 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
-    fun `g6 style cannot be selected before collector is relevant`() {
+    fun `direct to watch cannot be selected before collector is relevant`() {
         assertFalse(
             SugarliciousWatchFaceSelectionStore.isSelectable(
-                SUGARLICIOUS_G6_STYLE_FACE_INDEX,
-                g6StyleRelevant = false,
+                DIRECT_TO_WATCH_FACE_INDEX,
+                directToWatchRelevant = false,
             ),
         )
         assertTrue(
             SugarliciousWatchFaceSelectionStore.isSelectable(
-                SUGARLICIOUS_G6_STYLE_FACE_INDEX,
-                g6StyleRelevant = true,
+                DIRECT_TO_WATCH_FACE_INDEX,
+                directToWatchRelevant = true,
             ),
         )
     }
 
     @Test
-    fun `unavailable saved g6 style falls back to legacy selectable face`() {
+    fun `unavailable saved direct to watch falls back to legacy selectable face`() {
         assertEquals(
             2,
             SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
-                savedFaceIndex = SUGARLICIOUS_G6_STYLE_FACE_INDEX,
+                savedFaceIndex = DIRECT_TO_WATCH_FACE_INDEX,
                 legacyFallback = 2,
-                g6StyleRelevant = false,
+                directToWatchRelevant = false,
             ),
         )
         assertEquals(
-            SUGARLICIOUS_G6_STYLE_FACE_INDEX,
+            DIRECT_TO_WATCH_FACE_INDEX,
             SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
-                savedFaceIndex = SUGARLICIOUS_G6_STYLE_FACE_INDEX,
+                savedFaceIndex = DIRECT_TO_WATCH_FACE_INDEX,
                 legacyFallback = 2,
-                g6StyleRelevant = true,
+                directToWatchRelevant = true,
             ),
         )
     }

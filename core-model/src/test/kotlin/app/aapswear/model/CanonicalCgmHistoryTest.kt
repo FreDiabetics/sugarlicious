@@ -78,6 +78,27 @@ class CanonicalCgmHistoryTest {
         assertEquals(DataSourceId.ANDROID_APS, merged.last().source)
     }
 
+    @Test
+    fun `same session readings seconds apart collapse despite differing sequence metadata`() {
+        val historyCopy = sample(DataSourceId.ANDROID_APS, "sensor", "session", 40L, 121.0, now - 61_000L)
+        val liveCopy = historyCopy.copy(
+            sequenceNumber = 41L,
+            valueMgDl = 122.0,
+            measuredAtEpochMs = now - 45_000L,
+            receivedAtEpochMs = now,
+        )
+
+        assertEquals(listOf(liveCopy), CanonicalCgmHistory.merge(listOf(historyCopy, liveCopy), now))
+    }
+
+    @Test
+    fun `regular five minute readings remain distinct`() {
+        val previous = sample(DataSourceId.ANDROID_APS, "sensor", "session", 40L, 121.0, now - 5 * 60_000L)
+        val current = sample(DataSourceId.ANDROID_APS, "sensor", "session", 41L, 122.0, now)
+
+        assertEquals(listOf(previous, current), CanonicalCgmHistory.merge(listOf(previous, current), now))
+    }
+
     private fun sample(
         source: DataSourceId,
         sensor: String,

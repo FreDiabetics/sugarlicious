@@ -1,97 +1,394 @@
-<?xml version="1.0" encoding="utf-8"?><WatchFace width="450" height="450">
-<Metadata key="CLOCK_TYPE" value="ANALOG" />
-<Metadata key="PREVIEW_TIME" value="10:07:32" />
-<UserConfigurations>
-<ColorConfiguration id="materialAccent" displayName="material_color_label" defaultValue="0">
-<ColorOption id="0" displayName="material_green" colors="#FF4CAF50" />
-<ColorOption id="1" displayName="material_blue" colors="#FF2196F3" />
-<ColorOption id="2" displayName="material_purple" colors="#FF6750A4" />
-<ColorOption id="3" displayName="material_teal" colors="#FF009688" />
-<ColorOption id="4" displayName="material_orange" colors="#FFFF9800" />
-<ColorOption id="5" displayName="material_red" colors="#FFF44336" />
-</ColorConfiguration>
-<ListConfiguration id="handStyle" displayName="hand_style_label" defaultValue="0">
-<ListOption id="0" displayName="hand_style_standard" />
-<ListOption id="1" displayName="hand_style_classic" />
-<ListOption id="2" displayName="hand_style_minimal" />
-<ListOption id="3" displayName="hand_style_sugarlicious" />
-</ListConfiguration>
-</UserConfigurations>
-<Scene backgroundColor="#1D1D1B">
-<ComplicationSlot slotId="7" displayName="Glucose graph" isCustomizable="TRUE" supportedTypes="SMALL_IMAGE EMPTY" x="78" y="68" width="294" height="103">
-<Variant mode="AMBIENT" target="alpha" value="0" />
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-<BoundingBox x="0" y="0" width="294" height="103" />
-<Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="294" height="103"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<PartImage x="0" y="0" width="450" height="450"><Image resource="sugarlicious_analog_template" /></PartImage>
-<ComplicationSlot slotId="0" displayName="Outer upper left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="0" y="0" width="450" height="450">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.TirComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-<BoundingArc centerX="225" centerY="225" width="344" height="344" thickness="52" startAngle="250" endAngle="336" direction="CLOCKWISE" isRoundEdge="TRUE" />
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="250" endAngle="336" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="250" endAngle="336" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="344" height="344" startAngle="250" endAngle="250" direction="CLOCKWISE"><Transform target="endAngle" value="250 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 86)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="12" /></Arc></PartDraw><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="368" height="368" startAngle="250" endAngle="336" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="1" displayName="Outer upper right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="0" y="0" width="450" height="450">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.ReservoirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-<BoundingArc centerX="225" centerY="225" width="344" height="344" thickness="52" startAngle="8" endAngle="67" direction="CLOCKWISE" isRoundEdge="TRUE" />
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="8" endAngle="67" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="8" endAngle="67" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="344" height="344" startAngle="8" endAngle="8" direction="CLOCKWISE"><Transform target="endAngle" value="8 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 59)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="12" /></Arc></PartDraw><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="368" height="368" startAngle="8" endAngle="67" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="2" displayName="Outer lower right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="0" y="0" width="450" height="450">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-<BoundingArc centerX="225" centerY="225" width="344" height="344" thickness="52" startAngle="96" endAngle="158" direction="CLOCKWISE" isRoundEdge="TRUE" />
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="96" endAngle="158" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="96" endAngle="158" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="344" height="344" startAngle="96" endAngle="96" direction="CLOCKWISE"><Transform target="endAngle" value="96 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 62)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="12" /></Arc></PartDraw><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="368" height="368" startAngle="96" endAngle="158" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="3" displayName="Outer lower left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="0" y="0" width="450" height="450">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobCobBasalLongTextComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-<BoundingArc centerX="225" centerY="225" width="344" height="344" thickness="52" startAngle="266" endAngle="190" direction="COUNTER_CLOCKWISE" isRoundEdge="TRUE" />
-<Complication type="SHORT_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="266" endAngle="190" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="366" height="366" startAngle="266" endAngle="190" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="450" height="450"><Arc centerX="225" centerY="225" width="344" height="344" startAngle="266" endAngle="266" direction="COUNTER_CLOCKWISE"><Transform target="endAngle" value="266 - (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 76)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="12" /></Arc></PartDraw><PartText x="0" y="0" width="450" height="450"><TextCircular centerX="225" centerY="225" width="368" height="368" startAngle="266" endAngle="190" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></TextCircular></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="4" displayName="Middle left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="72" y="170" width="110" height="110">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobCobBasalComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" /><BoundingOval x="0" y="0" width="110" height="110" />
-<Complication type="SHORT_TEXT"><PartText x="5" y="24" width="100" height="31"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText><PartText x="5" y="54" width="100" height="28"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template></Font></Text></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="7" y="24" width="96" height="62"><Text align="CENTER" ellipsis="TRUE" maxLines="2"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="110" height="110"><Arc centerX="55" centerY="55" width="104" height="104" startAngle="215" endAngle="215" direction="CLOCKWISE"><Transform target="endAngle" value="215 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 290)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="6" /></Arc></PartDraw><PartText x="8" y="35" width="94" height="38"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="5" displayName="Middle right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="268" y="170" width="110" height="110">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendDeltaAgeComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" /><BoundingOval x="0" y="0" width="110" height="110" />
-<Complication type="SHORT_TEXT"><PartText x="5" y="24" width="100" height="31"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template></Font></Text></PartText><PartText x="5" y="54" width="100" height="29"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="22" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="7" y="24" width="96" height="62"><Text align="CENTER" ellipsis="TRUE" maxLines="2"><Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="110" height="110"><Arc centerX="55" centerY="55" width="104" height="104" startAngle="215" endAngle="215" direction="CLOCKWISE"><Transform target="endAngle" value="215 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 290)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="6" /></Arc></PartDraw><PartText x="8" y="35" width="94" height="38"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ComplicationSlot slotId="6" displayName="Bottom center" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT EMPTY" x="160" y="249" width="130" height="130">
-<DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" /><BoundingOval x="0" y="0" width="130" height="130" />
-<Complication type="SHORT_TEXT"><PartText x="10" y="33" width="110" height="53"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="43" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText><PartText x="13" y="86" width="104" height="24"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template></Font></Text></PartText></Complication>
-<Complication type="LONG_TEXT"><PartText x="12" y="34" width="106" height="69"><Text align="CENTER" ellipsis="TRUE" maxLines="2"><Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
-<Complication type="RANGED_VALUE"><PartDraw x="0" y="0" width="130" height="130"><Arc centerX="65" centerY="65" width="116" height="116" startAngle="218" endAngle="218" direction="CLOCKWISE"><Transform target="endAngle" value="218 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 284)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="10" /></Arc></PartDraw><PartText x="12" y="35" width="106" height="55"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="45" weight="BOLD" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText><PartText x="18" y="91" width="94" height="22"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FFEB600A"><Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template></Font></Text></PartText></Complication>
-<Complication type="EMPTY" />
-</ComplicationSlot>
-<ListConfiguration id="handStyle">
-<ListOption id="0"><AnalogClock x="0" y="0" width="450" height="450"><HourHand resource="hour_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><MinuteHand resource="minute_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><SecondHand resource="second_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Variant mode="AMBIENT" target="alpha" value="0" /></SecondHand></AnalogClock></ListOption>
-<ListOption id="1"><AnalogClock x="0" y="0" width="450" height="450"><HourHand resource="hour_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><MinuteHand resource="minute_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><SecondHand resource="second_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Variant mode="AMBIENT" target="alpha" value="0" /></SecondHand></AnalogClock></ListOption>
-<ListOption id="2"><AnalogClock x="0" y="0" width="450" height="450"><HourHand resource="hour_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><MinuteHand resource="minute_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5" /><SecondHand resource="second_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Variant mode="AMBIENT" target="alpha" value="0" /></SecondHand></AnalogClock></ListOption>
-<ListOption id="3">
-<Group x="0" y="0" width="450" height="450" name="sugarliciousOutlineHands">
-<Group x="0" y="0" width="450" height="450" name="sugarliciousHourHand" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="[HOUR_0_11_MINUTE] * 30" /><PartDraw x="0" y="0" width="450" height="450"><Rectangle x="222.14" y="197.57" width="5.72" height="25.98"><Fill color="#FFFFFFFF" /></Rectangle><RoundRectangle x="216.21" y="102.76" width="17.58" height="94.93" cornerRadiusX="6.51" cornerRadiusY="6.51"><Fill color="#4DFFFFFF" /></RoundRectangle><RoundRectangle x="216.21" y="102.76" width="17.58" height="94.93" cornerRadiusX="6.51" cornerRadiusY="6.51"><Stroke color="#FFFFFFFF" thickness="5.27" /></RoundRectangle></PartDraw></Group>
-<Group x="0" y="0" width="450" height="450" name="sugarliciousMinuteHand" pivotX="0.5" pivotY="0.5"><Transform target="angle" value="[MINUTE_SECOND] * 6" /><PartDraw x="0" y="0" width="450" height="450"><Rectangle x="222.14" y="197.57" width="5.72" height="25.98"><Fill color="#FFFFFFFF" /></Rectangle><RoundRectangle x="216.21" y="33.28" width="17.58" height="164.36" cornerRadiusX="6.51" cornerRadiusY="6.51"><Fill color="#4DFFFFFF" /></RoundRectangle><RoundRectangle x="216.21" y="33.28" width="17.58" height="164.36" cornerRadiusX="6.51" cornerRadiusY="6.51"><Stroke color="#FFFFFFFF" thickness="5.27" /></RoundRectangle></PartDraw></Group>
-<PartDraw x="214" y="214" width="22" height="22"><Ellipse x="0.5" y="0.5" width="21" height="21"><Fill color="#FFBCBCBC" /></Ellipse></PartDraw>
-<AnalogClock x="0" y="0" width="450" height="450"><SecondHand resource="second_hand" x="0" y="0" width="450" height="450" pivotX="0.5" pivotY="0.5"><Variant mode="AMBIENT" target="alpha" value="0" /></SecondHand></AnalogClock>
-<PartDraw x="221" y="221" width="8" height="8"><Ellipse x="0.5" y="0.5" width="7" height="7"><Fill color="#FF000000" /></Ellipse></PartDraw>
-</Group>
-</ListOption>
-</ListConfiguration>
-</Scene>
+<?xml version="1.0" encoding="utf-8"?>
+<WatchFace width="512" height="512">
+    <Metadata key="CLOCK_TYPE" value="ANALOG" />
+    <Metadata key="PREVIEW_TIME" value="10:07:32" />
+    <UserConfigurations>
+        <ColorConfiguration id="materialAccent" displayName="material_color_label" defaultValue="0">
+            <ColorOption id="0" displayName="material_green" colors="#FF4CAF50" />
+            <ColorOption id="1" displayName="material_blue" colors="#FF2196F3" />
+            <ColorOption id="2" displayName="material_purple" colors="#FF6750A4" />
+            <ColorOption id="3" displayName="material_teal" colors="#FF009688" />
+            <ColorOption id="4" displayName="material_orange" colors="#FFFF9800" />
+            <ColorOption id="5" displayName="material_red" colors="#FFF44336" />
+        </ColorConfiguration>
+        <ListConfiguration id="handStyle" displayName="hand_style_label" defaultValue="0">
+            <ListOption id="0" displayName="hand_style_standard" />
+            <ListOption id="1" displayName="hand_style_transparent" />
+            <ListOption id="2" displayName="hand_style_black_gray" />
+        </ListConfiguration>
+    </UserConfigurations>
+    <Scene backgroundColor="#000000">
+        <ComplicationSlot slotId="7" displayName="Glucose graph" isCustomizable="TRUE" supportedTypes="LONG_TEXT RANGED_VALUE SMALL_IMAGE EMPTY" x="59" y="63" width="394" height="138">
+            <Variant mode="AMBIENT" target="alpha" value="0" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="394" height="138" />
+            <Complication type="LONG_TEXT">
+                <PartImage x="0" y="0" width="95" height="138">
+                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
+                </PartImage>
+                <PartText x="102" y="28" width="271" height="38">
+                    <Text align="START" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="18" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template></Font>
+                    </Text>
+                </PartText>
+                <PartText x="102" y="70" width="271" height="40">
+                    <Text align="START" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="19" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="9" y="86" width="358" height="14">
+                    <Line startX="0" startY="7" endX="358" endY="7"><Stroke color="#1AFFFFFF" cap="ROUND" thickness="12" /></Line>
+                    <Line startX="0" startY="7" endX="358" endY="7">
+                        <Transform target="endX" value="(((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 358)" />
+                        <Stroke color="#FFF5F5F5" cap="ROUND" thickness="12" />
+                    </Line>
+                </PartDraw>
+                <PartText x="7" y="39" width="362" height="38"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText>
+            </Complication>
+            <Complication type="SMALL_IMAGE">
+                <PartImage x="0" y="0" width="394" height="138">
+                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
+                </PartImage>
+            </Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <PartImage x="0" y="0" width="512" height="512">
+            <Image resource="sugarlicious_analog_template" />
+        </PartImage>
+        <ComplicationSlot slotId="0" displayName="Outer upper left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.TirComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingArc centerX="256" centerY="256" width="428" height="428" thickness="36" startAngle="285" endAngle="333" direction="CLOCKWISE" isRoundEdge="TRUE" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="285" endAngle="333" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="285" endAngle="333" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="0" y="0" width="512" height="512">
+                    <Arc centerX="256" centerY="256" width="408" height="408" startAngle="285" endAngle="285" direction="CLOCKWISE">
+                        <Transform target="endAngle" value="285 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 48)" />
+                        <Stroke color="#FFEB600A" cap="ROUND" thickness="17" />
+                    </Arc>
+                </PartDraw>
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="285" endAngle="333" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="382" y="74" width="28" height="28"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="378" y="70" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="1" displayName="Outer upper right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.ReservoirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingArc centerX="256" centerY="256" width="428" height="428" thickness="36" startAngle="15" endAngle="63" direction="CLOCKWISE" isRoundEdge="TRUE" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="15" endAngle="63" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="15" endAngle="63" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="0" y="0" width="512" height="512">
+                    <Arc centerX="256" centerY="256" width="408" height="408" startAngle="15" endAngle="15" direction="CLOCKWISE">
+                        <Transform target="endAngle" value="15 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 48)" />
+                        <Stroke color="#FFEB600A" cap="ROUND" thickness="17" />
+                    </Arc>
+                </PartDraw>
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="15" endAngle="63" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="382" y="382" width="28" height="28"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="378" y="378" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2" displayName="Outer lower right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingArc centerX="256" centerY="256" width="428" height="428" thickness="36" startAngle="103" endAngle="151" direction="CLOCKWISE" isRoundEdge="TRUE" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="103" endAngle="151" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="103" endAngle="151" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="0" y="0" width="512" height="512">
+                    <Arc centerX="256" centerY="256" width="408" height="408" startAngle="103" endAngle="103" direction="CLOCKWISE">
+                        <Transform target="endAngle" value="103 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 48)" />
+                        <Stroke color="#FFEB600A" cap="ROUND" thickness="17" />
+                    </Arc>
+                </PartDraw>
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="103" endAngle="151" direction="CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="31" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="104" y="382" width="28" height="28"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="100" y="378" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3" displayName="Outer lower left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobCobBasalLongTextComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingArc centerX="256" centerY="256" width="428" height="428" thickness="36" startAngle="253" endAngle="205" direction="COUNTER_CLOCKWISE" isRoundEdge="TRUE" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="253" endAngle="205" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="30" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="253" endAngle="205" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="30" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="0" y="0" width="512" height="512">
+                    <Arc centerX="256" centerY="256" width="408" height="408" startAngle="253" endAngle="253" direction="COUNTER_CLOCKWISE">
+                        <Transform target="endAngle" value="253 - (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 48)" />
+                        <Stroke color="#FFEB600A" cap="ROUND" thickness="17" />
+                    </Arc>
+                </PartDraw>
+                <PartText x="0" y="0" width="512" height="512">
+                    <TextCircular centerX="256" centerY="256" width="428" height="428" startAngle="253" endAngle="205" direction="COUNTER_CLOCKWISE" align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="30" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </TextCircular>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="104" y="74" width="28" height="28"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="100" y="70" width="36" height="36"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4" displayName="Middle left" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="83" y="195" width="123" height="123">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobCobBasalComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingOval x="0" y="0" width="123" height="123" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="6" y="27" width="114" height="35">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+                <PartText x="6" y="61" width="114" height="32">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="8" y="27" width="109" height="71">
+                    <Text align="CENTER" ellipsis="TRUE" maxLines="2">
+                        <Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="17" y="75" width="92" height="10">
+                    <Line startX="0" startY="5" endX="92" endY="5"><Stroke color="#1AFFFFFF" cap="ROUND" thickness="9" /></Line>
+                    <Line startX="0" startY="5" endX="92" endY="5"><Transform target="endX" value="(((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 92)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="9" /></Line>
+                </PartDraw>
+                <PartText x="9" y="40" width="107" height="43">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="34" y="34" width="55" height="55"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="10" y="9" width="104" height="104"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5" displayName="Middle right" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="306" y="195" width="123" height="123">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendDeltaAgeComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingOval x="0" y="0" width="123" height="123" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="6" y="27" width="114" height="35">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+                <PartText x="6" y="61" width="114" height="33">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="21" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="8" y="27" width="109" height="71">
+                    <Text align="CENTER" ellipsis="TRUE" maxLines="2">
+                        <Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="17" y="75" width="92" height="10">
+                    <Line startX="0" startY="5" endX="92" endY="5"><Stroke color="#1AFFFFFF" cap="ROUND" thickness="9" /></Line>
+                    <Line startX="0" startY="5" endX="92" endY="5"><Transform target="endX" value="(((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 92)" /><Stroke color="#FFEB600A" cap="ROUND" thickness="9" /></Line>
+                </PartDraw>
+                <PartText x="9" y="40" width="107" height="43">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="34" y="34" width="55" height="55"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="10" y="9" width="104" height="104"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="6" displayName="Bottom center" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT LONG_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="181" y="281" width="150" height="149">
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingOval x="0" y="0" width="150" height="149" />
+            <Complication type="SHORT_TEXT">
+                <PartText x="11" y="38" width="125" height="60">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="49" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+                <PartText x="15" y="98" width="118" height="27">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="LONG_TEXT">
+                <PartText x="14" y="39" width="121" height="79">
+                    <Text align="CENTER" ellipsis="TRUE" maxLines="2">
+                        <Font family="SYNC_TO_DEVICE" size="31" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="RANGED_VALUE">
+                <PartDraw x="0" y="0" width="150" height="149">
+                    <Arc centerX="75" centerY="75" width="137" height="137" startAngle="220" endAngle="220" direction="CLOCKWISE">
+                        <Transform target="endAngle" value="220 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 280)" />
+                        <Stroke color="#FFEB600A" cap="ROUND" thickness="11" />
+                    </Arc>
+                </PartDraw>
+                <PartText x="14" y="40" width="121" height="63">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="51" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+                <PartText x="20" y="104" width="107" height="25">
+                    <Text align="CENTER" ellipsis="TRUE">
+                        <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A">
+                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+                        </Font>
+                    </Text>
+                </PartText>
+            </Complication>
+            <Complication type="MONOCHROMATIC_IMAGE"><PartImage x="39" y="38" width="73" height="73"><Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="1" y="0" width="149" height="149"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ListConfiguration id="handStyle">
+            <ListOption id="0">
+                <AnalogClock x="0" y="0" width="512" height="512">
+                    <HourHand resource="hour_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <MinuteHand resource="minute_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <SecondHand resource="second_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
+                        <Variant mode="AMBIENT" target="alpha" value="0" />
+                    </SecondHand>
+                </AnalogClock>
+            </ListOption>
+            <ListOption id="1">
+                <AnalogClock x="0" y="0" width="512" height="512">
+                    <HourHand resource="hour_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <MinuteHand resource="minute_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <SecondHand resource="second_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
+                        <Variant mode="AMBIENT" target="alpha" value="0" />
+                    </SecondHand>
+                </AnalogClock>
+            </ListOption>
+            <ListOption id="2">
+                <AnalogClock x="0" y="0" width="512" height="512">
+                    <HourHand resource="hour_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <MinuteHand resource="minute_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
+                    <SecondHand resource="second_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
+                        <Variant mode="AMBIENT" target="alpha" value="0" />
+                    </SecondHand>
+                </AnalogClock>
+            </ListOption>
+        </ListConfiguration>
+    </Scene>
 </WatchFace>

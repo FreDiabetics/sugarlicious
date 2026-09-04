@@ -37,6 +37,7 @@ object RelativeGraphTimeAxis {
         startEpochMs: Long,
         endEpochMs: Long,
         nowEpochMs: Long,
+        fixedIntervalHours: Int? = null,
     ): List<RelativeGraphTimeTick> {
         if (endEpochMs <= startEpochMs || nowEpochMs <= 0L) return emptyList()
         val visibleEnd = minOf(endEpochMs, nowEpochMs)
@@ -45,7 +46,7 @@ object RelativeGraphTimeAxis {
         val oldestHoursBack = ceil((nowEpochMs - startEpochMs).coerceAtLeast(0L).toDouble() / HOUR_MS).toInt()
         val newestHoursBack = floor((nowEpochMs - visibleEnd).coerceAtLeast(0L).toDouble() / HOUR_MS).toInt()
         val visibleHistoryHours = (visibleEnd - startEpochMs).coerceAtLeast(0L).toDouble() / HOUR_MS
-        val interval = intervalHours(visibleHistoryHours)
+        val interval = fixedIntervalHours?.coerceAtLeast(1) ?: intervalHours(visibleHistoryHours)
 
         val ticks = mutableListOf<RelativeGraphTimeTick>()
         var hoursBack = oldestHoursBack - (oldestHoursBack % interval)

@@ -5,7 +5,7 @@ import android.util.AttributeSet
 import android.view.MotionEvent
 import android.widget.ScrollView
 
-/** Keeps the one-screen overview fixed while retaining normal scrolling in long menus. */
+/** Retains normal vertical scrolling while child charts handle horizontal pan and pinch zoom. */
 class DashboardScrollView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,

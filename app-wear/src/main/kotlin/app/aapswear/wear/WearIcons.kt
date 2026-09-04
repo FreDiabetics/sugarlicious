@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import app.aapswear.model.ArgbContrast
+import app.aapswear.model.TrendArrowStyle
 import kotlin.math.ceil
 
 internal fun shouldOutlineWearIcon(backgroundArgb: Int, colored: Boolean): Boolean =
@@ -20,25 +21,28 @@ internal fun ImageView.renderSugarliciousWearIcon(
     tintArgb: Int?,
     backgroundArgb: Int,
     colored: Boolean = true,
+    trendStyle: TrendArrowStyle? = null,
 ) {
-    if (shouldOutlineWearIcon(backgroundArgb, colored)) {
+    val renderSpec = trendStyle?.renderSpec()
+    val outlined = renderSpec?.outlineThicknessDp?.let { it > 0f } ?: shouldOutlineWearIcon(backgroundArgb, colored)
+    if (outlined) {
         imageTintList = null
         val foreground = requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
-            tintArgb?.let(::setTint)
+            setTint(renderSpec?.fillColor ?: tintArgb ?: 0xFFFFFFFF.toInt())
         }
         val outline = requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
-            setTint(0xB2000000.toInt())
+            setTint(renderSpec?.outlineColor ?: 0xB2000000.toInt())
         }
         setImageDrawable(
             SilhouetteOutlineDrawable(
                 foreground = foreground,
                 outline = outline,
-                widthPx = context.resources.displayMetrics.density * 0.70f,
+                widthPx = context.resources.displayMetrics.density * (renderSpec?.outlineThicknessDp ?: 0.70f),
             )
         )
     } else {
         setImageResource(drawableRes)
-        imageTintList = tintArgb?.let(ColorStateList::valueOf)
+        imageTintList = (renderSpec?.fillColor ?: tintArgb)?.let(ColorStateList::valueOf)
     }
 }
 

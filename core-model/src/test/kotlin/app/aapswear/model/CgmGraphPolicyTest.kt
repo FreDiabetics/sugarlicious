@@ -37,6 +37,21 @@ class CgmGraphPolicyTest {
     }
 
     @Test
+    fun `duplicate backfill and invalid events do not advance or reset live range`() {
+        val firstHigh = sample(1, 190.0)
+        val duplicate = firstHigh.copy(sequenceNumber = 99, receivedAtEpochMs = 2 * minute)
+        val invalid = sample(3, 110.0, quality = CgmQuality.INVALID)
+        val backfill = sample(0, 200.0).copy(receivedAtEpochMs = 4 * minute)
+        val secondHigh = sample(6, 195.0).copy(receivedAtEpochMs = 6 * minute)
+
+        assertNull(CgmGraphPolicy.rangeExcursion(listOf(firstHigh, duplicate, invalid, backfill), 70.0, 180.0))
+        assertEquals(
+            RangeExcursion.HIGH,
+            CgmGraphPolicy.rangeExcursion(listOf(firstHigh, duplicate, invalid, backfill, secondHigh), 70.0, 180.0),
+        )
+    }
+
+    @Test
     fun `invalid points gaps and session switches cannot activate a tint`() {
         assertNull(
             CgmGraphPolicy.rangeExcursion(

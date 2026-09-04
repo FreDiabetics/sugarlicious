@@ -65,7 +65,10 @@ internal data class G7ScanTelemetry(
     val connectableResults: Int,
     val namedG7Results: Int,
     val exactAddressResults: Int,
+    val manufacturerDataResults: Int,
     val duplicateResults: Int,
+    val rejectedNotConnectable: Int,
+    val rejectedByIdentity: Int,
     val minRssi: Int?,
     val maxRssi: Int?,
     val adapterState: Int,
@@ -84,6 +87,15 @@ internal fun shouldUseFallbackDiscovery(
 ): Boolean =
     !fallbackUsed && recoverable && shouldUseDirectReconnect(strategy, address)
 
+internal fun shouldRetryNoCallbackDirectly(
+    errorCode: String,
+    retriesUsed: Int,
+    fallbackUsed: Boolean,
+): Boolean =
+    errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE &&
+        retriesUsed < 1 &&
+        !fallbackUsed
+
 internal fun g7ScanTimeoutMs(sensor: G7Sensor): Long =
     if (sensor.deviceAddress.isNullOrBlank()) G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS else G7_RECONNECT_SCAN_TIMEOUT_MS
 
@@ -91,6 +103,12 @@ internal fun knownG7AddressMatches(knownAddress: String?, candidateAddress: Stri
     knownAddress?.takeIf { it.isNotBlank() }?.equals(candidateAddress, ignoreCase = true)
 
 internal fun isConnectableG7Advertisement(connectable: Boolean): Boolean = connectable
+
+internal fun usableG7SharedKey(sharedKey: ByteArray?, bondState: Int?): ByteArray? =
+    if (sharedKey != null && bondState == BluetoothDevice.BOND_NONE) null else sharedKey
+
+internal fun shouldResumeG7Pairing(sharedKey: ByteArray?, bondState: Int?): Boolean =
+    sharedKey != null && bondState == BluetoothDevice.BOND_NONE
 
 internal enum class G7WriteCallbackDisposition {
     EXPECTED_SUCCESS,
@@ -148,7 +166,10 @@ internal class AndroidG7Scanner(
             val connectableResults = AtomicInteger(0)
             val namedG7Results = AtomicInteger(0)
             val exactAddressResults = AtomicInteger(0)
+            val manufacturerDataResults = AtomicInteger(0)
             val duplicateResults = AtomicInteger(0)
+            val rejectedNotConnectable = AtomicInteger(0)
+            val rejectedByIdentity = AtomicInteger(0)
             val seenAddresses = mutableSetOf<String>()
             var minRssi: Int? = null
             var maxRssi: Int? = null
@@ -171,7 +192,10 @@ internal class AndroidG7Scanner(
                         connectableResults.get(),
                         namedG7Results.get(),
                         exactAddressResults.get(),
+                        manufacturerDataResults.get(),
                         duplicateResults.get(),
+                        rejectedNotConnectable.get(),
+                        rejectedByIdentity.get(),
                         minRssi,
                         maxRssi,
                         adapter.state,
@@ -191,13 +215,22 @@ internal class AndroidG7Scanner(
                     minRssi = minRssi?.let { minOf(it, result.rssi) } ?: result.rssi
                     maxRssi = maxRssi?.let { maxOf(it, result.rssi) } ?: result.rssi
                     val advertisedName = result.scanRecord?.deviceName
+                    if ((result.scanRecord?.manufacturerSpecificData?.size() ?: 0) > 0) {
+                        manufacturerDataResults.incrementAndGet()
+                    }
                     if (isG7AdvertisedName(advertisedName)) namedG7Results.incrementAndGet()
                     if (knownG7AddressMatches(sensor?.deviceAddress, result.device.address) == true) {
                         exactAddressResults.incrementAndGet()
                     }
-                    if (!isConnectableG7Advertisement(result.isConnectable)) return
+                    if (!isConnectableG7Advertisement(result.isConnectable)) {
+                        rejectedNotConnectable.incrementAndGet()
+                        return
+                    }
                     connectableResults.incrementAndGet()
-                    if (!matcher.matches(result.device, advertisedName, sensor)) return
+                    if (!matcher.matches(result.device, advertisedName, sensor)) {
+                        rejectedByIdentity.incrementAndGet()
+                        return
+                    }
                     val name = advertisedName ?: runCatching { result.device.name }.getOrNull() ?: sensor?.deviceName
                     val sensorId = sensor?.sensorId ?: name ?: "Dexcom-G7"
                     finish(
@@ -295,6 +328,7 @@ internal class AndroidG7Collector(
     private val scanner: G7Scanner = AndroidG7Scanner(context),
     private val packetParser: G7GlucosePacketParser = G7GlucosePacketParser(),
 ) {
+    @SuppressLint("MissingPermission")
     suspend fun collect(
         initialSensor: G7Sensor,
         credentials: StoredG7Credentials,
@@ -308,10 +342,20 @@ internal class AndroidG7Collector(
         var sharedKey = credentials.sharedKey?.takeIf {
             credentials.sharedKeyAddress == null || credentials.sharedKeyAddress.equals(sensor.deviceAddress, true)
         }
+        val initialBondState = sensor.deviceAddress?.let { address ->
+            runCatching {
+                context.getSystemService(BluetoothManager::class.java).adapter
+                    .getRemoteDevice(address)
+                    .bondState
+            }.getOrNull()
+        }
+        val pairingRecoveryRequired = shouldResumeG7Pairing(sharedKey, initialBondState)
+        sharedKey = usableG7SharedKey(sharedKey, initialBondState)
         var bondReconnectAttempts = 0
         var gatt133Retries = 0
+        var noCallbackRetries = 0
         var pendingGatt133: G7BleException? = null
-        var discoveryRequired = !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
+        var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
         (scanner as? AndroidG7Scanner)?.telemetryListener = onTelemetry
 
@@ -320,6 +364,7 @@ internal class AndroidG7Collector(
                 onState(G7ProtocolState.SCANNING)
                 val scanTimeout = when {
                     scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
+                    pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
                     fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
                     else -> g7ScanTimeoutMs(sensor)
                 }
@@ -343,6 +388,11 @@ internal class AndroidG7Collector(
                 sharedKey = null
             }
 
+            // An application key can already have been emitted immediately before Android starts
+            // its asynchronous bond. If that bond was interrupted, replaying the key while the
+            // platform still reports BOND_NONE enters the stored-session path and fails before a
+            // fresh createBond() can be requested. Keep the persisted key intact, but use the
+            // normal pairing exchange for this connection so Android can establish the bond.
             val connection = G7GattConnection(context, sensor, onTelemetry)
             try {
                 val outcome = withTimeout(SESSION_TIMEOUT_MS) {
@@ -368,7 +418,15 @@ internal class AndroidG7Collector(
                 onState(G7ProtocolState.RECOVERING)
                 delay(BOND_RECONNECT_DELAY_MS)
             } catch (error: G7BleException) {
-                if (error.errorCode == G7_GATT_133_ERROR_CODE &&
+                // close-before-retry is deliberate: no delay or new connect may overlap the
+                // terminal lifecycle of the generation that just failed.
+                connection.close()
+                if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
+                    noCallbackRetries += 1
+                    discoveryRequired = false
+                    onState(G7ProtocolState.RECOVERING)
+                    delay(NO_CALLBACK_STACK_SETTLE_DELAY_MS)
+                } else if (error.errorCode == G7_GATT_133_ERROR_CODE &&
                     gatt133Retries < maxGatt133RetriesForCycle(fallbackUsed)
                 ) {
                     pendingGatt133 = error
@@ -385,6 +443,7 @@ internal class AndroidG7Collector(
                     throw pendingGatt133 ?: error
                 }
             } catch (timeout: TimeoutCancellationException) {
+                connection.close()
                 val error = G7BleException(
                     G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
                     "Direkte G7-Verbindung hat das begrenzte Zeitfenster überschritten",
@@ -410,10 +469,21 @@ internal class AndroidG7Collector(
         const val MAX_BOND_RECONNECT_ATTEMPTS = 2
         const val BOND_RECONNECT_DELAY_MS = 1_500L
         const val GATT_133_STACK_SETTLE_DELAY_MS = 1_500L
+        const val NO_CALLBACK_STACK_SETTLE_DELAY_MS = 2_500L
     }
 }
 
 private class G7BondReconnectRequired(val sharedKey: ByteArray) : Exception()
+
+internal enum class G7BondWaitDecision { KEEP_WAITING, BONDED, FAILED }
+
+internal fun g7BondWaitDecision(bondState: Int, observedBonding: Boolean): G7BondWaitDecision =
+    when (bondState) {
+        BluetoothDevice.BOND_BONDED -> G7BondWaitDecision.BONDED
+        BluetoothDevice.BOND_BONDING -> G7BondWaitDecision.KEEP_WAITING
+        BluetoothDevice.BOND_NONE -> if (observedBonding) G7BondWaitDecision.FAILED else G7BondWaitDecision.KEEP_WAITING
+        else -> G7BondWaitDecision.KEEP_WAITING
+    }
 
 private class G7GattConnection(
     private val context: Context,
@@ -571,11 +641,31 @@ private class G7GattConnection(
     private suspend fun ensureBonded(device: BluetoothDevice) {
         if (device.bondState == BluetoothDevice.BOND_BONDED) return
         if (!device.createBond()) throw G7BleException("G7-AUTH-206", "Bluetooth-Kopplung konnte nicht gestartet werden", false)
-        withTimeout(BOND_TIMEOUT_MS) {
-            while (device.bondState == BluetoothDevice.BOND_BONDING) delay(250L)
+
+        // createBond() is asynchronous. On real Wear OS hardware it can return true a few
+        // milliseconds before bondState changes from NONE to BONDING. Treating that initial NONE
+        // as a terminal failure closes the GATT client while Android is only just starting SMP.
+        var observedBonding = false
+        try {
+            withTimeout(BOND_TIMEOUT_MS) {
+                while (true) {
+                    val bondState = device.bondState
+                    when (g7BondWaitDecision(bondState, observedBonding)) {
+                        G7BondWaitDecision.BONDED, G7BondWaitDecision.FAILED -> return@withTimeout
+                        G7BondWaitDecision.KEEP_WAITING -> Unit
+                    }
+                    if (bondState == BluetoothDevice.BOND_BONDING) observedBonding = true
+                    delay(BOND_STATE_POLL_MS)
+                }
+            }
+        } catch (_: TimeoutCancellationException) {
+            // Converted below into the stable, user-facing authentication error.
         }
         if (device.bondState != BluetoothDevice.BOND_BONDED) {
-            throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", false)
+            // The system consent UI is time limited. Missing that UI once must not leave initial
+            // setup permanently dead; the normal scheduler may offer it again in a later sensor
+            // window without deleting bonds, keys, or application data.
+            throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", true)
         }
     }
 
@@ -713,6 +803,7 @@ private class G7GattConnection(
         const val CONNECTION_TIMEOUT_MS = 20_000L
         const val OPERATION_TIMEOUT_MS = 15_000L
         const val BOND_TIMEOUT_MS = 35_000L
+        const val BOND_STATE_POLL_MS = 250L
         const val EXTRA_CHUNK_BYTES = 20
         const val EXTRA_CHUNK_DELAY_MS = 40L
         const val EXTRA_SETTLE_DELAY_MS = 500L

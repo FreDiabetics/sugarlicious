@@ -9,7 +9,7 @@ import app.aapswear.model.TherapyDisplayState
  */
 object ComplicationUpdatePlanner {
     val allManagedProviders: List<Class<*>>
-        get() = (AllProviders.classes + g6StyleProviders).distinct()
+        get() = (AllProviders.classes + directToWatchProviders).distinct()
 
     fun affectedProviders(
         old: TherapyDisplayState?,
@@ -24,9 +24,9 @@ object ComplicationUpdatePlanner {
 
         if (glucoseChanged) {
             affected += glucoseProviders
-            affected += g6StyleStatusProviders
+            affected += directToWatchStatusProviders
         }
-        if (old.source != new.source) affected += g6StyleStatusProviders
+        if (old.source != new.source) affected += directToWatchStatusProviders
 
         if (
             glucoseChanged ||
@@ -42,28 +42,31 @@ object ComplicationUpdatePlanner {
         if (old.insulin != new.insulin) {
             affected += iobProviders
             affected += combinedTherapyProviders
+            affected += compactStatusProviders
         }
         if (old.carbs != new.carbs) {
             affected += cobProviders
             affected += combinedTherapyProviders
+            affected += compactStatusProviders
         }
         if (old.basal != new.basal) {
             affected += basalProviders
             affected += combinedTherapyProviders
         }
         if (old.loop != new.loop) affected += loopProviders
-        if (old.pump != new.pump) affected += reservoirProviders
+        if (old.pump != new.pump) affected += pumpProviders
+        if (old.device != new.device) affected += phoneProviders
 
         return affected.toList()
     }
 
-    private val g6StyleProviders =
+    private val directToWatchProviders =
         listOf(
-            G6StyleHeaderComplication::class.java,
-            G6StyleGraphComplication::class.java,
-            G6StyleStatusComplication::class.java,
+            DirectToWatchHeaderComplication::class.java,
+            DirectToWatchGraphComplication::class.java,
+            DirectToWatchStatusComplication::class.java,
         )
-    private val g6StyleStatusProviders = listOf(G6StyleStatusComplication::class.java)
+    private val directToWatchStatusProviders = listOf(DirectToWatchStatusComplication::class.java)
 
     private val glucoseProviders =
         listOf(
@@ -84,14 +87,15 @@ object ComplicationUpdatePlanner {
             DeltaOnlyComplication::class.java,
             GlucoseAgeComplication::class.java,
             GlucoseDeltaComplication::class.java,
-            G6StyleHeaderComplication::class.java,
+            DirectToWatchHeaderComplication::class.java,
+            AapsStatusComplication::class.java,
         )
 
     private val graphProviders =
         listOf(
             GlucoseGraphComplication::class.java,
             GlucoseGraphLargeComplication::class.java,
-            G6StyleGraphComplication::class.java,
+            DirectToWatchGraphComplication::class.java,
         )
 
     private val tirProviders =
@@ -114,6 +118,8 @@ object ComplicationUpdatePlanner {
         )
     private val combinedTherapyProviders =
         listOf(
+            IobCobComplication::class.java,
+            IobCobLongTextComplication::class.java,
             IobCobBasalComplication::class.java,
             IobCobBasalLongTextComplication::class.java,
         )
@@ -122,9 +128,12 @@ object ComplicationUpdatePlanner {
             LoopComplication::class.java,
             LoopIconComplication::class.java,
         )
-    private val reservoirProviders =
+    private val pumpProviders =
         listOf(
             ReservoirComplication::class.java,
             ReservoirRangedValueComplication::class.java,
+            PumpBatteryComplication::class.java,
         )
+    private val phoneProviders = listOf(PhoneBatteryComplication::class.java)
+    private val compactStatusProviders = listOf(AapsStatusComplication::class.java)
 }

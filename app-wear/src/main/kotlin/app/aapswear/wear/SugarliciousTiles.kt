@@ -2,7 +2,6 @@ package app.aapswear.wear
 
 import android.content.Context
 import androidx.wear.protolayout.ColorBuilders.argb
-import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.DimensionBuilders.sp
@@ -16,10 +15,10 @@ import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders.Background
+import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
-import androidx.wear.protolayout.ModifiersBuilders.Transformation
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.Resources
@@ -34,6 +33,11 @@ import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.TrendVisualAsset
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.uishared.TrendDrawableResources
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
 import com.google.common.util.concurrent.Futures
@@ -42,8 +46,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-private const val TILE_RESOURCES_VERSION = "sugarlicious-4"
-private const val TREND_RESOURCE_ID = "ic_trend"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-5"
 
 internal data class WearGlucoseTilePresentation(
     val value: String,
@@ -59,10 +62,12 @@ internal fun wearGlucoseTilePresentation(
     state: TherapyDisplayState?,
     colors: WatchUiColors,
     now: Long,
+    thresholds: CgmThresholds = CgmThresholds.DEFAULT,
 ): WearGlucoseTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val glucose = state?.glucose
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val fresh = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val displayable = TherapyDisplayFormatter.isGlucoseKnown(state) && glucose != null
     val statusColor = when (freshness) {
         Freshness.CURRENT -> colors.accent
         Freshness.DELAYED -> colors.glucoseHigh
@@ -84,12 +89,13 @@ internal fun wearGlucoseTilePresentation(
             statusColor = statusColor,
         )
     }
-    val low = state.target?.lowMgDl ?: 80.0
-    val high = state.target?.highMgDl ?: 160.0
-    val valueColor = when {
-        glucose.valueMgDl < low -> colors.glucoseLow
-        glucose.valueMgDl > high -> colors.glucoseHigh
-        else -> colors.glucoseInRange
+    val valueColor = when (thresholds.classify(glucose.valueMgDl)) {
+        CgmRangeClass.VERY_LOW -> colors.glucoseVeryLow
+        CgmRangeClass.LOW -> colors.glucoseLow
+        CgmRangeClass.IN_RANGE -> colors.glucoseInRange
+        CgmRangeClass.HIGH -> colors.glucoseHigh
+        CgmRangeClass.VERY_HIGH -> colors.glucoseVeryHigh
+        null -> colors.glucoseInRange
     }
     val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, glucose.displayUnit).ifBlank { "—" }
     val unit = if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
@@ -101,7 +107,7 @@ internal fun wearGlucoseTilePresentation(
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         valueColor = valueColor,
         statusColor = statusColor,
-        trend = glucose.trend.takeUnless { it == Trend.UNKNOWN },
+        trend = glucose.trend.takeIf { fresh && it != Trend.UNKNOWN },
     )
 }
 
@@ -116,14 +122,18 @@ internal data class WearTherapyTilePresentation(
 
 internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long): WearTherapyTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
-    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
+    val displayable = state?.let { it.insulin != null || it.carbs != null || it.basal != null } == true
     return WearTherapyTilePresentation(
-        iob = state?.insulin?.totalIob?.takeIf { displayable }?.let { String.format(Locale.US, "%.1f U", it) } ?: "—",
-        cob = state?.carbs?.cobGrams?.takeIf { displayable }?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
-        basal = state?.basal?.currentUnitsPerHour?.takeIf { displayable }?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
+        iob = state?.insulin?.totalIob?.let { String.format(Locale.US, "%.1f U", it) } ?: "—",
+        cob = state?.carbs?.cobGrams?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
+        basal = state?.basal?.currentUnitsPerHour?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         footer = if (displayable) {
-            listOf(TherapyDisplayFormatter.sourceName(state?.source), state?.loop?.status.orEmpty()).filter(String::isNotBlank).joinToString("  ·  ")
+            buildList {
+                add(TherapyDisplayFormatter.sourceName(state?.source))
+                state?.loop?.status?.takeIf { it.isNotBlank() }?.let(::add)
+                if (freshness != Freshness.CURRENT) add("letzter Stand")
+            }.joinToString("  ·  ")
         } else {
             when (freshness) {
                 Freshness.STALE -> "THERAPIEDATEN AUSGEBLENDET"
@@ -137,6 +147,7 @@ internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long)
 }
 
 abstract class SugarliciousTileService : TileService() {
+    protected abstract val tileKind: WearTileKind
     protected abstract fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): com.google.common.util.concurrent.ListenableFuture<Tile> {
@@ -144,12 +155,24 @@ abstract class SugarliciousTileService : TileService() {
             val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
             G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
         }
-        val colors = WearDisplayPreferences.read(this).uiColors
+        val colors = WearTileAppearanceStore.read(this, tileKind)
+        val content = WearTileContentStore.read(this, tileKind)
         return Futures.immediateFuture(
             Tile.Builder()
                 .setResourcesVersion(TILE_RESOURCES_VERSION)
                 .setFreshnessIntervalMillis(60_000L)
-                .setTileTimeline(Timeline.fromLayoutElement(tileContent(state, colors, System.currentTimeMillis())))
+                .setTileTimeline(
+                    Timeline.fromLayoutElement(
+                        when (content) {
+                            WearTileContent.GLUCOSE -> glucoseTileContent(state, colors, System.currentTimeMillis(), WearDisplayPreferences.read(this))
+                            WearTileContent.GRAPH -> graphTileContent(state, colors, System.currentTimeMillis(), WearDisplayPreferences.read(this))
+                            WearTileContent.IOB -> metricTileContent("IOB", state?.insulin?.totalIob, "U", colors.iob, colors, state, System.currentTimeMillis())
+                            WearTileContent.COB -> metricTileContent("COB", state?.carbs?.cobGrams, "g", colors.cob, colors, state, System.currentTimeMillis())
+                            WearTileContent.BASAL -> metricTileContent("BASAL", state?.basal?.currentUnitsPerHour, "U/h", colors.basal, colors, state, System.currentTimeMillis(), 2)
+                            WearTileContent.PUMP -> pumpTileContent(state, colors, System.currentTimeMillis())
+                        },
+                    ),
+                )
                 .build(),
         )
     }
@@ -158,52 +181,67 @@ abstract class SugarliciousTileService : TileService() {
         Futures.immediateFuture(
             Resources.Builder()
                 .setVersion(TILE_RESOURCES_VERSION)
-                .addIdToImageMapping(
-                    TREND_RESOURCE_ID,
-                    ImageResource.Builder()
-                        .setAndroidResourceByResId(
-                            AndroidImageResourceByResId.Builder().setResourceId(R.drawable.ic_trend_arrow).build(),
+                .apply {
+                    TrendVisualAsset.entries.forEach { asset ->
+                        addIdToImageMapping(
+                            trendResourceId(asset),
+                            ImageResource.Builder()
+                                .setAndroidResourceByResId(
+                                    AndroidImageResourceByResId.Builder()
+                                        .setResourceId(TrendDrawableResources.forAsset(asset))
+                                        .build(),
+                                )
+                                .build(),
                         )
-                        .build(),
-                )
+                    }
+                }
                 .build(),
         )
 }
 
 class GlucoseTileService : SugarliciousTileService() {
+    override val tileKind: WearTileKind = WearTileKind.GLUCOSE
+
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
-        val presentation = wearGlucoseTilePresentation(state, colors, now)
+        return glucoseTileContent(state, colors, now, WearDisplayPreferences.read(this))
+    }
+}
+
+private fun glucoseTileContent(
+    state: TherapyDisplayState?,
+    colors: WatchUiColors,
+    now: Long,
+    preferences: WearDisplayPreferences,
+): LayoutElementBuilders.LayoutElement {
+        val presentation = wearGlucoseTilePresentation(state, colors, now, preferences.cgmThresholds)
         val primary = Row.Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .addContent(tileText(presentation.value, 42f, presentation.valueColor, bold = true))
+            .addContent(tileText(presentation.value, 42f * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent), presentation.valueColor, bold = true))
             .apply {
                 val spec = presentation.trend?.let(TrendVisuals::spec)
                 if (spec != null) {
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
-                    repeat(spec.arrowCount) { index ->
-                        if (index > 0) addContent(Spacer.Builder().setWidth(dp(2f)).build())
-                        addContent(tileTrendImage(spec.rotationDegrees, presentation.valueColor))
-                    }
+                    addContent(tileTrendImage(spec, preferences.trendArrowStyle.renderSpec()))
                 }
             }
             .build()
-        val card = roundedTileCard(colors.tileBackground, 14f, primary)
+        val card = roundedTileCard(colors, 14f, primary)
         val column = Column.Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(tileText("SUGARLICIOUS  ·  ${presentation.status}", 11f, presentation.statusColor, bold = true))
-            .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+            .addContent(tileText(presentation.status, 10f, presentation.statusColor, bold = true))
+            .addContent(Spacer.Builder().setHeight(dp(6f)).build())
             .addContent(card)
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-            .addContent(tileText(presentation.meta, 16f, colors.textPrimary, bold = true))
+            .addContent(tileText(presentation.meta.replace("  ·  mg/dL", "") + presentation.footer.substringAfterLast("vor ", "").let { if (it.isBlank()) "" else " · ${it.replace(" min", "m")}" }, 14f, colors.textPrimary, bold = true))
             .addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            .addContent(tileText(presentation.footer, 11f, colors.textSecondary, bold = false))
             .build()
         return tileRoot(colors.background, column)
-    }
 }
 
 class TherapyTileService : SugarliciousTileService() {
+    override val tileKind: WearTileKind = WearTileKind.THERAPY
+
     override fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
         val presentation = wearTherapyTilePresentation(state, now)
         val metrics = Row.Builder()
@@ -230,6 +268,80 @@ class TherapyTileService : SugarliciousTileService() {
     }
 }
 
+private fun metricTileContent(
+    label: String,
+    rawValue: Double?,
+    unit: String,
+    accent: Int,
+    colors: WatchUiColors,
+    state: TherapyDisplayState?,
+    now: Long,
+    decimals: Int = if (label == "COB") 0 else 1,
+): LayoutElementBuilders.LayoutElement {
+    val freshness = TherapyDisplayFormatter.freshness(state, now)
+    val valid = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+    val value = rawValue?.takeIf { valid && it.isFinite() }?.let { String.format(Locale.US, "%.${decimals}f", it) } ?: "—"
+    val status = if (valid && rawValue != null) TherapyDisplayFormatter.freshnessLabel(freshness) else "KEINE DATEN"
+    val column = Column.Builder()
+        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText(label, 13f, accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(value, 42f, colors.textPrimary, bold = true))
+        .addContent(tileText(if (value == "—") "" else unit, 14f, colors.textSecondary, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(status, 10f, if (valid) colors.accent else colors.glucoseLow, bold = true))
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 16f, column))
+}
+
+private fun pumpTileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement {
+    val freshness = TherapyDisplayFormatter.freshness(state, now)
+    val pump = state?.pump
+    val valid = (freshness == Freshness.CURRENT || freshness == Freshness.DELAYED) && pump != null
+    val reservoir = pump?.reservoirUnits?.takeIf { valid }?.let { String.format(Locale.US, "%.0f U", it) } ?: "—"
+    val column = Column.Builder()
+        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText("PUMPE", 13f, colors.accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+        .addContent(tileText(reservoir, 34f, colors.textPrimary, bold = true))
+        .addContent(tileText(pump?.status?.takeIf { valid && it.isNotBlank() } ?: "KEINE DATEN", 11f, colors.textSecondary, bold = true))
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 16f, column))
+}
+
+private fun graphTileContent(
+    state: TherapyDisplayState?,
+    colors: WatchUiColors,
+    now: Long,
+    preferences: WearDisplayPreferences,
+): LayoutElementBuilders.LayoutElement {
+    val cutoff = now - preferences.graphHours * 60L * 60_000L
+    val samples = state?.glucoseHistory.orEmpty().filter { it.measuredAtEpochMs in cutoff..now }.sortedBy { it.measuredAtEpochMs }.takeLast(18)
+    val dots = Row.Builder().setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER).apply {
+        samples.forEach { sample ->
+            val color = when (preferences.cgmThresholds.classify(sample.valueMgDl)) {
+                CgmRangeClass.VERY_LOW, CgmRangeClass.LOW -> colors.glucoseLow
+                CgmRangeClass.HIGH, CgmRangeClass.VERY_HIGH -> colors.glucoseHigh
+                else -> colors.glucoseInRange
+            }
+            addContent(
+                Box.Builder().setWidth(dp(7f)).setHeight(dp(7f)).setModifiers(
+                    Modifiers.Builder().setBackground(
+                        Background.Builder().setColor(argb(color)).setCorner(Corner.Builder().setRadius(dp(4f)).build()).build(),
+                    ).build(),
+                ).build(),
+            )
+            addContent(Spacer.Builder().setWidth(dp(2f)).build())
+        }
+    }.build()
+    val column = Column.Builder().setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+        .addContent(tileText("CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
+        .addContent(Spacer.Builder().setHeight(dp(18f)).build())
+        .addContent(if (samples.isEmpty()) tileText("KEINE CGM-HISTORIE", 12f, colors.textSecondary, bold = true) else dots)
+        .build()
+    return tileRoot(colors.background, roundedTileCard(colors, 18f, column))
+}
+
 private fun metricCard(label: String, value: String, accent: Int, colors: WatchUiColors): Box {
     val content = Column.Builder()
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
@@ -249,13 +361,14 @@ private fun metricCard(label: String, value: String, accent: Int, colors: WatchU
                         .setCorner(Corner.Builder().setRadius(dp(18f)).build())
                         .build(),
                 )
+                .setBorder(Border.Builder().setWidth(dp(1f)).setColor(argb(colors.tileBorder)).build())
                 .build(),
         )
         .addContent(content)
         .build()
 }
 
-private fun roundedTileCard(background: Int, padding: Float, child: LayoutElementBuilders.LayoutElement): Box =
+private fun roundedTileCard(colors: WatchUiColors, padding: Float, child: LayoutElementBuilders.LayoutElement): Box =
     Box.Builder()
         .setWidth(expand())
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
@@ -263,10 +376,11 @@ private fun roundedTileCard(background: Int, padding: Float, child: LayoutElemen
             Modifiers.Builder()
                 .setBackground(
                     Background.Builder()
-                        .setColor(argb(background))
+                        .setColor(argb(colors.tileBackground))
                         .setCorner(Corner.Builder().setRadius(dp(28f)).build())
                         .build(),
                 )
+                .setBorder(Border.Builder().setWidth(dp(1f)).setColor(argb(colors.tileBorder)).build())
                 .setPadding(Padding.Builder().setAll(dp(padding)).build())
                 .build(),
         )
@@ -288,18 +402,15 @@ private fun tileRoot(background: Int, child: LayoutElementBuilders.LayoutElement
         .addContent(child)
         .build()
 
-private fun tileTrendImage(rotationDegrees: Float, color: Int): Image =
+private fun tileTrendImage(spec: app.aapswear.model.TrendVisualSpec, style: app.aapswear.model.TrendArrowRenderSpec): Image =
     Image.Builder()
-        .setResourceId(TREND_RESOURCE_ID)
-        .setWidth(dp(28f))
-        .setHeight(dp(26f))
-        .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
-        .setModifiers(
-            Modifiers.Builder()
-                .setTransformation(Transformation.Builder().setRotation(degrees(rotationDegrees)).build())
-                .build(),
-        )
+        .setResourceId(trendResourceId(spec.asset))
+        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale * spec.aspectRatio))
+        .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale))
+        .setColorFilter(ColorFilter.Builder().setTint(argb(style.fillColor)).build())
         .build()
+
+private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"
 
 private fun tileText(value: String, size: Float, color: Int, bold: Boolean): Text =
     Text.Builder()

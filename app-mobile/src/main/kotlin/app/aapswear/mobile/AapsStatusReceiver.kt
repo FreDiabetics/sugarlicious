@@ -147,7 +147,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
 }
 
 suspend fun publishState(context: Context, state: TherapyDisplayState) {
-    val payload = WearProtocol.encode(state)
+    val payload = WearProtocol.encodeStateForTransport(state)
     val request = PutDataRequest.create(WearProtocol.STATE_PATH)
         .setData(payload)
         .setUrgent()

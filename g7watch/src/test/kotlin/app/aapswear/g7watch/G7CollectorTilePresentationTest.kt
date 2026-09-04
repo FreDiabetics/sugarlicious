@@ -22,14 +22,15 @@ class G7CollectorTilePresentationTest {
     )
 
     @Test
-    fun `no data stale invalid and sensor errors keep neutral glucose card`() {
+    fun `stale keeps validated value while no data invalid and sensor errors stay neutral`() {
         val noData = g7TilePresentation(null, colors, now)
         assertEquals(G7_TILE_CARD_BACKGROUND, noData.cardBackground)
         assertNull(noData.trend)
 
         val stale = g7TilePresentation(reading(120.0, now - G7_SIGNAL_LOSS_AFTER_MS), colors, now)
-        assertEquals("—", stale.value)
+        assertEquals("120", stale.value)
         assertEquals(G7_TILE_CARD_BACKGROUND, stale.cardBackground)
+        assertEquals(G7_TILE_TEXT_PRIMARY, stale.cardForeground)
         assertNull(stale.trend)
 
         val invalid = g7TilePresentation(reading(120.0, status = CgmReadingStatus.INVALID), colors, now)
@@ -42,20 +43,23 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `only glucose card changes color outside target range`() {
-        val low = g7TilePresentation(reading(79.0), colors, now)
+    fun `glucose card stays neutral while value follows range color`() {
+        val low = g7TilePresentation(reading(69.0), colors, now)
         val normal = g7TilePresentation(reading(123.0), colors, now)
-        val high = g7TilePresentation(reading(161.0), colors, now)
+        val high = g7TilePresentation(reading(181.0), colors, now)
 
-        assertEquals(colors.cgmLow, low.cardBackground)
+        assertEquals(G7_TILE_CARD_BACKGROUND, low.cardBackground)
         assertEquals(G7_TILE_CARD_BACKGROUND, normal.cardBackground)
-        assertEquals(colors.cgmHigh, high.cardBackground)
+        assertEquals(G7_TILE_CARD_BACKGROUND, high.cardBackground)
+        assertEquals(colors.cgmLow, low.cardForeground)
+        assertEquals(G7_TILE_TEXT_PRIMARY, normal.cardForeground)
+        assertEquals(colors.cgmHigh, high.cardForeground)
         assertEquals(G7_TILE_BACKGROUND, 0xFF181818.toInt())
         assertEquals(G7_TILE_CARD_BORDER, 0xFF404040.toInt())
     }
 
     @Test
-    fun `tile shows vector trend delta and age without glucose unit text`() {
+    fun `tile shows vector trend delta unit and compact age without source`() {
         val presentation = g7TilePresentation(
             reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
             colors,
@@ -65,8 +69,11 @@ class G7CollectorTilePresentationTest {
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
         assertTrue(presentation.tileMeta.contains("+5"))
-        assertTrue(presentation.tileMeta.contains("vor 2 min"))
-        assertFalse(presentation.tileMeta.contains("mg/dL"))
+        assertTrue(presentation.tileMeta.contains("2m"))
+        assertTrue(presentation.tileMeta.contains("mg/dL"))
+        assertFalse(presentation.tileMeta.contains("Watch Direct"))
+        assertFalse(presentation.tileMeta.contains("min"))
+        assertFalse(presentation.tileMeta.contains("Aktuell", ignoreCase = true))
     }
 
     @Test
@@ -84,8 +91,8 @@ class G7CollectorTilePresentationTest {
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)
-        assertEquals("Δ +5", up.meta)
-        assertEquals("gerade", up.age)
+        assertEquals("+5 mg/dL · 0m", up.meta)
+        assertEquals("", up.age)
         assertEquals(up.cardBackground, up.background)
         assertEquals(up.cardForeground, up.foreground)
     }

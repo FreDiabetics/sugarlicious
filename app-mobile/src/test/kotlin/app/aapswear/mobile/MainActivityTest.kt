@@ -230,7 +230,9 @@ class MainActivityTest {
         assertFalse(settingsText.contains("Unabhängiges Projekt"))
         assertTrue(settingsText.contains("GitHub"))
         assertTrue(settingsText.contains("E-Mail"))
-        assertFalse(settingsText.contains("Watchfaces"))
+        assertFalse(settingsText.contains("Wear OS und Watchfaces"))
+        assertFalse(settingsText.contains("Treatments und Nightscout"))
+        assertFalse(settingsText.contains("Datenquellen"))
 
         activity.findViewById<View>(R.id.dashboard_github).performClick()
         val githubIntent = shadowOf(activity).nextStartedActivity
@@ -278,7 +280,15 @@ class MainActivityTest {
 
         var headers = categories()
         assertEquals(
-            listOf("general", "display", "cgm_graph", "notification", "data", "diagnostics", "about"),
+            listOf(
+                "general",
+                "glucose_ranges",
+                "overview_graphs",
+                "notifications",
+                "data",
+                "diagnostics",
+                "about",
+            ),
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { contentAfter(it).visibility == View.GONE })
@@ -304,12 +314,12 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
-    @Test fun `overview is fixed and watch menu has only its inline header`() {
+    @Test fun `overview remains scrollable and watch menu has only its inline header`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
         val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
 
-        assertFalse(scroll.isUserScrollEnabled)
+        assertTrue(scroll.isUserScrollEnabled)
         assertEquals(View.GONE, activity.findViewById<View>(R.id.scroll_fade).visibility)
 
         activity.findViewById<View>(R.id.watch_fixed_header)

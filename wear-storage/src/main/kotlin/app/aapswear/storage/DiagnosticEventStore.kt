@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.DiagnosticSeverity
+import app.aapswear.model.AppClock
+import app.aapswear.model.SystemAppClock
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -16,7 +18,10 @@ import kotlinx.serialization.json.Json
 private val Context.diagnosticEventDataStore by preferencesDataStore("diagnostic_events")
 
 /** A local, bounded diagnostic database using the same event format on Mobile and Wear. */
-class DiagnosticEventStore(context: Context) {
+class DiagnosticEventStore(
+    context: Context,
+    private val clock: AppClock = SystemAppClock,
+) {
     private val appContext = context.applicationContext
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val serializer = ListSerializer(DiagnosticEvent.serializer())
@@ -33,7 +38,7 @@ class DiagnosticEventStore(context: Context) {
         severity: DiagnosticSeverity = DiagnosticSeverity.INFO,
         message: String,
         metadata: Map<String, Any?> = emptyMap(),
-        occurredAtEpochMs: Long = System.currentTimeMillis(),
+        occurredAtEpochMs: Long = clock.nowEpochMs(),
     ) {
         append(
             listOf(
@@ -54,7 +59,7 @@ class DiagnosticEventStore(context: Context) {
 
     suspend fun append(
         incoming: List<DiagnosticEvent>,
-        nowEpochMs: Long = System.currentTimeMillis(),
+        nowEpochMs: Long = clock.nowEpochMs(),
     ) {
         if (incoming.isEmpty()) return
         appContext.diagnosticEventDataStore.edit { preferences ->

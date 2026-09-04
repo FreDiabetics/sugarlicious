@@ -4,12 +4,17 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
-import android.graphics.Paint
 import android.graphics.drawable.Icon
+import android.content.res.Configuration
 import androidx.wear.watchface.complications.data.MonochromaticImage
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TrendArrowStyle
+import app.aapswear.model.TrendArrowStyleOverride
+import app.aapswear.storage.TrendArrowStylePreferences
+import app.aapswear.uishared.TrendDrawableResources
 import kotlin.math.roundToInt
 
 /** Renders the exact Sugarlicious trend vector used by the phone overview. */
@@ -18,9 +23,98 @@ internal object TrendComplicationIcon {
         context: Context,
         trend: Trend,
         sizePx: Int = 72,
+        catalogId: Int? = null,
+        stylePreferencesName: String = "watch_display",
     ): MonochromaticImage? {
-        val bitmap = render(context, trend, sizePx) ?: return null
+        val systemScale = context.getSharedPreferences("watch_display", Context.MODE_PRIVATE)
+            .getInt("trend_scale_percent", GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+            .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+        val appearance = context.getSharedPreferences("complication_appearance", Context.MODE_PRIVATE)
+        val scale = catalogId?.let { id ->
+            appearance.getInt("$id.trendScale", systemScale)
+        } ?: systemScale
+        val offsetX = catalogId?.let { appearance.getInt("$it.trendX", 0) } ?: 0
+        val offsetY = catalogId?.let { appearance.getInt("$it.trendY", 0) } ?: 0
+        val mode = if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
+        val parent = TrendArrowStylePreferences.read(
+            context.getSharedPreferences(stylePreferencesName, Context.MODE_PRIVATE), mode, Color.WHITE,
+            legacyScaleKey = if (stylePreferencesName == "watch_display") "trend_scale_percent" else null,
+        )
+        val override = catalogId?.let { id ->
+            TrendArrowStyleOverride(
+                fillColor = appearance.getInt("$id.trendFill", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                outlineEnabled = if (appearance.contains("$id.trendOutlineEnabled")) appearance.getBoolean("$id.trendOutlineEnabled", false) else null,
+                outlineColor = appearance.getInt("$id.trendOutlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                outlineThicknessDp = appearance.getFloat("$id.trendOutlineThickness", Float.NaN).takeUnless { it.isNaN() },
+                sizePercent = if (appearance.contains("$id.trendScale")) scale else null,
+                alpha = appearance.getFloat("$id.trendAlpha", Float.NaN).takeUnless { it.isNaN() },
+            )
+        } ?: TrendArrowStyleOverride()
+        val bitmap = renderScaled(context, trend, sizePx, scale, offsetX, offsetY, override.resolve(parent)) ?: return null
         return MonochromaticImage.Builder(Icon.createWithBitmap(bitmap)).build()
+    }
+
+    /**
+     * Keeps a stable canvas so every direction retains identical geometry. The percentage is
+     * calibrated directly: 100% equals [referenceHeightPx], 70% is 0.7x and 200% is 2x.
+     * The stable 2x canvas prevents clipping at the maximum while making every slider step visible.
+     */
+    internal fun renderScaled(
+        context: Context,
+        trend: Trend,
+        referenceHeightPx: Int,
+        scalePercent: Int,
+        offsetXPercent: Int = 0,
+        offsetYPercent: Int = 0,
+        style: TrendArrowStyle = TrendArrowStyle.defaults(AppearanceMode.DARK, Color.WHITE),
+    ): Bitmap? {
+        val spec = TrendVisuals.spec(trend) ?: return null
+        val canvasHeight = referenceHeightPx * 2
+        val canvasWidth = (canvasHeight * spec.aspectRatio).roundToInt().coerceAtLeast(1)
+        val targetHeight = (canvasHeight * glyphFillFraction(scalePercent)).roundToInt().coerceAtLeast(1)
+        val targetWidth = (targetHeight * spec.aspectRatio).roundToInt().coerceAtLeast(1)
+        val bitmap = Bitmap.createBitmap(canvasWidth, canvasHeight, Bitmap.Config.ARGB_8888)
+        val drawable = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate() ?: return null
+        val render = style.copy(sizePercent = scalePercent).renderSpec()
+        drawable.setTint(render.fillColor)
+        val left = ((canvasWidth - targetWidth) / 2f + referenceHeightPx * offsetXPercent.coerceIn(-50, 50) / 100f).roundToInt()
+        val top = ((canvasHeight - targetHeight) / 2f + referenceHeightPx * offsetYPercent.coerceIn(-50, 50) / 100f).roundToInt()
+        drawable.setBounds(left, top, left + targetWidth, top + targetHeight)
+        val canvas = Canvas(bitmap)
+        if (render.outlineThicknessDp > 0f) {
+            val outline = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate()
+            outline?.setTint(render.outlineColor)
+            val px = render.outlineThicknessDp * context.resources.displayMetrics.density
+            listOf(-px to 0f, px to 0f, 0f to -px, 0f to px).forEach { (x, y) ->
+                val save = canvas.save(); canvas.translate(x, y); outline?.bounds = drawable.bounds; outline?.draw(canvas); canvas.restoreToCount(save)
+            }
+        }
+        drawable.draw(canvas)
+        return bitmap
+    }
+
+    internal fun glyphFillFraction(scalePercent: Int): Float {
+        return GlucoseTrendSizing.scaleFactor(scalePercent) / 2f
+    }
+
+    /** Removes the stable host canvas padding when a glyph participates in a text layout. */
+    internal fun cropTransparentPadding(bitmap: Bitmap): Bitmap {
+        var left = bitmap.width
+        var top = bitmap.height
+        var right = -1
+        var bottom = -1
+        for (y in 0 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                if (Color.alpha(bitmap.getPixel(x, y)) != 0) {
+                    left = minOf(left, x)
+                    top = minOf(top, y)
+                    right = maxOf(right, x)
+                    bottom = maxOf(bottom, y)
+                }
+            }
+        }
+        return if (right < left || bottom < top) bitmap
+        else Bitmap.createBitmap(bitmap, left, top, right - left + 1, bottom - top + 1)
     }
 
     fun render(
@@ -29,29 +123,13 @@ internal object TrendComplicationIcon {
         sizePx: Int,
     ): Bitmap? {
         val spec = TrendVisuals.spec(trend) ?: return null
-        val drawable = context.getDrawable(R.drawable.ic_trend_arrow)?.mutate() ?: return null
+        val drawable = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate() ?: return null
         drawable.setTint(Color.WHITE)
-        val unit = (sizePx * if (spec.arrowCount == 2) 0.72f else 0.86f).roundToInt().coerceAtLeast(1)
-        val base = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        val width = (sizePx * spec.aspectRatio).roundToInt().coerceAtLeast(1)
+        val base = Bitmap.createBitmap(width, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(base)
-
-        fun drawArrow(offset: Float) {
-            canvas.save()
-            canvas.rotate(spec.rotationDegrees, sizePx / 2f, sizePx / 2f)
-            val left = ((sizePx - unit) / 2f + offset).roundToInt()
-            val top = ((sizePx - unit) / 2f).roundToInt()
-            drawable.setBounds(left, top, left + unit, top + unit)
-            drawable.draw(canvas)
-            canvas.restore()
-        }
-
-        if (spec.arrowCount == 2) {
-            val gap = sizePx * 0.12f
-            drawArrow(-gap)
-            drawArrow(gap)
-        } else {
-            drawArrow(0f)
-        }
+        drawable.setBounds(0, 0, width, sizePx)
+        drawable.draw(canvas)
         return base
     }
 }

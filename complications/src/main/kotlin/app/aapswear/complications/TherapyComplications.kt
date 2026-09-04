@@ -28,6 +28,9 @@ import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DataCapability
@@ -36,12 +39,16 @@ import app.aapswear.model.DeviceState
 import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
+import app.aapswear.model.LoopVisualState
+import app.aapswear.model.loopPresentation
 import app.aapswear.model.ProfileState
 import app.aapswear.model.PumpState
+import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -90,6 +97,15 @@ enum class ProviderKind {
     DATE,
 }
 
+internal fun complicationImageSize(kind: ProviderKind): Pair<Int, Int> = when (kind) {
+    // Every WFF consumer presents this as a wide chart. Rendering the bitmap in that native
+    // aspect ratio prevents WFF from stretching circular dots and horizontal range bands.
+    ProviderKind.GRAPH -> 400 to 140
+    ProviderKind.GRAPH_LARGE -> 400 to 240
+    ProviderKind.GLUCOSE_IMAGE -> 400 to 200
+    else -> 400 to 240
+}
+
 abstract class TherapyComplicationService(
     private val kind: ProviderKind,
     private val declaredType: ComplicationType? = null,
@@ -105,6 +121,7 @@ abstract class TherapyComplicationService(
             ProviderKind.BASAL -> SugarliciousComplicationIds.BASAL
             ProviderKind.IOB -> SugarliciousComplicationIds.IOB
             ProviderKind.COB -> SugarliciousComplicationIds.COB
+            ProviderKind.IOB_COB -> SugarliciousComplicationIds.IOB_COB
             ProviderKind.GLUCOSE_TREND -> SugarliciousComplicationIds.GLUCOSE_TREND
             ProviderKind.GLUCOSE_PLUS_DELTA -> SugarliciousComplicationIds.GLUCOSE_PLUS_DELTA
             ProviderKind.GLUCOSE_DELTA -> SugarliciousComplicationIds.TIME_DELTA
@@ -121,6 +138,9 @@ abstract class TherapyComplicationService(
             else -> null
         }
 
+    private val appearanceCatalogId: Int?
+        get() = catalogId?.let(SugarliciousComplicationIds::baseId)
+
     override fun onComplicationActivated(complicationInstanceId: Int, type: ComplicationType) {
         super.onComplicationActivated(complicationInstanceId, type)
         ActiveComplicationRegistry.activate(this, complicationInstanceId, catalogId)
@@ -132,7 +152,7 @@ abstract class TherapyComplicationService(
     }
 
     override fun getPreviewData(type: ComplicationType): ComplicationData =
-        build(declaredType ?: type, preview(), isPreview = true)
+        build(declaredType ?: type, preview())
 
     override suspend fun onComplicationRequest(
         request: ComplicationRequest,
@@ -148,21 +168,21 @@ abstract class TherapyComplicationService(
     private fun build(
         type: ComplicationType,
         state: TherapyDisplayState?,
-        isPreview: Boolean = false,
     ): ComplicationData {
         val now = System.currentTimeMillis()
+        val thresholds = readCgmThresholds()
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, now)
-        val displayable =
-            freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
-        val therapyState = state.takeIf { displayable }
+        val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+        val displayable = TherapyDisplayFormatter.isGlucoseKnown(state)
+        val therapyState = state
 
         val glucoseText =
             if (displayable && glucose != null) glucose(glucose) else DASH
         val trendText =
-            if (displayable && glucose != null) arrow(glucose.trend) else ""
+            if (fresh && glucose != null) arrow(glucose.trend) else ""
         val deltaText =
-            if (displayable && glucose != null) {
+            if (fresh && glucose != null) {
                 signed(glucose.deltaMgDl, glucose.displayUnit)
             } else {
                 ""
@@ -186,6 +206,7 @@ abstract class TherapyComplicationService(
             ProviderKind.GLUCOSE_AGE -> SugarliciousComplicationIds.GLUCOSE_AGE
             ProviderKind.IOB -> SugarliciousComplicationIds.IOB
             ProviderKind.COB -> SugarliciousComplicationIds.COB
+            ProviderKind.IOB_COB -> SugarliciousComplicationIds.IOB_COB
             ProviderKind.IOB_COB_BASAL -> SugarliciousComplicationIds.IOB_COB_BASAL
             ProviderKind.BASAL -> SugarliciousComplicationIds.BASAL
             ProviderKind.LOOP -> SugarliciousComplicationIds.LOOP
@@ -194,7 +215,7 @@ abstract class TherapyComplicationService(
             else -> null
         }
         val presentation = presentationId?.let {
-            ComplicationPresentationFormatter.format(it, state, now)
+            ComplicationPresentationFormatter.format(it, state, now, thresholds)
         }
 
         val pair: Pair<String, String> = presentation?.let {
@@ -237,23 +258,14 @@ abstract class TherapyComplicationService(
         )
 
         if (kind == ProviderKind.LOOP && type == ComplicationType.MONOCHROMATIC_IMAGE) {
-            val image = MonochromaticImage.Builder(
-                Icon.createWithResource(
-                    this,
-                    if (loopRunning(therapyState?.loop?.status)) {
-                        R.drawable.ic_complication_loop_closed
-                    } else {
-                        R.drawable.ic_complication_loop_open
-                    },
-                ),
-            ).build()
+            val image = loopComplicationIcon(therapyState)
             return MonochromaticImageComplicationData.Builder(image, description)
                 .setTapAction(tap)
                 .build()
         }
 
         if (kind == ProviderKind.TIR && Build.VERSION.SDK_INT >= 33) {
-            val stats = tirStats(state, now)
+            val stats = tirStats(state, now, thresholds)
             if (type == ComplicationType.GOAL_PROGRESS) {
                 return GoalProgressComplicationData.Builder(
                     stats.inRangePercent,
@@ -264,11 +276,12 @@ abstract class TherapyComplicationService(
                     .build()
             }
             if (type == ComplicationType.WEIGHTED_ELEMENTS) {
+                val graphColors = readGraphColors()
                 val elements = buildList {
-                    if (stats.lowPercent > 0f) add(WeightedElementsComplicationData.Element(stats.lowPercent, Color.rgb(244, 67, 54)))
-                    if (stats.inRangePercent > 0f) add(WeightedElementsComplicationData.Element(stats.inRangePercent, Color.rgb(76, 175, 80)))
-                    if (stats.highPercent > 0f) add(WeightedElementsComplicationData.Element(stats.highPercent, Color.rgb(255, 152, 0)))
-                    if (isEmpty()) add(WeightedElementsComplicationData.Element(1f, Color.GRAY))
+                    if (stats.lowPercent > 0f) add(WeightedElementsComplicationData.Element(stats.lowPercent, graphColors.cgmLow))
+                    if (stats.inRangePercent > 0f) add(WeightedElementsComplicationData.Element(stats.inRangePercent, graphColors.cgmInRange))
+                    if (stats.highPercent > 0f) add(WeightedElementsComplicationData.Element(stats.highPercent, graphColors.cgmHigh))
+                    if (isEmpty()) add(WeightedElementsComplicationData.Element(1f, graphColors.axisLabel))
                 }
                 return WeightedElementsComplicationData.Builder(elements, description)
                     .setText(PlainComplicationText.Builder(stats.text).build())
@@ -287,7 +300,6 @@ abstract class TherapyComplicationService(
                     state = therapyState,
                     kind = kind,
                     now = now,
-                    previewOnly = isPreview,
                 ),
             )
             return if (type == ComplicationType.PHOTO_IMAGE) {
@@ -352,8 +364,9 @@ abstract class TherapyComplicationService(
                         )
                     }
                     presentation?.trend?.let { trend ->
-                        TrendComplicationIcon.monochromaticImage(this, trend)?.let(builder::setMonochromaticImage)
+                        TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(builder::setMonochromaticImage)
                     }
+                    complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
 
                     return builder.build()
                 }
@@ -449,12 +462,8 @@ abstract class TherapyComplicationService(
             kind == ProviderKind.LONG_STATUS ||
             type == ComplicationType.LONG_TEXT
         ) {
-            val longText =
-                if (kind == ProviderKind.IOB_COB_BASAL) combinedTherapyText(therapyState)
-                else presentation?.text ?: pair.first
-            val longTitle =
-                if (kind == ProviderKind.IOB_COB_BASAL) "Basal · IOB · COB"
-                else presentation?.title ?: pair.second.takeIf { presentation == null }
+            val longText = presentation?.text ?: pair.first
+            val longTitle = presentation?.title ?: pair.second.takeIf { presentation == null }
             val builder = LongTextComplicationData.Builder(
                 PlainComplicationText.Builder(longText).build(),
                 description,
@@ -463,21 +472,24 @@ abstract class TherapyComplicationService(
                 builder.setTitle(PlainComplicationText.Builder(it).build())
             }
             presentation?.trend?.let { trend ->
-                TrendComplicationIcon.monochromaticImage(this, trend)?.let(builder::setMonochromaticImage)
+                TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(builder::setMonochromaticImage)
             }
             complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
             return builder.build()
         }
 
+        val shortText = presentation?.text ?: pair.first
         val shortBuilder = ShortTextComplicationData.Builder(
-            PlainComplicationText.Builder((presentation?.text ?: pair.first).take(16)).build(),
+            PlainComplicationText.Builder(
+                if (kind == ProviderKind.IOB_COB_BASAL) shortText else shortText.take(16),
+            ).build(),
             description,
         ).setTapAction(tap)
         (presentation?.title ?: pair.second.takeIf { presentation == null && (kind == ProviderKind.IOB_COB_BASAL || kind == ProviderKind.RESERVOIR) })?.let {
-            shortBuilder.setTitle(PlainComplicationText.Builder(it.take(16)).build())
+            shortBuilder.setTitle(PlainComplicationText.Builder(if (kind == ProviderKind.IOB_COB_BASAL) it else it.take(16)).build())
         }
         presentation?.trend?.let { trend ->
-            TrendComplicationIcon.monochromaticImage(this, trend)?.let(shortBuilder::setMonochromaticImage)
+            TrendComplicationIcon.monochromaticImage(this, trend, catalogId = appearanceCatalogId)?.let(shortBuilder::setMonochromaticImage)
         }
         complicationIcon(kind, therapyState)?.let(shortBuilder::setMonochromaticImage)
         return shortBuilder.build()
@@ -487,11 +499,9 @@ abstract class TherapyComplicationService(
         state: TherapyDisplayState?,
         kind: ProviderKind,
         now: Long,
-        previewOnly: Boolean,
     ): Bitmap {
         val valueOnly = kind == ProviderKind.GLUCOSE_IMAGE
-        val width = 400
-        val height = if (valueOnly) 200 else 240
+        val (width, height) = complicationImageSize(kind)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
@@ -512,7 +522,6 @@ abstract class TherapyComplicationService(
             height = height,
             now = now,
             windowMs = windowMs,
-            previewOnly = previewOnly,
         )
         return bitmap
     }
@@ -553,14 +562,14 @@ abstract class TherapyComplicationService(
         height: Int,
         now: Long,
         windowMs: Long,
-        previewOnly: Boolean,
     ) {
         val width = canvas.width
         val glucose = state?.glucose
         val colors = readGraphColors()
         val graphStyle = readGraphStyle()
-        val targetLow = state?.target?.lowMgDl ?: DISPLAY_LOW_MGDL
-        val targetHigh = state?.target?.highMgDl ?: DISPLAY_HIGH_MGDL
+        val thresholds = readCgmThresholds()
+        val targetLow = thresholds.lowMgDl
+        val targetHigh = thresholds.highMgDl
         val density = resources.displayMetrics.density
         val plotLeft = 1f
         val plotRight = width - 1f
@@ -577,43 +586,59 @@ abstract class TherapyComplicationService(
         fun yFor(valueMgDl: Double): Float =
             plotBottom - (GlucoseGraphScale.ratio(valueMgDl) * plotHeight).toFloat()
 
-        if (!previewOnly) {
-            val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.FILL
+        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val cutoff = timeWindow.startEpochMs
+        val merged = linkedMapOf<Long, GlucoseSample>()
+        state?.glucoseHistory.orEmpty().forEach { merged[it.measuredAtEpochMs] = it }
+        glucose?.let {
+            merged[it.measuredAtEpochMs] =
+                GlucoseSample(
+                    valueMgDl = it.valueMgDl,
+                    measuredAtEpochMs = it.measuredAtEpochMs,
+                    source = state.source,
+                    sensorId = it.sensorId,
+                    sessionId = it.sessionId,
+                    sequenceNumber = it.sequenceNumber,
+                    receivedAtEpochMs = it.receivedAtEpochMs,
+                    quality = it.quality,
+                )
+        }
+        val samples = merged.values.asSequence()
+            .filter {
+                it.measuredAtEpochMs in cutoff..timeWindow.endEpochMs &&
+                    it.quality == CgmQuality.VALID &&
+                    it.valueMgDl in 20.0..1000.0
             }
+            .sortedBy { it.measuredAtEpochMs }
+            .toList()
+        val excursion = CgmGraphPolicy.rangeExcursion(samples, targetLow, targetHigh)
+
+        val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL
+        }
+        if (excursion == RangeExcursion.HIGH) {
             targetPaint.color = colors.rangeHigh
             canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), targetPaint)
-            targetPaint.color = colors.rangeInRange
-            canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), targetPaint)
+        }
+        targetPaint.color = colors.rangeInRange
+        canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), targetPaint)
+        if (excursion == RangeExcursion.LOW) {
             targetPaint.color = colors.rangeLow
             canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, targetPaint)
         }
 
         val targetLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.divider
             style = Paint.Style.STROKE
             strokeWidth = 1.35f * density
         }
+        targetLinePaint.color = colors.highLine
         canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)
+        targetLinePaint.color = colors.lowLine
         canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), targetLinePaint)
-
-        val cutoff = now - windowMs
-        val merged = linkedMapOf<Long, GlucoseSample>()
-        state?.glucoseHistory.orEmpty().forEach { merged[it.measuredAtEpochMs] = it }
-        glucose?.let {
-            merged[it.measuredAtEpochMs] = GlucoseSample(it.valueMgDl, it.measuredAtEpochMs)
-        }
-        val samples = merged.values.asSequence()
-            .filter {
-                it.measuredAtEpochMs in cutoff..(now + FUTURE_TOLERANCE_MS) &&
-                    it.valueMgDl in 20.0..1000.0
-            }
-            .sortedBy { it.measuredAtEpochMs }
-            .toList()
 
         if (samples.isEmpty()) {
             val emptyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = colors.divider
+                color = colors.axisLabel
                 textAlign = Paint.Align.CENTER
                 textSize = 26f
             }
@@ -621,10 +646,8 @@ abstract class TherapyComplicationService(
             return
         }
 
-        fun xFor(timestamp: Long): Float {
-            val fraction = ((timestamp - cutoff).toDouble() / windowMs.toDouble()).coerceIn(0.0, 1.0)
-            return plotLeft + (fraction * (plotRight - plotLeft)).toFloat()
-        }
+        fun xFor(timestamp: Long): Float =
+            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -678,6 +701,11 @@ abstract class TherapyComplicationService(
             cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
             divider = preferences.getInt("graph_color_divider", defaults.divider),
+            highLine = preferences.getInt("graph_color_high_line", defaults.highLine),
+            lowLine = preferences.getInt("graph_color_low_line", defaults.lowLine),
+            axisLabel = preferences.getInt("graph_color_axis_label", defaults.axisLabel),
+            axisTick = preferences.getInt("graph_color_axis_tick", defaults.axisTick),
+            nowLine = preferences.getInt("graph_color_now_line", defaults.nowLine),
             outline = preferences.getInt("graph_color_outline", defaults.outline),
         )
     }
@@ -713,14 +741,26 @@ abstract class TherapyComplicationService(
         )
     }
 
+    private fun readCgmThresholds(): CgmThresholds {
+        val preferences = getSharedPreferences("watch_display", Context.MODE_PRIVATE)
+        return CgmThresholds(
+            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
+            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
+            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
+            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
+        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+    }
+
     private fun complicationIcon(
         kind: ProviderKind,
         state: TherapyDisplayState?,
     ): MonochromaticImage? {
         val resource = when (kind) {
+            ProviderKind.GLUCOSE -> R.drawable.ic_complication_xdrip
             ProviderKind.BASAL -> basalIconResource(state?.basal)
             ProviderKind.IOB -> R.drawable.ic_complication_iob
             ProviderKind.COB -> R.drawable.ic_complication_carbs
+            ProviderKind.LOOP -> return loopComplicationIcon(state)
             else -> return null
         }
         return MonochromaticImage.Builder(Icon.createWithResource(this, resource)).build()
@@ -743,8 +783,16 @@ abstract class TherapyComplicationService(
         }
     }
 
-    private fun loopRunning(status: String?): Boolean =
-        status?.lowercase() in setOf("enacted", "closed", "loop", "on", "enabled", "suggested")
+    private fun loopComplicationIcon(state: TherapyDisplayState?): MonochromaticImage {
+        val resource = when (loopPresentation(state).visualState) {
+            LoopVisualState.CLOSED -> R.drawable.ic_complication_loop_closed
+            LoopVisualState.SUSPENDED -> R.drawable.ic_complication_loop_suspended
+            LoopVisualState.DEACTIVATED,
+            LoopVisualState.UNKNOWN -> R.drawable.ic_complication_loop_open
+            LoopVisualState.PUMP_SUSPENDED -> R.drawable.ic_complication_pump_suspended
+        }
+        return MonochromaticImage.Builder(Icon.createWithResource(this, resource)).build()
+    }
     private fun glucoseColor(glucose: GlucoseState?): Int =
         when {
             glucose == null -> Color.GRAY
@@ -763,18 +811,23 @@ abstract class TherapyComplicationService(
         val text: String get() = if (hasData) "${inRangePercent.toInt()}%" else DASH
     }
 
-    private fun tirStats(state: TherapyDisplayState?, now: Long): TirStats {
+    private fun tirStats(
+        state: TherapyDisplayState?,
+        now: Long,
+        thresholds: CgmThresholds,
+    ): TirStats {
         val samples = state?.glucoseHistory.orEmpty().filter {
             it.measuredAtEpochMs in (now - TIR_WINDOW_MS)..(now + FUTURE_TOLERANCE_MS)
         }
         if (samples.isEmpty()) return TirStats(0f, 0f, 0f, false)
         val total = samples.size.toFloat()
-        val low = samples.count { it.valueMgDl < TIR_LOW_MGDL } * 100f / total
-        val high = samples.count { it.valueMgDl > TIR_HIGH_MGDL } * 100f / total
+        val low = samples.count { it.valueMgDl < thresholds.lowMgDl } * 100f / total
+        val high = samples.count { it.valueMgDl > thresholds.highMgDl } * 100f / total
         return TirStats(low, (100f - low - high).coerceIn(0f, 100f), high, true)
     }
 
-    private fun tirText(state: TherapyDisplayState?, now: Long): String = tirStats(state, now).text
+    private fun tirText(state: TherapyDisplayState?, now: Long): String =
+        tirStats(state, now, readCgmThresholds()).text
 
     private fun compactTherapyStatus(
         state: TherapyDisplayState?,
@@ -917,8 +970,6 @@ abstract class TherapyComplicationService(
         private const val IOB_GAUGE_MAX = 10f
         private const val COB_GAUGE_MAX = 150f
         private const val SENSOR_AGE_GAUGE_MAX_DAYS = 14f
-        private const val TIR_LOW_MGDL = 70.0
-        private const val TIR_HIGH_MGDL = 180.0
         private const val TIR_GOAL_PERCENT = 70f
         private const val TIR_WINDOW_MS = 24 * 60 * 60_000L
 
@@ -1067,7 +1118,14 @@ class CobRangedValueComplication :
     )
 
 class IobCobComplication :
-    TherapyComplicationService(ProviderKind.IOB_COB)
+    TherapyComplicationService(ProviderKind.IOB_COB, ComplicationType.SHORT_TEXT)
+
+class IobCobLongTextComplication :
+    TherapyComplicationService(
+        ProviderKind.IOB_COB,
+        ComplicationType.LONG_TEXT,
+        SugarliciousComplicationIds.IOB_COB_LONG,
+    )
 
 class IobCobBasalComplication :
     TherapyComplicationService(ProviderKind.IOB_COB_BASAL, ComplicationType.SHORT_TEXT)
@@ -1157,6 +1215,8 @@ object AllProviders {
         IobRangedValueComplication::class.java,
         CobComplication::class.java,
         CobRangedValueComplication::class.java,
+        IobCobComplication::class.java,
+        IobCobLongTextComplication::class.java,
         IobCobBasalComplication::class.java,
         IobCobBasalLongTextComplication::class.java,
         LoopComplication::class.java,
@@ -1167,5 +1227,8 @@ object AllProviders {
         TirGoalProgressComplication::class.java,
         TirWeightedElementsComplication::class.java,
         DateComplication::class.java,
+        PumpBatteryComplication::class.java,
+        PhoneBatteryComplication::class.java,
+        AapsStatusComplication::class.java,
     )
 }

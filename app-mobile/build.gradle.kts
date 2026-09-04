@@ -19,6 +19,20 @@ val syncSugarliciousAnalogPreviewAssets =
         ) {
             rename { "sugarlicious_analog_second_hand.png" }
         }
+        from(
+            rootProject.file(
+                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/hour_hand.png",
+            ),
+        ) {
+            rename { "sugarlicious_analog_hour_hand.png" }
+        }
+        from(
+            rootProject.file(
+                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/minute_hand.png",
+            ),
+        ) {
+            rename { "sugarlicious_analog_minute_hand.png" }
+        }
         into(generatedAnalogPreviewRes)
         eachFile { path = "drawable-nodpi/$name" }
         includeEmptyDirs = false
@@ -62,6 +76,7 @@ dependencies {
     implementation(project(":data-source-xdrip"))
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
+    implementation(project(":ui-shared"))
     implementation(project(":dexcom-g7"))
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")

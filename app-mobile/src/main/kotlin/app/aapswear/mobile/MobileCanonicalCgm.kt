@@ -108,6 +108,7 @@ internal object MobileCanonicalStateCoordinator {
                 ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
 
         var mergedPhone = DisplayHistoryAccumulator.merge(priorPhone, incoming, nowEpochMs)
+            .withNightscoutTreatments(context)
             .withoutDirectWatchCgm()
         val glucose = mergedPhone.glucose
         if (glucose != null && glucose.trend == Trend.UNKNOWN) {

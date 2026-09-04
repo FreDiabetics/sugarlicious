@@ -27,6 +27,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
@@ -52,8 +54,10 @@ import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.Trend
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -154,6 +158,9 @@ internal val SugarliciousComplicationCatalog = listOf(
     entry("COB", ComplicationCategory.THERAPY,
         variant(SugarliciousComplicationIds.COB, ComplicationVariantType.SHORT_TEXT),
         variant(SugarliciousComplicationIds.COB_RANGED, ComplicationVariantType.RANGED_VALUE)),
+    entry("IOB + COB", ComplicationCategory.THERAPY,
+        variant(SugarliciousComplicationIds.IOB_COB, ComplicationVariantType.SHORT_TEXT),
+        variant(SugarliciousComplicationIds.IOB_COB_LONG, ComplicationVariantType.LONG_TEXT)),
     entry("Basal + IOB + COB", ComplicationCategory.THERAPY,
         variant(SugarliciousComplicationIds.IOB_COB_BASAL, ComplicationVariantType.SHORT_TEXT),
         variant(SugarliciousComplicationIds.IOB_COB_BASAL_LONG, ComplicationVariantType.LONG_TEXT)),
@@ -189,7 +196,9 @@ internal fun ComplicationStudio(
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf(loadComplicationPreset(context)) }
     var graphHours by remember { mutableStateOf(loadComplicationGraphHours(context)) }
+    var previewTrend by remember { mutableStateOf(Trend.FORTY_FIVE_UP) }
     var variantDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
+    var settingsDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
     var syncLabel by remember {
         mutableStateOf(
             if (selected.isEmpty()) "Noch kein Smartphone-Preset"
@@ -210,6 +219,9 @@ internal fun ComplicationStudio(
     }
 
     val shape = RoundedCornerShape(24.dp)
+    val previewState = (state ?: previewTherapyState(System.currentTimeMillis())).let { source ->
+        source.copy(glucose = source.glucose?.copy(trend = previewTrend))
+    }
 
     Column(
         modifier = Modifier
@@ -220,6 +232,41 @@ internal fun ComplicationStudio(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetStrip(selected)
+
+        Text(
+            "PREVIEW-TREND",
+            color = SugarliciousColors.TextSecondary,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            listOf(
+                Trend.DOUBLE_UP,
+                Trend.SINGLE_UP,
+                Trend.FORTY_FIVE_UP,
+                Trend.FLAT,
+                Trend.FORTY_FIVE_DOWN,
+                Trend.SINGLE_DOWN,
+                Trend.DOUBLE_DOWN,
+            ).forEach { trend ->
+                Surface(
+                    modifier = Modifier.weight(1f).clickable { previewTrend = trend },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (previewTrend == trend) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
+                ) {
+                    Box(Modifier.height(34.dp), contentAlignment = Alignment.Center) {
+                        SugarliciousTrendIndicator(
+                            trend = trend,
+                            arrowSize = 17.dp,
+                            color = if (previewTrend == trend) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+        }
 
         Button(
             onClick = {
@@ -296,7 +343,7 @@ internal fun ComplicationStudio(
                         modifier = Modifier.weight(1f),
                         entry = entry,
                         variant = selectedVariant,
-                        state = state,
+                        state = previewState,
                         graphHours = graphHours,
                         selected = entry.variants.any { it.id in selected },
                         onToggle = {
@@ -310,6 +357,7 @@ internal fun ComplicationStudio(
                         onLongPress = {
                             if (entry.variants.size > 1) variantDialogEntry = entry
                         },
+                        onSettings = { settingsDialogEntry = entry },
                     )
                 }
                 repeat(3 - entries.size) { Spacer(Modifier.weight(1f)) }
@@ -322,7 +370,7 @@ internal fun ComplicationStudio(
         ComplicationVariantDialog(
             entry = entry,
             currentVariant = currentVariant,
-            state = state,
+            state = previewState,
             graphHours = graphHours,
             onDismiss = { variantDialogEntry = null },
             onSelect = { variant ->
@@ -334,6 +382,17 @@ internal fun ComplicationStudio(
                     variantDialogEntry = null
                 }
             },
+        )
+    }
+
+    settingsDialogEntry?.let { entry ->
+        val variant = entry.selectedVariant(selected)
+        ComplicationAppearanceDialog(
+            entry = entry,
+            variant = variant,
+            state = previewState,
+            graphHours = graphHours,
+            onDismiss = { settingsDialogEntry = null },
         )
     }
 }
@@ -430,37 +489,138 @@ private fun ComplicationCatalogTile(
     selected: Boolean,
     onToggle: () -> Unit,
     onLongPress: () -> Unit,
+    onSettings: () -> Unit,
 ) {
     val shape = RoundedCornerShape(18.dp)
-    Column(
+    Box(
         modifier = modifier.aspectRatio(1f)
             .background(if (selected) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh, shape)
             .border(1.dp, if (selected) SugarliciousColors.Primary.copy(alpha = 0.62f) else SugarliciousColors.Border.copy(alpha = 0.55f), shape)
             .combinedClickable(onClick = onToggle, onLongClick = onLongPress)
             .padding(horizontal = 6.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        Text(
-            entry.name,
-            color = SugarliciousColors.TextPrimary,
-            fontSize = 8.5.sp,
-            lineHeight = 10.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
-        Spacer(Modifier.weight(1f))
-        CompactComplicationPreview(entry, variant, state, graphHours)
-        Spacer(Modifier.weight(1f))
-        Text(
-            variant.type.shortLabel,
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 7.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Column(
+            Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            Text(
+                entry.name,
+                modifier = Modifier.padding(horizontal = 24.dp),
+                color = SugarliciousColors.TextPrimary,
+                fontSize = 8.5.sp,
+                lineHeight = 10.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+            Spacer(Modifier.weight(1f))
+            CompactComplicationPreview(entry, variant, state, graphHours)
+            Spacer(Modifier.weight(1f))
+            Text(variant.type.shortLabel, color = SugarliciousColors.TextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.TopEnd).size(30.dp).clickable(onClick = onSettings),
+            shape = CircleShape,
+            color = SugarliciousColors.Surface.copy(alpha = 0.94f),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SugarliciousColors.Border),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text("⚙", color = SugarliciousColors.Primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
     }
+}
+
+@Composable
+private fun ComplicationAppearanceDialog(
+    entry: ComplicationCatalogEntry,
+    variant: ComplicationVariant,
+    state: TherapyDisplayState?,
+    graphHours: Int,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val catalogId = SugarliciousComplicationIds.baseId(variant.id)
+    var appearance by remember(catalogId) { mutableStateOf(ComplicationAppearanceSettingsStore.load(context, catalogId)) }
+    val hasTrend = entry.name.contains("Trend", ignoreCase = true)
+
+    fun update(value: ComplicationAppearanceSettings) {
+        appearance = value
+        ComplicationAppearanceSettingsStore.save(context, catalogId, value)
+        scope.launch { runCatching { syncComplicationAppearance(context, catalogId, value) } }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("${entry.name} · Darstellung", color = SugarliciousColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    color = SugarliciousColors.SurfaceHigh,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        CompactComplicationPreview(entry, variant, state, graphHours, appearance)
+                    }
+                }
+                if (hasTrend) {
+                    val systemDefault = appearance.trendScalePercent == null
+                    Text(
+                        "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
+                        color = SugarliciousColors.TextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Slider(
+                        value = (appearance.trendScalePercent ?: GlucoseTrendSizing.DEFAULT_SCALE_PERCENT).toFloat(),
+                        onValueChange = {
+                            val size = it.toInt().coerceIn(70, 200)
+                            update(appearance.copy(trendScalePercent = size, trendStyleOverride = appearance.trendStyleOverride.copy(sizePercent = size)))
+                        },
+                        valueRange = 70f..200f,
+                    )
+                    Text("POSITION X · ${appearance.trendOffsetXPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                    Slider(value = appearance.trendOffsetXPercent.toFloat(), onValueChange = { update(appearance.copy(trendOffsetXPercent = it.toInt())) }, valueRange = -50f..50f)
+                    Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                    Slider(value = appearance.trendOffsetYPercent.toFloat(), onValueChange = { update(appearance.copy(trendOffsetYPercent = it.toInt())) }, valueRange = -50f..50f)
+                    val resolvedTrend = appearance.trendStyleOverride.resolve(MobileTrendArrowAppearance.style)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("KONTUR", color = SugarliciousColors.TextSecondary, fontSize = 9.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = resolvedTrend.outlineEnabled,
+                            onCheckedChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineEnabled = it))) },
+                        )
+                    }
+                    if (resolvedTrend.outlineEnabled) {
+                        Text("KONTURDICKE · ${String.format("%.2f", resolvedTrend.outlineThicknessDp)} dp", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                        Slider(value = resolvedTrend.outlineThicknessDp, onValueChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it))) }, valueRange = 0.25f..4f)
+                    }
+                    Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                    Slider(value = resolvedTrend.alpha * 100f, onValueChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(alpha = it / 100f))) }, valueRange = 0f..100f)
+                    Button(
+                        onClick = { update(ComplicationAppearanceSettings()) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = SugarliciousColors.SurfaceSelected),
+                    ) {
+                        Text(if (systemDefault) "SYSTEMSTANDARD AKTIV" else "SYSTEMSTANDARD VERWENDEN", color = SugarliciousColors.Primary, fontSize = 10.sp)
+                    }
+                } else {
+                    Text(
+                        "Textgröße und Position werden bei Standard-Complications vom aktiven Watchface-Slot bestimmt. Dieses Menü zeigt deshalb nur Einstellungen, die die Runtime tatsächlich anwenden kann.",
+                        color = SugarliciousColors.TextSecondary,
+                        fontSize = 10.sp,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDismiss) { Text("FERTIG") }
+        },
+    )
 }
 
 @Composable
@@ -469,6 +629,7 @@ private fun CompactComplicationPreview(
     variant: ComplicationVariant,
     state: TherapyDisplayState?,
     graphHours: Int,
+    appearance: ComplicationAppearanceSettings? = null,
 ) {
     if (SugarliciousComplicationIds.baseId(variant.id) == SugarliciousComplicationIds.GRAPH) {
         MiniGlucosePreview(
@@ -480,6 +641,7 @@ private fun CompactComplicationPreview(
     }
 
     val preview = previewFor(variant.id, state)
+    val previewTrendStyle = appearance?.trendStyleOverride?.resolve(MobileTrendArrowAppearance.style) ?: MobileTrendArrowAppearance.style
 
     when (variant.type) {
         ComplicationVariantType.RANGED_VALUE,
@@ -524,7 +686,16 @@ private fun CompactComplicationPreview(
         verticalArrangement = Arrangement.Center,
     ) {
         if (preview.trend != null && SugarliciousComplicationIds.baseId(variant.id) == SugarliciousComplicationIds.TREND_ONLY) {
-            SugarliciousTrendIndicator(preview.trend, arrowSize = 25.dp, color = preview.color)
+            SugarliciousTrendIndicator(
+                preview.trend,
+                modifier = Modifier.offset(
+                    x = (appearance?.trendOffsetXPercent ?: 0).dp / 5,
+                    y = (appearance?.trendOffsetYPercent ?: 0).dp / 5,
+                ),
+                arrowSize = (25f * GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100)).dp,
+                color = preview.color,
+                style = previewTrendStyle,
+            )
         } else {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -541,7 +712,19 @@ private fun CompactComplicationPreview(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
                 preview.trend?.let {
-                    SugarliciousTrendIndicator(it, arrowSize = 17.dp, color = preview.color)
+                    SugarliciousTrendIndicator(
+                        it,
+                        modifier = Modifier.offset(
+                            x = (appearance?.trendOffsetXPercent ?: 0).dp / 5,
+                            y = (appearance?.trendOffsetYPercent ?: 0).dp / 5,
+                        ),
+                        arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(
+                            14f,
+                            GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100),
+                        ).dp,
+                        color = preview.color,
+                        style = previewTrendStyle,
+                    )
                 }
             }
         }
@@ -730,9 +913,7 @@ private fun ComplicationDataPreview(
         CircularGlucoseComplicationPreview(
             glucoseValue = g?.valueMgDl ?: 123.0,
             glucoseText = g?.let { TherapyDisplayFormatter.glucose(it) } ?: "123",
-            trendText = g?.let { TherapyDisplayFormatter.trendArrow(it.trend) }
-                ?.ifBlank { "↗" }
-                ?: "↗",
+            trend = g?.trend ?: Trend.FORTY_FIVE_UP,
             modifier = Modifier
                 .fillMaxWidth()
                 .background(SugarliciousColors.Background, shape)
@@ -812,7 +993,7 @@ private fun ComplicationDataPreview(
 private fun CircularGlucoseComplicationPreview(
     glucoseValue: Double,
     glucoseText: String,
-    trendText: String,
+    trend: Trend,
     modifier: Modifier = Modifier,
 ) {
     val foreground = when {
@@ -886,13 +1067,11 @@ private fun CircularGlucoseComplicationPreview(
                     fontWeight = FontWeight.Bold,
                 )
 
-                Text(
-                    text = trendText,
+                SugarliciousTrendIndicator(
+                    trend = trend,
                     modifier = Modifier.offset(y = (-4).dp),
                     color = SugarliciousColors.TextPrimary,
-                    fontSize = 37.sp,
-                    lineHeight = 33.sp,
-                    fontWeight = FontWeight.Bold,
+                    arrowSize = GlucoseTrendSizing.arrowHeightForGlucoseHeight(30f).dp,
                 )
             }
         }
@@ -909,18 +1088,20 @@ private fun MiniGlucosePreview(
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
     val now = System.currentTimeMillis()
     val windowMs = windowMinutes * 60_000L
-    val cutoff = now - windowMs
+    val timeWindow = GraphTimeWindow.live(now, windowMs)
+    val cutoff = timeWindow.startEpochMs
     val demoHours = maxOf(1, (windowMinutes + 59) / 60)
     val merged = (samples + listOfNotNull(current))
         .filter { it.measuredAtEpochMs in cutoff..(now + 5 * 60_000L) && it.valueMgDl in 20.0..1000.0 }
         .distinctBy { it.measuredAtEpochMs }
         .sortedBy { it.measuredAtEpochMs }
         .ifEmpty { demoHistory(now, demoHours).filter { it.measuredAtEpochMs >= cutoff } }
+    val graphStyle = readMobileGraphStyle(preferences)
     val dotRadiusDp =
-        (preferences.getFloat("cgm.dotRadiusDp", 2.4f) - 0.5f)
+        (graphStyle.cgmDotRadiusDp - 0.5f)
             .coerceIn(1.0f, 5.5f)
-    val outlineEnabled = preferences.getBoolean("cgm.dotOutlineEnabled", true)
-    val outlineWidthDp = preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f).coerceIn(0.25f, 3f)
+    val outlineEnabled = graphStyle.cgmDotOutlineEnabled
+    val outlineWidthDp = graphStyle.cgmDotOutlineWidthDp
     Canvas(
         Modifier.fillMaxWidth().height(52.dp)
             .background(SugarliciousColors.color(SugarliciousColorRole.GRAPH_BACKGROUND)),
@@ -929,7 +1110,7 @@ private fun MiniGlucosePreview(
         val right = size.width - 3.dp.toPx()
         val top = 3.dp.toPx()
         val bottom = size.height - 3.dp.toPx()
-        fun x(timestamp: Long) = left + (((timestamp - cutoff).toDouble() / windowMs.toDouble()).coerceIn(0.0, 1.0) * (right - left)).toFloat()
+        fun x(timestamp: Long) = timeWindow.plotX(timestamp, left, right - left)
         fun y(value: Double) = bottom - (GlucoseGraphScale.ratio(value) * (bottom - top)).toFloat()
         val low = 80.0
         val high = 160.0
@@ -974,8 +1155,8 @@ private fun previewFor(
         else -> SugarliciousColors.GlucoseInRange
     }
     return PhonePreview(
-        primary = presentation.text,
-        secondary = presentation.title.orEmpty(),
+        primary = presentation.title ?: presentation.text,
+        secondary = if (presentation.title != null) presentation.text else "",
         color = if (baseId in setOf(
                 SugarliciousComplicationIds.GLUCOSE,
                 SugarliciousComplicationIds.GLUCOSE_TREND,
@@ -1102,7 +1283,7 @@ internal suspend fun syncComplicationPreset(
 ) {
     val request = PutDataMapRequest.create(WearProtocol.COMPLICATION_PRESET_PATH).apply {
         dataMap.putIntegerArrayList("ids", ArrayList(ids))
-        dataMap.putInt("graphHours", graphHours.takeIf { it in listOf(1, 2, 6, 12, 24) } ?: 3)
+        dataMap.putInt("graphHours", graphHours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3)
         dataMap.putLong("updatedAt", System.currentTimeMillis())
     }.asPutDataRequest().setUrgent()
 

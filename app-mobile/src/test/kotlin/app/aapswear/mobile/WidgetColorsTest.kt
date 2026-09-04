@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
@@ -58,6 +59,25 @@ class WidgetColorsTest {
         assertTrue(WidgetColorStore.hasOverride(context, WidgetColorRole.IN_RANGE))
         WidgetColorStore.reset(context, WidgetColorRole.IN_RANGE)
         assertFalse(WidgetColorStore.hasOverride(context, WidgetColorRole.IN_RANGE))
+    }
+
+    @Test
+    fun `light and dark widget palettes remain independent`() {
+        val light = Color.rgb(245, 231, 201)
+        val dark = Color.rgb(11, 24, 39)
+
+        WidgetColorStore.save(context, AppearanceMode.LIGHT, WidgetColorRole.BACKGROUND, light)
+        WidgetColorStore.save(context, AppearanceMode.DARK, WidgetColorRole.BACKGROUND, dark)
+
+        assertEquals(light, WidgetColorStore.load(context, AppearanceMode.LIGHT).argb(WidgetColorRole.BACKGROUND))
+        assertEquals(dark, WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.BACKGROUND))
+        assertTrue(WidgetColorStore.hasOverride(context, AppearanceMode.LIGHT, WidgetColorRole.BACKGROUND))
+        assertTrue(WidgetColorStore.hasOverride(context, AppearanceMode.DARK, WidgetColorRole.BACKGROUND))
+
+        WidgetColorStore.reset(context, AppearanceMode.LIGHT, WidgetColorRole.BACKGROUND)
+
+        assertFalse(WidgetColorStore.hasOverride(context, AppearanceMode.LIGHT, WidgetColorRole.BACKGROUND))
+        assertEquals(dark, WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.BACKGROUND))
     }
 
     @Test

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.DiagnosticEvent
+import app.aapswear.model.AppClock
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -17,7 +18,8 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticEventStoreTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val store = DiagnosticEventStore(context)
+    private val clock = AppClock { 1_800_000L }
+    private val store = DiagnosticEventStore(context, clock)
 
     @Before
     fun clear() = runBlocking { store.clear() }
@@ -31,7 +33,7 @@ class DiagnosticEventStoreTest {
             severity = DiagnosticSeverity.WARNING,
             message = "Payload fehlt",
             metadata = mapOf("predictionCount" to 3, "sharedKey" to "do-not-store"),
-            occurredAtEpochMs = System.currentTimeMillis(),
+            occurredAtEpochMs = clock.nowEpochMs(),
         )
 
         val event = store.events.first().single()
@@ -42,7 +44,7 @@ class DiagnosticEventStoreTest {
 
     @Test
     fun `retains only bounded recent events`() = runBlocking {
-        val now = System.currentTimeMillis() - 2_000L
+        val now = clock.nowEpochMs() - 2_000L
         store.append(
             List(1_020) { index ->
                 DiagnosticEvent(
@@ -69,7 +71,7 @@ class DiagnosticEventStoreTest {
             listOf(
                 DiagnosticEvent(
                     id = "remote",
-                    occurredAtEpochMs = System.currentTimeMillis(),
+                    occurredAtEpochMs = clock.nowEpochMs(),
                     origin = "WATCH\nINJECTED",
                     module = "G7",
                     code = "G7-DATA-200",

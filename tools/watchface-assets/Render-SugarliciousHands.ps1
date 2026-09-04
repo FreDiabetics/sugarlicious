@@ -6,14 +6,14 @@ Set-StrictMode -Version 2.0
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $faces = @("analog", "orbit", "rings", "graph")
 $expectedHashes = @{
-    "hour" = "425626CEF7F447E534093847F1C1CCD550BB5DE99B431F23BBF90C964DDA550D"
-    "minute" = "42DE64216494F37E8DAFE0C881C2B97F5D34CE1F4126EE5916565FB097F6FA5D"
-    "second" = "564765ADBD67C3A5343358720E625E7564819F0A2B9DC5CA156BE38CB5F31D9C"
+    "hour" = "937A5F8E0C1554ACC64337613C15FC69A2A10C0BBF029E86756B25FB0D7A413B"
+    "minute" = "FB3FE7F0AE6A9D9F396E48712361119E42DA10E6C339CD6DBE066F0278C7FA1D"
+    "second" = "DFFEC182E233D9BB4E09BF805FA14A927B31707C7A73435F6C6E3D77FB19C039"
 }
 
-# PresentationCore is Windows-only. Linux CI consumes the checked-in renderings, but verifies
-# their exact hashes so an old or incomplete hand set cannot silently enter a Push package.
-if ($env:OS -ne "Windows_NT") {
+# The user-provided hand layers are the canonical assets. Verify the checked-in renderings on
+# every platform; regenerating them from older geometry would silently replace the selected set.
+if ($true) {
     foreach ($face in $faces) {
         $destination = Join-Path $root "watchfaces/sugarlicious-$face/src/main/res/drawable-nodpi"
         foreach ($kind in $expectedHashes.Keys) {

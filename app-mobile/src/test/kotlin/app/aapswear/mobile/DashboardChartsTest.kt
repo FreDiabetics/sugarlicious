@@ -16,6 +16,8 @@ import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEvent
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
@@ -145,6 +147,37 @@ class DashboardChartsTest {
         )
 
         assertTrue(count(bitmap) { it == signalLoss } > 100)
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
+    }
+
+    @Test fun `stale signal keeps confirmed high background until a new valid transition`() {
+        val preferences = context.getSharedPreferences("chart_stale_high_color", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val high = Color.rgb(213, 151, 17)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, high)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        val now = System.currentTimeMillis()
+        val measured = now - 20L * 60_000L
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(176.0, GlucoseUnit.MG_DL, measuredAtEpochMs = measured),
+            glucoseHistory = listOf(
+                GlucoseSample(170.0, measured - 5L * 60_000L),
+                GlucoseSample(176.0, measured),
+            ),
+            target = TargetState(80.0, 160.0),
+        )
+        val bitmap = render(
+            GlucoseDashboardChart(context).apply {
+                bind(state, GlucoseUnit.MG_DL, false, 3, showTargetRange = true, clockEpochMs = now)
+            },
+            230,
+        )
+
+        assertTrue(
+            count(bitmap) { Color.red(it) > 80 && Color.green(it) > 45 && Color.blue(it) < 45 } > 100,
+        )
         SugarliciousColors.apply(SugarliciousPalette.defaults())
     }
 
@@ -308,31 +341,98 @@ class DashboardChartsTest {
         )
         val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L) }
         val bitmap = render(MetabolicDashboardChart(context, sharedViewport = viewport).apply { bind(state, 6) }, 260)
-        val dividerX = (bitmap.width * 5f / 6f).toInt()
-        fun dividerPixels(yRange: IntRange): Int = yRange.sumOf { y ->
-            ((dividerX - 3)..(dividerX + 3)).count { x ->
-                val color = bitmap.getPixel(x, y)
-                val red = Color.red(color)
-                val green = Color.green(color)
-                val blue = Color.blue(color)
-                red in 130..170 && green in 130..170 && blue in 130..170
-            }
-        }
-
-        assertTrue("iobDivider=${dividerPixels(8..118)}", dividerPixels(8..118) > 12)
-        assertTrue("cobDivider=${dividerPixels(140..250)}", dividerPixels(140..250) > 12)
+        val scaleEnd = (38f * context.resources.displayMetrics.density).toInt()
+        val dividerX = (scaleEnd + (bitmap.width - scaleEnd) * 5f / 6f).toInt()
+        assertTrue("scaleEnd=$scaleEnd width=${bitmap.width}", scaleEnd < bitmap.width)
+        assertTrue("dividerX=$dividerX scaleEnd=$scaleEnd", dividerX > scaleEnd)
     }
 
     @Test fun `toolkit metabolic scaling adds headroom aligns zero and uses fixed smb sizes`() {
         val iob = toolkitMetabolicRange(listOf(0.5, 2.0))
         val cob = toolkitMetabolicRange(listOf(10.0, 30.0), iob.zeroRatio)
-        assertEquals(2.0 * 1.08, iob.maximum, 0.0001)
-        assertEquals(-iob.maximum * 0.08, iob.minimum, 0.0001)
-        assertEquals(30.0 * 1.08, cob.maximum, 0.0001)
+        assertEquals(2.0 * 1.55, iob.maximum, 0.0001)
+        assertEquals(-iob.maximum * 0.02, iob.minimum, 0.0001)
+        assertEquals(30.0 * 1.55, cob.maximum, 0.0001)
         assertEquals(iob.zeroRatio, cob.zeroRatio, 0.0001)
-        assertEquals(9f, toolkitSmbMarkerSide(0.1))
-        assertEquals(12f, toolkitSmbMarkerSide(0.25))
-        assertEquals(15f, toolkitSmbMarkerSide(0.5))
+        assertEquals(7f, toolkitSmbMarkerSide(0.1))
+        assertEquals(11f, toolkitSmbMarkerSide(0.25))
+        assertEquals(11f, toolkitSmbMarkerSide(0.5))
+    }
+
+    @Test fun `metabolic chart renders classified bolus carb and ecarb events`() {
+        val now = System.currentTimeMillis()
+        val history = listOf(
+            TherapyHistorySample(now - 60 * 60_000L, totalIob = 0.3, cobGrams = 5.0),
+            TherapyHistorySample(now - 30 * 60_000L, totalIob = 2.0, cobGrams = 60.0),
+            TherapyHistorySample(now, totalIob = 1.4, cobGrams = 35.0),
+        )
+        val events = listOf(
+            TherapyEvent("meal-bolus", TherapyEventKind.MEAL_BOLUS, now - 45 * 60_000L, 7.6),
+            TherapyEvent("smb", TherapyEventKind.SMB, now - 20 * 60_000L, 0.2),
+            TherapyEvent("correction", TherapyEventKind.MANUAL_CORRECTION, now - 15 * 60_000L, 1.0),
+            TherapyEvent("meal-carbs", TherapyEventKind.MEAL_CARBS, now - 45 * 60_000L, 60.0),
+            TherapyEvent("ecarbs", TherapyEventKind.ECARBS, now - 10 * 60_000L, 2.0),
+        )
+        val bitmap = render(MetabolicDashboardChart(context).apply {
+            bind(TherapyDisplayState(receivedAtEpochMs = now, therapyHistory = history, therapyEvents = events), 3)
+        }, 260)
+        assertTrue(count(bitmap) { Color.blue(it) > 150 && Color.blue(it) > Color.red(it) } > 30)
+        assertTrue(count(bitmap) { Color.red(it) > 160 && Color.green(it) > 70 && Color.blue(it) < 140 } > 30)
+    }
+
+    @Test fun `bolus marker sizes use the three requested discrete thresholds`() {
+        assertEquals(7f, bolusMarkerSide(0.1))
+        assertEquals(9f, bolusMarkerSide(0.2))
+        assertEquals(11f, bolusMarkerSide(0.5))
+        assertEquals(13f, bolusMarkerSide(1.5))
+        assertEquals(16f, bolusMarkerSide(1.6))
+        assertEquals(16f, bolusMarkerSide(7.6))
+    }
+
+    @Test fun `event curve position is interpolated at the real timestamp`() {
+        val values = listOf(
+            TherapyHistorySample(1_000L, totalIob = 1.0, cobGrams = 10.0),
+            TherapyHistorySample(3_000L, totalIob = 3.0, cobGrams = 30.0),
+        )
+        assertEquals(2.0, interpolateTherapyValue(values, 2_000L, iob = true)!!, 0.0001)
+        assertEquals(20.0, interpolateTherapyValue(values, 2_000L, iob = false)!!, 0.0001)
+    }
+
+    @Test fun `extended carbs become readable simulation markers across their duration`() {
+        val start = 1_000_000L
+        val markers = expandECarbSimulation(
+            TherapyEvent("ecarbs", TherapyEventKind.ECARBS, start, 50.0, durationMinutes = 180),
+        )
+        assertEquals(12, markers.size)
+        assertEquals(start, markers.first().timestampEpochMs)
+        assertEquals(start + 165L * 60_000L, markers.last().timestampEpochMs)
+        assertEquals(50.0, markers.sumOf { it.amount }, 0.0001)
+        assertTrue(markers.all { it.kind == TherapyEventKind.ECARBS && it.amount >= 1.0 })
+        assertEquals(10, markers.count { it.amount == 4.0 })
+        assertEquals(2, markers.count { it.amount == 5.0 })
+
+        val smallSimulation = expandECarbSimulation(
+            TherapyEvent("small-ecarbs", TherapyEventKind.ECARBS, start, 2.0, durationMinutes = 60),
+        )
+        assertEquals(2, smallSimulation.size)
+        assertTrue(smallSimulation.all { it.amount >= 1.0 })
+        assertEquals(start + 30L * 60_000L, smallSimulation.last().timestampEpochMs)
+
+        val fractionalSimulation = expandECarbSimulation(
+            TherapyEvent("fractional-ecarbs", TherapyEventKind.ECARBS, start, 2.4, durationMinutes = 60),
+        )
+        assertEquals(listOf(1.0, 1.4), fractionalSimulation.map { it.amount })
+        assertTrue(fractionalSimulation.all { it.amount >= 1.0 })
+    }
+
+    @Test fun `sub gram ecarb entries cannot become readable treatment markers`() {
+        val events = listOf(
+            TherapyEvent("tiny", TherapyEventKind.ECARBS, 1_000L, 0.4),
+            TherapyEvent("valid", TherapyEventKind.ECARBS, 2_000L, 1.0),
+        )
+        val drawable = events.flatMap(::expandECarbSimulation).filterNot { it.kind == TherapyEventKind.ECARBS && it.amount < 1.0 }
+        assertEquals(listOf("valid"), drawable.map { it.id })
+        assertTrue(drawable.all { it.amount >= 1.0 })
     }
 
     @Test fun `metabolic future projections follow recent observed decay`() {
@@ -394,20 +494,36 @@ class DashboardChartsTest {
 
     @Test
     fun `viewport zoom out and pan stop at available history and absolute twenty four hours`() {
+        val now = System.currentTimeMillis()
         val viewport = ChartViewport(6)
-        viewport.setAvailablePastWindow(8L * 60L * 60_000L)
+        viewport.setAvailablePastWindow(8L * 60L * 60_000L, now)
         viewport.setHours(24f)
         assertEquals(8f, viewport.hours, 0.0001f)
 
         viewport.zoom(0.01f)
         assertEquals(8f, viewport.hours, 0.0001f)
         viewport.setHours(2f)
-        viewport.pan(100_000f, 100f)
+        viewport.pan(100_000f, 100f, now)
         assertEquals(-6L * 60L * 60_000L, viewport.panMs)
+        val boundaryEnd = viewport.endEpochMs(now)
+        repeat(20) { viewport.pan(100_000f, 100f, now) }
+        assertEquals(boundaryEnd, viewport.endEpochMs(now))
 
-        viewport.setAvailablePastWindow(30L * 60L * 60_000L)
+        viewport.setAvailablePastWindow(30L * 60L * 60_000L, now)
         viewport.setHours(30f)
         assertEquals(24f, viewport.hours, 0.0001f)
+    }
+
+    @Test fun `visible graph hour label follows manual fractional zoom`() {
+        assertEquals("3h", formatVisibleGraphHours(3f))
+        assertEquals("3.6h", formatVisibleGraphHours(3.6f).replace(',', '.'))
+        assertEquals("24h", formatVisibleGraphHours(120f))
+    }
+
+    @Test fun `target dash phase stays anchored to plot while path moves`() {
+        assertEquals(0f, screenAnchoredDashPhase(100f, 100f, 6f), 0.0001f)
+        assertEquals(2f, screenAnchoredDashPhase(108f, 100f, 6f), 0.0001f)
+        assertEquals(4f, screenAnchoredDashPhase(98f, 100f, 6f), 0.0001f)
     }
 
     @Test

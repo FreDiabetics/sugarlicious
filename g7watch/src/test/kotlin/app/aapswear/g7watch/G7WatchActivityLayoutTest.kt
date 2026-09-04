@@ -6,9 +6,14 @@ import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.ImageView
+import android.widget.SeekBar
+import android.widget.Switch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.Trend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
@@ -33,6 +38,144 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `collector settings keep live status above eight grouped sections`() {
+        val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        val headers = mutableListOf<android.view.View>()
+
+        fun collect(view: android.view.View) {
+            if (view.tag?.toString()?.startsWith("settings-category-") == true) headers += view
+            if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+        }
+        collect(root)
+
+        assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
+        assertEquals(
+            G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
+            headers.map { it.tag.toString() },
+        )
+        assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+        activity.finish()
+    }
+
+    @Test
+    fun `alarm settings menu opens alarm configuration and not system status`() {
+        val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        val alarmHeaderText = findText(root, "Alarme")!!
+        (alarmHeaderText.parent.parent as android.view.View).performClick()
+
+        val intent = Shadows.shadowOf(activity).nextStartedActivity
+        assertEquals(G7AlarmSettingsActivity::class.java.name, intent.component?.className)
+        assertFalse(intent.component?.className == G7SystemStatusActivity::class.java.name)
+        activity.finish()
+    }
+
+    @Test
+    fun `direct to watch category opens complete watchface settings`() {
+        val settings = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = settings.findViewById<android.view.View>(android.R.id.content)
+        val header = findText(root, "Direct to Watch")!!
+        (header.parent.parent as android.view.View).performClick()
+        assertEquals(G7DirectToWatchSettingsActivity::class.java.name, Shadows.shadowOf(settings).nextStartedActivity.component?.className)
+
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val texts = mutableListOf<String>()
+        collectText(activity.findViewById(android.R.id.content), texts)
+        assertTrue("Watchface" in texts)
+        assertTrue(texts.any { it.startsWith("Größe ·") })
+        assertTrue("LOW-Bereich" in texts)
+        assertTrue("Zielbereich" in texts)
+        assertTrue("HIGH-Bereich" in texts)
+        assertTrue("Eckenrundung · 20.0 dp" in texts)
+        assertTrue("Graphkontur" in texts)
+        assertTrue("Zeitachsenskala" in texts)
+        assertTrue("Zuckerwert fett" in texts)
+        assertTrue("Horizontale Zielwert-Striche" in texts)
+        assertFalse("Range-Hintergrundfärbung" in texts)
+        assertTrue("Prognose · Zero Temp" in texts)
+        assertTrue("GLUKOSE · EINHEIT" in texts)
+        assertTrue("GLUKOSE · ZIELBEREICH" in texts)
+    }
+
+    @Test
+    fun `direct to watch keeps independent unit and target range`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(app.aapswear.protocol.DirectToWatchSettingsContract.PREFERENCES, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7DirectToWatchSettingsStore(context)
+        val thresholds = CgmThresholds(250.0, 168.0, 81.0, 50.0)
+
+        store.saveGlucoseUnit(GlucoseUnit.MMOL_L)
+        store.saveGlucoseBold(false)
+        store.saveActiveAppearanceMode(AppearanceMode.LIGHT)
+        assertTrue(store.saveThresholds(thresholds))
+
+        assertEquals(GlucoseUnit.MMOL_L, store.glucoseUnit())
+        assertFalse(store.glucoseBold())
+        assertEquals(AppearanceMode.LIGHT, store.activeAppearanceMode(AppearanceMode.DARK))
+        assertEquals(thresholds, store.thresholds())
+    }
+
+    @Test
+    fun `direct settings keep prior fields when several controls update rapidly`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(app.aapswear.protocol.DirectToWatchSettingsContract.PREFERENCES, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7DirectToWatchSettingsStore(context)
+
+        store.saveGraphStyle(store.graphStyle().copy(dotRadiusDp = 5f))
+        store.saveGraphStyle(store.graphStyle().copy(rangeBackgroundEnabled = false))
+        store.saveGraphColors(store.graphColors().copy(graphBackground = 0xFF010203.toInt()))
+        store.saveGraphColors(store.graphColors().copy(rangeHigh = 0x44112233))
+        store.saveTrendStyle(AppearanceMode.DARK, store.trendStyle(AppearanceMode.DARK).copy(sizePercent = 200))
+        store.saveTrendStyle(AppearanceMode.DARK, store.trendStyle(AppearanceMode.DARK).copy(alpha = .4f))
+
+        assertEquals(5f, store.graphStyle().dotRadiusDp)
+        assertTrue(store.graphStyle().rangeBackgroundEnabled)
+        assertEquals(0xFF010203.toInt(), store.graphColors().graphBackground)
+        assertEquals(0x44112233, store.graphColors().rangeHigh)
+        assertEquals(200, store.trendStyle(AppearanceMode.DARK).sizePercent)
+        assertEquals(.4f, store.trendStyle(AppearanceMode.DARK).alpha)
+    }
+
+    @Test
+    fun `direct to watch settings preserve the scroll view and position when a choice changes`() {
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        val scroll = findScrollView(root)!!
+        measureAndLayout(root)
+        scroll.scrollTo(0, 180)
+
+        findText(root, "mmol/L")!!.performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertSame(scroll, findScrollView(activity.findViewById(android.R.id.content)))
+        assertEquals(180, scroll.scrollY)
+        activity.finish()
+    }
+
+    @Test
+    fun `direct settings sliders and toggles do not rebuild or reset the page`() {
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        val scroll = findScrollView(root)!!
+        measureAndLayout(root)
+        scroll.scrollTo(0, 220)
+
+        val sliderRow = findTextStartingWith(root, "Punktgröße ·")!!.parent as ViewGroup
+        val seekBar = (0 until sliderRow.childCount).map { sliderRow.getChildAt(it) }.filterIsInstance<SeekBar>().single()
+        seekBar.setProgress((seekBar.progress + 4).coerceAtMost(seekBar.max), true)
+        val toggleRow = findText(root, "Graphkontur")!!.parent as ViewGroup
+        val toggle = (0 until toggleRow.childCount).map { toggleRow.getChildAt(it) }.filterIsInstance<Switch>().single()
+        toggle.performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertSame(scroll, findScrollView(activity.findViewById(android.R.id.content)))
+        assertEquals(220, scroll.scrollY)
+        activity.finish()
+    }
+
+    @Test
     fun `collector overview contains only primary data and action elements`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val texts = mutableListOf<String>()
@@ -40,7 +183,7 @@ class G7WatchActivityLayoutTest {
 
         assertFalse(texts.any { it.contains("3h Verlauf", ignoreCase = true) })
         assertTrue("3h" in texts)
-        assertTrue("mg/dL" in texts)
+        assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val systemIndex = texts.indexOf("Systemstatus")
         val titleIndex = texts.indexOf("G7 Direct to Watch")
@@ -107,7 +250,7 @@ class G7WatchActivityLayoutTest {
         assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
 
         findImageByDescription(root, "Einstellungen")!!.performClick()
-        assertEquals(G7AppearanceActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+        assertEquals(G7SettingsActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
         activity.finish()
     }
 
@@ -152,7 +295,7 @@ class G7WatchActivityLayoutTest {
         collectTrendArrows(activity.findViewById(android.R.id.content), arrows)
 
         assertEquals(1, arrows.size)
-        assertEquals(-45f, arrows.single().rotation)
+        assertEquals(0f, arrows.single().rotation)
         assertTrue(arrows.single().contentDescription.toString().contains("FORTY_FIVE_UP"))
         activity.finish()
     }
@@ -163,9 +306,13 @@ class G7WatchActivityLayoutTest {
         val texts = mutableListOf<String>()
         collectText(activity.findViewById(android.R.id.content), texts)
 
-        listOf("SENSOR", "VERBINDUNG", "ZEITPLANUNG", "KOMMUNIKATION", "DIAGNOSE", "AKTIONEN").forEach {
-            assertTrue("Missing group $it", texts.contains(it))
+        listOf("LIVE COLLECTOR STATUS", "SYSTEMSTATUS", "SENSOR", "VERBINDUNG", "ZEITPLANUNG", "HARDWARETEST", "DIAGNOSE", "AKTIONEN").forEach {
+            assertTrue("Missing group $it", texts.any { text -> text.contains(it) })
         }
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  HARDWARETEST")!!.performClick()
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  DIAGNOSE")!!.performClick()
+        texts.clear()
+        collectText(activity.findViewById(android.R.id.content), texts)
         listOf(
             "Sensorstatus", "Session", "Sensorcode", "GTIN", "Seriennummer", "Letzter Wert", "Trendrate", "BLE-Name", "Kulanzende",
             "Status", "Reconnect-Strategie", "Hinweis", "Empfohlene Aktion", "Nächster Reconnect", "Geräte in der Nähe",

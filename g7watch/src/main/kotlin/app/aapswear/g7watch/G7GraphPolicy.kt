@@ -39,8 +39,7 @@ internal object G7GraphPolicy {
             .sortedBy { it.receivedAtEpochMs }
             .forEach { reading ->
                 if (!isValidReading(reading)) {
-                    sequence.clear()
-                    previousMeasuredAt = null
+                    // Non-CGM events do not create or reset semantic range state.
                     return@forEach
                 }
 
@@ -67,9 +66,7 @@ internal object G7GraphPolicy {
 
                 val priorMeasured = previousMeasuredAt
                 if (priorMeasured != null && reading.timestampEpochMs <= priorMeasured) {
-                    // Later received but older/equal measurement: do not continue through uncertain order.
-                    sequence.clear()
-                    previousMeasuredAt = null
+                    // Backfill/out-of-order data is not a new live semantic measurement.
                     return@forEach
                 }
 
@@ -78,8 +75,7 @@ internal object G7GraphPolicy {
                 if (sequence.size > 2) sequence.removeAt(0)
             }
 
-        val latest = sequence.lastOrNull() ?: return G7RangeExcursion.NONE
-        if ((nowEpochMs - latest.timestampEpochMs).coerceAtLeast(0L) >= STALE_AFTER_MS) return G7RangeExcursion.NONE
+        sequence.lastOrNull() ?: return G7RangeExcursion.NONE
         if (sequence.size < 2) return G7RangeExcursion.NONE
 
         return when {

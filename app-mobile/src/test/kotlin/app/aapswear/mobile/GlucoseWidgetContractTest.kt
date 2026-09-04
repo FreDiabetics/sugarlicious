@@ -10,13 +10,12 @@ class GlucoseWidgetContractTest {
     fun `glucose widget content stays value and trend only`() {
         val source = File("src/main/kotlin/app/aapswear/mobile/SugarliciousWidgets.kt").readText()
         val start = source.indexOf("private fun GlucoseWidgetContent")
-        val end = source.indexOf("@Composable\nprivate fun GraphWidgetContent", start)
+        val end = source.indexOf("private fun GraphWidgetContent", start)
         assertTrue(start >= 0)
         assertTrue(end > start)
         val body = source.substring(start, end)
 
-        assertTrue(body.contains("TherapyDisplayFormatter.glucose"))
-        assertTrue(body.contains("TherapyDisplayFormatter.trendArrow"))
+        assertTrue(body.contains("renderMinimalGlucoseWidget"))
         assertFalse(body.contains("signedDelta"))
         assertFalse(body.contains("widgetAge("))
         assertFalse(body.contains("widgetFreshnessStatus"))

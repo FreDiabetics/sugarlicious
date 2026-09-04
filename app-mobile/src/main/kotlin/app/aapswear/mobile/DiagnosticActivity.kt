@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.core.content.FileProvider
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -73,6 +74,7 @@ class DiagnosticActivity : ComponentActivity() {
                     onRefreshWatch = ::refreshWatch,
                     onCopy = { copyEvents(events) },
                     onShare = { shareEvents(events) },
+                    onExportBundle = { exportBundle(events) },
                     onClear = { scope.launch { store.clear() } },
                 )
             }
@@ -108,6 +110,24 @@ class DiagnosticActivity : ComponentActivity() {
             ),
         )
     }
+
+    private fun exportBundle(events: List<DiagnosticEvent>) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { DiagnosticBundleExporter.create(applicationContext, events) }
+                .onSuccess { file ->
+                    val uri = FileProvider.getUriForFile(applicationContext, "$packageName.files", file)
+                    val share = Intent(Intent.ACTION_SEND)
+                        .setType("application/zip")
+                        .putExtra(Intent.EXTRA_SUBJECT, "Sugarlicious Diagnosepaket")
+                        .putExtra(Intent.EXTRA_STREAM, uri)
+                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    runOnUiThread { startActivity(Intent.createChooser(share, "Diagnosepaket exportieren")) }
+                }
+                .onFailure { error ->
+                    runOnUiThread { Toast.makeText(this@DiagnosticActivity, "Export fehlgeschlagen: ${error.message}", Toast.LENGTH_LONG).show() }
+                }
+        }
+    }
 }
 
 @Composable
@@ -117,6 +137,7 @@ private fun DiagnosticScreen(
     onRefreshWatch: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
+    onExportBundle: () -> Unit,
     onClear: () -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
@@ -179,6 +200,7 @@ private fun DiagnosticScreen(
                         SugarliciousAction("Kopieren", onCopy)
                         SugarliciousAction("Teilen", onShare)
                     }
+                    SugarliciousAction("Diagnosepaket exportieren", onExportBundle)
                     Text(
                         "Diagnose löschen",
                         color = SugarliciousColors.Red,

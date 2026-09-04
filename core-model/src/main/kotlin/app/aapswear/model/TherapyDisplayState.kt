@@ -7,8 +7,26 @@ import kotlinx.serialization.Serializable
 @Serializable enum class Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
 @Serializable enum class Freshness { CURRENT, DELAYED, STALE, ERROR, NO_DATA }
 @Serializable enum class CgmQuality { VALID, SENSOR_ERROR, INVALID }
-@Serializable enum class DataCapability { GLUCOSE, TREND, DELTA, AVERAGE_DELTA, TARGET, IOB, BOLUS_IOB, BASAL_IOB, SMB, COB, FUTURE_CARBS, BASAL, TEMP_BASAL, TEMP_TARGET, PROFILE, LOOP, PUMP, RESERVOIR, PUMP_BATTERY, PHONE_BATTERY, PREDICTIONS }
+@Serializable enum class DataCapability { GLUCOSE, TREND, DELTA, AVERAGE_DELTA, TARGET, IOB, BOLUS_IOB, BASAL_IOB, SMB, COB, FUTURE_CARBS, TREATMENTS, BASAL, TEMP_BASAL, TEMP_TARGET, PROFILE, LOOP, PUMP, RESERVOIR, PUMP_BATTERY, PHONE_BATTERY, PREDICTIONS }
 @Serializable enum class PredictionKind { IOB, COB, ACOB, UAM, ZERO_TEMP }
+@Serializable enum class TherapyEventKind { SMB, MANUAL_CORRECTION, MEAL_BOLUS, MEAL_CARBS, ECARBS }
+@Serializable enum class TherapyEventSource { AAPS_ONLY, NIGHTSCOUT_ONLY, AAPS_ENRICHED_BY_NIGHTSCOUT }
+
+/** A real treatment emitted by AAPS. Curve changes are never used to manufacture these events. */
+@Serializable data class TherapyEvent(
+    val id: String,
+    val kind: TherapyEventKind,
+    val timestampEpochMs: Long,
+    val amount: Double,
+    val source: TherapyEventSource = TherapyEventSource.AAPS_ONLY,
+    val originalSourceId: String? = null,
+    val insulinUnits: Double? = null,
+    val carbsGrams: Double? = null,
+    val durationMinutes: Int? = null,
+    val enteredBy: String? = null,
+    val eventType: String? = null,
+    val validated: Boolean = true,
+)
 
 @Serializable data class GlucoseState(
     val valueMgDl: Double,
@@ -73,7 +91,11 @@ import kotlinx.serialization.Serializable
 @Serializable data class LoopState(val status: String? = null, val lastRunAtEpochMs: Long? = null, val suggestedAtEpochMs: Long? = null, val enactedAtEpochMs: Long? = null, val suggestedPayload: String? = null, val enactedPayload: String? = null, val smbUnits: Double? = null, val smbAtEpochMs: Long? = null)
 @Serializable data class PumpState(val status: String? = null, val reservoirUnits: Double? = null, val batteryPercent: Int? = null)
 @Serializable data class DeviceState(val phoneBatteryPercent: Int? = null, val rigBatteryPercent: Int? = null)
-@Serializable data class ProfileState(val name: String? = null)
+@Serializable data class ProfileState(
+    val name: String? = null,
+    /** Insulin duration of action supplied by the active profile, in hours. */
+    val diaHours: Double? = null,
+)
 
 @Serializable data class TherapyDisplayState(
     val schemaVersion: Int = CURRENT_SCHEMA,
@@ -85,6 +107,7 @@ import kotlinx.serialization.Serializable
     val glucoseHistory: List<GlucoseSample> = emptyList(),
     val glucosePredictions: List<GlucosePrediction> = emptyList(),
     val therapyHistory: List<TherapyHistorySample> = emptyList(),
+    val therapyEvents: List<TherapyEvent> = emptyList(),
     val targetHistory: List<TargetSample> = emptyList(),
     val insulin: InsulinState? = null,
     val carbs: CarbState? = null,
@@ -95,7 +118,7 @@ import kotlinx.serialization.Serializable
     val device: DeviceState? = null,
     val profile: ProfileState? = null,
     val capabilities: Set<DataCapability> = emptySet()
-) { companion object { const val CURRENT_SCHEMA = 6 } }
+) { companion object { const val CURRENT_SCHEMA = 8 } }
 
 object FreshnessPolicy {
     const val CURRENT_MAX_MS = 6 * 60_000L

@@ -9,7 +9,6 @@
     <string name="material_red">Material Rot</string>
     <string name="hand_style_label">Zeiger</string>
     <string name="hand_style_standard">Standard</string>
-    <string name="hand_style_classic">Klassisch · Platzhalter</string>
-    <string name="hand_style_minimal">Minimal · Platzhalter</string>
-    <string name="hand_style_sugarlicious">Sugarlicious Outline</string>
+    <string name="hand_style_transparent">Transparent</string>
+    <string name="hand_style_black_gray">Schwarz &amp; Grau</string>
 </resources>

@@ -30,6 +30,8 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.storage.TherapyStateStore
+import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.model.SettingsSchemaVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,7 +43,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.time.LocalDate
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
+private const val GRAPH_MINUTE_MS = 60_000L
+
+internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
+    val remainder = Math.floorMod(nowEpochMs, GRAPH_MINUTE_MS)
+    return (GRAPH_MINUTE_MS - remainder).coerceAtLeast(1L).milliseconds
+}
 
 class MainActivity : ComponentActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -117,6 +127,7 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     result.onSuccess { restored ->
                         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+                        MobileTrendArrowAppearance.apply(uiPreferences)
                         PersistentBridgeService.refresh(this@MainActivity)
                         SugarliciousWidgets.update(applicationContext)
                         refresh(forceSettingsRender = true)
@@ -141,6 +152,7 @@ class MainActivity : ComponentActivity() {
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnUiThread {
                 SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+                MobileTrendArrowAppearance.apply(uiPreferences)
                 if (screen == DashboardScreen.SETTINGS && isInteractiveAppearancePreference(key)) {
                     // Keep the active color picker/slider and expanded section alive. Rebuilding the
                     // complete Settings hierarchy here used to close the configurator on every drag.
@@ -176,7 +188,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+        MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
             uiPreferences.edit { putInt("graphHours", 3); putBoolean("graphHoursDefault3Migrated", true) }
@@ -230,10 +244,12 @@ class MainActivity : ComponentActivity() {
             setUnit = { uiPreferences.edit { putString("unit", it.name) } },
             setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
             openG7Setup = { startActivity(Intent(this, G7SetupActivity::class.java)) },
+            openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
             openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
             setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
             setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
+            setGraphHours = { hours -> uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) } },
             setCgmStream = { key, enabled ->
                 uiPreferences.edit {
                     putBoolean(
@@ -376,12 +392,12 @@ class MainActivity : ComponentActivity() {
         uiPreferences.registerOnSharedPreferenceChangeListener(uiListener)
         clockJob = scope.launch {
             while (true) {
-                runCatching { requestWatchRuntimeStatus(applicationContext) }
-                delay(30.seconds)
-                refresh()
+                delay(delayUntilNextGraphMinute(System.currentTimeMillis()))
+                if (::factory.isInitialized) factory.tickOverviewClock(System.currentTimeMillis())
             }
         }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
+        scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
         refresh()
     }
 
@@ -410,6 +426,7 @@ class MainActivity : ComponentActivity() {
     private fun refresh(forceSettingsRender: Boolean = false) {
         if (!::content.isInitialized || !::factory.isInitialized) return
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+        MobileTrendArrowAppearance.apply(uiPreferences)
         applyRuntimeColors()
         val diagnosticState = DiagnosticsSnapshot.read(diagnostics)
         val uiState = DashboardUiPreferences.read(uiPreferences)
@@ -517,7 +534,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        scroll.isUserScrollEnabled = screen != DashboardScreen.OVERVIEW
+        scroll.isUserScrollEnabled = true
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(

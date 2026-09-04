@@ -10,8 +10,8 @@ android {
         applicationId = "app.aapswear.g7watch"
         minSdk = 33
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.1.8"
+        versionCode = 12
+        versionName = "0.1.11"
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":dexcom-g7"))
     implementation(project(":wear-storage"))
     implementation(project(":wear-protocol"))
+    implementation(project(":ui-shared"))
     implementation("androidx.activity:activity-ktx:1.13.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

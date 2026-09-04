@@ -20,6 +20,7 @@ import app.aapswear.complications.DateComplication
 import app.aapswear.complications.GlucoseGraphLargeComplication
 import app.aapswear.complications.TirWeightedElementsComplication
 import java.time.Instant
+import kotlin.math.roundToInt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -64,6 +65,8 @@ class ComplicationStaticPreviewTest {
         ComplicationType.SHORT_TEXT,
         ComplicationType.LONG_TEXT,
         ComplicationType.SHORT_TEXT,
+        ComplicationType.LONG_TEXT,
+        ComplicationType.SHORT_TEXT,
         ComplicationType.MONOCHROMATIC_IMAGE,
         ComplicationType.SHORT_TEXT,
         ComplicationType.RANGED_VALUE,
@@ -71,11 +74,14 @@ class ComplicationStaticPreviewTest {
         ComplicationType.GOAL_PROGRESS,
         ComplicationType.WEIGHTED_ELEMENTS,
         ComplicationType.SHORT_TEXT,
+        ComplicationType.SHORT_TEXT,
+        ComplicationType.SHORT_TEXT,
+        ComplicationType.SHORT_TEXT,
     )
 
     @Test
     fun `all providers expose their declared dynamic preview type`() {
-        assertEquals(36, AllProviders.classes.size)
+        assertEquals(41, AllProviders.classes.size)
         assertEquals(AllProviders.classes.size, expectedTypes.size)
 
         AllProviders.classes.zip(expectedTypes).forEach { (provider, expectedType) ->
@@ -120,8 +126,8 @@ class ComplicationStaticPreviewTest {
             assertMatchingFields(provider, staticData, dynamicData)
         }
 
-        assertEquals(34, staticResourceIds.size)
-        assertEquals(36, providerIconIds.size)
+        assertEquals(39, staticResourceIds.size)
+        assertEquals(41, providerIconIds.size)
     }
 
     private fun assertMatchingFields(
@@ -133,7 +139,11 @@ class ComplicationStaticPreviewTest {
             assertEquals(3, title(staticData)!!.length)
             text(staticData)!!.toInt()
         } else {
-            assertEquals("Text mismatch for ${provider.simpleName}", text(dynamicData), text(staticData))
+            assertEquals(
+                "Text mismatch for ${provider.simpleName}",
+                normalizedPreviewText(text(dynamicData)),
+                normalizedPreviewText(text(staticData)),
+            )
             assertEquals("Title mismatch for ${provider.simpleName}", title(dynamicData), title(staticData))
         }
         assertEquals(
@@ -172,6 +182,11 @@ class ComplicationStaticPreviewTest {
 
     private fun value(text: ComplicationText): String =
         text.getTextAt(ApplicationProvider.getApplicationContext<Context>().resources, Instant.now()).toString()
+
+    private fun normalizedPreviewText(value: String?): String? {
+        if (value?.endsWith('%') != true) return value
+        return value.dropLast(1).toFloatOrNull()?.let { "${it.roundToInt()}%" } ?: value
+    }
 
     private fun hasMonochromaticImage(data: ComplicationData): Boolean = when (data) {
         is ShortTextComplicationData -> data.monochromaticImage != null

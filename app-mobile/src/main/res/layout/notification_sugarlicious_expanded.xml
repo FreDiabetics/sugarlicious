@@ -37,8 +37,8 @@
 
                 <ImageView
                     android:id="@+id/notification_trend"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="23dp"
+                    android:layout_height="23dp"
                     android:layout_marginStart="4dp"
                     android:contentDescription="@null"
                     android:scaleType="fitCenter"

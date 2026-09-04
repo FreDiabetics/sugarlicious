@@ -1,4 +1,8 @@
 package app.aapswear.protocol
+
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.LoopState
+import app.aapswear.model.TherapyHistorySample
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.*
 import kotlin.test.*
@@ -9,6 +13,26 @@ class WearProtocolTest {
   assertEquals(listOf(event),decoded.events)
  }
  @Test fun roundTrip() { val s=TherapyDisplayState(receivedAtEpochMs=2,glucose=GlucoseState(100.0,GlucoseUnit.MG_DL,measuredAtEpochMs=1)); assertEquals(s,WearProtocol.decode(WearProtocol.encode(s))) }
+
+ @Test fun `transport payload is bounded and retains newest state`() {
+  val now = 2_000_000_000L
+  val state = TherapyDisplayState(
+   receivedAtEpochMs = now,
+   glucose = GlucoseState(123.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+   glucoseHistory = (0 until 600).map { GlucoseSample(100.0 + it % 40, now - (599 - it) * 300_000L, sensorId = "sensor-very-long-identifier", sessionId = "session-very-long-identifier") },
+   therapyHistory = (0 until 600).map { TherapyHistorySample(now - (599 - it) * 300_000L, totalIob = it / 100.0, cobGrams = it.toDouble(), basalUnitsPerHour = 0.7) },
+   loop = LoopState(suggestedPayload = "s".repeat(120_000), enactedPayload = "e".repeat(120_000)),
+  )
+
+  val payload = WearProtocol.encodeStateForTransport(state)
+  val decoded = WearProtocol.decode(payload)
+
+  assertTrue(payload.size <= WearProtocol.MAX_STATE_PAYLOAD_BYTES)
+  assertEquals(123.0, decoded.glucose?.valueMgDl)
+  assertEquals(now, decoded.glucoseHistory.last().measuredAtEpochMs)
+  assertEquals(null, decoded.loop?.suggestedPayload)
+  assertEquals(null, decoded.loop?.enactedPayload)
+ }
  @Test fun migratesProtocolOneContractStoredInVersionField() {
   val legacy="""{"protocolVersion":1,"state":{"schemaVersion":1,"source":"ANDROID_APS","sourceVersion":"AAPS_EXTENDED_STATUS_V1","receivedAtEpochMs":2}}"""
   val migrated=WearProtocol.decode(legacy.encodeToByteArray())
@@ -20,7 +44,7 @@ class WearProtocolTest {
   val future="""{"protocolVersion":999,"state":{"receivedAtEpochMs":2}}"""
   assertFailsWith<IllegalArgumentException>{WearProtocol.decode(future.encodeToByteArray())}
  }
- @Test fun graphColorsRoundTripWithWatchConfigSchemaTwo() {
+ @Test fun graphColorsRoundTripWithCurrentWatchConfigSchema() {
   val colors=WatchGraphColors(
    graphBackground=0xFF101010.toInt(),
    rangeLow=0xFFAA0000.toInt(),
@@ -30,6 +54,11 @@ class WearProtocolTest {
    cgmInRange=0xFF00BB00.toInt(),
    cgmHigh=0xFFBBBB00.toInt(),
    divider=0xFF888888.toInt(),
+   highLine=0xFF887700.toInt(),
+   lowLine=0xFF880022.toInt(),
+   axisLabel=0xFF778899.toInt(),
+   axisTick=0xFF667788.toInt(),
+   nowLine=0xFF556677.toInt(),
    outline=0xFF121212.toInt(),
   )
   val config=WatchConfig(graphColors=colors,sentAtEpochMs=123)

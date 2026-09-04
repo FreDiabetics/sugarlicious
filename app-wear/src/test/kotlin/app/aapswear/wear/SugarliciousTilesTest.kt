@@ -37,17 +37,18 @@ class SugarliciousTilesTest {
     }
 
     @Test
-    fun `stale tile never presents an old value as current`() {
+    fun `stale tile preserves last validated values and labels them stale`() {
         val stale = wearGlucoseTilePresentation(state(123.0, now - 20 * 60_000L), colors, now)
         val therapy = wearTherapyTilePresentation(state(123.0, now - 20 * 60_000L), now)
 
-        assertEquals("—", stale.value)
+        assertEquals("123", stale.value)
         assertNull(stale.trend)
         assertEquals("VERALTET", stale.status)
-        assertFalse(therapy.displayable)
-        assertEquals("—", therapy.iob)
-        assertEquals("—", therapy.cob)
-        assertEquals("—", therapy.basal)
+        assertTrue(therapy.displayable)
+        assertEquals("1.2 U", therapy.iob)
+        assertEquals("18 g", therapy.cob)
+        assertEquals("0.70", therapy.basal)
+        assertTrue(therapy.footer.contains("letzter Stand"))
     }
 
     @Test

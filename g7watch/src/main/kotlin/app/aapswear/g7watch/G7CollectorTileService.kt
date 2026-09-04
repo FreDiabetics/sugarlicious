@@ -4,7 +4,6 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders.argb
-import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.DimensionBuilders.sp
@@ -23,7 +22,6 @@ import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
-import androidx.wear.protolayout.ModifiersBuilders.Transformation
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.Resources
@@ -34,15 +32,27 @@ import androidx.wear.tiles.TileService
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.ArgbContrast
-import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
+import app.aapswear.model.TrendVisualAsset
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.GlucoseVisualSpec
+import app.aapswear.model.PresentationSurface
+import app.aapswear.model.WearGlucoseCardInput
+import app.aapswear.model.wearGlucoseCardPresentation
+import app.aapswear.uishared.TrendDrawableResources
 import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.SettableFuture
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 internal data class G7TilePresentation(
     val glucoseValue: String,
@@ -82,67 +92,39 @@ internal fun g7TilePresentation(
     reading: CgmReading?,
     colors: app.aapswear.protocol.WatchGraphColors,
     nowEpochMs: Long,
+    thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
 ): G7TilePresentation {
-    if (reading == null) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Noch kein lokaler Wert",
-            age = "",
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
+    val shared = wearGlucoseCardPresentation(
+        WearGlucoseCardInput(
+            valueMgDl = reading?.glucoseMgDl,
+            displayUnit = GlucoseUnit.MG_DL,
+            deltaMgDl = reading?.deltaMgDl,
+            trend = reading?.trend ?: Trend.UNKNOWN,
+            measuredAtEpochMs = reading?.timestampEpochMs,
+            quality = when (reading?.status) {
+                CgmReadingStatus.VALID -> CgmQuality.VALID
+                CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+                else -> CgmQuality.INVALID
+            },
+            sourceLabel = "",
+        ),
+        thresholds,
+        nowEpochMs,
+    )
+    val valueColor = when (shared.rangeClass) {
+        CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
+        CgmRangeClass.LOW -> colors.cgmLow
+        CgmRangeClass.HIGH -> colors.cgmHigh
+        CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
+        else -> G7_TILE_TEXT_PRIMARY
     }
-    val ageMs = (nowEpochMs - reading.timestampEpochMs).coerceAtLeast(0L)
-    val ageMinutes = ageMs / 60_000L
-    val age = if (ageMinutes == 0L) "gerade" else "vor $ageMinutes min"
-    if (reading.status == CgmReadingStatus.SENSOR_ERROR) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Sensorfehler",
-            age = age,
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-    if (
-        reading.status != CgmReadingStatus.VALID ||
-        !reading.glucoseMgDl.isFinite() ||
-        reading.glucoseMgDl !in 20.0..1_000.0
-    ) {
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = "Ungültiger Sensorwert",
-            age = "",
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-    val freshness = FreshnessPolicy.classify(reading.timestampEpochMs, nowEpochMs)
-    if (freshness !in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
-        val label = if (freshness == Freshness.STALE) "Veraltet" else "Keine Daten"
-        return G7TilePresentation(
-            glucoseValue = "—",
-            meta = label,
-            age = age,
-            cardBackground = G7_TILE_CARD_BACKGROUND,
-            cardForeground = G7_TILE_TEXT_PRIMARY,
-        )
-    }
-
-    val value = reading.glucoseMgDl
-    val cardBackground = when {
-        value < G7_TILE_TARGET_LOW_MG_DL -> colors.cgmLow
-        value > G7_TILE_TARGET_HIGH_MG_DL -> colors.cgmHigh
-        else -> G7_TILE_CARD_BACKGROUND
-    }
-    val delta = reading.deltaMgDl?.let { String.format(Locale.US, "%+.0f", it) } ?: "—"
     return G7TilePresentation(
-        glucoseValue = value.toInt().toString(),
-        meta = "Δ $delta",
-        age = age,
-        cardBackground = cardBackground,
-        cardForeground = tileForegroundFor(cardBackground),
-        trend = reading.trend.takeUnless { it == Trend.UNKNOWN },
+        glucoseValue = shared.value,
+        meta = shared.primaryMeta,
+        age = "",
+        cardBackground = G7_TILE_CARD_BACKGROUND,
+        cardForeground = valueColor,
+        trend = shared.trend,
     )
 }
 
@@ -160,29 +142,46 @@ internal fun tileForegroundFor(backgroundArgb: Int): Int =
     if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
 class G7CollectorTileService : TileService() {
-    override fun onTileRequest(requestParams: RequestBuilders.TileRequest) =
-        Futures.immediateFuture(
-            Tile.Builder()
-                .setResourcesVersion(RESOURCES_VERSION)
-                .setFreshnessIntervalMillis(60_000L)
-                .setTileTimeline(Timeline.fromLayoutElement(layout()))
-                .build(),
-        )
+    private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): SettableFuture<Tile> {
+        val future = SettableFuture.create<Tile>()
+        tileScope.launch {
+            runCatching {
+                Tile.Builder()
+                    .setResourcesVersion(RESOURCES_VERSION)
+                    .setFreshnessIntervalMillis(60_000L)
+                    .setTileTimeline(Timeline.fromLayoutElement(layout()))
+                    .build()
+            }.onSuccess(future::set)
+                .onFailure(future::setException)
+        }
+        return future
+    }
+
+    override fun onDestroy() {
+        tileScope.cancel()
+        super.onDestroy()
+    }
 
     override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest) =
         Futures.immediateFuture(
             Resources.Builder()
                 .setVersion(RESOURCES_VERSION)
-                .addIdToImageMapping(
-                    TREND_RESOURCE_ID,
-                    ImageResource.Builder()
-                        .setAndroidResourceByResId(
-                            AndroidImageResourceByResId.Builder()
-                                .setResourceId(R.drawable.ic_trend_arrow)
+                .apply {
+                    TrendVisualAsset.entries.forEach { asset ->
+                        addIdToImageMapping(
+                            trendResourceId(asset),
+                            ImageResource.Builder()
+                                .setAndroidResourceByResId(
+                                    AndroidImageResourceByResId.Builder()
+                                        .setResourceId(TrendDrawableResources.forAsset(asset))
+                                        .build(),
+                                )
                                 .build(),
                         )
-                        .build(),
-                )
+                    }
+                }
                 .addIdToImageMapping(
                     HEADER_RESOURCE_ID,
                     ImageResource.Builder()
@@ -196,35 +195,41 @@ class G7CollectorTileService : TileService() {
                 .build(),
         )
 
-    private fun layout(): LayoutElementBuilders.LayoutElement {
+    private suspend fun layout(): LayoutElementBuilders.LayoutElement {
         val reading =
-            runBlocking(Dispatchers.IO) {
-                G7ReadingDatabase(this@G7CollectorTileService).let { database ->
-                    try {
-                        database.getLatest()
-                    } finally {
-                        database.close()
-                    }
+            G7ReadingDatabase(this@G7CollectorTileService).let { database ->
+                try {
+                    database.getLatest()
+                } finally {
+                    database.close()
                 }
             }
         val persistedState = G7SensorStateStore(this).read()
         val credentialsPresent = G7CredentialStore(this).read() != null
         val userStatus = deriveG7UserStatus(persistedState, credentialsPresent)
-        val presentation = g7TilePresentation(reading, G7GraphColorStore(this).read(), System.currentTimeMillis())
+        val colorStore = G7GraphColorStore(this)
+        val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
         val statusPresentation = g7TileStatusPresentation(userStatus)
+        val appearanceStore = G7AppearanceStore(this)
+        val configuredTrendStyle = appearanceStore.trendArrowStyle()
+        val trendStyle = configuredTrendStyle.renderSpec()
+        val visualSpec =
+            GlucoseVisualSpec(
+                surface = PresentationSurface.TILE,
+                glucoseTextSize = G7_TILE_VALUE_TEXT_SP,
+                trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP),
+                spacing = 8f,
+            ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
 
         val primaryRow =
             Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(text(presentation.tileValue, 38f, presentation.cardForeground, bold = true))
+                .addContent(text(presentation.tileValue, visualSpec.glucoseTextSize, presentation.cardForeground, bold = true))
                 .apply {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        repeat(spec.arrowCount) { index ->
-                            if (index > 0) addContent(Spacer.Builder().setWidth(dp(2f)).build())
-                            addContent(trendImage(spec.rotationDegrees, presentation.cardForeground))
-                        }
+                        addContent(trendImage(spec, trendStyle.fillColor, visualSpec.trendHeight))
                     }
                 }
                 .build()
@@ -335,21 +340,12 @@ class G7CollectorTileService : TileService() {
             .addContent(text("●  ${presentation.label}", 10f, presentation.color, bold = true))
             .build()
 
-    private fun trendImage(rotationDegrees: Float, color: Int): Image =
+    private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, height: Float): Image =
         Image.Builder()
-            .setResourceId(TREND_RESOURCE_ID)
-            .setWidth(dp(27f))
-            .setHeight(dp(25f))
+            .setResourceId(trendResourceId(spec.asset))
+            .setWidth(dp(height * spec.aspectRatio))
+            .setHeight(dp(height))
             .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
-            .setModifiers(
-                Modifiers.Builder()
-                    .setTransformation(
-                        Transformation.Builder()
-                            .setRotation(degrees(rotationDegrees))
-                            .build(),
-                    )
-                    .build(),
-            )
             .build()
 
     private fun text(value: String, size: Float, color: Int, bold: Boolean): Text =
@@ -366,16 +362,18 @@ class G7CollectorTileService : TileService() {
             .build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-4"
-        private const val TREND_RESOURCE_ID = "ic_trend"
+        private const val RESOURCES_VERSION = "g7-collector-5"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
+        private const val G7_TILE_VALUE_TEXT_SP = 38f
 
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
         }
     }
 }
+
+private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"
 
 internal fun withTileAlpha(color: Int, alpha: Int): Int =
     (alpha.coerceIn(0, 255) shl 24) or (color and 0x00FFFFFF)
@@ -389,5 +387,3 @@ internal const val G7_TILE_TEXT_DARK = 0xFF181818.toInt()
 internal const val G7_TILE_ACCENT = 0xFF6DE892.toInt()
 internal const val G7_TILE_WARNING = 0xFFFFC107.toInt()
 internal const val G7_TILE_ERROR = 0xFFFF5C69.toInt()
-internal const val G7_TILE_TARGET_LOW_MG_DL = 80.0
-internal const val G7_TILE_TARGET_HIGH_MG_DL = 160.0

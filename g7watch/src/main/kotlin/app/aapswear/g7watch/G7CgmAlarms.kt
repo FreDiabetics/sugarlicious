@@ -11,6 +11,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.net.Uri
+import android.provider.Settings
 import app.aapswear.g7.CgmAlarm
 import app.aapswear.g7.CgmAlarmEngine
 import app.aapswear.g7.CgmAlarmSettings
@@ -33,14 +34,12 @@ internal object G7AlarmSettingsStore {
 
     fun read(context: Context): CgmAlarmSettings {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-        val high = preferences.getFloat("high", 180f).toDouble().coerceIn(42.0, 499.0)
-        val veryHigh = preferences.getFloat("very_high", 250f).toDouble().coerceIn(high + 1.0, 500.0)
-        val low = preferences.getFloat("low", 70f).toDouble().coerceIn(41.0, high - 1.0)
+        val thresholds = G7GraphColorStore(context).readThresholds()
         return CgmAlarmSettings(
-            veryHighThreshold = veryHigh,
-            highThreshold = high,
-            lowThreshold = low,
-            veryLowThreshold = 40.0,
+            veryHighThreshold = thresholds.veryHighMgDl,
+            highThreshold = thresholds.highMgDl,
+            lowThreshold = thresholds.lowMgDl,
+            veryLowThreshold = thresholds.veryLowMgDl,
             rapidRiseThreshold = preferences.getFloat("rapid_rise", 2f).toDouble().coerceIn(0.5, 10.0),
             rapidFallThreshold = preferences.getFloat("rapid_fall", 2f).toDouble().coerceIn(0.5, 10.0),
             signalLossMinutes = 16,
@@ -60,8 +59,11 @@ internal object G7AlarmSettingsStore {
     }
 
     fun write(context: Context, settings: CgmAlarmSettings) {
-        require(settings.veryLowThreshold == 40.0)
+        require(app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold).isValid)
         require(settings.signalLossMinutes == 16)
+        G7GraphColorStore(context).saveThresholds(
+            app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold),
+        )
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_high", settings.veryHighThreshold.toFloat())
@@ -233,22 +235,16 @@ internal object G7CgmAlarmCoordinator {
     }
 }
 
-private object G7CgmAlarmNotifier {
-    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v2_"
+internal object G7CgmAlarmNotifier {
+    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v3_"
+    private const val CHANNEL_FAMILY_PREFIX = "g7_cgm_alarm_"
     private const val NOTIFICATION_BASE = 7_100
 
     fun show(context: Context, alarm: CgmAlarm, settings: CgmAlarmSettings, onlyAlertOnce: Boolean) {
         // Channel sound/vibration are immutable after creation. Route a changed app setting to a
         // distinct channel while preserving any system-level customization of an existing one.
-        val channelId = buildString {
-            append(CHANNEL_PREFIX)
-            append(alarm.type.name.lowercase())
-            append("_s")
-            append(if (settings.soundEnabled) '1' else '0')
-            append("_v")
-            append(if (settings.vibrationEnabled) '1' else '0')
-        }
-        ensureChannel(context, channelId, alarm.type, settings)
+        val channelId = channelId(context, alarm.type, settings)
+        ensureAllChannels(context, settings)
         val open = PendingIntent.getActivity(
             context,
             NOTIFICATION_BASE + alarm.type.ordinal,
@@ -291,13 +287,40 @@ private object G7CgmAlarmNotifier {
 
     fun cancelAll(context: Context) = CgmAlarmType.entries.forEach { cancel(context, it) }
 
+    fun showTest(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings) {
+        val channelId = channelId(context, type, settings)
+        ensureAllChannels(context, settings)
+        context.getSystemService(NotificationManager::class.java).notify(
+            testNotificationId(type),
+            Notification.Builder(context, channelId)
+                .setSmallIcon(R.drawable.ic_g7_notification)
+                .setColor(color(type))
+                .setContentTitle("Test · ${title(type)}")
+                .setContentText("Sound, Vibration und Nicht-stören-Verhalten dieses Alarms werden geprüft.")
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setTimeoutAfter(10_000L)
+                .build(),
+        )
+    }
+
+    fun ensureAllChannels(context: Context, settings: CgmAlarmSettings) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        val desiredIds = CgmAlarmType.entries.associateWith { channelId(context, it, settings) }
+        desiredIds.forEach { (type, id) -> ensureChannel(context, id, type, settings) }
+        manager.notificationChannels
+            .filter { it.id.startsWith(CHANNEL_FAMILY_PREFIX) && it.id !in desiredIds.values }
+            .forEach { manager.deleteNotificationChannel(it.id) }
+    }
+
     private fun ensureChannel(
         context: Context,
         channelId: String,
         type: CgmAlarmType,
         settings: CgmAlarmSettings,
     ) {
-        val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${soundResource(type)}") else null
+        val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${g7AlarmSoundResource(type)}") else null
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Eigenständiger G7-Watch-Alarm: ${title(type)}"
@@ -309,20 +332,10 @@ private object G7CgmAlarmNotifier {
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build(),
                 )
+                setBypassDnd(G7AlarmNotificationPolicy.isAccessGranted(context))
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
         )
-    }
-
-    private fun soundResource(type: CgmAlarmType): Int = when (type) {
-        CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
-        CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
-        CgmAlarmType.LOW -> R.raw.alerts_sounds_low
-        CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
-        CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
-        CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
-        CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
-        CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
     }
 
     private fun title(type: CgmAlarmType): String = when (type) {
@@ -350,6 +363,61 @@ private object G7CgmAlarmNotifier {
         }
 
     private fun notificationId(type: CgmAlarmType): Int = NOTIFICATION_BASE + type.ordinal
+
+    internal fun channelId(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings): String = buildString {
+        append(CHANNEL_PREFIX)
+        append(type.name.lowercase())
+        append("_s")
+        append(if (settings.soundEnabled) '1' else '0')
+        append("_v")
+        append(if (settings.vibrationEnabled) '1' else '0')
+        append("_d")
+        append(if (G7AlarmNotificationPolicy.isAccessGranted(context)) '1' else '0')
+    }
+
+    private const val TEST_NOTIFICATION_BASE = 7_300
+
+    internal fun testNotificationId(type: CgmAlarmType): Int = TEST_NOTIFICATION_BASE + type.ordinal
+}
+
+internal object G7AlarmNotificationPolicy {
+    fun isAccessGranted(context: Context): Boolean =
+        context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
+
+    fun settingsIntent(): Intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+}
+
+internal fun g7AlarmSoundResource(type: CgmAlarmType): Int = when (type) {
+    CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
+    CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
+    CgmAlarmType.LOW -> R.raw.alerts_sounds_low
+    CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
+    CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
+    CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
+    CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
+    CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
+}
+
+internal fun g7AlarmTitle(type: CgmAlarmType): String = when (type) {
+    CgmAlarmType.VERY_HIGH -> "Sehr hoch"
+    CgmAlarmType.HIGH -> "Hoch"
+    CgmAlarmType.LOW -> "Tief"
+    CgmAlarmType.VERY_LOW -> "Sehr tief"
+    CgmAlarmType.RAPID_RISE -> "Schnell steigend"
+    CgmAlarmType.RAPID_FALL -> "Schnell fallend"
+    CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
+    CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
+}
+
+internal fun g7AlarmSoundName(type: CgmAlarmType): String = when (type) {
+    CgmAlarmType.VERY_HIGH -> "High Alert"
+    CgmAlarmType.HIGH -> "High"
+    CgmAlarmType.LOW -> "Low"
+    CgmAlarmType.VERY_LOW -> "Urgent Low"
+    CgmAlarmType.RAPID_RISE -> "Rise Rate"
+    CgmAlarmType.RAPID_FALL -> "Fall Rate"
+    CgmAlarmType.SIGNAL_LOSS -> "Signal Loss"
+    CgmAlarmType.SENSOR_ERROR -> "Sensorfehler-Beep"
 }
 
 internal object G7AlarmRepeatScheduler {

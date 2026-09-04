@@ -7,8 +7,8 @@ android {
         applicationId = "app.aapswear.watchfacepush.analog"
         minSdk=33
         targetSdk=35
-        versionCode=10
-        versionName="0.6.2"
+        versionCode=12
+        versionName="0.6.4"
     }
     buildTypes {
         debug { isMinifyEnabled = true }

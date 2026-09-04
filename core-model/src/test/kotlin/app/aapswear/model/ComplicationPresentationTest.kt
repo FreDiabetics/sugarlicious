@@ -8,8 +8,8 @@ import kotlin.test.assertNull
 class ComplicationPresentationTest {
     @Test
     fun `typed provider ids remain unique and resolve to their presentation family`() {
-        assertEquals(36, SugarliciousComplicationIds.all.size)
-        assertEquals(36, SugarliciousComplicationIds.all.distinct().size)
+        assertEquals(38, SugarliciousComplicationIds.all.size)
+        assertEquals(38, SugarliciousComplicationIds.all.distinct().size)
         assertEquals(
             SugarliciousComplicationIds.GLUCOSE_TREND,
             SugarliciousComplicationIds.baseId(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED),
@@ -51,9 +51,129 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `trend geometry matches mobile overview`() {
-        assertEquals(-45f, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.rotationDegrees)
-        assertEquals(2, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.arrowCount)
+        assertEquals(TrendVisualAsset.FORTY_FIVE_UP, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.asset)
+        assertEquals(1f, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.aspectRatio)
+        assertEquals(TrendVisualAsset.DOUBLE_DOWN, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.asset)
+        assertEquals(125f / 60f, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.aspectRatio)
         assertNull(TrendVisuals.spec(Trend.UNKNOWN))
+    }
+
+    @Test fun `combined therapy presents values without redundant visible labels`() {
+        val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB_BASAL, state, now)
+        assertEquals("0.70 U/h", p.title)
+        assertEquals("1.2 U · 15 g", p.text)
+    }
+
+    @Test fun `combined therapy never invents zero for missing values`() {
+        val p = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB_BASAL,
+            state.copy(insulin = null, carbs = null, basal = null),
+            now,
+        )
+        assertEquals("—", p.title)
+        assertEquals("— · —", p.text)
+    }
+
+    @Test fun `IOB COB maps IOB to title and COB to text`() {
+        val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, state, now)
+        assertEquals("1.2 U", p.title)
+        assertEquals("15 g", p.text)
+        assertEquals("IOB 1.2 U, COB 15 g", p.contentDescription)
+    }
+
+    @Test fun `IOB COB preserves either available value without inventing zero`() {
+        val iobOnly = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(carbs = null),
+            now,
+        )
+        assertEquals("1.2 U", iobOnly.title)
+        assertEquals("—", iobOnly.text)
+
+        val cobOnly = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = null),
+            now,
+        )
+        assertEquals("—", cobOnly.title)
+        assertEquals("15 g", cobOnly.text)
+
+        val neither = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = null, carbs = null),
+            now,
+        )
+        assertEquals("—", neither.title)
+        assertEquals("—", neither.text)
+    }
+
+    @Test fun `IOB COB rejects invalid numbers and describes freshness without discarding last state`() {
+        val invalid = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(insulin = InsulinState(totalIob = Double.NaN), carbs = CarbState(cobGrams = Double.POSITIVE_INFINITY)),
+            now,
+        )
+        assertEquals("—", invalid.title)
+        assertEquals("—", invalid.text)
+
+        val stale = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
+            now,
+        )
+        assertEquals("1.2 U", stale.title)
+        assertEquals("15 g", stale.text)
+        assertEquals("veraltet, IOB 1.2 U, COB 15 g", stale.contentDescription)
+
+        val error = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.IOB_COB,
+            state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
+            now,
+        )
+        assertEquals("1.2 U", error.title)
+        assertEquals("15 g", error.text)
+        assertEquals("Sensorfehler, IOB 1.2 U, COB 15 g", error.contentDescription)
+
+        val noSource = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, null, now)
+        assertEquals("—", noSource.title)
+        assertEquals("—", noSource.text)
+        assertEquals("keine Quelle, IOB —, COB —", noSource.contentDescription)
+    }
+
+    @Test fun `loop complication uses the shared app state instead of circle glyphs`() {
+        val closed = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.LOOP,
+            state.copy(loop = LoopState(status = "enacted")),
+            now,
+        )
+        assertEquals("Closed", closed.text)
+        assertEquals("Closed Loop", closed.contentDescription)
+
+        val paused = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.LOOP,
+            state.copy(loop = LoopState(status = "paused")),
+            now,
+        )
+        assertEquals("Pausiert", paused.text)
+        assertEquals("Loop pausiert", paused.contentDescription)
+    }
+
+    @Test fun `tir presentation uses configured central thresholds`() {
+        val thresholds = CgmThresholds(
+            veryHighMgDl = 240.0,
+            highMgDl = 160.0,
+            lowMgDl = 80.0,
+            veryLowMgDl = 55.0,
+        )
+        val presentation = ComplicationPresentationFormatter.format(
+            SugarliciousComplicationIds.TIR,
+            state,
+            now,
+            thresholds,
+        )
+
+        assertEquals("67%", presentation.text)
+        assertEquals("80–160", presentation.title)
     }
 
     @Test fun `date weekdays always use the requested German abbreviations`() {

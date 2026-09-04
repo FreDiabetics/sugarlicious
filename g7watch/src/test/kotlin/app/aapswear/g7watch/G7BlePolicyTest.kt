@@ -1,7 +1,9 @@
 package app.aapswear.g7watch
 
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothDevice
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticAttempt
@@ -13,6 +15,82 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `known candidate without first reading retains initial pairing deadline`() {
+        val state = G7PersistedState(
+            sensor = G7Sensor("new-sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+        )
+
+        assertEquals(
+            G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L,
+            collectorAttemptDeadlineMs(state),
+        )
+    }
+
+    @Test fun `stored key is not replayed when Android bond is absent`() {
+        val key = byteArrayOf(1, 2, 3)
+
+        assertEquals(null, usableG7SharedKey(key, BluetoothDevice.BOND_NONE))
+        assertTrue(usableG7SharedKey(key, BluetoothDevice.BOND_BONDING)!!.contentEquals(key))
+        assertTrue(usableG7SharedKey(key, BluetoothDevice.BOND_BONDED)!!.contentEquals(key))
+        assertTrue(usableG7SharedKey(key, null)!!.contentEquals(key))
+        assertEquals(null, usableG7SharedKey(null, BluetoothDevice.BOND_NONE))
+        assertTrue(shouldResumeG7Pairing(key, BluetoothDevice.BOND_NONE))
+        assertFalse(shouldResumeG7Pairing(key, BluetoothDevice.BOND_BONDING))
+        assertFalse(shouldResumeG7Pairing(key, BluetoothDevice.BOND_BONDED))
+        assertFalse(shouldResumeG7Pairing(null, BluetoothDevice.BOND_NONE))
+    }
+
+    @Test fun `authenticated address anchors an addressless sensor change`() {
+        val sensor = G7Sensor("new-sensor", sessionId = "new-session")
+
+        assertEquals(
+            "AA:BB:CC:DD:EE:FF",
+            restoreAuthenticatedG7Address(sensor, "AA:BB:CC:DD:EE:FF").deviceAddress,
+        )
+    }
+
+    @Test fun `authenticated address never replaces an established sensor address`() {
+        val sensor = G7Sensor(
+            "active-sensor",
+            sessionId = "active-session",
+            deviceAddress = "11:22:33:44:55:66",
+        )
+
+        assertEquals(
+            "11:22:33:44:55:66",
+            restoreAuthenticatedG7Address(sensor, "AA:BB:CC:DD:EE:FF").deviceAddress,
+        )
+    }
+
+    @Test fun `missing authenticated address leaves sensor discovery open`() {
+        val sensor = G7Sensor("new-sensor", sessionId = "new-session")
+
+        assertEquals(sensor, restoreAuthenticatedG7Address(sensor, null))
+        assertEquals(sensor, restoreAuthenticatedG7Address(sensor, ""))
+    }
+
+    @Test fun `bonding waits through asynchronous initial bond none state`() {
+        assertEquals(
+            G7BondWaitDecision.KEEP_WAITING,
+            g7BondWaitDecision(BluetoothDevice.BOND_NONE, observedBonding = false),
+        )
+        assertEquals(
+            G7BondWaitDecision.KEEP_WAITING,
+            g7BondWaitDecision(BluetoothDevice.BOND_BONDING, observedBonding = false),
+        )
+        assertEquals(
+            G7BondWaitDecision.BONDED,
+            g7BondWaitDecision(BluetoothDevice.BOND_BONDED, observedBonding = true),
+        )
+    }
+
+    @Test fun `bonding none is terminal only after bonding was observed`() {
+        assertEquals(
+            G7BondWaitDecision.FAILED,
+            g7BondWaitDecision(BluetoothDevice.BOND_NONE, observedBonding = true),
+        )
+    }
+
     @Test fun `direct connect callbacks retain actionable platform outcomes`() {
         assertEquals(DirectConnectResult.SUCCESS, classifyDirectConnectCallback(BluetoothGatt.GATT_SUCCESS, android.bluetooth.BluetoothProfile.STATE_CONNECTED))
         assertEquals(DirectConnectResult.STATUS_133, classifyDirectConnectCallback(133, android.bluetooth.BluetoothProfile.STATE_DISCONNECTED))
@@ -101,6 +179,13 @@ class G7BlePolicyTest {
                 recoverable = true,
             ),
         )
+    }
+
+    @Test fun `no callback receives one clean direct retry before fallback`() {
+        assertTrue(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = false))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 1, fallbackUsed = false))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = true))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_GATT_133_ERROR_CODE, 0, fallbackUsed = false))
     }
 
     @Test fun `known sensor address rejects a different nearby G7`() {

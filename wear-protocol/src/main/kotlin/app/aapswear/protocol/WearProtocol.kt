@@ -4,6 +4,7 @@ import app.aapswear.model.DiagnosticBatch
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.CgmThresholds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -51,7 +52,14 @@ data class WatchGraphColors(
     val cgmLow: Int = 0xFFFF5C69.toInt(),
     val cgmInRange: Int = 0xFF54DF30.toInt(),
     val cgmHigh: Int = 0xFFFFD040.toInt(),
+    val cgmVeryLow: Int = cgmLow,
+    val cgmVeryHigh: Int = cgmHigh,
     val divider: Int = 0xFF969696.toInt(),
+    val highLine: Int = rangeHigh,
+    val lowLine: Int = rangeLow,
+    val axisLabel: Int = divider,
+    val axisTick: Int = divider,
+    val nowLine: Int = divider,
     val outline: Int = 0xFF000000.toInt(),
     val predictionIob: Int = 0xFF52C1FF.toInt(),
     val predictionCob: Int = 0xFFF4DE00.toInt(),
@@ -61,16 +69,35 @@ data class WatchGraphColors(
     val signalLoss: Int = 0x46FF5C69,
 )
 
+object DirectToWatchGraphColorDefaults {
+    fun create() = WatchGraphColors(
+        graphBackground = 0xFF000000.toInt(),
+        rangeInRange = 0x665C5C5C,
+        rangeHigh = 0x4DFFD040,
+        rangeLow = 0x4DFF5C69,
+    )
+}
+
 @Serializable
 data class WatchColorSync(
     val schemaVersion: Int = CURRENT_SCHEMA,
     val graphColors: WatchGraphColors,
+    val lightProfile: WatchAppearanceProfile? = null,
+    val darkProfile: WatchAppearanceProfile? = null,
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val sentAtEpochMs: Long,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 1
+        const val CURRENT_SCHEMA = 4
     }
 }
+
+@Serializable
+data class WatchAppearanceProfile(
+    val graphColors: WatchGraphColors = WatchGraphColors(),
+    val graphStyle: WatchGraphStyle = WatchGraphStyle(),
+    val uiColors: WatchUiColors = WatchUiColors(),
+)
 
 @Serializable
 data class G7ReadingBatch(
@@ -108,6 +135,8 @@ data class WatchUiColors(
     val glucoseLow: Int = 0xFFFF5C69.toInt(),
     val glucoseInRange: Int = 0xFFF5F5F5.toInt(),
     val glucoseHigh: Int = 0xFFFFD040.toInt(),
+    val glucoseVeryLow: Int = glucoseLow,
+    val glucoseVeryHigh: Int = glucoseHigh,
     val iob: Int = 0xFF64BFFF.toInt(),
     val cob: Int = 0xFFFF9D18.toInt(),
     val basal: Int = 0xFF19D7E8.toInt(),
@@ -138,19 +167,22 @@ data class WatchConfig(
     val graphColors: WatchGraphColors = WatchGraphColors(),
     val graphStyle: WatchGraphStyle = WatchGraphStyle(),
     val uiColors: WatchUiColors = WatchUiColors(),
+    val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val sentAtEpochMs: Long = 0L,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 7
+        const val CURRENT_SCHEMA = 9
     }
 }
 
 object WearProtocol {
+    const val MAX_STATE_PAYLOAD_BYTES = 90_000
     const val STATE_PATH = "/aaps-display/v1/state"
     const val REQUEST_PATH = "/aaps-display/v1/request"
     const val WATCH_CONFIG_PATH = "/aaps-display/v1/watch-config"
     const val WATCH_CONFIG_REQUEST_PATH = "/aaps-display/v1/watch-config-request"
     const val COMPLICATION_PRESET_PATH = "/aaps-display/v1/complication-preset"
+    const val COMPLICATION_APPEARANCE_PATH = "/aaps-display/v1/complication-appearance"
     const val WATCH_FACE_APPLY_PATH = "/aaps-display/v1/watchface-apply"
     const val WATCH_FACE_STATUS_PATH = "/aaps-display/v1/watchface-status"
     const val WATCH_RUNTIME_STATUS_PATH = "/aaps-display/v1/watch-runtime-status"
@@ -172,6 +204,48 @@ object WearProtocol {
 
     fun encode(state: TherapyDisplayState): ByteArray =
         json.encodeToString(WearEnvelope(state = state)).encodeToByteArray()
+
+    /**
+     * Builds a Wear Data Layer safe state without changing the locally persisted Mobile model.
+     * Google Play services rejects DataItems around 100 KiB with DATA_ITEM_TOO_LARGE. Histories
+     * grow during normal use, so transporting the unbounded persistence object is unsafe.
+     */
+    fun encodeStateForTransport(
+        state: TherapyDisplayState,
+        maxBytes: Int = MAX_STATE_PAYLOAD_BYTES,
+    ): ByteArray {
+        require(maxBytes > 0)
+        var transport = state.copy(
+            // These raw AAPS JSON documents are diagnostic input, not Wear presentation data,
+            // and can each be larger than the complete Data Layer allowance.
+            loop = state.loop?.copy(suggestedPayload = null, enactedPayload = null),
+            glucoseHistory = state.glucoseHistory.takeLast(288),
+            therapyHistory = state.therapyHistory.takeLast(288),
+            therapyEvents = state.therapyEvents.takeLast(180),
+            targetHistory = state.targetHistory.takeLast(96),
+            glucosePredictions = state.glucosePredictions.map { it.copy(samples = it.samples.takeLast(72)) },
+        )
+        var payload = encode(transport)
+        while (payload.size > maxBytes) {
+            transport = when {
+                transport.therapyHistory.size > 72 -> transport.copy(therapyHistory = transport.therapyHistory.drop(oldestQuarter(transport.therapyHistory.size, 72)))
+                transport.therapyEvents.size > 40 -> transport.copy(therapyEvents = transport.therapyEvents.drop(oldestQuarter(transport.therapyEvents.size, 40)))
+                transport.targetHistory.size > 24 -> transport.copy(targetHistory = transport.targetHistory.drop(oldestQuarter(transport.targetHistory.size, 24)))
+                transport.glucoseHistory.size > 72 -> transport.copy(glucoseHistory = transport.glucoseHistory.drop(oldestQuarter(transport.glucoseHistory.size, 72)))
+                transport.glucosePredictions.any { it.samples.size > 12 } -> transport.copy(
+                    glucosePredictions = transport.glucosePredictions.map { prediction ->
+                        prediction.copy(samples = prediction.samples.takeLast((prediction.samples.size * 3 / 4).coerceAtLeast(12)))
+                    },
+                )
+                else -> throw IllegalArgumentException("Wear state cannot fit into $maxBytes bytes")
+            }
+            payload = encode(transport)
+        }
+        return payload
+    }
+
+    private fun oldestQuarter(size: Int, minimum: Int): Int =
+        (size / 4).coerceAtLeast(1).coerceAtMost(size - minimum)
 
     fun decode(bytes: ByteArray): TherapyDisplayState {
         val envelope = json.decodeFromString<WearEnvelope>(bytes.decodeToString())
