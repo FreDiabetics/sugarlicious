@@ -64,6 +64,11 @@ class WearProtocolTest {
   val config=WatchConfig(graphColors=colors,sentAtEpochMs=123)
   assertEquals(config,WearProtocol.decodeConfig(WearProtocol.encodeConfig(config)))
  }
+ @Test fun `current and historical dot outlines round trip independently`() {
+  val style=WatchGraphStyle(cgmHistoricalDotOutlineEnabled=false,cgmCurrentDotOutlineEnabled=true)
+  val config=WatchConfig(graphStyle=style)
+  assertEquals(style,WearProtocol.decodeConfig(WearProtocol.encodeConfig(config)).graphStyle)
+ }
  @Test fun legacyWatchConfigUsesDefaultBasalColor() {
   val legacy="""{"schemaVersion":4,"uiColors":{}}"""
   val decoded=WearProtocol.decodeConfig(legacy.encodeToByteArray())

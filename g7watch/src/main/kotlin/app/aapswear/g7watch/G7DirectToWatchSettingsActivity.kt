@@ -75,8 +75,11 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(slider("Punktgröße", 15, 60, (graphStyle.dotRadiusDp * 10).roundToInt(), palette, { "Punktgröße · ${it / 10f} dp" }) {
             settings.saveGraphStyle(settings.graphStyle().copy(dotRadiusDp = it / 10f))
         }, params(5))
-        root.addView(toggle("Punktkontur", graphStyle.dotOutlineEnabled, palette) {
-            settings.saveGraphStyle(settings.graphStyle().copy(dotOutlineEnabled = it))
+        root.addView(toggle("Kontur · bisherige Punkte", graphStyle.historicalDotOutlineEnabled, palette) {
+            settings.saveGraphStyle(settings.graphStyle().copy(historicalDotOutlineEnabled = it))
+        }, params(5))
+        root.addView(toggle("Kontur · aktueller Wert", graphStyle.currentDotOutlineEnabled, palette) {
+            settings.saveGraphStyle(settings.graphStyle().copy(currentDotOutlineEnabled = it))
         }, params(5))
         root.addView(slider("Konturbreite", 25, 300, (graphStyle.dotOutlineWidthDp * 100).roundToInt(), palette, { "Konturbreite · ${it / 100f} dp" }) {
             settings.saveGraphStyle(settings.graphStyle().copy(dotOutlineWidthDp = it / 100f))
@@ -89,9 +92,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }, params(5))
         root.addView(toggle("Zeitachsenskala", graphStyle.timeAxisEnabled, palette) {
             settings.saveGraphStyle(settings.graphStyle().copy(timeAxisEnabled = it))
-        }, params(5))
-        root.addView(toggle("Horizontale Zielwert-Striche", graphStyle.targetTicksEnabled, palette) {
-            settings.saveGraphStyle(settings.graphStyle().copy(targetTicksEnabled = it))
         }, params(5))
         val colors = settings.graphColors()
         section(root, "GRAPH · FARBEN", palette)

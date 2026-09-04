@@ -31,6 +31,7 @@ import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.cgmBoundaryDisplay
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
@@ -269,7 +270,7 @@ class G7WatchActivity : Activity() {
         palette: G7AppearancePalette,
     ): LinearLayout {
         val now = System.currentTimeMillis()
-        val presentation = wearGlucoseCardPresentation(
+        val basePresentation = wearGlucoseCardPresentation(
             WearGlucoseCardInput(
                 valueMgDl = reading?.glucoseMgDl,
                 displayUnit = GlucoseUnit.MG_DL,
@@ -285,6 +286,12 @@ class G7WatchActivity : Activity() {
             ),
             G7GraphColorStore(this).readThresholds(),
             now,
+        )
+        val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
+        val presentation = if (boundary == null) basePresentation else basePresentation.copy(
+            value = boundary.label,
+            trend = null,
+            primaryMeta = "",
         )
         val valueColor = when {
             !presentation.displayable -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)

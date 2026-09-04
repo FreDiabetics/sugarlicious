@@ -247,7 +247,12 @@ class WearSettingsActivity : Activity() {
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotRadiusDp = progress / 10f)), rebuild = false) },
                 cardParams(),
             )
-            root.addView(switchRow("Kontur", current.graphStyle.cgmDotOutlineEnabled) { save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = it))) }, cardParams())
+            root.addView(switchRow("Kontur · bisherige Punkte", current.graphStyle.cgmHistoricalDotOutlineEnabled) {
+                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmHistoricalDotOutlineEnabled = it)))
+            }, cardParams())
+            root.addView(switchRow("Kontur · aktueller Wert", current.graphStyle.cgmCurrentDotOutlineEnabled) {
+                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmCurrentDotOutlineEnabled = it)))
+            }, cardParams())
             root.addView(
                 sliderCard(
                     title = "Konturbreite",

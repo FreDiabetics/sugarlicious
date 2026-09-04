@@ -122,6 +122,8 @@ class WearGlucoseChart @JvmOverloads constructor(
                     dotRadiusDp = graphStyle.cgmDotRadiusDp,
                     dotOutlineWidthDp = graphStyle.cgmDotOutlineWidthDp,
                     dotOutlineEnabled = graphStyle.cgmDotOutlineEnabled,
+                    historicalDotOutlineEnabled = graphStyle.cgmHistoricalDotOutlineEnabled,
+                    currentDotOutlineEnabled = graphStyle.cgmCurrentDotOutlineEnabled,
                     cornerRadiusDp = TILE_RADIUS_DP,
                 ),
             ),

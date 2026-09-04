@@ -20,7 +20,10 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     init {
         // Range confirmation is a system-wide graph policy, not a per-watchface preference.
-        preferences.edit().remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED).apply()
+        preferences.edit()
+            .remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
+            .remove(KEY_TARGET_TICKS_ENABLED)
+            .apply()
     }
 
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
@@ -62,25 +65,30 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         val defaults = DirectToWatchGraphDefaults.style()
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
-            dotOutlineEnabled = preferences.getBoolean(KEY_DOT_OUTLINE, defaults.dotOutlineEnabled),
+            dotOutlineEnabled = true,
+            historicalDotOutlineEnabled = preferences.getBoolean(KEY_HISTORICAL_DOT_OUTLINE, preferences.getBoolean(KEY_DOT_OUTLINE, defaults.historicalDotOutlineEnabled)),
+            currentDotOutlineEnabled = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, preferences.getBoolean(KEY_DOT_OUTLINE, defaults.currentDotOutlineEnabled)),
             dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = preferences.getBoolean(KEY_BORDER_ENABLED, defaults.borderEnabled),
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
-            targetTicksEnabled = preferences.getBoolean(KEY_TARGET_TICKS_ENABLED, defaults.targetTicksEnabled),
+            targetTicksEnabled = false,
             targetLabelsOutsideRange = true,
+            targetLabelsInsidePlot = true,
             rangeBackgroundEnabled = true,
         )
     }
 
     fun saveGraphStyle(value: SharedWearCgmGraphStyle) = update {
         putFloat(KEY_DOT_RADIUS, value.dotRadiusDp.coerceIn(1.5f, 6f))
-        putBoolean(KEY_DOT_OUTLINE, value.dotOutlineEnabled)
+        putBoolean(KEY_DOT_OUTLINE, true)
+        putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value.historicalDotOutlineEnabled)
+        putBoolean(KEY_CURRENT_DOT_OUTLINE, value.currentDotOutlineEnabled)
         putFloat(KEY_DOT_OUTLINE_WIDTH, value.dotOutlineWidthDp.coerceIn(.25f, 3f))
         putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
         putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
         putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
-        putBoolean(KEY_TARGET_TICKS_ENABLED, value.targetTicksEnabled)
+        remove(KEY_TARGET_TICKS_ENABLED)
     }
 
     fun graphColors(): WatchGraphColors {
@@ -147,6 +155,8 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_TARGET_HIGH = "target.high_mg_dl"
         private const val KEY_DOT_RADIUS = "graph_style_dot_radius"
         private const val KEY_DOT_OUTLINE = "graph_style_dot_outline_enabled"
+        private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_style_historical_dot_outline_enabled"
+        private const val KEY_CURRENT_DOT_OUTLINE = "graph_style_current_dot_outline_enabled"
         private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
         private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
