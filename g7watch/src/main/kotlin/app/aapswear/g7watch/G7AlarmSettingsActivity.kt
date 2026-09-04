@@ -28,9 +28,8 @@ class G7AlarmSettingsActivity : Activity() {
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scrollView = ScrollView(this).apply {
             isFillViewport = true
-            isVerticalScrollBarEnabled = false
             addView(root)
-        }
+        }.applyG7EdgeFade()
         setContentView(scrollView)
         render()
     }

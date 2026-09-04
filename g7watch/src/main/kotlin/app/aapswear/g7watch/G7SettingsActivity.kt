@@ -72,8 +72,7 @@ class G7SettingsActivity : Activity() {
         if (!::scrollView.isInitialized) {
             scrollView = ScrollView(this).apply {
                 isFillViewport = true
-                isVerticalScrollBarEnabled = false
-            }
+            }.applyG7EdgeFade()
             setContentView(scrollView)
         } else {
             scrollView.removeAllViews()

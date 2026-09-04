@@ -38,7 +38,7 @@ class G7AppearanceActivity : Activity() {
         store = G7AppearanceStore(this)
         selectedMode = store.activeMode()
         pageRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scrollView = ScrollView(this).apply { isFillViewport = true; addView(pageRoot) }
+        scrollView = ScrollView(this).apply { isFillViewport = true; addView(pageRoot) }.applyG7EdgeFade()
         setContentView(scrollView)
         render()
     }

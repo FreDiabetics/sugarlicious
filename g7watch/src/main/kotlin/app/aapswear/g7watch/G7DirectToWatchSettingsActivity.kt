@@ -38,7 +38,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         scrollView = ScrollView(this).apply {
             isFillViewport = true
             addView(pageRoot)
-        }
+        }.applyG7EdgeFade()
         setContentView(scrollView)
         render()
     }

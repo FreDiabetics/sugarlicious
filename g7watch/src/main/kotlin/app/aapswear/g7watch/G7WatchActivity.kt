@@ -235,7 +235,7 @@ class G7WatchActivity : Activity() {
             topMargin = 9.dp
             gravity = Gravity.CENTER_HORIZONTAL
         })
-        content.addView(label("G7 Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+        content.addView(label("Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
             setPadding(3.dp, 2.dp, 3.dp, 0)
         })
         content.addView(label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
@@ -247,7 +247,7 @@ class G7WatchActivity : Activity() {
             isFillViewport = true
             setBackgroundColor(background)
             addView(content)
-        }
+        }.applyG7EdgeFade()
         setContentView(scrollView)
         screenBuilt = true
         refreshLiveContent(preserveScroll = false)

@@ -239,7 +239,7 @@ class G7SystemStatusActivity : Activity() {
 
         val currentScroll = scrollView
         if (currentScroll == null) {
-            scrollView = ScrollView(this).apply { isFillViewport = true }
+            scrollView = ScrollView(this).apply { isFillViewport = true }.applyG7EdgeFade()
             setContentView(scrollView)
         } else {
             currentScroll.removeAllViews()

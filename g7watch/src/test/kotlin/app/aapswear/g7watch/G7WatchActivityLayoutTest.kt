@@ -159,6 +159,8 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
         val scroll = findScrollView(root)!!
+        assertTrue(scroll.isVerticalFadingEdgeEnabled)
+        assertTrue(scroll.verticalFadingEdgeLength > 0)
         measureAndLayout(root)
         scroll.scrollTo(0, 180)
 
@@ -202,7 +204,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val systemIndex = texts.indexOf("Systemstatus")
-        val titleIndex = texts.indexOf("G7 Direct to Watch")
+        val titleIndex = texts.indexOf("Direct to Watch")
         val brandIndex = texts.indexOf("by Sugarlicious")
         assertTrue(systemIndex >= 0)
         assertTrue(titleIndex > systemIndex)
