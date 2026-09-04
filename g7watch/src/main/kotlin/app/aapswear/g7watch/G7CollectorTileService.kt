@@ -34,6 +34,7 @@ import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.ArgbContrast
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.cgmBoundaryDisplay
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
@@ -118,13 +119,14 @@ internal fun g7TilePresentation(
         CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
         else -> G7_TILE_TEXT_PRIMARY
     }
+    val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
     return G7TilePresentation(
-        glucoseValue = shared.value,
-        meta = shared.primaryMeta,
+        glucoseValue = boundary?.label ?: shared.value,
+        meta = if (boundary == null) shared.primaryMeta else "",
         age = "",
         cardBackground = G7_TILE_CARD_BACKGROUND,
         cardForeground = valueColor,
-        trend = shared.trend,
+        trend = shared.trend.takeIf { boundary == null },
     )
 }
 

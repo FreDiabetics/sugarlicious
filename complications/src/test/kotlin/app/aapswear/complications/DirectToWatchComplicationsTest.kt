@@ -3,6 +3,7 @@ package app.aapswear.complications
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
@@ -24,6 +25,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Robolectric
 
 @RunWith(RobolectricTestRunner::class)
 class DirectToWatchComplicationsTest {
@@ -43,6 +45,19 @@ class DirectToWatchComplicationsTest {
         assertEquals("8.4", header.glucose)
         assertEquals("+0.1 mmol/L", header.secondary)
         assertEquals(GlucoseUnit.MG_DL, state.glucose?.displayUnit)
+    }
+
+    @Test fun `direct boundary values replace number and trend only outside sensor range`() {
+        fun header(value: Double) = DirectToWatchPresentationFormatter.header(
+            directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(valueMgDl = value)),
+            now,
+        )
+        assertEquals("NIEDRIG", header(39.0).glucose)
+        assertEquals(null, header(39.0).trend)
+        assertEquals("40", header(40.0).glucose)
+        assertEquals("400", header(400.0).glucose)
+        assertEquals("HOCH", header(401.0).glucose)
+        assertEquals(null, header(401.0).trend)
     }
 
     @Test fun `stale direct value is not rendered as current`() {
@@ -87,6 +102,21 @@ class DirectToWatchComplicationsTest {
         assertTrue(samples.none { it.valueMgDl in setOf(110.0, 130.0, 140.0) })
     }
 
+    @Test fun `vigil ambient graph is transparent outside target and grayscale`() {
+        val service = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()
+        val bitmap = service.renderGraph(directState(now - 60_000L), now, 3, ambient = true)
+        assertEquals(0, Color.alpha(bitmap.getPixel(bitmap.width / 2, 8)))
+        var coloredPixelFound = false
+        for (y in 0 until bitmap.height step 5) for (x in 0 until bitmap.width step 5) {
+            val pixel = bitmap.getPixel(x, y)
+            if (Color.alpha(pixel) == 0) continue
+            coloredPixelFound = true
+            assertEquals(Color.red(pixel), Color.green(pixel))
+            assertEquals(Color.green(pixel), Color.blue(pixel))
+        }
+        assertTrue(coloredPixelFound)
+    }
+
     @Test fun `payload remains visible while renderer changes it to stale`() {
         val measuredAt = now - 2 * 60_000L
         val range = DirectToWatchPresentationFormatter.validTimeRange(directState(measuredAt), now)
@@ -118,7 +148,13 @@ class DirectToWatchComplicationsTest {
             cgmVeryHigh = 0xFFABCDEF.toInt(),
             predictionUam = 0xFF123456.toInt(),
         )
-        val style = SharedWearCgmGraphStyle(dotRadiusDp = 4.2f, dotOutlineEnabled = false, dotOutlineWidthDp = 1.7f, cornerRadiusDp = 31f)
+        val style = SharedWearCgmGraphStyle(
+            dotRadiusDp = 4.2f,
+            historicalDotOutlineEnabled = false,
+            currentDotOutlineEnabled = true,
+            dotOutlineWidthDp = 1.7f,
+            cornerRadiusDp = 31f,
+        )
         DirectToWatchPreferences.saveGraphColors(context, colors)
         DirectToWatchPreferences.saveGraphStyle(context, style)
 
@@ -128,7 +164,10 @@ class DirectToWatchComplicationsTest {
         assertEquals(colors.predictionUam, DirectToWatchPreferences.graphColors(context).predictionUam)
         assertEquals(4.2f, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
         assertEquals(31f, DirectToWatchPreferences.graphStyle(context).cornerRadiusDp)
-        assertFalse(DirectToWatchPreferences.graphStyle(context).dotOutlineEnabled)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).historicalDotOutlineEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).currentDotOutlineEnabled)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).targetTicksEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).targetLabelsInsidePlot)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
 
         DirectToWatchPreferences.resetGraphAppearance(context)

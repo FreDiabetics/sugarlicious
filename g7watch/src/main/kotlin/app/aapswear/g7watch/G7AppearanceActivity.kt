@@ -91,6 +91,17 @@ class G7AppearanceActivity : Activity() {
             render()
         }, params(top = 5))
 
+        content.addView(label("GRAPH · PUNKTKONTUREN", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+            letterSpacing = 0.10f
+            setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+        })
+        content.addView(toggleRow("Kontur · bisherige Punkte", store.historicalDotOutlineEnabled(), palette) {
+            store.setHistoricalDotOutlineEnabled(it)
+        }, params(top = 5))
+        content.addView(toggleRow("Kontur · aktueller Wert", store.currentDotOutlineEnabled(), palette) {
+            store.setCurrentDotOutlineEnabled(it)
+        }, params(top = 5))
+
         G7AppearanceSection.entries.forEach { section ->
             content.addView(label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
                 gravity = Gravity.START

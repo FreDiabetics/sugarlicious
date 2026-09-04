@@ -89,7 +89,11 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
                 nowEpochMs = now,
                 thresholds = thresholds,
                 palette = palette.toSharedPalette(),
-                style = SharedWearCgmGraphStyle(cornerRadiusDp = TILE_RADIUS_DP),
+                style = SharedWearCgmGraphStyle(
+                    cornerRadiusDp = TILE_RADIUS_DP,
+                    historicalDotOutlineEnabled = G7AppearanceStore(context).historicalDotOutlineEnabled(),
+                    currentDotOutlineEnabled = G7AppearanceStore(context).currentDotOutlineEnabled(),
+                ),
             ),
         )
     }
