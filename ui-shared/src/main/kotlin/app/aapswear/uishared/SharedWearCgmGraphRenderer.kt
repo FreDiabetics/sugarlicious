@@ -54,7 +54,7 @@ data class SharedWearCgmGraphStyle(
     val borderEnabled: Boolean = true,
     val timeAxisEnabled: Boolean = true,
     val targetTicksEnabled: Boolean = false,
-    val targetLabelsOutsideRange: Boolean = false,
+    val targetLabelsOutsideRange: Boolean = true,
     val targetLabelsInsidePlot: Boolean = false,
     val rangeBackgroundEnabled: Boolean = true,
 )

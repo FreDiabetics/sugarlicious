@@ -551,9 +551,19 @@ internal fun renderWidgetGraph(
     }
     textPaint.textAlign = Paint.Align.RIGHT
     line.color = palette.argb(WidgetColorRole.AXIS_TICK)
-    listOf(targetTop to targetHigh, targetBottom to targetLow).forEach { (targetY, value) ->
-        canvas.drawText(value.roundToInt().toString(), metrics.yLabelRightPx, targetY - (textPaint.fontMetrics.ascent + textPaint.fontMetrics.descent) / 2f, textPaint)
-    }
+    val targetLabelGap = 2f * renderDensity
+    canvas.drawText(
+        targetHigh.roundToInt().toString(),
+        metrics.yLabelRightPx,
+        targetTop - targetLabelGap - textPaint.fontMetrics.descent,
+        textPaint,
+    )
+    canvas.drawText(
+        targetLow.roundToInt().toString(),
+        metrics.yLabelRightPx,
+        targetBottom + targetLabelGap - textPaint.fontMetrics.ascent,
+        textPaint,
+    )
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, renderDensity)
     return bitmap
 }

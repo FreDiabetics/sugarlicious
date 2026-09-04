@@ -182,7 +182,7 @@ class G7WatchActivity : Activity() {
                 topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
             })
         }
-        setContentView(ScrollView(this).apply { isFillViewport = true; addView(content) })
+        setContentView(G7EdgeFadeScrollView(this).apply { isFillViewport = true; addView(content) }.applyG7EdgeFade())
         mainHandler.removeCallbacks(pairingRefresh)
         mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
@@ -243,7 +243,7 @@ class G7WatchActivity : Activity() {
             setPadding(3.dp, 1.dp, 3.dp, 0)
         })
 
-        scrollView = ScrollView(this).apply {
+        scrollView = G7EdgeFadeScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(background)
             addView(content)

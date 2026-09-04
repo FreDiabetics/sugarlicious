@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -9,10 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.LinearLayout
+import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import android.text.InputType
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseUnit
@@ -35,7 +38,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         mode = settings.activeAppearanceMode(appearance.activeMode())
         settings.saveActiveAppearanceMode(mode)
         pageRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scrollView = ScrollView(this).apply {
+        scrollView = G7EdgeFadeScrollView(this).apply {
             isFillViewport = true
             addView(pageRoot)
         }.applyG7EdgeFade()
@@ -62,12 +65,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         }, params(5))
         val thresholds = settings.thresholds()
         section(root, "GLUKOSE · ZIELBEREICH", palette)
-        root.addView(slider("Tief", 51, (thresholds.highMgDl.toInt() - 1).coerceAtLeast(51), thresholds.lowMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
-            settings.saveThresholds(settings.thresholds().copy(lowMgDl = it.toDouble()))
-        }, params(5))
-        root.addView(slider("Hoch", (thresholds.lowMgDl.toInt() + 1).coerceAtMost(249), 249, thresholds.highMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
-            settings.saveThresholds(settings.thresholds().copy(highMgDl = it.toDouble()))
-        }, params(5))
+        root.addView(numericThresholdRow("Tief", thresholds.lowMgDl, isHigh = false, palette), params(5))
+        root.addView(numericThresholdRow("Hoch", thresholds.highMgDl, isHigh = true, palette), params(5))
 
         section(root, "GRAPH · ZEITSKALA", palette)
         root.addView(choiceRow(settings.graphHours(), palette), params(5))
@@ -197,6 +196,50 @@ class G7DirectToWatchSettingsActivity : Activity() {
     private fun formatThreshold(valueMgDl: Int, unit: GlucoseUnit): String =
         if (unit == GlucoseUnit.MMOL_L) String.format(java.util.Locale.GERMANY, "%.1f mmol/L", valueMgDl / 18.0)
         else "$valueMgDl mg/dL"
+
+    private fun numericThresholdRow(title: String, valueMgDl: Double, isHigh: Boolean, p: G7AppearancePalette) =
+        button("$title · ${formatThreshold(valueMgDl.roundToInt(), settings.glucoseUnit())}", p) {
+            showTargetThresholdEditor(title, valueMgDl, isHigh, p)
+        }.apply {
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(12.dp, 0, 12.dp, 0)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 46.dp)
+        }
+
+    private fun showTargetThresholdEditor(title: String, currentMgDl: Double, isHigh: Boolean, p: G7AppearancePalette) {
+        val unit = settings.glucoseUnit()
+        val shown = if (unit == GlucoseUnit.MMOL_L) String.format(java.util.Locale.US, "%.1f", currentMgDl / 18.0) else currentMgDl.roundToInt().toString()
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(shown)
+            selectAll()
+            setTextColor(p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Zielbereich · $title")
+            .setView(input)
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Speichern", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val entered = input.text.toString().trim().replace(',', '.').toDoubleOrNull()
+                val mgDl = entered?.let { if (unit == GlucoseUnit.MMOL_L) it * 18.0 else it }
+                val current = settings.thresholds()
+                val updated = mgDl?.let { if (isHigh) current.copy(highMgDl = it) else current.copy(lowMgDl = it) }
+                    ?.takeIf { it.isValid && it.lowMgDl >= 40.0 && it.veryHighMgDl <= 400.0 }
+                if (updated == null) {
+                    input.error = if (isHigh) "Muss über dem Tief-Wert liegen" else "Muss unter dem Hoch-Wert liegen"
+                } else {
+                    settings.saveThresholds(updated)
+                    dialog.dismiss()
+                    render()
+                }
+            }
+        }
+        dialog.show()
+        input.requestFocus()
+    }
 
     private fun slider(title: String, min: Int, max: Int, initial: Int, p: G7AppearancePalette, format: (Int) -> String, save: (Int) -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(10.dp, 8.dp, 10.dp, 8.dp); background = card(p)

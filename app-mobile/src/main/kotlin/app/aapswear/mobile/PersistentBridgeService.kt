@@ -692,14 +692,15 @@ internal object NotificationGraphRenderer {
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
         canvas.drawLine(visualLeft, y(targetLow), visualRight, y(targetLow), paint)
 
-        fun drawYTick(value: Double) {
+        fun drawYLabel(value: Double, aboveLine: Boolean) {
             val py = y(value)
             axisText.textAlign = Paint.Align.LEFT
-            val baseline = py - (axisText.fontMetrics.ascent + axisText.fontMetrics.descent) / 2f
+            val gap = dp(2f)
+            val baseline = if (aboveLine) py - gap - axisText.fontMetrics.descent else py + gap - axisText.fontMetrics.ascent
             canvas.drawText(value.roundToInt().toString(), plotRight + dp(axis.plotToTickGapDp), baseline, axisText)
         }
-        drawYTick(targetHigh)
-        drawYTick(targetLow)
+        drawYLabel(targetHigh, aboveLine = true)
+        drawYLabel(targetLow, aboveLine = false)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
         val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity

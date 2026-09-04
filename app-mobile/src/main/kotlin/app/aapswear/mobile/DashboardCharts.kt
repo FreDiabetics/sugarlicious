@@ -814,8 +814,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val metrics = paint.fontMetrics
-        val highBaseline = targetTop - (metrics.ascent + metrics.descent) / 2f
-        val lowBaseline = targetBottom - (metrics.ascent + metrics.descent) / 2f
+        val labelGap = 2f.dp
+        val highBaseline = targetTop - labelGap - metrics.descent
+        val lowBaseline = targetBottom + labelGap - metrics.ascent
         val x = if (onRight) plot.right + 15f.dp else plot.left - 15f.dp
         canvas.drawText(highValue, x, highBaseline, paint)
         canvas.drawText(lowValue, x, lowBaseline, paint)

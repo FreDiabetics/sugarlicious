@@ -180,6 +180,18 @@ class G7CgmAlarmsTest {
     }
 
     @Test
+    fun `direct numeric threshold editing preserves strict alarm ordering`() {
+        val settings = G7AlarmSettingsStore.read(context).copy(veryHighThreshold = 250.0, highThreshold = 180.0, lowThreshold = 80.0, veryLowThreshold = 50.0)
+
+        assertEquals(170.0, withThreshold(settings, CgmAlarmType.HIGH, 170.0)?.highThreshold)
+        assertEquals(70.0, withThreshold(settings, CgmAlarmType.LOW, 70.0)?.lowThreshold)
+        assertNull(withThreshold(settings, CgmAlarmType.HIGH, 80.0))
+        assertNull(withThreshold(settings, CgmAlarmType.LOW, 180.0))
+        assertNull(withThreshold(settings, CgmAlarmType.VERY_LOW, 39.0))
+        assertNull(withThreshold(settings, CgmAlarmType.VERY_HIGH, 401.0))
+    }
+
+    @Test
     fun `corrupt alarm thresholds are normalized before engine construction`() {
         context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
             .edit()

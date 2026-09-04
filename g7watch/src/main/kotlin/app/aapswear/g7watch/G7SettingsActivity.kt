@@ -70,7 +70,7 @@ class G7SettingsActivity : Activity() {
         G7SettingsSection.entries.forEach { section -> addSection(section, palette) }
 
         if (!::scrollView.isInitialized) {
-            scrollView = ScrollView(this).apply {
+            scrollView = G7EdgeFadeScrollView(this).apply {
                 isFillViewport = true
             }.applyG7EdgeFade()
             setContentView(scrollView)
