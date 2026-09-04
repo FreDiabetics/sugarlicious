@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import androidx.wear.watchface.complications.data.ComplicationType
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.FreshnessPolicy
@@ -115,6 +116,14 @@ class DirectToWatchComplicationsTest {
             assertEquals(Color.green(pixel), Color.blue(pixel))
         }
         assertTrue(coloredPixelFound)
+    }
+
+    @Test fun `overlaid ambient vigil slots preserve the active tap actions`() {
+        val ambientHeader = Robolectric.buildService(DirectToWatchAmbientHeaderComplication::class.java).create().get()
+        val ambientGraph = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()
+
+        assertTrue(ambientHeader.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
+        assertTrue(ambientGraph.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
     }
 
     @Test fun `payload remains visible while renderer changes it to stale`() {

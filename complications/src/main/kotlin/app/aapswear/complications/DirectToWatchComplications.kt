@@ -467,7 +467,9 @@ class DirectToWatchAmbientHeaderComplication : DirectToWatchHeaderComplication()
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder("Vigil AOD ${presentation.glucose}").build(),
-        ).setValidTimeRange(TimeRange.ALWAYS).build()
+        ).setTapAction(collectorTapAction())
+            .setValidTimeRange(TimeRange.ALWAYS)
+            .build()
     }
 }
 
@@ -574,7 +576,9 @@ class DirectToWatchAmbientGraphComplication : DirectToWatchGraphComplication() {
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder("Vigil AOD Graph").build(),
-        ).setValidTimeRange(TimeRange.ALWAYS).build()
+        ).setTapAction(graphScaleTapAction())
+            .setValidTimeRange(TimeRange.ALWAYS)
+            .build()
     }
 }
 
