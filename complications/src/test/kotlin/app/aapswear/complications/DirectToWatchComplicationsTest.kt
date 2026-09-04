@@ -145,6 +145,7 @@ class DirectToWatchComplicationsTest {
         val values = Bundle().apply {
             putInt("appearance.trend.dark.sizePercent", 200)
             putFloat("appearance.trend.dark.alpha", .35f)
+            putString("appearance.active_mode", "dark")
             putBoolean("graph_style_range_background_enabled", false)
             putInt("graph_color_background", 0xFF010203.toInt())
         }
@@ -156,6 +157,7 @@ class DirectToWatchComplicationsTest {
 
         assertEquals(200, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).sizePercent)
         assertEquals(.35f, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).alpha)
+        assertEquals(app.aapswear.model.AppearanceMode.DARK, DirectToWatchPreferences.activeAppearanceMode(context))
         assertFalse(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
         assertEquals(0xFF010203.toInt(), DirectToWatchPreferences.graphColors(context).graphBackground)
     }

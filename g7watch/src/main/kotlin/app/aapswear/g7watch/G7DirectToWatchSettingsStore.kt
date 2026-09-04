@@ -30,6 +30,13 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     fun glucoseBold(): Boolean = preferences.getBoolean(KEY_GLUCOSE_BOLD, true)
     fun saveGlucoseBold(value: Boolean) = update { putBoolean(KEY_GLUCOSE_BOLD, value) }
 
+    fun activeAppearanceMode(default: AppearanceMode): AppearanceMode =
+        preferences.getString(KEY_ACTIVE_APPEARANCE_MODE, null)
+            ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
+            ?: default
+
+    fun saveActiveAppearanceMode(value: AppearanceMode) = update { putString(KEY_ACTIVE_APPEARANCE_MODE, value.storageKey) }
+
     fun thresholds(): CgmThresholds = CgmThresholds(
         veryHighMgDl = CgmThresholds.DEFAULT_VERY_HIGH_MG_DL,
         highMgDl = preferences.getFloat(KEY_TARGET_HIGH, CgmThresholds.DEFAULT_HIGH_MG_DL.toFloat()).toDouble(),
@@ -131,6 +138,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
         private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+        private const val KEY_ACTIVE_APPEARANCE_MODE = "appearance.active_mode"
         private const val KEY_TARGET_LOW = "target.low_mg_dl"
         private const val KEY_TARGET_HIGH = "target.high_mg_dl"
         private const val KEY_DOT_RADIUS = "graph_style_dot_radius"

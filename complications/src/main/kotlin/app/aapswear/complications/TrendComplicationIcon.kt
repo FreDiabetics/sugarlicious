@@ -56,8 +56,8 @@ internal object TrendComplicationIcon {
 
     /**
      * Keeps a stable canvas so every direction retains identical geometry. The percentage is
-     * calibrated to the icon box supplied by third-party watch faces: 100% occupies most of the
-     * available height, while 70..200% still produces a visible size change without distortion.
+     * calibrated directly: 100% equals [referenceHeightPx], 70% is 0.7x and 200% is 2x.
+     * The stable 2x canvas prevents clipping at the maximum while making every slider step visible.
      */
     internal fun renderScaled(
         context: Context,
@@ -94,12 +94,7 @@ internal object TrendComplicationIcon {
     }
 
     internal fun glyphFillFraction(scalePercent: Int): Float {
-        val normalized = (scalePercent.coerceIn(
-            GlucoseTrendSizing.MIN_SCALE_PERCENT,
-            GlucoseTrendSizing.MAX_SCALE_PERCENT,
-        ) - GlucoseTrendSizing.MIN_SCALE_PERCENT).toFloat() /
-            (GlucoseTrendSizing.MAX_SCALE_PERCENT - GlucoseTrendSizing.MIN_SCALE_PERCENT)
-        return 0.70f + normalized * 0.30f
+        return GlucoseTrendSizing.scaleFactor(scalePercent) / 2f
     }
 
     fun render(

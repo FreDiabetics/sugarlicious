@@ -31,8 +31,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         super.onCreate(savedInstanceState)
         settings = G7DirectToWatchSettingsStore(this)
         appearance = G7AppearanceStore(this)
-        mode = appearance.activeMode()
-        settings.sync()
+        mode = settings.activeAppearanceMode(appearance.activeMode())
+        settings.saveActiveAppearanceMode(mode)
         pageRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         scrollView = ScrollView(this).apply {
             isFillViewport = true
@@ -160,7 +160,11 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
     private fun modeSelector(p: G7AppearancePalette) = LinearLayout(this).apply {
         listOf(AppearanceMode.LIGHT to "LIGHT", AppearanceMode.DARK to "DARK").forEach { (item, title) ->
-            addView(button(title, p, item == mode) { mode = item; render() }, LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 5.dp })
+            addView(button(title, p, item == mode) {
+                mode = item
+                settings.saveActiveAppearanceMode(item)
+                render()
+            }, LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 5.dp })
         }
     }
 

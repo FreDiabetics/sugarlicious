@@ -108,10 +108,12 @@ class G7WatchActivityLayoutTest {
 
         store.saveGlucoseUnit(GlucoseUnit.MMOL_L)
         store.saveGlucoseBold(false)
+        store.saveActiveAppearanceMode(AppearanceMode.LIGHT)
         assertTrue(store.saveThresholds(thresholds))
 
         assertEquals(GlucoseUnit.MMOL_L, store.glucoseUnit())
         assertFalse(store.glucoseBold())
+        assertEquals(AppearanceMode.LIGHT, store.activeAppearanceMode(AppearanceMode.DARK))
         assertEquals(thresholds, store.thresholds())
     }
 

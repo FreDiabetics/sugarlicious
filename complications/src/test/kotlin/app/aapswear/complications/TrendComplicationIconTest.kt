@@ -54,10 +54,19 @@ class TrendComplicationIconTest {
         val default = TrendComplicationIcon.glyphFillFraction(100)
         val large = TrendComplicationIcon.glyphFillFraction(200)
 
-        assertEquals(0.70f, small, 0.001f)
-        assertTrue(default >= 0.75f)
+        assertEquals(0.35f, small, 0.001f)
+        assertEquals(0.50f, default, 0.001f)
         assertTrue(default > small)
         assertEquals(1.0f, large, 0.001f)
+    }
+
+    @Test
+    fun runtimeGlyphAt200PercentIsVisiblyTwiceThe100PercentHeight() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val style = TrendArrowStyle.defaults(AppearanceMode.DARK, 0xFFFFFFFF.toInt()).copy(outlineEnabled = false)
+        val normal = requireNotNull(TrendComplicationIcon.renderScaled(context, Trend.FLAT, 34, 100, style = style))
+        val large = requireNotNull(TrendComplicationIcon.renderScaled(context, Trend.FLAT, 34, 200, style = style))
+        assertTrue(nonTransparentHeight(large) >= nonTransparentHeight(normal) * 1.8f)
     }
 
     @Test fun `runtime renderer accepts the same outline style used by previews`() {
@@ -66,5 +75,13 @@ class TrendComplicationIconTest {
         val bitmap = TrendComplicationIcon.renderScaled(context, Trend.FLAT, 60, 100, style = style)
         assertNotNull(bitmap)
         assertTrue(bitmap!!.hasAlpha())
+    }
+
+
+    private fun nonTransparentHeight(bitmap: android.graphics.Bitmap): Int {
+        val rows = (0 until bitmap.height).filter { y ->
+            (0 until bitmap.width).any { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
+        }
+        return if (rows.isEmpty()) 0 else rows.last() - rows.first() + 1
     }
 }

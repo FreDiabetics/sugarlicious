@@ -13,7 +13,6 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
-import android.content.res.Configuration
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.PlainComplicationText
@@ -293,6 +292,12 @@ object DirectToWatchPreferences {
             Color.WHITE,
         )
 
+    fun activeAppearanceMode(context: Context): AppearanceMode =
+        context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
+            .getString("appearance.active_mode", null)
+            ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
+            ?: AppearanceMode.DARK
+
     fun saveTrendStyle(context: Context, mode: AppearanceMode, style: app.aapswear.model.TrendArrowStyle) {
         TrendArrowStylePreferences.write(context.getSharedPreferences(NAME, Context.MODE_PRIVATE), mode, style)
         requestUpdates(context)
@@ -405,7 +410,7 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
-        val mode = if ((resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
+        val mode = DirectToWatchPreferences.activeAppearanceMode(this)
         val style = DirectToWatchPreferences.trendStyle(this, mode)
         val arrow = presentation.trend?.let {
             TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
