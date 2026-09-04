@@ -17,12 +17,16 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7SessionManager
+import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.CgmQuality
@@ -35,11 +39,24 @@ import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import java.util.Locale
 
+internal fun hasUsableCollectorSession(reading: CgmReading?, sensorId: String?): Boolean =
+    reading != null && reading.status == CgmReadingStatus.VALID && reading.sensorId == sensorId
+
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
     private var readingObserverRegistered = false
     private var activePalette: G7AppearancePalette? = null
     private var screenBuilt = false
+    private var pairingGateVisible = false
+    private val pairingRefresh = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed && pairingGateVisible) {
+                refreshScreen()
+                mainHandler.postDelayed(this, 1_000L)
+            }
+        }
+    }
+    private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var scrollView: ScrollView
     private lateinit var statusHost: LinearLayout
     private lateinit var glucoseHost: LinearLayout
@@ -48,7 +65,7 @@ class G7WatchActivity : Activity() {
     private val readingObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                if (!isFinishing && !isDestroyed) refreshLiveContent()
+                if (!isFinishing && !isDestroyed) refreshScreen()
             }
         }
 
@@ -71,6 +88,7 @@ class G7WatchActivity : Activity() {
     }
 
     override fun onPause() {
+        mainHandler.removeCallbacks(pairingRefresh)
         unregisterReadingObserver()
         super.onPause()
     }
@@ -93,7 +111,79 @@ class G7WatchActivity : Activity() {
 
     private fun refreshScreen() {
         val palette = appearanceStore.load()
-        if (!screenBuilt || palette != activePalette) buildScreen(palette) else refreshLiveContent()
+        val state = G7SensorStateStore(this).read()
+        if (!hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)) {
+            buildPairingGate(palette, state.collectorEnabled, state.lastError?.safeMessage)
+        } else if (!screenBuilt || pairingGateVisible || palette != activePalette) {
+            pairingGateVisible = false
+            mainHandler.removeCallbacks(pairingRefresh)
+            buildScreen(palette)
+        } else refreshLiveContent()
+    }
+
+    private fun buildPairingGate(palette: G7AppearancePalette, pairingStarted: Boolean, error: String?) {
+        pairingGateVisible = true
+        screenBuilt = false
+        activePalette = palette
+        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        window.statusBarColor = background
+        window.navigationBarColor = background
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(26.dp, 24.dp, 26.dp, 36.dp)
+            setBackgroundColor(background)
+        }
+        content.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_g7_sensor)
+            contentDescription = "Dexcom G7 koppeln"
+        }, LinearLayout.LayoutParams(70.dp, 70.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        content.addView(label("Dexcom G7 koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+        content.addView(label(
+            if (pairingStarted) "Sensor wird gesucht und sicher gekoppelt …" else "Vierstelligen Kopplungscode vom Sensor eingeben",
+            12f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), false,
+        ).apply { setPadding(4.dp, 10.dp, 4.dp, 12.dp) })
+        if (!pairingStarted) {
+            val code = EditText(this).apply {
+                hint = "0000"
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                filters = arrayOf(android.text.InputFilter.LengthFilter(4))
+                gravity = Gravity.CENTER
+                textSize = 24f
+                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+                contentDescription = "Vierstelliger G7 Kopplungscode"
+            }
+            content.addView(code, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 58.dp))
+            content.addView(pill("Koppeln", PillStyle.PRIMARY, palette) {
+                val entered = code.text?.toString().orEmpty()
+                if (entered.length != 4 || entered.any { !it.isDigit() }) {
+                    code.error = "Bitte genau vier Ziffern eingeben"
+                    return@pill
+                }
+                val sensorId = "G7-${java.util.UUID.randomUUID().toString().take(8)}"
+                G7CredentialStore(this).saveSetup(G7SetupPayload(entered, null, null))
+                val prepared = G7SessionManager(G7SensorStateStore(this).read()).prepareInitialSetup(
+                    G7Sensor(sensorId = sensorId, sessionId = sensorId, deviceName = "Dexcom G7"),
+                )
+                G7SensorStateStore(this).save(prepared)
+                G7CollectorService.start(this)
+                refreshScreen()
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
+            })
+        } else {
+            content.addView(label(error ?: "Die Android-Kopplungsabfrage bitte auf der Uhr bestätigen.", 11f,
+                if (error == null) palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY) else palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
+            content.addView(pill("Erneut versuchen", PillStyle.SECONDARY, palette) {
+                G7CollectorService.restart(this)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
+            })
+        }
+        setContentView(ScrollView(this).apply { isFillViewport = true; addView(content) })
+        mainHandler.removeCallbacks(pairingRefresh)
+        mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
 
     private fun buildScreen(palette: G7AppearancePalette) {
@@ -234,6 +324,10 @@ class G7WatchActivity : Activity() {
     }
 
     private fun refreshLiveContent(preserveScroll: Boolean = true) {
+        if (pairingGateVisible) {
+            refreshScreen()
+            return
+        }
         if (!screenBuilt) {
             refreshScreen()
             return

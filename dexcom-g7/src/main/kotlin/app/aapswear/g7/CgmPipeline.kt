@@ -128,6 +128,7 @@ fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
         protocolStatusCode = protocolStatusCode,
         calibrationStateCode = calibrationStateCode,
         reservedField = reservedField,
+        origin = origin,
     )
     val delta = CgmDeltaCalculator.calculate(base, previous)
     val resolvedTrendRate = trendRateMgDlPerMinute ?: CgmTrendRateCalculator.calculate(base, previous)

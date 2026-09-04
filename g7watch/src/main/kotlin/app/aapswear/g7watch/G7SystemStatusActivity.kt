@@ -344,6 +344,7 @@ class G7SystemStatusActivity : Activity() {
             G7SensorStateStore(this@G7SystemStatusActivity).save(
                 G7SessionManager(G7SensorStateStore(this@G7SystemStatusActivity).read()).prepareInitialSetup(sensor),
             )
+            G7CollectorService.start(this@G7SystemStatusActivity)
             showPairingEditor = false
             render()
         }, buttonParams())

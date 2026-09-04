@@ -7,6 +7,8 @@ import android.widget.Toast
 import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WearProtocol
+import app.aapswear.protocol.G7ReadingAck
+import app.aapswear.protocol.G7ReadingBatch
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchAppearanceProfile
@@ -38,9 +40,6 @@ class MobileDataLayerService : WearableListenerService() {
 
     override fun onCreate() {
         super.onCreate()
-        scope.launch {
-            MobileWatchCgmMigration.runOnce(applicationContext)
-        }
     }
 
     override fun onMessageReceived(event: MessageEvent) {
@@ -49,7 +48,6 @@ class MobileDataLayerService : WearableListenerService() {
             WearProtocol.REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-WATCH-100", "Watch requested current state")
-                    MobileWatchCgmMigration.runOnce(applicationContext)
                     val phoneState = PhoneTherapyStateStore(this@MobileDataLayerService)
                         .state
                         .first()
@@ -117,21 +115,13 @@ class MobileDataLayerService : WearableListenerService() {
                     }
             }
 
-            // Product rule: direct G7 Watch readings are local-Watch CGM data only.
-            // Keep the legacy paths for compatibility, but reject their payloads explicitly so an
-            // older Wear client cannot repopulate Mobile history or Health Connect after migration.
-            WearProtocol.G7_READING_PATH,
-            WearProtocol.G7_READING_BATCH_PATH,
-            -> {
+            WearProtocol.G7_READING_BATCH_PATH -> {
                 scope.launch {
-                    MobileWatchCgmMigration.runOnce(applicationContext)
-                    applicationContext.recordMobileDiagnostic(
-                        "G7",
-                        "G7-SYNC-410",
-                        "Direct G7 Watch CGM payload rejected by Mobile-local data policy",
-                        DiagnosticSeverity.INFO,
-                        metadata = mapOf("path" to event.path, "sourceNodeId" to event.sourceNodeId),
-                    )
+                    val batch = runCatching { WearProtocol.decodeG7ReadingBatch(event.data) }.getOrElse {
+                        applicationContext.recordMobileDiagnostic("G7", "G7-SYNC-401", "Invalid G7 Watch history batch rejected", DiagnosticSeverity.WARNING)
+                        return@launch
+                    }
+                    acceptG7Batch(batch, event.sourceNodeId)
                 }
             }
 
@@ -163,6 +153,29 @@ class MobileDataLayerService : WearableListenerService() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    private suspend fun acceptG7Batch(batch: G7ReadingBatch, sourceNodeId: String) {
+        val now = System.currentTimeMillis()
+        val accepted = MobileG7BackfillStore(this).merge(batch.readings, now)
+        val canonical = MobileCanonicalStateCoordinator.refreshFromWatchBackfill(this, now)
+        canonical?.let {
+            runCatching { HealthConnectIntegration.exportCgmReading(this, it) }
+            SugarliciousWidgets.update(this)
+            PersistentBridgeService.refresh(this)
+        }
+        val ack = G7ReadingAck(
+            batchId = batch.batchId,
+            acknowledgedIds = accepted,
+            acknowledgedAtEpochMs = System.currentTimeMillis(),
+        )
+        Wearable.getMessageClient(this)
+            .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
+            .await()
+        applicationContext.recordMobileDiagnostic(
+            "G7", "G7-SYNC-200", "G7 Watch history persisted and acknowledged",
+            metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledged" to accepted.size, "canonicalSource" to canonical?.source?.name),
+        )
     }
 }
 

@@ -28,9 +28,11 @@ data class CgmReading(
     val protocolStatusCode: Int? = null,
     val calibrationStateCode: Int? = null,
     val reservedField: Int? = null,
+    val origin: CgmReadingOrigin = CgmReadingOrigin.LIVE,
 )
 
 @Serializable enum class CgmReadingStatus { VALID, SENSOR_ERROR, INVALID }
+@Serializable enum class CgmReadingOrigin { LIVE, BACKFILL }
 @Serializable enum class G7Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
 @Serializable enum class G7SensorState { UNKNOWN, WARMUP, ACTIVE, GRACE_PERIOD, ENDED, ERROR }
 @Serializable enum class G7ConnectionState { DISCONNECTED, SCANNING, CONNECTING, DISCOVERING, CONNECTED }
@@ -356,6 +358,7 @@ data class G7Reading(
     val protocolStatusCode: Int? = null,
     val calibrationStateCode: Int? = null,
     val reservedField: Int? = null,
+    val origin: CgmReadingOrigin = CgmReadingOrigin.LIVE,
 )
 
 @Serializable

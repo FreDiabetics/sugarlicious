@@ -335,6 +335,16 @@ class G7CollectorService : Service() {
 
         try {
             val collector = AndroidG7Collector(this)
+            val lastStoredSensorClock = G7ReadingDatabase(this).let { database ->
+                try {
+                    database.getLatestValidForSession(
+                        collectionSensor.sensorId,
+                        collectionSensor.sessionId ?: collectionSensor.sensorId,
+                    )?.rawSourceTimestamp
+                } finally {
+                    database.close()
+                }
+            }
             val boundedScanTimeout =
                 if (request == CycleRequest.AUTOMATIC) null else G7_RECONNECT_SCAN_TIMEOUT_MS
             val result = collector.collect(
@@ -381,6 +391,22 @@ class G7CollectorService : Service() {
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
                 onTelemetry = { telemetry -> recordBleTelemetry(attemptId, telemetry) },
                 attemptId = attemptId,
+                lastStoredSensorClock = lastStoredSensorClock,
+                onLiveReading = { live ->
+                    val provisional = live.toCgm()
+                    if (provisional.status == CgmReadingStatus.VALID) {
+                        val current = store.read()
+                        store.save(
+                            current.copy(
+                                sensor = collectionSensor.copy(state = live.sensorState),
+                                lastReading = provisional,
+                                sessionState = app.aapswear.g7.G7SessionState.ACTIVE,
+                                protocolState = G7ProtocolState.BACKFILL,
+                                lastSuccessfulConnectionEpochMs = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                },
             )
             attemptStore.record(
                 attemptId,
@@ -435,6 +461,35 @@ class G7CollectorService : Service() {
                 }
             } catch (error: Throwable) {
                 throw G7BleException("G7-STORE-500", "Lokaler G7-Wert konnte nicht gespeichert werden", true, error)
+            }
+            val backfillInserted = try {
+                G7ReadingDatabase(this).let { database ->
+                    try {
+                        var predecessor = database.getLatestValidBefore(
+                            reading.sensorId,
+                            reading.sessionId,
+                            result.backfillReadings.minOfOrNull { it.sensorTimestampEpochMs } ?: reading.timestampEpochMs,
+                        )
+                        var acceptedCount = 0
+                        result.backfillReadings
+                            .sortedBy { it.sensorTimestampEpochMs }
+                            .forEach { historical ->
+                                val converted = historical.toCgm(predecessor)
+                                if (database.insertOrIgnore(converted)) acceptedCount += 1
+                                if (converted.status == CgmReadingStatus.VALID) predecessor = converted
+                            }
+                        acceptedCount
+                    } finally {
+                        database.close()
+                    }
+                }
+            } catch (error: Throwable) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-BACKFILL-500",
+                    "Collector history could not be stored",
+                    metadata = mapOf("error" to error.javaClass.simpleName),
+                )
+                0
             }
             val storedAt = System.currentTimeMillis()
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
@@ -525,6 +580,8 @@ class G7CollectorService : Service() {
                         "measurementTimestamp" to reading.timestampEpochMs,
                         "freshCycle" to fresh,
                         "mobileBackfill" to false,
+                        "collectorBackfillReceived" to result.backfillReadings.size,
+                        "collectorBackfillInserted" to backfillInserted,
                     ),
                 )
             } catch (cancelled: CancellationException) {

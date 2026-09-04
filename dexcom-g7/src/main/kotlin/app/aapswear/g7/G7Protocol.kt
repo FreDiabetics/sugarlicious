@@ -79,8 +79,6 @@ class G7GlucosePacketParser : G7PacketParser {
 
 interface G7Scanner { suspend fun findKnownSensor(sensor: G7Sensor?, timeoutMs: Long): G7Sensor? }
 interface G7ConnectionManager { suspend fun collectNextReading(sensor: G7Sensor): G7Reading }
-interface G7BackfillManager { suspend fun requestBackfill(sensor: G7Sensor, gaps: List<CgmGap>): List<G7Reading> }
-
 interface G7WatchSyncTransport {
     suspend fun sendReadings(readings: List<CgmReading>): G7SyncDispatch
 }

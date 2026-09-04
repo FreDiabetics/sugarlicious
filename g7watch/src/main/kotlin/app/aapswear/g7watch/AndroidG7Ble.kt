@@ -30,6 +30,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -357,6 +358,7 @@ internal class AndroidG7Scanner(
 internal data class G7CollectionResult(
     val sensor: G7Sensor,
     val reading: G7Reading,
+    val backfillReadings: List<G7Reading> = emptyList(),
     val sharedKey: ByteArray?,
 )
 
@@ -382,6 +384,8 @@ internal class AndroidG7Collector(
         reconnectStrategy: G7ReconnectStrategy = G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
         onTelemetry: (G7BleTelemetry) -> Unit = {},
         attemptId: Long = 0L,
+        lastStoredSensorClock: Long? = null,
+        onLiveReading: suspend (G7Reading) -> Unit = {},
     ): G7CollectionResult {
         var sensor = initialSensor
         var sharedKey = credentials.sharedKey?.takeIf {
@@ -454,9 +458,11 @@ internal class AndroidG7Collector(
                             sharedKey = it
                             sensor.deviceAddress?.let { address -> onSharedKey(address, it) }
                         },
+                        lastStoredSensorClock = lastStoredSensorClock,
+                        onLiveReading = onLiveReading,
                     )
                 }
-                return G7CollectionResult(sensor, outcome, sharedKey)
+                return G7CollectionResult(sensor, outcome.first, outcome.second, sharedKey)
             } catch (rebond: G7BondReconnectRequired) {
                 sharedKey = rebond.sharedKey
                 bondReconnectAttempts += 1
@@ -595,7 +601,9 @@ private class G7GattConnection(
         parser: G7GlucosePacketParser,
         onState: (G7ProtocolState) -> Unit,
         onSharedKey: (ByteArray) -> Unit,
-    ): G7Reading {
+        lastStoredSensorClock: Long?,
+        onLiveReading: suspend (G7Reading) -> Unit,
+    ): Pair<G7Reading, List<G7Reading>> {
         requirePermission(Manifest.permission.BLUETOOTH_CONNECT, "G7-BLE-108")
         val address = sensor.deviceAddress
             ?: throw G7BleException("G7-BLE-109", "Sensoradresse fehlt", true)
@@ -648,6 +656,7 @@ private class G7GattConnection(
         val authenticationCharacteristic = service.requireCharacteristic(G7GattProfile.authenticationUuid, "G7-GATT-205")
         val extraCharacteristic = service.requireCharacteristic(G7GattProfile.extraDataUuid, "G7-GATT-206")
         val controlCharacteristic = service.requireCharacteristic(G7GattProfile.controlUuid, "G7-GATT-207")
+        val backfillCharacteristic = service.getCharacteristic(G7GattProfile.backfillUuid)
 
         onState(G7ProtocolState.ENABLING_NOTIFICATIONS)
         enable(current, extraCharacteristic, indication = false)
@@ -675,6 +684,7 @@ private class G7GattConnection(
                         ensureBonded(device)
                         if (!connected) throw G7BondReconnectRequired(key)
                         enable(current, controlCharacteristic, indication = true)
+                        backfillCharacteristic?.let { enable(current, it, indication = false) }
                         onState(G7ProtocolState.REQUESTING_GLUCOSE)
                         write(current, controlCharacteristic, GLUCOSE_REQUEST, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                     }
@@ -683,6 +693,7 @@ private class G7GattConnection(
                         if (next != null && next.size == 1 && next[0]?.contentEquals(GLUCOSE_REQUEST) == true) {
                             authentication.sharedKey()?.let(onSharedKey)
                             enable(current, controlCharacteristic, indication = true)
+                            backfillCharacteristic?.let { enable(current, it, indication = false) }
                             onState(G7ProtocolState.AUTHENTICATED)
                             onState(G7ProtocolState.REQUESTING_GLUCOSE)
                             write(current, controlCharacteristic, GLUCOSE_REQUEST, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
@@ -694,8 +705,27 @@ private class G7GattConnection(
 
                 G7GattProfile.controlUuid -> {
                     onState(G7ProtocolState.RECEIVING_GLUCOSE)
-                    return runCatching { parser.parse(payload, sensor, System.currentTimeMillis()) }
+                    if (payload.firstOrNull() != GLUCOSE_REQUEST.first()) continue
+                    val live = runCatching { parser.parse(payload, sensor, System.currentTimeMillis()) }
                         .getOrElse { throw G7BleException("G7-DATA-301", "Ungültiges Glukosepaket empfangen", true, it) }
+                    // Publish the validated live packet before optional history transfer. Pairing
+                    // success and the current dashboard must never wait for backfill completion.
+                    onLiveReading(live)
+                    val start = G7CollectorBackfillProtocol.requestedStart(lastStoredSensorClock, live.sensorClockSeconds ?: 0L)
+                    if (start == null || backfillCharacteristic == null) return live to emptyList()
+
+                    onState(G7ProtocolState.BACKFILL)
+                    val request = G7CollectorBackfillProtocol.request(start, requireNotNull(live.sensorClockSeconds))
+                    write(current, controlCharacteristic, request, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                    val historical = mutableListOf<G7Reading>()
+                    while (historical.size < MAX_BACKFILL_RECORDS) {
+                        val event = withTimeoutOrNull(BACKFILL_IDLE_TIMEOUT_MS) { notifications.receive() } ?: break
+                        if (event.first != G7GattProfile.backfillUuid) continue
+                        runCatching {
+                            G7CollectorBackfillProtocol.parseRecord(event.second, sensor, live, System.currentTimeMillis())
+                        }.getOrNull()?.let(historical::add)
+                    }
+                    return live to historical
                 }
             }
         }
@@ -897,6 +927,8 @@ private class G7GattConnection(
 
     private companion object {
         val GLUCOSE_REQUEST = byteArrayOf(0x4e)
+        const val BACKFILL_IDLE_TIMEOUT_MS = 2_500L
+        const val MAX_BACKFILL_RECORDS = 300
         const val GATT_ERROR_133 = 133
         const val OPERATION_TIMEOUT_MS = 15_000L
         const val BOND_TIMEOUT_MS = 35_000L

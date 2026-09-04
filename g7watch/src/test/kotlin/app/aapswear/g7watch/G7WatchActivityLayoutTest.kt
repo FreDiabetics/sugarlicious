@@ -10,6 +10,7 @@ import android.widget.SeekBar
 import android.widget.Switch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
@@ -34,7 +35,20 @@ import org.robolectric.annotation.Config
 class G7WatchActivityLayoutTest {
     @Before
     fun resetGraphPeriod() {
-        G7AppearanceStore(androidx.test.core.app.ApplicationProvider.getApplicationContext()).setGraphHours(3)
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        G7AppearanceStore(context).setGraphHours(3)
+        val seed = CgmReading(
+            id = "layout-seed", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "layout-sensor", sessionId = "layout-session", glucoseMgDl = 120.0,
+            timestampEpochMs = System.currentTimeMillis(), receivedAtEpochMs = System.currentTimeMillis(),
+            status = CgmReadingStatus.VALID,
+        )
+        G7SensorStateStore(context).save(
+            G7SensorStateStore(context).read().copy(
+                sensor = G7Sensor("layout-sensor", "layout-session"),
+                lastReading = seed,
+            ),
+        )
     }
 
     @Test
@@ -289,7 +303,12 @@ class G7WatchActivityLayoutTest {
                 }
             }
         }
-        G7SensorStateStore(context).save(G7SensorStateStore(context).read().copy(lastReading = reading))
+        G7SensorStateStore(context).save(
+            G7SensorStateStore(context).read().copy(
+                sensor = G7Sensor(reading.sensorId, reading.sessionId),
+                lastReading = reading,
+            ),
+        )
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val arrows = mutableListOf<ImageView>()
         collectTrendArrows(activity.findViewById(android.R.id.content), arrows)

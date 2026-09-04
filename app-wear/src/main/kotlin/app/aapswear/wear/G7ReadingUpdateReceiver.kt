@@ -69,8 +69,8 @@ class G7ReadingUpdateReceiver : BroadcastReceiver() {
                     }
 
                 // TherapyStateStore remains the phone-fed source store. The direct G7 DB is a
-                // separate Watch-local input to the canonical resolver; it is never copied into
-                // Mobile CGM history.
+                // separate Watch-local input; Mobile may consume its validated history but never
+                // initiates the sensor request.
                 val phoneState = TherapyStateStore(appContext).state.first()
                 val source = WearDisplayPreferences.read(appContext).dataSource
                 val resolved =
@@ -89,9 +89,19 @@ class G7ReadingUpdateReceiver : BroadcastReceiver() {
                         mapOf(
                             "state" to sourceState?.name,
                             "canonicalSource" to resolved?.source?.name,
-                            "mobileBackfill" to false,
+                            "mobileHistoryConsumer" to true,
                         ),
                 )
+                runCatching { G7BackfillSync.sendPending(appContext) }
+                    .onFailure { error ->
+                        appContext.recordWatchDiagnostic(
+                            module = "G7-SYNC",
+                            code = "G7-SYNC-503",
+                            message = "Validated Collector history is waiting for Mobile",
+                            severity = DiagnosticSeverity.INFO,
+                            metadata = mapOf("error" to error.javaClass.simpleName),
+                        )
+                    }
             } finally {
                 pending.finish()
             }
