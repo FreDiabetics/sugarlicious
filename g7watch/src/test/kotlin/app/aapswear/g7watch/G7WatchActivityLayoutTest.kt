@@ -6,9 +6,12 @@ import android.widget.Button
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.ImageView
+import android.widget.SeekBar
+import android.widget.Switch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.Trend
@@ -90,6 +93,7 @@ class G7WatchActivityLayoutTest {
         assertTrue("Zeitachsenskala" in texts)
         assertTrue("Zuckerwert fett" in texts)
         assertTrue("Horizontale Zielwert-Striche" in texts)
+        assertTrue("Range-Hintergrundfärbung" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
         assertTrue("GLUKOSE · ZIELBEREICH" in texts)
@@ -112,18 +116,60 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `direct to watch settings preserve scroll when a choice rebuilds the page`() {
+    fun `direct settings keep prior fields when several controls update rapidly`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(app.aapswear.protocol.DirectToWatchSettingsContract.PREFERENCES, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7DirectToWatchSettingsStore(context)
+
+        store.saveGraphStyle(store.graphStyle().copy(dotRadiusDp = 5f))
+        store.saveGraphStyle(store.graphStyle().copy(rangeBackgroundEnabled = false))
+        store.saveGraphColors(store.graphColors().copy(graphBackground = 0xFF010203.toInt()))
+        store.saveGraphColors(store.graphColors().copy(rangeHigh = 0x44112233))
+        store.saveTrendStyle(AppearanceMode.DARK, store.trendStyle(AppearanceMode.DARK).copy(sizePercent = 200))
+        store.saveTrendStyle(AppearanceMode.DARK, store.trendStyle(AppearanceMode.DARK).copy(alpha = .4f))
+
+        assertEquals(5f, store.graphStyle().dotRadiusDp)
+        assertFalse(store.graphStyle().rangeBackgroundEnabled)
+        assertEquals(0xFF010203.toInt(), store.graphColors().graphBackground)
+        assertEquals(0x44112233, store.graphColors().rangeHigh)
+        assertEquals(200, store.trendStyle(AppearanceMode.DARK).sizePercent)
+        assertEquals(.4f, store.trendStyle(AppearanceMode.DARK).alpha)
+    }
+
+    @Test
+    fun `direct to watch settings preserve the scroll view and position when a choice changes`() {
         val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
-        var scroll = findScrollView(root)!!
+        val scroll = findScrollView(root)!!
         measureAndLayout(root)
         scroll.scrollTo(0, 180)
 
         findText(root, "mmol/L")!!.performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        scroll = findScrollView(activity.findViewById(android.R.id.content))!!
+        assertSame(scroll, findScrollView(activity.findViewById(android.R.id.content)))
         assertEquals(180, scroll.scrollY)
+        activity.finish()
+    }
+
+    @Test
+    fun `direct settings sliders and toggles do not rebuild or reset the page`() {
+        val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+        val scroll = findScrollView(root)!!
+        measureAndLayout(root)
+        scroll.scrollTo(0, 220)
+
+        val sliderRow = findTextStartingWith(root, "Punktgröße ·")!!.parent as ViewGroup
+        val seekBar = (0 until sliderRow.childCount).map { sliderRow.getChildAt(it) }.filterIsInstance<SeekBar>().single()
+        seekBar.setProgress((seekBar.progress + 4).coerceAtMost(seekBar.max), true)
+        val toggleRow = findText(root, "Graphkontur")!!.parent as ViewGroup
+        val toggle = (0 until toggleRow.childCount).map { toggleRow.getChildAt(it) }.filterIsInstance<Switch>().single()
+        toggle.performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertSame(scroll, findScrollView(activity.findViewById(android.R.id.content)))
+        assertEquals(220, scroll.scrollY)
         activity.finish()
     }
 

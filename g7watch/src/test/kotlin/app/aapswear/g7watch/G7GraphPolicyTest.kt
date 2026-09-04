@@ -68,14 +68,14 @@ class G7GraphPolicyTest {
         assertEquals(G7RangeExcursion.NONE, G7GraphPolicy.rangeExcursion(listOf(first, duplicate), 80.0, 160.0, now))
     }
 
-    @Test fun `invalid or stale values cannot activate area`() {
+    @Test fun `invalid events do not activate and stale time does not erase semantic range`() {
         val invalid = reading("1", 170.0, now - 5 * 60_000L).copy(status = CgmReadingStatus.INVALID)
         val high = reading("2", 175.0, now)
         assertEquals(G7RangeExcursion.NONE, G7GraphPolicy.rangeExcursion(listOf(invalid, high), 80.0, 160.0, now))
 
         val oldNow = now + G7GraphPolicy.STALE_AFTER_MS
         assertEquals(
-            G7RangeExcursion.NONE,
+            G7RangeExcursion.HIGH,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("3", 170.0, now - 5 * 60_000L), reading("4", 175.0, now)),
                 80.0, 160.0, oldNow,

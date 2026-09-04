@@ -53,6 +53,7 @@ data class SharedWearCgmGraphStyle(
     val timeAxisEnabled: Boolean = true,
     val targetTicksEnabled: Boolean = true,
     val targetLabelsOutsideRange: Boolean = false,
+    val rangeBackgroundEnabled: Boolean = true,
 )
 
 object DirectToWatchGraphDefaults {
@@ -169,7 +170,7 @@ object SharedWearCgmGraphRenderer {
 
         fill.color = palette.targetArea
         canvas.drawRect(plot.left, metrics.highY, plot.right, metrics.lowY, fill)
-        when (CgmGraphPolicy.rangeExcursion(history, input.thresholds)) {
+        when (CgmGraphPolicy.rangeExcursion(history, input.thresholds).takeIf { input.style.rangeBackgroundEnabled }) {
             RangeExcursion.HIGH -> {
                 fill.color = palette.highArea
                 canvas.drawRect(plot.left, plot.top, plot.right, metrics.highY, fill)

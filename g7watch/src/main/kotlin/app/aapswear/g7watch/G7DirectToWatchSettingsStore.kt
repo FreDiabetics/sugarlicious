@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import app.aapswear.model.AppearanceMode
@@ -56,6 +57,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
             targetTicksEnabled = preferences.getBoolean(KEY_TARGET_TICKS_ENABLED, defaults.targetTicksEnabled),
             targetLabelsOutsideRange = true,
+            rangeBackgroundEnabled = preferences.getBoolean(KEY_RANGE_BACKGROUND_ENABLED, defaults.rangeBackgroundEnabled),
         )
     }
 
@@ -67,6 +69,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
         putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
         putBoolean(KEY_TARGET_TICKS_ENABLED, value.targetTicksEnabled)
+        putBoolean(KEY_RANGE_BACKGROUND_ENABLED, value.rangeBackgroundEnabled)
     }
 
     fun graphColors(): WatchGraphColors {
@@ -113,7 +116,11 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
                 is Int -> putInt(key, value); is Float -> putFloat(key, value); is Boolean -> putBoolean(key, value); is String -> putString(key, value)
             } }
         }
-        context.sendBroadcast(Intent(DirectToWatchSettingsContract.ACTION_APPLY).setPackage(DirectToWatchSettingsContract.TARGET_PACKAGE).putExtra(DirectToWatchSettingsContract.EXTRA_VALUES, values))
+        context.sendBroadcast(
+            Intent(DirectToWatchSettingsContract.ACTION_APPLY)
+                .setComponent(ComponentName(DirectToWatchSettingsContract.TARGET_PACKAGE, DirectToWatchSettingsContract.TARGET_RECEIVER))
+                .putExtra(DirectToWatchSettingsContract.EXTRA_VALUES, values),
+        )
     }
 
     private fun color(key: String, default: Int) = preferences.getInt(key, default)
@@ -133,5 +140,6 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
         private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
+        private const val KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
     }
 }

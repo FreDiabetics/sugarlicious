@@ -31,7 +31,6 @@ import app.aapswear.model.CgmSourceState
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Freshness
-import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
@@ -48,7 +47,6 @@ import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
-import java.time.Instant
 
 internal data class DirectToWatchHeaderPresentation(
     val glucose: String,
@@ -125,10 +123,9 @@ internal object DirectToWatchPresentationFormatter {
     }
 
     fun validTimeRange(state: TherapyDisplayState?, nowEpochMs: Long): TimeRange {
-        val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
-        if (freshness != Freshness.CURRENT && freshness != Freshness.DELAYED) return TimeRange.ALWAYS
-        val measuredAt = state?.glucose?.measuredAtEpochMs ?: return TimeRange.ALWAYS
-        return TimeRange.before(Instant.ofEpochMilli(measuredAt + FreshnessPolicy.DELAYED_MAX_MS))
+        // The provider owns STALE/NO_SOURCE rendering. Expiring the complication makes Wear OS
+        // replace the information with EMPTY, especially in ambient mode.
+        return TimeRange.ALWAYS
     }
 
     fun isDirect(state: TherapyDisplayState?): Boolean =
@@ -263,6 +260,7 @@ object DirectToWatchPreferences {
             timeAxisEnabled = p.getBoolean("graph_style_time_axis_enabled", defaults.timeAxisEnabled),
             targetTicksEnabled = p.getBoolean("graph_style_target_ticks_enabled", defaults.targetTicksEnabled),
             targetLabelsOutsideRange = true,
+            rangeBackgroundEnabled = p.getBoolean("graph_style_range_background_enabled", defaults.rangeBackgroundEnabled),
         )
     }
 
@@ -275,6 +273,7 @@ object DirectToWatchPreferences {
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
             .putBoolean("graph_style_target_ticks_enabled", style.targetTicksEnabled)
+            .putBoolean("graph_style_range_background_enabled", style.rangeBackgroundEnabled)
             .apply()
         requestUpdates(context)
     }

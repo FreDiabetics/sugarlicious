@@ -21,7 +21,7 @@ class DirectToWatchSettingsReceiver : BroadcastReceiver() {
             values.keySet().forEach { key -> when (val value = values.get(key)) {
                 is Int -> putInt(key, value); is Float -> putFloat(key, value); is Boolean -> putBoolean(key, value); is String -> putString(key, value)
             } }
-        }.apply()
+        }.commit()
         DirectToWatchPreferences.requestUpdates(context)
     }
 }

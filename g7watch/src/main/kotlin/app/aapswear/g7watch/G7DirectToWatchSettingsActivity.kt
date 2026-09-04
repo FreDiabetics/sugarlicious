@@ -24,7 +24,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
     private lateinit var settings: G7DirectToWatchSettingsStore
     private lateinit var appearance: G7AppearanceStore
     private var mode = AppearanceMode.DARK
-    private var scrollView: ScrollView? = null
+    private lateinit var scrollView: ScrollView
+    private lateinit var pageRoot: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,13 +33,20 @@ class G7DirectToWatchSettingsActivity : Activity() {
         appearance = G7AppearanceStore(this)
         mode = appearance.activeMode()
         settings.sync()
+        pageRoot = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        scrollView = ScrollView(this).apply {
+            isFillViewport = true
+            addView(pageRoot)
+        }
+        setContentView(scrollView)
         render()
     }
 
     private fun render() {
-        val restoreScrollY = scrollView?.scrollY ?: 0
+        val restoreScrollY = scrollView.scrollY
         val palette = appearance.load(mode)
-        val root = LinearLayout(this).apply {
+        val root = pageRoot.apply {
+            removeAllViews()
             orientation = LinearLayout.VERTICAL
             setPadding(18.dp, 12.dp, 18.dp, 30.dp)
             setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
@@ -54,10 +62,10 @@ class G7DirectToWatchSettingsActivity : Activity() {
         val thresholds = settings.thresholds()
         section(root, "GLUKOSE · ZIELBEREICH", palette)
         root.addView(slider("Tief", 51, (thresholds.highMgDl.toInt() - 1).coerceAtLeast(51), thresholds.lowMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
-            settings.saveThresholds(thresholds.copy(lowMgDl = it.toDouble()))
+            settings.saveThresholds(settings.thresholds().copy(lowMgDl = it.toDouble()))
         }, params(5))
         root.addView(slider("Hoch", (thresholds.lowMgDl.toInt() + 1).coerceAtMost(249), 249, thresholds.highMgDl.toInt(), palette, { formatThreshold(it, settings.glucoseUnit()) }) {
-            settings.saveThresholds(thresholds.copy(highMgDl = it.toDouble()))
+            settings.saveThresholds(settings.thresholds().copy(highMgDl = it.toDouble()))
         }, params(5))
 
         section(root, "GRAPH · ZEITSKALA", palette)
@@ -65,25 +73,28 @@ class G7DirectToWatchSettingsActivity : Activity() {
         val graphStyle = settings.graphStyle()
         section(root, "GRAPH · PUNKTE", palette)
         root.addView(slider("Punktgröße", 15, 60, (graphStyle.dotRadiusDp * 10).roundToInt(), palette, { "Punktgröße · ${it / 10f} dp" }) {
-            settings.saveGraphStyle(graphStyle.copy(dotRadiusDp = it / 10f))
+            settings.saveGraphStyle(settings.graphStyle().copy(dotRadiusDp = it / 10f))
         }, params(5))
         root.addView(toggle("Punktkontur", graphStyle.dotOutlineEnabled, palette) {
-            settings.saveGraphStyle(graphStyle.copy(dotOutlineEnabled = it)); render()
+            settings.saveGraphStyle(settings.graphStyle().copy(dotOutlineEnabled = it))
         }, params(5))
-        if (graphStyle.dotOutlineEnabled) root.addView(slider("Konturbreite", 25, 300, (graphStyle.dotOutlineWidthDp * 100).roundToInt(), palette, { "Konturbreite · ${it / 100f} dp" }) {
-            settings.saveGraphStyle(graphStyle.copy(dotOutlineWidthDp = it / 100f))
+        root.addView(slider("Konturbreite", 25, 300, (graphStyle.dotOutlineWidthDp * 100).roundToInt(), palette, { "Konturbreite · ${it / 100f} dp" }) {
+            settings.saveGraphStyle(settings.graphStyle().copy(dotOutlineWidthDp = it / 100f))
         }, params(5))
         root.addView(slider("Eckenrundung", 0, 400, (graphStyle.cornerRadiusDp * 10).roundToInt(), palette, { "Eckenrundung · ${it / 10f} dp" }) {
-            settings.saveGraphStyle(graphStyle.copy(cornerRadiusDp = it / 10f))
+            settings.saveGraphStyle(settings.graphStyle().copy(cornerRadiusDp = it / 10f))
         }, params(5))
         root.addView(toggle("Graphkontur", graphStyle.borderEnabled, palette) {
-            settings.saveGraphStyle(graphStyle.copy(borderEnabled = it)); render()
+            settings.saveGraphStyle(settings.graphStyle().copy(borderEnabled = it))
         }, params(5))
         root.addView(toggle("Zeitachsenskala", graphStyle.timeAxisEnabled, palette) {
-            settings.saveGraphStyle(graphStyle.copy(timeAxisEnabled = it)); render()
+            settings.saveGraphStyle(settings.graphStyle().copy(timeAxisEnabled = it))
         }, params(5))
         root.addView(toggle("Horizontale Zielwert-Striche", graphStyle.targetTicksEnabled, palette) {
-            settings.saveGraphStyle(graphStyle.copy(targetTicksEnabled = it)); render()
+            settings.saveGraphStyle(settings.graphStyle().copy(targetTicksEnabled = it))
+        }, params(5))
+        root.addView(toggle("Range-Hintergrundfärbung", graphStyle.rangeBackgroundEnabled, palette) {
+            settings.saveGraphStyle(settings.graphStyle().copy(rangeBackgroundEnabled = it))
         }, params(5))
 
         val colors = settings.graphColors()
@@ -94,33 +105,25 @@ class G7DirectToWatchSettingsActivity : Activity() {
         val trend = settings.trendStyle(mode)
         section(root, "TRENDPFEIL", palette)
         root.addView(slider("Größe", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, trend.sizePercent, palette, { "Größe · $it %" }) {
-            settings.saveTrendStyle(mode, trend.copy(sizePercent = it))
+            settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(sizePercent = it))
         }, params(5))
-        root.addView(colorRow("Füllfarbe", trend.fillColor, palette) { value -> settings.saveTrendStyle(mode, trend.copy(fillColor = value)) }, params(5))
-        root.addView(toggle("Kontur", trend.outlineEnabled, palette) { settings.saveTrendStyle(mode, trend.copy(outlineEnabled = it)); render() }, params(5))
-        if (trend.outlineEnabled) {
-            root.addView(colorRow("Konturfarbe", trend.outlineColor, palette) { value -> settings.saveTrendStyle(mode, trend.copy(outlineColor = value)) }, params(5))
-            root.addView(slider("Konturdicke", 25, 400, (trend.outlineThicknessDp * 100).roundToInt(), palette, { "Konturdicke · ${it / 100f} dp" }) {
-                settings.saveTrendStyle(mode, trend.copy(outlineThicknessDp = it / 100f))
-            }, params(5))
-        }
+        root.addView(colorRow("Füllfarbe", trend.fillColor, palette) { value -> settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(fillColor = value)) }, params(5))
+        root.addView(toggle("Kontur", trend.outlineEnabled, palette) { settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(outlineEnabled = it)) }, params(5))
+        root.addView(colorRow("Konturfarbe", trend.outlineColor, palette) { value -> settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(outlineColor = value)) }, params(5))
+        root.addView(slider("Konturdicke", 25, 400, (trend.outlineThicknessDp * 100).roundToInt(), palette, { "Konturdicke · ${it / 100f} dp" }) {
+            settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(outlineThicknessDp = it / 100f))
+        }, params(5))
         root.addView(slider("Deckkraft", 0, 100, (trend.alpha * 100).roundToInt(), palette, { "Deckkraft · $it %" }) {
-            settings.saveTrendStyle(mode, trend.copy(alpha = it / 100f))
+            settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(alpha = it / 100f))
         }, params(5))
         root.addView(button("TREND-STIL ZURÜCKSETZEN", palette) { settings.resetTrendStyle(mode); render() }, params(8))
 
-        val newScrollView = ScrollView(this).apply {
-            isFillViewport = true
-            addView(root)
-            post { scrollTo(0, restoreScrollY) }
-        }
-        scrollView = newScrollView
-        setContentView(newScrollView)
+        scrollView.post { scrollView.scrollTo(0, restoreScrollY) }
     }
 
     private fun graphColorRows(root: LinearLayout, c: WatchGraphColors, p: G7AppearancePalette) {
         fun add(title: String, value: Int, update: (WatchGraphColors, Int) -> WatchGraphColors) =
-            root.addView(colorRow(title, value, p) { settings.saveGraphColors(update(c, it)) }, params(5))
+            root.addView(colorRow(title, value, p) { settings.saveGraphColors(update(settings.graphColors(), it)) }, params(5))
         add("Hintergrund", c.graphBackground) { x, v -> x.copy(graphBackground = v) }
         add("LOW-Bereich", c.rangeLow) { x, v -> x.copy(rangeLow = v) }
         add("Zielbereich", c.rangeInRange) { x, v -> x.copy(rangeInRange = v) }
@@ -163,7 +166,10 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
     private fun choiceRow(current: Int, p: G7AppearancePalette) = LinearLayout(this).apply {
         G7DirectToWatchSettingsStore.HOUR_OPTIONS.forEach { hour ->
-            addView(button("${hour}h", p, hour == current) { settings.saveGraphHours(hour); render() }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
+            addView(button("${hour}h", p, hour == current) {
+                settings.saveGraphHours(hour)
+                restyleChoices(this, hour, p)
+            }.apply { tag = hour }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
         }
     }
 
@@ -171,8 +177,16 @@ class G7DirectToWatchSettingsActivity : Activity() {
         listOf(GlucoseUnit.MG_DL to "mg/dL", GlucoseUnit.MMOL_L to "mmol/L").forEach { (unit, title) ->
             addView(button(title, p, unit == current) {
                 settings.saveGlucoseUnit(unit)
-                render()
-            }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
+                restyleChoices(this, unit, p)
+            }.apply { tag = unit }, LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp })
+        }
+    }
+
+    private fun restyleChoices(row: LinearLayout, selected: Any, p: G7AppearancePalette) {
+        (0 until row.childCount).mapNotNull { row.getChildAt(it) as? TextView }.forEach { choice ->
+            val active = choice.tag == selected
+            choice.setTextColor(if (active) p.argb(G7AppearanceRole.MENU_BACKGROUND) else p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+            choice.background = rounded(if (active) p.argb(G7AppearanceRole.MENU_PRIMARY) else p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 999f)
         }
     }
 
@@ -201,9 +215,17 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
     private fun colorRow(title: String, color: Int, p: G7AppearancePalette, save: (Int) -> Unit) = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL; setPadding(10.dp, 8.dp, 10.dp, 8.dp); background = card(p)
-        addView(LinearLayout(this@G7DirectToWatchSettingsActivity).apply { orientation = LinearLayout.VERTICAL; addView(label(title, 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)); addView(label(ArgbColor.format(color), 8f, p.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        addView(View(this@G7DirectToWatchSettingsActivity).apply { background = rounded(color, p.argb(G7AppearanceRole.MENU_BORDER), 10f) }, LinearLayout.LayoutParams(32.dp, 32.dp))
-        setOnClickListener { SharedColorEditor.show(this@G7DirectToWatchSettingsActivity, title, color, p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), p.argb(G7AppearanceRole.MENU_BORDER), color, onChange = save, onReset = {}) }
+        val valueLabel = label(ArgbColor.format(color), 8f, p.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+        val swatch = View(this@G7DirectToWatchSettingsActivity).apply { background = rounded(color, p.argb(G7AppearanceRole.MENU_BORDER), 10f) }
+        addView(LinearLayout(this@G7DirectToWatchSettingsActivity).apply { orientation = LinearLayout.VERTICAL; addView(label(title, 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)); addView(valueLabel) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(swatch, LinearLayout.LayoutParams(32.dp, 32.dp))
+        setOnClickListener {
+            SharedColorEditor.show(this@G7DirectToWatchSettingsActivity, title, color, p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), p.argb(G7AppearanceRole.MENU_BORDER), color, onChange = { changed ->
+                save(changed)
+                valueLabel.text = ArgbColor.format(changed)
+                swatch.background = rounded(changed, p.argb(G7AppearanceRole.MENU_BORDER), 10f)
+            }, onReset = {})
+        }
     }
 
     private fun section(root: LinearLayout, title: String, p: G7AppearancePalette) = root.addView(label(title, 9f, p.argb(G7AppearanceRole.MENU_PRIMARY), true).apply { letterSpacing = .08f; setPadding(4.dp, 15.dp, 4.dp, 4.dp) })

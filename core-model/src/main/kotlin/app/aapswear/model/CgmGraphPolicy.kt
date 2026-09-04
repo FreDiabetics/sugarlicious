@@ -22,26 +22,35 @@ object CgmGraphPolicy {
     ): RangeExcursion? {
         if (!thresholds.isValid) return null
 
-        val recent =
-            samples
-                .asSequence()
-                .filter {
-                    it.quality == CgmQuality.VALID &&
-                        it.valueMgDl.isFinite() &&
-                        it.valueMgDl in 20.0..1_000.0
-                }
-                .sortedBy(GlucoseSample::measuredAtEpochMs)
-                .distinctBy {
-                    listOf(
-                        it.sensorId,
-                        it.sessionId,
-                        it.sequenceNumber,
-                        it.measuredAtEpochMs,
-                        it.source,
-                    )
-                }
-                .toList()
-                .takeLast(REQUIRED_POINTS)
+        val recent = mutableListOf<GlucoseSample>()
+        val seen = mutableSetOf<List<Any?>>()
+        var latestMeasuredAt: Long? = null
+        samples.sortedBy { it.receivedAtEpochMs ?: it.measuredAtEpochMs }.forEach { sample ->
+            if (
+                sample.quality != CgmQuality.VALID ||
+                !sample.valueMgDl.isFinite() ||
+                sample.valueMgDl !in 20.0..1_000.0
+            ) return@forEach
+            val identity = listOf(sample.sensorId, sample.sessionId, sample.measuredAtEpochMs, sample.source)
+            if (!seen.add(identity)) return@forEach
+
+            val previousMeasuredAt = latestMeasuredAt
+            if (previousMeasuredAt != null && sample.measuredAtEpochMs <= previousMeasuredAt) {
+                // Backfill/out-of-order history is displayable, but is not a new live semantic event.
+                return@forEach
+            }
+            val previous = recent.lastOrNull()
+            if (previous != null) {
+                val sensorChanged = previous.sensorId != null && sample.sensorId != null && previous.sensorId != sample.sensorId
+                val sessionChanged = previous.sessionId != null && sample.sessionId != null && previous.sessionId != sample.sessionId
+                val sourceChanged = previous.source != sample.source
+                val gap = sample.measuredAtEpochMs - previous.measuredAtEpochMs
+                if (sensorChanged || sessionChanged || sourceChanged || gap !in 1L..MAX_GAP_MS) recent.clear()
+            }
+            recent += sample
+            latestMeasuredAt = sample.measuredAtEpochMs
+            if (recent.size > REQUIRED_POINTS) recent.removeAt(0)
+        }
 
         if (recent.size < REQUIRED_POINTS) return null
         val first = recent.first()
@@ -49,13 +58,6 @@ object CgmGraphPolicy {
         if (second.measuredAtEpochMs - first.measuredAtEpochMs !in 1L..MAX_GAP_MS) return null
         if (first.sensorId != null && second.sensorId != null && first.sensorId != second.sensorId) return null
         if (first.sessionId != null && second.sessionId != null && first.sessionId != second.sessionId) return null
-        val sameKnownSensorSession =
-            first.sensorId != null &&
-                first.sessionId != null &&
-                first.sensorId == second.sensorId &&
-                first.sessionId == second.sessionId
-        if (first.source != second.source && !sameKnownSensorSession) return null
-
         return when {
             recent.all {
                 thresholds.classify(it.valueMgDl) == CgmRangeClass.LOW ||

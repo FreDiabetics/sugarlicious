@@ -4,6 +4,7 @@ package app.aapswear.protocol
 object DirectToWatchSettingsContract {
     const val ACTION_APPLY = "app.aapswear.APPLY_DIRECT_TO_WATCH_SETTINGS"
     const val TARGET_PACKAGE = "app.aapswear"
+    const val TARGET_RECEIVER = "app.aapswear.complications.DirectToWatchSettingsReceiver"
     const val PREFERENCES = "direct_to_watch"
     const val EXTRA_VALUES = "values"
 }

@@ -1,6 +1,8 @@
 package app.aapswear.complications
 
 import android.content.Context
+import android.content.Intent
+import android.os.Bundle
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
@@ -12,6 +14,7 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.DirectToWatchGraphColorDefaults
+import app.aapswear.protocol.DirectToWatchSettingsContract
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
 import java.time.Instant
@@ -84,12 +87,12 @@ class DirectToWatchComplicationsTest {
         assertTrue(samples.none { it.valueMgDl in setOf(110.0, 130.0, 140.0) })
     }
 
-    @Test fun `fresh payload expires when it becomes stale`() {
+    @Test fun `payload remains visible while renderer changes it to stale`() {
         val measuredAt = now - 2 * 60_000L
         val range = DirectToWatchPresentationFormatter.validTimeRange(directState(measuredAt), now)
         val staleAt = measuredAt + FreshnessPolicy.DELAYED_MAX_MS
         assertTrue(Instant.ofEpochMilli(staleAt) in range)
-        assertFalse(Instant.ofEpochMilli(staleAt + 1) in range)
+        assertTrue(Instant.ofEpochMilli(staleAt + 1) in range)
     }
 
     @Test fun `graph scale cycles in its own persistence file`() {
@@ -134,6 +137,27 @@ class DirectToWatchComplicationsTest {
         assertFalse(DirectToWatchPreferences.graphStyle(context).borderEnabled)
         assertFalse(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
+    }
+
+    @Test fun `explicit settings handoff is consumed by runtime preferences`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences(DirectToWatchPreferences.NAME, Context.MODE_PRIVATE).edit().clear().commit()
+        val values = Bundle().apply {
+            putInt("appearance.trend.dark.sizePercent", 200)
+            putFloat("appearance.trend.dark.alpha", .35f)
+            putBoolean("graph_style_range_background_enabled", false)
+            putInt("graph_color_background", 0xFF010203.toInt())
+        }
+
+        DirectToWatchSettingsReceiver().onReceive(
+            context,
+            Intent(DirectToWatchSettingsContract.ACTION_APPLY).putExtra(DirectToWatchSettingsContract.EXTRA_VALUES, values),
+        )
+
+        assertEquals(200, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).sizePercent)
+        assertEquals(.35f, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).alpha)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
+        assertEquals(0xFF010203.toInt(), DirectToWatchPreferences.graphColors(context).graphBackground)
     }
 
     private fun directState(measuredAt: Long) = TherapyDisplayState(
