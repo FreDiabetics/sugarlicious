@@ -61,6 +61,27 @@ class StateDataLayerService : WearableListenerService() {
         ensureRuntimeChannel()
         startForegroundRuntime()
         scope.launch {
+            runCatching { WearStartupStateCoordinator.rehydrate(this@StateDataLayerService) }
+                .onSuccess { state ->
+                    applicationContext.recordWatchDiagnostic(
+                        "STARTUP",
+                        "STATE-REHYDRATE-200",
+                        "Persisted canonical Watch state restored and consumers refreshed",
+                        metadata = mapOf(
+                            "stateAvailable" to (state != null),
+                            "eventTimestamp" to state?.glucose?.measuredAtEpochMs,
+                        ),
+                    )
+                }
+                .onFailure { error ->
+                    applicationContext.recordWatchDiagnostic(
+                        "STARTUP",
+                        "STATE-REHYDRATE-503",
+                        "Persisted Watch state could not be rehydrated",
+                        DiagnosticSeverity.WARNING,
+                        mapOf("error" to error.javaClass.simpleName),
+                    )
+                }
             if (!WearBackgroundAccess.isBatteryUnrestricted(applicationContext)) {
                 applicationContext.recordWatchDiagnostic(
                     "RUNTIME",
@@ -89,6 +110,24 @@ class StateDataLayerService : WearableListenerService() {
     override fun onPeerConnected(peer: Node) {
         super.onPeerConnected(peer)
         scope.launch {
+            runCatching { requestLatestState(this@StateDataLayerService, peer.id) }
+                .onSuccess {
+                    applicationContext.recordWatchDiagnostic(
+                        "SYNC",
+                        "SYNC-PHONE-102",
+                        "Requested canonical snapshot after phone reconnect",
+                        metadata = mapOf("nodeId" to peer.id),
+                    )
+                }
+                .onFailure { error ->
+                    applicationContext.recordWatchDiagnostic(
+                        "SYNC",
+                        "SYNC-PHONE-504",
+                        "Canonical snapshot request after reconnect failed",
+                        DiagnosticSeverity.WARNING,
+                        mapOf("error" to error.javaClass.simpleName),
+                    )
+                }
             runCatching { G7BackfillSync.sendPending(this@StateDataLayerService, peer.id) }
                 .onSuccess { dispatch ->
                     applicationContext.recordWatchDiagnostic(
@@ -681,29 +720,18 @@ suspend fun requestLatestState(
             .connectedNodes
             .await()
 
-    nodes.forEach { node ->
-        runCatching {
-            Wearable
-                .getMessageClient(context)
-                .sendMessage(
-                    node.id,
-                    WearProtocol.REQUEST_PATH,
-                    byteArrayOf(),
-                )
-                .await()
-        }
-
-        runCatching {
-            Wearable
-                .getMessageClient(context)
-                .sendMessage(
-                    node.id,
-                    WearProtocol.WATCH_CONFIG_REQUEST_PATH,
-                    byteArrayOf(),
-                )
-                .await()
-        }
-    }
+    nodes.forEach { node -> runCatching { requestLatestState(context, node.id) } }
 
     return nodes.size
+}
+
+internal suspend fun requestLatestState(context: Context, nodeId: String) {
+    Wearable.getMessageClient(context)
+        .sendMessage(nodeId, WearProtocol.REQUEST_PATH, byteArrayOf())
+        .await()
+    runCatching {
+        Wearable.getMessageClient(context)
+            .sendMessage(nodeId, WearProtocol.WATCH_CONFIG_REQUEST_PATH, byteArrayOf())
+            .await()
+    }
 }
