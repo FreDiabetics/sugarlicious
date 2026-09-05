@@ -66,7 +66,11 @@ internal object DirectToWatchPresentationFormatter {
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
             return DirectToWatchHeaderPresentation(
                 glucose = "—",
-                secondary = unavailableLabel(state, freshness),
+                secondary = if (state?.glucose != null || freshness == Freshness.STALE) {
+                    "Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar"
+                } else {
+                    "Bitte Sensor\nstarten oder\nkoppeln"
+                },
             )
         }
         val glucose = requireNotNull(state?.glucose)
@@ -161,7 +165,7 @@ object DirectToWatchPreferences {
     private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
     private const val KEY_TARGET_LOW = "target.low_mg_dl"
     private const val KEY_TARGET_HIGH = "target.high_mg_dl"
-    val graphHourOptions = listOf(1, 3, 6, 12, 24)
+    val graphHourOptions = listOf(1, 2, 3, 6, 12, 24)
 
     fun graphHours(context: Context): Int =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -428,6 +432,27 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
+        if (presentation.glucose == "—") {
+            val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (ambient) 0xFF909090.toInt() else Color.WHITE
+                textSize = 17f
+                typeface = Typeface.DEFAULT_BOLD
+                textAlign = Paint.Align.CENTER
+            }
+            val lines = presentation.secondary.lines()
+            val firstBaseline = if (lines.size >= 3) 20f else 31f
+            lines.forEachIndexed { index, line -> canvas.drawText(line, width / 2f, firstBaseline + index * 20f, messagePaint) }
+            if (presentation.secondary.startsWith("Bitte Sensor")) {
+                val button = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (ambient) 0xFF555555.toInt() else 0xFF30303A.toInt()
+                    style = Paint.Style.FILL
+                }
+                canvas.drawRoundRect(90f, 76f, 250f, 107f, 15f, 15f, button)
+                messagePaint.textSize = 14f
+                canvas.drawText("Sensor koppeln", width / 2f, 97f, messagePaint)
+            }
+            return bitmap
+        }
         val mode = DirectToWatchPreferences.activeAppearanceMode(this)
         val configuredStyle = DirectToWatchPreferences.trendStyle(this, mode)
         val style = if (ambient) configuredStyle.copy(
@@ -509,6 +534,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
+        val graphAnchor = state?.glucose?.measuredAtEpochMs ?: nowEpochMs
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
             widthPx = width,
@@ -517,12 +543,12 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             scaledDensity = resources.displayMetrics.scaledDensity,
             input = SharedWearCgmGraphInput(
                 history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours),
-                timeWindow = GraphTimeWindow.live(nowEpochMs, hours * DirectToWatchPresentationFormatter.HOUR_MS),
+                timeWindow = GraphTimeWindow.live(graphAnchor, hours * DirectToWatchPresentationFormatter.HOUR_MS),
                 nowEpochMs = nowEpochMs,
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),
                 style = graphStyle,
-                emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this)).secondary,
+                emptyLabel = "",
             ),
         )
         return bitmap

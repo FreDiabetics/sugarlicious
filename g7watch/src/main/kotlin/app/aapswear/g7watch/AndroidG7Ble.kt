@@ -715,7 +715,13 @@ private class G7GattConnection(
                     if (start == null || backfillCharacteristic == null) return live to emptyList()
 
                     onState(G7ProtocolState.BACKFILL)
-                    val request = G7CollectorBackfillProtocol.request(start, requireNotNull(live.sensorClockSeconds))
+                    // The live sample has already arrived on the control characteristic. G7's
+                    // history range ends at the preceding five-minute slot; including the live
+                    // clock makes affected firmware finish without returning the missing records.
+                    val end = G7CollectorBackfillProtocol.requestedEnd(requireNotNull(live.sensorClockSeconds))
+                        ?: return live to emptyList()
+                    if (start > end) return live to emptyList()
+                    val request = G7CollectorBackfillProtocol.request(start, end)
                     write(current, controlCharacteristic, request, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                     val historical = mutableListOf<G7Reading>()
                     while (historical.size < MAX_BACKFILL_RECORDS) {

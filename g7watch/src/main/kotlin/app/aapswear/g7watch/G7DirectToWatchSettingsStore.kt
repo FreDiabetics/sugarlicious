@@ -146,7 +146,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     private inline fun update(block: android.content.SharedPreferences.Editor.() -> Unit) { preferences.edit().apply(block).apply(); sync() }
 
     companion object {
-        val HOUR_OPTIONS = listOf(1, 3, 6, 12, 24)
+        val HOUR_OPTIONS = listOf(1, 2, 3, 6, 12, 24)
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
         private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"

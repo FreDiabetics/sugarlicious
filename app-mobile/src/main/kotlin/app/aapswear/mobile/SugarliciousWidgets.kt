@@ -543,10 +543,11 @@ internal fun renderWidgetGraph(
         if (tickX in plot.left..plot.right) {
             val labelSize = if (tick.hoursBack == 0) metrics.nowTextSizePx else metrics.axisTextSizePx
             textPaint.textSize = labelSize
+            textPaint.textAlign = if (tick.hoursBack == 0) Paint.Align.RIGHT else Paint.Align.CENTER
             val labelHalfWidth = textPaint.measureText(tick.label) / 2f
-            val labelX = tickX.coerceIn(labelHalfWidth + metrics.edgeGapPx, safeWidth - labelHalfWidth - metrics.edgeGapPx)
+            val labelX = if (tick.hoursBack == 0) tickX else tickX.coerceIn(labelHalfWidth + metrics.edgeGapPx, safeWidth - labelHalfWidth - metrics.edgeGapPx)
             line.color = palette.argb(if (tick.hoursBack == 0) WidgetColorRole.DIVIDER else WidgetColorRole.AXIS_TICK)
-            canvas.drawLine(labelX, graphBounds.bottom, labelX, graphBounds.bottom + 5f * renderDensity, line)
+            canvas.drawLine(tickX, graphBounds.bottom, tickX, graphBounds.bottom + 5f * renderDensity, line)
             canvas.drawText(tick.label, labelX, metrics.axisBaselinePx, textPaint)
             textPaint.textSize = metrics.axisTextSizePx
         }
@@ -645,7 +646,7 @@ internal fun widgetGraphMetrics(
     val labelLeft = widthPx - graphLeftInset - yLabelWidth
     val yTickEnd = labelLeft - axisSpec.tickToLabelGapDp * safeDensity
     val yTickStart = yTickEnd - axisSpec.tickLengthDp * safeDensity
-    val graphRight = (yTickStart - axisSpec.plotToTickGapDp * safeDensity)
+    val graphRight = (yTickStart - 1f * safeDensity)
         .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
     val visualInset = graphHorizontalInsetDp.coerceAtLeast(0f) * safeDensity

@@ -33,6 +33,15 @@ class G7CollectorBackfillProtocolTest {
     }
 
     @Test
+    fun `history request ends at the slot before the already received live value`() {
+        assertEquals(9_700L, G7CollectorBackfillProtocol.requestedEnd(10_000))
+        assertArrayEquals(
+            byteArrayOf(0x59, 0xE4.toByte(), 0x25, 0, 0, 0xE4.toByte(), 0x25, 0, 0),
+            G7CollectorBackfillProtocol.request(9_700, 9_700),
+        )
+    }
+
+    @Test
     fun `record is historical and timestamps use sensor clock`() {
         val packet = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
             .putInt(7_200).putShort(145).put(0x06).put(0).put(10).array()

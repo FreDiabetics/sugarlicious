@@ -204,10 +204,10 @@ class G7WatchActivity : Activity() {
             setBackgroundColor(background)
         }
 
-        content.addView(header(palette, userStatus))
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
         content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
+        content.addView(header(palette, userStatus))
         content.addView(pill("Systemstatus", PillStyle.SECONDARY, palette) {
             startActivity(Intent(this, G7SystemStatusActivity::class.java))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -412,7 +412,8 @@ class G7WatchActivity : Activity() {
         val marker = if (status.level == G7UserStatusLevel.OFF) "○" else "●"
         return label("$marker  ${status.title.uppercase(Locale.GERMANY)}", 10f, color, true).apply {
             background = rounded(withAlpha(color, 36), color, 999f)
-            setPadding(13.dp, 6.dp, 13.dp, 6.dp)
+            maxWidth = 300.dp
+            setPadding(10.dp, 5.dp, 10.dp, 5.dp)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 7.dp
                 bottomMargin = 3.dp

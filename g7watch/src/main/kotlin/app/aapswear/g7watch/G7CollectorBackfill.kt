@@ -14,7 +14,7 @@ internal object G7CollectorBackfillProtocol {
     const val REQUEST_OPCODE: Byte = 0x59
 
     fun request(startSensorClock: Long, endSensorClock: Long): ByteArray {
-        require(startSensorClock in 1 until endSensorClock)
+        require(startSensorClock >= 1L && startSensorClock <= endSensorClock)
         require(endSensorClock - startSensorClock <= MAX_WINDOW_SECONDS)
         return ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
             .put(REQUEST_OPCODE)
@@ -30,6 +30,9 @@ internal object G7CollectorBackfillProtocol {
         return start.coerceAtLeast(oldestAllowed)
             .takeIf { liveSensorClock - it >= EXPECTED_INTERVAL_SECONDS }
     }
+
+    fun requestedEnd(liveSensorClock: Long): Long? =
+        (liveSensorClock - EXPECTED_INTERVAL_SECONDS).takeIf { it > 0L }
 
     fun parseRecord(
         packet: ByteArray,

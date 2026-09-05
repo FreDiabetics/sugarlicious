@@ -816,9 +816,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val metrics = paint.fontMetrics
-        val labelGap = 2f.dp
-        val highBaseline = targetTop - labelGap - metrics.descent
-        val lowBaseline = targetBottom + labelGap - metrics.ascent
+        val highBaseline = targetTop - (metrics.ascent + metrics.descent) / 2f
+        val lowBaseline = targetBottom - (metrics.ascent + metrics.descent) / 2f
         val tickGap = 2f.dp
         val tickLength = 5f.dp
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)

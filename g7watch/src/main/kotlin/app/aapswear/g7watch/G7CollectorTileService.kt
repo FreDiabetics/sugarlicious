@@ -44,6 +44,7 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseVisualSpec
 import app.aapswear.model.PresentationSurface
 import app.aapswear.model.WearGlucoseCardInput
+import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import com.google.common.util.concurrent.Futures
@@ -237,7 +238,7 @@ class G7CollectorTileService : TileService() {
                 .build()
 
         val valueCard =
-            Box.Builder()
+            Column.Builder()
                 .setWidth(expand())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .setModifiers(
@@ -258,19 +259,21 @@ class G7CollectorTileService : TileService() {
                         .build(),
                 )
                 .addContent(primaryRow)
+                .apply {
+                    if (presentation.meta.isNotBlank()) {
+                        addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, G7_TILE_TEXT_PRIMARY, bold = true))
+                    }
+                    if (presentation.age.isNotBlank()) {
+                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, G7_TILE_TEXT_PRIMARY, bold = true))
+                    }
+                }
                 .build()
 
         val header =
-            Column.Builder()
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                .addContent(
-                    Image.Builder()
-                        .setResourceId(HEADER_RESOURCE_ID)
-                        .setWidth(dp(34f))
-                        .setHeight(dp(34f))
-                        .build(),
-                )
-                .addContent(text("Direct To Watch", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
+            Box.Builder()
+                .setWidth(expand())
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .addContent(text("Direct to Watch - Glukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
                 .build()
 
         val content =
@@ -280,8 +283,6 @@ class G7CollectorTileService : TileService() {
                 .addContent(header)
                 .addContent(Spacer.Builder().setHeight(dp(5f)).build())
                 .addContent(valueCard)
-                .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-                .addContent(text(presentation.tileMeta, 14f, G7_TILE_TEXT_PRIMARY, bold = true))
                 .addContent(Spacer.Builder().setHeight(dp(5f)).build())
                 .addContent(statusPill(statusPresentation))
                 .build()

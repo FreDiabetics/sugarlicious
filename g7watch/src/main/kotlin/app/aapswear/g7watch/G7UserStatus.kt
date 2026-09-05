@@ -128,7 +128,7 @@ internal fun deriveG7UserStatus(
 
         G7ProtocolState.RECOVERING -> G7UserStatus(
             G7UserStatusLevel.WORKING,
-            "Automatische Wiederverbindung",
+            "Autom. Wiederverb.",
             "Nächstes Sensorfenster",
             if (ageMs == null) "Aktiv · Verbindung wird aufgebaut" else "Aktiv · letzter Wert ${formatAge(ageMs)} alt",
             "Ein Sensorfenster wurde verpasst oder Android BLE hat die Verbindung kurz unterbrochen. Sugarlicious versucht automatisch das nächste erwartete Fenster.",
@@ -140,7 +140,7 @@ internal fun deriveG7UserStatus(
             if (error?.recoverable == true && (ageMs == null || ageMs < G7_SIGNAL_LOSS_AFTER_MS)) {
                 G7UserStatus(
                     G7UserStatusLevel.WORKING,
-                    "Automatische Wiederverbindung",
+                    "Autom. Wiederverb.",
                     "Recovery",
                     "Aktiv · kein Benutzereingriff nötig",
                     error.safeMessage,
@@ -223,7 +223,7 @@ private fun phaseName(state: G7ProtocolState): String = when (state) {
     G7ProtocolState.BACKFILL -> "Historie nachladen"
     G7ProtocolState.WAITING_FOR_NEXT_READING -> "Bereit für nächsten Wert"
     G7ProtocolState.DISCONNECTED -> "Zwischen Sensorfenstern getrennt"
-    G7ProtocolState.RECOVERING -> "Automatische Wiederverbindung"
+    G7ProtocolState.RECOVERING -> "Autom. Wiederverb."
     G7ProtocolState.ERROR -> "Fehler"
 }
 

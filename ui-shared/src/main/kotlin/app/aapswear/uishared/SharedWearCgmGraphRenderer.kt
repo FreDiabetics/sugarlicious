@@ -93,7 +93,7 @@ data class SharedWearCgmGraphInput(
     val thresholds: CgmThresholds,
     val palette: SharedWearCgmGraphPalette,
     val style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
-    val emptyLabel: String = "Noch keine CGM-Historie",
+    val emptyLabel: String = "",
 )
 
 data class SharedWearCgmGraphMetrics(
@@ -274,7 +274,7 @@ object SharedWearCgmGraphRenderer {
         }
 
         if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
-        if (history.isEmpty() && predictions.isEmpty()) {
+        if (history.isEmpty() && predictions.isEmpty() && input.emptyLabel.isNotBlank()) {
             emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)
         }
