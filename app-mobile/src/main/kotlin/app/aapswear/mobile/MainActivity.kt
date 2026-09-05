@@ -243,7 +243,6 @@ class MainActivity : ComponentActivity() {
             navigate = ::navigate,
             setUnit = { uiPreferences.edit { putString("unit", it.name) } },
             setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
-            openG7Setup = { startActivity(Intent(this, G7SetupActivity::class.java)) },
             openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
             openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
@@ -304,7 +303,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         scope.launch {
             TherapyStateStore(this@MainActivity).state.collectLatest {
-                state = it
+                state = it?.mobileAndroidApsOnly()
                 refresh()
             }
         }

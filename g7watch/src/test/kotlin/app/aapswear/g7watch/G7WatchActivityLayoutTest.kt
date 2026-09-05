@@ -160,7 +160,7 @@ class G7WatchActivityLayoutTest {
         val root = activity.findViewById<android.view.View>(android.R.id.content)
         val scroll = findScrollView(root)!!
         assertFalse(scroll.isVerticalFadingEdgeEnabled)
-        assertTrue(scroll.verticalFadingEdgeLength > 0)
+        assertEquals(0, scroll.verticalFadingEdgeLength)
         measureAndLayout(root)
         scroll.scrollTo(0, 180)
 

@@ -39,29 +39,14 @@ internal class MobileG7BackfillStore(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val serializer = ListSerializer(CgmReading.serializer())
 
-    suspend fun snapshot(): List<CgmReading> = decode(context.mobileG7HistoryDataStore.data.first()[key])
+    suspend fun snapshot(): List<CgmReading> = emptyList()
 
     suspend fun merge(
         incoming: List<CgmReading>,
         nowEpochMs: Long,
     ): Set<String> {
-        val accepted = linkedSetOf<String>()
-        context.mobileG7HistoryDataStore.edit { preferences ->
-            val current = decode(preferences[key]).toMutableList()
-            incoming.forEach { candidate ->
-                if (!candidate.isValidWatchReading(nowEpochMs)) return@forEach
-                accepted += candidate.id
-                if (current.none { it.id == candidate.id || it.sameIdentity(candidate) }) current += candidate
-            }
-            val normalized = current.asSequence()
-                .filter { it.isValidWatchReading(nowEpochMs) }
-                .filter { nowEpochMs - it.timestampEpochMs <= RETENTION_MS }
-                .distinctBy(CgmReading::id)
-                .sortedBy(CgmReading::timestampEpochMs)
-                .toList().takeLast(MAX_READINGS)
-            preferences[key] = json.encodeToString(serializer, normalized)
-        }
-        return accepted
+        clear()
+        return emptySet()
     }
 
     suspend fun clear() {
@@ -96,8 +81,11 @@ internal object MobileWatchCgmMigration {
     private const val VERSION = 1
 
     suspend fun runOnce(context: Context): Boolean {
-        context.applicationContext
-        return false
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (preferences.getInt(KEY_VERSION, 0) >= VERSION) return false
+        MobileG7BackfillStore(context.applicationContext).clear()
+        preferences.edit().putInt(KEY_VERSION, VERSION).apply()
+        return true
     }
 }
 
@@ -108,49 +96,8 @@ internal object MobileCanonicalCgmResolver {
         phoneState: TherapyDisplayState?,
         nowEpochMs: Long = System.currentTimeMillis(),
     ): TherapyDisplayState? {
-        val watchReadings = MobileG7BackfillStore(context).snapshot()
-        val latestWatch = watchReadings.lastOrNull { it.status == CgmReadingStatus.VALID }
-        if (phoneState == null && latestWatch == null) return null
-        val mobile = phoneState?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let {
-            CgmSourceCandidate(CgmCanonicalSource.MOBILE_AAPS, it.valueMgDl, it.measuredAtEpochMs, it.receivedAtEpochMs ?: phoneState.receivedAtEpochMs, it.sensorId, it.sessionId, it.sequenceNumber)
-        }
-        val watch = latestWatch?.let {
-            CgmSourceCandidate(CgmCanonicalSource.WATCH_G7_DIRECT, it.glucoseMgDl, it.timestampEpochMs, it.receivedAtEpochMs, it.sensorId, it.sessionId, it.sequenceNumber)
-        }
-        val resolution = CanonicalCgmSourceResolver.resolve(mobile, watch, nowEpochMs, readMemory(context), sourceMode(context))
-        writeMemory(context, resolution.memory)
-        val chosenGlucose = when (resolution.canonicalSource) {
-            CgmCanonicalSource.MOBILE_AAPS -> phoneState?.glucose
-            CgmCanonicalSource.WATCH_G7_DIRECT -> latestWatch?.toGlucoseState()
-            CgmCanonicalSource.NONE -> phoneState?.glucose?.takeIf { it.quality == CgmQuality.SENSOR_ERROR }
-        }
-        val chosenSource = when (resolution.canonicalSource) {
-            CgmCanonicalSource.MOBILE_AAPS -> phoneState?.source ?: DataSourceId.OTHER
-            CgmCanonicalSource.WATCH_G7_DIRECT -> DataSourceId.DEXCOM_G7_WATCH
-            CgmCanonicalSource.NONE -> phoneState?.source ?: DataSourceId.OTHER
-        }
-        val capabilities = if (chosenGlucose?.quality == CgmQuality.VALID) {
-            phoneState?.capabilities.orEmpty() + setOf(DataCapability.GLUCOSE, DataCapability.TREND, DataCapability.DELTA)
-        } else phoneState?.capabilities.orEmpty() - setOf(DataCapability.GLUCOSE, DataCapability.TREND, DataCapability.DELTA, DataCapability.AVERAGE_DELTA)
-        val phoneHistory = buildList {
-            addAll(phoneState?.glucoseHistory.orEmpty())
-            phoneState?.glucose?.let { add(it.toSample(phoneState.source)) }
-        }
-        val history = CanonicalCgmHistory.merge(phoneHistory + watchReadings.map { it.toSample() }, nowEpochMs, phoneState?.source ?: chosenSource)
-        val base = phoneState
-        return TherapyDisplayState(
-            source = chosenSource,
-            sourceVersion = if (resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT) "Direct to Watch" else base?.sourceVersion,
-            sourceContract = "CANONICAL_CGM_V3:${resolution.state.name}:${resolution.reason}",
-            receivedAtEpochMs = resolution.reading?.receivedAtEpochMs ?: base?.receivedAtEpochMs ?: nowEpochMs,
-            glucose = chosenGlucose,
-            glucoseHistory = history,
-            glucosePredictions = base?.glucosePredictions.orEmpty(), therapyHistory = base?.therapyHistory.orEmpty(),
-            therapyEvents = base?.therapyEvents.orEmpty(), targetHistory = base?.targetHistory.orEmpty(),
-            insulin = base?.insulin, carbs = base?.carbs, basal = base?.basal, target = base?.target,
-            loop = base?.loop, pump = base?.pump, device = base?.device, profile = base?.profile,
-            capabilities = capabilities,
-        )
+        MobileWatchCgmMigration.runOnce(context)
+        return phoneState?.mobileAndroidApsOnly()
     }
 
     private fun sourceMode(context: Context): CgmSourceMode = when (runCatching {
@@ -269,3 +216,12 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
         capabilities = safeCapabilities,
     )
 }
+
+internal fun TherapyDisplayState.mobileAndroidApsOnly(): TherapyDisplayState =
+    withoutDirectWatchCgm().copy(
+        sourceContract = "MOBILE_ANDROIDAPS_ONLY",
+        glucoseHistory = glucoseHistory
+            .filter { it.source == DataSourceId.ANDROID_APS }
+            .distinctBy { sample -> sample.sequenceNumber?.let { "${sample.sensorId}:${sample.sessionId}:$it" } ?: "${sample.measuredAtEpochMs}:${sample.valueMgDl}" }
+            .sortedBy(GlucoseSample::measuredAtEpochMs),
+    )

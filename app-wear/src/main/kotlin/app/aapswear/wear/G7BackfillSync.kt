@@ -25,10 +25,7 @@ import kotlinx.coroutines.tasks.await
 /** Consumer-only bridge; it never talks to a sensor or initiates sensor history. */
 internal object G7BackfillSync {
     suspend fun sendPending(context: Context, targetNodeId: String? = null): G7SyncDispatch? =
-        G7ReadingSyncManager(
-            ProviderG7ReadingRepository(context),
-            WearDataLayerG7SyncTransport(context, targetNodeId),
-        ).sendPending(G7ReadingBatch.MAX_READINGS)
+        null
 
     suspend fun acknowledge(context: Context, ack: G7ReadingAck): Int =
         G7ReadingSyncManager(

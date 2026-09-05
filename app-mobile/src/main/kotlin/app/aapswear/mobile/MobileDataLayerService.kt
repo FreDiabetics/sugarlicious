@@ -156,25 +156,19 @@ class MobileDataLayerService : WearableListenerService() {
     }
 
     private suspend fun acceptG7Batch(batch: G7ReadingBatch, sourceNodeId: String) {
-        val now = System.currentTimeMillis()
-        val accepted = MobileG7BackfillStore(this).merge(batch.readings, now)
-        val canonical = MobileCanonicalStateCoordinator.refreshFromWatchBackfill(this, now)
-        canonical?.let {
-            runCatching { HealthConnectIntegration.exportCgmReading(this, it) }
-            SugarliciousWidgets.update(this)
-            PersistentBridgeService.refresh(this)
-        }
+        MobileG7BackfillStore(this).clear()
+        val ignoredIds = batch.readings.mapNotNull { it.id.takeIf(String::isNotBlank) }.toSet()
         val ack = G7ReadingAck(
             batchId = batch.batchId,
-            acknowledgedIds = accepted,
+            acknowledgedIds = ignoredIds,
             acknowledgedAtEpochMs = System.currentTimeMillis(),
         )
         Wearable.getMessageClient(this)
             .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
             .await()
         applicationContext.recordMobileDiagnostic(
-            "G7", "G7-SYNC-200", "G7 Watch history persisted and acknowledged",
-            metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledged" to accepted.size, "canonicalSource" to canonical?.source?.name),
+            "G7", "G7-SYNC-204", "Direct-to-Watch history ignored by AndroidAPS-only Mobile policy",
+            metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
         )
     }
 }

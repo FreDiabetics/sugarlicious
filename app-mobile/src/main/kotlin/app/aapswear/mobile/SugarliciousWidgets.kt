@@ -556,13 +556,13 @@ internal fun renderWidgetGraph(
     val targetLabelGap = 2f * renderDensity
     canvas.drawText(
         targetHigh.roundToInt().toString(),
-        metrics.yLabelRightPx,
+        metrics.yLabelLeftPx,
         targetTop - targetLabelGap - textPaint.fontMetrics.descent,
         textPaint,
     )
     canvas.drawText(
         targetLow.roundToInt().toString(),
-        metrics.yLabelRightPx,
+        metrics.yLabelLeftPx,
         targetBottom + targetLabelGap - textPaint.fontMetrics.ascent,
         textPaint,
     )
@@ -586,7 +586,7 @@ internal data class WidgetGraphMetrics(
     val edgeGapPx: Float,
     val yTickStartPx: Float,
     val yTickEndPx: Float,
-    val yLabelRightPx: Float,
+    val yLabelLeftPx: Float,
 )
 
 internal fun widgetGraphClipPath(metrics: WidgetGraphMetrics): Path = Path().apply {
@@ -675,7 +675,7 @@ internal fun widgetGraphMetrics(
         edgeGapPx = edgeGap,
         yTickStartPx = yTickStart,
         yTickEndPx = yTickEnd,
-        yLabelRightPx = labelLeft,
+        yLabelLeftPx = labelLeft,
     )
 }
 

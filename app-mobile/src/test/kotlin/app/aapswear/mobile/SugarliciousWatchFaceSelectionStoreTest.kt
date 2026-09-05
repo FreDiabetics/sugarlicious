@@ -36,13 +36,13 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
-    fun `direct to watch availability reads explicit collector source from dashboard preferences`() {
+    fun `legacy collector source preference is ignored by AndroidAPS-only Mobile policy`() {
         context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
             .edit()
             .putString("dataSource", DataSourcePreference.DEXCOM_G7_WATCH.name)
             .commit()
 
-        assertTrue(SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(context, null))
+        assertFalse(SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(context, null))
     }
 
     @Test

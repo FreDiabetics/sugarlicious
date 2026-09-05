@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class MobileCanonicalCgmTest {
     @Test
-    fun `validated Collector history persists deduplicates and may drive canonical fallback`() = runBlocking {
+    fun `Collector history is rejected and never drives Mobile canonical state`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE).edit().clear().commit()
@@ -34,26 +34,25 @@ class MobileCanonicalCgmTest {
         val invalid = latest.copy(id = "invalid-$now", status = CgmReadingStatus.INVALID)
 
         val accepted = MobileG7BackfillStore(context).merge(listOf(first, duplicate, latest, invalid), now)
-        assertTrue(first.id in accepted)
-        assertTrue(duplicate.id in accepted)
+        assertTrue(accepted.isEmpty())
         assertFalse(invalid.id in accepted)
-        assertEquals(2, MobileG7BackfillStore(context).snapshot().size)
+        assertTrue(MobileG7BackfillStore(context).snapshot().isEmpty())
 
         val stalePhone = phone(now, now - 16 * 60_000L)
         val resolved = MobileCanonicalCgmResolver.resolve(context, stalePhone, now)!!
-        assertEquals(DataSourceId.DEXCOM_G7_WATCH, resolved.source)
+        assertEquals(DataSourceId.ANDROID_APS, resolved.source)
         assertEquals(CgmReadingOrigin.BACKFILL, latest.origin)
     }
 
     @Test
-    fun `two fresh Mobile values recover automatic source from Watch`() = runBlocking {
+    fun `Mobile remains AndroidAPS regardless of Watch history`() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         MobileG7BackfillStore(context).clear()
         context.getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE).edit().clear().commit()
         val now = System.currentTimeMillis()
         MobileG7BackfillStore(context).merge(listOf(reading("watch-$now", 3, now - 30_000L)), now)
-        assertEquals(DataSourceId.DEXCOM_G7_WATCH, MobileCanonicalCgmResolver.resolve(context, phone(now, now - 16 * 60_000L), now)?.source)
-        assertEquals(DataSourceId.DEXCOM_G7_WATCH, MobileCanonicalCgmResolver.resolve(context, phone(now, now - 20_000L), now)?.source)
+        assertEquals(DataSourceId.ANDROID_APS, MobileCanonicalCgmResolver.resolve(context, phone(now, now - 16 * 60_000L), now)?.source)
+        assertEquals(DataSourceId.ANDROID_APS, MobileCanonicalCgmResolver.resolve(context, phone(now, now - 20_000L), now)?.source)
         assertEquals(DataSourceId.ANDROID_APS, MobileCanonicalCgmResolver.resolve(context, phone(now, now - 10_000L), now)?.source)
     }
 

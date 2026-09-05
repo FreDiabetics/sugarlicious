@@ -4,9 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class G7SourceFallbackPolicyTest {
-    @Test fun `legacy forced G7 source migrates to automatic`() {
+    @Test fun `legacy forced G7 source migrates to AndroidAPS`() {
         assertEquals(
-            DataSourcePreference.AUTOMATIC,
+            DataSourcePreference.ANDROID_APS,
             migrateLegacyForcedG7Source(
                 DataSourcePreference.DEXCOM_G7_WATCH,
                 migrationDone = false,
@@ -14,9 +14,9 @@ class G7SourceFallbackPolicyTest {
         )
     }
 
-    @Test fun `explicit G7 source remains strict after migration has run`() {
+    @Test fun `explicit G7 source cannot remain selected after migration`() {
         assertEquals(
-            DataSourcePreference.DEXCOM_G7_WATCH,
+            DataSourcePreference.ANDROID_APS,
             migrateLegacyForcedG7Source(
                 DataSourcePreference.DEXCOM_G7_WATCH,
                 migrationDone = true,
