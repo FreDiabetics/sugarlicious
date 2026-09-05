@@ -19,6 +19,21 @@
             <ListOption id="22" displayName="text_size_22" />
             <ListOption id="24" displayName="text_size_24" />
         </ListConfiguration>
+        <ColorConfiguration id="statusColor" displayName="vigil_status_color" defaultValue="0">
+            <ColorOption id="0" displayName="color_soft_gray" colors="#FFA8A8BA" />
+            <ColorOption id="1" displayName="color_white" colors="#FFFFFFFF" />
+            <ColorOption id="2" displayName="color_orange" colors="#FFFF7A2F" />
+            <ColorOption id="3" displayName="color_cyan" colors="#FF67DFE8" />
+            <ColorOption id="4" displayName="color_green" colors="#FF65D08A" />
+        </ColorConfiguration>
+        <ColorConfiguration id="clockColor" displayName="vigil_clock_color" defaultValue="0">
+            <ColorOption id="0" displayName="color_soft_gray" colors="#FFA8A8BA" />
+            <ColorOption id="1" displayName="color_white" colors="#FFFFFFFF" />
+            <ColorOption id="2" displayName="color_orange" colors="#FFFF7A2F" />
+            <ColorOption id="3" displayName="color_cyan" colors="#FF67DFE8" />
+            <ColorOption id="4" displayName="color_green" colors="#FF65D08A" />
+        </ColorConfiguration>
+        <BooleanConfiguration id="statusBold" displayName="vigil_status_bold" defaultValue="FALSE" />
         <BooleanConfiguration id="clockBold" displayName="vigil_clock_bold" defaultValue="FALSE" />
     </UserConfigurations>
     <Scene backgroundColor="#FF000000">
@@ -50,22 +65,32 @@
             <Complication type="SHORT_TEXT">
                 <Condition>
                     <Expressions>
-                        <Expression name="status12"><![CDATA[[CONFIGURATION.statusSize] == "12"]]></Expression>
-                        <Expression name="status14"><![CDATA[[CONFIGURATION.statusSize] == "14"]]></Expression>
-                        <Expression name="status16"><![CDATA[[CONFIGURATION.statusSize] == "16"]]></Expression>
-                        <Expression name="status18"><![CDATA[[CONFIGURATION.statusSize] == "18"]]></Expression>
-                        <Expression name="status20"><![CDATA[[CONFIGURATION.statusSize] == "20"]]></Expression>
+                        <Expression name="status12Normal"><![CDATA[[CONFIGURATION.statusSize] == "12" && [CONFIGURATION.statusBold] == "FALSE"]]></Expression>
+                        <Expression name="status14Normal"><![CDATA[[CONFIGURATION.statusSize] == "14" && [CONFIGURATION.statusBold] == "FALSE"]]></Expression>
+                        <Expression name="status16Normal"><![CDATA[[CONFIGURATION.statusSize] == "16" && [CONFIGURATION.statusBold] == "FALSE"]]></Expression>
+                        <Expression name="status18Normal"><![CDATA[[CONFIGURATION.statusSize] == "18" && [CONFIGURATION.statusBold] == "FALSE"]]></Expression>
+                        <Expression name="status20Normal"><![CDATA[[CONFIGURATION.statusSize] == "20" && [CONFIGURATION.statusBold] == "FALSE"]]></Expression>
+                        <Expression name="status12Bold"><![CDATA[[CONFIGURATION.statusSize] == "12" && [CONFIGURATION.statusBold] == "TRUE"]]></Expression>
+                        <Expression name="status14Bold"><![CDATA[[CONFIGURATION.statusSize] == "14" && [CONFIGURATION.statusBold] == "TRUE"]]></Expression>
+                        <Expression name="status16Bold"><![CDATA[[CONFIGURATION.statusSize] == "16" && [CONFIGURATION.statusBold] == "TRUE"]]></Expression>
+                        <Expression name="status18Bold"><![CDATA[[CONFIGURATION.statusSize] == "18" && [CONFIGURATION.statusBold] == "TRUE"]]></Expression>
+                        <Expression name="status20Bold"><![CDATA[[CONFIGURATION.statusSize] == "20" && [CONFIGURATION.statusBold] == "TRUE"]]></Expression>
                     </Expressions>
-                    <Compare expression="status12"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
-                    <Compare expression="status14"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="14" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
-                    <Compare expression="status16"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
-                    <Compare expression="status18"><PartText x="0" y="0" width="180" height="30"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
-                    <Compare expression="status20"><PartText x="0" y="0" width="180" height="32"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status12Normal"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status14Normal"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="14" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status16Normal"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status18Normal"><PartText x="0" y="0" width="180" height="30" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status20Normal"><PartText x="0" y="0" width="180" height="32" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status12Bold"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status14Bold"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="14" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status16Bold"><PartText x="0" y="0" width="180" height="28" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status18Bold"><PartText x="0" y="0" width="180" height="30" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status20Bold"><PartText x="0" y="0" width="180" height="32" tintColor="[CONFIGURATION.statusColor.0]"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
                 </Condition>
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <Group name="activeClock" x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <Group name="activeClock" x="0" y="0" width="450" height="450" tintColor="[CONFIGURATION.clockColor.0]"><Variant mode="AMBIENT" target="alpha" value="0" />
         <Condition>
             <Expressions>
                 <Expression name="clock14Normal"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
@@ -95,7 +120,7 @@
             <Compare expression="clock24Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
         </Condition>
         </Group>
-        <Group name="ambientClock" x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+        <Group name="ambientClock" x="0" y="0" width="450" height="450" alpha="0" tintColor="[CONFIGURATION.clockColor.0]"><Variant mode="AMBIENT" target="alpha" value="255" />
         <Condition>
             <Expressions>
                 <Expression name="ambient14Normal"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>

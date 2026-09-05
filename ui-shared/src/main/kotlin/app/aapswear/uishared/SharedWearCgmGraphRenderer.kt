@@ -126,10 +126,12 @@ object SharedWearCgmGraphRenderer {
         fun dp(value: Float) = value * density
         val left = 0f
         // Reserve one explicit label lane so data cannot run through the target values.
-        val axisLeft = widthPx - dp(29f)
+        // Keep the target-value lane only as wide as a three-digit value needs. The live edge
+        // remains visibly separate from that (invisible) lane boundary.
+        val axisLeft = widthPx - dp(25f)
         val top = 0f
         val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
-        val plot = RectF(left, top, axisLeft, bottom)
+        val plot = RectF(left, top, axisLeft - dp(4f), bottom)
         fun y(value: Double): Float =
             plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
         return SharedWearCgmGraphMetrics(
@@ -138,7 +140,7 @@ object SharedWearCgmGraphRenderer {
             axisLeftPx = axisLeft,
             highY = y(thresholds.highMgDl),
             lowY = y(thresholds.lowMgDl),
-            liveX = axisLeft,
+            liveX = plot.right,
         )
     }
 
@@ -221,8 +223,8 @@ object SharedWearCgmGraphRenderer {
         line.strokeCap = Paint.Cap.ROUND
 
         val targetText = Paint(axisText).apply { color = palette.targetText }
-        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
-        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
+        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, metrics.axisLeftPx, widthPx, density, targetText, line, palette.axisTick, input.style)
+        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, metrics.axisLeftPx, widthPx, density, targetText, line, palette.axisTick, input.style)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
         line.color = palette.nowLine

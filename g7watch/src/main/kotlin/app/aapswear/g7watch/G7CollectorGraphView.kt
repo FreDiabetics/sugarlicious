@@ -91,6 +91,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
                 palette = palette.toSharedPalette(),
                 style = SharedWearCgmGraphStyle(
                     cornerRadiusDp = TILE_RADIUS_DP,
+                    borderEnabled = false,
                     historicalDotOutlineEnabled = G7AppearanceStore(context).historicalDotOutlineEnabled(),
                     currentDotOutlineEnabled = G7AppearanceStore(context).currentDotOutlineEnabled(),
                 ),

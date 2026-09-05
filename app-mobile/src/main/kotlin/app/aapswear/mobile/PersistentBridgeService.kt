@@ -656,7 +656,8 @@ internal object NotificationGraphRenderer {
             (axisText.fontMetrics.descent - axisText.fontMetrics.ascent) + dp(axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp)
         } else 0f
         val plotLeft = bounds.left + dp(axis.outerEdgePaddingDp)
-        val plotRight = bounds.right - dp(axis.outerEdgePaddingDp + axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp) - widestYLabel
+        val labelLaneLeft = bounds.right - dp(axis.outerEdgePaddingDp) - widestYLabel
+        val plotRight = labelLaneLeft - dp(4f)
         val plotTop = bounds.top + dp(axis.outerEdgePaddingDp)
         val plotBottom = bounds.bottom - dp(axis.outerEdgePaddingDp) - timeBand
         val visualLeft = bounds.left
@@ -697,7 +698,7 @@ internal object NotificationGraphRenderer {
             axisText.textAlign = Paint.Align.LEFT
             val gap = dp(2f)
             val baseline = if (aboveLine) py - gap - axisText.fontMetrics.descent else py + gap - axisText.fontMetrics.ascent
-            canvas.drawText(value.roundToInt().toString(), plotRight + dp(axis.plotToTickGapDp), baseline, axisText)
+            canvas.drawText(value.roundToInt().toString(), labelLaneLeft, baseline, axisText)
         }
         drawYLabel(targetHigh, aboveLine = true)
         drawYLabel(targetLow, aboveLine = false)
