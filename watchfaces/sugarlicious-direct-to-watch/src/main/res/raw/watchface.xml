@@ -3,6 +3,24 @@
 <WatchFace width="450" height="450" clipShape="CIRCLE">
     <Metadata key="CLOCK_TYPE" value="DIGITAL" />
     <Metadata key="PREVIEW_TIME" value="12:42:00" />
+    <UserConfigurations>
+        <ListConfiguration id="statusSize" displayName="vigil_status_size" defaultValue="16">
+            <ListOption id="12" displayName="text_size_12" />
+            <ListOption id="14" displayName="text_size_14" />
+            <ListOption id="16" displayName="text_size_16" />
+            <ListOption id="18" displayName="text_size_18" />
+            <ListOption id="20" displayName="text_size_20" />
+        </ListConfiguration>
+        <ListConfiguration id="clockSize" displayName="vigil_clock_size" defaultValue="18">
+            <ListOption id="14" displayName="text_size_14" />
+            <ListOption id="16" displayName="text_size_16" />
+            <ListOption id="18" displayName="text_size_18" />
+            <ListOption id="20" displayName="text_size_20" />
+            <ListOption id="22" displayName="text_size_22" />
+            <ListOption id="24" displayName="text_size_24" />
+        </ListConfiguration>
+        <BooleanConfiguration id="clockBold" displayName="vigil_clock_bold" defaultValue="FALSE" />
+    </UserConfigurations>
     <Scene backgroundColor="#FF000000">
         <ComplicationSlot slotId="0" displayName="Vigil glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
@@ -26,21 +44,86 @@
             <BoundingBox x="0" y="0" width="410" height="250" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="410" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SHORT_TEXT EMPTY" x="38" y="145" width="180" height="30"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SHORT_TEXT EMPTY" x="38" y="145" width="180" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="180" height="30" />
-            <Complication type="SHORT_TEXT"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
+            <BoundingBox x="0" y="0" width="180" height="34" />
+            <Complication type="SHORT_TEXT">
+                <Condition>
+                    <Expressions>
+                        <Expression name="status12"><![CDATA[[CONFIGURATION.statusSize] == "12"]]></Expression>
+                        <Expression name="status14"><![CDATA[[CONFIGURATION.statusSize] == "14"]]></Expression>
+                        <Expression name="status16"><![CDATA[[CONFIGURATION.statusSize] == "16"]]></Expression>
+                        <Expression name="status18"><![CDATA[[CONFIGURATION.statusSize] == "18"]]></Expression>
+                        <Expression name="status20"><![CDATA[[CONFIGURATION.statusSize] == "20"]]></Expression>
+                    </Expressions>
+                    <Compare expression="status12"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="12" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status14"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="14" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status16"><PartText x="0" y="0" width="180" height="28"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status18"><PartText x="0" y="0" width="180" height="30"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                    <Compare expression="status20"><PartText x="0" y="0" width="180" height="32"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="20" weight="NORMAL" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Compare>
+                </Condition>
+            </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <DigitalClock x="150" y="398" width="150" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
-            <TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER">
-                <Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFA8A8BA" />
-            </TimeText>
-        </DigitalClock>
-        <DigitalClock x="150" y="398" width="150" height="34" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
-            <TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER">
-                <Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FF777777" />
-            </TimeText>
-        </DigitalClock>
+        <Group name="activeClock" x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <Condition>
+            <Expressions>
+                <Expression name="clock14Normal"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock16Normal"><![CDATA[[CONFIGURATION.clockSize] == "16" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock18Normal"><![CDATA[[CONFIGURATION.clockSize] == "18" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock20Normal"><![CDATA[[CONFIGURATION.clockSize] == "20" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock22Normal"><![CDATA[[CONFIGURATION.clockSize] == "22" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock24Normal"><![CDATA[[CONFIGURATION.clockSize] == "24" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="clock14Bold"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="clock16Bold"><![CDATA[[CONFIGURATION.clockSize] == "16" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="clock18Bold"><![CDATA[[CONFIGURATION.clockSize] == "18" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="clock20Bold"><![CDATA[[CONFIGURATION.clockSize] == "20" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="clock22Bold"><![CDATA[[CONFIGURATION.clockSize] == "22" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="clock24Bold"><![CDATA[[CONFIGURATION.clockSize] == "24" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+            </Expressions>
+            <Compare expression="clock14Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="14" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock16Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock18Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock20Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="20" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock22Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock24Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="24" weight="NORMAL" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock14Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="14" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock16Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock18Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock20Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock22Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+            <Compare expression="clock24Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFA8A8BA" /></TimeText></DigitalClock></Compare>
+        </Condition>
+        </Group>
+        <Group name="ambientClock" x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+        <Condition>
+            <Expressions>
+                <Expression name="ambient14Normal"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient16Normal"><![CDATA[[CONFIGURATION.clockSize] == "16" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient18Normal"><![CDATA[[CONFIGURATION.clockSize] == "18" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient20Normal"><![CDATA[[CONFIGURATION.clockSize] == "20" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient22Normal"><![CDATA[[CONFIGURATION.clockSize] == "22" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient24Normal"><![CDATA[[CONFIGURATION.clockSize] == "24" && [CONFIGURATION.clockBold] == "FALSE"]]></Expression>
+                <Expression name="ambient14Bold"><![CDATA[[CONFIGURATION.clockSize] == "14" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="ambient16Bold"><![CDATA[[CONFIGURATION.clockSize] == "16" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="ambient18Bold"><![CDATA[[CONFIGURATION.clockSize] == "18" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="ambient20Bold"><![CDATA[[CONFIGURATION.clockSize] == "20" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="ambient22Bold"><![CDATA[[CONFIGURATION.clockSize] == "22" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+                <Expression name="ambient24Bold"><![CDATA[[CONFIGURATION.clockSize] == "24" && [CONFIGURATION.clockBold] == "TRUE"]]></Expression>
+            </Expressions>
+            <Compare expression="ambient14Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="14" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient16Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="16" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient18Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="18" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient20Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="20" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient22Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient24Normal"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="24" weight="NORMAL" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient14Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="14" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient16Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="16" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient18Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient20Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient22Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+            <Compare expression="ambient24Bold"><DigitalClock x="150" y="398" width="150" height="34"><TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER"><Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FF777777" /></TimeText></DigitalClock></Compare>
+        </Condition>
+        </Group>
     </Scene>
 </WatchFace>

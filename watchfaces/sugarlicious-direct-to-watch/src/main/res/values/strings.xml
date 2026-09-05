@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vigil_status_size">Graphskalierung und Alter · Größe</string>
+    <string name="vigil_clock_size">Uhrzeit · Größe</string>
+    <string name="vigil_clock_bold">Uhrzeit · Fett</string>
+    <string name="text_size_12">12</string>
+    <string name="text_size_14">14</string>
+    <string name="text_size_16">16</string>
+    <string name="text_size_18">18</string>
+    <string name="text_size_20">20</string>
+    <string name="text_size_22">22</string>
+    <string name="text_size_24">24</string>
+</resources>
