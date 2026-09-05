@@ -380,13 +380,13 @@ class DashboardViewFactory(
                                 SourceChoice("Automatisch", R.drawable.ic_source_auto, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
                                 SourceChoice("AndroidAPS", R.drawable.ic_source_androidaps, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
                                 SourceChoice("xDrip+", R.drawable.ic_source_xdrip, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
-                                SourceChoice("Dexcom G7 Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
+                                SourceChoice("Direct to Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
                             ),
                         ),
                     )
                     if (preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) {
                         addView(divider())
-                        addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
+                        addView(actionRow("Direct to Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
                     }
                     addView(divider())
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))

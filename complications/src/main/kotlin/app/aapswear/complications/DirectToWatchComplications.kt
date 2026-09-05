@@ -377,7 +377,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
         return TherapyDisplayState(
             source = DataSourceId.DEXCOM_G7_WATCH,
             sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:preview",
-            sourceVersion = "G7 Watch Collector",
+            sourceVersion = "Direct to Watch",
             receivedAtEpochMs = now,
             glucose = GlucoseState(
                 valueMgDl = 152.0,

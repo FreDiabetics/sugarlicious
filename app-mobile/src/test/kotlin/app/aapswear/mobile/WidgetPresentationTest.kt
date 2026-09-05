@@ -276,6 +276,27 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `combined widget graph applies equal visual margins without moving standalone graph`() {
+        val layout = responsiveWidgetLayout(220f, 130f)
+        val standalone = widgetGraphMetrics(440, 260, 2f, layout, Paint())
+        val combined = widgetGraphMetrics(
+            440,
+            260,
+            2f,
+            layout,
+            Paint(),
+            graphLeftInsetDp = 12f,
+            graphHorizontalInsetDp = 5f,
+        )
+
+        assertEquals(0f, standalone.graphBounds.left, 0.01f)
+        assertEquals(440f, standalone.graphBounds.right, 0.01f)
+        assertEquals(10f, combined.graphBounds.left, 0.01f)
+        assertEquals(430f, combined.graphBounds.right, 0.01f)
+        assertTrue(combined.plot.left > combined.graphBounds.left)
+    }
+
+    @Test
     fun `graph corner radius is responsive and remains bounded by graph geometry`() {
         listOf(96 to 72, 320 to 180, 640 to 520).forEach { (width, height) ->
             val metrics = widgetGraphMetrics(

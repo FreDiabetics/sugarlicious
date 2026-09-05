@@ -231,7 +231,7 @@ abstract class TherapyComplicationService(
             ProviderKind.PUMP_BATTERY -> percent(therapyState?.pump?.batteryPercent) to "Pump battery"
             ProviderKind.PHONE_BATTERY -> percent(therapyState?.device?.phoneBatteryPercent) to "Phone battery"
             ProviderKind.SOURCE -> when (state?.source) {
-                DataSourceId.DEXCOM_G7_WATCH -> "Dexcom G7 Watch"
+                DataSourceId.DEXCOM_G7_WATCH -> "Direct to Watch"
                 DataSourceId.ANDROID_APS -> "AndroidAPS"
                 DataSourceId.NIGHTSCOUT -> "Nightscout"
                 DataSourceId.XDRIP_PLUS -> "xDrip+"

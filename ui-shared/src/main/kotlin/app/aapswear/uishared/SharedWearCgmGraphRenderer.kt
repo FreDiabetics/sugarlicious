@@ -125,7 +125,8 @@ object SharedWearCgmGraphRenderer {
     ): SharedWearCgmGraphMetrics {
         fun dp(value: Float) = value * density
         val left = 0f
-        val axisLeft = widthPx - dp(if (style.targetLabelsInsidePlot) 6f else 29f)
+        // Reserve one explicit label lane so data cannot run through the target values.
+        val axisLeft = widthPx - dp(29f)
         val top = 0f
         val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
         val plot = RectF(left, top, axisLeft, bottom)
@@ -224,20 +225,19 @@ object SharedWearCgmGraphRenderer {
         drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
-        if (predictions.isNotEmpty()) {
-            line.color = palette.nowLine
-            line.strokeWidth = dp(1f)
-            line.pathEffect = DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
-            canvas.drawLine(liveX, plot.top, liveX, plot.bottom, line)
-            line.pathEffect = null
-        }
+        line.color = palette.nowLine
+        line.strokeWidth = dp(1f)
+        line.pathEffect = DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
+        canvas.drawLine(liveX, plot.top, liveX, plot.bottom, line)
+        line.pathEffect = null
 
         val radius = input.style.dotRadiusDp.coerceIn(1.5f, 6f) * density
         val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
-            val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
-            val y = metrics.yFor(sample.valueMgDl)
             val isCurrent = index == history.lastIndex
+            // Current is the live marker; historical points remain timestamp-derived.
+            val x = if (isCurrent) liveX else metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
+            val y = metrics.yFor(sample.valueMgDl)
             val outlineEnabled = input.style.dotOutlineEnabled &&
                 if (isCurrent) input.style.currentDotOutlineEnabled else input.style.historicalDotOutlineEnabled
             if (outlineEnabled) {
@@ -315,12 +315,12 @@ object SharedWearCgmGraphRenderer {
         val tickStart = plotRight + gap
         val tickEnd = if (style.targetTicksEnabled) tickStart + tickLength else tickStart
         if (style.targetTicksEnabled) canvas.drawLine(tickStart, y, tickEnd, y, line)
-        text.textAlign = if (style.targetLabelsInsidePlot) Paint.Align.RIGHT else Paint.Align.LEFT
+        text.textAlign = Paint.Align.LEFT
         val baseline = if (style.targetLabelsOutsideRange) {
             if (isHigh) y - 2f * density - text.descent() else y + 2f * density - text.ascent()
         } else y - (text.ascent() + text.descent()) / 2f
         val labelX = if (style.targetLabelsInsidePlot) {
-            plotRight - 2f * density
+            plotRight + 2f * density
         } else {
             minOf(tickEnd + if (style.targetTicksEnabled) labelGap else 1.5f * density, widthPx - spec.outerEdgePaddingDp * density - text.measureText(value.toInt().toString()))
         }

@@ -116,10 +116,10 @@ object G7LocalReadingResolver {
 
         val sourceVersion =
             when (resolution.canonicalSource) {
-                CgmCanonicalSource.WATCH_G7_DIRECT -> "G7 Watch Collector"
+                CgmCanonicalSource.WATCH_G7_DIRECT -> "Direct to Watch"
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.sourceVersion
                 CgmCanonicalSource.NONE ->
-                    if (directSensorError != null || (watchOnly && latestDirectEvent != null)) "G7 Watch Collector" else fallback?.sourceVersion
+                    if (directSensorError != null || (watchOnly && latestDirectEvent != null)) "Direct to Watch" else fallback?.sourceVersion
             }
 
         val capabilities =

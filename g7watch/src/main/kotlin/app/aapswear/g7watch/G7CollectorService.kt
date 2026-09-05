@@ -110,7 +110,7 @@ class G7CollectorService : Service() {
         )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Permanenter Dexcom G7 Watch Collector"
+                description = "Permanenter direkter Sensor-Collector"
                 setSound(null, null)
                 enableVibration(false)
                 setShowBadge(false)
@@ -612,7 +612,7 @@ class G7CollectorService : Service() {
                 when (classification) {
                     CollectorCycleClassification.SUCCESS_FRESH -> "${reading.glucoseMgDl.toInt()} mg/dL · Verbunden"
                     CollectorCycleClassification.SUCCESS_AGED -> "Messwert empfangen · $ageMinutes min alt · Signalverlust bleibt aktiv"
-                    else -> "Kein frischer G7-Wert · nächster Sensorzyklus geplant"
+                    else -> "Kein frischer Sensorwert · nächster Sensorzyklus geplant"
                 },
             )
         } catch (error: G7BleException) {

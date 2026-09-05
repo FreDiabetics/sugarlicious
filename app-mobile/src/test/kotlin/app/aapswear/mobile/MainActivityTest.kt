@@ -295,7 +295,7 @@ class MainActivityTest {
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "Automatisch"))
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "AndroidAPS"))
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "xDrip+"))
-        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "Dexcom G7 Watch"))
+        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "Direct to Watch"))
 
         headers[0].performClick()
         headers[1].performClick()

@@ -140,7 +140,7 @@ internal object MobileCanonicalCgmResolver {
         val base = phoneState
         return TherapyDisplayState(
             source = chosenSource,
-            sourceVersion = if (resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT) "G7 Watch Collector" else base?.sourceVersion,
+            sourceVersion = if (resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT) "Direct to Watch" else base?.sourceVersion,
             sourceContract = "CANONICAL_CGM_V3:${resolution.state.name}:${resolution.reason}",
             receivedAtEpochMs = resolution.reading?.receivedAtEpochMs ?: base?.receivedAtEpochMs ?: nowEpochMs,
             glucose = chosenGlucose,

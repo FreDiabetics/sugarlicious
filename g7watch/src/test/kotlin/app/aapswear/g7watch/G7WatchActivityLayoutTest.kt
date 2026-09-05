@@ -159,7 +159,7 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
         val scroll = findScrollView(root)!!
-        assertTrue(scroll.isVerticalFadingEdgeEnabled)
+        assertFalse(scroll.isVerticalFadingEdgeEnabled)
         assertTrue(scroll.verticalFadingEdgeLength > 0)
         measureAndLayout(root)
         scroll.scrollTo(0, 180)
@@ -217,7 +217,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
         assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "G7 Watch Collector"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Direct to Watch"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()

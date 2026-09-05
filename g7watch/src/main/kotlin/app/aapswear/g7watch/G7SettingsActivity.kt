@@ -22,7 +22,7 @@ internal enum class G7SettingsSection(val title: String, val summary: String) {
     HARDWARE_TEST("Hardwaretest", "BLE-, GATT- und Sensorfenster-Diagnose"),
     DIAGNOSTICS("Diagnose", "Attempts, Fehlercodes und Recovery"),
     DATA_MANAGEMENT("Datenverwaltung", "Lokale Collector- und Sitzungsdaten"),
-    ABOUT("Über", "G7 Direct to Watch by Sugarlicious"),
+    ABOUT("Über", "Direct to Watch by Sugarlicious"),
 }
 
 class G7SettingsActivity : Activity() {
@@ -98,7 +98,7 @@ class G7SettingsActivity : Activity() {
             when (section) {
                 G7SettingsSection.ABOUT -> {
                     val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                    addView(infoCard("G7 Watch Collector", "Version $version", "Eigenständiger Dexcom-G7-Empfang auf der Watch.", palette), cardParams())
+                    addView(infoCard("Direct to Watch", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
                 }
                 else -> Unit
             }

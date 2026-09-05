@@ -137,9 +137,9 @@ class G7WatchActivity : Activity() {
         }
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "Dexcom G7 koppeln"
+            contentDescription = "Sensor koppeln"
         }, LinearLayout.LayoutParams(70.dp, 70.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
-        content.addView(label("Dexcom G7 koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+        content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
         content.addView(label(
             if (pairingStarted) "Sensor wird gesucht und sicher gekoppelt …" else "Vierstelligen Kopplungscode vom Sensor eingeben",
             12f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), false,
@@ -229,7 +229,7 @@ class G7WatchActivity : Activity() {
 
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "G7 Watch Collector"
+            contentDescription = "Direct to Watch"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {
             topMargin = 9.dp

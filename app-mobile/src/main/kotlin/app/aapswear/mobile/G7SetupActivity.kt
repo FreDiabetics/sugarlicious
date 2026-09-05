@@ -58,9 +58,9 @@ class G7SetupActivity : Activity() {
         setBackgroundColor(color(SugarliciousColorRole.BACKGROUND))
 
         addView(label("SUGARLICIOUS", 11f, color(SugarliciousColorRole.PRIMARY), bold = true).apply { letterSpacing = 0.1f })
-        addView(label("Dexcom G7 Watch", 28f, color(SugarliciousColorRole.TEXT_PRIMARY), bold = true))
+        addView(label("Direct to Watch", 28f, color(SugarliciousColorRole.TEXT_PRIMARY), bold = true))
         addView(label("Sensor direkt mit der Galaxy Watch verbinden", 14f, color(SugarliciousColorRole.SECONDARY), bold = true))
-        addView(label("Beende dafür den G7-Collector in Juggluco. Ein Sensor kann immer nur einen aktiven Collector beliefern.", 12f, color(SugarliciousColorRole.TEXT_SECONDARY)).apply {
+        addView(label("Beende dafür den direkten Collector in Juggluco. Ein Sensor kann immer nur einen aktiven Collector beliefern.", 12f, color(SugarliciousColorRole.TEXT_SECONDARY)).apply {
             setPadding(2.dp, 7.dp, 2.dp, 12.dp)
         })
 
@@ -123,12 +123,12 @@ class G7SetupActivity : Activity() {
                 val raw = barcode.rawValue ?: barcode.rawBytes?.toString(Charsets.ISO_8859_1)
                 val parsed = raw?.let(G7ApplicatorBarcodeParser::parse)
                 if (parsed == null) {
-                    status.text = "G7-Code nicht erkannt. Bitte den 4-stelligen Code eingeben."
+                    status.text = "Sensorcode nicht erkannt. Bitte den 4-stelligen Code eingeben."
                 } else {
                     pairingCode.setText(parsed.pairingCode)
                     scannedSerial = parsed.sensorSerial
                     scannedGtin = parsed.gtin
-                    status.text = "G7-Applikator erkannt"
+                    status.text = "Sensor-Applikator erkannt"
                 }
             }
             .addOnCanceledListener { status.text = "Scan abgebrochen" }

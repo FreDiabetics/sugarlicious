@@ -226,7 +226,7 @@ class G7SystemStatusActivity : Activity() {
             }, cardParams())
 
             addView(label(
-                "Nur einen direkten G7-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
+                "Nur einen direkten Sensor-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
                 9f,
                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
             ).apply { setPadding(8.dp, 12.dp, 8.dp, 0) })
@@ -335,7 +335,7 @@ class G7SystemStatusActivity : Activity() {
             gravity = Gravity.CENTER
             background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
         }
-        addView(label("Vierstelliger Code vom G7-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+        addView(label("Vierstelliger Code vom Sensor-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
         addView(input, buttonParams())
         addView(pill("Sensorcode speichern", palette) {
             val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()

@@ -436,6 +436,7 @@ internal fun renderWidgetGraph(
     configuration: WidgetInstanceConfiguration = WidgetInstanceConfiguration(showTimeAxis = true),
     clipToWidgetShape: Boolean = true,
     graphLeftInsetDp: Float? = null,
+    graphHorizontalInsetDp: Float = 0f,
     density: Float = pixelDensity,
     scaledDensity: Float = density,
 ): Bitmap {
@@ -469,6 +470,7 @@ internal fun renderWidgetGraph(
         configuration.showTimeAxis,
         configuration.graphCornerRadiusDp.toFloat(),
         graphLeftInsetDp,
+        graphHorizontalInsetDp,
     )
     val plot = metrics.plot
     val graphBounds = metrics.graphBounds
@@ -549,7 +551,7 @@ internal fun renderWidgetGraph(
             textPaint.textSize = metrics.axisTextSizePx
         }
     }
-    textPaint.textAlign = Paint.Align.RIGHT
+    textPaint.textAlign = Paint.Align.LEFT
     line.color = palette.argb(WidgetColorRole.AXIS_TICK)
     val targetLabelGap = 2f * renderDensity
     canvas.drawText(
@@ -611,6 +613,7 @@ internal fun widgetGraphMetrics(
     showTimeAxis: Boolean = true,
     graphCornerRadiusDp: Float = DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
     graphLeftInsetDp: Float? = null,
+    graphHorizontalInsetDp: Float = 0f,
 ): WidgetGraphMetrics {
     val safeDensity = density.coerceIn(1f, 4f)
     val lowSurface = heightPx / safeDensity < 110f
@@ -639,17 +642,17 @@ internal fun widgetGraphMetrics(
     val graphLeft = 0f
     val graphTop = 0f
     val axisSpec = if (lowSurface) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
-    val labelRight = widthPx - graphLeftInset
-    val labelLeft = labelRight - yLabelWidth
+    val labelLeft = widthPx - graphLeftInset - yLabelWidth
     val yTickEnd = labelLeft - axisSpec.tickToLabelGapDp * safeDensity
     val yTickStart = yTickEnd - axisSpec.tickLengthDp * safeDensity
     val graphRight = (yTickStart - axisSpec.plotToTickGapDp * safeDensity)
         .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
-    val graphBounds = RectF(0f, 0f, widthPx.toFloat(), graphBottom)
+    val visualInset = graphHorizontalInsetDp.coerceAtLeast(0f) * safeDensity
+    val graphBounds = RectF(visualInset, 0f, widthPx - visualInset, graphBottom)
     val pointInset = (dotRadius + outline / 2f).coerceAtMost(minOf(graphBounds.width(), graphBounds.height()) * 0.12f)
     val plot = RectF(
-        graphLeft + pointInset,
+        graphBounds.left + pointInset,
         graphTop + pointInset,
         graphRight - pointInset,
         graphBounds.bottom - pointInset,
@@ -672,7 +675,7 @@ internal fun widgetGraphMetrics(
         edgeGapPx = edgeGap,
         yTickStartPx = yTickStart,
         yTickEndPx = yTickEnd,
-        yLabelRightPx = labelRight,
+        yLabelRightPx = labelLeft,
     )
 }
 
@@ -922,6 +925,7 @@ internal fun renderGlucoseGraphWidget(
         configuration.copy(outlineEnabled = false),
         clipToWidgetShape = false,
         graphLeftInsetDp = 12f,
+        graphHorizontalInsetDp = 5f,
     )
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)

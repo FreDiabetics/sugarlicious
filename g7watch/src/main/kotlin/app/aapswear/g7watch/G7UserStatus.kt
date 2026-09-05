@@ -27,7 +27,7 @@ internal fun deriveG7UserStatus(
             "Collector inaktiv",
             "Aus",
             "Gestoppt",
-            "Der direkte G7-Empfang ist deaktiviert.",
+            "Der direkte Sensorempfang ist deaktiviert.",
             "Zum direkten Empfang „Collector starten“ wählen.",
         )
     }
@@ -35,7 +35,7 @@ internal fun deriveG7UserStatus(
         return problem(
             title = "Einrichtung erforderlich",
             phase = "Sensor einrichten",
-            description = "Es ist kein G7-Sensor eingerichtet.",
+            description = "Es ist kein Sensor eingerichtet.",
             action = "Vierstelligen Sensorcode speichern und danach den Collector starten.",
         )
     }
@@ -43,7 +43,7 @@ internal fun deriveG7UserStatus(
         return problem(
             title = "Sensorcode fehlt",
             phase = "Einrichtung prüfen",
-            description = "Die lokalen G7-Zugangsdaten sind nicht verfügbar.",
+            description = "Die lokalen Sensor-Zugangsdaten sind nicht verfügbar.",
             action = "Sensorcode erneut eingeben. Bond oder Shared Key nicht manuell löschen.",
         )
     }
@@ -67,7 +67,7 @@ internal fun deriveG7UserStatus(
             G7UserStatusLevel.ATTENTION,
             "Sensorfehler",
             "Sensorstatus",
-            "Kein gültiger G7-Wert",
+            "Kein gültiger Sensorwert",
             "Der Sensor hat einen Fehlerstatus gemeldet. Der letzte gültige Wert bleibt als veraltet erkennbar erhalten.",
             "Sensor und Reichweite prüfen und die automatische Wiederverbindung abwarten. Bond, Shared Key und Sensorcode nicht löschen.",
         )
@@ -78,8 +78,8 @@ internal fun deriveG7UserStatus(
             G7UserStatusLevel.ATTENTION,
             "Signalverlust",
             phaseName(state.protocolState),
-            "Kein aktueller G7-Wert",
-            "Seit mindestens 16 Minuten wurde kein valider direkter G7-Wert empfangen.",
+            "Kein aktueller Sensorwert",
+            "Seit mindestens 16 Minuten wurde kein valider direkter Sensorwert empfangen.",
             actionForError(state.lastError?.code) ?: "Bluetooth und Sensorreichweite prüfen und die Uhr am Sensor lassen. Bond, Shared Key und Sensorcode nicht löschen.",
         )
     }
@@ -109,7 +109,7 @@ internal fun deriveG7UserStatus(
             if (ageMs == null) "Verbindung wird aufgebaut" else "Verbunden",
             phaseName(state.protocolState),
             "Aktiv · Messzyklus läuft",
-            "Der Collector verarbeitet das aktuelle G7-Sensorfenster.",
+            "Der Collector verarbeitet das aktuelle Sensorfenster.",
             "Kein Eingriff erforderlich.",
         )
 
@@ -121,8 +121,8 @@ internal fun deriveG7UserStatus(
             if (ageMs == null) "Bereit" else "Verbunden",
             "Bereit für nächsten Wert",
             "Aktiv · Datenfluss in Ordnung",
-            ageMs?.let { "Der letzte valide G7-Wert ist ${formatAge(it)} alt. Der nächste Messzyklus wird automatisch zum Sensorfenster gestartet." }
-                ?: "Der Collector ist aktiv und wartet auf den ersten validen G7-Wert.",
+            ageMs?.let { "Der letzte valide Sensorwert ist ${formatAge(it)} alt. Der nächste Messzyklus wird automatisch zum Sensorfenster gestartet." }
+                ?: "Der Collector ist aktiv und wartet auf den ersten validen Sensorwert.",
             "Kein Eingriff erforderlich.",
         )
 
@@ -131,7 +131,7 @@ internal fun deriveG7UserStatus(
             "Automatische Wiederverbindung",
             "Nächstes Sensorfenster",
             if (ageMs == null) "Aktiv · Verbindung wird aufgebaut" else "Aktiv · letzter Wert ${formatAge(ageMs)} alt",
-            "Ein Sensorfenster wurde verpasst oder Android BLE hat die Verbindung kurz unterbrochen. Sugarlicious versucht automatisch das nächste erwartete G7-Fenster.",
+            "Ein Sensorfenster wurde verpasst oder Android BLE hat die Verbindung kurz unterbrochen. Sugarlicious versucht automatisch das nächste erwartete Fenster.",
             "Nichts zurücksetzen. Uhr in Sensornähe lassen; erst ab 16 Minuten ohne Wert ist dies ein Signalverlust.",
         )
 
@@ -205,7 +205,7 @@ private fun phaseName(state: G7ProtocolState): String = when (state) {
     G7ProtocolState.CONNECTING -> "Verbinden"
     G7ProtocolState.DISCOVERING,
     G7ProtocolState.DISCOVERING_SERVICES,
-    -> "G7-Dienste prüfen"
+    -> "Sensordienste prüfen"
     G7ProtocolState.ENABLING_NOTIFICATIONS -> "Datenkanäle öffnen"
     G7ProtocolState.AUTHENTICATION_START,
     G7ProtocolState.AUTHENTICATION_ROUND_1,
