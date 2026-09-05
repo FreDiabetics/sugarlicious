@@ -549,18 +549,18 @@ internal fun renderWidgetGraph(
             textPaint.textSize = metrics.axisTextSizePx
         }
     }
-    textPaint.textAlign = Paint.Align.RIGHT
+    textPaint.textAlign = Paint.Align.LEFT
     line.color = palette.argb(WidgetColorRole.AXIS_TICK)
     val targetLabelGap = 2f * renderDensity
     canvas.drawText(
         targetHigh.roundToInt().toString(),
-        metrics.yLabelRightPx,
+        metrics.yLabelLeftPx,
         targetTop - targetLabelGap - textPaint.fontMetrics.descent,
         textPaint,
     )
     canvas.drawText(
         targetLow.roundToInt().toString(),
-        metrics.yLabelRightPx,
+        metrics.yLabelLeftPx,
         targetBottom + targetLabelGap - textPaint.fontMetrics.ascent,
         textPaint,
     )
@@ -584,7 +584,7 @@ internal data class WidgetGraphMetrics(
     val edgeGapPx: Float,
     val yTickStartPx: Float,
     val yTickEndPx: Float,
-    val yLabelRightPx: Float,
+    val yLabelLeftPx: Float,
 )
 
 internal fun widgetGraphClipPath(metrics: WidgetGraphMetrics): Path = Path().apply {
@@ -617,15 +617,13 @@ internal fun widgetGraphMetrics(
     val axisText = (if (lowSurface) minOf(layout.graphAxisTextSp, 8f) else layout.graphAxisTextSp) * safeDensity
     val nowText = (layout.graphAxisTextSp + 2f).coerceAtMost(13f) * safeDensity
     textPaint.textSize = axisText
-    // Axis text sits inside the full-bleed surface, but must also clear the launcher's rounded
-    // clipping mask. A tiny edge clamp is insufficient near the lower corners (notably for 3h).
     val edgeGap = (if (lowSurface) 4f else 8f) * safeDensity
     val dotRadius = layout.graphDotRadiusDp.coerceIn(2.4f, 2.5f) * safeDensity
     val outline = layout.graphOutlineDp.coerceIn(0.8f, 1f) * safeDensity
     val lineWidth = layout.graphLineDp.coerceIn(1f, 1.2f) * safeDensity
     val yLabelWidth = maxOf(textPaint.measureText("160"), textPaint.measureText("80"))
     textPaint.textSize = nowText
-    val nowLabelHalf = textPaint.measureText("jetzt") / 2f
+    textPaint.measureText("jetzt") / 2f
     textPaint.textSize = axisText
     val fontHeight = textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent
     val bottomBand = if (showTimeAxis) {
@@ -634,24 +632,32 @@ internal fun widgetGraphMetrics(
     } else {
         2f * safeDensity
     }
-    val graphLeftInset = (graphLeftInsetDp ?: if (lowSurface) 4f else 8f) * safeDensity
+
+    // Widgets are the one intentional exception to full-bleed graph surfaces: retain a small,
+    // symmetric gap to the launcher widget contour while keeping every other graph unchanged.
+    val horizontalGraphInset = (graphLeftInsetDp ?: if (lowSurface) 4f else 8f) * safeDensity
     val graphVerticalInset = (if (lowSurface) 4f else 8f) * safeDensity
-    val graphLeft = 0f
+    val graphLeft = horizontalGraphInset
+    val graphRight = (widthPx - horizontalGraphInset).coerceAtLeast(graphLeft + 48f * safeDensity)
     val graphTop = 0f
-    val axisSpec = if (lowSurface) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
-    val labelRight = widthPx - graphLeftInset
-    val labelLeft = labelRight - yLabelWidth
-    val yTickEnd = labelLeft - axisSpec.tickToLabelGapDp * safeDensity
-    val yTickStart = yTickEnd - axisSpec.tickLengthDp * safeDensity
-    val graphRight = (yTickStart - axisSpec.plotToTickGapDp * safeDensity)
-        .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
-    val graphBounds = RectF(0f, 0f, widthPx.toFloat(), graphBottom)
-    val pointInset = (dotRadius + outline / 2f).coerceAtMost(minOf(graphBounds.width(), graphBounds.height()) * 0.12f)
+    val graphBounds = RectF(graphLeft, graphTop, graphRight, graphBottom)
+
+    // Match the Mobile notification axis convention: both labels are LEFT aligned to one shared X
+    // and the live edge is pushed right until the largest dot/outline still clears the label block.
+    val labelRight = graphBounds.right - 2f * safeDensity
+    val labelLeft = (labelRight - yLabelWidth).coerceAtLeast(graphBounds.left + 12f * safeDensity)
+    val pointExtent = dotRadius + outline / 2f
+    val labelSafetyGap = 2f * safeDensity
+    val plotRight = (labelLeft - labelSafetyGap - pointExtent)
+        .coerceAtLeast(graphBounds.left + 24f * safeDensity)
+    val yTickEnd = labelLeft
+    val yTickStart = labelLeft
+    val pointInset = pointExtent.coerceAtMost(minOf(graphBounds.width(), graphBounds.height()) * 0.12f)
     val plot = RectF(
-        graphLeft + pointInset,
-        graphTop + pointInset,
-        graphRight - pointInset,
+        graphBounds.left + pointInset,
+        graphBounds.top + pointInset,
+        plotRight,
         graphBounds.bottom - pointInset,
     )
     val cornerRadius = (graphCornerRadiusDp.coerceIn(
@@ -672,7 +678,7 @@ internal fun widgetGraphMetrics(
         edgeGapPx = edgeGap,
         yTickStartPx = yTickStart,
         yTickEndPx = yTickEnd,
-        yLabelRightPx = labelRight,
+        yLabelLeftPx = labelLeft,
     )
 }
 
@@ -921,7 +927,7 @@ internal fun renderGlucoseGraphWidget(
         pixelDensity,
         configuration.copy(outlineEnabled = false),
         clipToWidgetShape = false,
-        graphLeftInsetDp = 12f,
+        graphLeftInsetDp = 6f,
     )
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)

@@ -20,6 +20,7 @@ class SharedWearCgmGraphRendererTest {
         assertEquals(1.0, WearCgmGraphScale.ratio(400.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(401.0), 0.0)
     }
+
     @Test
     fun `wear and collector adapters receive identical full bleed geometry`() {
         listOf(192 to 112, 320 to 170, 454 to 220).forEach { (width, height) ->
@@ -27,7 +28,9 @@ class SharedWearCgmGraphRendererTest {
             val collector = SharedWearCgmGraphRenderer.metrics(width, height, 2f, CgmThresholds.DEFAULT)
             assertEquals(wear, collector)
             assertEquals(0f, wear.plot.left, 0.01f)
-            assertEquals(width - 58f, wear.plot.right, 0.01f)
+            assertEquals(wear.plot.right, wear.liveX, 0.01f)
+            assertTrue(wear.plot.right < wear.targetLabelLeftPx)
+            assertTrue(wear.targetLabelLeftPx < wear.targetLabelRightPx)
             assertEquals(0f, wear.visualBounds.left, 0.01f)
             assertEquals(0f, wear.visualBounds.top, 0.01f)
             assertEquals(width.toFloat(), wear.visualBounds.right, 0.01f)
@@ -35,6 +38,21 @@ class SharedWearCgmGraphRendererTest {
             assertTrue(wear.plot.height() > 0f)
             assertTrue(wear.highY < wear.lowY)
         }
+    }
+
+    @Test
+    fun `target label gutter is shared and pushed to the right edge`() {
+        val metrics = SharedWearCgmGraphRenderer.metrics(
+            widthPx = 410,
+            heightPx = 250,
+            density = 2f,
+            thresholds = CgmThresholds.DEFAULT,
+            style = DirectToWatchGraphDefaults.style(),
+            scaledDensity = 2f,
+        )
+        assertEquals(406f, metrics.targetLabelRightPx, 0.01f)
+        assertEquals(metrics.plot.right, metrics.liveX, 0.01f)
+        assertTrue(metrics.targetLabelLeftPx - metrics.plot.right >= 4f)
     }
 
     @Test
@@ -47,6 +65,12 @@ class SharedWearCgmGraphRendererTest {
             assertEquals(metrics.plot.left, metrics.xFor(window, window.startEpochMs), 0.01f)
             assertTrue(metrics.xFor(window, now - 5 * 60_000L) < metrics.plot.right)
         }
+    }
+
+    @Test
+    fun `direct to watch style anchors visual live edge to real cgm event`() {
+        assertTrue(DirectToWatchGraphDefaults.style().anchorLiveEdgeToLatestSample)
+        assertTrue(!SharedWearCgmGraphStyle().anchorLiveEdgeToLatestSample)
     }
 
     @Test

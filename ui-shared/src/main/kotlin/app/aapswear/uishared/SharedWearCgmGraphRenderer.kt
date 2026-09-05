@@ -57,6 +57,12 @@ data class SharedWearCgmGraphStyle(
     val targetLabelsOutsideRange: Boolean = true,
     val targetLabelsInsidePlot: Boolean = false,
     val rangeBackgroundEnabled: Boolean = true,
+    /**
+     * Direct-to-Watch/Vigil bitmaps are requested independently for active and ambient mode.
+     * Anchor their visual live edge to the latest real CGM event so both modes produce identical
+     * X geometry even when Wear OS requests the two bitmaps at different wall-clock times.
+     */
+    val anchorLiveEdgeToLatestSample: Boolean = false,
 )
 
 object DirectToWatchGraphDefaults {
@@ -66,7 +72,8 @@ object DirectToWatchGraphDefaults {
         timeAxisEnabled = false,
         targetTicksEnabled = false,
         targetLabelsOutsideRange = true,
-        targetLabelsInsidePlot = true,
+        targetLabelsInsidePlot = false,
+        anchorLiveEdgeToLatestSample = true,
     )
 }
 
@@ -100,6 +107,8 @@ data class SharedWearCgmGraphMetrics(
     val visualBounds: RectF,
     val plot: RectF,
     val axisLeftPx: Float,
+    val targetLabelLeftPx: Float,
+    val targetLabelRightPx: Float,
     val highY: Float,
     val lowY: Float,
     val liveX: Float,
@@ -122,12 +131,37 @@ object SharedWearCgmGraphRenderer {
         density: Float,
         thresholds: CgmThresholds,
         style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
+        scaledDensity: Float = density,
     ): SharedWearCgmGraphMetrics {
         fun dp(value: Float) = value * density
         val left = 0f
-        val axisLeft = widthPx - dp(if (style.targetLabelsInsidePlot) 6f else 29f)
         val top = 0f
         val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
+
+        // Mobile notification is the visual reference: both target labels start at one common X.
+        // Reserve only the actual label width plus a small safety gap for the largest configured
+        // dot/outline. This moves the live edge as far right as possible without dots crossing text.
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 8.5f * scaledDensity
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val highLabel = thresholds.highMgDl.toInt().toString()
+        val lowLabel = thresholds.lowMgDl.toInt().toString()
+        val widestLabel = maxOf(labelPaint.measureText(highLabel), labelPaint.measureText(lowLabel))
+        val labelRight = widthPx - dp(2f)
+        val labelLeft = (labelRight - widestLabel).coerceAtLeast(dp(8f))
+        val dotExtent = (
+            style.dotRadiusDp.coerceIn(1.5f, 6f) +
+                if (style.dotOutlineEnabled) style.dotOutlineWidthDp.coerceIn(0.25f, 3f) else 0f
+            ) * density
+        val spec = GraphAxisLayoutSpec.COMPACT
+        val betweenPlotAndLabel = if (style.targetTicksEnabled) {
+            dp(spec.plotToTickGapDp + spec.tickLengthDp + spec.tickToLabelGapDp)
+        } else {
+            dp(2f)
+        }
+        val axisLeft = (labelLeft - betweenPlotAndLabel - dotExtent)
+            .coerceAtLeast(left + dp(24f))
         val plot = RectF(left, top, axisLeft, bottom)
         fun y(value: Double): Float =
             plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
@@ -135,6 +169,8 @@ object SharedWearCgmGraphRenderer {
             visualBounds = RectF(0f, 0f, widthPx.toFloat(), bottom),
             plot = plot,
             axisLeftPx = axisLeft,
+            targetLabelLeftPx = labelLeft,
+            targetLabelRightPx = labelRight,
             highY = y(thresholds.highMgDl),
             lowY = y(thresholds.lowMgDl),
             liveX = axisLeft,
@@ -167,7 +203,7 @@ object SharedWearCgmGraphRenderer {
             textAlign = Paint.Align.CENTER
             textSize = 10f * scaledDensity
         }
-        val metrics = metrics(widthPx, heightPx, density, input.thresholds, input.style)
+        val metrics = metrics(widthPx, heightPx, density, input.thresholds, input.style, scaledDensity)
         val plot = metrics.plot
         val visual = metrics.visualBounds
         if (plot.width() <= 0f || plot.height() <= 0f) return null
@@ -181,19 +217,32 @@ object SharedWearCgmGraphRenderer {
         fill.color = palette.background
         canvas.drawRoundRect(0f, 0f, widthPx.toFloat(), heightPx.toFloat(), cornerRadius, cornerRadius, fill)
 
-        val history = input.history
+        val validHistory = input.history
             .asSequence()
             .filter {
                 it.quality == CgmQuality.VALID &&
                     it.valueMgDl.isFinite() &&
-                    it.valueMgDl in 20.0..1_000.0 &&
-                    it.measuredAtEpochMs in input.timeWindow.startEpochMs..input.timeWindow.endEpochMs
+                    it.valueMgDl in 20.0..1_000.0
             }
             .sortedBy(GlucoseSample::measuredAtEpochMs)
             .distinctBy { listOf(it.sensorId, it.sessionId, it.sequenceNumber, it.measuredAtEpochMs, it.source) }
             .toList()
+        val effectiveWindow = if (input.style.anchorLiveEdgeToLatestSample && validHistory.isNotEmpty()) {
+            val historyDuration = (input.timeWindow.liveEdgeEpochMs - input.timeWindow.startEpochMs).coerceAtLeast(1L)
+            val futureDuration = (input.timeWindow.endEpochMs - input.timeWindow.liveEdgeEpochMs).coerceAtLeast(0L)
+            GraphTimeWindow.endingAt(
+                viewportEndEpochMs = validHistory.last().measuredAtEpochMs + futureDuration,
+                historyDurationMs = historyDuration,
+                futureDurationMs = futureDuration,
+            )
+        } else {
+            input.timeWindow
+        }
+        val history = validHistory.filter {
+            it.measuredAtEpochMs in effectiveWindow.startEpochMs..effectiveWindow.endEpochMs
+        }
         val predictions = input.predictions.map { series ->
-            series.copy(samples = series.samples.filter { it.measuredAtEpochMs in input.timeWindow.startEpochMs..input.timeWindow.endEpochMs })
+            series.copy(samples = series.samples.filter { it.measuredAtEpochMs in effectiveWindow.startEpochMs..effectiveWindow.endEpochMs })
         }.filter { it.samples.isNotEmpty() }
 
         fill.color = palette.targetArea
@@ -220,10 +269,10 @@ object SharedWearCgmGraphRenderer {
         line.strokeCap = Paint.Cap.ROUND
 
         val targetText = Paint(axisText).apply { color = palette.targetText }
-        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
-        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, plot.right, widthPx, density, targetText, line, palette.axisTick, input.style)
+        drawTargetLabel(canvas, input.thresholds.highMgDl, metrics.highY, true, metrics, density, targetText, line, palette.axisTick, input.style)
+        drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, metrics, density, targetText, line, palette.axisTick, input.style)
 
-        val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
+        val liveX = metrics.xFor(effectiveWindow, effectiveWindow.liveEdgeEpochMs)
         if (predictions.isNotEmpty()) {
             line.color = palette.nowLine
             line.strokeWidth = dp(1f)
@@ -235,7 +284,7 @@ object SharedWearCgmGraphRenderer {
         val radius = input.style.dotRadiusDp.coerceIn(1.5f, 6f) * density
         val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
-            val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
+            val x = metrics.xFor(effectiveWindow, sample.measuredAtEpochMs)
             val y = metrics.yFor(sample.valueMgDl)
             val isCurrent = index == history.lastIndex
             val outlineEnabled = input.style.dotOutlineEnabled &&
@@ -263,7 +312,7 @@ object SharedWearCgmGraphRenderer {
             }
             series.samples.forEach { sample ->
                 canvas.drawCircle(
-                    metrics.xFor(input.timeWindow, sample.measuredAtEpochMs),
+                    metrics.xFor(effectiveWindow, sample.measuredAtEpochMs),
                     metrics.yFor(sample.valueMgDl),
                     dp(1.8f),
                     fill,
@@ -271,7 +320,7 @@ object SharedWearCgmGraphRenderer {
             }
         }
 
-        if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
+        if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, effectiveWindow, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty()) {
             emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)
@@ -297,8 +346,7 @@ object SharedWearCgmGraphRenderer {
         value: Double,
         y: Float,
         isHigh: Boolean,
-        plotRight: Float,
-        widthPx: Int,
+        metrics: SharedWearCgmGraphMetrics,
         density: Float,
         text: Paint,
         line: Paint,
@@ -306,30 +354,29 @@ object SharedWearCgmGraphRenderer {
         style: SharedWearCgmGraphStyle,
     ) {
         val spec = GraphAxisLayoutSpec.COMPACT
-        val gap = spec.plotToTickGapDp * density
-        val tickLength = spec.tickLengthDp * density
-        val labelGap = spec.tickToLabelGapDp * density
         line.color = tickColor
         line.strokeWidth = 0.8f * density
         line.pathEffect = null
-        val tickStart = plotRight + gap
-        val tickEnd = if (style.targetTicksEnabled) tickStart + tickLength else tickStart
-        if (style.targetTicksEnabled) canvas.drawLine(tickStart, y, tickEnd, y, line)
-        text.textAlign = if (style.targetLabelsInsidePlot) Paint.Align.RIGHT else Paint.Align.LEFT
+        if (style.targetTicksEnabled) {
+            val dotExtent = (
+                style.dotRadiusDp.coerceIn(1.5f, 6f) +
+                    if (style.dotOutlineEnabled) style.dotOutlineWidthDp.coerceIn(0.25f, 3f) else 0f
+                ) * density
+            val tickStart = metrics.plot.right + dotExtent + spec.plotToTickGapDp * density
+            val tickEnd = tickStart + spec.tickLengthDp * density
+            canvas.drawLine(tickStart, y, tickEnd, y, line)
+        }
+        text.textAlign = Paint.Align.LEFT
         val baseline = if (style.targetLabelsOutsideRange) {
             if (isHigh) y - 2f * density - text.descent() else y + 2f * density - text.ascent()
         } else y - (text.ascent() + text.descent()) / 2f
-        val labelX = if (style.targetLabelsInsidePlot) {
-            plotRight - 2f * density
-        } else {
-            minOf(tickEnd + if (style.targetTicksEnabled) labelGap else 1.5f * density, widthPx - spec.outerEdgePaddingDp * density - text.measureText(value.toInt().toString()))
-        }
-        canvas.drawText(value.toInt().toString(), labelX, baseline, text)
+        canvas.drawText(value.toInt().toString(), metrics.targetLabelLeftPx, baseline, text)
     }
 
     private fun drawTimeAxis(
         canvas: Canvas,
         input: SharedWearCgmGraphInput,
+        window: GraphTimeWindow,
         metrics: SharedWearCgmGraphMetrics,
         widthPx: Int,
         heightPx: Int,
@@ -342,13 +389,13 @@ object SharedWearCgmGraphRenderer {
         line.strokeWidth = 0.8f * oneDp
         line.pathEffect = null
         RelativeGraphTimeAxis.ticks(
-            input.timeWindow.startEpochMs,
-            input.timeWindow.endEpochMs,
-            input.nowEpochMs,
+            window.startEpochMs,
+            window.endEpochMs,
+            window.liveEdgeEpochMs,
         ).forEach { tick ->
-            val x = metrics.xFor(input.timeWindow, tick.timestampEpochMs)
+            val x = metrics.xFor(window, tick.timestampEpochMs)
             text.textAlign = when {
-                tick.timestampEpochMs <= input.timeWindow.startEpochMs + 30_000L -> Paint.Align.LEFT
+                tick.timestampEpochMs <= window.startEpochMs + 30_000L -> Paint.Align.LEFT
                 tick.hoursBack == 0 -> Paint.Align.RIGHT
                 else -> Paint.Align.CENTER
             }
