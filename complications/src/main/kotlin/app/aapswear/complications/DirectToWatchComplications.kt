@@ -584,7 +584,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
     }
 
     internal fun renderGraph(state: TherapyDisplayState?, nowEpochMs: Long, hours: Int, ambient: Boolean = false): Bitmap {
-        val width = 442
+        val width = 450
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
