@@ -3,9 +3,11 @@ import javax.inject.Inject
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -32,6 +34,9 @@ abstract class PrepareDefaultWatchFaceTask
 
         @get:OutputFile
         abstract val outputTokenResource: RegularFileProperty
+
+        @get:Input
+        abstract val tokenResourceName: Property<String>
 
         @TaskAction
         fun prepare() {
@@ -73,10 +78,12 @@ abstract class PrepareDefaultWatchFaceTask
 
             val resource = outputTokenResource.get().asFile
             resource.parentFile.mkdirs()
+            val resourceName = tokenResourceName.get()
             resource.writeText(
-                "<resources>\n" +
-                    "    <string name=\"default_wf_token\" translatable=\"false\">$token</string>\n" +
-                    "</resources>\n",
+                if (resourceName.isBlank()) token else
+                    "<resources>\n" +
+                        "    <string name=\"$resourceName\" translatable=\"false\">$token</string>\n" +
+                        "</resources>\n",
             )
         }
     }
@@ -86,6 +93,10 @@ val generatedWatchFaceResources = layout.buildDirectory.dir("generated/watchface
 val defaultWatchFaceApk =
     rootProject.layout.projectDirectory.file(
         "watchfaces/sugarlicious-analog/build/outputs/apk/release/sugarlicious-analog-release.apk",
+    )
+val directToWatchFaceApk =
+    rootProject.layout.projectDirectory.file(
+        "watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/release/sugarlicious-direct-to-watch-release.apk",
     )
 val validatorDirectory = rootProject.layout.buildDirectory.dir("watchface-push/tools")
 
@@ -107,18 +118,36 @@ val prepareDefaultWatchFace = tasks.register<PrepareDefaultWatchFaceTask>("prepa
             it.file("values/default_watchface_token.xml")
         },
     )
+    tokenResourceName.set("default_wf_token")
+}
+
+val prepareDirectToWatchFace = tasks.register<PrepareDefaultWatchFaceTask>("prepareDirectToWatchFace") {
+    dependsOn(
+        ":watchfaces:sugarlicious-direct-to-watch:assembleRelease",
+        ":prepareWatchFaceValidatorCli",
+    )
+    watchFaceApk.set(directToWatchFaceApk)
+    validatorJars.from(
+        rootProject.fileTree(validatorDirectory) { include("validator-push-cli-*.jar") },
+    )
+    outputApk.set(generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_direct_to_watch.apk") })
+    outputTokenResource.set(
+        generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_direct_to_watch_token.txt") },
+    )
+    tokenResourceName.set("")
 }
 
 tasks.configureEach {
     if (
         name != prepareDefaultWatchFace.name &&
+        name != prepareDirectToWatchFace.name &&
         (
             name.contains("Assets") ||
                 name.contains("Resources") ||
                 name.endsWith("SourceSetPaths")
         )
     ) {
-        dependsOn(prepareDefaultWatchFace)
+        dependsOn(prepareDefaultWatchFace, prepareDirectToWatchFace)
     }
 }
 

@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -21,12 +22,13 @@ internal enum class G7SettingsSection(val title: String, val summary: String) {
     HARDWARE_TEST("Hardwaretest", "BLE-, GATT- und Sensorfenster-Diagnose"),
     DIAGNOSTICS("Diagnose", "Attempts, Fehlercodes und Recovery"),
     DATA_MANAGEMENT("Datenverwaltung", "Lokale Collector- und Sitzungsdaten"),
-    ABOUT("Über", "G7 Direct to Watch by Sugarlicious"),
+    ABOUT("Über", "Direct to Watch by Sugarlicious"),
 }
 
 class G7SettingsActivity : Activity() {
     private val expandedSections = linkedSetOf<G7SettingsSection>()
     private lateinit var pageRoot: LinearLayout
+    private lateinit var scrollView: ScrollView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +47,7 @@ class G7SettingsActivity : Activity() {
         window.navigationBarColor = background
         val state = G7SensorStateStore(this).read()
 
+        val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0
         pageRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -66,11 +69,23 @@ class G7SettingsActivity : Activity() {
 
         G7SettingsSection.entries.forEach { section -> addSection(section, palette) }
 
-        setContentView(ScrollView(this).apply {
-            isFillViewport = true
-            isVerticalScrollBarEnabled = false
-            setBackgroundColor(background)
-            addView(pageRoot)
+        if (!::scrollView.isInitialized) {
+            scrollView = G7EdgeFadeScrollView(this).apply {
+                isFillViewport = true
+            }.applyG7EdgeFade()
+            setContentView(scrollView)
+        } else {
+            scrollView.removeAllViews()
+        }
+        scrollView.setBackgroundColor(background)
+        scrollView.addView(pageRoot)
+        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                val maxScroll = (pageRoot.measuredHeight - scrollView.height).coerceAtLeast(0)
+                scrollView.scrollTo(0, restoreScrollY.coerceAtMost(maxScroll))
+                return true
+            }
         })
     }
 
@@ -83,7 +98,7 @@ class G7SettingsActivity : Activity() {
             when (section) {
                 G7SettingsSection.ABOUT -> {
                     val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                    addView(infoCard("G7 Watch Collector", "Version $version", "Eigenständiger Dexcom-G7-Empfang auf der Watch.", palette), cardParams())
+                    addView(infoCard("Direct to Watch", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
                 }
                 else -> Unit
             }
@@ -143,22 +158,7 @@ class G7SettingsActivity : Activity() {
         G7SettingsSection.DISPLAY, G7SettingsSection.DIRECT_TO_WATCH, G7SettingsSection.ABOUT -> section.title
     }
 
-    private fun topBar(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(text("‹", 25f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-            gravity = Gravity.CENTER
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
-            setOnClickListener { finish() }
-            contentDescription = "Zurück zur Übersicht"
-        }, LinearLayout.LayoutParams(44.dp, 44.dp))
-        addView(LinearLayout(this@G7SettingsActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(10.dp, 0, 0, 0)
-            addView(text("G7 DIRECT TO WATCH", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply { letterSpacing = 0.08f })
-            addView(text("Einstellungen", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-    }
+    private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Einstellungen", palette)
 
     private fun actionCard(title: String, value: String, palette: G7AppearancePalette, action: () -> Unit): View =
         LinearLayout(this).apply {

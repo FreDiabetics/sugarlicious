@@ -140,7 +140,6 @@ class CgmGraphCustomizationTest {
                 target = TargetState(80.0, 160.0, valueMgDl = 100.0),
             )
             val enabledUi = DashboardUiPreferences(
-                showCgmTargetRange = false,
                 showCgmTargetValue = true,
                 cgmDotOutlineEnabled = false,
             )

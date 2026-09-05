@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.net.Uri
 import android.provider.Settings
 import app.aapswear.g7.CgmAlarm
@@ -236,7 +237,7 @@ internal object G7CgmAlarmCoordinator {
 }
 
 internal object G7CgmAlarmNotifier {
-    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v3_"
+    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v4_"
     private const val CHANNEL_FAMILY_PREFIX = "g7_cgm_alarm_"
     private const val NOTIFICATION_BASE = 7_100
 
@@ -245,6 +246,7 @@ internal object G7CgmAlarmNotifier {
         // distinct channel while preserving any system-level customization of an existing one.
         val channelId = channelId(context, alarm.type, settings)
         ensureAllChannels(context, settings)
+        if (!onlyAlertOnce && settings.soundEnabled) G7AlarmSoundPlayer.play(context, alarm.type)
         val open = PendingIntent.getActivity(
             context,
             NOTIFICATION_BASE + alarm.type.ordinal,
@@ -275,13 +277,14 @@ internal object G7CgmAlarmNotifier {
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setOnlyAlertOnce(onlyAlertOnce)
-                .setSilent(onlyAlertOnce)
+                .setSilent(true)
                 .addAction(Notification.Action.Builder(icon, "Quittieren", acknowledge).build())
                 .build(),
         )
     }
 
     fun cancel(context: Context, type: CgmAlarmType) {
+        G7AlarmSoundPlayer.stop(type)
         context.getSystemService(NotificationManager::class.java).cancel(notificationId(type))
     }
 
@@ -290,6 +293,7 @@ internal object G7CgmAlarmNotifier {
     fun showTest(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings) {
         val channelId = channelId(context, type, settings)
         ensureAllChannels(context, settings)
+        if (settings.soundEnabled) G7AlarmSoundPlayer.play(context, type)
         context.getSystemService(NotificationManager::class.java).notify(
             testNotificationId(type),
             Notification.Builder(context, channelId)
@@ -301,6 +305,7 @@ internal object G7CgmAlarmNotifier {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setTimeoutAfter(10_000L)
+                .setSilent(true)
                 .build(),
         )
     }
@@ -320,18 +325,13 @@ internal object G7CgmAlarmNotifier {
         type: CgmAlarmType,
         settings: CgmAlarmSettings,
     ) {
-        val sound = if (settings.soundEnabled) Uri.parse("android.resource://${context.packageName}/${g7AlarmSoundResource(type)}") else null
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Eigenständiger G7-Watch-Alarm: ${title(type)}"
+                description = "Eigenständiger Direct-to-Watch-Alarm: ${title(type)}"
                 enableVibration(settings.vibrationEnabled)
-                setSound(
-                    sound,
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build(),
-                )
+                // Sound is played by G7AlarmSoundPlayer. Keeping the immutable channel silent
+                // prevents Samsung's notification sound fallback and duplicate playback.
+                setSound(null, null)
                 setBypassDnd(G7AlarmNotificationPolicy.isAccessGranted(context))
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
@@ -339,20 +339,20 @@ internal object G7CgmAlarmNotifier {
     }
 
     private fun title(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.VERY_HIGH -> "G7 sehr hoch"
-        CgmAlarmType.HIGH -> "G7 hoch"
-        CgmAlarmType.LOW -> "G7 tief"
-        CgmAlarmType.VERY_LOW -> "G7 sehr tief"
-        CgmAlarmType.RAPID_RISE -> "G7 steigt schnell"
-        CgmAlarmType.RAPID_FALL -> "G7 fällt schnell"
-        CgmAlarmType.SIGNAL_LOSS -> "G7 Signalverlust"
-        CgmAlarmType.SENSOR_ERROR -> "G7 Sensorfehler"
+        CgmAlarmType.VERY_HIGH -> "Glukose sehr hoch"
+        CgmAlarmType.HIGH -> "Glukose hoch"
+        CgmAlarmType.LOW -> "Glukose tief"
+        CgmAlarmType.VERY_LOW -> "Glukose sehr tief"
+        CgmAlarmType.RAPID_RISE -> "Glukose steigt schnell"
+        CgmAlarmType.RAPID_FALL -> "Glukose fällt schnell"
+        CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
+        CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
     }
 
     private fun body(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider Watch-G7-Wert."
+        CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider direkter Watch-Wert."
         CgmAlarmType.VERY_LOW -> "Glukosewert liegt bei oder unter 40 mg/dL."
-        else -> "Der direkte G7 Watch Collector hat den Alarmzustand ${title(type)} erkannt."
+        else -> "Direct to Watch hat den Alarmzustand ${title(type)} erkannt."
     }
 
     private fun color(type: CgmAlarmType): Int =
@@ -380,11 +380,54 @@ internal object G7CgmAlarmNotifier {
     internal fun testNotificationId(type: CgmAlarmType): Int = TEST_NOTIFICATION_BASE + type.ordinal
 }
 
+internal object G7AlarmSoundPlayer {
+    private var player: MediaPlayer? = null
+    private var playingType: CgmAlarmType? = null
+
+    @Synchronized
+    fun play(context: Context, type: CgmAlarmType) {
+        release()
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ALARM)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        player = runCatching {
+            MediaPlayer.create(context.applicationContext, g7AlarmSoundResource(type), attributes, 0)?.also { mediaPlayer ->
+                playingType = type
+                mediaPlayer.setOnCompletionListener { synchronized(this) { if (player === it) release() } }
+                mediaPlayer.setOnErrorListener { failed, _, _ ->
+                    synchronized(this) { if (player === failed) release() }
+                    true
+                }
+                mediaPlayer.start()
+            }
+        }.getOrNull()
+    }
+
+    @Synchronized
+    fun stop(type: CgmAlarmType) {
+        if (playingType == type) release()
+    }
+
+    @Synchronized
+    private fun release() {
+        player?.let { runCatching { if (it.isPlaying) it.stop() }; runCatching { it.release() } }
+        player = null
+        playingType = null
+    }
+}
+
 internal object G7AlarmNotificationPolicy {
     fun isAccessGranted(context: Context): Boolean =
         context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
 
-    fun settingsIntent(): Intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+    fun settingsIntent(context: Context): Intent {
+        val detail = Intent("android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS").apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        return if (detail.resolveActivity(context.packageManager) != null) detail
+        else Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+    }
 }
 
 internal fun g7AlarmSoundResource(type: CgmAlarmType): Int = when (type) {

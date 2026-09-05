@@ -108,8 +108,12 @@ class TherapyComplicationsTest {
         assertNotNull(header.tapAction)
 
         val statusService = Robolectric.buildService(DirectToWatchStatusComplication::class.java).create().get()
-        val status = statusService.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
+        val status = statusService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
         assertNotNull(status.tapAction)
+
+        val clockService = Robolectric.buildService(DirectToWatchClockComplication::class.java).create().get()
+        val clock = clockService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
+        assertNotNull(clock.smallImage)
 
         val graphService = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val graph = graphService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData

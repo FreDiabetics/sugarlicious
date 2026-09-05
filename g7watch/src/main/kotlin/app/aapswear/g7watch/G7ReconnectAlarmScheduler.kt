@@ -11,6 +11,11 @@ import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ReconnectScheduler
+import app.aapswear.model.DiagnosticSeverity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Owns the durable recovery wake paths for the Watch collector.
@@ -127,6 +132,7 @@ internal object G7ReconnectAlarmScheduler {
         val power = app.getSystemService(PowerManager::class.java)
         val cycle =
             CollectorCycleTiming(
+                expectedWindowId = expectedWindowId(expectedReadingEpochMs),
                 expectedReadingEpoch = expectedReadingEpochMs,
                 requestedReconnectEpoch = triggerAt,
                 alarmKind = if (exactScheduled) CollectorAlarmKind.EXACT else CollectorAlarmKind.INEXACT,
@@ -137,12 +143,34 @@ internal object G7ReconnectAlarmScheduler {
                 charging = runCatching { app.getSystemService(BatteryManager::class.java).isCharging }.getOrNull(),
             )
         G7CollectorDiagnosticStore(app).stageScheduledCycle(cycle)
+        G7ExpectedWindowLedger(app).create(expectedReadingEpochMs, triggerAt)
+        G7SensorWindowWatchdog.arm(app, cycle)
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            app.recordG7Diagnostic(
+                "EXPECTED_WINDOW_CREATED",
+                "EXPECTED_WINDOW_CREATED · Primary und Watchdog armiert",
+                DiagnosticSeverity.INFO,
+                mapOf(
+                    "expectedWindowId" to cycle.expectedWindowId,
+                    "expectedAt" to expectedReadingEpochMs,
+                    "primaryAlarmScheduledAt" to triggerAt,
+                    "watchdogScheduledAt" to (expectedReadingEpochMs + G7SensorWindowWatchdog.WINDOW_TOLERANCE_MS),
+                ),
+            )
+            app.recordG7Diagnostic(
+                "PRIMARY_ALARM_ARMED",
+                "PRIMARY_ALARM_ARMED · ${cycle.alarmKind.name}",
+                DiagnosticSeverity.INFO,
+                mapOf("expectedWindowId" to cycle.expectedWindowId, "requestedReconnectEpoch" to triggerAt),
+            )
+        }
         return cycle
     }
 
     fun cancel(context: Context) {
         val app = context.applicationContext
         G7AdvertisementWakeScheduler.disarm(app)
+        G7SensorWindowWatchdog.cancel(app)
         val pending = reconnectPendingIntent(app)
         app.getSystemService(AlarmManager::class.java).cancel(pending)
         pending.cancel()

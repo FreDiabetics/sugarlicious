@@ -43,7 +43,6 @@ data class DashboardUiPreferences(
     val unit: DisplayUnitPreference = DisplayUnitPreference.AAPS,
     val showDetails: Boolean = true,
     val showCgmGraph: Boolean = true,
-    val showCgmTargetRange: Boolean = true,
     val showCgmTargetValue: Boolean = true,
     val showCgmBasal: Boolean = false,
     val showCgmActivity: Boolean = false,
@@ -68,7 +67,7 @@ data class DashboardUiPreferences(
     val notificationGraphEnabled: Boolean = true,
     val notificationGraphHours: Int = 3,
     val watchFaceIndex: Int = 1,
-    val dataSource: DataSourcePreference = DataSourcePreference.AUTOMATIC,
+    val dataSource: DataSourcePreference = DataSourcePreference.ANDROID_APS,
     val themeMode: DashboardThemeMode = DashboardThemeMode.SYSTEM,
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
@@ -95,7 +94,6 @@ data class DashboardUiPreferences(
                 }.getOrDefault(DisplayUnitPreference.AAPS),
                 showDetails = preferences.getBoolean("showDetails", true),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
-                showCgmTargetRange = preferences.getBoolean("cgm.targetRange", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
                 showCgmBasal = preferences.getBoolean("cgm.basal", false),
                 showCgmActivity = preferences.getBoolean("cgm.activity", false),
@@ -120,9 +118,7 @@ data class DashboardUiPreferences(
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
                 notificationGraphHours = preferences.getInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 3).takeIf { it in 1..3 } ?: 3,
                 watchFaceIndex = preferences.getInt("watchFaceIndex", 1).coerceIn(sugarliciousWatchFaceCards.indices),
-                dataSource = runCatching {
-                    DataSourcePreference.valueOf(preferences.getString("dataSource", "AUTOMATIC")!!)
-                }.getOrDefault(DataSourcePreference.AUTOMATIC),
+                dataSource = DataSourcePreference.ANDROID_APS,
                 themeMode = runCatching {
                     DashboardThemeMode.valueOf(preferences.getString("themeMode", "SYSTEM")!!)
                 }.getOrDefault(DashboardThemeMode.SYSTEM),
@@ -169,7 +165,6 @@ data class DashboardCallbacks(
     val navigate: (DashboardScreen) -> Unit,
     val setUnit: (DisplayUnitPreference) -> Unit,
     val setDataSource: (DataSourcePreference) -> Unit,
-    val openG7Setup: () -> Unit,
     val openNightscoutTreatments: () -> Unit,
     val openDiagnostics: () -> Unit,
     val setThemeMode: (DashboardThemeMode) -> Unit,
@@ -377,17 +372,10 @@ class DashboardViewFactory(
                     addView(
                         sourceChoiceRow(
                             listOf(
-                                SourceChoice("Automatisch", R.drawable.ic_source_auto, preferences.dataSource == DataSourcePreference.AUTOMATIC) { callbacks.setDataSource(DataSourcePreference.AUTOMATIC) },
                                 SourceChoice("AndroidAPS", R.drawable.ic_source_androidaps, preferences.dataSource == DataSourcePreference.ANDROID_APS) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
-                                SourceChoice("xDrip+", R.drawable.ic_source_xdrip, preferences.dataSource == DataSourcePreference.XDRIP_PLUS) { callbacks.setDataSource(DataSourcePreference.XDRIP_PLUS) },
-                                SourceChoice("Dexcom G7 Watch", R.drawable.ic_sensor, preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) { callbacks.setDataSource(DataSourcePreference.DEXCOM_G7_WATCH) },
                             ),
                         ),
                     )
-                    if (preferences.dataSource == DataSourcePreference.DEXCOM_G7_WATCH) {
-                        addView(divider())
-                        addView(actionRow("G7-Sensor auf der Watch einrichten", "Öffnen") { callbacks.openG7Setup() })
-                    }
                     addView(divider())
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
                     addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })

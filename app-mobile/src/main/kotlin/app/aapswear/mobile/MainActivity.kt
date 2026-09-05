@@ -189,6 +189,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
+        // The target band is canonical graph content, not a user-toggleable stream.
+        uiPreferences.edit { remove("cgm.targetRange") }
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
@@ -200,7 +202,6 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showCgmGraph", true)
                 putBoolean("showMetabolicGraph", false)
                 putBoolean("showPredictions", false)
-                putBoolean("cgm.targetRange", false)
                 putBoolean("cgm.basal", false)
                 putBoolean("cgm.activity", false)
                 putBoolean("cgm.prediction.iob", false)
@@ -215,7 +216,6 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showCgmGraph", true)
                 putBoolean("showDetails", true)
                 putBoolean("showMetabolicGraph", false)
-                putBoolean("cgm.targetRange", true)
                 putBoolean("cgm.targetValue", false)
                 putBoolean("cgm.basal", false)
                 putBoolean("cgm.activity", false)
@@ -243,7 +243,6 @@ class MainActivity : ComponentActivity() {
             navigate = ::navigate,
             setUnit = { uiPreferences.edit { putString("unit", it.name) } },
             setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
-            openG7Setup = { startActivity(Intent(this, G7SetupActivity::class.java)) },
             openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
             openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
@@ -304,7 +303,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         scope.launch {
             TherapyStateStore(this@MainActivity).state.collectLatest {
-                state = it
+                state = it?.mobileAndroidApsOnly()
                 refresh()
             }
         }

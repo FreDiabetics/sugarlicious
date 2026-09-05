@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-feature android:name="android.hardware.type.watch" />
+    <uses-feature android:name="android.hardware.type.watch" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
@@ -69,6 +69,7 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".G7ReconnectReceiver" android:exported="false" />
+        <receiver android:name=".G7SensorWindowWatchdogReceiver" android:exported="false" />
         <receiver android:name=".G7AdvertisementWakeReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
         <receiver android:name=".G7ErrorAcknowledgeReceiver" android:exported="false" />

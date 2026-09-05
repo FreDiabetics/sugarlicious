@@ -331,7 +331,7 @@ class WearActivity : Activity() {
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
             source.text = when (state?.source) {
-                DataSourceId.DEXCOM_G7_WATCH -> "Dexcom G7 Watch"
+                DataSourceId.DEXCOM_G7_WATCH -> "Direct to Watch"
                 DataSourceId.ANDROID_APS -> "AndroidAPS"
                 DataSourceId.NIGHTSCOUT -> "Nightscout"
                 DataSourceId.XDRIP_PLUS -> state.sourceVersion?.let { "xDrip+ $it" } ?: "xDrip+"

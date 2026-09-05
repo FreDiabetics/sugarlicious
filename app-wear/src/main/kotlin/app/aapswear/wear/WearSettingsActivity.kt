@@ -247,7 +247,12 @@ class WearSettingsActivity : Activity() {
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotRadiusDp = progress / 10f)), rebuild = false) },
                 cardParams(),
             )
-            root.addView(switchRow("Kontur", current.graphStyle.cgmDotOutlineEnabled) { save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = it))) }, cardParams())
+            root.addView(switchRow("Kontur · bisherige Punkte", current.graphStyle.cgmHistoricalDotOutlineEnabled) {
+                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmHistoricalDotOutlineEnabled = it)))
+            }, cardParams())
+            root.addView(switchRow("Kontur · aktueller Wert", current.graphStyle.cgmCurrentDotOutlineEnabled) {
+                save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmCurrentDotOutlineEnabled = it)))
+            }, cardParams())
             root.addView(
                 sliderCard(
                     title = "Konturbreite",
@@ -256,6 +261,16 @@ class WearSettingsActivity : Activity() {
                     progress = (current.graphStyle.cgmDotOutlineWidthDp * 100f).roundToInt(),
                     value = { String.format("%.2f dp", it / 100f) },
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)), rebuild = false) },
+                cardParams(),
+            )
+            root.addView(
+                sliderCard(
+                    title = "Skalenbereich",
+                    min = 0,
+                    max = 100,
+                    progress = current.graphStyle.scaleLaneOpacityPercent,
+                    value = { "$it %" },
+                ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(scaleLaneOpacityPercent = progress)), rebuild = false) },
                 cardParams(),
             )
 

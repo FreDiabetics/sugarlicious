@@ -113,4 +113,10 @@ class G7RuntimeReconcilerTest {
             assessG7Runtime(configuredState.copy(activeAttemptId = 8L), attempt, now + 290_000L, true, true, now).health,
         )
     }
+
+    @Test fun `simultaneous automatic triggers coalesce to one cycle`() {
+        assertTrue(shouldCoalesceG7CollectorTrigger(automatic = true, activeCycle = true))
+        assertEquals(false, shouldCoalesceG7CollectorTrigger(automatic = true, activeCycle = false))
+        assertEquals(false, shouldCoalesceG7CollectorTrigger(automatic = false, activeCycle = true))
+    }
 }

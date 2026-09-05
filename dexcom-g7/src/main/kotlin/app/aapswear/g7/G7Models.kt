@@ -28,9 +28,11 @@ data class CgmReading(
     val protocolStatusCode: Int? = null,
     val calibrationStateCode: Int? = null,
     val reservedField: Int? = null,
+    val origin: CgmReadingOrigin = CgmReadingOrigin.LIVE,
 )
 
 @Serializable enum class CgmReadingStatus { VALID, SENSOR_ERROR, INVALID }
+@Serializable enum class CgmReadingOrigin { LIVE, BACKFILL }
 @Serializable enum class G7Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
 @Serializable enum class G7SensorState { UNKNOWN, WARMUP, ACTIVE, GRACE_PERIOD, ENDED, ERROR }
 @Serializable enum class G7ConnectionState { DISCONNECTED, SCANNING, CONNECTING, DISCOVERING, CONNECTED }
@@ -86,6 +88,8 @@ enum class G7SessionState {
 
 @Serializable
 enum class CollectorDiagnosticStage {
+    EXPECTED_WINDOW,
+    WATCHDOG,
     IDLE,
     WAITING_FOR_WINDOW,
     ALARM_RECEIVED,
@@ -146,6 +150,8 @@ enum class CollectorCycleClassification {
     FALLBACK_SCAN_FAILED,
     HUNG,
     COALESCED,
+    MISSED_SENSOR_WINDOW,
+    GATT_NO_CALLBACK,
 }
 
 @Serializable
@@ -171,6 +177,7 @@ enum class CollectorSlotStrategy {
 
 @Serializable
 data class CollectorCycleTiming(
+    val expectedWindowId: String? = null,
     val expectedReadingEpoch: Long? = null,
     val requestedReconnectEpoch: Long? = null,
     val alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE,
@@ -187,6 +194,7 @@ data class CollectorCycleTiming(
     val advertisementFoundAt: Long? = null,
     val advertisementRssi: Int? = null,
     val connectGattStartedAt: Long? = null,
+    val gattGeneration: Long? = null,
     val directConnectCallbackAt: Long? = null,
     val directConnectStartedElapsedRealtimeMs: Long? = null,
     val processUptimeAtDirectConnectMs: Long? = null,
@@ -233,6 +241,45 @@ data class CollectorCycleTiming(
     val totalCycleLatencyMs: Long?
         get() = cycleEndedAt?.let { ended -> receiverReceivedAt?.let { ended - it } }
 }
+
+@Serializable
+data class CollectorExpectedWindow(
+    val expectedWindowId: String,
+    val expectedAt: Long,
+    val primaryAlarmScheduledAt: Long? = null,
+    val primaryAlarmTriggeredAt: Long? = null,
+    val cycleStartedAt: Long? = null,
+    val advertisementSeenAt: Long? = null,
+    val fallbackScanUsed: Boolean = false,
+    val gattStartedAt: Long? = null,
+    val gattGeneration: Long? = null,
+    val gattResult: DirectConnectResult? = null,
+    val gattAttempts: Int = 0,
+    val gatt133Count: Int = 0,
+    val noCallbackCount: Int = 0,
+    val readingReceivedAt: Long? = null,
+    val finalResult: CollectorCycleClassification? = null,
+    val recoveryRequired: Boolean = false,
+    val watchdogScheduledAt: Long? = null,
+    val watchdogTriggeredAt: Long? = null,
+)
+
+@Serializable
+data class CollectorHardwareMetrics(
+    val expectedWindows: Int = 0,
+    val attemptedWindows: Int = 0,
+    val successfulWindows: Int = 0,
+    val missedWindows: Int = 0,
+    val firstAttemptSuccess: Int = 0,
+    val retrySuccess: Int = 0,
+    val gatt133Count: Int = 0,
+    val noCallbackCount: Int = 0,
+    val fallbackScanCount: Int = 0,
+    val longestReadingGapMs: Long? = null,
+    val availabilityPercent: Double = 0.0,
+    val medianReceiveDelayMs: Long? = null,
+    val p95ReceiveDelayMs: Long? = null,
+)
 
 @Serializable
 data class CollectorSlotSummary(
@@ -311,6 +358,7 @@ data class G7Reading(
     val protocolStatusCode: Int? = null,
     val calibrationStateCode: Int? = null,
     val reservedField: Int? = null,
+    val origin: CgmReadingOrigin = CgmReadingOrigin.LIVE,
 )
 
 @Serializable

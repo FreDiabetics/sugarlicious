@@ -108,6 +108,28 @@ class G7CollectorDiagnosticsTest {
     }
 
     @Test
+    fun `starting a new cycle compacts an expired predecessor as hung`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val stale = store.begin(
+            manual = false,
+            restart = false,
+            nowEpochMs = 1_000L,
+            deadlineEpochMs = 10_000L,
+        )
+
+        val current = store.begin(
+            manual = false,
+            restart = false,
+            nowEpochMs = 11_000L,
+            deadlineEpochMs = 20_000L,
+        )
+
+        assertFalse(store.hasActiveAttempt(stale.attemptId))
+        assertTrue(store.hasActiveAttempt(current.attemptId))
+        assertEquals(CollectorCycleClassification.HUNG, store.snapshot().first { it.attemptId == stale.attemptId }.classification)
+    }
+
+    @Test
     fun `incomplete active attempt survives process-style store recreation`() {
         val firstStore = G7CollectorDiagnosticStore(context)
         val attempt = firstStore.begin(manual = false, restart = false, nowEpochMs = 10_000L)

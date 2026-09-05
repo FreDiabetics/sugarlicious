@@ -20,7 +20,10 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     init {
         // Range confirmation is a system-wide graph policy, not a per-watchface preference.
-        preferences.edit().remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED).apply()
+        preferences.edit()
+            .remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
+            .remove(KEY_TARGET_TICKS_ENABLED)
+            .apply()
     }
 
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
@@ -34,6 +37,20 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     fun glucoseBold(): Boolean = preferences.getBoolean(KEY_GLUCOSE_BOLD, true)
     fun saveGlucoseBold(value: Boolean) = update { putBoolean(KEY_GLUCOSE_BOLD, value) }
+
+    fun statusSizePercent(): Int = preferences.getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun saveStatusSizePercent(value: Int) = update { putInt(KEY_STATUS_SIZE_PERCENT, value.coerceIn(75, 150)) }
+    fun statusColor(): Int = preferences.getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
+    fun saveStatusColor(value: Int) = update { putInt(KEY_STATUS_COLOR, value) }
+    fun statusBold(): Boolean = preferences.getBoolean(KEY_STATUS_BOLD, false)
+    fun saveStatusBold(value: Boolean) = update { putBoolean(KEY_STATUS_BOLD, value) }
+
+    fun clockSizePercent(): Int = preferences.getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun saveClockSizePercent(value: Int) = update { putInt(KEY_CLOCK_SIZE_PERCENT, value.coerceIn(75, 150)) }
+    fun clockColor(): Int = preferences.getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
+    fun saveClockColor(value: Int) = update { putInt(KEY_CLOCK_COLOR, value) }
+    fun clockBold(): Boolean = preferences.getBoolean(KEY_CLOCK_BOLD, false)
+    fun saveClockBold(value: Boolean) = update { putBoolean(KEY_CLOCK_BOLD, value) }
 
     fun activeAppearanceMode(default: AppearanceMode): AppearanceMode =
         preferences.getString(KEY_ACTIVE_APPEARANCE_MODE, null)
@@ -62,25 +79,32 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         val defaults = DirectToWatchGraphDefaults.style()
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
-            dotOutlineEnabled = preferences.getBoolean(KEY_DOT_OUTLINE, defaults.dotOutlineEnabled),
+            dotOutlineEnabled = true,
+            historicalDotOutlineEnabled = preferences.getBoolean(KEY_HISTORICAL_DOT_OUTLINE, preferences.getBoolean(KEY_DOT_OUTLINE, defaults.historicalDotOutlineEnabled)),
+            currentDotOutlineEnabled = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, preferences.getBoolean(KEY_DOT_OUTLINE, defaults.currentDotOutlineEnabled)),
             dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = preferences.getBoolean(KEY_BORDER_ENABLED, defaults.borderEnabled),
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
-            targetTicksEnabled = preferences.getBoolean(KEY_TARGET_TICKS_ENABLED, defaults.targetTicksEnabled),
+            targetTicksEnabled = false,
             targetLabelsOutsideRange = true,
+            targetLabelsInsidePlot = true,
             rangeBackgroundEnabled = true,
+            scaleLaneOpacityPercent = preferences.getInt(KEY_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
         )
     }
 
     fun saveGraphStyle(value: SharedWearCgmGraphStyle) = update {
         putFloat(KEY_DOT_RADIUS, value.dotRadiusDp.coerceIn(1.5f, 6f))
-        putBoolean(KEY_DOT_OUTLINE, value.dotOutlineEnabled)
+        putBoolean(KEY_DOT_OUTLINE, true)
+        putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value.historicalDotOutlineEnabled)
+        putBoolean(KEY_CURRENT_DOT_OUTLINE, value.currentDotOutlineEnabled)
         putFloat(KEY_DOT_OUTLINE_WIDTH, value.dotOutlineWidthDp.coerceIn(.25f, 3f))
         putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
         putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
         putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
-        putBoolean(KEY_TARGET_TICKS_ENABLED, value.targetTicksEnabled)
+        putInt(KEY_SCALE_LANE_OPACITY, value.scaleLaneOpacityPercent.coerceIn(0, 100))
+        remove(KEY_TARGET_TICKS_ENABLED)
     }
 
     fun graphColors(): WatchGraphColors {
@@ -138,19 +162,28 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     private inline fun update(block: android.content.SharedPreferences.Editor.() -> Unit) { preferences.edit().apply(block).apply(); sync() }
 
     companion object {
-        val HOUR_OPTIONS = listOf(1, 3, 6, 12, 24)
+        val HOUR_OPTIONS = listOf(1, 2, 3, 6, 12, 24)
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
         private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+        private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
+        private const val KEY_STATUS_COLOR = "watchface.status_color"
+        private const val KEY_STATUS_BOLD = "watchface.status_bold"
+        private const val KEY_CLOCK_SIZE_PERCENT = "watchface.clock_size_percent"
+        private const val KEY_CLOCK_COLOR = "watchface.clock_color"
+        private const val KEY_CLOCK_BOLD = "watchface.clock_bold"
         private const val KEY_ACTIVE_APPEARANCE_MODE = "appearance.active_mode"
         private const val KEY_TARGET_LOW = "target.low_mg_dl"
         private const val KEY_TARGET_HIGH = "target.high_mg_dl"
         private const val KEY_DOT_RADIUS = "graph_style_dot_radius"
         private const val KEY_DOT_OUTLINE = "graph_style_dot_outline_enabled"
+        private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_style_historical_dot_outline_enabled"
+        private const val KEY_CURRENT_DOT_OUTLINE = "graph_style_current_dot_outline_enabled"
         private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
         private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
         private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"
+        private const val KEY_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
         private const val LEGACY_KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
     }

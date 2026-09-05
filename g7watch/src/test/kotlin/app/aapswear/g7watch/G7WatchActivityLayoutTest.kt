@@ -10,6 +10,7 @@ import android.widget.SeekBar
 import android.widget.Switch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
@@ -34,7 +35,20 @@ import org.robolectric.annotation.Config
 class G7WatchActivityLayoutTest {
     @Before
     fun resetGraphPeriod() {
-        G7AppearanceStore(androidx.test.core.app.ApplicationProvider.getApplicationContext()).setGraphHours(3)
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        G7AppearanceStore(context).setGraphHours(3)
+        val seed = CgmReading(
+            id = "layout-seed", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "layout-sensor", sessionId = "layout-session", glucoseMgDl = 120.0,
+            timestampEpochMs = System.currentTimeMillis(), receivedAtEpochMs = System.currentTimeMillis(),
+            status = CgmReadingStatus.VALID,
+        )
+        G7SensorStateStore(context).save(
+            G7SensorStateStore(context).read().copy(
+                sensor = G7Sensor("layout-sensor", "layout-session"),
+                lastReading = seed,
+            ),
+        )
     }
 
     @Test
@@ -92,7 +106,9 @@ class G7WatchActivityLayoutTest {
         assertTrue("Graphkontur" in texts)
         assertTrue("Zeitachsenskala" in texts)
         assertTrue("Zuckerwert fett" in texts)
-        assertTrue("Horizontale Zielwert-Striche" in texts)
+        assertFalse("Horizontale Zielwert-Striche" in texts)
+        assertTrue("Kontur · bisherige Punkte" in texts)
+        assertTrue("Kontur · aktueller Wert" in texts)
         assertFalse("Range-Hintergrundfärbung" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
@@ -143,6 +159,8 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7DirectToWatchSettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
         val scroll = findScrollView(root)!!
+        assertFalse(scroll.isVerticalFadingEdgeEnabled)
+        assertEquals(0, scroll.verticalFadingEdgeLength)
         measureAndLayout(root)
         scroll.scrollTo(0, 180)
 
@@ -186,7 +204,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val systemIndex = texts.indexOf("Systemstatus")
-        val titleIndex = texts.indexOf("G7 Direct to Watch")
+        val titleIndex = texts.indexOf("Direct to Watch")
         val brandIndex = texts.indexOf("by Sugarlicious")
         assertTrue(systemIndex >= 0)
         assertTrue(titleIndex > systemIndex)
@@ -199,7 +217,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
         assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "G7 Watch Collector"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Direct to Watch"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()
@@ -289,7 +307,12 @@ class G7WatchActivityLayoutTest {
                 }
             }
         }
-        G7SensorStateStore(context).save(G7SensorStateStore(context).read().copy(lastReading = reading))
+        G7SensorStateStore(context).save(
+            G7SensorStateStore(context).read().copy(
+                sensor = G7Sensor(reading.sensorId, reading.sessionId),
+                lastReading = reading,
+            ),
+        )
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val arrows = mutableListOf<ImageView>()
         collectTrendArrows(activity.findViewById(android.R.id.content), arrows)
@@ -320,8 +343,8 @@ class G7WatchActivityLayoutTest {
         ).forEach {
             assertTrue("Missing status field $it", texts.contains(it))
         }
-        assertTrue(texts.any { it.startsWith("←") && it.contains("Systemstatus") })
-        findTextStartingWith(activity.findViewById(android.R.id.content), "←")!!.performClick()
+        assertTrue(texts.contains("Systemstatus"))
+        findTextStartingWith(activity.findViewById(android.R.id.content), "‹")!!.performClick()
         assertTrue(activity.isFinishing)
     }
 

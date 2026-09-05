@@ -188,7 +188,7 @@ class MainActivityTest {
         val ui = DashboardUiPreferences.read(preferences)
         assertTrue(ui.showCgmGraph)
         assertTrue(ui.showDetails)
-        assertTrue(ui.showCgmTargetRange)
+        assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
         assertFalse(ui.showCgmBasal)
         assertFalse(ui.showCgmActivity)
@@ -292,10 +292,7 @@ class MainActivityTest {
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { contentAfter(it).visibility == View.GONE })
-        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "Automatisch"))
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "AndroidAPS"))
-        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "xDrip+"))
-        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "Dexcom G7 Watch"))
 
         headers[0].performClick()
         headers[1].performClick()

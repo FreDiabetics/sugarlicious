@@ -596,8 +596,7 @@ internal object NotificationGraphRenderer {
         canvas.clipPath(clip)
 
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.color = graphColor(SugarliciousColorRole.GRAPH_BACKGROUND)
-        canvas.drawRoundRect(bounds, cornerRadius, cornerRadius, paint)
+        // Background is drawn with the range layers below so the scale lane can have its own alpha.
 
         val now = System.currentTimeMillis()
         val graphHours = graphHoursOverride ?: preferences
@@ -640,10 +639,9 @@ internal object NotificationGraphRenderer {
                 validSamples,
                 thresholds,
             )
-        val lowest = points.minOf { it.value }
         val highest = points.maxOf { it.value }
-        val minValue = min(targetLow - 24.0, lowest - max(12.0, lowest * 0.08))
-        val maxValue = max(targetHigh + 24.0, highest + max(12.0, highest * 0.08))
+        val minValue = 40.0
+        val maxValue = max(400.0, highest + max(12.0, highest * 0.08))
 
         val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
         fun dp(value: Float) = value * renderDensity
@@ -657,51 +655,69 @@ internal object NotificationGraphRenderer {
             (axisText.fontMetrics.descent - axisText.fontMetrics.ascent) + dp(axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp)
         } else 0f
         val plotLeft = bounds.left + dp(axis.outerEdgePaddingDp)
-        val plotRight = bounds.right - dp(axis.outerEdgePaddingDp + axis.plotToTickGapDp + axis.tickLengthDp + axis.tickToLabelGapDp) - widestYLabel
+        val labelLaneLeft = bounds.right - dp(axis.outerEdgePaddingDp) - widestYLabel
+        val plotRight = labelLaneLeft - dp(4f)
         val plotTop = bounds.top + dp(axis.outerEdgePaddingDp)
         val plotBottom = bounds.bottom - dp(axis.outerEdgePaddingDp) - timeBand
-
+        val visualLeft = bounds.left
+        val visualRight = bounds.right
+        val visualTop = bounds.top
+        val scaleLaneOpacity = preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).coerceIn(0, 100)
+        fun laneColor(color: Int): Int {
+            val alpha = (color ushr 24) * scaleLaneOpacity / 100
+            return (color and 0x00FFFFFF) or (alpha shl 24)
+        }
+        fun drawSplitArea(top: Float, bottom: Float, color: Int) {
+            paint.color = color
+            canvas.drawRect(visualLeft, top, labelLaneLeft, bottom, paint)
+            paint.color = laneColor(color)
+            canvas.drawRect(labelLaneLeft, top, visualRight, bottom, paint)
+        }
         fun y(value: Double): Float {
             val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
                 .coerceIn(0.0, 1.0)
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 
+        paint.color = graphColor(SugarliciousColorRole.GRAPH_BACKGROUND)
+        canvas.drawRect(visualLeft, visualTop, labelLaneLeft, bounds.bottom, paint)
+        paint.color = laneColor(graphColor(SugarliciousColorRole.GRAPH_BACKGROUND))
+        canvas.drawRect(labelLaneLeft, visualTop, visualRight, y(targetHigh), paint)
+        canvas.drawRect(labelLaneLeft, y(targetLow), visualRight, bounds.bottom, paint)
+
         fun x(timestamp: Long): Float =
             timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
 
         paint.style = Paint.Style.FILL
         if (excursion == RangeExcursion.HIGH) {
-            paint.color = graphColor(SugarliciousColorRole.RANGE_HIGH)
-            canvas.drawRect(plotLeft, plotTop, plotRight, y(targetHigh), paint)
+            drawSplitArea(visualTop, y(targetHigh), graphColor(SugarliciousColorRole.RANGE_HIGH))
         }
-        paint.color = graphColor(SugarliciousColorRole.RANGE_IN_RANGE)
-        canvas.drawRect(plotLeft, y(targetHigh), plotRight, y(targetLow), paint)
+        drawSplitArea(y(targetHigh), y(targetLow), graphColor(SugarliciousColorRole.RANGE_IN_RANGE))
         if (excursion == RangeExcursion.LOW) {
-            paint.color = graphColor(SugarliciousColorRole.RANGE_LOW)
-            canvas.drawRect(plotLeft, y(targetLow), plotRight, plotBottom, paint)
+            drawSplitArea(y(targetLow), plotBottom, graphColor(SugarliciousColorRole.RANGE_LOW))
         }
 
         paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = max(1f, renderDensity)
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
-        canvas.drawLine(plotLeft, y(targetHigh), plotRight, y(targetHigh), paint)
+        canvas.drawLine(visualLeft, y(targetHigh), labelLaneLeft, y(targetHigh), paint)
+        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE)))
+        canvas.drawLine(labelLaneLeft, y(targetHigh), visualRight, y(targetHigh), paint)
         paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
-        canvas.drawLine(plotLeft, y(targetLow), plotRight, y(targetLow), paint)
+        canvas.drawLine(visualLeft, y(targetLow), labelLaneLeft, y(targetLow), paint)
+        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE)))
+        canvas.drawLine(labelLaneLeft, y(targetLow), visualRight, y(targetLow), paint)
 
-        fun drawYTick(value: Double) {
+        fun drawYLabel(value: Double, aboveLine: Boolean) {
             val py = y(value)
-            val tickStart = plotRight + dp(axis.plotToTickGapDp)
-            val tickEnd = tickStart + dp(axis.tickLengthDp)
-            paint.color = graphColor(SugarliciousColorRole.GRAPH_AXIS_TICK)
-            paint.strokeWidth = max(1f, dp(0.8f))
-            canvas.drawLine(tickStart, py, tickEnd, py, paint)
             axisText.textAlign = Paint.Align.LEFT
-            val baseline = py - (axisText.fontMetrics.ascent + axisText.fontMetrics.descent) / 2f
-            canvas.drawText(value.roundToInt().toString(), tickEnd + dp(axis.tickToLabelGapDp), baseline, axisText)
+            val gap = dp(2f)
+            val baseline = if (aboveLine) py - gap - axisText.fontMetrics.descent else py + gap - axisText.fontMetrics.ascent
+            canvas.drawText(value.roundToInt().toString(), labelLaneLeft, baseline, axisText)
         }
-        drawYTick(targetHigh)
-        drawYTick(targetLow)
+        drawYLabel(targetHigh, aboveLine = true)
+        drawYLabel(targetLow, aboveLine = false)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
         val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity

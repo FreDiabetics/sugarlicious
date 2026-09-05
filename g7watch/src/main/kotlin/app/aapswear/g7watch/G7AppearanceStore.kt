@@ -115,6 +115,11 @@ class G7AppearanceStore(context: Context) {
         preferences.edit().putInt(KEY_TREND_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
     }
 
+    fun historicalDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_HISTORICAL_DOT_OUTLINE, true)
+    fun currentDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, true)
+    fun setHistoricalDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value).apply() }
+    fun setCurrentDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_CURRENT_DOT_OUTLINE, value).apply() }
+
     private fun systemMode(): AppearanceMode =
         if ((preferencesContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
 
@@ -153,6 +158,8 @@ class G7AppearanceStore(context: Context) {
         preferences.edit().apply {
             G7AppearanceRole.entries.forEach { remove(colorKey(it)) }
             AppearanceMode.entries.forEach { mode -> G7AppearanceRole.entries.forEach { remove(colorKey(mode, it)) } }
+            remove(KEY_HISTORICAL_DOT_OUTLINE)
+            remove(KEY_CURRENT_DOT_OUTLINE)
         }.apply()
     }
 
@@ -197,5 +204,7 @@ class G7AppearanceStore(context: Context) {
         private const val KEY_GLUCOSE_SCALE = "glucose_scale_percent"
         private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_GRAPH_HOURS = "graph_hours"
+        private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_historical_dot_outline_enabled"
+        private const val KEY_CURRENT_DOT_OUTLINE = "graph_current_dot_outline_enabled"
     }
 }

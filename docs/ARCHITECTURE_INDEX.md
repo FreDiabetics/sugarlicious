@@ -8,6 +8,7 @@
 | Canonical Mobile resolution | `app-mobile/MobileCanonicalCgm.kt` |
 | Shared domain and presentation policy | `core-model` |
 | Persisted observable therapy state | `wear-storage/TherapyStateStore.kt` |
+| Startup restore and consumer invalidation | `ADR-009-startup-state-rehydration.md`, `app-wear/WearStartupStateCoordinator.kt` |
 | Cross-device contract | `wear-protocol` |
 | Shared trend vector assets | `ui-shared` |
 | Structured event ledger | `wear-storage/DiagnosticEventStore.kt` |

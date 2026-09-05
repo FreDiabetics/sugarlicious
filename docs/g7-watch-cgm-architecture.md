@@ -56,7 +56,10 @@ CCCD           00002902-0000-1000-8000-00805f9b34fb
 
 The current live-reading path discovers the service, subscribes to Extra Data, Authentication and Control, and requests a glucose packet by writing opcode `0x4e` to the Control characteristic.
 
-The Backfill UUID exists in the protocol model, but the current `AndroidG7Collector.collect()` live path does not use it.
+After the live `0x4e` packet is published, the Collector may subscribe to the Backfill characteristic
+and issue the verified G7 `0x59` request. Start/end sensor clocks are little-endian and the request is
+hard-limited to 24 hours. G7 history notifications are decoded as 9-byte records. This code exists
+only in `:g7watch`; all other modules are consumers of the resulting validated rows.
 
 ### Pairing, bonding and authentication
 
@@ -74,10 +77,11 @@ A collection cycle:
 4. enables notifications/indications,
 5. runs authentication,
 6. creates/reuses the Android bond when required,
-7. requests one glucose packet,
-8. stores the validated reading,
-9. closes/disconnects the GATT connection,
-10. schedules the next reconnect.
+7. requests and publishes one glucose packet,
+8. optionally fills a verified gap without blocking the current dashboard,
+9. stores live and historical rows with distinct origin,
+10. closes/disconnects the GATT connection,
+11. schedules the next reconnect.
 
 The collector therefore currently uses bounded connection cycles rather than holding one continuous GATT connection open.
 
@@ -85,7 +89,9 @@ The collector therefore currently uses bounded connection cycles rather than hol
 
 The collector persists sensor/session state and schedules reconnects through `AlarmManager`. Reconnect is only scheduled while `collectorEnabled == true`. Explicit stop cancels the pending reconnect alarm. Collection runs under a bounded partial wakelock and failures use bounded recovery rather than an endless retry loop.
 
-Sensor setup and collector activation are separate: storing a sensor code does not start scanning. Explicit Collector Start or the explicit G7 source activation path enables the collector.
+First start is gated by a four-digit code screen. Saving a valid code prepares the new session and
+starts the existing Collector service; the UI reports real protocol state and opens the dashboard
+only after a valid live reading. Existing successful sessions survive process/device restarts.
 
 ### Local history
 

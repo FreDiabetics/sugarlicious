@@ -76,6 +76,7 @@ class G7ReadingProvider : ContentProvider() {
                 "protocol_status",
                 "calibration_state",
                 "reserved_field",
+                "origin",
             )
         val cursor = MatrixCursor(columns)
         val limit = if (uri.lastPathSegment == "latest") 1 else if (uri.lastPathSegment == "unsynced") 100 else 300
@@ -119,6 +120,7 @@ class G7ReadingProvider : ContentProvider() {
                     reading.protocolStatusCode,
                     reading.calibrationStateCode,
                     reading.reservedField,
+                    reading.origin.name,
                 ),
             )
         }
