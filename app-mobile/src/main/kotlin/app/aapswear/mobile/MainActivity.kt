@@ -189,6 +189,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
+        // The target band is canonical graph content, not a user-toggleable stream.
+        uiPreferences.edit { remove("cgm.targetRange") }
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
@@ -200,7 +202,6 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showCgmGraph", true)
                 putBoolean("showMetabolicGraph", false)
                 putBoolean("showPredictions", false)
-                putBoolean("cgm.targetRange", false)
                 putBoolean("cgm.basal", false)
                 putBoolean("cgm.activity", false)
                 putBoolean("cgm.prediction.iob", false)
@@ -215,7 +216,6 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showCgmGraph", true)
                 putBoolean("showDetails", true)
                 putBoolean("showMetabolicGraph", false)
-                putBoolean("cgm.targetRange", true)
                 putBoolean("cgm.targetValue", false)
                 putBoolean("cgm.basal", false)
                 putBoolean("cgm.activity", false)

@@ -646,7 +646,9 @@ internal fun widgetGraphMetrics(
     val labelLeft = widthPx - graphLeftInset - yLabelWidth
     val yTickEnd = labelLeft - axisSpec.tickToLabelGapDp * safeDensity
     val yTickStart = yTickEnd - axisSpec.tickLengthDp * safeDensity
-    val graphRight = (yTickStart - 1f * safeDensity)
+    // Match the compact Mobile lane: the live edge sits immediately before the target tick/label
+    // group instead of reserving a second, visually empty gutter.
+    val graphRight = (yTickStart + 2f * safeDensity)
         .coerceAtLeast(graphLeft + 24f * safeDensity)
     val graphBottom = (heightPx - bottomBand - graphVerticalInset).coerceAtLeast(graphTop + 24f * safeDensity)
     val visualInset = graphHorizontalInsetDp.coerceAtLeast(0f) * safeDensity

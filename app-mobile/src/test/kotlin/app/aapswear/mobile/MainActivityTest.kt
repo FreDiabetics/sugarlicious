@@ -188,7 +188,7 @@ class MainActivityTest {
         val ui = DashboardUiPreferences.read(preferences)
         assertTrue(ui.showCgmGraph)
         assertTrue(ui.showDetails)
-        assertTrue(ui.showCgmTargetRange)
+        assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
         assertFalse(ui.showCgmBasal)
         assertFalse(ui.showCgmActivity)

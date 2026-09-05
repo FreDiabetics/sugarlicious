@@ -719,7 +719,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             // current dot just before that invisible boundary, matching the compact Wear layout.
             val dividerX = minOf(liveX, plot.right - 4f.dp)
             val futureLaneVisible = end > now && now in start..end
-            if (now in start..end) {
+            val hasCgmOverlay = showTargetValue || showBasal || showActivity || visiblePredictions.isNotEmpty()
+            if (now in start..end && hasCgmOverlay) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_NOW_LINE)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
