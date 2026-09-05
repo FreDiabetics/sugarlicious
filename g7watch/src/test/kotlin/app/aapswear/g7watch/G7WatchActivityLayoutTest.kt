@@ -113,6 +113,10 @@ class G7WatchActivityLayoutTest {
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
         assertTrue("GLUKOSE · ZIELBEREICH" in texts)
+        assertTrue("WATCHFACE · SKALA UND ALTER" in texts)
+        assertTrue("WATCHFACE · UHRZEIT" in texts)
+        assertTrue("Farbe" in texts)
+        assertTrue("Fett" in texts)
     }
 
     @Test

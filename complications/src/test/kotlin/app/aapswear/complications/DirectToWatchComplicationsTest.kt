@@ -209,6 +209,9 @@ class DirectToWatchComplicationsTest {
             putInt("appearance.trend.dark.sizePercent", 200)
             putFloat("appearance.trend.dark.alpha", .35f)
             putString("appearance.active_mode", "dark")
+            putInt("watchface.clock_size_percent", 135)
+            putInt("watchface.clock_color", 0xFF123456.toInt())
+            putBoolean("watchface.clock_bold", true)
             putBoolean("graph_style_range_background_enabled", false)
             putInt("graph_color_background", 0xFF010203.toInt())
         }
@@ -221,6 +224,9 @@ class DirectToWatchComplicationsTest {
         assertEquals(200, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).sizePercent)
         assertEquals(.35f, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).alpha)
         assertEquals(app.aapswear.model.AppearanceMode.DARK, DirectToWatchPreferences.activeAppearanceMode(context))
+        assertEquals(135, DirectToWatchPreferences.clockSizePercent(context))
+        assertEquals(0xFF123456.toInt(), DirectToWatchPreferences.clockColor(context))
+        assertTrue(DirectToWatchPreferences.clockBold(context))
         assertTrue(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
         assertEquals(0xFF010203.toInt(), DirectToWatchPreferences.graphColors(context).graphBackground)
     }

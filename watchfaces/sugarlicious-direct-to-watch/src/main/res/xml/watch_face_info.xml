@@ -3,5 +3,7 @@
     <Preview value="@drawable/preview" />
     <MultipleInstancesAllowed value="true" />
     <FlavorsSupported value="false" />
-    <Editable value="true" />
+    <!-- Vigil is configured exclusively in Direct to Watch. Keeping the WFF editor
+         disabled also avoids Samsung's editor opening an empty customization list. -->
+    <Editable value="false" />
 </WatchFaceInfo>
