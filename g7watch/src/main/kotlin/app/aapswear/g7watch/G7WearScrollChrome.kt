@@ -1,87 +1,86 @@
 package app.aapswear.g7watch
 
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.graphics.RadialGradient
-import android.graphics.Shader
 import android.util.AttributeSet
+import android.view.View
+import android.view.ViewGroup
 import android.widget.ScrollView
-import kotlin.math.min
+import kotlin.math.abs
 
 /**
  * Round-screen scroll chrome for Direct to Watch.
  *
- * The edge treatment must fade the scrolled content itself. Drawing a dark radial overlay on top
- * of the UI produces the large black semicircles seen on hardware. Instead, the children are drawn
- * into a temporary layer and a radial alpha mask is applied with DST_IN. The centre stays fully
- * opaque while content close to the physical round edge fades to transparent before the hardware
- * clip becomes visible.
+ * Do not draw a black/alpha overlay across the viewport. Those approaches produced the visible
+ * semicircles and still allowed wide cards to hit the physical round display edge.
  *
- * The top and bottom halves are applied only when content can actually scroll in that direction, so
- * the first/last resting item remains fully readable. No black overlay is ever drawn on top of the
- * graph or settings cards.
+ * Instead, top-level content items are transformed as they approach the upper/lower round edge:
+ * they become slightly narrower and fade out. This gives the intended Wear/One-UI-like roll-away
+ * behaviour while keeping the centre of the screen untouched and fully readable.
  */
 internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = android.R.attr.scrollViewStyle,
 ) : ScrollView(context, attrs, defStyleAttr) {
-    private val edgeMaskPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN)
+
+    override fun onScrollChanged(l: Int, t: Int, oldl: Int, oldt: Int) {
+        super.onScrollChanged(l, t, oldl, oldt)
+        applyRoundEdgeTransforms()
     }
 
-    override fun dispatchDraw(canvas: Canvas) {
-        if (width <= 0 || height <= 0) {
-            super.dispatchDraw(canvas)
-            return
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        post { applyRoundEdgeTransforms() }
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        super.onLayout(changed, l, t, r, b)
+        post { applyRoundEdgeTransforms() }
+    }
+
+    private fun applyRoundEdgeTransforms() {
+        if (height <= 0 || childCount == 0) return
+        val content = getChildAt(0) as? ViewGroup ?: return
+        val viewportCenterY = height / 2f
+        val radius = height / 2f
+        if (radius <= 0f) return
+
+        for (i in 0 until content.childCount) {
+            val item = content.getChildAt(i)
+            transformItem(item, viewportCenterY, radius)
         }
+    }
 
-        val fadeTop = canScrollVertically(-1)
-        val fadeBottom = canScrollVertically(1)
-        if (!fadeTop && !fadeBottom) {
-            super.dispatchDraw(canvas)
-            return
-        }
+    private fun transformItem(item: View, viewportCenterY: Float, radius: Float) {
+        val itemCenterY = item.top - scrollY + item.height / 2f
+        val distance = abs(itemCenterY - viewportCenterY)
+        val normalized = (distance / radius).coerceIn(0f, 1.25f)
 
-        val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
-        super.dispatchDraw(canvas)
+        // Centre region remains geometrically untouched.
+        val edgeProgress = ((normalized - EDGE_START) / (1f - EDGE_START)).coerceIn(0f, 1f)
+        val scaleX = lerp(1f, MIN_SCALE_X, edgeProgress)
+        val scaleY = lerp(1f, MIN_SCALE_Y, edgeProgress)
+        val alpha = lerp(1f, MIN_ALPHA, edgeProgress)
 
-        val radius = min(width, height) / 2f
-        if (radius > 0f) {
-            edgeMaskPaint.shader = RadialGradient(
-                width / 2f,
-                height / 2f,
-                radius,
-                intArrayOf(
-                    0xFFFFFFFF.toInt(),
-                    0xFFFFFFFF.toInt(),
-                    0xE6FFFFFF.toInt(),
-                    0x99FFFFFF.toInt(),
-                    0x00FFFFFF,
-                ),
-                floatArrayOf(0f, 0.74f, 0.86f, 0.95f, 1f),
-                Shader.TileMode.CLAMP,
-            )
+        item.pivotX = item.width / 2f
+        item.pivotY = item.height / 2f
+        item.scaleX = scaleX
+        item.scaleY = scaleY
+        item.alpha = alpha
 
-            if (fadeTop) {
-                val save = canvas.save()
-                canvas.clipRect(0f, 0f, width.toFloat(), height / 2f)
-                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), edgeMaskPaint)
-                canvas.restoreToCount(save)
-            }
-            if (fadeBottom) {
-                val save = canvas.save()
-                canvas.clipRect(0f, height / 2f, width.toFloat(), height.toFloat())
-                canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), edgeMaskPaint)
-                canvas.restoreToCount(save)
-            }
-            edgeMaskPaint.shader = null
-        }
+        // Keep touch targets disabled only once an item is essentially off the visible surface.
+        item.isEnabled = alpha > 0.12f
+    }
 
-        canvas.restoreToCount(layer)
+    private fun lerp(start: Float, end: Float, fraction: Float): Float =
+        start + (end - start) * fraction
+
+    private companion object {
+        // Start only near the curved edge; centred cards remain 100% unchanged.
+        const val EDGE_START = 0.62f
+        const val MIN_SCALE_X = 0.72f
+        const val MIN_SCALE_Y = 0.90f
+        const val MIN_ALPHA = 0.04f
     }
 }
 
