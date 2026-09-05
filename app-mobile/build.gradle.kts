@@ -38,9 +38,9 @@ val syncSugarliciousAnalogPreviewAssets =
         eachFile { path = "drawable-nodpi/$name" }
         includeEmptyDirs = false
     }
-val syncVigilPreviewAsset = tasks.register<Copy>("syncVigilPreviewAsset") {
-    from(rootProject.file("watchfaces/sugarlicious-direct-to-watch/src/main/res/drawable-nodpi/preview.xml")) {
-        rename { "vigil_preview.xml" }
+val syncVigilPreviewAsset = tasks.register<Sync>("syncVigilPreviewAsset") {
+    from(rootProject.file("watchfaces/sugarlicious-direct-to-watch/src/main/res/drawable-nodpi/preview.png")) {
+        rename { "vigil_preview.png" }
     }
     into(generatedVigilPreviewRes)
     eachFile { path = "drawable-nodpi/$name" }
