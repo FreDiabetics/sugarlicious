@@ -2,18 +2,25 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.RadialGradient
 import android.graphics.Shader
 import android.util.AttributeSet
 import android.widget.ScrollView
+import kotlin.math.min
 
 /**
- * Scroll surface with a deterministic One UI Watch-style edge fade.
+ * Round-screen scroll chrome for Direct to Watch.
  *
- * Android's built-in fading edge varies considerably between Wear builds. The explicit overlay
- * keeps content readable in the centre while making cards and text visually roll into the round
- * screen boundary. It is only drawn in a direction in which more content exists.
+ * A rectangular top/bottom fade still leaves wide cards visibly intersecting the physical round
+ * display boundary: the card keeps its full width until Android clips it at the circle, which
+ * produces the hard diagonal/"cut corner" wedges seen on graph and settings cards.  Use the real
+ * round viewport as the fade geometry instead.  Content now disappears into the circular edge
+ * before the hardware clip becomes visible, while the readable centre stays untouched.
+ *
+ * The mask is directional: the upper half is only faded when more content exists above, and the
+ * lower half only when more content exists below.  This keeps the first/last item fully readable
+ * once the user has scrolled it into its natural resting position.
  */
 internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     context: Context,
@@ -21,30 +28,59 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     defStyleAttr: Int = android.R.attr.scrollViewStyle,
 ) : ScrollView(context, attrs, defStyleAttr) {
     private val edgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val edgeLengthPx: Float
-        get() = 46f * resources.displayMetrics.density
 
     override fun dispatchDraw(canvas: Canvas) {
         super.dispatchDraw(canvas)
-        val length = edgeLengthPx.coerceAtMost(height / 3f)
-        if (length <= 0f) return
-        if (canScrollVertically(-1)) {
-            edgePaint.shader = LinearGradient(0f, 0f, 0f, length, 0xE6000000.toInt(), 0x00000000, Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, 0f, width.toFloat(), length, edgePaint)
+        if (width <= 0 || height <= 0) return
+
+        val fadeTop = canScrollVertically(-1)
+        val fadeBottom = canScrollVertically(1)
+        if (!fadeTop && !fadeBottom) return
+
+        val radius = min(width, height) / 2f
+        if (radius <= 0f) return
+
+        edgePaint.shader = RadialGradient(
+            width / 2f,
+            height / 2f,
+            radius,
+            intArrayOf(
+                0x00000000,
+                0x00000000,
+                0x42000000,
+                0xA6000000.toInt(),
+                0xF2000000.toInt(),
+            ),
+            floatArrayOf(0f, 0.72f, 0.86f, 0.95f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+
+        if (fadeTop) {
+            val save = canvas.save()
+            canvas.clipRect(0f, 0f, width.toFloat(), height / 2f)
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), edgePaint)
+            canvas.restoreToCount(save)
         }
-        if (canScrollVertically(1)) {
-            edgePaint.shader = LinearGradient(0f, height - length, 0f, height.toFloat(), 0x00000000, 0xE6000000.toInt(), Shader.TileMode.CLAMP)
-            canvas.drawRect(0f, height - length, width.toFloat(), height.toFloat(), edgePaint)
+        if (fadeBottom) {
+            val save = canvas.save()
+            canvas.clipRect(0f, height / 2f, width.toFloat(), height.toFloat())
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), edgePaint)
+            canvas.restoreToCount(save)
         }
         edgePaint.shader = null
     }
 }
 
-/** Soft round-screen edge treatment shared by all Direct-to-Watch scroll surfaces. */
+/**
+ * Shared scroll behavior for every Direct-to-Watch surface.
+ *
+ * The platform's built-in vertical fading edge is deliberately disabled: combining it with the
+ * circular mask double-darkens the top/bottom and recreates a rectangular band over the round
+ * treatment.  The custom viewport-aware mask above is the single visual edge treatment.
+ */
 internal fun ScrollView.applyG7EdgeFade(): ScrollView = apply {
     isVerticalScrollBarEnabled = false
-    isVerticalFadingEdgeEnabled = true
-    setFadingEdgeLength((46f * resources.displayMetrics.density).toInt())
+    isVerticalFadingEdgeEnabled = false
     clipToPadding = false
     overScrollMode = ScrollView.OVER_SCROLL_IF_CONTENT_SCROLLS
 }
