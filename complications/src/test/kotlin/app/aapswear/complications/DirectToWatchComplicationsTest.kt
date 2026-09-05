@@ -118,6 +118,21 @@ class DirectToWatchComplicationsTest {
         assertTrue(coloredPixelFound)
     }
 
+    @Test fun `vigil ambient palette preserves configured visibility`() {
+        val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
+        val colors = DirectToWatchGraphColorDefaults.create().copy(
+            nowLine = 0x00123456,
+            highLine = 0x80123456.toInt(),
+            cgmInRange = 0x40123456,
+        )
+
+        val ambient = with(service) { colors.ambient() }
+
+        assertEquals(0, Color.alpha(ambient.nowLine))
+        assertEquals(0x80, Color.alpha(ambient.highLine))
+        assertEquals(0x40, Color.alpha(ambient.cgmInRange))
+    }
+
     @Test fun `overlaid ambient vigil slots preserve the active tap actions`() {
         val ambientHeader = Robolectric.buildService(DirectToWatchAmbientHeaderComplication::class.java).create().get()
         val ambientGraph = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()

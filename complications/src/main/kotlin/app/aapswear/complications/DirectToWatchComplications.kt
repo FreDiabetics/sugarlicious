@@ -553,21 +553,24 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         emptyText = signalLoss,
     )
 
-    private fun WatchGraphColors.ambient() = copy(
+    internal fun WatchGraphColors.ambient() = copy(
         graphBackground = Color.TRANSPARENT,
         rangeLow = Color.TRANSPARENT,
-        rangeInRange = 0x554C4C4C,
+        rangeInRange = ambientGray(rangeInRange, 0x004C4C4C),
         rangeHigh = Color.TRANSPARENT,
-        cgmLow = 0xFFB0B0B0.toInt(), cgmInRange = 0xFFD0D0D0.toInt(), cgmHigh = 0xFFB0B0B0.toInt(),
-        cgmVeryLow = 0xFF909090.toInt(), cgmVeryHigh = 0xFF909090.toInt(),
+        cgmLow = ambientGray(cgmLow, 0x00B0B0B0), cgmInRange = ambientGray(cgmInRange, 0x00D0D0D0), cgmHigh = ambientGray(cgmHigh, 0x00B0B0B0),
+        cgmVeryLow = ambientGray(cgmVeryLow, 0x00909090), cgmVeryHigh = ambientGray(cgmVeryHigh, 0x00909090),
         divider = Color.TRANSPARENT,
-        highLine = 0xFF888888.toInt(), lowLine = 0xFF888888.toInt(),
-        axisLabel = 0xFFB0B0B0.toInt(), axisTick = 0xFF888888.toInt(), nowLine = 0xFF888888.toInt(),
-        outline = 0xFF303030.toInt(),
-        predictionIob = 0xFF999999.toInt(), predictionCob = 0xFF999999.toInt(),
-        predictionUam = 0xFF999999.toInt(), predictionZeroTemp = 0xFF999999.toInt(),
-        targetValue = 0xFFB0B0B0.toInt(), signalLoss = 0xFF888888.toInt(),
+        highLine = ambientGray(highLine, 0x00888888), lowLine = ambientGray(lowLine, 0x00888888),
+        axisLabel = ambientGray(axisLabel, 0x00B0B0B0), axisTick = ambientGray(axisTick, 0x00888888), nowLine = ambientGray(nowLine, 0x00888888),
+        outline = ambientGray(outline, 0x00303030),
+        predictionIob = ambientGray(predictionIob, 0x00999999), predictionCob = ambientGray(predictionCob, 0x00999999),
+        predictionUam = ambientGray(predictionUam, 0x00999999), predictionZeroTemp = ambientGray(predictionZeroTemp, 0x00999999),
+        targetValue = ambientGray(targetValue, 0x00B0B0B0), signalLoss = ambientGray(signalLoss, 0x00888888),
     )
+
+    private fun ambientGray(source: Int, grayRgb: Int): Int =
+        (source and 0xFF000000.toInt()) or (grayRgb and 0x00FFFFFF)
 }
 
 class DirectToWatchAmbientGraphComplication : DirectToWatchGraphComplication() {
