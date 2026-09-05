@@ -47,6 +47,9 @@ import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 internal data class DirectToWatchHeaderPresentation(
     val glucose: String,
@@ -163,6 +166,12 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
     private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
     private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+    private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
+    private const val KEY_STATUS_COLOR = "watchface.status_color"
+    private const val KEY_STATUS_BOLD = "watchface.status_bold"
+    private const val KEY_CLOCK_SIZE_PERCENT = "watchface.clock_size_percent"
+    private const val KEY_CLOCK_COLOR = "watchface.clock_color"
+    private const val KEY_CLOCK_BOLD = "watchface.clock_bold"
     private const val KEY_TARGET_LOW = "target.low_mg_dl"
     private const val KEY_TARGET_HIGH = "target.high_mg_dl"
     val graphHourOptions = listOf(1, 2, 3, 6, 12, 24)
@@ -180,6 +189,13 @@ object DirectToWatchPreferences {
 
     fun glucoseBold(context: Context): Boolean =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_GLUCOSE_BOLD, true)
+
+    fun statusSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun statusColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
+    fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, false)
+    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun clockColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
+    fun clockBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_CLOCK_BOLD, false)
 
     fun thresholds(context: Context): CgmThresholds {
         val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -333,6 +349,8 @@ object DirectToWatchPreferences {
             DirectToWatchHeaderComplication::class.java,
             DirectToWatchGraphComplication::class.java,
             DirectToWatchStatusComplication::class.java,
+            DirectToWatchClockComplication::class.java,
+            DirectToWatchAmbientClockComplication::class.java,
             DirectToWatchAmbientHeaderComplication::class.java,
             DirectToWatchAmbientGraphComplication::class.java,
         ).forEach { service ->
@@ -502,13 +520,52 @@ class DirectToWatchAmbientHeaderComplication : DirectToWatchHeaderComplication()
 class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
         val text = DirectToWatchPresentationFormatter.graphStatus(state, nowEpochMs, DirectToWatchPreferences.graphHours(this)).text
-        return ShortTextComplicationData.Builder(
-            PlainComplicationText.Builder(text).build(),
+        val bitmap = renderWatchfaceText(text, 180, 34, DirectToWatchPreferences.statusSizePercent(this), DirectToWatchPreferences.statusColor(this), DirectToWatchPreferences.statusBold(this), Paint.Align.LEFT)
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder(text).build(),
         ).setTapAction(graphScaleTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
             .build()
     }
+}
+
+open class DirectToWatchClockComplication : DirectToWatchComplicationService() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), DirectToWatchPreferences.clockColor(this), DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)
+        val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+            PlainComplicationText.Builder(text).build(),
+        ).setValidTimeRange(TimeRange.between(java.time.Instant.ofEpochMilli(nowEpochMs), java.time.Instant.ofEpochMilli(nextMinute))).build()
+    }
+}
+
+class DirectToWatchAmbientClockComplication : DirectToWatchClockComplication() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val source = DirectToWatchPreferences.clockColor(this)
+        val gray = Color.rgb(Color.red(source) * 3 / 5, Color.green(source) * 3 / 5, Color.blue(source) * 3 / 5)
+        val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), gray, DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)
+        val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
+        return SmallImageComplicationData.Builder(SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(), PlainComplicationText.Builder(text).build())
+            .setValidTimeRange(TimeRange.between(java.time.Instant.ofEpochMilli(nowEpochMs), java.time.Instant.ofEpochMilli(nextMinute))).build()
+    }
+}
+
+private fun renderWatchfaceText(text: String, width: Int, height: Int, sizePercent: Int, color: Int, bold: Boolean, align: Paint.Align): Bitmap {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        textSize = 18f * sizePercent.coerceIn(75, 150) / 100f
+        typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+        textAlign = align
+    }
+    val x = if (align == Paint.Align.CENTER) width / 2f else 0f
+    val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2f
+    Canvas(bitmap).drawText(text, x, baseline, paint)
+    return bitmap
 }
 
 open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {

@@ -63,6 +63,18 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(toggle("Zuckerwert fett", settings.glucoseBold(), palette) {
             settings.saveGlucoseBold(it)
         }, params(5))
+        section(root, "WATCHFACE · SKALA UND ALTER", palette)
+        root.addView(slider("Größe", 75, 150, settings.statusSizePercent(), palette, { "Größe · $it %" }) {
+            settings.saveStatusSizePercent(it)
+        }, params(5))
+        root.addView(colorRow("Farbe", settings.statusColor(), palette, settings::saveStatusColor), params(5))
+        root.addView(toggle("Fett", settings.statusBold(), palette, settings::saveStatusBold), params(5))
+        section(root, "WATCHFACE · UHRZEIT", palette)
+        root.addView(slider("Größe", 75, 150, settings.clockSizePercent(), palette, { "Größe · $it %" }) {
+            settings.saveClockSizePercent(it)
+        }, params(5))
+        root.addView(colorRow("Farbe", settings.clockColor(), palette, settings::saveClockColor), params(5))
+        root.addView(toggle("Fett", settings.clockBold(), palette, settings::saveClockBold), params(5))
         val thresholds = settings.thresholds()
         section(root, "GLUKOSE · ZIELBEREICH", palette)
         root.addView(numericThresholdRow("Tief", thresholds.lowMgDl, isHigh = false, palette), params(5))

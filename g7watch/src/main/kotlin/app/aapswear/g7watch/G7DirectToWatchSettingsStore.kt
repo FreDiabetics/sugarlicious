@@ -38,6 +38,20 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     fun glucoseBold(): Boolean = preferences.getBoolean(KEY_GLUCOSE_BOLD, true)
     fun saveGlucoseBold(value: Boolean) = update { putBoolean(KEY_GLUCOSE_BOLD, value) }
 
+    fun statusSizePercent(): Int = preferences.getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun saveStatusSizePercent(value: Int) = update { putInt(KEY_STATUS_SIZE_PERCENT, value.coerceIn(75, 150)) }
+    fun statusColor(): Int = preferences.getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
+    fun saveStatusColor(value: Int) = update { putInt(KEY_STATUS_COLOR, value) }
+    fun statusBold(): Boolean = preferences.getBoolean(KEY_STATUS_BOLD, false)
+    fun saveStatusBold(value: Boolean) = update { putBoolean(KEY_STATUS_BOLD, value) }
+
+    fun clockSizePercent(): Int = preferences.getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun saveClockSizePercent(value: Int) = update { putInt(KEY_CLOCK_SIZE_PERCENT, value.coerceIn(75, 150)) }
+    fun clockColor(): Int = preferences.getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
+    fun saveClockColor(value: Int) = update { putInt(KEY_CLOCK_COLOR, value) }
+    fun clockBold(): Boolean = preferences.getBoolean(KEY_CLOCK_BOLD, false)
+    fun saveClockBold(value: Boolean) = update { putBoolean(KEY_CLOCK_BOLD, value) }
+
     fun activeAppearanceMode(default: AppearanceMode): AppearanceMode =
         preferences.getString(KEY_ACTIVE_APPEARANCE_MODE, null)
             ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
@@ -150,6 +164,12 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
         private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+        private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
+        private const val KEY_STATUS_COLOR = "watchface.status_color"
+        private const val KEY_STATUS_BOLD = "watchface.status_bold"
+        private const val KEY_CLOCK_SIZE_PERCENT = "watchface.clock_size_percent"
+        private const val KEY_CLOCK_COLOR = "watchface.clock_color"
+        private const val KEY_CLOCK_BOLD = "watchface.clock_bold"
         private const val KEY_ACTIVE_APPEARANCE_MODE = "appearance.active_mode"
         private const val KEY_TARGET_LOW = "target.low_mg_dl"
         private const val KEY_TARGET_HIGH = "target.high_mg_dl"
