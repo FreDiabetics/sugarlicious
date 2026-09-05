@@ -444,12 +444,13 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             valuePaint.getTextBounds(presentation.glucose, 0, presentation.glucose.length, it)
         }
         val valueCenterY = valueBaseline + (valueBounds.top + valueBounds.bottom) / 2f
-        canvas.drawText(presentation.glucose, 0f, valueBaseline, valuePaint)
+        val contentLeft = 6f
+        canvas.drawText(presentation.glucose, contentLeft, valueBaseline, valuePaint)
         arrow?.let {
             val arrowTop = valueCenterY - it.height / 2f
-            canvas.drawBitmap(it, valueWidth + gap, arrowTop, null)
+            canvas.drawBitmap(it, contentLeft + valueWidth + gap, arrowTop, null)
         }
-        canvas.drawText(presentation.secondary, 0f, 96f, secondaryPaint)
+        canvas.drawText(presentation.secondary, contentLeft, 96f, secondaryPaint)
         return bitmap
     }
 
