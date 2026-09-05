@@ -150,6 +150,7 @@ data class WatchGraphStyle(
     val cgmHistoricalDotOutlineEnabled: Boolean = true,
     val cgmCurrentDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
+    val scaleLaneOpacityPercent: Int = 30,
 )
 
 @Serializable

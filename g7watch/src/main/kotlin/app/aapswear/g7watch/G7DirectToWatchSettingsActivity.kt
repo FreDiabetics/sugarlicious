@@ -105,6 +105,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(toggle("Zeitachsenskala", graphStyle.timeAxisEnabled, palette) {
             settings.saveGraphStyle(settings.graphStyle().copy(timeAxisEnabled = it))
         }, params(5))
+        root.addView(slider("Skalenbereich", 0, 100, graphStyle.scaleLaneOpacityPercent, palette, { "Skalenbereich · $it %" }) {
+            settings.saveGraphStyle(settings.graphStyle().copy(scaleLaneOpacityPercent = it))
+        }, params(5))
         val colors = settings.graphColors()
         section(root, "GRAPH · FARBEN", palette)
         graphColorRows(root, colors, palette)

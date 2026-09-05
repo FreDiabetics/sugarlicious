@@ -263,6 +263,16 @@ class WearSettingsActivity : Activity() {
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)), rebuild = false) },
                 cardParams(),
             )
+            root.addView(
+                sliderCard(
+                    title = "Skalenbereich",
+                    min = 0,
+                    max = 100,
+                    progress = current.graphStyle.scaleLaneOpacityPercent,
+                    value = { "$it %" },
+                ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(scaleLaneOpacityPercent = progress)), rebuild = false) },
+                cardParams(),
+            )
 
             section("FARBEN")
             colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground) { updateGraphColors { c -> c.copy(graphBackground = it) } }

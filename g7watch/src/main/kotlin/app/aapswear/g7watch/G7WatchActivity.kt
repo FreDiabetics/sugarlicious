@@ -200,7 +200,7 @@ class G7WatchActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 5.dp, 18.dp, 30.dp)
+            setPadding(18.dp, 14.dp, 18.dp, 30.dp)
             setBackgroundColor(background)
         }
 
@@ -352,6 +352,10 @@ class G7WatchActivity : Activity() {
             statusHost.removeAllViews()
             statusHost.addView(statusPill(userStatus, palette))
             glucoseHost.removeAllViews()
+            glucoseHost.addView(label("Direct to Watch - Glukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, 5.dp)
+            })
             glucoseHost.addView(glucoseTile(state.lastReading, palette))
             updateGraphOnly(preserveScroll = false)
         }

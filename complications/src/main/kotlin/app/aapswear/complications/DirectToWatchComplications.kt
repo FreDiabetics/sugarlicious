@@ -164,6 +164,7 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED = "graph_style_historical_dot_outline_enabled"
     private const val KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED = "graph_style_current_dot_outline_enabled"
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+    private const val KEY_GRAPH_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
     private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
     private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
     private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
@@ -294,6 +295,7 @@ object DirectToWatchPreferences {
             targetLabelsInsidePlot = true,
             // Vigil follows the canonical graph policy unconditionally; this is not a face-local toggle.
             rangeBackgroundEnabled = true,
+            scaleLaneOpacityPercent = p.getInt(KEY_GRAPH_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
         )
     }
 
@@ -307,6 +309,7 @@ object DirectToWatchPreferences {
             .putFloat("graph_style_corner_radius", style.cornerRadiusDp.coerceIn(0f, 40f))
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
+            .putInt(KEY_GRAPH_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
             .remove("graph_style_target_ticks_enabled")
             .remove("graph_style_range_background_enabled")
             .apply()
@@ -581,7 +584,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
     }
 
     internal fun renderGraph(state: TherapyDisplayState?, nowEpochMs: Long, hours: Int, ambient: Boolean = false): Bitmap {
-        val width = 410
+        val width = 442
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

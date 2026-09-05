@@ -90,6 +90,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
             targetLabelsOutsideRange = true,
             targetLabelsInsidePlot = true,
             rangeBackgroundEnabled = true,
+            scaleLaneOpacityPercent = preferences.getInt(KEY_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
         )
     }
 
@@ -102,6 +103,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
         putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
         putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
+        putInt(KEY_SCALE_LANE_OPACITY, value.scaleLaneOpacityPercent.coerceIn(0, 100))
         remove(KEY_TARGET_TICKS_ENABLED)
     }
 
@@ -181,6 +183,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
         private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"
+        private const val KEY_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
         private const val LEGACY_KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
     }

@@ -1,7 +1,6 @@
 package app.aapswear.g7watch
 
 import android.app.NotificationManager
-import android.media.AudioAttributes
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
@@ -47,7 +46,7 @@ class G7CgmAlarmsTest {
     }
 
     @Test
-    fun `all eight alarm channels use alarm audio high importance vibration and bundled sound`() {
+    fun `all eight alarm channels are silent because bundled sounds are app played`() {
         val settings = G7AlarmSettingsStore.read(context)
         G7CgmAlarmNotifier.ensureAllChannels(context, settings)
 
@@ -55,11 +54,10 @@ class G7CgmAlarmsTest {
             val channel = notificationManager.getNotificationChannel(G7CgmAlarmNotifier.channelId(context, type, settings))
             assertNotNull(channel)
             assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
-            assertEquals(AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
             assertTrue(channel.shouldVibrate())
-            assertTrue(channel.sound.toString().endsWith("/${g7AlarmSoundResource(type)}"))
+            assertNull(channel.sound)
         }
-        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v3_") })
+        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v4_") })
     }
 
     @Test

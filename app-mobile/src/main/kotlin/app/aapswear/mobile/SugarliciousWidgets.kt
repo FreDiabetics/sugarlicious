@@ -439,6 +439,7 @@ internal fun renderWidgetGraph(
     graphHorizontalInsetDp: Float = 0f,
     density: Float = pixelDensity,
     scaledDensity: Float = density,
+    showScaleAndAge: Boolean = false,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(72)
@@ -484,29 +485,43 @@ internal fun renderWidgetGraph(
     val targetTop = yScale.map(targetHigh, plot)
     val targetBottom = yScale.map(targetLow, plot)
     val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    fun laneColor(color: Int): Int {
+        val alpha = (color ushr 24) * configuration.scaleLaneOpacityPercent.coerceIn(0, 100) / 100
+        return (color and 0x00FFFFFF) or (alpha shl 24)
+    }
+    fun drawSplitArea(top: Float, bottom: Float, color: Int) {
+        fill.color = color
+        canvas.drawRect(graphBounds.left, top, metrics.yTickStartPx, bottom, fill)
+        fill.color = laneColor(color)
+        canvas.drawRect(metrics.yTickStartPx, top, graphBounds.right, bottom, fill)
+    }
     val graphClip = widgetGraphClipPath(metrics)
     canvas.save()
     canvas.clipPath(graphClip)
     fill.color = graphBackground
-    canvas.drawRect(graphBounds, fill)
+    canvas.drawRect(graphBounds.left, graphBounds.top, metrics.yTickStartPx, graphBounds.bottom, fill)
+    fill.color = laneColor(graphBackground)
+    canvas.drawRect(metrics.yTickStartPx, graphBounds.top, graphBounds.right, targetTop, fill)
+    canvas.drawRect(metrics.yTickStartPx, targetBottom, graphBounds.right, graphBounds.bottom, fill)
     if (excursion == RangeExcursion.HIGH) {
-        fill.color = palette.argb(WidgetColorRole.RANGE_HIGH)
-        canvas.drawRect(graphBounds.left, graphBounds.top, graphBounds.right, targetTop, fill)
+        drawSplitArea(graphBounds.top, targetTop, palette.argb(WidgetColorRole.RANGE_HIGH))
     }
-    fill.color = palette.argb(WidgetColorRole.RANGE_IN_RANGE)
-    canvas.drawRect(graphBounds.left, targetTop, graphBounds.right, targetBottom, fill)
+    drawSplitArea(targetTop, targetBottom, palette.argb(WidgetColorRole.RANGE_IN_RANGE))
     if (excursion == RangeExcursion.LOW) {
-        fill.color = palette.argb(WidgetColorRole.RANGE_LOW)
-        canvas.drawRect(graphBounds.left, targetBottom, graphBounds.right, graphBounds.bottom, fill)
+        drawSplitArea(targetBottom, graphBounds.bottom, palette.argb(WidgetColorRole.RANGE_LOW))
     }
     val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = metrics.lineWidthPx
     }
     line.color = palette.argb(WidgetColorRole.HIGH_LINE)
-    canvas.drawLine(graphBounds.left, targetTop, graphBounds.right, targetTop, line)
+    canvas.drawLine(graphBounds.left, targetTop, metrics.yTickStartPx, targetTop, line)
+    line.color = laneColor(palette.argb(WidgetColorRole.HIGH_LINE))
+    canvas.drawLine(metrics.yTickStartPx, targetTop, graphBounds.right, targetTop, line)
     line.color = palette.argb(WidgetColorRole.LOW_LINE)
-    canvas.drawLine(graphBounds.left, targetBottom, graphBounds.right, targetBottom, line)
+    canvas.drawLine(graphBounds.left, targetBottom, metrics.yTickStartPx, targetBottom, line)
+    line.color = laneColor(palette.argb(WidgetColorRole.LOW_LINE))
+    canvas.drawLine(metrics.yTickStartPx, targetBottom, graphBounds.right, targetBottom, line)
 
     val timeWindow = GraphTimeWindow.live(now, windowMs)
     val start = timeWindow.startEpochMs
@@ -535,6 +550,24 @@ internal fun renderWidgetGraph(
         canvas.drawCircle(pointX, y, radius + outlinePaint.strokeWidth / 2f, outlinePaint)
     }
     canvas.restore()
+
+    if (showScaleAndAge) {
+        val ageMinutes = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, now)
+        val status = buildString {
+            append(configuration.graphHours)
+            append("h")
+            if (ageMinutes != null) {
+                append(" • ")
+                append(ageMinutes)
+                append("m")
+            }
+        }
+        val inset = 6f * renderDensity
+        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textSize = metrics.axisTextSizePx
+        val baseline = graphBounds.top + inset - textPaint.fontMetrics.ascent
+        canvas.drawText(status, graphBounds.left + inset, baseline, textPaint)
+    }
 
     textPaint.textAlign = Paint.Align.CENTER
     line.strokeWidth = metrics.lineWidthPx
@@ -929,6 +962,7 @@ internal fun renderGlucoseGraphWidget(
         clipToWidgetShape = false,
         graphLeftInsetDp = 12f,
         graphHorizontalInsetDp = 5f,
+        showScaleAndAge = true,
     )
     val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
@@ -947,14 +981,16 @@ internal fun renderGlucoseGraphWidget(
         null -> ""
     }
     if (configuration.showGlucoseUnit && unit.isNotBlank() && TherapyDisplayFormatter.isGlucoseDisplayable(state, now)) {
+        val delta = state?.glucose?.let { TherapyDisplayFormatter.signedDelta(it.deltaMgDl, it.displayUnit) }.orEmpty()
+        val secondary = listOf(delta, unit).filter(String::isNotBlank).joinToString(" ")
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = palette.argb(WidgetColorRole.TEXT)
             alpha = 170
             textAlign = Paint.Align.LEFT
-            textSize = (10f * pixelDensity).coerceAtMost(topHeight * 0.15f)
+            textSize = (13f * pixelDensity).coerceAtMost(topHeight * 0.19f)
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
-        canvas.drawText(unit, 12f * pixelDensity, topHeight - 6f * pixelDensity, paint)
+        canvas.drawText(secondary, 12f * pixelDensity, topHeight - 6f * pixelDensity, paint)
     }
     drawWidgetOutline(canvas, safeWidth, safeHeight, configuration, pixelDensity)
     return bitmap

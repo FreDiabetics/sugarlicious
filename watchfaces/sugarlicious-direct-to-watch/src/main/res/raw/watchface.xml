@@ -10,7 +10,7 @@
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="20" y="140" width="410" height="250"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="4" y="140" width="442" height="250"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="410" height="250" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="410" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
@@ -21,12 +21,12 @@
             <BoundingBox x="0" y="0" width="340" height="108" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="4" displayName="Vigil AOD graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="20" y="140" width="410" height="250" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+        <ComplicationSlot slotId="4" displayName="Vigil AOD graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="4" y="140" width="442" height="250" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchAmbientGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="410" height="250" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="410" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="38" y="145" width="180" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="10" y="146" width="180" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="180" height="34" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="180" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>

@@ -60,6 +60,7 @@ internal data class WearDisplayPreferences(
         private const val STYLE_HISTORICAL_OUTLINE_ENABLED = "cgm_historical_dot_outline_enabled"
         private const val STYLE_CURRENT_OUTLINE_ENABLED = "cgm_current_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
+        private const val STYLE_SCALE_LANE_OPACITY = "scale_lane_opacity_percent"
         private const val THRESHOLD_VERY_HIGH = "threshold_very_high"
         private const val THRESHOLD_HIGH = "threshold_high"
         private const val THRESHOLD_LOW = "threshold_low"
@@ -178,6 +179,7 @@ internal data class WearDisplayPreferences(
                             preferences
                                 .getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp)
                                 .coerceIn(0.25f, 3.0f),
+                        scaleLaneOpacityPercent = preferences.getInt(prefix + STYLE_SCALE_LANE_OPACITY, styleDefaults.scaleLaneOpacityPercent).coerceIn(0, 100),
                     ),
                 uiColors =
                     WatchUiColors(
@@ -346,6 +348,7 @@ internal data class WearDisplayPreferences(
             putBoolean(prefix + STYLE_HISTORICAL_OUTLINE_ENABLED, profile.graphStyle.cgmHistoricalDotOutlineEnabled)
             putBoolean(prefix + STYLE_CURRENT_OUTLINE_ENABLED, profile.graphStyle.cgmCurrentDotOutlineEnabled)
             putFloat(prefix + STYLE_OUTLINE_WIDTH, profile.graphStyle.cgmDotOutlineWidthDp)
+            putInt(prefix + STYLE_SCALE_LANE_OPACITY, profile.graphStyle.scaleLaneOpacityPercent.coerceIn(0, 100))
             val ui = profile.uiColors
             putInt(prefix + UI_PREFIX + "background", ui.background)
             putInt(prefix + UI_PREFIX + "tile_background", ui.tileBackground)

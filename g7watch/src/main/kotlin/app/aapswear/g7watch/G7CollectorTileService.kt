@@ -272,7 +272,7 @@ class G7CollectorTileService : TileService() {
         val header =
             Box.Builder()
                 .setWidth(expand())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .addContent(text("Direct to Watch - Glukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
                 .build()
 
@@ -290,7 +290,7 @@ class G7CollectorTileService : TileService() {
         return Box.Builder()
             .setWidth(expand())
             .setHeight(expand())
-            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setModifiers(
                 Modifiers.Builder()

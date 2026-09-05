@@ -87,7 +87,7 @@ class G7CollectorGraphViewTest {
     }
 
     @Test
-    fun `range fill is full bleed through label gutter`() {
+    fun `range fill in label gutter uses configured focus opacity`() {
         val graph = render(
             readings = listOf(reading("1", 120.0, now)),
             graphHours = 3,
@@ -95,7 +95,7 @@ class G7CollectorGraphViewTest {
             palette = testPalette(),
         )
 
-        assertEquals(Color.rgb(88, 88, 88), graph.getPixel(380, 75))
+        assertEquals(Color.argb(76, 87, 87, 87), graph.getPixel(380, 75))
     }
 
     @Test

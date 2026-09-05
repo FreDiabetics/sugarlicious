@@ -126,6 +126,7 @@ class WearGlucoseChart @JvmOverloads constructor(
                     currentDotOutlineEnabled = graphStyle.cgmCurrentDotOutlineEnabled,
                     cornerRadiusDp = TILE_RADIUS_DP,
                     borderEnabled = false,
+                    scaleLaneOpacityPercent = graphStyle.scaleLaneOpacityPercent,
                 ),
             ),
         )

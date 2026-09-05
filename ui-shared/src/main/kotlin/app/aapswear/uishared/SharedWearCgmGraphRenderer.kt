@@ -1,7 +1,6 @@
 package app.aapswear.uishared
 
 import android.graphics.Canvas
-import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -57,6 +56,7 @@ data class SharedWearCgmGraphStyle(
     val targetLabelsOutsideRange: Boolean = true,
     val targetLabelsInsidePlot: Boolean = false,
     val rangeBackgroundEnabled: Boolean = true,
+    val scaleLaneOpacityPercent: Int = 30,
 )
 
 object DirectToWatchGraphDefaults {
@@ -181,9 +181,6 @@ object SharedWearCgmGraphRenderer {
             addRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), cornerRadius, cornerRadius, Path.Direction.CW)
         })
 
-        fill.color = palette.background
-        canvas.drawRoundRect(0f, 0f, widthPx.toFloat(), heightPx.toFloat(), cornerRadius, cornerRadius, fill)
-
         val history = input.history
             .asSequence()
             .filter {
@@ -199,16 +196,28 @@ object SharedWearCgmGraphRenderer {
             series.copy(samples = series.samples.filter { it.measuredAtEpochMs in input.timeWindow.startEpochMs..input.timeWindow.endEpochMs })
         }.filter { it.samples.isNotEmpty() }
 
-        fill.color = palette.targetArea
-        canvas.drawRect(visual.left, metrics.highY, visual.right, metrics.lowY, fill)
+        fun laneColor(color: Int): Int {
+            val alpha = (color ushr 24) * input.style.scaleLaneOpacityPercent.coerceIn(0, 100) / 100
+            return (color and 0x00FFFFFF) or (alpha shl 24)
+        }
+        fun drawSplitArea(top: Float, bottom: Float, color: Int) {
+            fill.color = color
+            canvas.drawRect(visual.left, top, metrics.axisLeftPx, bottom, fill)
+            fill.color = laneColor(color)
+            canvas.drawRect(metrics.axisLeftPx, top, visual.right, bottom, fill)
+        }
+        fill.color = palette.background
+        canvas.drawRect(visual.left, visual.top, metrics.axisLeftPx, visual.bottom, fill)
+        fill.color = laneColor(palette.background)
+        canvas.drawRect(metrics.axisLeftPx, visual.top, visual.right, metrics.highY, fill)
+        canvas.drawRect(metrics.axisLeftPx, metrics.lowY, visual.right, visual.bottom, fill)
+        drawSplitArea(metrics.highY, metrics.lowY, palette.targetArea)
         when (CgmGraphPolicy.rangeExcursion(history, input.thresholds).takeIf { input.style.rangeBackgroundEnabled }) {
             RangeExcursion.HIGH -> {
-                fill.color = palette.highArea
-                canvas.drawRect(visual.left, visual.top, visual.right, metrics.highY, fill)
+                drawSplitArea(visual.top, metrics.highY, palette.highArea)
             }
             RangeExcursion.LOW -> {
-                fill.color = palette.lowArea
-                canvas.drawRect(visual.left, metrics.lowY, visual.right, visual.bottom, fill)
+                drawSplitArea(metrics.lowY, visual.bottom, palette.lowArea)
             }
             null -> Unit
         }
@@ -217,9 +226,13 @@ object SharedWearCgmGraphRenderer {
         line.strokeWidth = dp(0.8f)
         line.strokeCap = Paint.Cap.BUTT
         line.color = palette.highLine
-        canvas.drawLine(visual.left, metrics.highY, visual.right, metrics.highY, line)
+        canvas.drawLine(visual.left, metrics.highY, metrics.axisLeftPx, metrics.highY, line)
+        line.color = laneColor(palette.highLine)
+        canvas.drawLine(metrics.axisLeftPx, metrics.highY, visual.right, metrics.highY, line)
         line.color = palette.lowLine
-        canvas.drawLine(visual.left, metrics.lowY, visual.right, metrics.lowY, line)
+        canvas.drawLine(visual.left, metrics.lowY, metrics.axisLeftPx, metrics.lowY, line)
+        line.color = laneColor(palette.lowLine)
+        canvas.drawLine(metrics.axisLeftPx, metrics.lowY, visual.right, metrics.lowY, line)
         line.strokeCap = Paint.Cap.ROUND
 
         val targetText = Paint(axisText).apply { color = palette.targetText }
@@ -227,12 +240,6 @@ object SharedWearCgmGraphRenderer {
         drawTargetLabel(canvas, input.thresholds.lowMgDl, metrics.lowY, false, metrics.axisLeftPx, widthPx, density, targetText, line, palette.axisTick, input.style)
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
-        line.color = palette.nowLine
-        line.strokeWidth = dp(1f)
-        line.pathEffect = DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
-        canvas.drawLine(liveX, plot.top, liveX, plot.bottom, line)
-        line.pathEffect = null
-
         val radius = input.style.dotRadiusDp.coerceIn(1.5f, 6f) * density
         val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
@@ -349,6 +356,7 @@ object SharedWearCgmGraphRenderer {
             input.nowEpochMs,
         ).forEach { tick ->
             val x = metrics.xFor(input.timeWindow, tick.timestampEpochMs)
+            line.color = if (tick.hoursBack == 0) input.palette.nowLine else input.palette.axisTick
             text.textAlign = when {
                 tick.timestampEpochMs <= input.timeWindow.startEpochMs + 30_000L -> Paint.Align.LEFT
                 tick.hoursBack == 0 -> Paint.Align.RIGHT
@@ -362,7 +370,9 @@ object SharedWearCgmGraphRenderer {
             val spec = GraphAxisLayoutSpec.COMPACT
             val tickStart = metrics.plot.bottom + spec.plotToTickGapDp * oneDp
             val tickEnd = tickStart + spec.tickLengthDp * oneDp
-            canvas.drawLine(labelX, tickStart, labelX, tickEnd, line)
+            // The live position is marked like every other axis value: a short solid tick at the
+            // exact X of the former full-height Now line. Label alignment must not move the tick.
+            canvas.drawLine(x, tickStart, x, tickEnd, line)
             val baseline = tickEnd + spec.tickToLabelGapDp * oneDp - text.ascent()
             canvas.drawText(tick.label, labelX, minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline), text)
         }
