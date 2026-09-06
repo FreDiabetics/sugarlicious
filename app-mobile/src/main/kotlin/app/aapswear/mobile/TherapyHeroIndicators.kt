@@ -37,6 +37,7 @@ internal data class TherapyIndicatorPresentation(
     val secondary: String? = null,
     val progress: Float? = null,
     @DrawableRes val iconRes: Int,
+    val iconSizeDp: Int = 19,
     val colorRole: SugarliciousColorRole,
 )
 
@@ -76,6 +77,7 @@ internal fun therapyIndicatorPresentations(
             value = cob?.let { "${compactValue(it, 0)}g" } ?: "—",
             progress = cob?.div(300.0)?.toFloat()?.coerceIn(0f, 1f),
             iconRes = R.drawable.ic_carbs,
+            iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
@@ -200,7 +202,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).size(19.dp),
+                Modifier.align(Alignment.BottomCenter).size(indicator.iconSizeDp.dp),
                 accent,
             )
         }
