@@ -55,6 +55,7 @@ internal data class DirectToWatchHeaderPresentation(
     val glucose: String,
     val secondary: String,
     val trend: Trend? = null,
+    val sensorError: Boolean = false,
 )
 
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
@@ -65,6 +66,10 @@ internal object DirectToWatchPresentationFormatter {
         nowEpochMs: Long,
         displayUnit: GlucoseUnit? = null,
     ): DirectToWatchHeaderPresentation {
+        when (G7LocalReadingResolver.directSensorState(state)) {
+            "ERROR" -> return DirectToWatchHeaderPresentation("—", "Sensorfehler", sensorError = true)
+            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation("—", "Kein aktiver Sensor\nBitte Sensor koppeln")
+        }
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
             return DirectToWatchHeaderPresentation(
@@ -147,7 +152,7 @@ internal object DirectToWatchPresentationFormatter {
             G7LocalReadingResolver.sourceState(state) in setOf(CgmSourceState.WATCH_DIRECT, CgmSourceState.NO_SOURCE)
 
     private fun unavailableLabel(state: TherapyDisplayState?, freshness: Freshness): String = when {
-        state?.glucose?.quality == CgmQuality.SENSOR_ERROR -> "SIGNAL LOSS"
+        state?.glucose?.quality == CgmQuality.SENSOR_ERROR -> "SENSOR ERROR"
         freshness == Freshness.STALE -> "STALE"
         else -> "NO_SOURCE"
     }
@@ -455,7 +460,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         }
         if (presentation.glucose == "—") {
             val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = if (ambient) 0xFF909090.toInt() else Color.WHITE
+                color = if (presentation.sensorError) 0xFFFF4D5E.toInt() else if (ambient) 0xFF909090.toInt() else Color.WHITE
                 textSize = 17f
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
@@ -588,6 +593,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
+        if (G7LocalReadingResolver.directSensorState(state) in setOf("ERROR", "ENDED", "NOT_ACTIVE")) return bitmap
         val density = resources.displayMetrics.density
         val graphStyle = DirectToWatchPreferences.graphStyle(this)
         val radius = graphStyle.cornerRadiusDp * density

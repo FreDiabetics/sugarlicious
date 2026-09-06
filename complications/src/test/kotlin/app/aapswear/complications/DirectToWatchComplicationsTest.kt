@@ -84,6 +84,29 @@ class DirectToWatchComplicationsTest {
         assertEquals("3h • NO_SOURCE", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
     }
 
+    @Test fun `vigil distinguishes sensor error from an ended sensor in active and ambient data`() {
+        val error = directState(now - 60_000L).copy(
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ERROR",
+            glucose = directState(now - 60_000L).glucose?.copy(quality = CgmQuality.SENSOR_ERROR),
+        )
+        val ended = directState(now - 60_000L).copy(
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ENDED",
+        )
+
+        assertEquals("Sensorfehler", DirectToWatchPresentationFormatter.header(error, now).secondary)
+        assertEquals("Kein aktiver Sensor\nBitte Sensor koppeln", DirectToWatchPresentationFormatter.header(ended, now).secondary)
+    }
+
+    @Test fun `vigil graph is hidden for terminal sensor states`() {
+        val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
+        val ended = directState(now - 60_000L).copy(
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ENDED",
+        )
+        val bitmap = service.renderGraph(ended, now, 3)
+
+        assertTrue((0 until bitmap.height).all { y -> (0 until bitmap.width).all { x -> Color.alpha(bitmap.getPixel(x, y)) == 0 } })
+    }
+
     @Test fun `invalid delta is not invented`() {
         val state = directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(deltaMgDl = null))
         assertEquals("mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)
