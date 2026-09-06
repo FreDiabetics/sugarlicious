@@ -4,6 +4,7 @@ import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyHistorySample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -46,6 +47,20 @@ class TherapyHeroIndicatorsTest {
         assertEquals(R.drawable.ic_basal, basalIconResource(100))
         assertEquals(R.drawable.ic_basalless, basalIconResource(80))
         assertEquals(R.drawable.ic_basalmore, basalIconResource(120))
+    }
+
+    @Test
+    fun `latest canonical therapy history supplies missing basal snapshot`() {
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = 1_000L,
+            therapyHistory = listOf(
+                TherapyHistorySample(800L, basalUnitsPerHour = 0.75, baseBasalUnitsPerHour = 0.5),
+            ),
+        )
+        val basal = therapyIndicatorPresentations(state, 10f, 1_000L)[2]
+        assertEquals("0,75", basal.value)
+        assertEquals("150%", basal.secondary)
+        assertEquals(R.drawable.ic_basalmore, basal.iconRes)
     }
 
     @Test

@@ -48,6 +48,20 @@ internal fun therapyIndicatorPresentations(
     val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
     val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
     val basal = effectiveBasalPresentation(state?.basal, nowEpochMs)
+        ?: state?.therapyHistory.orEmpty()
+            .asSequence()
+            .filter { it.measuredAtEpochMs <= nowEpochMs }
+            .sortedByDescending { it.measuredAtEpochMs }
+            .mapNotNull { sample ->
+                val rate = sample.basalUnitsPerHour ?: sample.tempBasalUnitsPerHour ?: sample.baseBasalUnitsPerHour
+                rate?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+                    val percent = sample.baseBasalUnitsPerHour
+                        ?.takeIf { base -> base.isFinite() && base > 0.0 }
+                        ?.let { base -> (it / base * 100.0).toInt().coerceIn(0, 500) }
+                    EffectiveBasalPresentation(it, percent)
+                }
+            }
+            .firstOrNull()
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
@@ -81,7 +95,7 @@ internal fun basalIconResource(percent: Int?): Int = when {
     else -> R.drawable.ic_basalmore
 }
 
-internal data class EffectiveBasalPresentation(val unitsPerHour: Double, val percent: Int)
+internal data class EffectiveBasalPresentation(val unitsPerHour: Double, val percent: Int?)
 
 internal fun effectiveBasalPresentation(basal: BasalState?, nowEpochMs: Long): EffectiveBasalPresentation? {
     basal ?: return null
@@ -93,8 +107,8 @@ internal fun effectiveBasalPresentation(basal: BasalState?, nowEpochMs: Long): E
         ?: basal.currentUnitsPerHour
         ?: return null
     if (!units.isFinite() || units < 0.0) return null
-    val percent = if (tempActive) basal.tempPercent else 100
-    return percent?.takeIf { it in 0..500 }?.let { EffectiveBasalPresentation(units, it) }
+    val percent = if (tempActive) basal.tempPercent?.takeIf { it in 0..500 } else 100
+    return EffectiveBasalPresentation(units, percent)
 }
 
 private fun compactValue(value: Double, decimals: Int): String =
@@ -130,46 +144,48 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
         },
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.size(58.dp)) {
-            val stroke = 7.dp.toPx()
-            val inset = stroke / 2f
-            val arcSize = Size(size.width - stroke, size.height - stroke)
-            drawArc(
-                color = accent.copy(alpha = 0.30f),
-                startAngle = 130f,
-                sweepAngle = 280f,
-                useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(stroke, cap = StrokeCap.Round),
-            )
-            indicator.progress?.takeIf { it > 0f }?.let { progress ->
+        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.fillMaxSize()) {
+                val stroke = 7.dp.toPx()
+                val inset = stroke / 2f
+                val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(
-                    color = accent,
+                    color = accent.copy(alpha = 0.30f),
                     startAngle = 130f,
-                    sweepAngle = 280f * progress,
+                    sweepAngle = 280f,
                     useCenter = false,
                     topLeft = Offset(inset, inset),
                     size = arcSize,
                     style = Stroke(stroke, cap = StrokeCap.Round),
                 )
+                indicator.progress?.takeIf { it > 0f }?.let { progress ->
+                    drawArc(
+                        color = accent,
+                        startAngle = 130f,
+                        sweepAngle = 280f * progress,
+                        useCenter = false,
+                        topLeft = Offset(inset, inset),
+                        size = arcSize,
+                        style = Stroke(stroke, cap = StrokeCap.Round),
+                    )
+                }
             }
-        }
-        Column(
-            modifier = Modifier.padding(bottom = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Text(indicator.value, color = SugarliciousColors.TextPrimary, fontSize = 14.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            indicator.secondary?.let {
-                Text(it, color = SugarliciousColors.TextSecondary, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
+            Column(
+                modifier = Modifier.align(Alignment.Center).padding(top = 7.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(indicator.value, color = SugarliciousColors.TextPrimary, fontSize = 14.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                indicator.secondary?.let {
+                    Text(it, color = SugarliciousColors.TextSecondary, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
+            SugarliciousIcon(
+                indicator.iconRes,
+                null,
+                Modifier.align(Alignment.BottomCenter).size(18.dp),
+                accent,
+            )
         }
-        SugarliciousIcon(
-            indicator.iconRes,
-            null,
-            Modifier.align(Alignment.BottomCenter).padding(bottom = 1.dp).size(12.dp),
-            accent,
-        )
     }
 }

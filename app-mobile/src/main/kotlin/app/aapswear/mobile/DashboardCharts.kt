@@ -871,10 +871,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         linePaint.pathEffect = null
         if (onRight) {
             canvas.drawLine(plot.right + tickGap, plot.top, plot.right + tickGap + tickLength, plot.top, linePaint)
-            canvas.drawLine(plot.right + tickGap, plot.top, plot.right + tickGap, plot.top + tickLength, linePaint)
         } else {
             canvas.drawLine(plot.left - tickGap, plot.top, plot.left - tickGap - tickLength, plot.top, linePaint)
-            canvas.drawLine(plot.left - tickGap, plot.top, plot.left - tickGap, plot.top + tickLength, linePaint)
         }
         val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
         val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
