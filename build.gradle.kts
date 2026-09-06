@@ -37,6 +37,9 @@ abstract class InstallSugarliciousDebugTask
         @get:InputFile
         abstract val g7WatchApk: RegularFileProperty
 
+        @get:InputFile
+        abstract val vigilApk: RegularFileProperty
+
         @TaskAction
         fun install() {
             val devices =
@@ -78,6 +81,7 @@ abstract class InstallSugarliciousDebugTask
             removeAccidentalPhoneCollector(phone)
             installApk(watch, wearApk.get().asFile, "Wear")
             installApk(watch, g7WatchApk.get().asFile, "G7 Watch Collector")
+            installApk(watch, vigilApk.get().asFile, "Vigil")
         }
 
         private fun isWatch(serial: String): Boolean =
@@ -191,13 +195,15 @@ tasks.register<Copy>("prepareWatchFaceValidatorCli") {
 
 tasks.register<InstallSugarliciousDebugTask>("installSugarliciousDebug") {
     group = "install"
-    description = "Builds and installs Mobile only on the phone and Wear + G7 Collector only on the watch."
+    description = "Builds and installs Mobile on the phone and Wear + G7 Collector + Vigil on the watch."
     dependsOn(
         ":app-mobile:assembleDebug",
         ":app-wear:assembleDebug",
         ":g7watch:assembleDebug",
+        ":watchfaces:sugarlicious-direct-to-watch:assembleDebug",
     )
     mobileApk.set(layout.projectDirectory.file("app-mobile/build/outputs/apk/debug/app-mobile-debug.apk"))
     wearApk.set(layout.projectDirectory.file("app-wear/build/outputs/apk/debug/app-wear-debug.apk"))
     g7WatchApk.set(layout.projectDirectory.file("g7watch/build/outputs/apk/debug/g7watch-debug.apk"))
+    vigilApk.set(layout.projectDirectory.file("watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/debug/sugarlicious-direct-to-watch-debug.apk"))
 }
