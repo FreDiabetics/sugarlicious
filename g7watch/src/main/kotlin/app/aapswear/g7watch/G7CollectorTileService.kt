@@ -280,7 +280,7 @@ class G7CollectorTileService : TileService() {
             Box.Builder()
                 .setWidth(expand())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-                .addContent(text("Gewebeglukosewert", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
+                .addContent(text("Gewebeglukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
                 .build()
 
         val content =

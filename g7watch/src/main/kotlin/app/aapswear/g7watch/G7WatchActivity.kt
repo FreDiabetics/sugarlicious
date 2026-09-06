@@ -387,9 +387,9 @@ class G7WatchActivity : Activity() {
             statusHost.removeAllViews()
             statusHost.addView(statusPill(userStatus, palette))
             glucoseHost.removeAllViews()
-            glucoseHost.addView(label("Gewebeglukosewert", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+            glucoseHost.addView(label("Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                setPadding(0, 0, 0, 5.dp)
+                setPadding(WearGlucoseCardStyle.CARD_RADIUS_DP.toInt().dp, 0, 0, 5.dp)
             })
             glucoseHost.addView(glucoseTile(state.lastReading, palette))
             updateGraphOnly(preserveScroll = false)
