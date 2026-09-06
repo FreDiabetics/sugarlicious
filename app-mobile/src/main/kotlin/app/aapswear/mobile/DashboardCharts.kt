@@ -246,7 +246,7 @@ internal class ChartViewport(initialHours: Int) {
 
     fun savedState(referenceNow: Long = System.currentTimeMillis()): GraphViewportSavedState =
         GraphViewportSavedState(
-            historyHours = hours,
+            historyHours = requestedHours,
             navigationEndEpochMs = snapshot(referenceNow).endEpochMs.takeIf { mode == Mode.USER_NAVIGATING },
         )
 
@@ -1020,22 +1020,25 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var markerVisibility = TreatmentMarkerVisibility()
     private var renderNowEpochMs: Long = System.currentTimeMillis()
     private var scaleOnRight = false
+    private var showTimeAxis = false
 
     fun bind(
         state: TherapyDisplayState?,
         durationHours: Int,
         markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(),
         scaleOnRight: Boolean = false,
+        showTimeAxis: Boolean = false,
         clockEpochMs: Long = System.currentTimeMillis(),
     ) {
         val clockBucket = clockEpochMs / 30_000L
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, scaleOnRight, clockBucket) }
+        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, scaleOnRight, showTimeAxis, clockBucket) }
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
         boundDurationHours = durationHours
         this.markerVisibility = markerVisibility
         this.scaleOnRight = scaleOnRight
+        this.showTimeAxis = showTimeAxis
         renderNowEpochMs = clockEpochMs
         if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
         invalidate()
@@ -1060,7 +1063,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val left = if (scaleOnRight) outer.left else outer.left + valueAxisWidth
             val right = if (scaleOnRight) outer.right - valueAxisWidth else outer.right
             val top = outer.top
-            val bottom = outer.bottom
+            val bottom = if (showTimeAxis) outer.bottom - TIME_AXIS_HEIGHT_DP.dp else outer.bottom
             val gap = 14f.dp
             val half = (bottom - top - gap) / 2f
             val iobPlot = RectF(left, top, right, top + half)
@@ -1098,6 +1101,9 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             canvas.restoreToCount(graphSave)
             drawMetabolicScale(canvas, iobDataPlot, iobRange, scaleOnRight)
             drawMetabolicScale(canvas, cobPlot, cobRange, scaleOnRight)
+            if (showTimeAxis) {
+                drawSharedGrid(canvas, iobDataPlot, cobPlot, outer.bottom, start, end, chartNow, dividerX)
+            }
         }
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.BORDER)
         linePaint.strokeWidth = 1f.dp

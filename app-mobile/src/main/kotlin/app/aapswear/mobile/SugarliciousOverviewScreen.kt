@@ -295,7 +295,7 @@ private fun GlucoseHeroCard(
         ) {
             Box(
                 modifier = Modifier
-                    .width(132.dp)
+                    .weight(132f)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
@@ -337,9 +337,9 @@ private fun GlucoseHeroCard(
             }
 
             if (detailMode == GlucoseTileDetailMode.TIR) {
-                TirProgressColumn(stats = tirStats, modifier = Modifier.width(210.dp).fillMaxHeight())
+                TirProgressColumn(stats = tirStats, modifier = Modifier.weight(210f).fillMaxHeight())
             } else {
-                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.width(210.dp).fillMaxHeight())
+                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.weight(210f).fillMaxHeight())
             }
         }
     }
@@ -707,6 +707,7 @@ private fun MetabolicGraphSurface(
                     !preferences.showCgmBasal &&
                     !preferences.showCgmActivity &&
                     !preferences.anyCgmPredictionEnabled,
+                showTimeAxis = !preferences.showCgmGraph,
                 clockEpochMs = now,
             )
         },

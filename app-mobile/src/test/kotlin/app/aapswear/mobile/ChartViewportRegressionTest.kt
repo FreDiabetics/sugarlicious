@@ -113,4 +113,18 @@ class ChartViewportRegressionTest {
         assertTrue(restored.snapshot(now).durationMs <= 24L * hour)
         assertTrue(restored.snapshot(now).endEpochMs <= now)
     }
+
+    @Test
+    fun `saved state retains requested duration while history is temporarily short`() {
+        val viewport = ChartViewport(6).apply {
+            setAvailablePastWindow(1L * hour, now)
+        }
+
+        val restored = ChartViewport(1).apply {
+            restore(viewport.savedState(now), now)
+            setAvailablePastWindow(8L * hour, now)
+        }
+
+        assertEquals(6f, restored.hours, 0.0001f)
+    }
 }
