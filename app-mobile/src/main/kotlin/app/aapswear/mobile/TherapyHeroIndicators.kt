@@ -146,7 +146,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
     ) {
         Box(Modifier.size(61.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 9.dp.toPx()
+                val stroke = 7.dp.toPx()
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(
