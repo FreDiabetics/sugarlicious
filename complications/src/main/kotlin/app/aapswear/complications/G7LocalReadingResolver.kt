@@ -30,6 +30,7 @@ import app.aapswear.protocol.WatchDataSource
  */
 object G7LocalReadingResolver {
     private val readingsUri = Uri.parse("content://app.aapswear.g7watch.readings/readings")
+    private val stateUri = Uri.parse("content://app.aapswear.g7watch.readings/state")
     private const val HISTORY_WINDOW_MS = 24 * 60 * 60_000L
     private const val MAX_HISTORY_POINTS = 300
     private const val PREFS = "canonical_cgm_resolver"
@@ -56,6 +57,7 @@ object G7LocalReadingResolver {
             }.getOrDefault(WatchDataSource.AUTOMATIC)
 
         val directRows = readDirectRows(context)
+        val directSensorState = readDirectSensorState(context)
         val latestDirectEvent = directRows.maxByOrNull(LocalReading::measuredAt)
         val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
         val mobileCandidate = fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
@@ -71,7 +73,7 @@ object G7LocalReadingResolver {
         }
         val watchCandidate = latestDirect?.toCandidate()
 
-        if (fallback == null && latestDirectEvent == null) return null
+        if (fallback == null && latestDirectEvent == null && directSensorState == null) return null
 
         val previous = readMemory(context)
         val resolution =
@@ -154,7 +156,7 @@ object G7LocalReadingResolver {
             source = chosenSource,
             sourceVersion = sourceVersion,
             sourceContract =
-                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}",
+                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directSensorState ?: "UNKNOWN"}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
                     ?: chosenGlucose?.receivedAtEpochMs
@@ -196,6 +198,15 @@ object G7LocalReadingResolver {
             ?.substringAfter("CANONICAL_CGM_V2:")
             ?.substringBefore(':')
             ?.let { runCatching { CgmSourceState.valueOf(it) }.getOrNull() }
+
+    fun directSensorState(state: TherapyDisplayState?): String? =
+        state?.sourceContract?.substringAfter(":SENSOR_", "")?.takeIf(String::isNotBlank)
+
+    private fun readDirectSensorState(context: Context): String? = runCatching {
+        context.contentResolver.query(stateUri, null, null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(cursor.getColumnIndexOrThrow("sensor_state")) else null
+        }
+    }.getOrNull()
 
     private fun readDirectRows(context: Context): List<LocalReading> =
         runCatching {

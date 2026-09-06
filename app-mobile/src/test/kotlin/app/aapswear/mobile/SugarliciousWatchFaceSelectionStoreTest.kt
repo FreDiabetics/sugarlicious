@@ -24,7 +24,7 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
-    fun `sixth Sugarlicious face persists without legacy clamp`() {
+    fun `Vigil persists in the reduced catalog`() {
         SugarliciousWatchFaceSelectionStore.write(context, DIRECT_TO_WATCH_FACE_INDEX)
         assertEquals(DIRECT_TO_WATCH_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
     }
@@ -87,10 +87,10 @@ class SugarliciousWatchFaceSelectionStoreTest {
     @Test
     fun `unavailable saved direct to watch falls back to legacy selectable face`() {
         assertEquals(
-            2,
+            0,
             SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
                 savedFaceIndex = DIRECT_TO_WATCH_FACE_INDEX,
-                legacyFallback = 2,
+                legacyFallback = 0,
                 directToWatchRelevant = false,
             ),
         )
@@ -98,7 +98,7 @@ class SugarliciousWatchFaceSelectionStoreTest {
             DIRECT_TO_WATCH_FACE_INDEX,
             SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
                 savedFaceIndex = DIRECT_TO_WATCH_FACE_INDEX,
-                legacyFallback = 2,
+                legacyFallback = 0,
                 directToWatchRelevant = true,
             ),
         )
@@ -106,7 +106,7 @@ class SugarliciousWatchFaceSelectionStoreTest {
 
     @Test
     fun `one hundred cgm collector and data layer refreshes cannot change selected face`() {
-        val selectedFace = 3
+        val selectedFace = 0
         SugarliciousWatchFaceSelectionStore.write(context, selectedFace)
         var reduced = selectedFace
 

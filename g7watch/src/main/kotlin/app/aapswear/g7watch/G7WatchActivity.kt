@@ -20,12 +20,16 @@ import android.widget.FrameLayout
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7SessionManager
+import app.aapswear.g7.G7SessionState
+import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
@@ -42,6 +46,11 @@ import java.util.Locale
 
 internal fun hasUsableCollectorSession(reading: CgmReading?, sensorId: String?): Boolean =
     reading != null && reading.status == CgmReadingStatus.VALID && reading.sensorId == sensorId
+
+internal fun requiresPairingGate(state: G7PersistedState): Boolean =
+    state.sensor == null ||
+        state.sensor?.state == G7SensorState.ENDED ||
+        (state.sessionState == G7SessionState.INITIAL_SETUP && !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId))
 
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
@@ -113,8 +122,8 @@ class G7WatchActivity : Activity() {
     private fun refreshScreen() {
         val palette = appearanceStore.load()
         val state = G7SensorStateStore(this).read()
-        if (!hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)) {
-            buildPairingGate(palette, state.collectorEnabled, state.lastError?.safeMessage)
+        if (requiresPairingGate(state)) {
+            buildPairingGate(palette, state)
         } else if (!screenBuilt || pairingGateVisible || palette != activePalette) {
             pairingGateVisible = false
             mainHandler.removeCallbacks(pairingRefresh)
@@ -122,7 +131,7 @@ class G7WatchActivity : Activity() {
         } else refreshLiveContent()
     }
 
-    private fun buildPairingGate(palette: G7AppearancePalette, pairingStarted: Boolean, error: String?) {
+    private fun buildPairingGate(palette: G7AppearancePalette, state: G7PersistedState) {
         pairingGateVisible = true
         screenBuilt = false
         activePalette = palette
@@ -135,15 +144,46 @@ class G7WatchActivity : Activity() {
             setPadding(26.dp, 24.dp, 26.dp, 36.dp)
             setBackgroundColor(background)
         }
-        content.addView(ImageView(this).apply {
-            setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "Sensor koppeln"
-        }, LinearLayout.LayoutParams(70.dp, 70.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        val timedOut = state.scanTimeoutAtEpochMs?.let { System.currentTimeMillis() >= it } == true
+        val pairingStarted = state.collectorEnabled && !timedOut
         content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-        content.addView(label(
-            if (pairingStarted) "Sensor wird gesucht und sicher gekoppelt …" else "Vierstelligen Kopplungscode vom Sensor eingeben",
-            12f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), false,
-        ).apply { setPadding(4.dp, 10.dp, 4.dp, 12.dp) })
+        if (pairingStarted) {
+            content.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                addView(ImageView(this@G7WatchActivity).apply {
+                    setImageResource(R.drawable.ic_g7_sensor)
+                    contentDescription = "Sensor"
+                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+                addView(ProgressBar(this@G7WatchActivity).apply {
+                    isIndeterminate = true
+                    contentDescription = "Sensor wird gesucht"
+                }, LinearLayout.LayoutParams(64.dp, 38.dp).apply { setMargins(8.dp, 0, 8.dp, 0) })
+                addView(ImageView(this@G7WatchActivity).apply {
+                    setImageResource(R.drawable.ic_watch_device)
+                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
+                    contentDescription = "Smartwatch"
+                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
+            })
+            content.addView(label(
+                "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern.",
+                11f,
+                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+            ).apply { setPadding(4.dp, 12.dp, 4.dp, 0) })
+        } else {
+            content.addView(ImageView(this).apply {
+                setImageResource(R.drawable.ic_g7_sensor)
+                contentDescription = "Sensor koppeln"
+            }, LinearLayout.LayoutParams(56.dp, 56.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            content.addView(label(
+                if (timedOut) "Verbindung zum Sensor fehlgeschlagen" else "Vierstelligen Kopplungscode vom Sensor eingeben",
+                12f,
+                if (timedOut) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                timedOut,
+            ).apply { setPadding(4.dp, 8.dp, 4.dp, 10.dp) })
+        }
         if (!pairingStarted) {
             val code = EditText(this).apply {
                 hint = "0000"
@@ -156,7 +196,7 @@ class G7WatchActivity : Activity() {
                 contentDescription = "Vierstelliger G7 Kopplungscode"
             }
             content.addView(code, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 58.dp))
-            content.addView(pill("Koppeln", PillStyle.PRIMARY, palette) {
+            content.addView(pill(if (timedOut) "Sensorcode erneut eingeben" else "Koppeln", PillStyle.PRIMARY, palette) {
                 val entered = code.text?.toString().orEmpty()
                 if (entered.length != 4 || entered.any { !it.isDigit() }) {
                     code.error = "Bitte genau vier Ziffern eingeben"
@@ -173,16 +213,11 @@ class G7WatchActivity : Activity() {
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
             })
-        } else {
-            content.addView(label(error ?: "Die Android-Kopplungsabfrage bitte auf der Uhr bestätigen.", 11f,
-                if (error == null) palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY) else palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
-            content.addView(pill("Erneut versuchen", PillStyle.SECONDARY, palette) {
-                G7CollectorService.restart(this)
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
-            })
         }
-        setContentView(G7EdgeFadeScrollView(this).apply { isFillViewport = true; addView(content) }.applyG7EdgeFade())
+        setContentView(FrameLayout(this).apply {
+            setBackgroundColor(background)
+            addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        })
         mainHandler.removeCallbacks(pairingRefresh)
         mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
@@ -352,8 +387,8 @@ class G7WatchActivity : Activity() {
             statusHost.removeAllViews()
             statusHost.addView(statusPill(userStatus, palette))
             glucoseHost.removeAllViews()
-            glucoseHost.addView(label("Direct to Watch - Glukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
-                gravity = Gravity.CENTER
+            glucoseHost.addView(label("Gewebeglukosewert", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
                 setPadding(0, 0, 0, 5.dp)
             })
             glucoseHost.addView(glucoseTile(state.lastReading, palette))

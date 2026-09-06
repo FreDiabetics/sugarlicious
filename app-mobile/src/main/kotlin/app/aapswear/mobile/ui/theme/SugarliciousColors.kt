@@ -75,6 +75,9 @@ enum class SugarliciousColorRole(
     YELLOW("yellow", "Gelb / Warnung", SugarliciousColorGroup.THERAPY, 0xFFF4DE00.toInt()),
     PURPLE("purple", "Violett", SugarliciousColorGroup.THERAPY, 0xFFD69AFF.toInt()),
     RED("red", "Rot / Fehler", SugarliciousColorGroup.THERAPY, 0xFFFF5C69.toInt()),
+    THERAPY_IOB_PROGRESS("therapy_iob_progress", "IOB-Ring", SugarliciousColorGroup.THERAPY, 0xFF64BFFF.toInt(), 0xFF2479B7.toInt(), true),
+    THERAPY_COB_PROGRESS("therapy_cob_progress", "COB-Ring", SugarliciousColorGroup.THERAPY, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
+    THERAPY_BASAL_PROGRESS("therapy_basal_progress", "Basal-Ring", SugarliciousColorGroup.THERAPY, 0xFF19D7E8.toInt(), 0xFF087E89.toInt(), true),
 
     PREDICTION_IOB("prediction_iob", AppearanceTerminology.PREDICTION_IOB, SugarliciousColorGroup.GRAPH, 0xFF52C1FF.toInt()),
     PREDICTION_COB("prediction_cob", AppearanceTerminology.PREDICTION_COB, SugarliciousColorGroup.GRAPH, 0xFFF4DE00.toInt()),

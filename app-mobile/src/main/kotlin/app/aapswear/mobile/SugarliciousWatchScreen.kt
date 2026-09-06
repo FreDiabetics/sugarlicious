@@ -36,7 +36,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayState
 import kotlinx.coroutines.launch
 
-internal const val DIRECT_TO_WATCH_FACE_INDEX = 5
+internal const val DIRECT_TO_WATCH_FACE_INDEX = 1
 
 internal enum class WatchFaceSelectionEvent {
     USER_SELECTION,
@@ -66,34 +66,10 @@ internal data class SugarliciousWatchFaceCard(
 internal val sugarliciousWatchFaceCards =
     listOf(
         SugarliciousWatchFaceCard(
-            name = "Sugarlicious Analog",
+            name = "ApeX",
             style = "Analog",
             slots = 8,
             features = listOf("Graph", "AOD"),
-        ),
-        SugarliciousWatchFaceCard(
-            name = "Sugarlicious Orbit",
-            style = "Analog",
-            slots = 4,
-            features = listOf("Glukosering", "Graph", "AOD"),
-        ),
-        SugarliciousWatchFaceCard(
-            name = "Sugarlicious Rings",
-            style = "Analog",
-            slots = 4,
-            features = listOf("Glukosering", "Graph", "AOD"),
-        ),
-        SugarliciousWatchFaceCard(
-            name = "Sugarlicious Graph",
-            style = "Analog",
-            slots = 4,
-            features = listOf("Großer Graph", "AOD"),
-        ),
-        SugarliciousWatchFaceCard(
-            name = "Sugarlicious Digital",
-            style = "Digital",
-            slots = 8,
-            features = listOf("Glukose", "Graph", "AOD"),
         ),
         SugarliciousWatchFaceCard(
             name = "Vigil",
@@ -317,7 +293,7 @@ private fun WatchFaceTile(
             )
             if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
-                    text = if (enabled) "Direct-to-Watch-Stil" else "Direct to Watch erforderlich",
+                    text = if (enabled) "Direct-To-Watch Ziffernblatt" else "Direct to Watch erforderlich",
                     color = if (enabled) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,

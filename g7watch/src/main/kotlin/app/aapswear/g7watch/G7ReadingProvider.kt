@@ -19,6 +19,12 @@ class G7ReadingProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?,
     ): Cursor {
+        if (uri.lastPathSegment == "state") {
+            val state = G7SensorStateStore(requireNotNull(context)).read()
+            return MatrixCursor(arrayOf("sensor_state", "session_state", "collector_enabled", "sensor_id", "session_id")).apply {
+                addRow(arrayOf<Any?>(state.sensor?.state?.name ?: "NOT_ACTIVE", state.sessionState.name, if (state.collectorEnabled) 1 else 0, state.sensor?.sensorId, state.sensor?.sessionId))
+            }
+        }
         if (uri.lastPathSegment == "diagnostics") {
             val columns =
                 arrayOf(
@@ -132,6 +138,7 @@ class G7ReadingProvider : ContentProvider() {
         when (uri.lastPathSegment) {
             "latest" -> "vnd.android.cursor.item/vnd.sugarlicious.g7"
             "diagnostics" -> "vnd.android.cursor.dir/vnd.sugarlicious.diagnostics"
+            "state" -> "vnd.android.cursor.item/vnd.sugarlicious.g7.state"
             "unsynced" -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
             else -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
         }
@@ -155,5 +162,6 @@ class G7ReadingProvider : ContentProvider() {
     companion object {
         val CONTENT_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/readings")
         val DIAGNOSTICS_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/diagnostics")
+        val STATE_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/state")
     }
 }

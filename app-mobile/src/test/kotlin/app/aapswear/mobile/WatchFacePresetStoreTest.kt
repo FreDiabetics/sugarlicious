@@ -29,9 +29,9 @@ class WatchFacePresetStoreTest {
     }
 
     @Test
-    fun `digital face keeps its own preset`() {
-        WatchFacePresetStore.save(context, faceIndex = 4, complicationIds = listOf(1))
+    fun `ApeX keeps its own preset`() {
+        WatchFacePresetStore.save(context, faceIndex = 0, complicationIds = listOf(1))
 
-        assertEquals(listOf(1), WatchFacePresetStore.read(context, faceIndex = 4))
+        assertEquals(listOf(1), WatchFacePresetStore.read(context, faceIndex = 0))
     }
 }

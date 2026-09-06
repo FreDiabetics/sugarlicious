@@ -24,6 +24,23 @@ class G7FoundationTest {
         assertNull(CgmDeltaCalculator.calculate(reading(112.0), reading(108.0, now - 20 * 60_000L)))
     }
 
+    @Test fun `reading identity is independent of transport sequence`() {
+        fun converted(sequence: Long) = G7Reading(
+            sensorId = "sensor",
+            sessionId = "session",
+            sequenceNumber = sequence,
+            glucoseMgDl = 123.0,
+            sensorTimestampEpochMs = now,
+            receivedAtEpochMs = now,
+            sensorState = G7SensorState.ACTIVE,
+        ).toCgm()
+        assertEquals(
+            converted(2_423L).id,
+            converted(2_420L).id,
+        )
+        assertTrue(CgmReadingIdentity.create("sensor", "session", now) != CgmReadingIdentity.create("sensor", "session", now + 300_000L))
+    }
+
     @Test fun `delta rejects sensor errors and implausible glucose values`() {
         val sensorError = reading(0.0, now - 5 * 60_000L).copy(status = CgmReadingStatus.SENSOR_ERROR)
         assertNull(CgmDeltaCalculator.calculate(reading(112.0), sensorError))

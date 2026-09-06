@@ -478,6 +478,12 @@ class DashboardChartsTest {
         assertEquals(1.0, maximum, 0.0001)
     }
 
+    @Test fun `configured glucose maximum becomes the visible top of the graph`() {
+        assertEquals(1.0, glucoseLogRatio(300.0, 300.0), 0.0001)
+        assertTrue(glucoseLogRatio(200.0, 300.0) < 1.0)
+        assertEquals(1.0, glucoseLogRatio(600.0, 300.0), 0.0001)
+    }
+
     @Test fun `viewport cannot pan beyond configured future edge`() {
         val now = 10_000_000L
         val viewport = ChartViewport(6)

@@ -15,6 +15,16 @@ internal data class DashboardLayoutMetrics(
     val metabolicChartHeight: Int,
     val statTileHeight: Int,
 ) {
+    fun cgmGraphHeight(
+        visibility: DashboardVisibilityState,
+        gapDp: Int,
+    ): Int {
+        val defaultHeight = maxOf(metabolicChartHeight - 10, 104)
+        val recoveredDetailsHeight = if (visibility.showTherapyDetails) 0 else statTileHeight + gapDp
+        val recoveredMetabolicHeight = if (visibility.showMetabolicGraph) 0 else metabolicChartHeight + gapDp
+        return defaultHeight + recoveredDetailsHeight + recoveredMetabolicHeight
+    }
+
     companion object {
         fun forScreenHeight(screenHeightDp: Int): DashboardLayoutMetrics = when {
             screenHeightDp >= 960 -> DashboardLayoutMetrics(
@@ -50,3 +60,8 @@ internal data class DashboardLayoutMetrics(
         }
     }
 }
+
+internal data class DashboardVisibilityState(
+    val showTherapyDetails: Boolean,
+    val showMetabolicGraph: Boolean,
+)

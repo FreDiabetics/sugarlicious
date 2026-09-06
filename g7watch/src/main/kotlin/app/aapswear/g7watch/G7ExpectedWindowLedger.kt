@@ -2,31 +2,45 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorExpectedWindow
 import app.aapswear.g7.CollectorHardwareMetrics
+import app.aapswear.g7.CollectorWindowTerminalState
 import app.aapswear.g7.DirectConnectResult
+import android.os.Process
+import android.os.SystemClock
+import android.provider.Settings
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlin.math.ceil
 
 internal class G7ExpectedWindowLedger(context: Context) {
-    private val preferences = context.applicationContext
+    private val app = context.applicationContext
+    private val preferences = app
         .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
     private val serializer = ListSerializer(CollectorExpectedWindow.serializer())
 
-    fun create(expectedAt: Long, primaryAlarmScheduledAt: Long): CollectorExpectedWindow = synchronized(lock) {
+    fun create(expectedAt: Long, primaryAlarmScheduledAt: Long, alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE): CollectorExpectedWindow = synchronized(lock) {
         val id = expectedWindowId(expectedAt)
         val current = load().firstOrNull { it.expectedWindowId == id }
+        val sensor = G7SensorStateStore(app).read().sensor
         val window = (current ?: CollectorExpectedWindow(id, expectedAt)).copy(
             primaryAlarmScheduledAt = primaryAlarmScheduledAt,
+            sensorId = current?.sensorId ?: sensor?.sensorId,
+            sessionId = current?.sessionId ?: sensor?.sessionId,
+            alarmKind = alarmKind,
+            bootId = current?.bootId ?: bootId(),
         )
         saveUpsert(window)
         window
     }
 
-    fun markPrimaryTriggered(id: String?, at: Long) = update(id) { it.copy(primaryAlarmTriggeredAt = at) }
-    fun markCycleStarted(id: String?, at: Long) = update(id) { it.copy(cycleStartedAt = at) }
+    fun markPrimaryTriggered(id: String?, at: Long) = update(id) { it.copy(primaryAlarmTriggeredAt = at, alarmDeliveredAt = at, receiverReachedAt = at) }
+    fun markServiceRequested(id: String?, at: Long) = update(id) { it.copy(serviceRequestedAt = at) }
+    fun markCycleStarted(id: String?, at: Long, attemptId: Long, wakeLockAt: Long?) = update(id) {
+        it.copy(cycleStartedAt = at, serviceStartedAt = at, wakeLockAcquiredAt = wakeLockAt, processId = Process.myPid(), processUptimeMs = SystemClock.elapsedRealtime(), attemptId = attemptId)
+    }
     fun markAdvertisement(id: String?, at: Long) = update(id) { it.copy(advertisementSeenAt = at) }
     fun markFallbackScan(id: String?, advertisementSeenAt: Long?) = update(id) {
         it.copy(fallbackScanUsed = true, advertisementSeenAt = advertisementSeenAt ?: it.advertisementSeenAt)
@@ -42,10 +56,10 @@ internal class G7ExpectedWindowLedger(context: Context) {
         )
     }
     fun markReading(id: String?, at: Long) = update(id) {
-        it.copy(readingReceivedAt = at, finalResult = CollectorCycleClassification.SUCCESS_FRESH, recoveryRequired = false)
+        it.copy(readingReceivedAt = at, finalResult = CollectorCycleClassification.SUCCESS_FRESH, recoveryRequired = false, terminalState = CollectorWindowTerminalState.SUCCESS_FRESH, terminalReason = "validated live reading stored", completedAt = at)
     }
-    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean) = update(id) {
-        it.copy(finalResult = result, recoveryRequired = recoveryRequired)
+    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean, reason: String? = null) = update(id) {
+        it.copy(finalResult = result, recoveryRequired = recoveryRequired, terminalState = result.toTerminalState(), terminalReason = reason ?: result.name, completedAt = System.currentTimeMillis())
     }
     fun markWatchdogScheduled(id: String?, at: Long) = update(id) { it.copy(watchdogScheduledAt = at) }
     fun markWatchdogTriggered(id: String?, at: Long) = update(id) { it.copy(watchdogTriggeredAt = at) }
@@ -75,12 +89,28 @@ internal class G7ExpectedWindowLedger(context: Context) {
         ?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }
         .orEmpty()
 
+    private fun bootId(): String = runCatching {
+        Settings.Global.getInt(app.contentResolver, Settings.Global.BOOT_COUNT).toString()
+    }.getOrDefault("unknown")
+
     private companion object {
         const val PREFERENCES = "g7_expected_window_ledger"
         const val KEY_WINDOWS = "windows_v1"
-        const val MAX_WINDOWS = 512
+        const val MAX_WINDOWS = 640
         val lock = Any()
     }
+}
+
+private fun CollectorCycleClassification.toTerminalState(): CollectorWindowTerminalState = when (this) {
+    CollectorCycleClassification.SUCCESS_FRESH, CollectorCycleClassification.SUCCESS_AGED -> CollectorWindowTerminalState.SUCCESS_FRESH
+    CollectorCycleClassification.SERVICE_START_FAILED -> CollectorWindowTerminalState.SERVICE_START_FAILED
+    CollectorCycleClassification.AUTH_FAILED -> CollectorWindowTerminalState.AUTH_FAILED
+    CollectorCycleClassification.GATT_NO_CALLBACK, CollectorCycleClassification.GLUCOSE_TIMEOUT -> CollectorWindowTerminalState.NO_CALLBACK
+    CollectorCycleClassification.GATT_CONNECT_FAILED, CollectorCycleClassification.DIRECT_CONNECT_FAILED -> CollectorWindowTerminalState.CONNECT_FAILED
+    CollectorCycleClassification.FALLBACK_SCAN_FAILED, CollectorCycleClassification.NO_ADVERTISEMENT, CollectorCycleClassification.SCAN_STARTED_LATE -> CollectorWindowTerminalState.SCAN_FAILED
+    CollectorCycleClassification.CANCELLED, CollectorCycleClassification.COALESCED -> CollectorWindowTerminalState.CANCELLED
+    CollectorCycleClassification.MISSED_SENSOR_WINDOW, CollectorCycleClassification.ALARM_LATE -> CollectorWindowTerminalState.MISSED_WINDOW
+    else -> CollectorWindowTerminalState.UNKNOWN
 }
 
 internal fun expectedWindowId(expectedAt: Long): String = "g7-window-$expectedAt"

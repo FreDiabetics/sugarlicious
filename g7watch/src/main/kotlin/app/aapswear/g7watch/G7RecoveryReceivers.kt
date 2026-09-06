@@ -81,6 +81,7 @@ class G7ReconnectReceiver : BroadcastReceiver() {
             nowEpochMs = now,
         )
         G7WakeHandoff.acquire(context)
+        G7ExpectedWindowLedger(context).markServiceRequested(scheduled?.expectedWindowId, System.currentTimeMillis())
         runCatching { G7CollectorService.startScheduledReconnect(context) }
             .onFailure { error ->
                 G7WakeHandoff.release()
@@ -95,6 +96,7 @@ class G7ReconnectReceiver : BroadcastReceiver() {
                     nowEpochMs = now,
                 )
                 diagnosticStore.setClassification(attempt.attemptId, CollectorCycleClassification.SERVICE_START_FAILED)
+                G7ExpectedWindowLedger(context).markFinal(scheduled?.expectedWindowId, CollectorCycleClassification.SERVICE_START_FAILED, recoveryRequired = true, reason = error.javaClass.simpleName)
                 diagnosticStore.record(
                     attempt.attemptId,
                     CollectorDiagnosticStage.ERROR,

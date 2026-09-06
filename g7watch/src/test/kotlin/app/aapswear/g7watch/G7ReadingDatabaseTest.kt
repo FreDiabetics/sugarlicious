@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmReading
+import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
@@ -176,6 +177,93 @@ class G7ReadingDatabaseTest {
         assertEquals(false, database.insert(live.copy(id = "backfill-42", receivedAtEpochMs = now + 10_000L)))
         assertEquals(true, database.insert(live.copy(id = "later-42", timestampEpochMs = now + 300_000L, rawSourceTimestamp = 12_900L)))
         assertEquals(2, database.query().size)
+    }
+
+    @Test
+    fun `same real measurement deduplicates even when live and backfill sequences disagree`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live-2423", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 193.0,
+            timestampEpochMs = now, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, sequenceNumber = 2_423L,
+            rawSourceTimestamp = 12_600L, origin = CgmReadingOrigin.LIVE,
+        )
+        val backfill = live.copy(
+            id = "backfill-2420",
+            receivedAtEpochMs = now + 10_000L,
+            sequenceNumber = 2_420L,
+            rawSourceTimestamp = 12_300L,
+            origin = CgmReadingOrigin.BACKFILL,
+        )
+
+        assertEquals(true, database.insert(live))
+        assertEquals(false, database.insert(backfill))
+        assertEquals(listOf(live), database.query())
+    }
+
+    @Test
+    fun `live upgrades matching backfill without creating a second sync row`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val backfill = CgmReading(
+            id = "backfill", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 193.0,
+            timestampEpochMs = now, receivedAtEpochMs = now + 20_000L,
+            status = CgmReadingStatus.VALID, sequenceNumber = 2_420L,
+            rawSourceTimestamp = 12_300L, origin = CgmReadingOrigin.BACKFILL,
+        )
+        val live = backfill.copy(
+            id = "live",
+            receivedAtEpochMs = now + 1_000L,
+            sequenceNumber = 2_423L,
+            rawSourceTimestamp = 12_600L,
+            origin = CgmReadingOrigin.LIVE,
+        )
+
+        assertEquals(true, database.insert(backfill))
+        database.markSynced(setOf(backfill.id))
+        assertEquals(true, database.insert(live))
+        val stored = database.query()
+        assertEquals(1, stored.size)
+        assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
+        assertEquals(2_423L, stored.single().sequenceNumber)
+        assertEquals(emptyList<CgmReading>(), database.getUnsynced())
+    }
+
+    @Test
+    fun `same sequence at a different measurement timestamp remains a distinct reading`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val first = CgmReading(
+            id = "first", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 120.0,
+            timestampEpochMs = now, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, sequenceNumber = 330L,
+        )
+        val second = first.copy(id = "second", timestampEpochMs = now + 300_000L, receivedAtEpochMs = now + 300_000L)
+
+        assertEquals(true, database.insert(first))
+        assertEquals(true, database.insert(second))
+        assertEquals(2, database.query().size)
+    }
+
+    @Test
+    fun `version four migration collapses legacy timestamp duplicates and preserves sync`() = runBlocking {
+        database.close()
+        context.deleteDatabase(DATABASE_NAME)
+        context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null).use { legacy ->
+            legacy.execSQL("CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE', synced INTEGER NOT NULL DEFAULT 0)")
+            legacy.execSQL("INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status,sequence_number,origin,synced) VALUES ('backfill','sensor','session',193,1000,3000,'FLAT','VALID',2420,'BACKFILL',1)")
+            legacy.execSQL("INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status,sequence_number,origin,synced) VALUES ('live','sensor','session',193,1000,2000,'FLAT','VALID',2423,'LIVE',0)")
+            legacy.version = 3
+        }
+
+        database = G7ReadingDatabase(context)
+
+        val stored = database.query()
+        assertEquals(1, stored.size)
+        assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
+        assertEquals(2_423L, stored.single().sequenceNumber)
+        assertEquals(emptyList<CgmReading>(), database.getUnsynced())
     }
 
     private companion object {

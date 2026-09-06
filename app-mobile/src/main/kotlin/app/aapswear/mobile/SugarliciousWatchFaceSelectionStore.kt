@@ -5,22 +5,31 @@ import app.aapswear.model.DataSourceId
 import app.aapswear.model.TherapyDisplayState
 
 /**
- * Keeps all six Sugarlicious watch-face selections on the existing dashboard_ui key, so no
+ * Keeps the enabled Sugarlicious watch-face selections on the existing dashboard_ui key, so no
  * parallel persistence store or collector-driven selection state is introduced.
  */
 internal object SugarliciousWatchFaceSelectionStore {
     private const val PREFS = "dashboard_ui"
     private const val KEY_FACE_INDEX = "watchFaceIndex"
+    private const val KEY_FACE_CATALOG_VERSION = "watchFaceCatalogVersion"
+    private const val FACE_CATALOG_VERSION = 2
 
-    fun read(context: Context, fallback: Int = 1): Int =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_FACE_INDEX, fallback)
-            .coerceIn(sugarliciousWatchFaceCards.indices)
+    fun read(context: Context, fallback: Int = 0): Int {
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val stored = preferences.getInt(KEY_FACE_INDEX, fallback)
+        if (preferences.getInt(KEY_FACE_CATALOG_VERSION, 1) < FACE_CATALOG_VERSION) {
+            val migrated = if (stored >= 5) DIRECT_TO_WATCH_FACE_INDEX else 0
+            write(context, migrated)
+            return migrated
+        }
+        return stored.coerceIn(sugarliciousWatchFaceCards.indices)
+    }
 
     fun write(context: Context, faceIndex: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putInt(KEY_FACE_INDEX, faceIndex.coerceIn(sugarliciousWatchFaceCards.indices))
+            .putInt(KEY_FACE_CATALOG_VERSION, FACE_CATALOG_VERSION)
             .apply()
     }
 

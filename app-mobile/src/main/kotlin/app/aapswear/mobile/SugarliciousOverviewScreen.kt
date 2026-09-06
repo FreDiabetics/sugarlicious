@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,8 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,22 +75,38 @@ internal fun SugarliciousOverviewScreen(
     }
     val metrics = DashboardLayoutMetrics.forScreenHeight(screenHeightDp)
     val gap = if (preferences.compact || preferences.showMetabolicGraph) 5.dp else 8.dp
-    val baseGraphHeightDp = maxOf(
-        metrics.metabolicChartHeight - 18,
-        96,
+    val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
+    val visibility = DashboardVisibilityState(
+        showTherapyDetails = preferences.effectiveShowDetails,
+        showMetabolicGraph = preferences.showMetabolicGraph,
     )
-    val matchedGraphHeightDp = baseGraphHeightDp + 8
-    val cgmGraphHeightDp = if (preferences.showMetabolicGraph) matchedGraphHeightDp else baseGraphHeightDp
-    val metabolicGraphHeightDp = matchedGraphHeightDp
+    val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
+    val metabolicGraphHeightDp = maxOf(metrics.metabolicChartHeight - 10, 104)
     val overviewHeightCompensationDp = if (preferences.showMetabolicGraph) 8 else 0
 
-    val cgmChartViewport =
-        remember {
-            ChartViewport(
-                preferences.graphHours,
-            )
-        }
+    val cgmChartViewport = rememberSaveable(
+        saver = listSaver(
+            save = { viewport ->
+                val state = viewport.savedState()
+                listOf(
+                    state.historyHours.toRawBits().toLong(),
+                    state.navigationEndEpochMs ?: Long.MIN_VALUE,
+                )
+            },
+            restore = { values ->
+                ChartViewport(preferences.graphHours).apply {
+                    restore(
+                        GraphViewportSavedState(
+                            historyHours = Float.fromBits(values[0].toInt()),
+                            navigationEndEpochMs = values[1].takeUnless { it == Long.MIN_VALUE },
+                        ),
+                    )
+                }
+            },
+        ),
+    ) { ChartViewport(preferences.graphHours) }
     val metabolicChartViewport = cgmChartViewport
+    var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
 
     val predictionFutureWindowMs =
         if (
@@ -132,14 +152,13 @@ internal fun SugarliciousOverviewScreen(
     LaunchedEffect(
         preferences.graphHours,
     ) {
-        cgmChartViewport.setHours(
-            preferences.graphHours.toFloat(),
-            resetPan = true,
-        )
-        metabolicChartViewport.setHours(
-            preferences.graphHours.toFloat(),
-            resetPan = true,
-        )
+        if (preferences.graphHours != appliedGraphHours) {
+            cgmChartViewport.setHours(
+                preferences.graphHours.toFloat(),
+                resetPan = true,
+            )
+            appliedGraphHours = preferences.graphHours
+        }
     }
 
     LaunchedEffect(
@@ -197,6 +216,8 @@ internal fun SugarliciousOverviewScreen(
             age = age,
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
+            detailMode = preferences.glucoseTileDetailMode,
+            therapyIndicators = therapyIndicatorPresentations(state.takeIf { displayable }, preferences.iobProgressMaximumUnits, now),
             visualSpec = GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
                 preferences.glucoseScalePercent,
                 preferences.trendScalePercent,
@@ -204,7 +225,7 @@ internal fun SugarliciousOverviewScreen(
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
 
-        if (preferences.showDetails) {
+        if (preferences.effectiveShowDetails) {
             QuickStatsRow(
                 state = state.takeIf { displayable },
                 heightDp = maxOf(metrics.statTileHeight - overviewHeightCompensationDp, 56),
@@ -243,6 +264,8 @@ private fun GlucoseHeroCard(
     age: String,
     unitLabel: String,
     tirStats: TirStats,
+    detailMode: GlucoseTileDetailMode,
+    therapyIndicators: List<TherapyIndicatorPresentation>,
     visualSpec: GlucoseVisualSpec,
     heightDp: Int,
 ) {
@@ -267,11 +290,12 @@ private fun GlucoseHeroCard(
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(132f)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
@@ -312,12 +336,11 @@ private fun GlucoseHeroCard(
                 }
             }
 
-            Spacer(Modifier.width(20.dp))
-
-            TirProgressColumn(
-                stats = tirStats,
-                modifier = Modifier.width(194.dp).fillMaxHeight(),
-            )
+            if (detailMode == GlucoseTileDetailMode.TIR) {
+                TirProgressColumn(stats = tirStats, modifier = Modifier.weight(210f).fillMaxHeight())
+            } else {
+                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.weight(210f).fillMaxHeight())
+            }
         }
     }
 }
@@ -584,6 +607,7 @@ private fun GlucoseGraphSurface(
     onGraphHours: (Int) -> Unit,
 ) {
     var visibleHours by remember(viewport) { mutableFloatStateOf(viewport.visibleHours) }
+    val scaleTapInteraction = remember { MutableInteractionSource() }
     DisposableEffect(viewport) {
         val listener = { visibleHours = viewport.visibleHours }
         viewport.addListener(listener)
@@ -609,9 +633,9 @@ private fun GlucoseGraphSurface(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .clickable {
-                    val next = OVERVIEW_GRAPH_HOUR_OPTIONS.firstOrNull { it > visibleHours + 0.05f }
-                        ?: OVERVIEW_GRAPH_HOUR_OPTIONS.first()
+                .clickable(indication = null, interactionSource = scaleTapInteraction) {
+                    val currentIndex = OVERVIEW_GRAPH_HOUR_OPTIONS.indexOf(preferences.graphHours).coerceAtLeast(0)
+                    val next = OVERVIEW_GRAPH_HOUR_OPTIONS[(currentIndex + 1) % OVERVIEW_GRAPH_HOUR_OPTIONS.size]
                     onGraphHours(next)
                 }
                 .padding(start = 9.dp, top = 7.dp, end = 8.dp, bottom = 7.dp),
@@ -647,6 +671,7 @@ internal fun GlucoseDashboardChart.bindOverview(
         cgmDotRadiusDp = preferences.cgmDotRadiusDp,
         cgmDotOutlineEnabled = preferences.cgmDotOutlineEnabled,
         cgmDotOutlineWidthDp = preferences.cgmDotOutlineWidthDp,
+        graphMaximumMgDl = preferences.graphMaximumMgDl,
         clockEpochMs = nowEpochMs,
     )
 }
@@ -678,7 +703,12 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                now,
+                scaleOnRight = !preferences.showCgmTargetValue &&
+                    !preferences.showCgmBasal &&
+                    !preferences.showCgmActivity &&
+                    !preferences.anyCgmPredictionEnabled,
+                showTimeAxis = !preferences.showCgmGraph,
+                clockEpochMs = now,
             )
         },
     )

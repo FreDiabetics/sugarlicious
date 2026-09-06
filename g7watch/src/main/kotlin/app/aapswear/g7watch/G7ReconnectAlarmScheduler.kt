@@ -143,7 +143,7 @@ internal object G7ReconnectAlarmScheduler {
                 charging = runCatching { app.getSystemService(BatteryManager::class.java).isCharging }.getOrNull(),
             )
         G7CollectorDiagnosticStore(app).stageScheduledCycle(cycle)
-        G7ExpectedWindowLedger(app).create(expectedReadingEpochMs, triggerAt)
+        G7ExpectedWindowLedger(app).create(expectedReadingEpochMs, triggerAt, cycle.alarmKind)
         G7SensorWindowWatchdog.arm(app, cycle)
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             app.recordG7Diagnostic(

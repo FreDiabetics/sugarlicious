@@ -92,4 +92,39 @@ class ChartViewportRegressionTest {
 
         assertEquals(historicalEnd, viewport.snapshot(now + 5L * 60_000L).endEpochMs)
     }
+
+    @Test
+    fun `semantic restore preserves historical time window and clamps duration`() {
+        val original = ChartViewport(8).apply {
+            setAvailablePastWindow(24L * hour, now)
+            pan(150f, 600f, now)
+        }
+        val saved = original.savedState(now)
+        val restored = ChartViewport(3).apply {
+            setAvailablePastWindow(24L * hour, now)
+            restore(saved, now)
+        }
+
+        assertEquals(original.snapshot(now).startEpochMs, restored.snapshot(now).startEpochMs)
+        assertEquals(original.snapshot(now).endEpochMs, restored.snapshot(now).endEpochMs)
+        assertEquals(ChartViewport.Mode.USER_NAVIGATING, restored.mode)
+
+        restored.restore(GraphViewportSavedState(48f, now + 12L * hour), now)
+        assertTrue(restored.snapshot(now).durationMs <= 24L * hour)
+        assertTrue(restored.snapshot(now).endEpochMs <= now)
+    }
+
+    @Test
+    fun `saved state retains requested duration while history is temporarily short`() {
+        val viewport = ChartViewport(6).apply {
+            setAvailablePastWindow(1L * hour, now)
+        }
+
+        val restored = ChartViewport(1).apply {
+            restore(viewport.savedState(now), now)
+            setAvailablePastWindow(8L * hour, now)
+        }
+
+        assertEquals(6f, restored.hours, 0.0001f)
+    }
 }

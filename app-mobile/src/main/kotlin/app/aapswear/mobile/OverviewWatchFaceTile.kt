@@ -61,11 +61,7 @@ import kotlin.math.abs
 
 internal val sugarliciousWatchFaceNames =
     listOf(
-        "Sugarlicious Analog",
-        "Sugarlicious Orbit",
-        "Sugarlicious Rings",
-        "Sugarlicious Graph",
-        "Sugarlicious Digital",
+        "ApeX",
         "Vigil",
     )
 
@@ -321,7 +317,7 @@ internal fun OverviewWatchFaceTile(
         }
 
         Column(
-            modifier = Modifier.fillMaxWidth().offset(y = (-8).dp),
+            modifier = Modifier.fillMaxWidth().offset(y = (-18).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
@@ -367,7 +363,7 @@ internal fun OverviewWatchFaceTile(
                     SugarliciousIcon(
                         drawableRes = R.drawable.ic_watch_status,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp).graphicsLayer { alpha = 1f },
+                        modifier = Modifier.size(14.dp).offset(y = 1.dp).graphicsLayer { alpha = 1f },
                         tint = statusColor,
                     )
                     Spacer(Modifier.width(6.dp))

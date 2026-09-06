@@ -219,8 +219,8 @@ class G7CollectorTileService : TileService() {
         val visualSpec =
             GlucoseVisualSpec(
                 surface = PresentationSurface.TILE,
-                glucoseTextSize = G7_TILE_VALUE_TEXT_SP,
-                trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(G7_TILE_VALUE_TEXT_SP),
+                glucoseTextSize = WearGlucoseCardStyle.VALUE_TEXT_SP,
+                trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(WearGlucoseCardStyle.VALUE_TEXT_SP),
                 spacing = 8f,
             ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
 
@@ -246,7 +246,7 @@ class G7CollectorTileService : TileService() {
                         .setBackground(
                             Background.Builder()
                                 .setColor(argb(presentation.cardBackground))
-                                .setCorner(Corner.Builder().setRadius(dp(24f)).build())
+                                .setCorner(Corner.Builder().setRadius(dp(WearGlucoseCardStyle.CARD_RADIUS_DP)).build())
                                 .build(),
                         )
                         .setBorder(
@@ -255,7 +255,14 @@ class G7CollectorTileService : TileService() {
                                 .setWidth(dp(1f))
                                 .build(),
                         )
-                        .setPadding(Padding.Builder().setAll(dp(12f)).build())
+                        .setPadding(
+                            Padding.Builder()
+                                .setStart(dp(WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.toFloat()))
+                                .setEnd(dp(WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.toFloat()))
+                                .setTop(dp(WearGlucoseCardStyle.VERTICAL_PADDING_DP.toFloat()))
+                                .setBottom(dp(WearGlucoseCardStyle.VERTICAL_PADDING_DP.toFloat()))
+                                .build(),
+                        )
                         .build(),
                 )
                 .addContent(primaryRow)
@@ -272,8 +279,8 @@ class G7CollectorTileService : TileService() {
         val header =
             Box.Builder()
                 .setWidth(expand())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                .addContent(text("Direct to Watch - Glukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+                .addContent(text("Gewebeglukosewert", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
                 .build()
 
         val content =
@@ -295,7 +302,7 @@ class G7CollectorTileService : TileService() {
             .setModifiers(
                 Modifiers.Builder()
                     .setBackground(Background.Builder().setColor(argb(G7_TILE_BACKGROUND)).build())
-                    .setPadding(Padding.Builder().setAll(dp(12f)).build())
+                    .setPadding(Padding.Builder().setAll(dp(8f)).build())
                     .setClickable(
                         Clickable.Builder()
                             .setId(OPEN_COLLECTOR_CLICK_ID)
@@ -368,8 +375,6 @@ class G7CollectorTileService : TileService() {
         private const val RESOURCES_VERSION = "g7-collector-5"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
-        private const val G7_TILE_VALUE_TEXT_SP = 38f
-
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
         }
