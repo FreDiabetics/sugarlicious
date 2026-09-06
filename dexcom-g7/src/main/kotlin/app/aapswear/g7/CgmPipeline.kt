@@ -19,8 +19,9 @@ interface CgmReadingRepository {
 }
 
 object CgmReadingIdentity {
-    fun create(sensorId: String, sessionId: String, sequenceNumber: Long?, timestampEpochMs: Long): String =
-        listOf(sensorId, sessionId, sequenceNumber?.toString() ?: "time", timestampEpochMs.toString()).joinToString(":")
+    /** A sequence is transport metadata and is not stable across LIVE and BACKFILL packets. */
+    fun create(sensorId: String, sessionId: String, timestampEpochMs: Long): String =
+        listOf(sensorId, sessionId, timestampEpochMs.toString()).joinToString(":")
 }
 
 object CgmDeltaCalculator {
@@ -108,7 +109,7 @@ fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
             else -> CgmReadingStatus.VALID
         }
     val base = CgmReading(
-        id = CgmReadingIdentity.create(sensorId, sessionId, sequenceNumber, sensorTimestampEpochMs),
+        id = CgmReadingIdentity.create(sensorId, sessionId, sensorTimestampEpochMs),
         source = DataSourceId.DEXCOM_G7_WATCH,
         sensorId = sensorId,
         sessionId = sessionId,
