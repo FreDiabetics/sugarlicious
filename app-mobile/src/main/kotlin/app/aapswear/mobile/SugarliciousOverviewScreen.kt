@@ -24,8 +24,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,22 +74,38 @@ internal fun SugarliciousOverviewScreen(
     }
     val metrics = DashboardLayoutMetrics.forScreenHeight(screenHeightDp)
     val gap = if (preferences.compact || preferences.showMetabolicGraph) 5.dp else 8.dp
-    val baseGraphHeightDp = maxOf(
-        metrics.metabolicChartHeight - 18,
-        96,
+    val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
+    val visibility = DashboardVisibilityState(
+        showTherapyDetails = preferences.showDetails,
+        showMetabolicGraph = preferences.showMetabolicGraph,
     )
-    val matchedGraphHeightDp = baseGraphHeightDp + 8
-    val cgmGraphHeightDp = if (preferences.showMetabolicGraph) matchedGraphHeightDp else baseGraphHeightDp
-    val metabolicGraphHeightDp = matchedGraphHeightDp
+    val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
+    val metabolicGraphHeightDp = maxOf(metrics.metabolicChartHeight - 10, 104)
     val overviewHeightCompensationDp = if (preferences.showMetabolicGraph) 8 else 0
 
-    val cgmChartViewport =
-        remember {
-            ChartViewport(
-                preferences.graphHours,
-            )
-        }
+    val cgmChartViewport = rememberSaveable(
+        saver = listSaver(
+            save = { viewport ->
+                val state = viewport.savedState()
+                listOf(
+                    state.historyHours.toRawBits().toLong(),
+                    state.navigationEndEpochMs ?: Long.MIN_VALUE,
+                )
+            },
+            restore = { values ->
+                ChartViewport(preferences.graphHours).apply {
+                    restore(
+                        GraphViewportSavedState(
+                            historyHours = Float.fromBits(values[0].toInt()),
+                            navigationEndEpochMs = values[1].takeUnless { it == Long.MIN_VALUE },
+                        ),
+                    )
+                }
+            },
+        ),
+    ) { ChartViewport(preferences.graphHours) }
     val metabolicChartViewport = cgmChartViewport
+    var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
 
     val predictionFutureWindowMs =
         if (
@@ -132,14 +151,13 @@ internal fun SugarliciousOverviewScreen(
     LaunchedEffect(
         preferences.graphHours,
     ) {
-        cgmChartViewport.setHours(
-            preferences.graphHours.toFloat(),
-            resetPan = true,
-        )
-        metabolicChartViewport.setHours(
-            preferences.graphHours.toFloat(),
-            resetPan = true,
-        )
+        if (preferences.graphHours != appliedGraphHours) {
+            cgmChartViewport.setHours(
+                preferences.graphHours.toFloat(),
+                resetPan = true,
+            )
+            appliedGraphHours = preferences.graphHours
+        }
     }
 
     LaunchedEffect(

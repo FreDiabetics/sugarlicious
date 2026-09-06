@@ -8,9 +8,6 @@ class DashboardLayoutMetricsTest {
     @Test
     fun `large phone profile keeps overview dense enough for one screen`() {
         val metrics = DashboardLayoutMetrics.forScreenHeight(960)
-
-        // Approximate fixed chrome/overhead used by the current View overview:
-        // top summary + graph card labels/padding + details + connection card.
         val estimatedOverviewContentDp =
             metrics.summaryTileHeight +
                 (metrics.glucoseChartHeight + 62) +
@@ -19,7 +16,6 @@ class DashboardLayoutMetricsTest {
                 70 +
                 20
 
-        // 960 dp window - 64 dp top bar - 78 dp bottom navigation/margin.
         assertTrue(estimatedOverviewContentDp <= 818)
         assertEquals(94, metrics.summaryTileHeight)
     }
@@ -34,5 +30,20 @@ class DashboardLayoutMetricsTest {
         assertTrue(compact.glucoseChartHeight > short.glucoseChartHeight)
         assertTrue(tall.metabolicChartHeight > compact.metabolicChartHeight)
         assertTrue(compact.metabolicChartHeight > short.metabolicChartHeight)
+    }
+
+    @Test
+    fun `free dashboard height is transferred to the cgm graph in all visibility states`() {
+        val metrics = DashboardLayoutMetrics.forScreenHeight(880)
+        val gap = 5
+        val both = metrics.cgmGraphHeight(DashboardVisibilityState(true, true), gap)
+        val noDetails = metrics.cgmGraphHeight(DashboardVisibilityState(false, true), gap)
+        val noMetabolic = metrics.cgmGraphHeight(DashboardVisibilityState(true, false), gap)
+        val neither = metrics.cgmGraphHeight(DashboardVisibilityState(false, false), gap)
+
+        assertEquals(both + metrics.statTileHeight + gap, noDetails)
+        assertEquals(both + metrics.metabolicChartHeight + gap, noMetabolic)
+        assertEquals(noDetails + metrics.metabolicChartHeight + gap, neither)
+        assertTrue(neither > noMetabolic && noMetabolic > both)
     }
 }

@@ -134,6 +134,11 @@ internal data class GraphViewportSnapshot(
     val visibleHours: Float get() = durationMs.toFloat() / HOUR_MS
 }
 
+internal data class GraphViewportSavedState(
+    val historyHours: Float,
+    val navigationEndEpochMs: Long?,
+)
+
 internal class ChartViewport(initialHours: Int) {
     enum class Mode { LIVE_FOLLOW, USER_NAVIGATING }
     private val listeners = LinkedHashSet<() -> Unit>()
@@ -236,6 +241,20 @@ internal class ChartViewport(initialHours: Int) {
         panMs = 0L
         mode = Mode.LIVE_FOLLOW
         navigationEndEpochMs = null
+        notifyChanged()
+    }
+
+    fun savedState(referenceNow: Long = System.currentTimeMillis()): GraphViewportSavedState =
+        GraphViewportSavedState(
+            historyHours = hours,
+            navigationEndEpochMs = snapshot(referenceNow).endEpochMs.takeIf { mode == Mode.USER_NAVIGATING },
+        )
+
+    fun restore(savedState: GraphViewportSavedState, referenceNow: Long = System.currentTimeMillis()) {
+        requestedHours = savedState.historyHours.coerceIn(MIN_VISIBLE_HISTORY_HOURS, MAX_VISIBLE_GRAPH_HOURS)
+        hours = requestedHours.coerceAtMost(maximumHours())
+        savedState.navigationEndEpochMs?.let { navigateToEnd(it, referenceNow) } ?: returnToNow()
+        clampNavigation(referenceNow)
         notifyChanged()
     }
 
