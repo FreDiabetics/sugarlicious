@@ -155,12 +155,20 @@ class WidgetInstanceConfigurationTest {
             showGlucoseUnit = false,
             glucoseBold = false,
             deltaUnitBold = true,
+            historicalDotOutlineEnabled = false,
+            currentDotOutlineEnabled = true,
+            historicalDotOutlineWidthDp = 0.65f,
+            currentDotOutlineWidthDp = 1.8f,
         )
         val largeValue = WidgetInstanceConfiguration(
             glucoseGraphValuePercent = 42,
             showGlucoseUnit = true,
             glucoseBold = true,
             deltaUnitBold = false,
+            historicalDotOutlineEnabled = true,
+            currentDotOutlineEnabled = false,
+            historicalDotOutlineWidthDp = 2.25f,
+            currentDotOutlineWidthDp = 0.4f,
         )
         WidgetInstanceConfigurationStore.save(context, 909, compactValue)
         WidgetInstanceConfigurationStore.save(context, 910, largeValue)

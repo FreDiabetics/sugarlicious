@@ -473,6 +473,10 @@ internal fun renderWidgetGraph(
         configuration.graphCornerRadiusDp.toFloat(),
         graphLeftInsetDp,
         graphHorizontalInsetDp,
+        maxOf(
+            configuration.historicalDotOutlineWidthDp.takeIf { configuration.historicalDotOutlineEnabled } ?: 0f,
+            configuration.currentDotOutlineWidthDp.takeIf { configuration.currentDotOutlineEnabled } ?: 0f,
+        ),
     )
     val plot = metrics.plot
     val graphBounds = metrics.graphBounds
@@ -529,11 +533,7 @@ internal fun renderWidgetGraph(
     fun x(timestamp: Long): Float = widgetGraphPointX(timestamp, timeWindow, plot)
     val liveX = x(timeWindow.liveEdgeEpochMs)
     val pointPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeWidth = metrics.outlineWidthPx
-        color = palette.argb(WidgetColorRole.DOT_OUTLINE)
-    }
+    val currentSample = samples.maxByOrNull(GlucoseSample::measuredAtEpochMs)
     samples.forEach { sample ->
         // The widget is redrawn as one bitmap. Do not pin multiple samples to an inner edge:
         // clipping is handled by the widget shape and every X position remains timestamp-derived.
@@ -548,7 +548,17 @@ internal fun renderWidgetGraph(
         )
         val radius = metrics.dotRadiusPx
         canvas.drawCircle(pointX, y, radius, pointPaint)
-        canvas.drawCircle(pointX, y, radius + outlinePaint.strokeWidth / 2f, outlinePaint)
+        val isCurrent = sample == currentSample
+        val outlineEnabled = if (isCurrent) configuration.currentDotOutlineEnabled else configuration.historicalDotOutlineEnabled
+        if (outlineEnabled) {
+            val outlineWidthDp = if (isCurrent) configuration.currentDotOutlineWidthDp else configuration.historicalDotOutlineWidthDp
+            val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.STROKE
+                strokeWidth = outlineWidthDp.coerceIn(0.25f, 3f) * renderDensity
+                color = palette.argb(if (isCurrent) WidgetColorRole.CURRENT_DOT_OUTLINE else WidgetColorRole.DOT_OUTLINE)
+            }
+            canvas.drawCircle(pointX, y, radius + outlinePaint.strokeWidth / 2f, outlinePaint)
+        }
     }
     canvas.restore()
 
@@ -649,6 +659,7 @@ internal fun widgetGraphMetrics(
     graphCornerRadiusDp: Float = DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
     graphLeftInsetDp: Float? = null,
     graphHorizontalInsetDp: Float = 0f,
+    maxDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
 ): WidgetGraphMetrics {
     val safeDensity = density.coerceIn(1f, 4f)
     val lowSurface = heightPx / safeDensity < 110f
@@ -659,7 +670,7 @@ internal fun widgetGraphMetrics(
     // clipping mask. A tiny edge clamp is insufficient near the lower corners (notably for 3h).
     val edgeGap = (if (lowSurface) 4f else 8f) * safeDensity
     val dotRadius = layout.graphDotRadiusDp.coerceIn(2.4f, 2.5f) * safeDensity
-    val outline = layout.graphOutlineDp.coerceIn(0.8f, 1f) * safeDensity
+    val outline = maxOf(layout.graphOutlineDp.coerceIn(0.8f, 1f), maxDotOutlineWidthDp.coerceIn(0f, 3f)) * safeDensity
     val lineWidth = layout.graphLineDp.coerceIn(1f, 1.2f) * safeDensity
     val yLabelWidth = maxOf(textPaint.measureText("160"), textPaint.measureText("80"))
     textPaint.textSize = nowText
@@ -766,7 +777,7 @@ internal fun renderMinimalGlucoseWidget(
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
         textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * options.glucoseScale
-        typeface = Typeface.create(Typeface.DEFAULT, if (options.glucoseBold) Typeface.BOLD else Typeface.NORMAL)
+        typeface = widgetTextTypeface(options.glucoseBold)
     }
     val textWidth = paint.measureText(value)
     val textBounds = Rect().also { paint.getTextBounds(value, 0, value.length, it) }
@@ -826,6 +837,10 @@ internal data class GlucoseWidgetRenderOptions(
     val trendStyle: app.aapswear.model.TrendArrowStyle = app.aapswear.model.TrendArrowStyle.defaults(AppearanceMode.DARK, AndroidColor.WHITE),
     val glucoseBold: Boolean = true,
 )
+
+/** Uses Android's system family at real weight 900; Typeface.BOLD is only weight 700. */
+internal fun widgetTextTypeface(extraBold: Boolean): Typeface =
+    Typeface.create(if (extraBold) "sans-serif-black" else "sans-serif", Typeface.NORMAL)
 
 private fun configurationScale(percent: Int): Float = GlucoseTrendSizing.scaleFactor(percent)
 
@@ -991,7 +1006,7 @@ internal fun renderGlucoseGraphWidget(
             alpha = 170
             textAlign = Paint.Align.LEFT
             textSize = (13f * pixelDensity).coerceAtMost(topHeight * 0.19f)
-            typeface = Typeface.create(Typeface.DEFAULT, if (configuration.deltaUnitBold) Typeface.BOLD else Typeface.NORMAL)
+            typeface = widgetTextTypeface(configuration.deltaUnitBold)
         }
         canvas.drawText(secondary, 12f * pixelDensity, topHeight - 6f * pixelDensity, paint)
     }
