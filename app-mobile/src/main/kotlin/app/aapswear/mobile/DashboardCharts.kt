@@ -866,16 +866,17 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         }
         val tickGap = 2f.dp
         val tickLength = 5f.dp
+        val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
+        val tickY = baseline + (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         if (onRight) {
-            canvas.drawLine(plot.right + tickGap, plot.top, plot.right + tickGap + tickLength, plot.top, linePaint)
+            canvas.drawLine(plot.right + tickGap, tickY, plot.right + tickGap + tickLength, tickY, linePaint)
         } else {
-            canvas.drawLine(plot.left - tickGap, plot.top, plot.left - tickGap - tickLength, plot.top, linePaint)
+            canvas.drawLine(plot.left - tickGap, tickY, plot.left - tickGap - tickLength, tickY, linePaint)
         }
         val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
-        val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
         canvas.drawText(glucoseLabel(graphMaximumMgDl), x, baseline, paint)
     }
 

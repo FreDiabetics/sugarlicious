@@ -37,8 +37,8 @@ class TherapyHeroIndicatorsTest {
         assertEquals(1f, values[1].progress!!, 0.0001f)
         assertEquals("12,00U", values[0].value)
         assertEquals("450g", values[1].value)
-        assertEquals("1,20", values[2].value)
-        assertEquals("150%", values[2].secondary)
+        assertEquals("1,20U/h", values[2].value)
+        assertEquals("@150%", values[2].secondary)
         assertEquals(0.3f, values[2].progress!!, 0.0001f)
     }
 
@@ -58,8 +58,8 @@ class TherapyHeroIndicatorsTest {
             ),
         )
         val basal = therapyIndicatorPresentations(state, 10f, 1_000L)[2]
-        assertEquals("0,75", basal.value)
-        assertEquals("150%", basal.secondary)
+        assertEquals("0,75U/h", basal.value)
+        assertEquals("@150%", basal.secondary)
         assertEquals(R.drawable.ic_basalmore, basal.iconRes)
     }
 

@@ -80,8 +80,8 @@ internal fun therapyIndicatorPresentations(
         ),
         TherapyIndicatorPresentation(
             label = "Basal",
-            value = basal?.unitsPerHour?.let { compactValue(it, 2) } ?: "—",
-            secondary = basal?.percent?.let { "$it%" },
+            value = basal?.unitsPerHour?.let { "${compactValue(it, 2)}U/h" } ?: "—",
+            secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
             progress = basal?.percent?.div(500f)?.coerceIn(0f, 1f),
             iconRes = basalIconResource(basal?.percent),
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
@@ -144,9 +144,9 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
         },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(61.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 7.dp.toPx()
+                val stroke = 9.dp.toPx()
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(
@@ -171,7 +171,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
                 }
             }
             Column(
-                modifier = Modifier.align(Alignment.Center).padding(top = 7.dp),
+                modifier = Modifier.align(Alignment.Center).padding(top = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
