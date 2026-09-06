@@ -112,7 +112,14 @@ internal fun effectiveBasalPresentation(basal: BasalState?, nowEpochMs: Long): E
 }
 
 private fun compactValue(value: Double, decimals: Int): String =
-    String.format(Locale.GERMANY, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
+    String.format(Locale.US, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
+
+internal fun therapyIndicatorFontSizeSp(value: String): Int = when {
+    value.length >= 8 -> 10
+    value.length >= 7 -> 11
+    value.length >= 6 -> 12
+    else -> 14
+}
 
 @Composable
 internal fun TherapyIndicatorRow(
@@ -121,11 +128,11 @@ internal fun TherapyIndicatorRow(
 ) {
     Row(
         modifier = modifier.padding(horizontal = 1.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly,
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         indicators.forEach { indicator ->
-            TherapyCircularIndicator(indicator, Modifier.weight(1f).fillMaxHeight())
+            TherapyCircularIndicator(indicator, Modifier.fillMaxHeight())
         }
     }
 }
@@ -144,7 +151,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
         },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(61.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(66.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val stroke = 7.dp.toPx()
                 val inset = stroke / 2f
@@ -175,7 +182,17 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(indicator.value, color = SugarliciousColors.TextPrimary, fontSize = 14.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                val valueTextSize = therapyIndicatorFontSizeSp(indicator.value)
+                Text(
+                    indicator.value,
+                    color = SugarliciousColors.TextPrimary,
+                    fontSize = valueTextSize.sp,
+                    lineHeight = valueTextSize.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                )
                 indicator.secondary?.let {
                     Text(it, color = SugarliciousColors.TextSecondary, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
                 }
@@ -183,7 +200,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).size(18.dp),
+                Modifier.align(Alignment.BottomCenter).size(19.dp),
                 accent,
             )
         }

@@ -339,7 +339,7 @@ private fun GlucoseHeroCard(
             if (detailMode == GlucoseTileDetailMode.TIR) {
                 TirProgressColumn(stats = tirStats, modifier = Modifier.width(194.dp).fillMaxHeight())
             } else {
-                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.width(194.dp).fillMaxHeight())
+                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.width(210.dp).fillMaxHeight())
             }
         }
     }
