@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -289,11 +290,12 @@ private fun GlucoseHeroCard(
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .weight(1f)
+                    .width(132.dp)
                     .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
@@ -334,10 +336,8 @@ private fun GlucoseHeroCard(
                 }
             }
 
-            Spacer(Modifier.width(20.dp))
-
             if (detailMode == GlucoseTileDetailMode.TIR) {
-                TirProgressColumn(stats = tirStats, modifier = Modifier.width(194.dp).fillMaxHeight())
+                TirProgressColumn(stats = tirStats, modifier = Modifier.width(210.dp).fillMaxHeight())
             } else {
                 TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.width(210.dp).fillMaxHeight())
             }
@@ -607,6 +607,7 @@ private fun GlucoseGraphSurface(
     onGraphHours: (Int) -> Unit,
 ) {
     var visibleHours by remember(viewport) { mutableFloatStateOf(viewport.visibleHours) }
+    val scaleTapInteraction = remember { MutableInteractionSource() }
     DisposableEffect(viewport) {
         val listener = { visibleHours = viewport.visibleHours }
         viewport.addListener(listener)
@@ -632,9 +633,9 @@ private fun GlucoseGraphSurface(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .clickable {
-                    val next = OVERVIEW_GRAPH_HOUR_OPTIONS.firstOrNull { it > visibleHours + 0.05f }
-                        ?: OVERVIEW_GRAPH_HOUR_OPTIONS.first()
+                .clickable(indication = null, interactionSource = scaleTapInteraction) {
+                    val currentIndex = OVERVIEW_GRAPH_HOUR_OPTIONS.indexOf(preferences.graphHours).coerceAtLeast(0)
+                    val next = OVERVIEW_GRAPH_HOUR_OPTIONS[(currentIndex + 1) % OVERVIEW_GRAPH_HOUR_OPTIONS.size]
                     onGraphHours(next)
                 }
                 .padding(start = 9.dp, top = 7.dp, end = 8.dp, bottom = 7.dp),
@@ -702,7 +703,11 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                now,
+                scaleOnRight = !preferences.showCgmTargetValue &&
+                    !preferences.showCgmBasal &&
+                    !preferences.showCgmActivity &&
+                    !preferences.anyCgmPredictionEnabled,
+                clockEpochMs = now,
             )
         },
     )

@@ -867,7 +867,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val tickGap = 2f.dp
         val tickLength = 5f.dp
         val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
-        val tickY = baseline + (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
+        val tickY = baseline + paint.fontMetrics.ascent
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
@@ -1019,15 +1019,23 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var stateSignature: List<Any?>? = null
     private var markerVisibility = TreatmentMarkerVisibility()
     private var renderNowEpochMs: Long = System.currentTimeMillis()
+    private var scaleOnRight = false
 
-    fun bind(state: TherapyDisplayState?, durationHours: Int, markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(), clockEpochMs: Long = System.currentTimeMillis()) {
+    fun bind(
+        state: TherapyDisplayState?,
+        durationHours: Int,
+        markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(),
+        scaleOnRight: Boolean = false,
+        clockEpochMs: Long = System.currentTimeMillis(),
+    ) {
         val clockBucket = clockEpochMs / 30_000L
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, clockBucket) }
+        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, scaleOnRight, clockBucket) }
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
         boundDurationHours = durationHours
         this.markerVisibility = markerVisibility
+        this.scaleOnRight = scaleOnRight
         renderNowEpochMs = clockEpochMs
         if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
         invalidate()
@@ -1049,11 +1057,10 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val allPoints = state?.therapyHistory.orEmpty()
             val points = allPoints.filter { it.measuredAtEpochMs in start..end }
             val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
-            val left = outer.left + valueAxisWidth
-            val right = outer.right
+            val left = if (scaleOnRight) outer.left else outer.left + valueAxisWidth
+            val right = if (scaleOnRight) outer.right - valueAxisWidth else outer.right
             val top = outer.top
-            val timeAxisHeight = TIME_AXIS_HEIGHT_DP.dp
-            val bottom = outer.bottom - timeAxisHeight
+            val bottom = outer.bottom
             val gap = 14f.dp
             val half = (bottom - top - gap) / 2f
             val iobPlot = RectF(left, top, right, top + half)
@@ -1066,7 +1073,6 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val projectionNow = state?.glucose?.measuredAtEpochMs ?: chartNow
             val dividerTimestamp = viewportSnapshot.liveEdgeEpochMs
             val dividerX = mapX(dividerTimestamp, start, end, iobDataPlot).coerceIn(iobDataPlot.left, iobDataPlot.right)
-            drawSharedGrid(canvas, iobPlot, cobPlot, outer.bottom, start, end, dividerTimestamp, dividerX)
             val graphSave = canvas.save()
             canvas.clipPath(Path().apply {
                 addRoundRect(iobPlot, radius, radius, Path.Direction.CW)
@@ -1090,8 +1096,8 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 drawText(canvas, "Noch kein IOB/COB-Verlauf", (left + right) / 2f, (top + bottom) / 2f, 10f, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED), Paint.Align.CENTER)
             }
             canvas.restoreToCount(graphSave)
-            drawMetabolicScale(canvas, iobDataPlot, iobRange)
-            drawMetabolicScale(canvas, cobPlot, cobRange)
+            drawMetabolicScale(canvas, iobDataPlot, iobRange, scaleOnRight)
+            drawMetabolicScale(canvas, cobPlot, cobRange, scaleOnRight)
         }
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.BORDER)
         linePaint.strokeWidth = 1f.dp
@@ -1164,25 +1170,36 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         linePaint.strokeWidth = 2.35f.dp
         linePaint.pathEffect = null
         canvas.drawPath(valuePath(actual, start, end, plot, ::y), linePaint)
-        if (drawScale) drawMetabolicScale(canvas, plot, range)
+        if (drawScale) drawMetabolicScale(canvas, plot, range, scaleOnRight)
     }
 
-    private fun drawMetabolicScale(canvas: Canvas, plot: RectF, range: ToolkitMetabolicRange) {
-        val labelX = plot.left - 15f.dp
+    private fun drawMetabolicScale(canvas: Canvas, plot: RectF, range: ToolkitMetabolicRange, onRight: Boolean) {
+        val tickGap = 2f.dp
+        val tickLength = 5f.dp
+        val labelX = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
         val labelColor = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
-        val maximumBaseline = plot.top + 12f.dp
+        val maximumBaseline = plot.top + 14f.dp
         val minimumBaseline = plot.bottom - 7f.dp
         val scalePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 8f, resources.displayMetrics)
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val scaleMetrics = scalePaint.fontMetrics
-        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, 8f, labelColor, Paint.Align.RIGHT, bold = true)
-        drawHorizontalScaleTick(canvas, plot.left, maximumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f)
+        val align = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
+        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, 11.5f, labelColor, align, bold = true)
+        drawMetabolicScaleTick(canvas, plot, maximumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
         if (range.minimum < -0.01) {
-            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, 8f, labelColor, Paint.Align.RIGHT, bold = true)
-            drawHorizontalScaleTick(canvas, plot.left, minimumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f)
+            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, 11.5f, labelColor, align, bold = true)
+            drawMetabolicScaleTick(canvas, plot, minimumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
         }
+    }
+
+    private fun drawMetabolicScaleTick(canvas: Canvas, plot: RectF, centerY: Float, onRight: Boolean) {
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
+        linePaint.strokeWidth = 1f.dp
+        linePaint.pathEffect = null
+        if (onRight) canvas.drawLine(plot.right + 2f.dp, centerY, plot.right + 7f.dp, centerY, linePaint)
+        else canvas.drawLine(plot.left - 2f.dp, centerY, plot.left - 7f.dp, centerY, linePaint)
     }
 
     private fun drawHorizontalScaleTick(canvas: Canvas, graphLeft: Float, centerY: Float) {
