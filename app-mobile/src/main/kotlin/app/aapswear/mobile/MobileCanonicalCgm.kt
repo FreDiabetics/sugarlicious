@@ -6,6 +6,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.Trend
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.storage.PhoneTherapyStateStore

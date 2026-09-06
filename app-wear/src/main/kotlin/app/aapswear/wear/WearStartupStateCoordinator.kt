@@ -26,7 +26,7 @@ internal object WearStartupStateCoordinator {
         val persisted = store.state.first()
         val sanitized = persisted?.withoutDirectToWatchInput()
         if (persisted != null && sanitized != persisted) {
-            store.save(sanitized)
+            sanitized?.let { store.save(it) }
         }
 
         val snapshot = prepareStartupSnapshot(sanitized, System.currentTimeMillis())
@@ -77,5 +77,7 @@ internal fun prepareStartupSnapshot(
 ): StartupStateSnapshot =
     StartupStateSnapshot(
         state = persisted,
-        freshness = TherapyDisplayFormatter.freshness(persisted, nowEpochMs),
+        freshness =
+            persisted?.let { TherapyDisplayFormatter.freshness(it, nowEpochMs) }
+                ?: Freshness.NO_DATA,
     )

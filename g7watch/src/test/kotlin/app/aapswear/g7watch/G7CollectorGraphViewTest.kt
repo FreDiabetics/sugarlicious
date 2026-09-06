@@ -204,6 +204,34 @@ class G7CollectorGraphViewTest {
         palette: G7AppearancePalette,
     ): Bitmap {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val directSettings = G7DirectToWatchSettingsStore(context)
+        val currentColors = directSettings.graphColors()
+        directSettings.saveGraphColors(
+            currentColors.copy(
+                graphBackground = palette.argb(G7AppearanceRole.GRAPH_BACKGROUND),
+                rangeInRange = palette.argb(G7AppearanceRole.GRAPH_TARGET_AREA),
+                rangeHigh = palette.argb(G7AppearanceRole.GRAPH_HIGH_AREA),
+                rangeLow = palette.argb(G7AppearanceRole.GRAPH_LOW_AREA),
+                highLine = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE),
+                lowLine = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE),
+                cgmHigh = palette.argb(G7AppearanceRole.GRAPH_DOT_HIGH),
+                cgmInRange = palette.argb(G7AppearanceRole.GRAPH_DOT_IN_RANGE),
+                cgmLow = palette.argb(G7AppearanceRole.GRAPH_DOT_LOW),
+                outline = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE),
+                axisLabel = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
+                axisTick = palette.argb(G7AppearanceRole.GRAPH_GRID),
+                divider = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
+            ),
+        )
+        directSettings.saveGraphHours(graphHours)
+        directSettings.saveThresholds(
+            app.aapswear.model.CgmThresholds(
+                veryHighMgDl = 250.0,
+                highMgDl = 160.0,
+                lowMgDl = 80.0,
+                veryLowMgDl = 55.0,
+            ),
+        )
         val view = G7CollectorGraphView(context)
         view.bind(
             readings = readings,
