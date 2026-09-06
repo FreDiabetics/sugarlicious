@@ -34,9 +34,18 @@ class TherapyHeroIndicatorsTest {
         assertEquals(3, values.size)
         assertEquals(1f, values[0].progress!!, 0.0001f)
         assertEquals(1f, values[1].progress!!, 0.0001f)
+        assertEquals("12,00U", values[0].value)
+        assertEquals("450g", values[1].value)
         assertEquals("1,20", values[2].value)
         assertEquals("150%", values[2].secondary)
         assertEquals(0.3f, values[2].progress!!, 0.0001f)
+    }
+
+    @Test
+    fun `basal icon follows standard lower and higher temp basal`() {
+        assertEquals(R.drawable.ic_basal, basalIconResource(100))
+        assertEquals(R.drawable.ic_basalless, basalIconResource(80))
+        assertEquals(R.drawable.ic_basalmore, basalIconResource(120))
     }
 
     @Test

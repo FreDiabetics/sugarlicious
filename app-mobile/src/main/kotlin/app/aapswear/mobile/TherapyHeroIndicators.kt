@@ -52,16 +52,14 @@ internal fun therapyIndicatorPresentations(
     return listOf(
         TherapyIndicatorPresentation(
             label = "IOB",
-            value = iob?.let { compactValue(it, 2) } ?: "—",
-            secondary = iob?.let { "U" },
+            value = iob?.let { "${compactValue(it, 2)}U" } ?: "—",
             progress = safeIobMaximum?.let { maximum -> iob?.div(maximum)?.toFloat()?.coerceIn(0f, 1f) },
             iconRes = R.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
-            value = cob?.let { compactValue(it, 0) } ?: "—",
-            secondary = cob?.let { "g" },
+            value = cob?.let { "${compactValue(it, 0)}g" } ?: "—",
             progress = cob?.div(300.0)?.toFloat()?.coerceIn(0f, 1f),
             iconRes = R.drawable.ic_carbs,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
@@ -71,10 +69,16 @@ internal fun therapyIndicatorPresentations(
             value = basal?.unitsPerHour?.let { compactValue(it, 2) } ?: "—",
             secondary = basal?.percent?.let { "$it%" },
             progress = basal?.percent?.div(500f)?.coerceIn(0f, 1f),
-            iconRes = R.drawable.ic_basal,
+            iconRes = basalIconResource(basal?.percent),
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
         ),
     )
+}
+
+internal fun basalIconResource(percent: Int?): Int = when {
+    percent == null || percent == 100 -> R.drawable.ic_basal
+    percent < 100 -> R.drawable.ic_basalless
+    else -> R.drawable.ic_basalmore
 }
 
 internal data class EffectiveBasalPresentation(val unitsPerHour: Double, val percent: Int)
@@ -126,12 +130,12 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
         },
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(Modifier.size(55.dp)) {
-            val stroke = 5.dp.toPx()
+        Canvas(Modifier.size(58.dp)) {
+            val stroke = 7.dp.toPx()
             val inset = stroke / 2f
             val arcSize = Size(size.width - stroke, size.height - stroke)
             drawArc(
-                color = SugarliciousColors.SurfaceRaised,
+                color = accent.copy(alpha = 0.30f),
                 startAngle = 130f,
                 sweepAngle = 280f,
                 useCenter = false,
@@ -151,14 +155,21 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
                 )
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(indicator.value, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                SugarliciousIcon(indicator.iconRes, null, Modifier.size(10.dp), accent)
-                indicator.secondary?.let {
-                    Text(it, color = SugarliciousColors.TextSecondary, fontSize = 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.SemiBold)
-                }
+        Column(
+            modifier = Modifier.padding(bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(indicator.value, color = SugarliciousColors.TextPrimary, fontSize = 14.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            indicator.secondary?.let {
+                Text(it, color = SugarliciousColors.TextSecondary, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
+        SugarliciousIcon(
+            indicator.iconRes,
+            null,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = 1.dp).size(12.dp),
+            accent,
+        )
     }
 }
