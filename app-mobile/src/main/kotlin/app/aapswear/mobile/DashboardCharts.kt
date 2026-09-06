@@ -63,7 +63,7 @@ private const val GLUCOSE_TARGET_HIGH_RATIO = 0.515
 private const val GLUCOSE_DISPLAY_MIN = 40.0
 private const val GLUCOSE_DISPLAY_MAX = 400.0
 private const val TOOLKIT_ACTIVITY_SCALE_FACTOR = 1.15
-private const val VALUE_AXIS_WIDTH_DP = 34f
+private const val VALUE_AXIS_WIDTH_DP = 29f
 private const val TIME_AXIS_HEIGHT_DP = 24f
 private const val OVERVIEW_GRAPH_HOURS_MIGRATION = "graphHoursDefault3MigratedV5"
 internal val OVERVIEW_GRAPH_HOUR_OPTIONS = listOf(1, 2, 3, 6, 12, 24)
@@ -532,6 +532,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
         }
         val contentBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
+        val graphVisualBounds = RectF(scaleContainer.left, scaleContainer.top, scaleContainer.right, plot.bottom)
         if (plot.width() <= 24f || plot.height() <= 24f) return
         val radius = GRAPH_CORNER_RADIUS_DP.dp
         val contentClip = Path().apply { addRoundRect(contentBounds, radius + outlineInset, radius + outlineInset, Path.Direction.CW) }
@@ -595,13 +596,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (showTargetRange) {
                 if (excursion == RangeExcursion.HIGH) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH)
-                    canvas.drawRect(plot.left, plot.top, plot.right, targetTop, fillPaint)
+                    canvas.drawRect(graphVisualBounds.left, graphVisualBounds.top, graphVisualBounds.right, targetTop, fillPaint)
                 }
                 fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_IN_RANGE)
-                canvas.drawRect(plot.left, targetTop, plot.right, targetBottom, fillPaint)
+                canvas.drawRect(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetBottom, fillPaint)
                 if (excursion == RangeExcursion.LOW) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW)
-                    canvas.drawRect(plot.left, targetBottom, plot.right, plot.bottom, fillPaint)
+                    canvas.drawRect(graphVisualBounds.left, targetBottom, graphVisualBounds.right, graphVisualBounds.bottom, fillPaint)
                 }
             }
 
@@ -624,11 +625,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
             if (showTargetRange) {
                 linePaint.strokeWidth = 1f.dp
+                linePaint.strokeCap = Paint.Cap.BUTT
                 linePaint.pathEffect = null
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
-                canvas.drawLine(plot.left, targetTop, plot.right, targetTop, linePaint)
+                canvas.drawLine(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetTop, linePaint)
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
-                canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, linePaint)
+                canvas.drawLine(graphVisualBounds.left, targetBottom, graphVisualBounds.right, targetBottom, linePaint)
+                linePaint.strokeCap = Paint.Cap.ROUND
             }
 
             if (showTargetValue) {
@@ -712,9 +715,12 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             // remain at its measurement timestamp while the whole history keeps moving left.
             val liveTimestamp = timeWindow.liveEdgeEpochMs
             val liveX = timeWindow.plotX(liveTimestamp, plot.left, plot.width())
-            val dividerX = liveX
+            // The target-label lane starts at the plot edge. Keep the visible Now marker and its
+            // current dot just before that invisible boundary, matching the compact Wear layout.
+            val dividerX = minOf(liveX, plot.right - 4f.dp)
             val futureLaneVisible = end > now && now in start..end
-            if (futureLaneVisible) {
+            val hasCgmOverlay = showTargetValue || showBasal || showActivity || visiblePredictions.isNotEmpty()
+            if (now in start..end && hasCgmOverlay) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_NOW_LINE)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
@@ -730,7 +736,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
                 // Never collapse timestamp positions onto a radius-dependent edge. The rounded
                 // plot clip owns edge clipping; X remains a pure function of timestamp + viewport.
-                val x = mappedX
+                val x = if (current) dividerX else mappedX
                 fillPaint.color = dotColor(point.valueMgDl, thresholds)
                 canvas.drawCircle(x, y, dotRadius, fillPaint)
                 if (cgmDotOutlineEnabled) {
@@ -771,7 +777,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (x < plot.left || x > plot.right) return@forEach
             val align = when {
                 tick.timestampEpochMs <= start + 30_000L -> Paint.Align.LEFT
-                isNow -> Paint.Align.CENTER
+                isNow -> Paint.Align.RIGHT
                 else -> Paint.Align.CENTER
             }
             val labelX = when (align) {
@@ -780,7 +786,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 else -> x
             }
             val labelSize = if (isNow) 12f else 10f
-            val tickX = timeLabelCenterX(tick.label, labelX, align, labelSize)
+            val tickX = x
             canvas.drawLine(tickX, plot.bottom + 2f.dp, tickX, plot.bottom + 8f.dp, linePaint)
             drawText(
                 canvas,
@@ -813,22 +819,21 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val metrics = paint.fontMetrics
         val highBaseline = targetTop - (metrics.ascent + metrics.descent) / 2f
         val lowBaseline = targetBottom - (metrics.ascent + metrics.descent) / 2f
-        val x = if (onRight) plot.right + 15f.dp else plot.left - 15f.dp
-        canvas.drawText(highValue, x, highBaseline, paint)
-        canvas.drawText(lowValue, x, lowBaseline, paint)
-        drawTargetScaleTick(canvas, plot, targetTop, onRight)
-        drawTargetScaleTick(canvas, plot, targetBottom, onRight)
-    }
-
-    private fun drawTargetScaleTick(canvas: Canvas, plot: RectF, centerY: Float, onRight: Boolean) {
+        val tickGap = 2f.dp
+        val tickLength = 5f.dp
         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
         linePaint.strokeWidth = 1f.dp
         linePaint.pathEffect = null
         if (onRight) {
-            canvas.drawLine(plot.right + 7f.dp, centerY, plot.right + 13f.dp, centerY, linePaint)
+            canvas.drawLine(plot.right + tickGap, targetTop, plot.right + tickGap + tickLength, targetTop, linePaint)
+            canvas.drawLine(plot.right + tickGap, targetBottom, plot.right + tickGap + tickLength, targetBottom, linePaint)
         } else {
-            canvas.drawLine(plot.left - 13f.dp, centerY, plot.left - 7f.dp, centerY, linePaint)
+            canvas.drawLine(plot.left - tickGap, targetTop, plot.left - tickGap - tickLength, targetTop, linePaint)
+            canvas.drawLine(plot.left - tickGap, targetBottom, plot.left - tickGap - tickLength, targetBottom, linePaint)
         }
+        val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
+        canvas.drawText(highValue, x, highBaseline, paint)
+        canvas.drawText(lowValue, x, lowBaseline, paint)
     }
 
 

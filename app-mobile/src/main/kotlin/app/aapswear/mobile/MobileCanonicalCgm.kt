@@ -6,6 +6,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.Trend
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.storage.PhoneTherapyStateStore
@@ -13,13 +14,11 @@ import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.flow.first
 
 /**
- * Direct G7 Watch readings are local-Watch CGM data. They are deliberately not backfilled into
- * Sugarlicious Mobile CGM history. The DataStore delegate is retained only so existing installs can
- * delete the former backfill payload once during migration.
+ * Legacy Mobile store kept only to delete data written by the short-lived Watch-backfill bridge.
+ * Direct-to-Watch history is collector-local and must never be a Sugarlicious Mobile input.
  */
 private val Context.mobileG7HistoryDataStore by preferencesDataStore("mobile_g7_backfill")
 
-/** Compatibility shim for pre-migration callers/tests. New Watch CGM is never persisted on Mobile. */
 internal class MobileG7BackfillStore(private val context: Context) {
     suspend fun snapshot(): List<CgmReading> = emptyList()
 
@@ -27,9 +26,9 @@ internal class MobileG7BackfillStore(private val context: Context) {
         incoming: List<CgmReading>,
         nowEpochMs: Long,
     ): Set<String> {
-        // Explicitly discard legacy Watch-CGM input. Keep parameters to preserve binary/source
-        // compatibility while older Wear clients phase out their former sync requests.
-        if (incoming.isNotEmpty() || nowEpochMs > 0L) clear()
+        // Deliberately reject Watch-direct history. Clear any legacy payload at the same time so it
+        // cannot reappear after process restart or widget/Watch rehydration.
+        if (incoming.isNotEmpty() || nowEpochMs >= 0L) clear()
         return emptySet()
     }
 
@@ -41,7 +40,7 @@ internal class MobileG7BackfillStore(private val context: Context) {
 internal object MobileWatchCgmMigration {
     private const val PREFS = "mobile_watch_cgm_migration"
     private const val KEY_VERSION = "version"
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     suspend fun runOnce(context: Context): Boolean {
         val app = context.applicationContext
@@ -71,14 +70,14 @@ internal object MobileWatchCgmMigration {
         app.recordMobileDiagnostic(
             module = "G7",
             code = "G7-MIGRATE-200",
-            message = "Removed legacy direct Watch G7 CGM from Mobile state/history",
+            message = "Removed Direct-to-Watch CGM/history from Sugarlicious Mobile",
             metadata = mapOf("migrationVersion" to VERSION),
         )
         return true
     }
 }
 
-/** Mobile canonical CGM is intentionally phone-only. Watch-direct resolution lives on Wear. */
+/** Sugarlicious Mobile canonical CGM is phone-source only. */
 internal object MobileCanonicalCgmResolver {
     suspend fun resolve(
         context: Context,
@@ -86,8 +85,7 @@ internal object MobileCanonicalCgmResolver {
         nowEpochMs: Long = System.currentTimeMillis(),
     ): TherapyDisplayState? {
         MobileWatchCgmMigration.runOnce(context)
-        if (nowEpochMs < 0L) return null
-        return phoneState?.withoutDirectWatchCgm()
+        return phoneState?.mobileAndroidApsOnly()
     }
 }
 
@@ -99,7 +97,7 @@ internal object MobileCanonicalStateCoordinator {
     ): Pair<TherapyDisplayState, TherapyDisplayState> {
         MobileWatchCgmMigration.runOnce(context)
         require(incoming.source != DataSourceId.DEXCOM_G7_WATCH) {
-            "Direct Watch G7 input is not a Mobile CGM source"
+            "Direct-to-Watch input is not a Sugarlicious Mobile CGM source"
         }
 
         val phoneStore = PhoneTherapyStateStore(context)
@@ -131,10 +129,7 @@ internal object MobileCanonicalStateCoordinator {
         return mergedPhone to mergedPhone
     }
 
-    /**
-     * Legacy compatibility entry point. It no longer reads Watch backfill; it only republishes a
-     * sanitized phone state and may return null when no phone state exists.
-     */
+    /** Legacy compatibility entry point. No Watch history is read or merged. */
     suspend fun refreshFromWatchBackfill(
         context: Context,
         nowEpochMs: Long,
@@ -155,7 +150,9 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
     val currentIsWatch =
         source == DataSourceId.DEXCOM_G7_WATCH ||
             glucose?.source == DataSourceId.DEXCOM_G7_WATCH
-    val safeGlucose = glucose?.takeUnless { it.source == DataSourceId.DEXCOM_G7_WATCH || source == DataSourceId.DEXCOM_G7_WATCH }
+    val safeGlucose = glucose?.takeUnless {
+        it.source == DataSourceId.DEXCOM_G7_WATCH || source == DataSourceId.DEXCOM_G7_WATCH
+    }
     val safeSource = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.OTHER else source
     val safeCapabilities =
         if (safeGlucose == null && currentIsWatch) {
@@ -178,3 +175,12 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
         capabilities = safeCapabilities,
     )
 }
+
+internal fun TherapyDisplayState.mobileAndroidApsOnly(): TherapyDisplayState =
+    withoutDirectWatchCgm().copy(
+        sourceContract = "MOBILE_ANDROIDAPS_ONLY",
+        glucoseHistory = glucoseHistory
+            .filter { it.source == DataSourceId.ANDROID_APS }
+            .distinctBy { sample -> sample.sequenceNumber?.let { "${sample.sensorId}:${sample.sessionId}:$it" } ?: "${sample.measuredAtEpochMs}:${sample.valueMgDl}" }
+            .sortedBy(GlucoseSample::measuredAtEpochMs),
+    )

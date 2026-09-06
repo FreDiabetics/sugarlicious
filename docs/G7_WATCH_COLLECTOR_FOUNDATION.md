@@ -48,4 +48,8 @@ Only one direct collector should be active for a sensor. Juggluco, xDrip direct 
 
 Unit and Android tests cover G7 packet and timing metadata parsing, applicator-code parsing, protocol serialization, scanner name matching, state persistence, data-source propagation and existing Mobile/Wear regressions. Builds verify the complete module graph.
 
-Physical sensor authentication and the first live glucose packet must still be confirmed with the user's active sensor after entering its four-digit applicator code. Backfill is not implemented; the collector requests the current G7 value and retains readings it has already received locally.
+Physical sensor authentication and the first live glucose packet must still be confirmed with the
+user's active sensor after entering its four-digit applicator code. The Collector implements the
+verified G7 `0x59` history request for at most 24 hours. Historical rows are collector-owned,
+deduplicated, session-bound and excluded from current-reading alarms/freshness; Mobile and other
+surfaces can only consume rows already stored by the Collector.

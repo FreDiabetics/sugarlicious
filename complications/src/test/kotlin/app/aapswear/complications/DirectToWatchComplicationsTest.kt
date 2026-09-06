@@ -3,7 +3,9 @@ package app.aapswear.complications
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
+import androidx.wear.watchface.complications.data.ComplicationType
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.FreshnessPolicy
@@ -24,6 +26,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Robolectric
 
 @RunWith(RobolectricTestRunner::class)
 class DirectToWatchComplicationsTest {
@@ -45,10 +48,23 @@ class DirectToWatchComplicationsTest {
         assertEquals(GlucoseUnit.MG_DL, state.glucose?.displayUnit)
     }
 
+    @Test fun `direct boundary values replace number and trend only outside sensor range`() {
+        fun header(value: Double) = DirectToWatchPresentationFormatter.header(
+            directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(valueMgDl = value)),
+            now,
+        )
+        assertEquals("NIEDRIG", header(39.0).glucose)
+        assertEquals(null, header(39.0).trend)
+        assertEquals("40", header(40.0).glucose)
+        assertEquals("400", header(400.0).glucose)
+        assertEquals("HOCH", header(401.0).glucose)
+        assertEquals(null, header(401.0).trend)
+    }
+
     @Test fun `stale direct value is not rendered as current`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
         assertEquals("—", header.glucose)
-        assertEquals("STALE", header.secondary)
+        assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
     }
 
     @Test fun `mobile fresh is never shown as direct`() {
@@ -59,12 +75,12 @@ class DirectToWatchComplicationsTest {
         )
         val header = DirectToWatchPresentationFormatter.header(mobile, now)
         assertEquals("—", header.glucose)
-        assertEquals("NO_SOURCE", header.secondary)
+        assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
         assertTrue(DirectToWatchPresentationFormatter.samples(mobile, now, 3).isEmpty())
     }
 
     @Test fun `absent data is explicit no source`() {
-        assertEquals("NO_SOURCE", DirectToWatchPresentationFormatter.header(null, now).secondary)
+        assertEquals("Bitte Sensor\nstarten oder\nkoppeln", DirectToWatchPresentationFormatter.header(null, now).secondary)
         assertEquals("3h • NO_SOURCE", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
     }
 
@@ -85,6 +101,44 @@ class DirectToWatchComplicationsTest {
         val samples = DirectToWatchPresentationFormatter.samples(state, now, 3)
         assertTrue(samples.any { it.valueMgDl == 120.0 })
         assertTrue(samples.none { it.valueMgDl in setOf(110.0, 130.0, 140.0) })
+    }
+
+    @Test fun `vigil ambient graph is transparent outside target and grayscale`() {
+        val service = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()
+        val bitmap = service.renderGraph(directState(now - 60_000L), now, 3, ambient = true)
+        assertEquals(0, Color.alpha(bitmap.getPixel(bitmap.width / 2, 8)))
+        var coloredPixelFound = false
+        for (y in 0 until bitmap.height step 5) for (x in 0 until bitmap.width step 5) {
+            val pixel = bitmap.getPixel(x, y)
+            if (Color.alpha(pixel) == 0) continue
+            coloredPixelFound = true
+            assertEquals(Color.red(pixel), Color.green(pixel))
+            assertEquals(Color.green(pixel), Color.blue(pixel))
+        }
+        assertTrue(coloredPixelFound)
+    }
+
+    @Test fun `vigil ambient palette preserves configured visibility`() {
+        val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
+        val colors = DirectToWatchGraphColorDefaults.create().copy(
+            nowLine = 0x00123456,
+            highLine = 0x80123456.toInt(),
+            cgmInRange = 0x40123456,
+        )
+
+        val ambient = with(service) { colors.ambient() }
+
+        assertEquals(0, Color.alpha(ambient.nowLine))
+        assertEquals(0x80, Color.alpha(ambient.highLine))
+        assertEquals(0x40, Color.alpha(ambient.cgmInRange))
+    }
+
+    @Test fun `overlaid ambient vigil slots preserve the active tap actions`() {
+        val ambientHeader = Robolectric.buildService(DirectToWatchAmbientHeaderComplication::class.java).create().get()
+        val ambientGraph = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()
+
+        assertTrue(ambientHeader.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
+        assertTrue(ambientGraph.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
     }
 
     @Test fun `payload remains visible while renderer changes it to stale`() {
@@ -118,7 +172,13 @@ class DirectToWatchComplicationsTest {
             cgmVeryHigh = 0xFFABCDEF.toInt(),
             predictionUam = 0xFF123456.toInt(),
         )
-        val style = SharedWearCgmGraphStyle(dotRadiusDp = 4.2f, dotOutlineEnabled = false, dotOutlineWidthDp = 1.7f, cornerRadiusDp = 31f)
+        val style = SharedWearCgmGraphStyle(
+            dotRadiusDp = 4.2f,
+            historicalDotOutlineEnabled = false,
+            currentDotOutlineEnabled = true,
+            dotOutlineWidthDp = 1.7f,
+            cornerRadiusDp = 31f,
+        )
         DirectToWatchPreferences.saveGraphColors(context, colors)
         DirectToWatchPreferences.saveGraphStyle(context, style)
 
@@ -128,7 +188,10 @@ class DirectToWatchComplicationsTest {
         assertEquals(colors.predictionUam, DirectToWatchPreferences.graphColors(context).predictionUam)
         assertEquals(4.2f, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
         assertEquals(31f, DirectToWatchPreferences.graphStyle(context).cornerRadiusDp)
-        assertFalse(DirectToWatchPreferences.graphStyle(context).dotOutlineEnabled)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).historicalDotOutlineEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).currentDotOutlineEnabled)
+        assertFalse(DirectToWatchPreferences.graphStyle(context).targetTicksEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).targetLabelsInsidePlot)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
 
         DirectToWatchPreferences.resetGraphAppearance(context)
@@ -146,6 +209,9 @@ class DirectToWatchComplicationsTest {
             putInt("appearance.trend.dark.sizePercent", 200)
             putFloat("appearance.trend.dark.alpha", .35f)
             putString("appearance.active_mode", "dark")
+            putInt("watchface.clock_size_percent", 135)
+            putInt("watchface.clock_color", 0xFF123456.toInt())
+            putBoolean("watchface.clock_bold", true)
             putBoolean("graph_style_range_background_enabled", false)
             putInt("graph_color_background", 0xFF010203.toInt())
         }
@@ -158,6 +224,9 @@ class DirectToWatchComplicationsTest {
         assertEquals(200, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).sizePercent)
         assertEquals(.35f, DirectToWatchPreferences.trendStyle(context, app.aapswear.model.AppearanceMode.DARK).alpha)
         assertEquals(app.aapswear.model.AppearanceMode.DARK, DirectToWatchPreferences.activeAppearanceMode(context))
+        assertEquals(135, DirectToWatchPreferences.clockSizePercent(context))
+        assertEquals(0xFF123456.toInt(), DirectToWatchPreferences.clockColor(context))
+        assertTrue(DirectToWatchPreferences.clockBold(context))
         assertTrue(DirectToWatchPreferences.graphStyle(context).rangeBackgroundEnabled)
         assertEquals(0xFF010203.toInt(), DirectToWatchPreferences.graphColors(context).graphBackground)
     }

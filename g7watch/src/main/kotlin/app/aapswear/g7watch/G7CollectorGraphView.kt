@@ -10,16 +10,15 @@ import android.util.TypedValue
 import android.view.View
 import android.view.ViewOutlineProvider
 import app.aapswear.g7.CgmReading
+import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.CgmQuality
-import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
-import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
@@ -27,18 +26,21 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
     private val density = resources.displayMetrics.density
+    private val directSettings by lazy { G7DirectToWatchSettingsStore(context) }
     private var readings: List<CgmReading> = emptyList()
-    private var palette = G7AppearancePalette(G7AppearanceRole.entries.associateWith { it.defaultArgb })
-    private var graphHours = G7AppearanceStore.DEFAULT_GRAPH_HOURS
     private var nowEpochMs = 0L
-    private var targetLowMgDl = 80.0
-    private var targetHighMgDl = 160.0
 
     init {
         outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
                 if (view.width > 0 && view.height > 0) {
-                    outline.setRoundRect(0, 0, view.width, view.height, TILE_RADIUS_DP * density)
+                    outline.setRoundRect(
+                        0,
+                        0,
+                        view.width,
+                        view.height,
+                        directSettings.graphStyle().cornerRadiusDp * density,
+                    )
                 }
             }
         }
@@ -58,25 +60,27 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         targetLowMgDl: Double = 80.0,
         targetHighMgDl: Double = 160.0,
     ) {
-        this.readings = readings
-        this.palette = palette
-        this.graphHours = graphHours.takeIf { it in G7AppearanceStore.ALLOWED_GRAPH_HOURS } ?: G7AppearanceStore.DEFAULT_GRAPH_HOURS
+        // Legacy parameters remain only for source compatibility with G7WatchActivity. Rendering is
+        // owned entirely by the Direct-to-Watch settings store, never by Sugarlicious colors.
+        palette.hashCode()
+        graphHours.hashCode()
+        targetLowMgDl.hashCode()
+        targetHighMgDl.hashCode()
+        this.readings = normalizeLocalHistory(readings)
         this.nowEpochMs = nowEpochMs
-        this.targetLowMgDl = targetLowMgDl
-        this.targetHighMgDl = targetHighMgDl
+        invalidateOutline()
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val now = nowEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val graphHours = directSettings.graphHours()
+        val thresholds = directSettings.thresholds()
+        val style = directSettings.graphStyle()
+        val colors = directSettings.graphColors()
         val window = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
-        val thresholds = CgmThresholds(
-            veryHighMgDl = maxOf(CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, targetHighMgDl + 1.0),
-            highMgDl = targetHighMgDl,
-            lowMgDl = targetLowMgDl,
-            veryLowMgDl = minOf(CgmThresholds.DEFAULT_VERY_LOW_MG_DL, targetLowMgDl - 1.0),
-        )
+
         SharedWearCgmGraphRenderer.render(
             canvas,
             width,
@@ -88,10 +92,64 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
                 timeWindow = window,
                 nowEpochMs = now,
                 thresholds = thresholds,
-                palette = palette.toSharedPalette(),
-                style = SharedWearCgmGraphStyle(cornerRadiusDp = TILE_RADIUS_DP),
+                palette = SharedWearCgmGraphPalette(
+                    background = colors.graphBackground,
+                    targetArea = colors.rangeInRange,
+                    highArea = colors.rangeHigh,
+                    lowArea = colors.rangeLow,
+                    highLine = colors.highLine,
+                    lowLine = colors.lowLine,
+                    dotHigh = colors.cgmHigh,
+                    dotInRange = colors.cgmInRange,
+                    dotLow = colors.cgmLow,
+                    dotVeryHigh = colors.cgmVeryHigh,
+                    dotVeryLow = colors.cgmVeryLow,
+                    dotOutline = colors.outline,
+                    axisText = colors.axisLabel,
+                    axisTick = colors.axisTick,
+                    nowLine = colors.nowLine,
+                    border = colors.divider,
+                    predictionIob = colors.predictionIob,
+                    predictionCob = colors.predictionCob,
+                    predictionUam = colors.predictionUam,
+                    predictionZeroTemp = colors.predictionZeroTemp,
+                    targetText = colors.targetValue,
+                    emptyText = colors.signalLoss,
+                ),
+                style = style,
             ),
         )
+    }
+
+    /**
+     * LIVE and BACKFILL are origins of one local sensor series. A backfilled copy of an existing
+     * event must never become a second plotted row. Prefer LIVE for equal sensor/session/sequence;
+     * BACKFILL is retained only where it actually repairs a missing event.
+     */
+    private fun normalizeLocalHistory(source: List<CgmReading>): List<CgmReading> {
+        val valid = source.filter { it.status == CgmReadingStatus.VALID }
+        val newest = valid.maxByOrNull { it.timestampEpochMs }
+        val sameSession = newest?.let { latest ->
+            valid.filter { it.sensorId == latest.sensorId && it.sessionId == latest.sessionId }
+        }.orEmpty()
+
+        return sameSession
+            .groupBy { reading ->
+                LocalReadingIdentity(
+                    reading.sensorId,
+                    reading.sessionId,
+                    reading.sequenceNumber,
+                    if (reading.sequenceNumber == null) reading.timestampEpochMs / FALLBACK_BUCKET_MS else 0L,
+                )
+            }
+            .values
+            .map { duplicates ->
+                duplicates.maxWithOrNull(
+                    compareBy<CgmReading> { if (it.origin == CgmReadingOrigin.LIVE) 1 else 0 }
+                        .thenBy { it.receivedAtEpochMs },
+                ) ?: duplicates.first()
+            }
+            .sortedBy(CgmReading::timestampEpochMs)
     }
 
     private fun CgmReading.toGraphSample() = GlucoseSample(
@@ -102,36 +160,18 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         sessionId = sessionId,
         sequenceNumber = sequenceNumber,
         receivedAtEpochMs = receivedAtEpochMs,
-        quality = when (status) {
-            CgmReadingStatus.VALID -> CgmQuality.VALID
-            CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
-            CgmReadingStatus.INVALID -> CgmQuality.INVALID
-        },
+        quality = CgmQuality.VALID,
     )
 
-    private fun G7AppearancePalette.toSharedPalette() = SharedWearCgmGraphPalette(
-        background = argb(G7AppearanceRole.GRAPH_BACKGROUND),
-        targetArea = argb(G7AppearanceRole.GRAPH_TARGET_AREA),
-        highArea = argb(G7AppearanceRole.GRAPH_HIGH_AREA),
-        lowArea = argb(G7AppearanceRole.GRAPH_LOW_AREA),
-        highLine = argb(G7AppearanceRole.GRAPH_HIGH_LINE),
-        lowLine = argb(G7AppearanceRole.GRAPH_LOW_LINE),
-        dotHigh = argb(G7AppearanceRole.GRAPH_DOT_HIGH),
-        dotInRange = argb(G7AppearanceRole.GRAPH_DOT_IN_RANGE),
-        dotLow = argb(G7AppearanceRole.GRAPH_DOT_LOW),
-        dotOutline = argb(G7AppearanceRole.GRAPH_DOT_OUTLINE),
-        axisText = argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
-        axisTick = argb(G7AppearanceRole.GRAPH_GRID),
-        nowLine = argb(G7AppearanceRole.GRAPH_GRID),
-        border = argb(G7AppearanceRole.GRAPH_TILE_BORDER),
-        predictionIob = argb(G7AppearanceRole.GRAPH_PREDICTION),
-        predictionCob = argb(G7AppearanceRole.GRAPH_PREDICTION),
-        predictionUam = argb(G7AppearanceRole.GRAPH_PREDICTION),
-        predictionZeroTemp = argb(G7AppearanceRole.GRAPH_PREDICTION),
+    private data class LocalReadingIdentity(
+        val sensorId: String,
+        val sessionId: String,
+        val sequenceNumber: Long?,
+        val fallbackMinuteBucket: Long,
     )
 
     private companion object {
-        const val TILE_RADIUS_DP = 20f
+        const val FALLBACK_BUCKET_MS = 60_000L
     }
 }
 

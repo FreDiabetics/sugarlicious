@@ -27,12 +27,7 @@ internal const val G7_SOURCE_FALLBACK_MIGRATION_KEY = "g7SetupAutomaticFallbackM
 internal fun migrateLegacyForcedG7Source(
     current: DataSourcePreference,
     migrationDone: Boolean,
-): DataSourcePreference =
-    if (!migrationDone && current == DataSourcePreference.DEXCOM_G7_WATCH) {
-        DataSourcePreference.AUTOMATIC
-    } else {
-        current
-    }
+): DataSourcePreference = DataSourcePreference.ANDROID_APS
 
 class AapsStatusReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -65,10 +60,6 @@ class AapsStatusReceiver : BroadcastReceiver() {
                             "Legacy G7-only source migrated to automatic AAPS fallback",
                         )
                     }
-                }
-                if (sourcePreference == DataSourcePreference.XDRIP_PLUS) {
-                    app.recordMobileDiagnostic("SOURCE", "SRC-AAPS-102", "AAPS payload ignored by explicit source selection")
-                    return@launch
                 }
                 val parsedState = intent.extras?.let { AapsPayloadAdapter.parse(it, now) }
                 if (parsedState == null) {

@@ -14,13 +14,24 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
     @Test
+    fun `wear scale starts at forty and ends at four hundred`() {
+        assertEquals(0.0, WearCgmGraphScale.ratio(39.0), 0.0)
+        assertEquals(0.0, WearCgmGraphScale.ratio(40.0), 0.0)
+        assertEquals(1.0, WearCgmGraphScale.ratio(400.0), 0.0)
+        assertEquals(1.0, WearCgmGraphScale.ratio(401.0), 0.0)
+    }
+    @Test
     fun `wear and collector adapters receive identical full bleed geometry`() {
         listOf(192 to 112, 320 to 170, 454 to 220).forEach { (width, height) ->
             val wear = SharedWearCgmGraphRenderer.metrics(width, height, 2f, CgmThresholds.DEFAULT)
             val collector = SharedWearCgmGraphRenderer.metrics(width, height, 2f, CgmThresholds.DEFAULT)
             assertEquals(wear, collector)
-            assertEquals(12f, wear.plot.left, 0.01f)
+            assertEquals(0f, wear.plot.left, 0.01f)
             assertEquals(width - 58f, wear.plot.right, 0.01f)
+            assertEquals(0f, wear.visualBounds.left, 0.01f)
+            assertEquals(0f, wear.visualBounds.top, 0.01f)
+            assertEquals(width.toFloat(), wear.visualBounds.right, 0.01f)
+            assertEquals(wear.plot.bottom, wear.visualBounds.bottom, 0.01f)
             assertTrue(wear.plot.height() > 0f)
             assertTrue(wear.highY < wear.lowY)
         }

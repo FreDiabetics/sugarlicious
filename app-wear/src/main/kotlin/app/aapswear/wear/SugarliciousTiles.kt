@@ -337,7 +337,7 @@ private fun graphTileContent(
     val column = Column.Builder().setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
         .addContent(tileText("CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
         .addContent(Spacer.Builder().setHeight(dp(18f)).build())
-        .addContent(if (samples.isEmpty()) tileText("KEINE CGM-HISTORIE", 12f, colors.textSecondary, bold = true) else dots)
+        .apply { if (samples.isNotEmpty()) addContent(dots) }
         .build()
     return tileRoot(colors.background, roundedTileCard(colors, 18f, column))
 }

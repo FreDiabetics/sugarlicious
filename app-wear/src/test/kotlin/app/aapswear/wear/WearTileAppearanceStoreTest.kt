@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.protocol.WatchUiColors
+import app.aapswear.protocol.WatchGraphStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Before
@@ -61,5 +62,12 @@ class WearTileAppearanceStoreTest {
         )
 
         assertEquals(overview.uiColors, WearDisplayPreferences.read(context).uiColors)
+    }
+
+    @Test
+    fun `wear graph persists current and historical outlines independently`() {
+        val expected = WatchGraphStyle(cgmHistoricalDotOutlineEnabled = false, cgmCurrentDotOutlineEnabled = true)
+        WearDisplayPreferences.saveLocal(context, WearDisplayPreferences(graphStyle = expected))
+        assertEquals(expected, WearDisplayPreferences.read(context).graphStyle)
     }
 }

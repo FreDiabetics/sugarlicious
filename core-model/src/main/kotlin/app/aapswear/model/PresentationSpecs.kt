@@ -66,8 +66,8 @@ data class GraphAxisLayoutSpec(
     }
 
     companion object {
-        val DEFAULT = GraphAxisLayoutSpec()
-        val COMPACT = GraphAxisLayoutSpec(1.5f, 4f, 2.5f, 4f)
+        val DEFAULT = GraphAxisLayoutSpec(plotToTickGapDp = 3f, tickLengthDp = 4f, tickToLabelGapDp = 2f)
+        val COMPACT = GraphAxisLayoutSpec(plotToTickGapDp = 2.4f, tickLengthDp = 3.2f, tickToLabelGapDp = 1.6f, outerEdgePaddingDp = 4f)
     }
 }
 
@@ -116,6 +116,6 @@ data class GraphSpec(
 object SettingsSchemaVersions {
     const val APPEARANCE = 4
     const val WIDGET = 3
-    const val WEAR = 5
-    const val COLLECTOR = 2
+    const val WEAR = 6
+    const val COLLECTOR = 3
 }

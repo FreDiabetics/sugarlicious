@@ -5,9 +5,14 @@ import app.aapswear.g7.G7SyncDispatch
 import app.aapswear.protocol.G7ReadingAck
 
 /**
- * Direct G7 Watch readings are local-Watch CGM data and are never backfilled into Sugarlicious
- * Mobile CGM history. The object remains as a source-compatibility shim for older call sites while
- * the transport paths are retired; it deliberately has no pending state and performs no IPC.
+ * Direct-to-Watch sensor history is private to the standalone collector.
+ *
+ * Sugarlicious Wear must never request, transport, acknowledge, persist or render sensor backfill.
+ * Backfill is fetched by the Direct-to-Watch collector only and is stored in its local reading DB
+ * for repairing gaps in the Direct-to-Watch graph.
+ *
+ * These no-op entry points remain temporarily for source compatibility with older callers while
+ * the transport hooks are removed from the surrounding services.
  */
 internal object G7BackfillSync {
     suspend fun sendPending(

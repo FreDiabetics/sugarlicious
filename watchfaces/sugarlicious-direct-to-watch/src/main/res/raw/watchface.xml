@@ -4,28 +4,41 @@
     <Metadata key="CLOCK_TYPE" value="DIGITAL" />
     <Metadata key="PREVIEW_TIME" value="12:42:00" />
     <Scene backgroundColor="#FF000000">
-        <ComplicationSlot slotId="0" displayName="Vigil glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108">
+        <ComplicationSlot slotId="0" displayName="Vigil glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="340" height="108" />
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="20" y="140" width="410" height="250">
+        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="250"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="410" height="250" />
-            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="410" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <BoundingBox x="0" y="0" width="450" height="250" />
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="450" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SHORT_TEXT EMPTY" x="38" y="155" width="180" height="34">
-            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        <ComplicationSlot slotId="3" displayName="Vigil AOD glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchAmbientHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="340" height="108" />
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4" displayName="Vigil AOD graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="250" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchAmbientGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="450" height="250" />
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="450" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="16" y="146" width="180" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="180" height="34" />
-            <Complication type="SHORT_TEXT"><PartText x="0" y="0" width="180" height="34"><Text align="START" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="18" weight="BOLD" color="#FFA8A8BA"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText></Complication>
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="180" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <DigitalClock x="150" y="398" width="150" height="34">
-            <TimeText x="0" y="0" width="150" height="34" format="hh:mm" hourFormat="24" align="CENTER">
-                <Font family="SYNC_TO_DEVICE" size="24" weight="BOLD" color="#FFFFFFFF" />
-            </TimeText>
-        </DigitalClock>
+        <ComplicationSlot slotId="5" displayName="Vigil clock" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="150" y="398" width="150" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchClockComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="150" height="34" /><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="150" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="6" displayName="Vigil AOD clock" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="150" y="398" width="150" height="34" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
+            <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DirectToWatchAmbientClockComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="150" height="34" /><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="150" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
     </Scene>
 </WatchFace>

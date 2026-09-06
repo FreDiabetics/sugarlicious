@@ -57,7 +57,10 @@ internal data class WearDisplayPreferences(
         private const val UI_PREFIX = "ui_color_"
         private const val STYLE_DOT_RADIUS = "cgm_dot_radius_dp"
         private const val STYLE_OUTLINE_ENABLED = "cgm_dot_outline_enabled"
+        private const val STYLE_HISTORICAL_OUTLINE_ENABLED = "cgm_historical_dot_outline_enabled"
+        private const val STYLE_CURRENT_OUTLINE_ENABLED = "cgm_current_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
+        private const val STYLE_SCALE_LANE_OPACITY = "scale_lane_opacity_percent"
         private const val THRESHOLD_VERY_HIGH = "threshold_very_high"
         private const val THRESHOLD_HIGH = "threshold_high"
         private const val THRESHOLD_LOW = "threshold_low"
@@ -164,10 +167,19 @@ internal data class WearDisplayPreferences(
                                 .coerceIn(1.5f, 6.0f),
                         cgmDotOutlineEnabled =
                             preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmDotOutlineEnabled),
+                        cgmHistoricalDotOutlineEnabled = preferences.getBoolean(
+                            prefix + STYLE_HISTORICAL_OUTLINE_ENABLED,
+                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmHistoricalDotOutlineEnabled),
+                        ),
+                        cgmCurrentDotOutlineEnabled = preferences.getBoolean(
+                            prefix + STYLE_CURRENT_OUTLINE_ENABLED,
+                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmCurrentDotOutlineEnabled),
+                        ),
                         cgmDotOutlineWidthDp =
                             preferences
                                 .getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp)
                                 .coerceIn(0.25f, 3.0f),
+                        scaleLaneOpacityPercent = preferences.getInt(prefix + STYLE_SCALE_LANE_OPACITY, styleDefaults.scaleLaneOpacityPercent).coerceIn(0, 100),
                     ),
                 uiColors =
                     WatchUiColors(
@@ -333,7 +345,10 @@ internal data class WearDisplayPreferences(
             putInt(prefix + COLOR_PREFIX + "signal_loss", colors.signalLoss)
             putFloat(prefix + STYLE_DOT_RADIUS, profile.graphStyle.cgmDotRadiusDp)
             putBoolean(prefix + STYLE_OUTLINE_ENABLED, profile.graphStyle.cgmDotOutlineEnabled)
+            putBoolean(prefix + STYLE_HISTORICAL_OUTLINE_ENABLED, profile.graphStyle.cgmHistoricalDotOutlineEnabled)
+            putBoolean(prefix + STYLE_CURRENT_OUTLINE_ENABLED, profile.graphStyle.cgmCurrentDotOutlineEnabled)
             putFloat(prefix + STYLE_OUTLINE_WIDTH, profile.graphStyle.cgmDotOutlineWidthDp)
+            putInt(prefix + STYLE_SCALE_LANE_OPACITY, profile.graphStyle.scaleLaneOpacityPercent.coerceIn(0, 100))
             val ui = profile.uiColors
             putInt(prefix + UI_PREFIX + "background", ui.background)
             putInt(prefix + UI_PREFIX + "tile_background", ui.tileBackground)
@@ -356,7 +371,7 @@ internal data class WearDisplayPreferences(
             val prefixes = listOf(COLOR_PREFIX, UI_PREFIX)
             preferences.edit().apply {
                 preferences.all.forEach { (key, raw) ->
-                    if (prefixes.none(key::startsWith) && key !in setOf(STYLE_DOT_RADIUS, STYLE_OUTLINE_ENABLED, STYLE_OUTLINE_WIDTH)) return@forEach
+                    if (prefixes.none(key::startsWith) && key !in setOf(STYLE_DOT_RADIUS, STYLE_OUTLINE_ENABLED, STYLE_HISTORICAL_OUTLINE_ENABLED, STYLE_CURRENT_OUTLINE_ENABLED, STYLE_OUTLINE_WIDTH)) return@forEach
                     AppearanceMode.entries.forEach { mode ->
                         val target = appearancePrefix(mode) + key
                         if (preferences.contains(target)) return@forEach

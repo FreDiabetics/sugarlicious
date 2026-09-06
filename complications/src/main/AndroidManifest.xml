@@ -18,11 +18,30 @@
             <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
             <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_direct_to_watch_graph"/>
         </service>
+        <service android:name=".DirectToWatchAmbientHeaderComplication" android:label="Vigil · AOD Glukose" android:icon="@drawable/ic_direct_to_watch_header" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+        </service>
+        <service android:name=".DirectToWatchAmbientGraphComplication" android:label="Vigil · AOD Graph" android:icon="@drawable/ic_direct_to_watch_graph" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
+        </service>
         <service android:name=".DirectToWatchStatusComplication" android:label="Direct to Watch · Skala/Alter" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
-            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
             <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="300"/>
-            <meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_direct_to_watch_status"/>
+        </service>
+        <service android:name=".DirectToWatchClockComplication" android:label="Vigil · Uhrzeit" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="60"/>
+        </service>
+        <service android:name=".DirectToWatchAmbientClockComplication" android:label="Vigil · AOD Uhrzeit" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE"/>
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="60"/>
         </service>
         <receiver android:name=".DirectToWatchGraphScaleReceiver" android:exported="false" />
     </application>

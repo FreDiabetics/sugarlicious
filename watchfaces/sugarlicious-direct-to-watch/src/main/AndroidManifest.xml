@@ -8,6 +8,6 @@
         android:usesCleartextTraffic="false">
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
         <property android:name="com.google.wear.watchface.format.version" android:value="1" />
-        <property android:name="com.google.wear.watchface.format.publisher" android:value="Sugarlicious-0.1.0" />
+        <property android:name="com.google.wear.watchface.format.publisher" android:value="Sugarlicious-0.1.1" />
     </application>
 </manifest>

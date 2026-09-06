@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
+import android.media.AudioAttributes
+import android.net.Uri
 import app.aapswear.g7.G7CollectorError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,10 +25,11 @@ internal data class G7AcknowledgedError(
 internal fun g7ErrorSignature(error: G7CollectorError): String =
     "${error.code}|${error.safeMessage}"
 
-/** High-priority surface reserved for an actually actionable G7 Watch-only problem. */
+/** High-priority surface reserved for an actually actionable direct-Watch problem. */
 internal object G7ErrorNotifier {
-    private const val CHANNEL_ID = "g7_collector_errors_v1"
-    private const val CHANNEL_NAME = "G7 Collector-Fehler"
+    private const val CHANNEL_ID = "direct_watch_collector_errors_v2"
+    private const val LEGACY_CHANNEL_ID = "g7_collector_errors_v1"
+    private const val CHANNEL_NAME = "Direct-to-Watch-Fehler"
     private const val NOTIFICATION_ID = 7002
     private const val PREFS = "g7_error_notifications"
     private const val KEY_ACTIVE_SIGNATURE = "active_signature"
@@ -39,10 +42,20 @@ internal object G7ErrorNotifier {
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        val sound = Uri.parse("android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}")
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Dringende Fehler des direkten Dexcom-G7-Watch-Collectors"
+                description = "Dringende Fehler von Direct to Watch"
                 enableVibration(true)
+                setSound(
+                    sound,
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build(),
+                )
+                setBypassDnd(G7AlarmNotificationPolicy.isAccessGranted(context))
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
         )
@@ -72,7 +85,7 @@ internal object G7ErrorNotifier {
             NOTIFICATION_ID,
             buildNotification(
                 context = app,
-                title = if (error.code == "G7-SIGNAL-LOSS") "G7 Signalverlust" else "G7-Fehler ${error.code}",
+                title = if (error.code == "G7-SIGNAL-LOSS") "Signalverlust" else "Direct-to-Watch-Fehler ${error.code}",
                 body = error.safeMessage,
                 occurredAtEpochMs = firstOccurredAt,
                 onlyAlertOnce = sameActiveError,

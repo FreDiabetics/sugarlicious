@@ -5,6 +5,7 @@ plugins {
 }
 
 val generatedAnalogPreviewRes = layout.buildDirectory.dir("generated/sugarliciousAnalogPreviewRes")
+val generatedVigilPreviewRes = layout.buildDirectory.dir("generated/vigilPreviewRes")
 val syncSugarliciousAnalogPreviewAssets =
     tasks.register<Copy>("syncSugarliciousAnalogPreviewAssets") {
         from(
@@ -37,6 +38,14 @@ val syncSugarliciousAnalogPreviewAssets =
         eachFile { path = "drawable-nodpi/$name" }
         includeEmptyDirs = false
     }
+val syncVigilPreviewAsset = tasks.register<Sync>("syncVigilPreviewAsset") {
+    from(rootProject.file("watchfaces/sugarlicious-direct-to-watch/src/main/res/drawable-nodpi/preview.png")) {
+        rename { "vigil_preview.png" }
+    }
+    into(generatedVigilPreviewRes)
+    eachFile { path = "drawable-nodpi/$name" }
+    includeEmptyDirs = false
+}
 
 android {
     buildFeatures { compose = true }
@@ -52,10 +61,12 @@ android {
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].res.directories.add(generatedAnalogPreviewRes.get().asFile.path)
+    sourceSets["main"].res.directories.add(generatedVigilPreviewRes.get().asFile.path)
 }
 
 tasks.matching { task -> task.name == "preBuild" }.configureEach {
     dependsOn(syncSugarliciousAnalogPreviewAssets)
+    dependsOn(syncVigilPreviewAsset)
 }
 
 dependencies {

@@ -86,6 +86,7 @@ internal data class WidgetInstanceConfiguration(
     val outlineArgb: Int = Color.DKGRAY,
     val cornerRadiusDp: Int = 0,
     val graphCornerRadiusDp: Int = DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
+    val scaleLaneOpacityPercent: Int = 30,
     val shapeMode: WidgetShapeMode = WidgetShapeMode.STANDARD,
     val glucoseScalePercent: Int = 100,
     val trendScalePercent: Int = 100,
@@ -169,6 +170,7 @@ internal object WidgetInstanceConfigurationStore {
                 key(appWidgetId, "graph_corner_radius"),
                 DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
             ).coerceIn(MIN_WIDGET_GRAPH_CORNER_RADIUS_DP, MAX_WIDGET_GRAPH_CORNER_RADIUS_DP),
+            scaleLaneOpacityPercent = prefs.getInt(key(appWidgetId, "scale_lane_opacity_percent"), 30).coerceIn(0, 100),
             shapeMode = runCatching {
                 WidgetShapeMode.valueOf(prefs.getString(key(appWidgetId, "shape"), WidgetShapeMode.STANDARD.name)!!)
             }.getOrDefault(WidgetShapeMode.STANDARD),
@@ -216,6 +218,7 @@ internal object WidgetInstanceConfigurationStore {
             .putInt(key(appWidgetId, "light.outline"), value.lightOutlineArgb)
             .putInt(key(appWidgetId, "corner_radius"), value.cornerRadiusDp)
             .putInt(key(appWidgetId, "graph_corner_radius"), value.graphCornerRadiusDp)
+            .putInt(key(appWidgetId, "scale_lane_opacity_percent"), value.scaleLaneOpacityPercent.coerceIn(0, 100))
             .putString(key(appWidgetId, "shape"), value.shapeMode.name)
             .putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
@@ -398,6 +401,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             "dp",
                             DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
                         ) { value = value.copy(graphCornerRadiusDp = it) }
+                        WidgetPercentSlider(
+                            "Skalenbereich",
+                            value.scaleLaneOpacityPercent,
+                            0..100,
+                            "%",
+                            30,
+                        ) { value = value.copy(scaleLaneOpacityPercent = it) }
                         Text("Zeitraum", color = ComposeColor.LightGray, fontSize = 11.sp)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(1, 2, 3, 6, 12, 24).forEach { hours ->

@@ -21,6 +21,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -118,21 +119,14 @@ class G7SystemStatusActivity : Activity() {
         val diagnostics = G7CollectorDiagnosticStore(this)
         val attempt = diagnostics.snapshot().firstOrNull()
         val cycle = attempt?.cycle ?: diagnostics.pendingScheduledCycle()
+        val hardwareMetrics = G7ExpectedWindowLedger(this).metrics()
 
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(18.dp, 8.dp, 18.dp, 30.dp)
             setBackgroundColor(background)
-            addView(TextView(this@G7SystemStatusActivity).apply {
-                text = "←  Systemstatus"
-                textSize = 17f
-                gravity = Gravity.CENTER
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                setOnClickListener { finish() }
-                contentDescription = "Zurück zur Übersicht"
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 48.dp))
+            addView(g7SettingsHeader("Systemstatus", palette), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
             addView(group("LIVE COLLECTOR STATUS", palette).apply {
                 val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
@@ -192,7 +186,22 @@ class G7SystemStatusActivity : Activity() {
                     hardwareExpanded = !hardwareExpanded
                     render()
                 })
-                if (hardwareExpanded) addCycleRows(this, cycle, palette)
+                if (hardwareExpanded) {
+                    addCycleRows(this, cycle, palette)
+                    addView(row("Erwartete Fenster", hardwareMetrics.expectedWindows.toString(), palette))
+                    addView(row("Versuchte Fenster", hardwareMetrics.attemptedWindows.toString(), palette))
+                    addView(row("Erfolgreiche Fenster", hardwareMetrics.successfulWindows.toString(), palette))
+                    addView(row("Verpasste Fenster", hardwareMetrics.missedWindows.toString(), palette))
+                    addView(row("First Attempt", hardwareMetrics.firstAttemptSuccess.toString(), palette))
+                    addView(row("Retry-Erfolg", hardwareMetrics.retrySuccess.toString(), palette))
+                    addView(row("GATT 133", hardwareMetrics.gatt133Count.toString(), palette))
+                    addView(row("No Callback", hardwareMetrics.noCallbackCount.toString(), palette))
+                    addView(row("Fallback Scans", hardwareMetrics.fallbackScanCount.toString(), palette))
+                    addView(row("Verfügbarkeit", "%.1f %%".format(hardwareMetrics.availabilityPercent), palette))
+                    addView(row("Längste Wertelücke", hardwareMetrics.longestReadingGapMs?.let(::formatDurationMs) ?: "—", palette))
+                    addView(row("Median Empfang", hardwareMetrics.medianReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                    addView(row("p95 Empfang", hardwareMetrics.p95ReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                }
 
                 addView(expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
                     diagnosticsExpanded = !diagnosticsExpanded
@@ -217,7 +226,7 @@ class G7SystemStatusActivity : Activity() {
             }, cardParams())
 
             addView(label(
-                "Nur einen direkten G7-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
+                "Nur einen direkten Sensor-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
                 9f,
                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
             ).apply { setPadding(8.dp, 12.dp, 8.dp, 0) })
@@ -228,13 +237,25 @@ class G7SystemStatusActivity : Activity() {
             ).apply { setPadding(8.dp, 6.dp, 8.dp, 0) })
         }
 
-        scrollView = ScrollView(this).apply {
-            isFillViewport = true
+        val currentScroll = scrollView
+        if (currentScroll == null) {
+            scrollView = G7EdgeFadeScrollView(this).apply { isFillViewport = true }.applyG7EdgeFade()
+            setContentView(scrollView)
+        } else {
+            currentScroll.removeAllViews()
+        }
+        scrollView?.apply {
             setBackgroundColor(background)
             addView(content)
+            viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    viewTreeObserver.removeOnPreDrawListener(this)
+                    val maxScroll = (content.measuredHeight - height).coerceAtLeast(0)
+                    scrollTo(0, oldScrollY.coerceAtMost(maxScroll))
+                    return true
+                }
+            })
         }
-        setContentView(scrollView)
-        scrollView?.post { scrollView?.scrollTo(0, oldScrollY) }
     }
 
     private fun liveCollectorPath(cycle: CollectorCycleTiming?, phase: String): String = when {
@@ -260,6 +281,8 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Advertisement", formatTimestamp(cycle?.advertisementFoundAt), palette))
         target.addView(row("RSSI", cycle?.advertisementRssi?.let { "$it dBm" } ?: "—", palette))
         target.addView(row("GATT Start", formatTimestamp(cycle?.connectGattStartedAt), palette))
+        target.addView(row("Fenster-ID", cycle?.expectedWindowId ?: "—", palette))
+        target.addView(row("GATT-Generation", cycle?.gattGeneration?.toString() ?: "—", palette))
         target.addView(row("Direct-Ergebnis", cycle?.directConnectResult?.name ?: "—", palette))
         target.addView(row("Direct-Versuche", cycle?.directConnectAttempts?.toString() ?: "—", palette))
         target.addView(row("Direct-Status", cycle?.directConnectStatus?.toString() ?: "—", palette))
@@ -312,7 +335,7 @@ class G7SystemStatusActivity : Activity() {
             gravity = Gravity.CENTER
             background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
         }
-        addView(label("Vierstelliger Code vom G7-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+        addView(label("Vierstelliger Code vom Sensor-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
         addView(input, buttonParams())
         addView(pill("Sensorcode speichern", palette) {
             val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()
@@ -326,6 +349,7 @@ class G7SystemStatusActivity : Activity() {
             G7SensorStateStore(this@G7SystemStatusActivity).save(
                 G7SessionManager(G7SensorStateStore(this@G7SystemStatusActivity).read()).prepareInitialSetup(sensor),
             )
+            G7CollectorService.start(this@G7SystemStatusActivity)
             showPairingEditor = false
             render()
         }, buttonParams())

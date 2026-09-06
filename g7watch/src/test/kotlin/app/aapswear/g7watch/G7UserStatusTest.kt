@@ -60,7 +60,7 @@ class G7UserStatusTest {
         )
 
         assertEquals(G7UserStatusLevel.WORKING, status.level)
-        assertEquals("Automatische Wiederverbindung", status.title)
+        assertEquals("Autom. Wiederverb.", status.title)
         assertTrue(status.action.contains("Nichts zurücksetzen"))
     }
 

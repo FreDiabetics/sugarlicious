@@ -145,8 +145,12 @@ data class WatchUiColors(
 @Serializable
 data class WatchGraphStyle(
     val cgmDotRadiusDp: Float = 2.4f,
+    /** Legacy master switch retained for backwards-compatible config decoding. */
     val cgmDotOutlineEnabled: Boolean = true,
+    val cgmHistoricalDotOutlineEnabled: Boolean = true,
+    val cgmCurrentDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
+    val scaleLaneOpacityPercent: Int = 30,
 )
 
 @Serializable
@@ -171,7 +175,7 @@ data class WatchConfig(
     val sentAtEpochMs: Long = 0L,
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 9
+        const val CURRENT_SCHEMA = 10
     }
 }
 

@@ -97,9 +97,9 @@ internal val sugarliciousWatchFaceCards =
         ),
         SugarliciousWatchFaceCard(
             name = "Vigil",
-            style = "G7 Collector",
+            style = "Direct to Watch",
             slots = 3,
-            features = listOf("G7 Collector", "3h Graph", "AOD", "Fixed Layout"),
+            features = listOf("Direct to Watch", "3h Graph", "AOD", "Fixed Layout"),
         ),
     )
 
@@ -218,9 +218,9 @@ internal fun SugarliciousWatchScreen(
                     Text(
                         text =
                             if (directToWatchRelevant) {
-                                "Direct to Watch nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten G7-Watch-Collector-Datenstrom."
+                                "Direct to Watch nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten Sensor-Datenstrom der Watch."
                             } else {
-                                "Direct to Watch wird verfügbar, sobald der G7 Watch Collector eingerichtet oder als Datenquelle aktiv ist."
+                                "Direct to Watch wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
                             },
                         color = SugarliciousColors.TextSecondary,
                         fontSize = 12.sp,
@@ -317,7 +317,7 @@ private fun WatchFaceTile(
             )
             if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
-                    text = if (enabled) "G7 Collector Style" else "G7 Collector erforderlich",
+                    text = if (enabled) "Direct-to-Watch-Stil" else "Direct to Watch erforderlich",
                     color = if (enabled) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,

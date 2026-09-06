@@ -6,6 +6,7 @@ import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import app.aapswear.g7.CgmReading
+import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingRepository
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
@@ -13,7 +14,7 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 2), CgmReadingRepository {
+internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 3), CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
@@ -21,7 +22,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
     init { mutableLatest.value = query(limit = 1).firstOrNull() }
 
     override fun onCreate(db: SQLiteDatabase) {
-        db.execSQL("CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, synced INTEGER NOT NULL DEFAULT 0)")
+        db.execSQL("CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE', synced INTEGER NOT NULL DEFAULT 0)")
         db.execSQL("CREATE INDEX readings_measured_at ON readings(measured_at DESC)")
         db.execSQL("CREATE INDEX readings_pending ON readings(synced, measured_at)")
     }
@@ -36,10 +37,16 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             db.execSQL("ALTER TABLE readings ADD COLUMN calibration_state INTEGER")
             db.execSQL("ALTER TABLE readings ADD COLUMN reserved_field INTEGER")
         }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE readings ADD COLUMN origin TEXT NOT NULL DEFAULT 'LIVE'")
+        }
     }
 
     override suspend fun insert(reading: CgmReading): Boolean {
         if (reading.status == CgmReadingStatus.SENSOR_ERROR && hasSameSensorError(reading)) {
+            return false
+        }
+        if (reading.status == CgmReadingStatus.VALID && hasSameValidIdentity(reading)) {
             return false
         }
         val values = ContentValues().apply {
@@ -56,6 +63,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             reading.protocolStatusCode?.let { put("protocol_status", it) }
             reading.calibrationStateCode?.let { put("calibration_state", it) }
             reading.reservedField?.let { put("reserved_field", it) }
+            put("origin", reading.origin.name)
         }
         val inserted = writableDatabase.insertWithOnConflict("readings", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
         if (inserted) {
@@ -87,6 +95,39 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         ).use { it.moveToFirst() }
     }
 
+    /** Old installations may already contain repeated sequence numbers. Avoid a schema-level
+     * unique index that would make their migration fail; deduplicate new validated rows using the
+     * complete session identity plus a close event timestamp or the exact sensor clock. */
+    private fun hasSameValidIdentity(reading: CgmReading): Boolean {
+        val clauses = mutableListOf<String>()
+        val args = mutableListOf(
+            reading.sensorId,
+            reading.sessionId,
+            CgmReadingStatus.VALID.name,
+        )
+        reading.sequenceNumber?.let { sequence ->
+            clauses += "(sequence_number=? AND measured_at BETWEEN ? AND ?)"
+            args += sequence.toString()
+            args += (reading.timestampEpochMs - IDENTITY_TIME_TOLERANCE_MS).toString()
+            args += (reading.timestampEpochMs + IDENTITY_TIME_TOLERANCE_MS).toString()
+        }
+        reading.rawSourceTimestamp?.let { sensorClock ->
+            clauses += "sensor_clock=?"
+            args += sensorClock.toString()
+        }
+        if (clauses.isEmpty()) return false
+        return readableDatabase.query(
+            "readings",
+            arrayOf("id"),
+            "sensor_id=? AND session_id=? AND status=? AND (${clauses.joinToString(" OR ")})",
+            args.toTypedArray(),
+            null,
+            null,
+            null,
+            "1",
+        ).use { it.moveToFirst() }
+    }
+
     private fun prune(nowEpochMs: Long = System.currentTimeMillis()) {
         writableDatabase.delete(
             "readings",
@@ -102,6 +143,13 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         query(
             selection = "status=?",
             args = arrayOf(CgmReadingStatus.VALID.name),
+            limit = 1,
+        ).firstOrNull()
+
+    suspend fun getLatestValidForSession(sensorId: String, sessionId: String): CgmReading? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=?",
+            args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId),
             limit = 1,
         ).firstOrNull()
 
@@ -196,6 +244,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
                     protocolStatusCode = cursor.intOrNull("protocol_status"),
                     calibrationStateCode = cursor.intOrNull("calibration_state"),
                     reservedField = cursor.intOrNull("reserved_field"),
+                    origin = runCatching { CgmReadingOrigin.valueOf(cursor.getString(cursor.getColumnIndexOrThrow("origin"))) }.getOrDefault(CgmReadingOrigin.LIVE),
                 ))
             }
         }
@@ -210,5 +259,6 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
         const val MAX_ROWS = 2_000
+        const val IDENTITY_TIME_TOLERANCE_MS = 60_000L
     }
 }

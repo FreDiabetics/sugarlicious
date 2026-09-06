@@ -17,16 +17,21 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7SessionManager
+import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.cgmBoundaryDisplay
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
@@ -35,11 +40,24 @@ import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import java.util.Locale
 
+internal fun hasUsableCollectorSession(reading: CgmReading?, sensorId: String?): Boolean =
+    reading != null && reading.status == CgmReadingStatus.VALID && reading.sensorId == sensorId
+
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
     private var readingObserverRegistered = false
     private var activePalette: G7AppearancePalette? = null
     private var screenBuilt = false
+    private var pairingGateVisible = false
+    private val pairingRefresh = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed && pairingGateVisible) {
+                refreshScreen()
+                mainHandler.postDelayed(this, 1_000L)
+            }
+        }
+    }
+    private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var scrollView: ScrollView
     private lateinit var statusHost: LinearLayout
     private lateinit var glucoseHost: LinearLayout
@@ -48,7 +66,7 @@ class G7WatchActivity : Activity() {
     private val readingObserver =
         object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
-                if (!isFinishing && !isDestroyed) refreshLiveContent()
+                if (!isFinishing && !isDestroyed) refreshScreen()
             }
         }
 
@@ -71,6 +89,7 @@ class G7WatchActivity : Activity() {
     }
 
     override fun onPause() {
+        mainHandler.removeCallbacks(pairingRefresh)
         unregisterReadingObserver()
         super.onPause()
     }
@@ -93,7 +112,79 @@ class G7WatchActivity : Activity() {
 
     private fun refreshScreen() {
         val palette = appearanceStore.load()
-        if (!screenBuilt || palette != activePalette) buildScreen(palette) else refreshLiveContent()
+        val state = G7SensorStateStore(this).read()
+        if (!hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)) {
+            buildPairingGate(palette, state.collectorEnabled, state.lastError?.safeMessage)
+        } else if (!screenBuilt || pairingGateVisible || palette != activePalette) {
+            pairingGateVisible = false
+            mainHandler.removeCallbacks(pairingRefresh)
+            buildScreen(palette)
+        } else refreshLiveContent()
+    }
+
+    private fun buildPairingGate(palette: G7AppearancePalette, pairingStarted: Boolean, error: String?) {
+        pairingGateVisible = true
+        screenBuilt = false
+        activePalette = palette
+        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        window.statusBarColor = background
+        window.navigationBarColor = background
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(26.dp, 24.dp, 26.dp, 36.dp)
+            setBackgroundColor(background)
+        }
+        content.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_g7_sensor)
+            contentDescription = "Sensor koppeln"
+        }, LinearLayout.LayoutParams(70.dp, 70.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+        content.addView(label(
+            if (pairingStarted) "Sensor wird gesucht und sicher gekoppelt …" else "Vierstelligen Kopplungscode vom Sensor eingeben",
+            12f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), false,
+        ).apply { setPadding(4.dp, 10.dp, 4.dp, 12.dp) })
+        if (!pairingStarted) {
+            val code = EditText(this).apply {
+                hint = "0000"
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                filters = arrayOf(android.text.InputFilter.LengthFilter(4))
+                gravity = Gravity.CENTER
+                textSize = 24f
+                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+                contentDescription = "Vierstelliger G7 Kopplungscode"
+            }
+            content.addView(code, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 58.dp))
+            content.addView(pill("Koppeln", PillStyle.PRIMARY, palette) {
+                val entered = code.text?.toString().orEmpty()
+                if (entered.length != 4 || entered.any { !it.isDigit() }) {
+                    code.error = "Bitte genau vier Ziffern eingeben"
+                    return@pill
+                }
+                val sensorId = "G7-${java.util.UUID.randomUUID().toString().take(8)}"
+                G7CredentialStore(this).saveSetup(G7SetupPayload(entered, null, null))
+                val prepared = G7SessionManager(G7SensorStateStore(this).read()).prepareInitialSetup(
+                    G7Sensor(sensorId = sensorId, sessionId = sensorId, deviceName = "Dexcom G7"),
+                )
+                G7SensorStateStore(this).save(prepared)
+                G7CollectorService.start(this)
+                refreshScreen()
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
+            })
+        } else {
+            content.addView(label(error ?: "Die Android-Kopplungsabfrage bitte auf der Uhr bestätigen.", 11f,
+                if (error == null) palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY) else palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
+            content.addView(pill("Erneut versuchen", PillStyle.SECONDARY, palette) {
+                G7CollectorService.restart(this)
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
+            })
+        }
+        setContentView(G7EdgeFadeScrollView(this).apply { isFillViewport = true; addView(content) }.applyG7EdgeFade())
+        mainHandler.removeCallbacks(pairingRefresh)
+        mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
 
     private fun buildScreen(palette: G7AppearancePalette) {
@@ -109,14 +200,14 @@ class G7WatchActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 5.dp, 18.dp, 30.dp)
+            setPadding(18.dp, 14.dp, 18.dp, 30.dp)
             setBackgroundColor(background)
         }
 
-        content.addView(header(palette, userStatus))
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
         content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
+        content.addView(header(palette, userStatus))
         content.addView(pill("Systemstatus", PillStyle.SECONDARY, palette) {
             startActivity(Intent(this, G7SystemStatusActivity::class.java))
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -138,13 +229,13 @@ class G7WatchActivity : Activity() {
 
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "G7 Watch Collector"
+            contentDescription = "Direct to Watch"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {
             topMargin = 9.dp
             gravity = Gravity.CENTER_HORIZONTAL
         })
-        content.addView(label("G7 Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+        content.addView(label("Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
             setPadding(3.dp, 2.dp, 3.dp, 0)
         })
         content.addView(label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
@@ -152,11 +243,11 @@ class G7WatchActivity : Activity() {
             setPadding(3.dp, 1.dp, 3.dp, 0)
         })
 
-        scrollView = ScrollView(this).apply {
+        scrollView = G7EdgeFadeScrollView(this).apply {
             isFillViewport = true
             setBackgroundColor(background)
             addView(content)
-        }
+        }.applyG7EdgeFade()
         setContentView(scrollView)
         screenBuilt = true
         refreshLiveContent(preserveScroll = false)
@@ -179,7 +270,7 @@ class G7WatchActivity : Activity() {
         palette: G7AppearancePalette,
     ): LinearLayout {
         val now = System.currentTimeMillis()
-        val presentation = wearGlucoseCardPresentation(
+        val basePresentation = wearGlucoseCardPresentation(
             WearGlucoseCardInput(
                 valueMgDl = reading?.glucoseMgDl,
                 displayUnit = GlucoseUnit.MG_DL,
@@ -195,6 +286,12 @@ class G7WatchActivity : Activity() {
             ),
             G7GraphColorStore(this).readThresholds(),
             now,
+        )
+        val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
+        val presentation = if (boundary == null) basePresentation else basePresentation.copy(
+            value = boundary.label,
+            trend = null,
+            primaryMeta = "",
         )
         val valueColor = when {
             !presentation.displayable -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
@@ -234,6 +331,10 @@ class G7WatchActivity : Activity() {
     }
 
     private fun refreshLiveContent(preserveScroll: Boolean = true) {
+        if (pairingGateVisible) {
+            refreshScreen()
+            return
+        }
         if (!screenBuilt) {
             refreshScreen()
             return
@@ -251,6 +352,10 @@ class G7WatchActivity : Activity() {
             statusHost.removeAllViews()
             statusHost.addView(statusPill(userStatus, palette))
             glucoseHost.removeAllViews()
+            glucoseHost.addView(label("Direct to Watch - Glukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, 5.dp)
+            })
             glucoseHost.addView(glucoseTile(state.lastReading, palette))
             updateGraphOnly(preserveScroll = false)
         }
@@ -311,7 +416,8 @@ class G7WatchActivity : Activity() {
         val marker = if (status.level == G7UserStatusLevel.OFF) "○" else "●"
         return label("$marker  ${status.title.uppercase(Locale.GERMANY)}", 10f, color, true).apply {
             background = rounded(withAlpha(color, 36), color, 999f)
-            setPadding(13.dp, 6.dp, 13.dp, 6.dp)
+            maxWidth = 300.dp
+            setPadding(10.dp, 5.dp, 10.dp, 5.dp)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 7.dp
                 bottomMargin = 3.dp

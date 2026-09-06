@@ -1128,6 +1128,7 @@ internal fun NotificationGraphSettingsPanel() {
     var expandedRadius by remember(revision) { mutableFloatStateOf(expandedInitial.cgmRadiusDp) }
     var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.cgmOutlineEnabled) }
     var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.cgmOutlineWidthDp) }
+    var scaleLaneOpacity by remember(revision) { mutableFloatStateOf(preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).toFloat()) }
     var collapsedLayout by remember(revision) {
         mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.COLLAPSED))
     }
@@ -1214,6 +1215,19 @@ internal fun NotificationGraphSettingsPanel() {
             "Farben gelten gemeinsam für eingeklappt und ausgeklappt. Punktgeometrie wird getrennt gespeichert.",
             color = SugarliciousColors.TextSecondary,
             fontSize = 10.sp,
+        )
+        SugarliciousSettingSlider(
+            "Skalenbereich",
+            "Nur Graphfläche und Zielbereichslinien; Beschriftungen bleiben deckend",
+            scaleLaneOpacity,
+            0f..100f,
+            "${scaleLaneOpacity.roundToInt()} %",
+            { value ->
+                scaleLaneOpacity = value
+                preferences.edit().putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()).apply()
+                PersistentBridgeService.refresh(context)
+            },
+            {},
         )
 
         Button(

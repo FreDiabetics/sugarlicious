@@ -28,6 +28,7 @@ import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmSourceState
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.cgmBoundaryDisplay
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseSample
@@ -46,6 +47,9 @@ import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 internal data class DirectToWatchHeaderPresentation(
     val glucose: String,
@@ -65,10 +69,21 @@ internal object DirectToWatchPresentationFormatter {
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
             return DirectToWatchHeaderPresentation(
                 glucose = "—",
-                secondary = unavailableLabel(state, freshness),
+                secondary = if (state?.glucose != null || freshness == Freshness.STALE) {
+                    "Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar"
+                } else {
+                    "Bitte Sensor\nstarten oder\nkoppeln"
+                },
             )
         }
         val glucose = requireNotNull(state?.glucose)
+        cgmBoundaryDisplay(glucose.valueMgDl)?.let { boundary ->
+            return DirectToWatchHeaderPresentation(
+                glucose = boundary.label,
+                secondary = "",
+                trend = null,
+            )
+        }
         val resolvedUnit = displayUnit ?: glucose.displayUnit
         val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, resolvedUnit)
         val unit = if (resolvedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
@@ -146,12 +161,21 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_HOURS = "graph.hours"
     private const val KEY_GRAPH_DOT_RADIUS = "graph_style_dot_radius"
     private const val KEY_GRAPH_DOT_OUTLINE_ENABLED = "graph_style_dot_outline_enabled"
+    private const val KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED = "graph_style_historical_dot_outline_enabled"
+    private const val KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED = "graph_style_current_dot_outline_enabled"
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+    private const val KEY_GRAPH_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
     private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
     private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+    private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
+    private const val KEY_STATUS_COLOR = "watchface.status_color"
+    private const val KEY_STATUS_BOLD = "watchface.status_bold"
+    private const val KEY_CLOCK_SIZE_PERCENT = "watchface.clock_size_percent"
+    private const val KEY_CLOCK_COLOR = "watchface.clock_color"
+    private const val KEY_CLOCK_BOLD = "watchface.clock_bold"
     private const val KEY_TARGET_LOW = "target.low_mg_dl"
     private const val KEY_TARGET_HIGH = "target.high_mg_dl"
-    val graphHourOptions = listOf(1, 3, 6, 12, 24)
+    val graphHourOptions = listOf(1, 2, 3, 6, 12, 24)
 
     fun graphHours(context: Context): Int =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -166,6 +190,13 @@ object DirectToWatchPreferences {
 
     fun glucoseBold(context: Context): Boolean =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_GLUCOSE_BOLD, true)
+
+    fun statusSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun statusColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
+    fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, false)
+    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun clockColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
+    fun clockBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_CLOCK_BOLD, false)
 
     fun thresholds(context: Context): CgmThresholds {
         val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -252,27 +283,34 @@ object DirectToWatchPreferences {
         val p = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
         return defaults.copy(
             dotRadiusDp = p.getFloat(KEY_GRAPH_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
-            dotOutlineEnabled = p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.dotOutlineEnabled),
+            dotOutlineEnabled = true,
+            historicalDotOutlineEnabled = p.getBoolean(KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED, p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.historicalDotOutlineEnabled)),
+            currentDotOutlineEnabled = p.getBoolean(KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED, p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.currentDotOutlineEnabled)),
             dotOutlineWidthDp = p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(0.25f, 3f),
             cornerRadiusDp = p.getFloat("graph_style_corner_radius", defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = p.getBoolean("graph_style_border_enabled", defaults.borderEnabled),
             timeAxisEnabled = p.getBoolean("graph_style_time_axis_enabled", defaults.timeAxisEnabled),
-            targetTicksEnabled = p.getBoolean("graph_style_target_ticks_enabled", defaults.targetTicksEnabled),
+            targetTicksEnabled = false,
             targetLabelsOutsideRange = true,
+            targetLabelsInsidePlot = true,
             // Vigil follows the canonical graph policy unconditionally; this is not a face-local toggle.
             rangeBackgroundEnabled = true,
+            scaleLaneOpacityPercent = p.getInt(KEY_GRAPH_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
         )
     }
 
     fun saveGraphStyle(context: Context, style: SharedWearCgmGraphStyle) {
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE).edit()
             .putFloat(KEY_GRAPH_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
-            .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, style.dotOutlineEnabled)
+            .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, true)
+            .putBoolean(KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED, style.historicalDotOutlineEnabled)
+            .putBoolean(KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED, style.currentDotOutlineEnabled)
             .putFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(0.25f, 3f))
             .putFloat("graph_style_corner_radius", style.cornerRadiusDp.coerceIn(0f, 40f))
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
-            .putBoolean("graph_style_target_ticks_enabled", style.targetTicksEnabled)
+            .putInt(KEY_GRAPH_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
+            .remove("graph_style_target_ticks_enabled")
             .remove("graph_style_range_background_enabled")
             .apply()
         requestUpdates(context)
@@ -314,6 +352,10 @@ object DirectToWatchPreferences {
             DirectToWatchHeaderComplication::class.java,
             DirectToWatchGraphComplication::class.java,
             DirectToWatchStatusComplication::class.java,
+            DirectToWatchClockComplication::class.java,
+            DirectToWatchAmbientClockComplication::class.java,
+            DirectToWatchAmbientHeaderComplication::class.java,
+            DirectToWatchAmbientGraphComplication::class.java,
         ).forEach { service ->
             ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, service)).requestUpdateAll()
         }
@@ -360,7 +402,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
         return TherapyDisplayState(
             source = DataSourceId.DEXCOM_G7_WATCH,
             sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:preview",
-            sourceVersion = "G7 Watch Collector",
+            sourceVersion = "Direct to Watch",
             receivedAtEpochMs = now,
             glucose = GlucoseState(
                 valueMgDl = 152.0,
@@ -381,7 +423,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
     }
 }
 
-class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
+open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
         val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this))
         val bitmap = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this))
@@ -394,25 +436,50 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             .build()
     }
 
-    internal fun renderHeader(presentation: DirectToWatchHeaderPresentation, glucoseBold: Boolean = true): Bitmap {
+    internal fun renderHeader(presentation: DirectToWatchHeaderPresentation, glucoseBold: Boolean = true, ambient: Boolean = false): Bitmap {
         val width = 340
         val height = 108
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
+            color = if (ambient) 0xFFD0D0D0.toInt() else Color.WHITE
             textSize = 61f
             typeface = if (glucoseBold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             textAlign = Paint.Align.LEFT
         }
         val secondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = SECONDARY_TEXT
+            color = if (ambient) 0xFF888888.toInt() else SECONDARY_TEXT
             textSize = 23f
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
+        if (presentation.glucose == "—") {
+            val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = if (ambient) 0xFF909090.toInt() else Color.WHITE
+                textSize = 17f
+                typeface = Typeface.DEFAULT_BOLD
+                textAlign = Paint.Align.CENTER
+            }
+            val lines = presentation.secondary.lines()
+            val firstBaseline = if (lines.size >= 3) 20f else 31f
+            lines.forEachIndexed { index, line -> canvas.drawText(line, width / 2f, firstBaseline + index * 20f, messagePaint) }
+            if (presentation.secondary.startsWith("Bitte Sensor")) {
+                val button = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = if (ambient) 0xFF555555.toInt() else 0xFF30303A.toInt()
+                    style = Paint.Style.FILL
+                }
+                canvas.drawRoundRect(90f, 76f, 250f, 107f, 15f, 15f, button)
+                messagePaint.textSize = 14f
+                canvas.drawText("Sensor koppeln", width / 2f, 97f, messagePaint)
+            }
+            return bitmap
+        }
         val mode = DirectToWatchPreferences.activeAppearanceMode(this)
-        val style = DirectToWatchPreferences.trendStyle(this, mode)
+        val configuredStyle = DirectToWatchPreferences.trendStyle(this, mode)
+        val style = if (ambient) configuredStyle.copy(
+            fillColor = AMBIENT_PRIMARY,
+            outlineColor = AMBIENT_SECONDARY,
+        ) else configuredStyle
         val arrow = presentation.trend?.let {
             TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
         }?.let(TrendComplicationIcon::cropTransparentPadding)
@@ -423,23 +490,42 @@ class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
             valuePaint.getTextBounds(presentation.glucose, 0, presentation.glucose.length, it)
         }
         val valueCenterY = valueBaseline + (valueBounds.top + valueBounds.bottom) / 2f
-        canvas.drawText(presentation.glucose, 0f, valueBaseline, valuePaint)
+        val contentLeft = 6f
+        canvas.drawText(presentation.glucose, contentLeft, valueBaseline, valuePaint)
         arrow?.let {
             val arrowTop = valueCenterY - it.height / 2f
-            canvas.drawBitmap(it, valueWidth + gap, arrowTop, null)
+            canvas.drawBitmap(it, contentLeft + valueWidth + gap, arrowTop, null)
         }
-        canvas.drawText(presentation.secondary, 0f, 96f, secondaryPaint)
+        canvas.drawText(presentation.secondary, contentLeft, 96f, secondaryPaint)
         return bitmap
     }
 
-    private companion object { const val SECONDARY_TEXT = 0xFFA8A8BA.toInt() }
+    private companion object {
+        const val SECONDARY_TEXT = 0xFFA8A8BA.toInt()
+        const val AMBIENT_PRIMARY = 0xFFD0D0D0.toInt()
+        const val AMBIENT_SECONDARY = 0xFF707070.toInt()
+    }
+}
+
+class DirectToWatchAmbientHeaderComplication : DirectToWatchHeaderComplication() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this))
+        val bitmap = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this), ambient = true)
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+            PlainComplicationText.Builder("Vigil AOD ${presentation.glucose}").build(),
+        ).setTapAction(collectorTapAction())
+            .setValidTimeRange(TimeRange.ALWAYS)
+            .build()
+    }
 }
 
 class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
         val text = DirectToWatchPresentationFormatter.graphStatus(state, nowEpochMs, DirectToWatchPreferences.graphHours(this)).text
-        return ShortTextComplicationData.Builder(
-            PlainComplicationText.Builder(text).build(),
+        val bitmap = renderWatchfaceText(text, 180, 34, DirectToWatchPreferences.statusSizePercent(this), DirectToWatchPreferences.statusColor(this), DirectToWatchPreferences.statusBold(this), Paint.Align.LEFT)
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
             PlainComplicationText.Builder(text).build(),
         ).setTapAction(graphScaleTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
@@ -447,7 +533,45 @@ class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
     }
 }
 
-class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
+open class DirectToWatchClockComplication : DirectToWatchComplicationService() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), DirectToWatchPreferences.clockColor(this), DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)
+        val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+            PlainComplicationText.Builder(text).build(),
+        ).setValidTimeRange(TimeRange.between(java.time.Instant.ofEpochMilli(nowEpochMs), java.time.Instant.ofEpochMilli(nextMinute))).build()
+    }
+}
+
+class DirectToWatchAmbientClockComplication : DirectToWatchClockComplication() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val source = DirectToWatchPreferences.clockColor(this)
+        val gray = Color.rgb(Color.red(source) * 3 / 5, Color.green(source) * 3 / 5, Color.blue(source) * 3 / 5)
+        val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), gray, DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)
+        val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
+        return SmallImageComplicationData.Builder(SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(), PlainComplicationText.Builder(text).build())
+            .setValidTimeRange(TimeRange.between(java.time.Instant.ofEpochMilli(nowEpochMs), java.time.Instant.ofEpochMilli(nextMinute))).build()
+    }
+}
+
+private fun renderWatchfaceText(text: String, width: Int, height: Int, sizePercent: Int, color: Int, bold: Boolean, align: Paint.Align): Bitmap {
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        textSize = 18f * sizePercent.coerceIn(75, 150) / 100f
+        typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+        textAlign = align
+    }
+    val x = if (align == Paint.Align.CENTER) width / 2f else 0f
+    val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2f
+    Canvas(bitmap).drawText(text, x, baseline, paint)
+    return bitmap
+}
+
+open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
         val hours = DirectToWatchPreferences.graphHours(this)
         val bitmap = renderGraph(state, nowEpochMs, hours)
@@ -459,8 +583,8 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             .build()
     }
 
-    internal fun renderGraph(state: TherapyDisplayState?, nowEpochMs: Long, hours: Int): Bitmap {
-        val width = 410
+    internal fun renderGraph(state: TherapyDisplayState?, nowEpochMs: Long, hours: Int, ambient: Boolean = false): Bitmap {
+        val width = 450
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -468,8 +592,9 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val graphStyle = DirectToWatchPreferences.graphStyle(this)
         val radius = graphStyle.cornerRadiusDp * density
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
-        val colors = DirectToWatchPreferences.graphColors(this)
+        val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
+        val graphAnchor = state?.glucose?.measuredAtEpochMs ?: nowEpochMs
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
             widthPx = width,
@@ -478,12 +603,12 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             scaledDensity = resources.displayMetrics.scaledDensity,
             input = SharedWearCgmGraphInput(
                 history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours),
-                timeWindow = GraphTimeWindow.live(nowEpochMs, hours * DirectToWatchPresentationFormatter.HOUR_MS),
+                timeWindow = GraphTimeWindow.live(graphAnchor, hours * DirectToWatchPresentationFormatter.HOUR_MS),
                 nowEpochMs = nowEpochMs,
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),
                 style = graphStyle,
-                emptyLabel = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this)).secondary,
+                emptyLabel = "",
             ),
         )
         return bitmap
@@ -513,6 +638,38 @@ class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         targetText = targetValue,
         emptyText = signalLoss,
     )
+
+    internal fun WatchGraphColors.ambient() = copy(
+        graphBackground = Color.TRANSPARENT,
+        rangeLow = Color.TRANSPARENT,
+        rangeInRange = ambientGray(rangeInRange, 0x004C4C4C),
+        rangeHigh = Color.TRANSPARENT,
+        cgmLow = ambientGray(cgmLow, 0x00B0B0B0), cgmInRange = ambientGray(cgmInRange, 0x00D0D0D0), cgmHigh = ambientGray(cgmHigh, 0x00B0B0B0),
+        cgmVeryLow = ambientGray(cgmVeryLow, 0x00909090), cgmVeryHigh = ambientGray(cgmVeryHigh, 0x00909090),
+        divider = Color.TRANSPARENT,
+        highLine = ambientGray(highLine, 0x00888888), lowLine = ambientGray(lowLine, 0x00888888),
+        axisLabel = ambientGray(axisLabel, 0x00B0B0B0), axisTick = ambientGray(axisTick, 0x00888888), nowLine = ambientGray(nowLine, 0x00888888),
+        outline = ambientGray(outline, 0x00303030),
+        predictionIob = ambientGray(predictionIob, 0x00999999), predictionCob = ambientGray(predictionCob, 0x00999999),
+        predictionUam = ambientGray(predictionUam, 0x00999999), predictionZeroTemp = ambientGray(predictionZeroTemp, 0x00999999),
+        targetValue = ambientGray(targetValue, 0x00B0B0B0), signalLoss = ambientGray(signalLoss, 0x00888888),
+    )
+
+    private fun ambientGray(source: Int, grayRgb: Int): Int =
+        (source and 0xFF000000.toInt()) or (grayRgb and 0x00FFFFFF)
+}
+
+class DirectToWatchAmbientGraphComplication : DirectToWatchGraphComplication() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val hours = DirectToWatchPreferences.graphHours(this)
+        val bitmap = renderGraph(state, nowEpochMs, hours, ambient = true)
+        return SmallImageComplicationData.Builder(
+            SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+            PlainComplicationText.Builder("Vigil AOD Graph").build(),
+        ).setTapAction(graphScaleTapAction())
+            .setValidTimeRange(TimeRange.ALWAYS)
+            .build()
+    }
 }
 
 class DirectToWatchGraphScaleReceiver : BroadcastReceiver() {
