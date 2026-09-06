@@ -25,6 +25,7 @@ import java.util.Locale
 enum class DashboardScreen { OVERVIEW, WATCH, SETTINGS }
 enum class DisplayUnitPreference { AAPS, MG_DL, MMOL_L }
 enum class DashboardThemeMode { SYSTEM, LIGHT, DARK }
+enum class GlucoseTileDetailMode { TIR, THERAPY }
 
 internal fun thresholdForUi(valueMgDl: Double, unit: DisplayUnitPreference): Float =
     if (unit == DisplayUnitPreference.MMOL_L) (valueMgDl / 18.0).toFloat() else valueMgDl.toFloat()
@@ -42,6 +43,8 @@ internal fun formatThreshold(valueMgDl: Double, unit: DisplayUnitPreference): St
 data class DashboardUiPreferences(
     val unit: DisplayUnitPreference = DisplayUnitPreference.AAPS,
     val showDetails: Boolean = true,
+    val glucoseTileDetailMode: GlucoseTileDetailMode = GlucoseTileDetailMode.TIR,
+    val iobProgressMaximumUnits: Float = 10f,
     val showCgmGraph: Boolean = true,
     val showCgmTargetValue: Boolean = true,
     val showCgmBasal: Boolean = false,
@@ -73,6 +76,8 @@ data class DashboardUiPreferences(
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
     val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
 ) {
+    val effectiveShowDetails: Boolean
+        get() = glucoseTileDetailMode == GlucoseTileDetailMode.TIR && showDetails
     val anyCgmPredictionEnabled: Boolean
         get() =
             showCgmPredictionIob ||
@@ -93,6 +98,10 @@ data class DashboardUiPreferences(
                     DisplayUnitPreference.valueOf(preferences.getString("unit", "AAPS")!!)
                 }.getOrDefault(DisplayUnitPreference.AAPS),
                 showDetails = preferences.getBoolean("showDetails", true),
+                glucoseTileDetailMode = runCatching {
+                    GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)!!)
+                }.getOrDefault(GlucoseTileDetailMode.TIR),
+                iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
                 showCgmBasal = preferences.getBoolean("cgm.basal", false),
@@ -131,6 +140,8 @@ data class DashboardUiPreferences(
 
         const val MOBILE_GLUCOSE_SCALE_KEY = "visual.mobile.glucoseScalePercent"
         const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
+        const val GLUCOSE_TILE_DETAIL_MODE_KEY = "overview.glucoseTileDetailMode"
+        const val IOB_PROGRESS_MAXIMUM_KEY = "overview.iobProgressMaximumUnits"
     }
 }
 
@@ -169,6 +180,7 @@ data class DashboardCallbacks(
     val openDiagnostics: () -> Unit,
     val setThemeMode: (DashboardThemeMode) -> Unit,
     val setShowDetails: (Boolean) -> Unit,
+    val setGlucoseTileDetailMode: (GlucoseTileDetailMode) -> Unit,
     val setShowCgmGraph: (Boolean) -> Unit,
     val setGraphHours: (Int) -> Unit,
     val setCgmStream: (String, Boolean) -> Unit = { _, _ -> },
@@ -452,7 +464,30 @@ class DashboardViewFactory(
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("ÜBERSICHT"))
-                    addView(switchRowCompact("Therapiedetails", preferences.showDetails, R.id.dashboard_details_switch, callbacks.setShowDetails))
+                    addView(
+                        choiceRow(
+                            "Glukose-Kachel",
+                            listOf(
+                                Triple("TIR", preferences.glucoseTileDetailMode == GlucoseTileDetailMode.TIR) { callbacks.setGlucoseTileDetailMode(GlucoseTileDetailMode.TIR) },
+                                Triple("IOB · COB · Basal", preferences.glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY) { callbacks.setGlucoseTileDetailMode(GlucoseTileDetailMode.THERAPY) },
+                            ),
+                        ),
+                    )
+                    if (preferences.glucoseTileDetailMode == GlucoseTileDetailMode.TIR) {
+                        addView(divider())
+                        addView(switchRowCompact("Therapiedetails", preferences.showDetails, R.id.dashboard_details_switch, callbacks.setShowDetails))
+                    } else {
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "IOB-Skala",
+                                value = preferences.iobProgressMaximumUnits,
+                                minimum = 0f,
+                                maximum = 30f,
+                                valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
+                            ) { dashboardPreferences.edit().putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it).apply() },
+                        )
+                    }
                     addView(divider())
                     addView(switchRowCompact("Kompakte Übersicht", preferences.compact, R.id.dashboard_compact_switch, callbacks.setCompact))
                     addView(divider())

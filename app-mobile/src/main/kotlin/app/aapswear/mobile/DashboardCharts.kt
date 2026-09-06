@@ -541,24 +541,20 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val outlineInset = 0.5f.dp
-        val scaleContainer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
-        val timeAxisHeight = TIME_AXIS_HEIGHT_DP.dp
-        val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
         val targetScaleOnRight = targetScaleOnRight(showPredictions, showTargetValue, showBasal, showActivity)
-        val plot = if (targetScaleOnRight) {
-            RectF(scaleContainer.left, scaleContainer.top, scaleContainer.right - valueAxisWidth, scaleContainer.bottom - timeAxisHeight)
-        } else {
-            RectF(scaleContainer.left + valueAxisWidth, scaleContainer.top, scaleContainer.right, scaleContainer.bottom - timeAxisHeight)
-        }
-        val contentBounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        val graphVisualBounds = RectF(scaleContainer.left, scaleContainer.top, scaleContainer.right, plot.bottom)
+        val bounds = mobileCgmGraphBounds(width.toFloat(), height.toFloat(), outlineInset, TIME_AXIS_HEIGHT_DP.dp, VALUE_AXIS_WIDTH_DP.dp, targetScaleOnRight)
+        val scaleContainer = bounds.tile
+        val plot = bounds.plot
+        val contentBounds = bounds.content
         if (plot.width() <= 24f || plot.height() <= 24f) return
         val radius = GRAPH_CORNER_RADIUS_DP.dp
         val contentClip = Path().apply { addRoundRect(contentBounds, radius + outlineInset, radius + outlineInset, Path.Direction.CW) }
 
         canvas.withClip(contentClip) {
-            fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
+            fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.SURFACE)
             canvas.drawRect(contentBounds, fillPaint)
+            fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
+            canvas.drawRoundRect(plot, radius, radius, fillPaint)
 
             val now = renderNowEpochMs
             val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
@@ -615,13 +611,13 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (showTargetRange) {
                 if (excursion == RangeExcursion.HIGH) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_HIGH)
-                    canvas.drawRect(graphVisualBounds.left, graphVisualBounds.top, graphVisualBounds.right, targetTop, fillPaint)
+                    canvas.drawRect(plot.left, plot.top, plot.right, targetTop, fillPaint)
                 }
                 fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_IN_RANGE)
-                canvas.drawRect(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetBottom, fillPaint)
+                canvas.drawRect(plot.left, targetTop, plot.right, targetBottom, fillPaint)
                 if (excursion == RangeExcursion.LOW) {
                     fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_LOW)
-                    canvas.drawRect(graphVisualBounds.left, targetBottom, graphVisualBounds.right, graphVisualBounds.bottom, fillPaint)
+                    canvas.drawRect(plot.left, targetBottom, plot.right, plot.bottom, fillPaint)
                 }
             }
 
@@ -647,9 +643,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 linePaint.strokeCap = Paint.Cap.BUTT
                 linePaint.pathEffect = null
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_HIGH_LINE))
-                canvas.drawLine(graphVisualBounds.left, targetTop, graphVisualBounds.right, targetTop, linePaint)
+                canvas.drawLine(plot.left, targetTop, plot.right, targetTop, linePaint)
                 linePaint.color = opaqueGraphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LOW_LINE))
-                canvas.drawLine(graphVisualBounds.left, targetBottom, graphVisualBounds.right, targetBottom, linePaint)
+                canvas.drawLine(plot.left, targetBottom, plot.right, targetBottom, linePaint)
                 linePaint.strokeCap = Paint.Cap.ROUND
             }
 
@@ -777,6 +773,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             if (showTargetRange) {
                 drawTargetScale(canvas, glucoseLabel(targetHigh), glucoseLabel(targetLow), plot, targetTop, targetBottom, targetScaleOnRight)
             }
+            drawGraphMaximumScale(canvas, plot, targetScaleOnRight)
 
             if (history.size < 2) {
                 drawText(canvas, "Noch kein Verlauf", plot.centerX(), plot.centerY(), 10f, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED), Paint.Align.CENTER)
@@ -853,6 +850,18 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
         canvas.drawText(highValue, x, highBaseline, paint)
         canvas.drawText(lowValue, x, lowBaseline, paint)
+    }
+
+    private fun drawGraphMaximumScale(canvas: Canvas, plot: RectF, onRight: Boolean) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10f, resources.displayMetrics)
+            color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
+            textAlign = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        val x = if (onRight) plot.right + 9f.dp else plot.left - 9f.dp
+        val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
+        canvas.drawText(glucoseLabel(GLUCOSE_DISPLAY_MAX), x, baseline, paint)
     }
 
 
@@ -1468,6 +1477,35 @@ internal fun glucoseLogRatio(valueMgDl: Double): Double {
         value <= 160.0 -> GLUCOSE_LOW_RATIO + (ln(value / 80.0) / ln(2.0)) * (GLUCOSE_TARGET_HIGH_RATIO - GLUCOSE_LOW_RATIO)
         else -> GLUCOSE_TARGET_HIGH_RATIO + (ln(value / 160.0) / ln(GLUCOSE_DISPLAY_MAX / 160.0)) * (1.0 - GLUCOSE_TARGET_HIGH_RATIO)
     }.coerceIn(GLUCOSE_ZERO_RATIO, 1.0)
+}
+
+internal data class MobileCgmGraphBounds(
+    val content: RectF,
+    val tile: RectF,
+    val plot: RectF,
+    val timeAxis: RectF,
+    val valueAxis: RectF,
+)
+
+internal fun mobileCgmGraphBounds(
+    width: Float,
+    height: Float,
+    outlineInset: Float,
+    timeAxisHeight: Float,
+    valueAxisWidth: Float,
+    scaleOnRight: Boolean,
+): MobileCgmGraphBounds {
+    val content = RectF(0f, 0f, width, height)
+    val tile = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
+    val plot = if (scaleOnRight) {
+        RectF(tile.left, tile.top, tile.right - valueAxisWidth, tile.bottom - timeAxisHeight)
+    } else {
+        RectF(tile.left + valueAxisWidth, tile.top, tile.right, tile.bottom - timeAxisHeight)
+    }
+    val timeAxis = RectF(plot.left, plot.bottom, plot.right, tile.bottom)
+    val valueAxis = if (scaleOnRight) RectF(plot.right, plot.top, tile.right, plot.bottom)
+        else RectF(tile.left, plot.top, plot.left, plot.bottom)
+    return MobileCgmGraphBounds(content, tile, plot, timeAxis, valueAxis)
 }
 
 private fun mapGlucoseY(valueMgDl: Double, plot: RectF): Float = plot.bottom - glucoseLogRatio(valueMgDl).toFloat() * plot.height()

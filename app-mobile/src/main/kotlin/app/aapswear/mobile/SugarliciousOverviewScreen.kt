@@ -76,7 +76,7 @@ internal fun SugarliciousOverviewScreen(
     val gap = if (preferences.compact || preferences.showMetabolicGraph) 5.dp else 8.dp
     val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
     val visibility = DashboardVisibilityState(
-        showTherapyDetails = preferences.showDetails,
+        showTherapyDetails = preferences.effectiveShowDetails,
         showMetabolicGraph = preferences.showMetabolicGraph,
     )
     val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
@@ -215,6 +215,8 @@ internal fun SugarliciousOverviewScreen(
             age = age,
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
+            detailMode = preferences.glucoseTileDetailMode,
+            therapyIndicators = therapyIndicatorPresentations(state.takeIf { displayable }, preferences.iobProgressMaximumUnits, now),
             visualSpec = GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
                 preferences.glucoseScalePercent,
                 preferences.trendScalePercent,
@@ -222,7 +224,7 @@ internal fun SugarliciousOverviewScreen(
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
 
-        if (preferences.showDetails) {
+        if (preferences.effectiveShowDetails) {
             QuickStatsRow(
                 state = state.takeIf { displayable },
                 heightDp = maxOf(metrics.statTileHeight - overviewHeightCompensationDp, 56),
@@ -261,6 +263,8 @@ private fun GlucoseHeroCard(
     age: String,
     unitLabel: String,
     tirStats: TirStats,
+    detailMode: GlucoseTileDetailMode,
+    therapyIndicators: List<TherapyIndicatorPresentation>,
     visualSpec: GlucoseVisualSpec,
     heightDp: Int,
 ) {
@@ -332,10 +336,11 @@ private fun GlucoseHeroCard(
 
             Spacer(Modifier.width(20.dp))
 
-            TirProgressColumn(
-                stats = tirStats,
-                modifier = Modifier.width(194.dp).fillMaxHeight(),
-            )
+            if (detailMode == GlucoseTileDetailMode.TIR) {
+                TirProgressColumn(stats = tirStats, modifier = Modifier.width(194.dp).fillMaxHeight())
+            } else {
+                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.width(194.dp).fillMaxHeight())
+            }
         }
     }
 }

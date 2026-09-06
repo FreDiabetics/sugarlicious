@@ -247,6 +247,7 @@ class MainActivity : ComponentActivity() {
             openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
             setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
             setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
+            setGlucoseTileDetailMode = { uiPreferences.edit { putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, it.name) } },
             setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
             setGraphHours = { hours -> uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) } },
             setCgmStream = { key, enabled ->
