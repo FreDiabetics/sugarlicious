@@ -48,13 +48,12 @@ internal fun therapyIndicatorPresentations(
 ): List<TherapyIndicatorPresentation> {
     val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
     val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
-    val basal = effectiveBasalPresentation(state?.basal, nowEpochMs)
-        ?: state?.therapyHistory.orEmpty()
+    val historicalBasal = state?.therapyHistory.orEmpty()
             .asSequence()
             .filter { it.measuredAtEpochMs <= nowEpochMs }
             .sortedByDescending { it.measuredAtEpochMs }
             .mapNotNull { sample ->
-                val rate = sample.basalUnitsPerHour ?: sample.tempBasalUnitsPerHour ?: sample.baseBasalUnitsPerHour
+                val rate = sample.tempBasalUnitsPerHour ?: sample.basalUnitsPerHour ?: sample.baseBasalUnitsPerHour
                 rate?.takeIf { it.isFinite() && it >= 0.0 }?.let {
                     val percent = sample.baseBasalUnitsPerHour
                         ?.takeIf { base -> base.isFinite() && base > 0.0 }
@@ -63,6 +62,9 @@ internal fun therapyIndicatorPresentations(
                 }
             }
             .firstOrNull()
+    val basal = effectiveBasalPresentation(state?.basal, nowEpochMs)?.let { current ->
+        current.copy(percent = current.percent ?: historicalBasal?.percent)
+    } ?: historicalBasal
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
@@ -84,7 +86,7 @@ internal fun therapyIndicatorPresentations(
             label = "Basal",
             value = basal?.unitsPerHour?.let { "${compactValue(it, 2)}U/h" } ?: "—",
             secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
-            progress = basal?.percent?.div(500f)?.coerceIn(0f, 1f),
+            progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
         ),
@@ -96,6 +98,13 @@ internal fun basalIconResource(percent: Int?): Int = when {
     percent < 100 -> R.drawable.ic_basalless
     else -> R.drawable.ic_basalmore
 }
+
+internal fun basalProgress(percent: Int): Float =
+    if (percent <= 100) {
+        percent.coerceAtLeast(0) / 200f
+    } else {
+        0.5f + (percent.coerceAtMost(500) - 100) / 800f
+    }
 
 internal data class EffectiveBasalPresentation(val unitsPerHour: Double, val percent: Int?)
 
@@ -117,10 +126,9 @@ private fun compactValue(value: Double, decimals: Int): String =
     String.format(Locale.US, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
 
 internal fun therapyIndicatorFontSizeSp(value: String): Int = when {
-    value.length >= 8 -> 10
-    value.length >= 7 -> 11
-    value.length >= 6 -> 12
-    else -> 14
+    value.length >= 8 -> 11
+    value.length >= 7 -> 13
+    else -> 15
 }
 
 @Composable
@@ -180,7 +188,7 @@ private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, mo
                 }
             }
             Column(
-                modifier = Modifier.align(Alignment.Center).padding(top = 4.dp),
+                modifier = Modifier.align(Alignment.Center).padding(top = 3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {

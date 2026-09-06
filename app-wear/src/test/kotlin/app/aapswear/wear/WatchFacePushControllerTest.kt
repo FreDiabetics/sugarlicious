@@ -87,12 +87,12 @@ class WatchFacePushControllerTest {
     }
 
     @Test
-    fun `only six Sugarlicious faces are exposed while all legacy definitions remain retained`() {
+    fun `only ApeX and Vigil are exposed while all legacy definitions remain retained`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
         val legacy = SugarliciousWatchFacePush.legacyFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
-        assertEquals(6, active.size)
+        assertEquals(2, active.size)
         assertEquals(23, legacy.size)
         assertTrue(active.map { it.packageName }.toSet().intersect(legacy.map { it.packageName }.toSet()).isEmpty())
         active.forEach { spec ->

@@ -39,7 +39,7 @@ class TherapyHeroIndicatorsTest {
         assertEquals("450g", values[1].value)
         assertEquals("1.20U/h", values[2].value)
         assertEquals("@150%", values[2].secondary)
-        assertEquals(0.3f, values[2].progress!!, 0.0001f)
+        assertEquals(0.5625f, values[2].progress!!, 0.0001f)
     }
 
     @Test
@@ -65,9 +65,18 @@ class TherapyHeroIndicatorsTest {
 
     @Test
     fun `long values shrink before they can overlap the ring`() {
-        assertEquals(14, therapyIndicatorFontSizeSp("0.23U"))
-        assertEquals(11, therapyIndicatorFontSizeSp("0.75U/h"))
-        assertEquals(10, therapyIndicatorFontSizeSp("12.00U/h"))
+        assertEquals(15, therapyIndicatorFontSizeSp("0.23U"))
+        assertEquals(13, therapyIndicatorFontSizeSp("0.75U/h"))
+        assertEquals(11, therapyIndicatorFontSizeSp("12.00U/h"))
+    }
+
+    @Test
+    fun `basal progress reserves half ring for the normal rate`() {
+        assertEquals(0f, basalProgress(0))
+        assertEquals(0.25f, basalProgress(50))
+        assertEquals(0.5f, basalProgress(100))
+        assertEquals(0.75f, basalProgress(300))
+        assertEquals(1f, basalProgress(500))
     }
 
     @Test

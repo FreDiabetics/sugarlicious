@@ -1081,7 +1081,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
             drawInsulinActivity(canvas, iobDataPlot, allPoints, points, start, end, iobRange.zeroRatio)
             drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
-            if (dividerTimestamp in start..end) {
+            if (!scaleOnRight && dividerTimestamp in start..end) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
                 linePaint.strokeWidth = 1f.dp
                 linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
@@ -1178,18 +1178,19 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         val tickLength = 5f.dp
         val labelX = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
         val labelColor = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
-        val maximumBaseline = plot.top + 14f.dp
+        val scaleTextSizeSp = if (onRight) 10f else 11.5f
+        val maximumBaseline = plot.top + 13f.dp
         val minimumBaseline = plot.bottom - 7f.dp
         val scalePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, scaleTextSizeSp, resources.displayMetrics)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
         val scaleMetrics = scalePaint.fontMetrics
         val align = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
-        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, 11.5f, labelColor, align, bold = true)
+        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
         drawMetabolicScaleTick(canvas, plot, maximumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
         if (range.minimum < -0.01) {
-            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, 11.5f, labelColor, align, bold = true)
+            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
             drawMetabolicScaleTick(canvas, plot, minimumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
         }
     }

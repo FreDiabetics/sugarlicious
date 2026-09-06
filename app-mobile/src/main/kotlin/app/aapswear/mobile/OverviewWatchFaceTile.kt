@@ -61,11 +61,7 @@ import kotlin.math.abs
 
 internal val sugarliciousWatchFaceNames =
     listOf(
-        "Sugarlicious Analog",
-        "Sugarlicious Orbit",
-        "Sugarlicious Rings",
-        "Sugarlicious Graph",
-        "Sugarlicious Digital",
+        "ApeX",
         "Vigil",
     )
 
