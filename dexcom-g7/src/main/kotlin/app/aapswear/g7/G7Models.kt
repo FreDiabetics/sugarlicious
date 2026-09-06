@@ -176,6 +176,28 @@ enum class CollectorSlotStrategy {
 }
 
 @Serializable
+enum class CollectorWindowTerminalState {
+    SUCCESS_FRESH,
+    SUCCESS_BACKFILL_ONLY,
+    DUPLICATE_SUPPRESSED,
+    SENSOR_ERROR,
+    ALARM_NOT_DELIVERED,
+    RECEIVER_NOT_REACHED,
+    SERVICE_START_FAILED,
+    PROCESS_INTERRUPTED,
+    GATT_STATUS,
+    NO_CALLBACK,
+    CONNECT_FAILED,
+    DISCOVERY_FAILED,
+    AUTH_FAILED,
+    SCAN_FAILED,
+    CANCELLED,
+    SUPERSEDED,
+    MISSED_WINDOW,
+    UNKNOWN,
+}
+
+@Serializable
 data class CollectorCycleTiming(
     val expectedWindowId: String? = null,
     val expectedReadingEpoch: Long? = null,
@@ -262,6 +284,23 @@ data class CollectorExpectedWindow(
     val recoveryRequired: Boolean = false,
     val watchdogScheduledAt: Long? = null,
     val watchdogTriggeredAt: Long? = null,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
+    val alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE,
+    val alarmDeliveredAt: Long? = null,
+    val receiverReachedAt: Long? = null,
+    val serviceRequestedAt: Long? = null,
+    val serviceStartedAt: Long? = null,
+    val wakeLockAcquiredAt: Long? = null,
+    val processId: Int? = null,
+    val processUptimeMs: Long? = null,
+    val bootId: String? = null,
+    val attemptId: Long? = null,
+    val strategy: CollectorSlotStrategy? = null,
+    val retryCount: Int = 0,
+    val terminalState: CollectorWindowTerminalState? = null,
+    val terminalReason: String? = null,
+    val completedAt: Long? = null,
 )
 
 @Serializable

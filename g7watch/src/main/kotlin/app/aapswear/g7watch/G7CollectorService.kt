@@ -283,7 +283,7 @@ class G7CollectorService : Service() {
             deadlineEpochMs = startedAt + collectorAttemptDeadlineMs(store.read()),
         )
         val attemptId = attempt.attemptId
-        G7ExpectedWindowLedger(this).markCycleStarted(scheduledCycle?.expectedWindowId, startedAt)
+        G7ExpectedWindowLedger(this).markCycleStarted(scheduledCycle?.expectedWindowId, startedAt, attemptId, scheduledCycle?.wakeLockAcquiredAt)
         val persisted =
             store.read().let { state ->
                 if (request == CycleRequest.RESTART) resetG7RuntimeForRestart(state) else state
