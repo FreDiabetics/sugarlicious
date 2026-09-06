@@ -22,7 +22,8 @@ internal enum class WidgetColorRole(
     RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA),
     HIGH_LINE("high_line", AppearanceTerminology.GRAPH_HIGH_LINE),
     LOW_LINE("low_line", AppearanceTerminology.GRAPH_LOW_LINE),
-    DOT_OUTLINE("dot_outline", AppearanceTerminology.GRAPH_DOT_OUTLINE),
+    DOT_OUTLINE("dot_outline", "Historische CGM-Punktkontur"),
+    CURRENT_DOT_OUTLINE("current_dot_outline", "Aktuelle CGM-Punktkontur"),
     DOT_HIGH("dot_high", AppearanceTerminology.GRAPH_DOT_HIGH),
     DOT_IN_RANGE("dot_in_range", AppearanceTerminology.GRAPH_DOT_IN_RANGE),
     DOT_LOW("dot_low", AppearanceTerminology.GRAPH_DOT_LOW),
@@ -128,6 +129,7 @@ internal object WidgetColorStore {
                             WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
                             WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                             WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                            WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                             WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                             WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                             WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
@@ -191,6 +193,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
                 WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
                 WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                 WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                 WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                 WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW

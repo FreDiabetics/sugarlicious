@@ -98,6 +98,12 @@ internal data class WidgetInstanceConfiguration(
     val lightColorOverrides: Map<WidgetColorRole, Int> = colorOverrides,
     val glucoseGraphValuePercent: Int = DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
     val showGlucoseUnit: Boolean = true,
+    val glucoseBold: Boolean = true,
+    val deltaUnitBold: Boolean = true,
+    val historicalDotOutlineEnabled: Boolean = true,
+    val currentDotOutlineEnabled: Boolean = true,
+    val historicalDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
+    val currentDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
     val darkTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
     val lightTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
 )
@@ -194,6 +200,12 @@ internal object WidgetInstanceConfigurationStore {
             ).takeIf { it in MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT }
                 ?: DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
+            glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
+            deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
+            historicalDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "historical_dot_outline_enabled"), true),
+            currentDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "current_dot_outline_enabled"), true),
+            historicalDotOutlineWidthDp = prefs.getFloat(key(appWidgetId, "historical_dot_outline_width_dp"), CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP).coerceIn(0.25f, 3f),
+            currentDotOutlineWidthDp = prefs.getFloat(key(appWidgetId, "current_dot_outline_width_dp"), CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP).coerceIn(0.25f, 3f),
             darkTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.DARK),
             lightTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.LIGHT),
             // One-time compatible fallback for widgets created before per-instance tap targets existed.
@@ -224,6 +236,12 @@ internal object WidgetInstanceConfigurationStore {
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
             .putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
             .putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
+            .putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
+            .putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
+            .putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
+            .putBoolean(key(appWidgetId, "current_dot_outline_enabled"), value.currentDotOutlineEnabled)
+            .putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
+            .putFloat(key(appWidgetId, "current_dot_outline_width_dp"), value.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
             .apply { writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle); writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle) }
             .apply {
                 WidgetColorRole.entries.forEach { role ->
@@ -346,6 +364,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     if (widgetKind == ConfigurableWidgetKind.GLUCOSE || widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
                         WidgetSettingsSection("Glukosewert") {
                             WidgetPercentSlider("Größe", value.glucoseScalePercent) { value = value.copy(glucoseScalePercent = it) }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.glucoseBold, { value = value.copy(glucoseBold = it) })
+                                Text("Zuckerwert fett", color = ComposeColor.White)
+                            }
                             listOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW).forEach { role ->
                                 WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role), { editRole = role }) {
                                     value = value.withColorOverride(selectedMode, role, null)
@@ -389,6 +411,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
                                 Text("Maßeinheit anzeigen", color = ComposeColor.White)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.deltaUnitBold, { value = value.copy(deltaUnitBold = it) })
+                                Text("Delta + Maßeinheit fett", color = ComposeColor.White)
                             }
                         }
                     }
@@ -440,12 +466,48 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetColorRole.GRAPH_BACKGROUND, WidgetColorRole.RANGE_HIGH, WidgetColorRole.RANGE_IN_RANGE,
                                 WidgetColorRole.RANGE_LOW, WidgetColorRole.HIGH_LINE, WidgetColorRole.LOW_LINE,
                                 WidgetColorRole.DOT_HIGH, WidgetColorRole.DOT_IN_RANGE, WidgetColorRole.DOT_LOW,
-                                WidgetColorRole.DOT_OUTLINE, WidgetColorRole.AXIS, WidgetColorRole.AXIS_TICK,
+                                WidgetColorRole.AXIS, WidgetColorRole.AXIS_TICK,
                                 WidgetColorRole.DIVIDER,
                             ).forEach { role ->
                                 WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role), { editRole = role }) {
                                     value = value.withColorOverride(selectedMode, role, null)
                                 }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.historicalDotOutlineEnabled, { value = value.copy(historicalDotOutlineEnabled = it) })
+                                Text("Historische Punktkontur", color = ComposeColor.White)
+                            }
+                            if (value.historicalDotOutlineEnabled) {
+                                WidgetColorSetting(
+                                    WidgetColorRole.DOT_OUTLINE.label,
+                                    appearance.colorOverrides[WidgetColorRole.DOT_OUTLINE]
+                                        ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(WidgetColorRole.DOT_OUTLINE),
+                                    { editRole = WidgetColorRole.DOT_OUTLINE },
+                                ) { value = value.withColorOverride(selectedMode, WidgetColorRole.DOT_OUTLINE, null) }
+                                WidgetPercentSlider(
+                                    label = "Konturstärke historische Punkte",
+                                    value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
+                                    range = 25..300,
+                                    suffix = " ×0,01 dp",
+                                ) { value = value.copy(historicalDotOutlineWidthDp = it / 100f) }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.currentDotOutlineEnabled, { value = value.copy(currentDotOutlineEnabled = it) })
+                                Text("Aktuelle Punktkontur", color = ComposeColor.White)
+                            }
+                            if (value.currentDotOutlineEnabled) {
+                                WidgetColorSetting(
+                                    WidgetColorRole.CURRENT_DOT_OUTLINE.label,
+                                    appearance.colorOverrides[WidgetColorRole.CURRENT_DOT_OUTLINE]
+                                        ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
+                                    { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
+                                ) { value = value.withColorOverride(selectedMode, WidgetColorRole.CURRENT_DOT_OUTLINE, null) }
+                                WidgetPercentSlider(
+                                    label = "Konturstärke aktueller Punkt",
+                                    value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
+                                    range = 25..300,
+                                    suffix = " ×0,01 dp",
+                                ) { value = value.copy(currentDotOutlineWidthDp = it / 100f) }
                             }
                         }
                     }
