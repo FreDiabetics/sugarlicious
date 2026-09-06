@@ -150,8 +150,18 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `combined widget keeps value graph ratio and unit setting per instance`() {
-        val compactValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 35, showGlucoseUnit = false)
-        val largeValue = WidgetInstanceConfiguration(glucoseGraphValuePercent = 42, showGlucoseUnit = true)
+        val compactValue = WidgetInstanceConfiguration(
+            glucoseGraphValuePercent = 35,
+            showGlucoseUnit = false,
+            glucoseBold = false,
+            deltaUnitBold = true,
+        )
+        val largeValue = WidgetInstanceConfiguration(
+            glucoseGraphValuePercent = 42,
+            showGlucoseUnit = true,
+            glucoseBold = true,
+            deltaUnitBold = false,
+        )
         WidgetInstanceConfigurationStore.save(context, 909, compactValue)
         WidgetInstanceConfigurationStore.save(context, 910, largeValue)
 

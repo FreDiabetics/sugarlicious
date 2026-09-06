@@ -98,6 +98,8 @@ internal data class WidgetInstanceConfiguration(
     val lightColorOverrides: Map<WidgetColorRole, Int> = colorOverrides,
     val glucoseGraphValuePercent: Int = DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
     val showGlucoseUnit: Boolean = true,
+    val glucoseBold: Boolean = true,
+    val deltaUnitBold: Boolean = true,
     val darkTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
     val lightTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
 )
@@ -194,6 +196,8 @@ internal object WidgetInstanceConfigurationStore {
             ).takeIf { it in MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT }
                 ?: DEFAULT_COMBINED_WIDGET_VALUE_PERCENT,
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
+            glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
+            deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
             darkTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.DARK),
             lightTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.LIGHT),
             // One-time compatible fallback for widgets created before per-instance tap targets existed.
@@ -224,6 +228,8 @@ internal object WidgetInstanceConfigurationStore {
             .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
             .putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
             .putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
+            .putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
+            .putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
             .apply { writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle); writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle) }
             .apply {
                 WidgetColorRole.entries.forEach { role ->
@@ -346,6 +352,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     if (widgetKind == ConfigurableWidgetKind.GLUCOSE || widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
                         WidgetSettingsSection("Glukosewert") {
                             WidgetPercentSlider("Größe", value.glucoseScalePercent) { value = value.copy(glucoseScalePercent = it) }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.glucoseBold, { value = value.copy(glucoseBold = it) })
+                                Text("Zuckerwert fett", color = ComposeColor.White)
+                            }
                             listOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW).forEach { role ->
                                 WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role), { editRole = role }) {
                                     value = value.withColorOverride(selectedMode, role, null)
@@ -389,6 +399,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
                                 Text("Maßeinheit anzeigen", color = ComposeColor.White)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(value.deltaUnitBold, { value = value.copy(deltaUnitBold = it) })
+                                Text("Delta + Maßeinheit fett", color = ComposeColor.White)
                             }
                         }
                     }

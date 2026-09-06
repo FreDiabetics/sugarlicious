@@ -285,6 +285,7 @@ private fun GlucoseWidgetContent(
             outlineArgb = instance.outlineArgb,
             cornerRadiusDp = instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp,
             trendStyle = trendStyle,
+            glucoseBold = instance.glucoseBold,
         ),
     )
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
@@ -765,7 +766,7 @@ internal fun renderMinimalGlucoseWidget(
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         this.color = color
         textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * options.glucoseScale
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        typeface = Typeface.create(Typeface.DEFAULT, if (options.glucoseBold) Typeface.BOLD else Typeface.NORMAL)
     }
     val textWidth = paint.measureText(value)
     val textBounds = Rect().also { paint.getTextBounds(value, 0, value.length, it) }
@@ -823,6 +824,7 @@ internal data class GlucoseWidgetRenderOptions(
     val outlineArgb: Int = AndroidColor.DKGRAY,
     val cornerRadiusDp: Float = 20f,
     val trendStyle: app.aapswear.model.TrendArrowStyle = app.aapswear.model.TrendArrowStyle.defaults(AppearanceMode.DARK, AndroidColor.WHITE),
+    val glucoseBold: Boolean = true,
 )
 
 private fun configurationScale(percent: Int): Float = GlucoseTrendSizing.scaleFactor(percent)
@@ -947,6 +949,7 @@ internal fun renderGlucoseGraphWidget(
             leftInsetDp = 12f,
             verticalOffsetDp = -4f,
             trendStyle = trendStyle,
+            glucoseBold = configuration.glucoseBold,
         ),
     )
     val graph = renderWidgetGraph(
@@ -988,7 +991,7 @@ internal fun renderGlucoseGraphWidget(
             alpha = 170
             textAlign = Paint.Align.LEFT
             textSize = (13f * pixelDensity).coerceAtMost(topHeight * 0.19f)
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = Typeface.create(Typeface.DEFAULT, if (configuration.deltaUnitBold) Typeface.BOLD else Typeface.NORMAL)
         }
         canvas.drawText(secondary, 12f * pixelDensity, topHeight - 6f * pixelDensity, paint)
     }
