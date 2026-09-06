@@ -8,9 +8,13 @@ import android.widget.TextView
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Switch
+import android.widget.ProgressBar
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7Sensor
+import app.aapswear.g7.G7PersistedState
+import app.aapswear.g7.G7SensorState
+import app.aapswear.g7.G7SessionState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
@@ -49,6 +53,46 @@ class G7WatchActivityLayoutTest {
                 lastReading = seed,
             ),
         )
+    }
+
+    @Test
+    fun `pairing gate follows sensor session state instead of waiting for glucose`() {
+        assertTrue(requiresPairingGate(G7PersistedState()))
+        assertTrue(requiresPairingGate(G7PersistedState(sensor = G7Sensor("ended", state = G7SensorState.ENDED))))
+        assertTrue(requiresPairingGate(G7PersistedState(
+            sensor = G7Sensor("pairing"),
+            collectorEnabled = true,
+            sessionState = G7SessionState.INITIAL_SETUP,
+        )))
+        assertFalse(requiresPairingGate(G7PersistedState(
+            sensor = G7Sensor("warming", state = G7SensorState.WARMUP),
+            collectorEnabled = true,
+            sessionState = G7SessionState.AUTHENTICATED,
+        )))
+        assertFalse(requiresPairingGate(G7PersistedState(
+            sensor = G7Sensor("error", state = G7SensorState.ERROR),
+            collectorEnabled = true,
+            sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
+        )))
+    }
+
+    @Test
+    fun `active pairing uses a single non scrolling search page`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState(
+            sensor = G7Sensor("pairing"),
+            collectorEnabled = true,
+            sessionState = G7SessionState.INITIAL_SETUP,
+        ))
+        val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        assertEquals(null, findScrollView(root))
+        assertNotNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
+        assertNotNull(findImageByDescription(root, "Sensor"))
+        assertNotNull(findImageByDescription(root, "Smartwatch"))
+        assertNotNull(findProgressBar(root))
+        activity.finish()
     }
 
     @Test
@@ -282,6 +326,14 @@ class G7WatchActivityLayoutTest {
             for (index in 0 until root.childCount) {
                 findImageByDescription(root.getChildAt(index), description)?.let { return it }
             }
+        }
+        return null
+    }
+
+    private fun findProgressBar(root: android.view.View): ProgressBar? {
+        if (root is ProgressBar) return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) findProgressBar(root.getChildAt(index))?.let { return it }
         }
         return null
     }
