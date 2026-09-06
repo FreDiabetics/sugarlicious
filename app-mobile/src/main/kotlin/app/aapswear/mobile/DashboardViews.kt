@@ -66,6 +66,7 @@ data class DashboardUiPreferences(
     val predictionDotOutlineWidthDp: Float = 0.70f,
     val compact: Boolean = true,
     val graphHours: Int = 3,
+    val graphMaximumMgDl: Double = 400.0,
     val liveNotification: Boolean = false,
     val notificationGraphEnabled: Boolean = true,
     val notificationGraphHours: Int = 3,
@@ -123,6 +124,7 @@ data class DashboardUiPreferences(
                 predictionDotOutlineWidthDp = readMobilePredictionDotOutlineWidth(preferences),
                 compact = preferences.getBoolean("compact", true),
                 graphHours = preferences.getInt("graphHours", 3).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3,
+                graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
                 notificationGraphHours = preferences.getInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 3).takeIf { it in 1..3 } ?: 3,
@@ -142,6 +144,7 @@ data class DashboardUiPreferences(
         const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
         const val GLUCOSE_TILE_DETAIL_MODE_KEY = "overview.glucoseTileDetailMode"
         const val IOB_PROGRESS_MAXIMUM_KEY = "overview.iobProgressMaximumUnits"
+        const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
     }
 }
 
@@ -461,6 +464,10 @@ class DashboardViewFactory(
         }
 
         addSettingsCategory(parent, "overview_graphs", "Übersicht und Graphen", R.drawable.ic_foreground) {
+            val graphUnit = when (preferences.unitFor(state)) {
+                GlucoseUnit.MMOL_L -> DisplayUnitPreference.MMOL_L
+                GlucoseUnit.MG_DL -> DisplayUnitPreference.MG_DL
+            }
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("ÜBERSICHT"))
@@ -494,6 +501,21 @@ class DashboardViewFactory(
                     addView(settingsGroupLabel("CGM-GRAPH"))
                     addView(switchRowCompact("Graph anzeigen", preferences.showCgmGraph, View.generateViewId(), callbacks.setShowCgmGraph))
                     if (preferences.showCgmGraph) {
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "Graphhöhe",
+                                value = thresholdForUi(preferences.graphMaximumMgDl, graphUnit),
+                                minimum = thresholdForUi(180.0, graphUnit),
+                                maximum = thresholdForUi(600.0, graphUnit),
+                                valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
+                            ) { entered ->
+                                dashboardPreferences.edit().putFloat(
+                                    DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
+                                    thresholdFromUi(entered, graphUnit).toFloat(),
+                                ).apply()
+                            },
+                        )
                         addView(divider())
                         addView(settingsGroupLabel("DATENSTRÖME"))
                         addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })

@@ -425,6 +425,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     private var cgmDotOutlineWidthDp = 0.95f
     private var predictionDotRadiusDp = 1.75f
     private var predictionDotOutlineWidthDp = 0.70f
+    private var graphMaximumMgDl = GLUCOSE_DISPLAY_MAX
     private var stateSignature: List<Any?>? = null
     private var clockBucket: Long = Long.MIN_VALUE
     private var renderNowEpochMs: Long = System.currentTimeMillis()
@@ -446,6 +447,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         cgmDotRadiusDp: Float = 2.4f,
         cgmDotOutlineEnabled: Boolean = true,
         cgmDotOutlineWidthDp: Float = 0.95f,
+        graphMaximumMgDl: Double = GLUCOSE_DISPLAY_MAX,
         clockEpochMs: Long = System.currentTimeMillis(),
     ) {
         val resolvedRadius = cgmDotRadiusDp.coerceIn(1.5f, 6.0f)
@@ -454,6 +456,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val resolvedDurationHours = resolveOverviewGraphHoursPreference(stylePreferences, durationHours)
         val resolvedPredictionRadius = readMobilePredictionDotRadius(stylePreferences)
         val resolvedPredictionOutlineWidth = readMobilePredictionDotOutlineWidth(stylePreferences)
+        val resolvedGraphMaximum = graphMaximumMgDl.coerceIn(180.0, 600.0)
         val resolvedClockBucket = clockEpochMs / CLOCK_REFRESH_MS
         viewport.setAvailablePastWindow(availableGlucoseHistoryWindowMs(state, clockEpochMs), clockEpochMs)
         val newStateSignature = state?.let {
@@ -507,6 +510,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 this.cgmDotOutlineWidthDp != resolvedOutlineWidth ||
                 this.predictionDotRadiusDp != resolvedPredictionRadius ||
                 this.predictionDotOutlineWidthDp != resolvedPredictionOutlineWidth ||
+                this.graphMaximumMgDl != resolvedGraphMaximum ||
                 clockBucket != resolvedClockBucket
 
         if (!changed) return
@@ -531,6 +535,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         this.cgmDotOutlineWidthDp = resolvedOutlineWidth
         this.predictionDotRadiusDp = resolvedPredictionRadius
         this.predictionDotOutlineWidthDp = resolvedPredictionOutlineWidth
+        this.graphMaximumMgDl = resolvedGraphMaximum
         clockBucket = resolvedClockBucket
         renderNowEpochMs = clockEpochMs
 
@@ -600,8 +605,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 .map { series -> series.copy(samples = series.samples.filter { it.measuredAtEpochMs in start..end }) }
                 .filter { it.samples.isNotEmpty() }
 
-            val targetTop = mapGlucoseY(targetHigh, plot)
-            val targetBottom = mapGlucoseY(targetLow, plot)
+            val targetTop = mapGlucoseY(targetHigh, plot, graphMaximumMgDl)
+            val targetBottom = mapGlucoseY(targetLow, plot, graphMaximumMgDl)
             // Signal loss changes freshness only. The last confirmed range excursion remains
             // active until a new validated CGM value performs a real range transition.
             val excursion = sustainedRangeExcursion(allHistory, targetLow, targetHigh)
@@ -706,7 +711,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                         screenAnchoredDashPhase(firstX, plot.left, dashLength * 2f),
                     )
                     canvas.drawPath(
-                        valuePath(points, start, end, plot) { value -> mapGlucoseY(value, plot) },
+                        valuePath(points, start, end, plot) { value -> mapGlucoseY(value, plot, graphMaximumMgDl) },
                         linePaint,
                     )
                 }
@@ -745,7 +750,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
             history.forEachIndexed { index, point ->
                 val mappedX = timeWindow.plotX(point.measuredAtEpochMs, plot.left, plot.width())
-                val y = mapGlucoseY(point.valueMgDl, plot)
+                val y = mapGlucoseY(point.valueMgDl, plot, graphMaximumMgDl)
                 val current = index == history.lastIndex
                 val dotRadius = (cgmDotRadiusDp + if (current) 0.1f else 0f).dp
                 val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
@@ -854,14 +859,24 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
 
     private fun drawGraphMaximumScale(canvas: Canvas, plot: RectF, onRight: Boolean) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10f, resources.displayMetrics)
+            textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
             color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
             textAlign = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
-        val x = if (onRight) plot.right + 9f.dp else plot.left - 9f.dp
+        val tickGap = 2f.dp
+        val tickLength = 5f.dp
+        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
+        linePaint.strokeWidth = 1f.dp
+        linePaint.pathEffect = null
+        if (onRight) {
+            canvas.drawLine(plot.right + tickGap, plot.top, plot.right + tickGap + tickLength, plot.top, linePaint)
+        } else {
+            canvas.drawLine(plot.left - tickGap, plot.top, plot.left - tickGap - tickLength, plot.top, linePaint)
+        }
+        val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
         val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
-        canvas.drawText(glucoseLabel(GLUCOSE_DISPLAY_MAX), x, baseline, paint)
+        canvas.drawText(glucoseLabel(graphMaximumMgDl), x, baseline, paint)
     }
 
 
@@ -949,7 +964,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
             val mappedX = mapX(point.measuredAtEpochMs, start, end, plot)
             val x = mappedX.coerceAtLeast(minimumPredictionCenter)
             if (x > maximumPredictionCenter) return@forEach
-            val y = mapGlucoseY(point.valueMgDl, plot)
+            val y = mapGlucoseY(point.valueMgDl, plot, graphMaximumMgDl)
             if (outlineWidth > 0f) {
                 dotOutlinePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
                 dotOutlinePaint.strokeWidth = outlineWidth
@@ -1508,7 +1523,18 @@ internal fun mobileCgmGraphBounds(
     return MobileCgmGraphBounds(content, tile, plot, timeAxis, valueAxis)
 }
 
-private fun mapGlucoseY(valueMgDl: Double, plot: RectF): Float = plot.bottom - glucoseLogRatio(valueMgDl).toFloat() * plot.height()
+private fun mapGlucoseY(valueMgDl: Double, plot: RectF, maximumMgDl: Double): Float =
+    plot.bottom - glucoseLogRatio(valueMgDl, maximumMgDl).toFloat() * plot.height()
+
+internal fun glucoseLogRatio(valueMgDl: Double, maximumMgDl: Double): Double {
+    val maximum = maximumMgDl.coerceAtLeast(180.0)
+    val value = valueMgDl.coerceIn(GLUCOSE_DISPLAY_MIN, maximum)
+    return when {
+        value <= 80.0 -> GLUCOSE_ZERO_RATIO + (value - GLUCOSE_DISPLAY_MIN) / (80.0 - GLUCOSE_DISPLAY_MIN) * (GLUCOSE_LOW_RATIO - GLUCOSE_ZERO_RATIO)
+        value <= 160.0 -> GLUCOSE_LOW_RATIO + (ln(value / 80.0) / ln(2.0)) * (GLUCOSE_TARGET_HIGH_RATIO - GLUCOSE_LOW_RATIO)
+        else -> GLUCOSE_TARGET_HIGH_RATIO + (ln(value / 160.0) / ln(maximum / 160.0)) * (1.0 - GLUCOSE_TARGET_HIGH_RATIO)
+    }.coerceIn(GLUCOSE_ZERO_RATIO, 1.0)
+}
 
 private fun windowedStepSamples(points: List<TherapyHistorySample>, start: Long, end: Long): List<TherapyHistorySample> {
     if (points.isEmpty()) return emptyList()
