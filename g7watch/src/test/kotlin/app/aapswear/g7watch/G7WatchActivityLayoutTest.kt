@@ -77,7 +77,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `active pairing uses a single non scrolling search page`() {
+    fun `active pairing uses a round safe scrolling search page`() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(
             sensor = G7Sensor("pairing"),
@@ -87,7 +87,7 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        assertEquals(null, findScrollView(root))
+        assertNotNull(findScrollView(root))
         assertNotNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
         assertNotNull(findImageByDescription(root, "Sensor"))
         assertNotNull(findImageByDescription(root, "Smartwatch"))

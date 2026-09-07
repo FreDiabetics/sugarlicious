@@ -219,12 +219,23 @@ class G7WatchActivity : Activity() {
         })
     }
 
-        setContentView(FrameLayout(this).apply {
-            setBackgroundColor(background)
-            addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        })
+        setContentView(
+            G7EdgeFadeScrollView(this).apply {
+                isFillViewport = true
+                setBackgroundColor(background)
+                addView(
+                    content,
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ),
+                )
+            }.applyG7EdgeFade(),
+        )
         mainHandler.removeCallbacks(pairingRefresh)
-        mainHandler.postDelayed(pairingRefresh, 1_000L)
+        // Do not rebuild an idle code form every second: that used to clear the EditText while
+        // the user was entering the four digits. Poll only after pairing has actually started.
+        if (pairingStarted) mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
 
     private fun showPairingSuccessIfNeeded(state: G7PersistedState) {
