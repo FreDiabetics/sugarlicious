@@ -406,7 +406,7 @@ class G7WatchActivity : Activity() {
             glucoseHost.removeAllViews()
             glucoseHost.addView(label("Gewebeglukose", 11f, 0xFFFFFFFF.toInt(), false).apply {
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                setPadding(WearGlucoseCardStyle.CARD_RADIUS_DP.toInt().dp, 0, 0, 5.dp)
+                setPadding(WearGlucoseCardStyle.CARD_RADIUS_DP.toInt().dp, 4.dp, 0, 5.dp)
             })
             glucoseHost.addView(glucoseTile(state.lastReading, palette))
             updateGraphOnly(preserveScroll = false)
