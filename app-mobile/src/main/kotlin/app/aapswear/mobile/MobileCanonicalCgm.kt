@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 
 /**
  * Legacy Mobile store kept only to delete data written by the short-lived Watch-backfill bridge.
- * Direct-to-Watch history is collector-local and must never be a Sugarlicious Mobile input.
+ * SugarWear history is collector-local and must never be a Sugarlicious Mobile input.
  */
 private val Context.mobileG7HistoryDataStore by preferencesDataStore("mobile_g7_backfill")
 
@@ -70,7 +70,7 @@ internal object MobileWatchCgmMigration {
         app.recordMobileDiagnostic(
             module = "G7",
             code = "G7-MIGRATE-200",
-            message = "Removed Direct-to-Watch CGM/history from Sugarlicious Mobile",
+            message = "Removed SugarWear CGM/history from Sugarlicious Mobile",
             metadata = mapOf("migrationVersion" to VERSION),
         )
         return true
@@ -97,7 +97,7 @@ internal object MobileCanonicalStateCoordinator {
     ): Pair<TherapyDisplayState, TherapyDisplayState> {
         MobileWatchCgmMigration.runOnce(context)
         require(incoming.source != DataSourceId.DEXCOM_G7_WATCH) {
-            "Direct-to-Watch input is not a Sugarlicious Mobile CGM source"
+            "SugarWear input is not a Sugarlicious Mobile CGM source"
         }
 
         val phoneStore = PhoneTherapyStateStore(context)

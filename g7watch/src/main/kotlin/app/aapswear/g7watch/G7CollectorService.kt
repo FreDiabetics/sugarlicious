@@ -109,7 +109,7 @@ class G7CollectorService : Service() {
             cancelAction = { collectionJob?.cancel() },
         )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL, "SugarWear", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter direkter Sensor-Collector"
                 setSound(null, null)
                 enableVibration(false)
@@ -337,10 +337,10 @@ class G7CollectorService : Service() {
             val collector = AndroidG7Collector(this)
             val lastStoredSensorClock = G7ReadingDatabase(this).let { database ->
                 try {
-                    database.getLatestValidForSession(
+                    database.getBackfillAnchorSensorClock(
                         collectionSensor.sensorId,
                         collectionSensor.sessionId ?: collectionSensor.sensorId,
-                    )?.rawSourceTimestamp
+                    )
                 } finally {
                     database.close()
                 }
@@ -869,7 +869,7 @@ class G7CollectorService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_g7_notification)
             .setColor(0xFF6DE892.toInt())
-            .setContentTitle("Direct to Watch")
+            .setContentTitle("SugarWear")
             .setContentText(message)
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_SERVICE)

@@ -21,14 +21,14 @@ internal object WearCanonicalStateEvents {
 /**
  * Compatibility receiver only.
  *
- * Direct-to-Watch is a separate local collector application. Its LIVE and BACKFILL readings do not
+ * SugarWear is a separate local collector application. Its LIVE and BACKFILL readings do not
  * enter Sugarlicious Wear, do not refresh Sugarlicious graphs/tiles/complications, and are not
  * forwarded to Mobile. Sugarlicious Wear is refreshed exclusively by its normal phone data layer.
  */
 class G7ReadingUpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_G7_READING_UPDATED) return
-        // Intentionally no-op: Direct-to-Watch data is collector-local.
+        // Intentionally no-op: SugarWear data is collector-local.
         context.applicationContext
     }
 

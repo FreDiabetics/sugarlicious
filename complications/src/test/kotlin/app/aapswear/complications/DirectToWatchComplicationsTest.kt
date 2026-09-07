@@ -63,7 +63,7 @@ class DirectToWatchComplicationsTest {
 
     @Test fun `stale direct value is not rendered as current`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
-        assertEquals("—", header.glucose)
+        assertEquals("-", header.glucose)
         assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
     }
 
@@ -74,7 +74,7 @@ class DirectToWatchComplicationsTest {
             glucose = directState(now - 60_000L).glucose?.copy(source = DataSourceId.ANDROID_APS),
         )
         val header = DirectToWatchPresentationFormatter.header(mobile, now)
-        assertEquals("—", header.glucose)
+        assertEquals("-", header.glucose)
         assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
         assertTrue(DirectToWatchPresentationFormatter.samples(mobile, now, 3).isEmpty())
     }
@@ -82,6 +82,25 @@ class DirectToWatchComplicationsTest {
     @Test fun `absent data is explicit no source`() {
         assertEquals("Bitte Sensor\nstarten oder\nkoppeln", DirectToWatchPresentationFormatter.header(null, now).secondary)
         assertEquals("3h • NO_SOURCE", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
+    }
+
+    @Test fun `active restored session without a loaded reading shows loading state only`() {
+        val state = TherapyDisplayState(
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:restore:SENSOR_ACTIVE:SESSION_ACTIVE",
+            receivedAtEpochMs = now - 60_000L,
+            glucose = null,
+            glucoseHistory = emptyList(),
+        )
+
+        val header = DirectToWatchPresentationFormatter.header(state, now)
+        assertEquals("-", header.glucose)
+        assertEquals("Keine aktuellen Daten\nBitte warten oder Verbindung\nzum Sensor prüfen", header.secondary)
+        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(state, now, 3).text)
+
+        val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
+        val bitmap = service.renderGraph(state, now, 3)
+        assertTrue((0 until bitmap.height).all { y -> (0 until bitmap.width).all { x -> Color.alpha(bitmap.getPixel(x, y)) == 0 } })
     }
 
     @Test fun `vigil distinguishes sensor error from an ended sensor in active and ambient data`() {
@@ -109,7 +128,7 @@ class DirectToWatchComplicationsTest {
 
     @Test fun `invalid delta is not invented`() {
         val state = directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(deltaMgDl = null))
-        assertEquals("mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)
+        assertEquals("- mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)
     }
 
     @Test fun `graph accepts only valid direct samples inside selected window`() {

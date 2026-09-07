@@ -247,6 +247,31 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `backfill anchor remains before oldest unresolved gap after newer live values`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun reading(id: String, clock: Long) = CgmReading(
+            id = id,
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a",
+            sessionId = "session-a",
+            glucoseMgDl = 120.0,
+            timestampEpochMs = now + clock * 1_000L,
+            receivedAtEpochMs = now + clock * 1_000L,
+            status = CgmReadingStatus.VALID,
+            rawSourceTimestamp = clock,
+        )
+        database.insert(reading("t0", 10_000L))
+        database.insert(reading("t5", 10_300L))
+        database.insert(reading("t15", 10_900L))
+        database.insert(reading("t20", 11_200L))
+
+        assertEquals(10_300L, database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+
+        database.insert(reading("t10-backfill", 10_600L).copy(origin = CgmReadingOrigin.BACKFILL))
+        assertEquals(11_200L, database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
     fun `version four migration collapses legacy timestamp duplicates and preserves sync`() = runBlocking {
         database.close()
         context.deleteDatabase(DATABASE_NAME)

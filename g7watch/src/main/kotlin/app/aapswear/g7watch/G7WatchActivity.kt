@@ -128,6 +128,7 @@ class G7WatchActivity : Activity() {
             pairingGateVisible = false
             mainHandler.removeCallbacks(pairingRefresh)
             buildScreen(palette)
+            showPairingSuccessIfNeeded(state)
         } else refreshLiveContent()
     }
 
@@ -203,6 +204,9 @@ class G7WatchActivity : Activity() {
                     return@pill
                 }
                 val sensorId = "G7-${java.util.UUID.randomUUID().toString().take(8)}"
+                getSharedPreferences(PAIRING_UI_PREFERENCES, MODE_PRIVATE).edit()
+                    .putString(KEY_PAIRING_SENSOR_ID, sensorId)
+                    .apply()
                 G7CredentialStore(this).saveSetup(G7SetupPayload(entered, null, null))
                 val prepared = G7SessionManager(G7SensorStateStore(this).read()).prepareInitialSetup(
                     G7Sensor(sensorId = sensorId, sessionId = sensorId, deviceName = "Dexcom G7"),
@@ -212,14 +216,27 @@ class G7WatchActivity : Activity() {
                 refreshScreen()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
-            })
-        }
+        })
+    }
+
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(background)
             addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         })
         mainHandler.removeCallbacks(pairingRefresh)
         mainHandler.postDelayed(pairingRefresh, 1_000L)
+    }
+
+    private fun showPairingSuccessIfNeeded(state: G7PersistedState) {
+        val sensorId = state.sensor?.sensorId ?: return
+        if (!hasUsableCollectorSession(state.lastReading, sensorId)) return
+        val preferences = getSharedPreferences(PAIRING_UI_PREFERENCES, MODE_PRIVATE)
+        if (preferences.getString(KEY_PAIRING_SENSOR_ID, null) != sensorId) return
+        preferences.edit().remove(KEY_PAIRING_SENSOR_ID).apply()
+        android.app.AlertDialog.Builder(this)
+            .setTitle("✓ Sensor erfolgreich verbunden")
+            .setPositiveButton("SugarWear öffnen", null)
+            .show()
     }
 
     private fun buildScreen(palette: G7AppearancePalette) {
@@ -264,13 +281,13 @@ class G7WatchActivity : Activity() {
 
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_g7_sensor)
-            contentDescription = "Direct to Watch"
+            contentDescription = "SugarWear"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {
             topMargin = 9.dp
             gravity = Gravity.CENTER_HORIZONTAL
         })
-        content.addView(label("Direct to Watch", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+        content.addView(label("SugarWear", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
             setPadding(3.dp, 2.dp, 3.dp, 0)
         })
         content.addView(label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
@@ -569,5 +586,7 @@ class G7WatchActivity : Activity() {
 
     private companion object {
         const val PERMISSION_REQUEST = 7
+        const val PAIRING_UI_PREFERENCES = "sugarwear_pairing_ui"
+        const val KEY_PAIRING_SENSOR_ID = "pairing_sensor_id"
     }
 }

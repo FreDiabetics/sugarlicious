@@ -1,6 +1,6 @@
 # Sugarlicious CGM architecture and G7 Watch collector
 
-This document records the implementation findings and the safe architecture derived from the G7 Watch Collector work order.
+This document records the implementation findings and the safe architecture used by SugarWear.
 
 ## 1. Architectural boundary
 
@@ -22,7 +22,7 @@ The independent direct Watch path remains:
 ```text
 Dexcom G7 sensor
   -> BLE
-  -> Sugarlicious G7 Watch Collector
+  -> SugarWear collector
   -> local read-only provider / local database
   -> Sugarlicious Wear canonical source resolver
 ```

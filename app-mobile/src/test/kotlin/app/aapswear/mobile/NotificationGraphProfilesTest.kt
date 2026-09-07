@@ -133,6 +133,32 @@ class NotificationGraphProfilesTest {
     }
 
     @Test
+    fun `configured graph background continues underneath translucent right scale lane`() {
+        val now = System.currentTimeMillis()
+        val background = Color.rgb(63, 21, 117)
+        preferences.edit().clear()
+            .putString("themeMode", "DARK")
+            .putInt("notification.color.override.${SugarliciousColorRole.GRAPH_BACKGROUND.preferenceKey}", background)
+            .putInt("notification.graph.scale_lane_opacity_percent", 30)
+            .commit()
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucoseHistory = listOf(GlucoseSample(120.0, now - 30 * 60_000L)),
+            target = TargetState(80.0, 160.0),
+        )
+
+        listOf(
+            NotificationGraphRenderer.renderCollapsed(context, state, preferences),
+            NotificationGraphRenderer.renderExpanded(context, state, preferences),
+        ).forEach { bitmap ->
+            val plotPixel = bitmap.getPixel(bitmap.width / 2, 20)
+            val lanePixel = bitmap.getPixel(bitmap.width - 20, 20)
+            assertEquals(255, Color.alpha(plotPixel))
+            assertEquals("scale lane must have the real graph background beneath it", 255, Color.alpha(lanePixel))
+        }
+    }
+
+    @Test
     fun `collapsed and expanded rendered dots stay circular and concentric in light and dark mode`() {
         val outlineColor = Color.rgb(29, 211, 231)
         val now = System.currentTimeMillis()

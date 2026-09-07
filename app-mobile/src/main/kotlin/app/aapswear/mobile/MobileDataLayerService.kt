@@ -167,7 +167,7 @@ class MobileDataLayerService : WearableListenerService() {
             .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
             .await()
         applicationContext.recordMobileDiagnostic(
-            "G7", "G7-SYNC-204", "Direct-to-Watch history ignored by AndroidAPS-only Mobile policy",
+            "G7", "G7-SYNC-204", "SugarWear history ignored by AndroidAPS-only Mobile policy",
             metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
         )
     }

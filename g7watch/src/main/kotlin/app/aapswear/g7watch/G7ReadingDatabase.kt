@@ -179,6 +179,22 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         ).firstOrNull()
 
     /**
+     * Returns the sensor-clock immediately before the oldest unresolved cadence gap. Falling back
+     * to the latest clock preserves the cheap no-gap path. Because this is reconstructed from the
+     * durable reading history, an incomplete history response is retried after later reconnects,
+     * process death and watch reboot instead of being hidden behind a newer LIVE sample.
+     */
+    fun getBackfillAnchorSensorClock(sensorId: String, sessionId: String): Long? =
+        backfillAnchorSensorClock(
+            query(
+                selection = "status=? AND sensor_id=? AND session_id=? AND sensor_clock IS NOT NULL",
+                args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId),
+                limit = 300,
+                ascending = true,
+            ),
+        )
+
+    /**
      * Returns the closest validated predecessor for one sensor/session stream. Delta/trend must
      * never be derived from a future or out-of-order row that happened to be newest globally.
      */
@@ -288,3 +304,16 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
 
     private data class ExistingValidIdentity(val id: String, val origin: CgmReadingOrigin)
 }
+
+internal fun backfillAnchorSensorClock(readings: List<CgmReading>): Long? {
+    val ordered = readings
+        .mapNotNull { reading -> reading.rawSourceTimestamp?.let { it to reading } }
+        .sortedBy { it.first }
+    val gapAnchor = ordered.zipWithNext().firstOrNull { (before, after) ->
+        after.first - before.first > BACKFILL_CADENCE_SECONDS + BACKFILL_GAP_TOLERANCE_SECONDS
+    }?.first?.first
+    return gapAnchor ?: ordered.lastOrNull()?.first
+}
+
+private const val BACKFILL_CADENCE_SECONDS = 5L * 60L
+private const val BACKFILL_GAP_TOLERANCE_SECONDS = 90L

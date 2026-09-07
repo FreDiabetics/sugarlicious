@@ -80,7 +80,7 @@ abstract class InstallSugarliciousDebugTask
             installApk(phone, mobileApk.get().asFile, "Mobile")
             removeAccidentalPhoneCollector(phone)
             installApk(watch, wearApk.get().asFile, "Wear")
-            installApk(watch, g7WatchApk.get().asFile, "G7 Watch Collector")
+            installApk(watch, g7WatchApk.get().asFile, "SugarWear")
             installApk(watch, vigilApk.get().asFile, "Vigil")
         }
 

@@ -327,7 +327,7 @@ internal object G7CgmAlarmNotifier {
     ) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Eigenständiger Direct-to-Watch-Alarm: ${title(type)}"
+                description = "Eigenständiger SugarWear-Alarm: ${title(type)}"
                 enableVibration(settings.vibrationEnabled)
                 // Sound is played by G7AlarmSoundPlayer. Keeping the immutable channel silent
                 // prevents Samsung's notification sound fallback and duplicate playback.
@@ -352,7 +352,7 @@ internal object G7CgmAlarmNotifier {
     private fun body(type: CgmAlarmType): String = when (type) {
         CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider direkter Watch-Wert."
         CgmAlarmType.VERY_LOW -> "Glukosewert liegt bei oder unter 40 mg/dL."
-        else -> "Direct to Watch hat den Alarmzustand ${title(type)} erkannt."
+        else -> "SugarWear hat den Alarmzustand ${title(type)} erkannt."
     }
 
     private fun color(type: CgmAlarmType): Int =

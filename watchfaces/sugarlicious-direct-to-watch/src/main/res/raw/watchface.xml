@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Direct-to-Watch renders only the validated local G7 collector stream. The package id remains stable so existing installations update in place. -->
+<!-- Vigil renders only the validated local SugarWear collector stream. The package id remains stable so existing installations update in place. -->
 <WatchFace width="450" height="450" clipShape="CIRCLE">
     <Metadata key="CLOCK_TYPE" value="DIGITAL" />
     <Metadata key="PREVIEW_TIME" value="12:42:00" />

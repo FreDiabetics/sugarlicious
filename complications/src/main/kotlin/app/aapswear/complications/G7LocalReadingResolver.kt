@@ -57,7 +57,7 @@ object G7LocalReadingResolver {
             }.getOrDefault(WatchDataSource.AUTOMATIC)
 
         val directRows = readDirectRows(context)
-        val directSensorState = readDirectSensorState(context)
+        val directStatus = readDirectStatus(context)
         val latestDirectEvent = directRows.maxByOrNull(LocalReading::measuredAt)
         val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
         val mobileCandidate = fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
@@ -73,7 +73,7 @@ object G7LocalReadingResolver {
         }
         val watchCandidate = latestDirect?.toCandidate()
 
-        if (fallback == null && latestDirectEvent == null && directSensorState == null) return null
+        if (fallback == null && latestDirectEvent == null && directStatus == null) return null
 
         val previous = readMemory(context)
         val resolution =
@@ -118,10 +118,10 @@ object G7LocalReadingResolver {
 
         val sourceVersion =
             when (resolution.canonicalSource) {
-                CgmCanonicalSource.WATCH_G7_DIRECT -> "Direct to Watch"
+                CgmCanonicalSource.WATCH_G7_DIRECT -> "SugarWear"
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.sourceVersion
                 CgmCanonicalSource.NONE ->
-                    if (directSensorError != null || (watchOnly && latestDirectEvent != null)) "Direct to Watch" else fallback?.sourceVersion
+                    if (directSensorError != null || (watchOnly && latestDirectEvent != null)) "SugarWear" else fallback?.sourceVersion
             }
 
         val capabilities =
@@ -156,7 +156,7 @@ object G7LocalReadingResolver {
             source = chosenSource,
             sourceVersion = sourceVersion,
             sourceContract =
-                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directSensorState ?: "UNKNOWN"}",
+                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${directStatus?.sessionState ?: "UNINITIALIZED"}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
                     ?: chosenGlucose?.receivedAtEpochMs
@@ -201,12 +201,24 @@ object G7LocalReadingResolver {
 
     fun directSensorState(state: TherapyDisplayState?): String? =
         state?.sourceContract?.substringAfter(":SENSOR_", "")?.takeIf(String::isNotBlank)
+            ?.substringBefore(':')
 
-    private fun readDirectSensorState(context: Context): String? = runCatching {
+    fun directSessionState(state: TherapyDisplayState?): String? =
+        state?.sourceContract?.substringAfter(":SESSION_", "")?.takeIf(String::isNotBlank)
+            ?.substringBefore(':')
+
+    private fun readDirectStatus(context: Context): DirectStatus? = runCatching {
         context.contentResolver.query(stateUri, null, null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(cursor.getColumnIndexOrThrow("sensor_state")) else null
+            if (cursor.moveToFirst()) {
+                DirectStatus(
+                    sensorState = cursor.getString(cursor.getColumnIndexOrThrow("sensor_state")),
+                    sessionState = cursor.getString(cursor.getColumnIndexOrThrow("session_state")),
+                )
+            } else null
         }
     }.getOrNull()
+
+    private data class DirectStatus(val sensorState: String, val sessionState: String)
 
     private fun readDirectRows(context: Context): List<LocalReading> =
         runCatching {

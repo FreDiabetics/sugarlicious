@@ -56,6 +56,7 @@ internal data class DirectToWatchHeaderPresentation(
     val secondary: String,
     val trend: Trend? = null,
     val sensorError: Boolean = false,
+    val trendUnavailable: Boolean = false,
 )
 
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
@@ -67,13 +68,19 @@ internal object DirectToWatchPresentationFormatter {
         displayUnit: GlucoseUnit? = null,
     ): DirectToWatchHeaderPresentation {
         when (G7LocalReadingResolver.directSensorState(state)) {
-            "ERROR" -> return DirectToWatchHeaderPresentation("—", "Sensorfehler", sensorError = true)
-            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation("—", "Kein aktiver Sensor\nBitte Sensor koppeln")
+            "ERROR" -> return DirectToWatchHeaderPresentation("-", "Sensorfehler", sensorError = true)
+            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation("-", "Kein aktiver Sensor\nBitte Sensor koppeln")
         }
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
+            if (activeSessionWithoutData(state)) {
+                return DirectToWatchHeaderPresentation(
+                    glucose = "-",
+                    secondary = "Keine aktuellen Daten\nBitte warten oder Verbindung\nzum Sensor prüfen",
+                )
+            }
             return DirectToWatchHeaderPresentation(
-                glucose = "—",
+                glucose = "-",
                 secondary = if (state?.glucose != null || freshness == Freshness.STALE) {
                     "Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar"
                 } else {
@@ -90,7 +97,7 @@ internal object DirectToWatchPresentationFormatter {
             )
         }
         val resolvedUnit = displayUnit ?: glucose.displayUnit
-        val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, resolvedUnit)
+        val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, resolvedUnit).ifBlank { "-" }
         val unit = if (resolvedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
         return DirectToWatchHeaderPresentation(
             glucose = if (resolvedUnit == GlucoseUnit.MMOL_L) {
@@ -100,12 +107,14 @@ internal object DirectToWatchPresentationFormatter {
             },
             secondary = listOf(delta, unit).filter(String::isNotBlank).joinToString(" "),
             trend = glucose.trend.takeIf { TherapyDisplayFormatter.trendArrow(it).isNotBlank() },
+            trendUnavailable = TherapyDisplayFormatter.trendArrow(glucose.trend).isBlank(),
         )
     }
 
     fun graphStatus(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): DirectToWatchGraphStatusPresentation {
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
+        if (activeSessionWithoutData(state)) return DirectToWatchGraphStatusPresentation("")
         val detail = if (isDirect(state) && state?.glucose != null) age else unavailableLabel(state, freshness)
         return DirectToWatchGraphStatusPresentation("${graphHours}h • $detail")
     }
@@ -150,6 +159,15 @@ internal object DirectToWatchPresentationFormatter {
     fun isDirect(state: TherapyDisplayState?): Boolean =
         state?.source == DataSourceId.DEXCOM_G7_WATCH &&
             G7LocalReadingResolver.sourceState(state) in setOf(CgmSourceState.WATCH_DIRECT, CgmSourceState.NO_SOURCE)
+
+    fun activeSessionWithoutData(state: TherapyDisplayState?): Boolean =
+        state?.glucose == null && G7LocalReadingResolver.directSessionState(state) in setOf(
+            "AUTHENTICATED",
+            "READY_FOR_RECONNECT",
+            "ACTIVE",
+            "WAITING_FOR_NEXT_READING",
+            "RECOVERING",
+        )
 
     private fun unavailableLabel(state: TherapyDisplayState?, freshness: Freshness): String = when {
         state?.glucose?.quality == CgmQuality.SENSOR_ERROR -> "SENSOR ERROR"
@@ -407,7 +425,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
         return TherapyDisplayState(
             source = DataSourceId.DEXCOM_G7_WATCH,
             sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:preview",
-            sourceVersion = "Direct to Watch",
+            sourceVersion = "SugarWear",
             receivedAtEpochMs = now,
             glucose = GlucoseState(
                 valueMgDl = 152.0,
@@ -434,7 +452,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         val bitmap = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this))
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
-            PlainComplicationText.Builder("Direct to Watch ${presentation.glucose}, ${presentation.secondary}").build(),
+            PlainComplicationText.Builder("SugarWear ${presentation.glucose}, ${presentation.secondary}").build(),
         )
             .setTapAction(collectorTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
@@ -458,7 +476,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
-        if (presentation.glucose == "—") {
+        if (presentation.glucose == "-") {
             val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (presentation.sensorError) 0xFFFF4D5E.toInt() else if (ambient) 0xFF909090.toInt() else Color.WHITE
                 textSize = 17f
@@ -500,6 +518,9 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         arrow?.let {
             val arrowTop = valueCenterY - it.height / 2f
             canvas.drawBitmap(it, contentLeft + valueWidth + gap, arrowTop, null)
+        }
+        if (arrow == null && presentation.trendUnavailable) {
+            canvas.drawText("-", contentLeft + valueWidth + 8f, valueBaseline, secondaryPaint)
         }
         canvas.drawText(presentation.secondary, contentLeft, 96f, secondaryPaint)
         return bitmap
@@ -582,7 +603,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val bitmap = renderGraph(state, nowEpochMs, hours)
         return SmallImageComplicationData.Builder(
             SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
-            PlainComplicationText.Builder("$hours Stunden Direct-to-Watch-Glukoseverlauf").build(),
+            PlainComplicationText.Builder("$hours Stunden SugarWear-Glukoseverlauf").build(),
         ).setTapAction(graphScaleTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
             .build()
@@ -593,7 +614,10 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        if (G7LocalReadingResolver.directSensorState(state) in setOf("ERROR", "ENDED", "NOT_ACTIVE")) return bitmap
+        if (
+            G7LocalReadingResolver.directSensorState(state) in setOf("ERROR", "ENDED", "NOT_ACTIVE") ||
+            DirectToWatchPresentationFormatter.activeSessionWithoutData(state)
+        ) return bitmap
         val density = resources.displayMetrics.density
         val graphStyle = DirectToWatchPreferences.graphStyle(this)
         val radius = graphStyle.cornerRadiusDp * density

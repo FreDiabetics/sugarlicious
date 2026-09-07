@@ -61,7 +61,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         targetHighMgDl: Double = 160.0,
     ) {
         // Legacy parameters remain only for source compatibility with G7WatchActivity. Rendering is
-        // owned entirely by the Direct-to-Watch settings store, never by Sugarlicious colors.
+        // owned entirely by the SugarWear settings store, never by Sugarlicious colors.
         palette.hashCode()
         graphHours.hashCode()
         targetLowMgDl.hashCode()

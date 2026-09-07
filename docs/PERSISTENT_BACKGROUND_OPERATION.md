@@ -1,6 +1,6 @@
 # Persistent Background Operation
 
-This document describes the lifecycle contract for Sugarlicious Mobile, Sugarlicious Wear and the Dexcom G7 Watch Collector.
+This document describes the lifecycle contract for Sugarlicious Mobile, Sugarlicious Wear and SugarWear.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Phone-to-watch delivery remains event-driven through the existing `StateDataLaye
 
 The permanent foreground lifetime does not add a polling loop. The Wear Activity's 30-second refresh job remains UI-only and is cancelled in `onStop()`.
 
-### G7 Watch Collector
+### SugarWear
 
 The direct G7 collector remains a separate Wear OS application/service and is independent from phone reachability and canonical source selection.
 
@@ -110,7 +110,7 @@ PowerManager.isIgnoringBatteryOptimizations(packageName)
 
 No local preference or optimistic UI state represents a grant.
 
-For Sugarlicious Wear, failure to open the settings surface or failure to grant the exemption creates visible feedback and a Watch diagnostic event. For the G7 Watch Collector, `Dauerbetrieb freigeben` follows the same truth model and records visible/diagnostic failure when the exemption is not granted.
+For Sugarlicious Wear, failure to open the settings surface or failure to grant the exemption creates visible feedback and a Watch diagnostic event. For SugarWear, `Dauerbetrieb freigeben` follows the same truth model and records visible/diagnostic failure when the exemption is not granted.
 
 The G7 action button uses `WRAP_CONTENT` with a minimum touch height and vertical padding; it is not constrained to a fixed 46 dp height on round displays.
 

@@ -679,8 +679,13 @@ internal object NotificationGraphRenderer {
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 
+        // The configured graph background is the base layer for the complete visual graph,
+        // including the lane underneath the existing translucent scale-area layers. Time-based
+        // content remains clipped/projected to plotRight below; only the background reaches right.
         paint.color = graphColor(SugarliciousColorRole.GRAPH_BACKGROUND)
-        canvas.drawRect(visualLeft, visualTop, labelLaneLeft, bounds.bottom, paint)
+        canvas.drawRect(visualLeft, visualTop, visualRight, bounds.bottom, paint)
+        // Preserve the established translucent scale-lane composition exactly as before. These
+        // draws are now overlays rather than pixels composited against a transparent bitmap.
         paint.color = laneColor(graphColor(SugarliciousColorRole.GRAPH_BACKGROUND))
         canvas.drawRect(labelLaneLeft, visualTop, visualRight, y(targetHigh), paint)
         canvas.drawRect(labelLaneLeft, y(targetLow), visualRight, bounds.bottom, paint)

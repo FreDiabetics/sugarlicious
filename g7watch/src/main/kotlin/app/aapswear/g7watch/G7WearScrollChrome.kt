@@ -5,7 +5,7 @@ import android.util.AttributeSet
 import android.widget.ScrollView
 
 /**
- * Plain Direct-to-Watch scroll container.
+ * Plain SugarWear scroll container.
  *
  * Custom edge fade, masks, scaling and roll-away transforms stay disabled until a viewport-bound
  * implementation has been hardware-validated. A drawing overlay makes the effect appear attached

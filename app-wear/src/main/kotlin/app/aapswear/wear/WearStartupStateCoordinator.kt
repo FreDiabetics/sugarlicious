@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.first
 /**
  * Rehydrates Sugarlicious Wear from its persisted phone-fed state.
  *
- * Direct-to-Watch is a separate application and is not a Sugarlicious CGM input. Legacy
+ * SugarWear is a separate application and is not a Sugarlicious CGM input. Legacy
  * DEXCOM_G7_WATCH rows written by the temporary bridge are removed during rehydration so they
  * cannot survive reboot/app update and appear as a second graph series.
  */

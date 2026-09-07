@@ -134,7 +134,7 @@ class G7WatchActivityLayoutTest {
     fun `direct to watch category opens complete watchface settings`() {
         val settings = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = settings.findViewById<android.view.View>(android.R.id.content)
-        val header = findText(root, "Direct to Watch")!!
+        val header = findText(root, "SugarWear")!!
         (header.parent.parent as android.view.View).performClick()
         assertEquals(G7DirectToWatchSettingsActivity::class.java.name, Shadows.shadowOf(settings).nextStartedActivity.component?.className)
 
@@ -252,7 +252,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val systemIndex = texts.indexOf("Systemstatus")
-        val titleIndex = texts.indexOf("Direct to Watch")
+        val titleIndex = texts.indexOf("SugarWear")
         val brandIndex = texts.indexOf("by Sugarlicious")
         assertTrue(systemIndex >= 0)
         assertTrue(titleIndex > systemIndex)
@@ -265,7 +265,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
         assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Direct to Watch"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "SugarWear"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()
