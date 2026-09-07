@@ -289,7 +289,7 @@ class G7CollectorTileService : TileService() {
                         )
                         .build(),
                 )
-                .addContent(text("Gewebeglukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
+                .addContent(text("Gewebeglukose", 11f, G7_TILE_TEXT_PRIMARY, bold = false))
                 .build()
 
         val content =

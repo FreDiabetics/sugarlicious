@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@android:color/black" />
-    <!-- Temporary first-party mark until the final SugarWear identity is supplied. -->
-    <foreground android:drawable="@drawable/ic_sugarwear_temporary" />
-    <monochrome android:drawable="@drawable/ic_sugarwear_temporary" />
+    <!-- Temporary sensor artwork until the final SugarWear identity is supplied. -->
+    <foreground android:drawable="@drawable/ic_sensor_launcher" />
+    <monochrome android:drawable="@drawable/ic_sensor_launcher" />
 </adaptive-icon>
