@@ -280,6 +280,15 @@ class G7CollectorTileService : TileService() {
             Box.Builder()
                 .setWidth(expand())
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+                .setModifiers(
+                    Modifiers.Builder()
+                        .setPadding(
+                            Padding.Builder()
+                                .setStart(dp(WearGlucoseCardStyle.CARD_RADIUS_DP))
+                                .build(),
+                        )
+                        .build(),
+                )
                 .addContent(text("Gewebeglukose", 11f, G7_TILE_TEXT_SECONDARY, bold = true))
                 .build()
 
