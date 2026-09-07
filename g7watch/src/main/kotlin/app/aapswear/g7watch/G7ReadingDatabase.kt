@@ -309,6 +309,26 @@ internal fun backfillAnchorSensorClock(readings: List<CgmReading>): Long? {
     val ordered = readings
         .mapNotNull { reading -> reading.rawSourceTimestamp?.let { it to reading } }
         .sortedBy { it.first }
+    val first = ordered.firstOrNull()
+    val firstClock = first?.first
+    val latestClock = ordered.lastOrNull()?.first
+    // Repair an already running session whose initial 24-hour bootstrap was rejected by the old
+    // second-1 request. Once history reaches the warm-up boundary, normal cadence-gap detection
+    // takes over. The 24-hour bound prevents retention of an old sensor session from causing a
+    // full-window download on every later connection.
+    if (
+        firstClock != null &&
+        latestClock != null &&
+        first.second.sensorStartEpochMs != null &&
+        firstClock >
+            if (latestClock <= G7CollectorBackfillProtocol.MAX_WINDOW_SECONDS) {
+                INITIAL_HISTORY_GRACE_SECONDS
+            } else {
+                latestClock - G7CollectorBackfillProtocol.MAX_WINDOW_SECONDS + BACKFILL_GAP_TOLERANCE_SECONDS
+            }
+    ) {
+        return null
+    }
     val gapAnchor = ordered.zipWithNext().firstOrNull { (before, after) ->
         after.first - before.first > BACKFILL_CADENCE_SECONDS + BACKFILL_GAP_TOLERANCE_SECONDS
     }?.first?.first
@@ -317,3 +337,4 @@ internal fun backfillAnchorSensorClock(readings: List<CgmReading>): Long? {
 
 private const val BACKFILL_CADENCE_SECONDS = 5L * 60L
 private const val BACKFILL_GAP_TOLERANCE_SECONDS = 90L
+private const val INITIAL_HISTORY_GRACE_SECONDS = 45L * 60L

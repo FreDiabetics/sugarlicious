@@ -272,6 +272,51 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `late first live value retries initial sensor history`() = runBlocking {
+        val now = System.currentTimeMillis()
+        database.insert(
+            CgmReading(
+                id = "late-first-live",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                glucoseMgDl = 120.0,
+                timestampEpochMs = now,
+                receivedAtEpochMs = now,
+                trend = Trend.FLAT,
+                status = CgmReadingStatus.VALID,
+                rawSourceTimestamp = 3L * 60L * 60L,
+                sensorStartEpochMs = now - 3L * 60L * 60_000L,
+            ),
+        )
+
+        assertNull(database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
+    fun `late first retained value retries full rolling 24 hour sensor history`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val lateClock = 60L * 60L * 60L
+        database.insert(
+            CgmReading(
+                id = "late-old-sensor",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                glucoseMgDl = 120.0,
+                timestampEpochMs = now,
+                receivedAtEpochMs = now,
+                trend = Trend.FLAT,
+                status = CgmReadingStatus.VALID,
+                rawSourceTimestamp = lateClock,
+                sensorStartEpochMs = now - lateClock * 1_000L,
+            ),
+        )
+
+        assertNull(database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
     fun `version four migration collapses legacy timestamp duplicates and preserves sync`() = runBlocking {
         database.close()
         context.deleteDatabase(DATABASE_NAME)

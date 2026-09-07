@@ -33,6 +33,12 @@ class G7CollectorBackfillProtocolTest {
     }
 
     @Test
+    fun `first connection requests all sensor history from first cadence slot`() {
+        assertEquals(300L, G7CollectorBackfillProtocol.requestedStart(null, 4L * 60L * 60L))
+        assertEquals(3_600L, G7CollectorBackfillProtocol.requestedStart(null, 25L * 60L * 60L))
+    }
+
+    @Test
     fun `history request ends at the slot before the already received live value`() {
         assertEquals(9_700L, G7CollectorBackfillProtocol.requestedEnd(10_000))
         assertArrayEquals(
