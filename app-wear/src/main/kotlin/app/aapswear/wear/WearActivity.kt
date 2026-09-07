@@ -104,13 +104,17 @@ class WearActivity : Activity() {
                 render()
             }
         }
-        findViewById<View>(R.id.wear_graph_period).setOnClickListener {
+        val advanceGraphScale = View.OnClickListener {
             val current = WearDisplayPreferences.read(this)
             val values = WearDisplayPreferences.allowedGraphHours
             val next = values[(values.indexOf(current.graphHours).coerceAtLeast(0) + 1) % values.size]
             WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
             render(refreshClock = true)
         }
+        // Scaling is a graph action, not a tiny-label action. Keep the period label tappable for
+        // compatibility, but also make the complete chart surface cycle 1h...24h...1h.
+        findViewById<View>(R.id.wear_graph_card).setOnClickListener(advanceGraphScale)
+        findViewById<View>(R.id.wear_graph_period).setOnClickListener(advanceGraphScale)
         scope.launch {
             WearCanonicalStateEvents.updates.collectLatest {
                 // The event only invalidates the canonical resolver-backed UI. It does not copy

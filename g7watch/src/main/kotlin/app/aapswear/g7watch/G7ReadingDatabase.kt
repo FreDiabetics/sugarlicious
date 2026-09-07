@@ -190,7 +190,9 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
                 selection = "status=? AND sensor_id=? AND session_id=? AND sensor_clock IS NOT NULL",
                 args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId),
                 limit = 300,
-                ascending = true,
+                // Read the current 24-hour-sized tail. ASC + LIMIT selected the oldest retained
+                // rows and therefore could not see a recent multi-hour gap at all.
+                ascending = false,
             ),
         )
 

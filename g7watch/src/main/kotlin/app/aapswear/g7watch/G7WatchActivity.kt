@@ -447,6 +447,10 @@ class G7WatchActivity : Activity() {
     private fun graphTile(readings: List<CgmReading>, palette: G7AppearancePalette): FrameLayout {
         val hours = appearanceStore.graphHours()
         return FrameLayout(this).apply {
+            setOnClickListener {
+                appearanceStore.nextGraphHours()
+                updateGraphOnly()
+            }
             graphView = G7CollectorGraphView(this@G7WatchActivity).apply {
                 bind(
                     readings = readings,

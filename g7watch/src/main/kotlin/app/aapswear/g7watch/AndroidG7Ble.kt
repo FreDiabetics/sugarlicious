@@ -724,12 +724,39 @@ private class G7GattConnection(
                     val request = G7CollectorBackfillProtocol.request(start, end)
                     write(current, controlCharacteristic, request, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                     val historical = mutableListOf<G7Reading>()
-                    while (historical.size < MAX_BACKFILL_RECORDS) {
-                        val event = withTimeoutOrNull(BACKFILL_IDLE_TIMEOUT_MS) { notifications.receive() } ?: break
-                        if (event.first != G7GattProfile.backfillUuid) continue
-                        runCatching {
-                            G7CollectorBackfillProtocol.parseRecord(event.second, sensor, live, System.currentTimeMillis())
-                        }.getOrNull()?.let(historical::add)
+                    // History is a stream on 3536 followed by the 0x59 completion response on
+                    // the control characteristic. Waiting only 2.5 seconds after the first record
+                    // truncated real Watch transfers to a single value, especially while Wear OS
+                    // throttled the BLE callback stream. Consume until the protocol completion
+                    // marker (with bounded total/idle guards), and tolerate an Android callback
+                    // containing more than one complete 9-byte record.
+                    withTimeoutOrNull(BACKFILL_TOTAL_TIMEOUT_MS) {
+                        backfill@ while (historical.size < MAX_BACKFILL_RECORDS) {
+                            val event = withTimeoutOrNull(BACKFILL_IDLE_TIMEOUT_MS) { notifications.receive() }
+                                ?: break@backfill
+                            when (event.first) {
+                                G7GattProfile.backfillUuid ->
+                                    event.second
+                                        .asList()
+                                        .chunked(G7CollectorBackfillProtocol.RECORD_BYTES)
+                                        .filter { it.size == G7CollectorBackfillProtocol.RECORD_BYTES }
+                                        .forEach { record ->
+                                            runCatching {
+                                                G7CollectorBackfillProtocol.parseRecord(
+                                                    record.toByteArray(),
+                                                    sensor,
+                                                    live,
+                                                    System.currentTimeMillis(),
+                                                )
+                                            }.getOrNull()?.let(historical::add)
+                                        }
+
+                                G7GattProfile.controlUuid ->
+                                    if (event.second.firstOrNull() == G7CollectorBackfillProtocol.REQUEST_OPCODE) {
+                                        break@backfill
+                                    }
+                            }
+                        }
                     }
                     return live to historical
                 }
@@ -933,7 +960,8 @@ private class G7GattConnection(
 
     private companion object {
         val GLUCOSE_REQUEST = byteArrayOf(0x4e)
-        const val BACKFILL_IDLE_TIMEOUT_MS = 2_500L
+        const val BACKFILL_IDLE_TIMEOUT_MS = 10_000L
+        const val BACKFILL_TOTAL_TIMEOUT_MS = 45_000L
         const val MAX_BACKFILL_RECORDS = 300
         const val GATT_ERROR_133 = 133
         const val OPERATION_TIMEOUT_MS = 15_000L

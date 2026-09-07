@@ -89,5 +89,5 @@ internal object G7CollectorBackfillProtocol {
         else -> G7SensorState.UNKNOWN
     }
 
-    private const val RECORD_BYTES = 9
+    const val RECORD_BYTES = 9
 }
