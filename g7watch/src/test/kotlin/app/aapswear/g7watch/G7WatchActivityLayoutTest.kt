@@ -23,6 +23,7 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -251,11 +252,10 @@ class G7WatchActivityLayoutTest {
         assertTrue("3h" in texts)
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
-        val systemIndex = texts.indexOf("Systemstatus")
         val titleIndex = texts.indexOf("SugarWear")
         val brandIndex = texts.indexOf("by Sugarlicious")
-        assertTrue(systemIndex >= 0)
-        assertTrue(titleIndex > systemIndex)
+        assertFalse(texts.contains("Systemstatus"))
+        assertTrue(titleIndex >= 0)
         assertTrue(brandIndex > titleIndex)
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
@@ -308,12 +308,11 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `system status pill and settings icon open existing screens`() {
+    fun `overview omits system status pill and settings icon opens settings`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        findText(root, "Systemstatus")!!.performClick()
-        assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+        assertNull(findText(root, "Systemstatus"))
 
         findImageByDescription(root, "Einstellungen")!!.performClick()
         assertEquals(G7SettingsActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)

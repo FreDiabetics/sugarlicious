@@ -14,7 +14,7 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 4), CgmReadingRepository {
+internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 5), CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
@@ -61,6 +61,18 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
                     OR (preferred.origin=readings.origin AND preferred.rowid<readings.rowid)))""".trimIndent(),
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS readings_identity ON readings(sensor_id, session_id, status, measured_at)")
+        }
+        if (oldVersion < 5) {
+            // LIVE timestamps include the packet age in seconds while history is aligned to the
+            // sensor's cadence boundary. Collapse the same physical reading inside one minute so
+            // duplicate rows cannot halve a 300-point graph to roughly twelve visible hours.
+            db.execSQL(
+                """DELETE FROM readings WHERE origin='BACKFILL' AND status='VALID' AND EXISTS (
+                    SELECT 1 FROM readings live
+                    WHERE live.sensor_id=readings.sensor_id AND live.session_id=readings.session_id
+                    AND live.status='VALID' AND live.origin='LIVE'
+                    AND ABS(live.measured_at-readings.measured_at)<=60000)""".trimIndent(),
+            )
         }
     }
 
@@ -118,6 +130,35 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         G7CollectorTileService.requestUpdate(appContext)
     }
 
+    /** Replaces only values derived from the temporal predecessor after history was backfilled. */
+    fun updateDerivedFields(reading: CgmReading): Boolean {
+        val values = ContentValues().apply {
+            if (reading.deltaMgDl == null) putNull("delta") else put("delta", reading.deltaMgDl)
+            put("trend", reading.trend.name)
+            if (reading.trendRateMgDlPerMinute == null) putNull("trend_rate")
+            else put("trend_rate", reading.trendRateMgDlPerMinute)
+        }
+        val updated = writableDatabase.update(
+            "readings",
+            values,
+            """sensor_id=? AND session_id=? AND status=? AND (
+                (origin!=? AND measured_at BETWEEN ? AND ?) OR
+                (origin=? AND measured_at=?))""".trimIndent(),
+            arrayOf(
+                reading.sensorId,
+                reading.sessionId,
+                CgmReadingStatus.VALID.name,
+                reading.origin.name,
+                (reading.timestampEpochMs - IDENTITY_TOLERANCE_MS).toString(),
+                (reading.timestampEpochMs + IDENTITY_TOLERANCE_MS).toString(),
+                reading.origin.name,
+                reading.timestampEpochMs.toString(),
+            ),
+        ) > 0
+        if (updated) publishChanged()
+        return updated
+    }
+
     /** Sensor-error packets can be replayed on later windows; retain one diagnostic row per
      * sensor/session/sequence/error signature without changing valid-reading deduplication. */
     private fun hasSameSensorError(reading: CgmReading): Boolean {
@@ -134,13 +175,24 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         ).use { it.moveToFirst() }
     }
 
-    /** Sequence and sensor-clock fields are transport metadata. The real measurement identity is
-     * the exact event timestamp inside one sensor/session, with LIVE preferred over BACKFILL. */
+    /** Sequence and sensor-clock fields are transport metadata. LIVE contains a few seconds of
+     * packet age while BACKFILL is cadence-aligned, so identity uses a one-minute event window. */
     private fun validIdentity(reading: CgmReading): ExistingValidIdentity? = readableDatabase.query(
             "readings",
             arrayOf("id", "origin"),
-            "sensor_id=? AND session_id=? AND status=? AND measured_at=?",
-            arrayOf(reading.sensorId, reading.sessionId, CgmReadingStatus.VALID.name, reading.timestampEpochMs.toString()),
+            """sensor_id=? AND session_id=? AND status=? AND (
+                (origin=? AND measured_at=?) OR
+                (origin!=? AND measured_at BETWEEN ? AND ?))""".trimIndent(),
+            arrayOf(
+                reading.sensorId,
+                reading.sessionId,
+                CgmReadingStatus.VALID.name,
+                reading.origin.name,
+                reading.timestampEpochMs.toString(),
+                reading.origin.name,
+                (reading.timestampEpochMs - IDENTITY_TOLERANCE_MS).toString(),
+                (reading.timestampEpochMs + IDENTITY_TOLERANCE_MS).toString(),
+            ),
             null,
             null,
             null,
@@ -302,6 +354,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
         const val MAX_ROWS = 2_000
+        const val IDENTITY_TOLERANCE_MS = 60_000L
     }
 
     private data class ExistingValidIdentity(val id: String, val origin: CgmReadingOrigin)

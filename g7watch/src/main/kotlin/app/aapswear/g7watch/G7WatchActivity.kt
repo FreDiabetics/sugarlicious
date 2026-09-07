@@ -271,12 +271,6 @@ class G7WatchActivity : Activity() {
         content.addView(glucoseHost, cardParams(top = 4))
         content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
         content.addView(header(palette, userStatus))
-        content.addView(pill("Systemstatus", PillStyle.SECONDARY, palette) {
-            startActivity(Intent(this, G7SystemStatusActivity::class.java))
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-            topMargin = 10.dp
-            gravity = Gravity.CENTER_HORIZONTAL
-        })
 
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_settings)

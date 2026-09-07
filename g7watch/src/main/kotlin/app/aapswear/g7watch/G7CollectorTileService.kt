@@ -95,6 +95,7 @@ internal fun g7TilePresentation(
     colors: app.aapswear.protocol.WatchGraphColors,
     nowEpochMs: Long,
     thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
+    palette: G7AppearancePalette? = null,
 ): G7TilePresentation {
     val shared = wearGlucoseCardPresentation(
         WearGlucoseCardInput(
@@ -114,29 +115,29 @@ internal fun g7TilePresentation(
         nowEpochMs,
     )
     val valueColor = when (shared.rangeClass) {
-        CgmRangeClass.VERY_LOW -> colors.cgmVeryLow
-        CgmRangeClass.LOW -> colors.cgmLow
-        CgmRangeClass.HIGH -> colors.cgmHigh
-        CgmRangeClass.VERY_HIGH -> colors.cgmVeryHigh
-        else -> G7_TILE_TEXT_PRIMARY
+        CgmRangeClass.VERY_LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_LOW) ?: colors.cgmVeryLow
+        CgmRangeClass.LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_LOW) ?: colors.cgmLow
+        CgmRangeClass.HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_HIGH) ?: colors.cgmHigh
+        CgmRangeClass.VERY_HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH) ?: colors.cgmVeryHigh
+        else -> palette?.argb(G7AppearanceRole.GLUCOSE_IN_RANGE) ?: G7_TILE_TEXT_PRIMARY
     }
     val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
     return G7TilePresentation(
         glucoseValue = boundary?.label ?: shared.value,
         meta = if (boundary == null) shared.primaryMeta else "",
         age = "",
-        cardBackground = G7_TILE_CARD_BACKGROUND,
+        cardBackground = palette?.argb(G7AppearanceRole.MENU_SURFACE) ?: G7_TILE_CARD_BACKGROUND,
         cardForeground = valueColor,
         trend = shared.trend.takeIf { boundary == null },
     )
 }
 
-internal fun g7TileStatusPresentation(status: G7UserStatus): G7TileStatusPresentation {
+internal fun g7TileStatusPresentation(status: G7UserStatus, palette: G7AppearancePalette? = null): G7TileStatusPresentation {
     val color = when (status.level) {
-        G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> G7_TILE_ACCENT
-        G7UserStatusLevel.ATTENTION -> G7_TILE_WARNING
-        G7UserStatusLevel.ERROR -> G7_TILE_ERROR
-        G7UserStatusLevel.OFF -> G7_TILE_TEXT_SECONDARY
+        G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> palette?.argb(G7AppearanceRole.MENU_PRIMARY) ?: G7_TILE_ACCENT
+        G7UserStatusLevel.ATTENTION -> palette?.argb(G7AppearanceRole.GLUCOSE_HIGH) ?: G7_TILE_WARNING
+        G7UserStatusLevel.ERROR -> palette?.argb(G7AppearanceRole.GLUCOSE_ERROR) ?: G7_TILE_ERROR
+        G7UserStatusLevel.OFF -> palette?.argb(G7AppearanceRole.MENU_TEXT_SECONDARY) ?: G7_TILE_TEXT_SECONDARY
     }
     return G7TileStatusPresentation(status.title.uppercase(Locale.GERMANY), color)
 }
@@ -211,9 +212,10 @@ class G7CollectorTileService : TileService() {
         val credentialsPresent = G7CredentialStore(this).read() != null
         val userStatus = deriveG7UserStatus(persistedState, credentialsPresent)
         val colorStore = G7GraphColorStore(this)
-        val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds())
-        val statusPresentation = g7TileStatusPresentation(userStatus)
         val appearanceStore = G7AppearanceStore(this)
+        val palette = appearanceStore.load()
+        val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
+        val statusPresentation = g7TileStatusPresentation(userStatus, palette)
         val configuredTrendStyle = appearanceStore.trendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =
@@ -251,7 +253,7 @@ class G7CollectorTileService : TileService() {
                         )
                         .setBorder(
                             Border.Builder()
-                                .setColor(argb(G7_TILE_CARD_BORDER))
+                                .setColor(argb(palette.argb(G7AppearanceRole.MENU_BORDER)))
                                 .setWidth(dp(1f))
                                 .build(),
                         )
@@ -268,10 +270,10 @@ class G7CollectorTileService : TileService() {
                 .addContent(primaryRow)
                 .apply {
                     if (presentation.meta.isNotBlank()) {
-                        addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, G7_TILE_TEXT_PRIMARY, bold = true))
+                        addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
                     }
                     if (presentation.age.isNotBlank()) {
-                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, G7_TILE_TEXT_PRIMARY, bold = true))
+                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
                     }
                 }
                 .build()
@@ -289,7 +291,7 @@ class G7CollectorTileService : TileService() {
                         )
                         .build(),
                 )
-                .addContent(text("Gewebeglukose", 11f, G7_TILE_TEXT_PRIMARY, bold = false))
+                .addContent(text("Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), bold = false))
                 .build()
 
         val content =
@@ -310,7 +312,7 @@ class G7CollectorTileService : TileService() {
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setModifiers(
                 Modifiers.Builder()
-                    .setBackground(Background.Builder().setColor(argb(G7_TILE_BACKGROUND)).build())
+                    .setBackground(Background.Builder().setColor(argb(palette.argb(G7AppearanceRole.MENU_BACKGROUND))).build())
                     .setPadding(Padding.Builder().setAll(dp(8f)).build())
                     .setClickable(
                         Clickable.Builder()
@@ -381,7 +383,7 @@ class G7CollectorTileService : TileService() {
             .build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-5"
+        private const val RESOURCES_VERSION = "g7-collector-6"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         fun requestUpdate(context: Context) {

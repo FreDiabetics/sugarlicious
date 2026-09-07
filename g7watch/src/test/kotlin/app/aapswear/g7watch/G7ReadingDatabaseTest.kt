@@ -68,6 +68,29 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `updates live delta after its predecessor is backfilled`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live",
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor",
+            sessionId = "session",
+            glucoseMgDl = 123.0,
+            timestampEpochMs = now,
+            receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID,
+            deltaMgDl = null,
+            trend = Trend.UNKNOWN,
+            origin = CgmReadingOrigin.LIVE,
+        )
+        database.insert(live)
+
+        val recomputed = live.copy(deltaMgDl = 4.0, trendRateMgDlPerMinute = 0.8, trend = Trend.FLAT)
+        assertEquals(true, database.updateDerivedFields(recomputed))
+        assertEquals(recomputed, database.getLatest())
+    }
+
+    @Test
     fun `only valid readings enter the Watch to Mobile backfill queue`() = runBlocking {
         val now = System.currentTimeMillis()
         val valid =
@@ -199,6 +222,28 @@ class G7ReadingDatabaseTest {
 
         assertEquals(true, database.insert(live))
         assertEquals(false, database.insert(backfill))
+        assertEquals(listOf(live), database.query())
+    }
+
+    @Test
+    fun `cadence aligned backfill deduplicates live packet age offset`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live-aged", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 193.0,
+            timestampEpochMs = now, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, rawSourceTimestamp = 12_607L,
+            origin = CgmReadingOrigin.LIVE,
+        )
+        val cadenceAligned = live.copy(
+            id = "backfill-aligned",
+            timestampEpochMs = now - 7_000L,
+            rawSourceTimestamp = 12_601L,
+            origin = CgmReadingOrigin.BACKFILL,
+        )
+
+        assertEquals(true, database.insert(live))
+        assertEquals(false, database.insert(cadenceAligned))
         assertEquals(listOf(live), database.query())
     }
 

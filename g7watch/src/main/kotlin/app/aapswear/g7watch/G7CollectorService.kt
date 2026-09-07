@@ -429,7 +429,7 @@ class G7CollectorService : Service() {
                     database.close()
                 }
             }
-            val reading = result.reading.toCgm(previousValid)
+            var reading = result.reading.toCgm(previousValid)
             attemptStore.updateCycle(attemptId) {
                 it.copy(
                     glucosePacketReceivedAt = it.glucosePacketReceivedAt ?: now,
@@ -490,6 +490,25 @@ class G7CollectorService : Service() {
                     metadata = mapOf("error" to error.javaClass.simpleName),
                 )
                 0
+            }
+            // The live packet arrives before its history stream. After a signal-loss gap the
+            // first live value was therefore initially compared with the old pre-gap value and
+            // had no valid delta. Re-resolve its immediate predecessor after committing backfill,
+            // then update the already stored live row and all observing surfaces atomically.
+            if (result.backfillReadings.isNotEmpty()) {
+                G7ReadingDatabase(this).let { database ->
+                    try {
+                        val restoredPrevious = database.getLatestValidBefore(
+                            reading.sensorId,
+                            reading.sessionId,
+                            reading.timestampEpochMs,
+                        )
+                        reading = result.reading.toCgm(restoredPrevious)
+                        database.updateDerivedFields(reading)
+                    } finally {
+                        database.close()
+                    }
+                }
             }
             val storedAt = System.currentTimeMillis()
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
