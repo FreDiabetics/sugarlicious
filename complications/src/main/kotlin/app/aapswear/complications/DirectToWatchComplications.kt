@@ -47,9 +47,11 @@ import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+internal fun formatVigilSystemTime(context: Context, nowEpochMs: Long): String =
+    android.text.format.DateFormat.getTimeFormat(context).format(Date(nowEpochMs))
 
 internal data class DirectToWatchHeaderPresentation(
     val glucose: String,
@@ -561,7 +563,7 @@ class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
 
 open class DirectToWatchClockComplication : DirectToWatchComplicationService() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
-        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val text = formatVigilSystemTime(this, nowEpochMs)
         val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), DirectToWatchPreferences.clockColor(this), DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)
         val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
         return SmallImageComplicationData.Builder(
@@ -573,7 +575,7 @@ open class DirectToWatchClockComplication : DirectToWatchComplicationService() {
 
 class DirectToWatchAmbientClockComplication : DirectToWatchClockComplication() {
     override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
-        val text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(nowEpochMs))
+        val text = formatVigilSystemTime(this, nowEpochMs)
         val source = DirectToWatchPreferences.clockColor(this)
         val gray = Color.rgb(Color.red(source) * 3 / 5, Color.green(source) * 3 / 5, Color.blue(source) * 3 / 5)
         val bitmap = renderWatchfaceText(text, 150, 34, DirectToWatchPreferences.clockSizePercent(this), gray, DirectToWatchPreferences.clockBold(this), Paint.Align.CENTER)

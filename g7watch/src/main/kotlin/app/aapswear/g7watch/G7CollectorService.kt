@@ -369,6 +369,7 @@ class G7CollectorService : Service() {
                 request == CycleRequest.AUTOMATIC -> null
                 else -> G7_RECONNECT_SCAN_TIMEOUT_MS
             }
+            var liveCommittedBeforeBackfill = false
             val result = collector.collect(
                 initialSensor = collectionSensor,
                 credentials = storedCredentials,
@@ -413,7 +414,22 @@ class G7CollectorService : Service() {
                 attemptId = attemptId,
                 lastStoredSensorClock = lastStoredSensorClock,
                 onLiveReading = { live ->
-                    val provisional = live.toCgm()
+                    val provisional = G7ReadingDatabase(this).let { database ->
+                        try {
+                            val previous = database.getLatestValidBefore(
+                                live.sensorId,
+                                live.sessionId,
+                                live.sensorTimestampEpochMs,
+                            )
+                            live.toCgm(previous).also { candidate ->
+                                if (candidate.status == CgmReadingStatus.VALID) {
+                                    liveCommittedBeforeBackfill = database.insertOrIgnore(candidate)
+                                }
+                            }
+                        } finally {
+                            database.close()
+                        }
+                    }
                     if (provisional.status == CgmReadingStatus.VALID) {
                         val current = store.read()
                         store.save(
@@ -474,7 +490,7 @@ class G7CollectorService : Service() {
             val inserted = try {
                 G7ReadingDatabase(this).let { database ->
                     try {
-                        database.insertOrIgnore(reading)
+                        liveCommittedBeforeBackfill || database.insertOrIgnore(reading)
                     } finally {
                         database.close()
                     }
@@ -903,6 +919,13 @@ class G7CollectorService : Service() {
                 CollectorDiagnosticResult.INFO,
                 "STALE_GATT_CALLBACK · generation=${telemetry.gattGeneration} · callback=${telemetry.callback}",
                 errorCode = "STALE_GATT_CALLBACK",
+                nowEpochMs = telemetry.timestampEpochMs,
+            )
+            is G7BackfillRequestTelemetry -> attemptStore.record(
+                attemptId,
+                CollectorDiagnosticStage.SYNC,
+                CollectorDiagnosticResult.STARTED,
+                "BACKFILL_REQUEST_STARTED · ${telemetry.startSensorClock}-${telemetry.endSensorClock} · generation=${telemetry.gattGeneration}",
                 nowEpochMs = telemetry.timestampEpochMs,
             )
         }

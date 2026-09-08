@@ -81,6 +81,14 @@ internal data class G7StaleGattCallbackTelemetry(
     val callback: String,
 ) : G7BleTelemetry
 
+internal data class G7BackfillRequestTelemetry(
+    val timestampEpochMs: Long,
+    val attemptId: Long,
+    val gattGeneration: Long,
+    val startSensorClock: Long,
+    val endSensorClock: Long,
+) : G7BleTelemetry
+
 internal data class G7GattOwnership(val attemptId: Long, val generation: Long)
 
 internal object G7GattGenerationRegistry {
@@ -722,6 +730,15 @@ private class G7GattConnection(
                         ?: return live to emptyList()
                     if (start > end) return live to emptyList()
                     val request = G7CollectorBackfillProtocol.request(start, end)
+                    onTelemetry(
+                        G7BackfillRequestTelemetry(
+                            timestampEpochMs = System.currentTimeMillis(),
+                            attemptId = ownership.attemptId,
+                            gattGeneration = ownership.generation,
+                            startSensorClock = start,
+                            endSensorClock = end,
+                        ),
+                    )
                     write(current, controlCharacteristic, request, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                     val historical = mutableListOf<G7Reading>()
                     // History is a stream on 3536 followed by the 0x59 completion response on

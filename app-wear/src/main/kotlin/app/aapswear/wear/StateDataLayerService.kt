@@ -5,8 +5,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.ComponentName
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
@@ -14,6 +16,9 @@ import app.aapswear.complications.ActiveComplicationRegistry
 import app.aapswear.complications.AllProviders
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.complications.G7LocalReadingResolver
+import app.aapswear.complications.DirectToWatchClockComplication
+import app.aapswear.complications.DirectToWatchAmbientClockComplication
+import app.aapswear.complications.DirectToWatchStatusComplication
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DiagnosticSeverity
@@ -55,11 +60,21 @@ internal fun shouldAcceptPhoneState(
 class StateDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stateSyncMutex = Mutex()
+    private val wallClockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action in WALL_CLOCK_ACTIONS) requestVigilMinuteUpdates()
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         ensureRuntimeChannel()
         startForegroundRuntime()
+        registerReceiver(
+            wallClockReceiver,
+            IntentFilter().apply { WALL_CLOCK_ACTIONS.forEach(::addAction) },
+        )
+        requestVigilMinuteUpdates()
         scope.launch {
             runCatching { WearStartupStateCoordinator.rehydrate(this@StateDataLayerService) }
                 .onSuccess { state ->
@@ -152,6 +167,12 @@ class StateDataLayerService : WearableListenerService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForegroundRuntime()
         return START_STICKY
+    }
+
+    override fun onDestroy() {
+        runCatching { unregisterReceiver(wallClockReceiver) }
+        scope.cancel()
+        super.onDestroy()
     }
 
     override fun onDataChanged(events: DataEventBuffer) {
@@ -606,6 +627,16 @@ class StateDataLayerService : WearableListenerService() {
         requestComplicationUpdates(AllProviders.classes)
     }
 
+    private fun requestVigilMinuteUpdates() {
+        requestComplicationUpdates(
+            listOf(
+                DirectToWatchClockComplication::class.java,
+                DirectToWatchAmbientClockComplication::class.java,
+                DirectToWatchStatusComplication::class.java,
+            ),
+        )
+    }
+
     private fun requestComplicationUpdates(providers: List<Class<*>>) {
         providers.forEach { provider ->
             ComplicationDataSourceUpdateRequester
@@ -671,15 +702,11 @@ class StateDataLayerService : WearableListenerService() {
             .build()
     }
 
-    override fun onDestroy() {
-        scope.cancel()
-        super.onDestroy()
-    }
-
     companion object {
         const val ACTION_START_RUNTIME = "app.aapswear.wear.START_RUNTIME"
         internal const val RUNTIME_CHANNEL = "sugarlicious_wear_runtime"
         internal const val RUNTIME_NOTIFICATION_ID = 6101
+        private val WALL_CLOCK_ACTIONS = setOf(Intent.ACTION_TIME_TICK, Intent.ACTION_TIME_CHANGED, Intent.ACTION_TIMEZONE_CHANGED)
 
         fun start(context: Context) {
             val app = context.applicationContext
