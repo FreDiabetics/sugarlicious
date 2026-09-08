@@ -38,6 +38,20 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7WatchActivityLayoutTest {
+
+    @Test
+    fun `rejected authentication returns to actionable sensor move form`() {
+        val now = 1_000_000L
+        val rejected = G7PersistedState(
+            collectorEnabled = true,
+            pairingDeadlineEpochMs = now + 60_000L,
+            lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, now, "rejected"),
+        )
+
+        assertFalse(isG7PairingAttemptActive(rejected, now))
+        assertTrue(isG7PairingAttemptActive(rejected.copy(lastError = null), now))
+        assertFalse(isG7PairingAttemptActive(rejected.copy(lastError = null), now + 60_000L))
+    }
     @Before
     fun resetGraphPeriod() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()

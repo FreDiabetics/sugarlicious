@@ -29,8 +29,6 @@ import android.widget.TextView
 import android.widget.Toast
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.G7PersistedState
-import app.aapswear.g7.G7Sensor
-import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +39,6 @@ import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class G7SystemStatusActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -313,12 +310,12 @@ class G7SystemStatusActivity : Activity() {
             Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
         }, buttonParams())
         if (state.sensor != null) {
-            target.addView(pill("Sensor von Uhr trennen", palette, danger = true) {
+            target.addView(pill("Sensor für andere Uhr freigeben", palette, danger = true) {
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("Sensor von dieser Uhr trennen?")
-                    .setMessage("Der Sensor wird nicht gestoppt. Die Verbindung zu dieser Uhr wird entfernt, damit der Sensor mit einer anderen Uhr verbunden werden kann.")
+                    .setTitle("Sensor auf andere Uhr umziehen?")
+                    .setMessage("SugarWear beendet auf dieser Uhr die direkte Verbindung und entfernt den lokalen Sensor-Bond. Messhistorie und Einstellungen bleiben erhalten. Anschließend auf der neuen Uhr „Sensor auf diese Uhr umziehen“ wählen und den vierstelligen Sensorcode eingeben.")
                     .setNegativeButton("Abbrechen", null)
-                    .setPositiveButton("Sensor trennen") { _, _ ->
+                    .setPositiveButton("Für andere Uhr freigeben") { _, _ ->
                         unlinkG7Sensor(this)
                         render()
                     }
@@ -356,13 +353,7 @@ class G7SystemStatusActivity : Activity() {
                 input.error = "4 Ziffern erforderlich"
                 return@pill
             }
-            G7CredentialStore(this@G7SystemStatusActivity).saveSetup(payload)
-            val sensorId = "G7-${UUID.randomUUID().toString().take(8)}"
-            val sensor = G7Sensor(sensorId, sensorId, "Dexcom G7")
-            G7SensorStateStore(this@G7SystemStatusActivity).save(
-                G7SessionManager(G7SensorStateStore(this@G7SystemStatusActivity).read()).prepareInitialSetup(sensor),
-            )
-            G7CollectorService.start(this@G7SystemStatusActivity)
+            moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode)
             showPairingEditor = false
             render()
         }, buttonParams())

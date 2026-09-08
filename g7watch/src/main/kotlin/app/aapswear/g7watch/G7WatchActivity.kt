@@ -52,6 +52,11 @@ internal fun requiresPairingGate(state: G7PersistedState): Boolean =
         state.sensor?.state == G7SensorState.ENDED ||
         !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)
 
+internal fun isG7PairingAttemptActive(state: G7PersistedState, nowEpochMs: Long): Boolean {
+    val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { nowEpochMs >= it } == true
+    return state.collectorEnabled && !timedOut && state.lastError?.code != "G7-AUTH-204"
+}
+
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
     private var readingObserverRegistered = false
@@ -147,7 +152,8 @@ class G7WatchActivity : Activity() {
         }
         val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)
             ?.let { System.currentTimeMillis() >= it } == true
-        val pairingStarted = state.collectorEnabled && !timedOut
+        val authenticationRejected = state.lastError?.code == "G7-AUTH-204"
+        val pairingStarted = isG7PairingAttemptActive(state, System.currentTimeMillis())
         content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
         if (pairingStarted) {
             content.addView(LinearLayout(this).apply {
@@ -180,7 +186,11 @@ class G7WatchActivity : Activity() {
                 contentDescription = "Sensor koppeln"
             }, LinearLayout.LayoutParams(56.dp, 56.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
             content.addView(label(
-                if (timedOut) "Verbindung zum Sensor fehlgeschlagen" else "Vierstelligen Kopplungscode vom Sensor eingeben",
+                when {
+                    authenticationRejected -> "Sensor ist noch mit einer anderen Uhr verbunden. Dort zuerst „Für andere Uhr freigeben“ wählen."
+                    timedOut -> "Verbindung zum Sensor fehlgeschlagen"
+                    else -> "Vierstelligen Kopplungscode vom Sensor eingeben"
+                },
                 12f,
                 if (timedOut) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 timedOut,
@@ -198,22 +208,16 @@ class G7WatchActivity : Activity() {
                 contentDescription = "Vierstelliger G7 Kopplungscode"
             }
             content.addView(code, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 58.dp))
-            content.addView(pill(if (timedOut) "Sensorcode erneut eingeben" else "Koppeln", PillStyle.PRIMARY, palette) {
+            content.addView(pill(if (timedOut || authenticationRejected) "Sensor auf diese Uhr umziehen" else "Koppeln", PillStyle.PRIMARY, palette) {
                 val entered = code.text?.toString().orEmpty()
                 if (entered.length != 4 || entered.any { !it.isDigit() }) {
                     code.error = "Bitte genau vier Ziffern eingeben"
                     return@pill
                 }
-                val sensorId = "G7-${java.util.UUID.randomUUID().toString().take(8)}"
+                val sensor = moveG7SensorToThisWatch(this, entered)
                 getSharedPreferences(PAIRING_UI_PREFERENCES, MODE_PRIVATE).edit()
-                    .putString(KEY_PAIRING_SENSOR_ID, sensorId)
+                    .putString(KEY_PAIRING_SENSOR_ID, sensor.sensorId)
                     .apply()
-                G7CredentialStore(this).saveSetup(G7SetupPayload(entered, null, null))
-                val prepared = G7SessionManager(G7SensorStateStore(this).read()).prepareInitialSetup(
-                    G7Sensor(sensorId = sensorId, sessionId = sensorId, deviceName = "Dexcom G7"),
-                )
-                G7SensorStateStore(this).save(prepared)
-                G7CollectorService.start(this)
                 refreshScreen()
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
