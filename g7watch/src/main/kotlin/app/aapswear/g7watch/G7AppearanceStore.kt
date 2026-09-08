@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.res.Configuration
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseTrendSizing
@@ -77,7 +76,7 @@ class G7AppearanceStore(context: Context) {
     fun activeMode(): AppearanceMode =
         preferences.getString(KEY_ACTIVE_MODE, null)
             ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
-            ?: systemMode()
+            ?: AppearanceMode.DARK
 
     fun setActiveMode(mode: AppearanceMode) {
         // The next activity draw must see the selection immediately, even when Android pauses us.
@@ -119,11 +118,6 @@ class G7AppearanceStore(context: Context) {
     fun currentDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, true)
     fun setHistoricalDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value).apply() }
     fun setCurrentDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_CURRENT_DOT_OUTLINE, value).apply() }
-
-    private fun systemMode(): AppearanceMode =
-        if ((preferencesContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
-
-    private val preferencesContext = context.applicationContext
 
     fun load(): G7AppearancePalette = load(activeMode())
 

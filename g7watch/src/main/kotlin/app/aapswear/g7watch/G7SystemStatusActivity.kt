@@ -312,6 +312,19 @@ class G7SystemStatusActivity : Activity() {
             if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
             Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
         }, buttonParams())
+        if (state.sensor != null) {
+            target.addView(pill("Sensor von Uhr trennen", palette, danger = true) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Sensor von dieser Uhr trennen?")
+                    .setMessage("Der Sensor wird nicht gestoppt. Die Verbindung zu dieser Uhr wird entfernt, damit der Sensor mit einer anderen Uhr verbunden werden kann.")
+                    .setNegativeButton("Abbrechen", null)
+                    .setPositiveButton("Sensor trennen") { _, _ ->
+                        unlinkG7Sensor(this)
+                        render()
+                    }
+                    .show()
+            }, buttonParams())
+        }
     }
 
     private fun hasNearbyPermission(): Boolean =

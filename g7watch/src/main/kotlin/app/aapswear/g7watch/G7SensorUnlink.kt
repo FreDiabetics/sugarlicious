@@ -13,14 +13,22 @@ internal data class G7UnlinkResult(
     val bondRemovalRequested: Boolean,
 )
 
+internal data class G7DetachSemantics(
+    val stopsCollector: Boolean = true,
+    val clearsLocalSession: Boolean = true,
+    val preservesHistory: Boolean = true,
+    val sendsSensorEndCommand: Boolean = false,
+)
+
+internal fun g7DetachSemantics() = G7DetachSemantics()
+
 /** Destructive only for the explicit sensor/auth association; history and user settings remain. */
 internal fun unlinkG7Sensor(context: Context): G7UnlinkResult {
     val app = context.applicationContext
     val stateStore = G7SensorStateStore(app)
     val address = stateStore.read().sensor?.deviceAddress
-    val bondResult = removeG7Bond(app, address)
-
     G7CollectorService.stop(app)
+    val bondResult = removeG7Bond(app, address)
     G7CredentialStore(app).clearAll()
     stateStore.save(G7PersistedState())
     G7CgmAlarmCoordinator.clearSuppressed(app)

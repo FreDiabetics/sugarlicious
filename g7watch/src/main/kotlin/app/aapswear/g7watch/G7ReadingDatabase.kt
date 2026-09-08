@@ -14,7 +14,7 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 5), CgmReadingRepository {
+internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 6), CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
@@ -73,6 +73,27 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
                     AND live.status='VALID' AND live.origin='LIVE'
                     AND ABS(live.measured_at-readings.measured_at)<=60000)""".trimIndent(),
             )
+        }
+        if (oldVersion < 6) {
+            // sensorStart is reconstructed from each live packet and can vary by milliseconds.
+            // Repeated downloads therefore produced different measured_at values for the same
+            // immutable sensor-clock slot. Retain LIVE over BACKFILL and otherwise the newest copy.
+            db.execSQL(
+                """DELETE FROM readings AS victim
+                    WHERE victim.status='VALID' AND victim.sensor_clock IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM readings AS keeper
+                        WHERE keeper.sensor_id=victim.sensor_id AND keeper.session_id=victim.session_id
+                        AND keeper.status=victim.status AND keeper.sensor_clock=victim.sensor_clock
+                        AND (
+                            (keeper.origin='LIVE' AND victim.origin!='LIVE') OR
+                            (keeper.origin=victim.origin AND (
+                                keeper.received_at>victim.received_at OR
+                                (keeper.received_at=victim.received_at AND keeper.id>victim.id)
+                            ))
+                        )
+                    )""".trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS readings_sensor_clock ON readings(sensor_id, session_id, status, sensor_clock)")
         }
     }
 
@@ -181,12 +202,14 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             "readings",
             arrayOf("id", "origin"),
             """sensor_id=? AND session_id=? AND status=? AND (
+                (sensor_clock IS NOT NULL AND sensor_clock=?) OR
                 (origin=? AND measured_at=?) OR
                 (origin!=? AND measured_at BETWEEN ? AND ?))""".trimIndent(),
             arrayOf(
                 reading.sensorId,
                 reading.sessionId,
                 CgmReadingStatus.VALID.name,
+                reading.rawSourceTimestamp?.toString() ?: Long.MIN_VALUE.toString(),
                 reading.origin.name,
                 reading.timestampEpochMs.toString(),
                 reading.origin.name,

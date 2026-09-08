@@ -50,7 +50,7 @@ internal fun hasUsableCollectorSession(reading: CgmReading?, sensorId: String?):
 internal fun requiresPairingGate(state: G7PersistedState): Boolean =
     state.sensor == null ||
         state.sensor?.state == G7SensorState.ENDED ||
-        (state.sessionState == G7SessionState.INITIAL_SETUP && !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId))
+        !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)
 
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
@@ -145,7 +145,8 @@ class G7WatchActivity : Activity() {
             setPadding(26.dp, 24.dp, 26.dp, 36.dp)
             setBackgroundColor(background)
         }
-        val timedOut = state.scanTimeoutAtEpochMs?.let { System.currentTimeMillis() >= it } == true
+        val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)
+            ?.let { System.currentTimeMillis() >= it } == true
         val pairingStarted = state.collectorEnabled && !timedOut
         content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
         if (pairingStarted) {
@@ -155,16 +156,16 @@ class G7WatchActivity : Activity() {
                 addView(ImageView(this@G7WatchActivity).apply {
                     setImageResource(R.drawable.ic_g7_sensor)
                     contentDescription = "Sensor"
-                }, LinearLayout.LayoutParams(48.dp, 48.dp))
-                addView(ProgressBar(this@G7WatchActivity).apply {
-                    isIndeterminate = true
+                }, LinearLayout.LayoutParams(40.dp, 40.dp))
+                addView(G7IndeterminateLoader(this@G7WatchActivity).apply {
                     contentDescription = "Sensor wird gesucht"
-                }, LinearLayout.LayoutParams(64.dp, 38.dp).apply { setMargins(8.dp, 0, 8.dp, 0) })
+                    color = palette.argb(G7AppearanceRole.MENU_PRIMARY)
+                }, LinearLayout.LayoutParams(44.dp, 44.dp).apply { setMargins(5.dp, 0, 5.dp, 0) })
                 addView(ImageView(this@G7WatchActivity).apply {
                     setImageResource(R.drawable.ic_watch_device)
                     setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
                     contentDescription = "Smartwatch"
-                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+                }, LinearLayout.LayoutParams(40.dp, 40.dp))
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
             })
@@ -220,7 +221,10 @@ class G7WatchActivity : Activity() {
     }
 
         setContentView(
-            G7EdgeFadeScrollView(this).apply {
+            if (pairingStarted) FrameLayout(this).apply {
+                setBackgroundColor(background)
+                addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+            } else G7EdgeFadeScrollView(this).apply {
                 isFillViewport = true
                 setBackgroundColor(background)
                 addView(

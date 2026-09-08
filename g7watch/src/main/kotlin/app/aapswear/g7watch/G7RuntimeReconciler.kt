@@ -277,7 +277,7 @@ internal object G7RuntimeReconciler {
             sessionState = G7SessionState.RECOVERING,
             activeAttemptId = null,
             scanStartedAtEpochMs = null,
-            scanTimeoutAtEpochMs = null,
+            scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
             lastError = G7CollectorError(
                 code = "G7-RUNTIME-276",
                 recoverable = true,

@@ -425,6 +425,9 @@ data class G7PersistedState(
     val activeAttemptId: Long? = null,
     val scanStartedAtEpochMs: Long? = null,
     val scanTimeoutAtEpochMs: Long? = null,
+    val pairingAttemptId: String? = null,
+    val pairingStartedAtEpochMs: Long? = null,
+    val pairingDeadlineEpochMs: Long? = null,
     val lastScanAtEpochMs: Long? = null,
     val lastAttemptCompletedAtEpochMs: Long? = null,
 )

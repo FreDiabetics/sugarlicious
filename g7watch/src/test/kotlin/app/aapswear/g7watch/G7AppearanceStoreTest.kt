@@ -10,6 +10,14 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7AppearanceStoreTest {
+    @Test fun `fresh installation defaults to dark mode`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).activeMode())
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).load().mode)
+    }
+
     @Test fun `colors persist alpha and reset to defaults`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()

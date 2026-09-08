@@ -412,7 +412,7 @@ internal class AndroidG7Collector(
             if (discoveryRequired) {
                 onState(G7ProtocolState.SCANNING)
                 val scanTimeout = when {
-                    scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
+                    scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, g7ScanTimeoutMs(sensor))
                     pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
                     fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
                     else -> g7ScanTimeoutMs(sensor)

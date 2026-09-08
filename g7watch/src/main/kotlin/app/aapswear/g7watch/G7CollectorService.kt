@@ -63,6 +63,17 @@ internal fun needsG7FollowUpRepair(
     nowEpochMs: Long,
 ): Boolean = collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
 
+internal fun ensureG7PairingAttempt(state: G7PersistedState, nowEpochMs: Long): G7PersistedState {
+    if (!state.collectorEnabled || state.sensor == null || state.lastReading != null) return state
+    val deadline = state.pairingDeadlineEpochMs ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+    return state.copy(
+        pairingAttemptId = state.pairingAttemptId ?: java.util.UUID.randomUUID().toString(),
+        pairingStartedAtEpochMs = state.pairingStartedAtEpochMs ?: nowEpochMs,
+        pairingDeadlineEpochMs = deadline,
+        scanTimeoutAtEpochMs = deadline,
+    )
+}
+
 internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState =
     state.copy(
         connectionState = G7ConnectionState.DISCONNECTED,
@@ -73,7 +84,7 @@ internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState
         lastError = null,
         activeAttemptId = null,
         scanStartedAtEpochMs = null,
-        scanTimeoutAtEpochMs = null,
+        scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
     )
 
 class G7CollectorService : Service() {
@@ -134,7 +145,8 @@ class G7CollectorService : Service() {
             return START_NOT_STICKY
         }
 
-        var persisted = store.read()
+        var persisted = ensureG7PairingAttempt(store.read(), serviceStartAt)
+        store.save(persisted)
         if (!persisted.collectorEnabled) {
             G7SignalLossMonitor.cancel(this)
             G7ErrorNotifier.clearActive(this)
@@ -345,8 +357,18 @@ class G7CollectorService : Service() {
                     database.close()
                 }
             }
-            val boundedScanTimeout =
-                if (request == CycleRequest.AUTOMATIC) null else G7_RECONNECT_SCAN_TIMEOUT_MS
+            val pairingRemainingMs = store.read()
+                .takeIf { it.lastReading == null }
+                ?.pairingDeadlineEpochMs
+                ?.minus(System.currentTimeMillis())
+            if (pairingRemainingMs != null && pairingRemainingMs <= 0L) {
+                throw G7BleException("G7-PAIRING-TIMEOUT", "Verbindung zum Sensor fehlgeschlagen", false)
+            }
+            val boundedScanTimeout = when {
+                pairingRemainingMs != null -> pairingRemainingMs
+                request == CycleRequest.AUTOMATIC -> null
+                else -> G7_RECONNECT_SCAN_TIMEOUT_MS
+            }
             val result = collector.collect(
                 initialSensor = collectionSensor,
                 credentials = storedCredentials,
@@ -359,12 +381,10 @@ class G7CollectorService : Service() {
                         sessionState = protocolState.toSessionState(),
                         scanStartedAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) now else current.scanStartedAtEpochMs,
-                        scanTimeoutAtEpochMs =
-                            if (protocolState == G7ProtocolState.SCANNING) {
-                                now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
-                            } else {
-                                current.scanTimeoutAtEpochMs
-                            },
+                        scanTimeoutAtEpochMs = if (protocolState == G7ProtocolState.SCANNING) {
+                            current.pairingDeadlineEpochMs
+                                ?: now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
+                        } else current.scanTimeoutAtEpochMs,
                         lastScanAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) now else current.lastScanAtEpochMs,
                     )
@@ -510,6 +530,28 @@ class G7CollectorService : Service() {
                     }
                 }
             }
+            val backfillStart = G7CollectorBackfillProtocol.requestedStart(
+                lastStoredSensorClock,
+                result.reading.sensorClockSeconds ?: 0L,
+            )
+            val backfillEnd = G7CollectorBackfillProtocol.requestedEnd(result.reading.sensorClockSeconds ?: 0L)
+            if (backfillStart != null && backfillEnd != null) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-BACKFILL-200",
+                    "Collector history request completed",
+                    metadata = mapOf(
+                        "backfillRequestId" to "$attemptId:$backfillStart-$backfillEnd",
+                        "triggerReason" to if (lastStoredSensorClock == null) "INITIAL_HISTORY" else "GAP_OR_RECONNECT",
+                        "requestedStartSensorClock" to backfillStart,
+                        "requestedEndSensorClock" to backfillEnd,
+                        "responseReceived" to true,
+                        "parsed" to result.backfillReadings.size,
+                        "inserted" to backfillInserted,
+                        "duplicateOrRejected" to (result.backfillReadings.size - backfillInserted).coerceAtLeast(0),
+                        "terminalState" to "COMPLETE",
+                    ),
+                )
+            }
             val storedAt = System.currentTimeMillis()
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
             attemptStore.updateCycle(attemptId) { it.copy(storeCompletedAt = storedAt) }
@@ -542,6 +584,10 @@ class G7CollectorService : Service() {
                 lastSuccessfulConnectionEpochMs = storedAt,
                 activeAttemptId = null,
                 lastAttemptCompletedAtEpochMs = storedAt,
+                pairingAttemptId = null,
+                pairingStartedAtEpochMs = null,
+                pairingDeadlineEpochMs = null,
+                scanTimeoutAtEpochMs = null,
             )
             store.save(next)
 
@@ -1020,7 +1066,18 @@ class G7CollectorService : Service() {
             val current = stateStore.read()
             if (current.sensor == null || G7CredentialStore(app).read() == null) return
             if (!current.collectorEnabled) {
-                stateStore.save(G7SessionManager(current).startCollector())
+                val started = G7SessionManager(current).startCollector()
+                val now = System.currentTimeMillis()
+                stateStore.save(
+                    if (started.lastReading == null) {
+                        started.copy(
+                            pairingAttemptId = started.pairingAttemptId ?: java.util.UUID.randomUUID().toString(),
+                            pairingStartedAtEpochMs = started.pairingStartedAtEpochMs ?: now,
+                            pairingDeadlineEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+                            scanTimeoutAtEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+                        )
+                    } else started,
+                )
             }
             G7SignalLossMonitor.scheduleFromState(app, stateStore.read())
             app.startForegroundService(
