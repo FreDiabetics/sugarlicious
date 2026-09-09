@@ -377,13 +377,14 @@ class G7CollectorTileService : TileService() {
                 FontStyle.Builder()
                     .setSize(sp(size))
                     .setColor(argb(color))
+                    .setPreferredFontFamilies("sans-serif")
                     .apply { if (bold) setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD) }
                     .build(),
             )
             .build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-6"
+        private const val RESOURCES_VERSION = "g7-collector-7-system-sans"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         fun requestUpdate(context: Context) {

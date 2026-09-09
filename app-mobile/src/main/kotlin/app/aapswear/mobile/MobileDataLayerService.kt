@@ -203,19 +203,9 @@ internal fun readWatchConfig(context: Context): WatchConfig {
                 "cgm.prediction.zeroTemp",
             ).any { preferences.getBoolean(it, false) },
         glucoseUnit = unit,
-        dataSource = when (
-            runCatching {
-                DataSourcePreference.valueOf(
-                    preferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                )
-            }.getOrDefault(DataSourcePreference.AUTOMATIC)
-        ) {
-            DataSourcePreference.AUTOMATIC -> WatchDataSource.AUTOMATIC
-            DataSourcePreference.DEXCOM_G7_WATCH -> WatchDataSource.DEXCOM_G7_WATCH
-            DataSourcePreference.ANDROID_APS,
-            DataSourcePreference.XDRIP_PLUS,
-            -> WatchDataSource.PHONE
-        },
+        // Mobile is intentionally AndroidAPS-only. Do not leak a removed legacy source choice
+        // into Wear configuration before the next AAPS payload has had a chance to migrate it.
+        dataSource = WatchDataSource.PHONE,
         showTherapyStats = preferences.getBoolean("showDetails", true),
         graphColors = WatchGraphColors(
             graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),

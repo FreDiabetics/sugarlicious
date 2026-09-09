@@ -153,7 +153,7 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
     val safeGlucose = glucose?.takeUnless {
         it.source == DataSourceId.DEXCOM_G7_WATCH || source == DataSourceId.DEXCOM_G7_WATCH
     }
-    val safeSource = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.OTHER else source
+    val safeSource = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.ANDROID_APS else source
     val safeCapabilities =
         if (safeGlucose == null && currentIsWatch) {
             capabilities - setOf(

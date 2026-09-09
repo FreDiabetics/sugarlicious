@@ -112,8 +112,11 @@ object G7LocalReadingResolver {
             when (resolution.canonicalSource) {
                 CgmCanonicalSource.MOBILE_AAPS -> fallback?.source ?: DataSourceId.ANDROID_APS
                 CgmCanonicalSource.WATCH_G7_DIRECT -> DataSourceId.DEXCOM_G7_WATCH
-                CgmCanonicalSource.NONE ->
-                    chosenGlucose?.source ?: if (watchOnly && latestDirectEvent != null) DataSourceId.DEXCOM_G7_WATCH else DataSourceId.OTHER
+                CgmCanonicalSource.NONE -> chosenGlucose?.source ?: when (selectedSource) {
+                    WatchDataSource.PHONE -> DataSourceId.ANDROID_APS
+                    WatchDataSource.DEXCOM_G7_WATCH -> DataSourceId.DEXCOM_G7_WATCH
+                    WatchDataSource.AUTOMATIC -> fallback?.source ?: DataSourceId.OTHER
+                }
             }
 
         val sourceVersion =

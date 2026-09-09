@@ -16,6 +16,7 @@ import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchGlucoseUnit
+import app.aapswear.protocol.WatchDataSource
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
@@ -28,6 +29,15 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
+    @Test
+    fun `legacy Wear source selection cannot override AndroidAPS phone policy`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val prefs = context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("data_source", WatchDataSource.DEXCOM_G7_WATCH.name).commit()
+
+        assertEquals(WatchDataSource.PHONE, WearDisplayPreferences.read(context).dataSource)
+    }
+
     @Test
     fun `graph scale cycles through every supported duration and wraps`() {
         assertEquals(2, nextWearGraphHours(1))

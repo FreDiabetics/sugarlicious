@@ -29,6 +29,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     private val directSettings by lazy { G7DirectToWatchSettingsStore(context) }
     private var readings: List<CgmReading> = emptyList()
     private var nowOverrideEpochMs: Long? = null
+    private var boundGraphHours: Int = 3
 
     init {
         outlineProvider = object : ViewOutlineProvider() {
@@ -63,7 +64,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         // Legacy parameters remain only for source compatibility with G7WatchActivity. Rendering is
         // owned entirely by the SugarWear settings store, never by Sugarlicious colors.
         palette.hashCode()
-        graphHours.hashCode()
+        boundGraphHours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
         targetLowMgDl.hashCode()
         targetHighMgDl.hashCode()
         this.readings = normalizeLocalHistory(readings)
@@ -75,7 +76,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val now = nowOverrideEpochMs ?: System.currentTimeMillis()
-        val graphHours = directSettings.graphHours()
+        val graphHours = boundGraphHours
         val thresholds = directSettings.thresholds()
         val style = directSettings.graphStyle()
         val colors = directSettings.graphColors()

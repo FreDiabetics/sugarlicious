@@ -31,7 +31,7 @@ internal data class WearDisplayPreferences(
     val graphHours: Int = 3,
     val showPredictions: Boolean = false,
     val glucoseUnit: WatchGlucoseUnit = WatchGlucoseUnit.AAPS,
-    val dataSource: WatchDataSource = WatchDataSource.AUTOMATIC,
+    val dataSource: WatchDataSource = WatchDataSource.PHONE,
     val showTherapyStats: Boolean = true,
     val syncedAtEpochMs: Long = 0L,
     val graphColors: WatchGraphColors = WatchGraphColors(),
@@ -120,11 +120,10 @@ internal data class WearDisplayPreferences(
                 showPredictions =
                     preferences.getBoolean(KEY_SHOW_PREDICTIONS, false),
                 glucoseUnit = unit,
-                dataSource = runCatching {
-                    WatchDataSource.valueOf(
-                        preferences.getString(KEY_DATA_SOURCE, WatchDataSource.AUTOMATIC.name)!!,
-                    )
-                }.getOrDefault(WatchDataSource.AUTOMATIC),
+                // Sugarlicious Wear is AndroidAPS/phone-fed. Direct sensor collection belongs to
+                // the separate SugarWear app, so legacy Automatic/Direct values must not revive
+                // a second CGM stream after a reboot or package update.
+                dataSource = WatchDataSource.PHONE,
                 showTherapyStats =
                     preferences.getBoolean(KEY_SHOW_THERAPY_STATS, true),
                 glucoseScalePercent = preferences.getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
@@ -230,9 +229,9 @@ internal data class WearDisplayPreferences(
 
             preferences.edit()
                 .putLong(KEY_SYNCED_AT, syncedAt)
-                .putString(KEY_DATA_SOURCE, config.dataSource.name)
+                .putString(KEY_DATA_SOURCE, WatchDataSource.PHONE.name)
                 .apply()
-            notifyG7CollectorSourceTransition(context, previousSource, config.dataSource)
+            notifyG7CollectorSourceTransition(context, previousSource, WatchDataSource.PHONE)
         }
 
         fun saveLocal(
@@ -296,7 +295,7 @@ internal data class WearDisplayPreferences(
                 putInt(KEY_GRAPH_HOURS, graphHours)
                 putBoolean(KEY_SHOW_PREDICTIONS, value.showPredictions)
                 putString(KEY_GLUCOSE_UNIT, value.glucoseUnit.name)
-                putString(KEY_DATA_SOURCE, value.dataSource.name)
+                putString(KEY_DATA_SOURCE, WatchDataSource.PHONE.name)
                 putBoolean(KEY_SHOW_THERAPY_STATS, value.showTherapyStats)
                 putInt(KEY_GLUCOSE_SCALE, value.glucoseScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
                 putInt(KEY_TREND_SCALE, value.trendScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))

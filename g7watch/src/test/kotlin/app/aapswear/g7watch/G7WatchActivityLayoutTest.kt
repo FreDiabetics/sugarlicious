@@ -38,6 +38,17 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7WatchActivityLayoutTest {
+    @Test
+    fun `direct graph scale cycles through every duration and wraps`() {
+        assertEquals(2, nextDirectGraphHours(1))
+        assertEquals(3, nextDirectGraphHours(2))
+        assertEquals(6, nextDirectGraphHours(3))
+        assertEquals(12, nextDirectGraphHours(6))
+        assertEquals(24, nextDirectGraphHours(12))
+        assertEquals(1, nextDirectGraphHours(24))
+        assertEquals(1, nextDirectGraphHours(99))
+    }
+
 
     @Test
     fun `pairing success deadline survives recreation without restarting five seconds`() {

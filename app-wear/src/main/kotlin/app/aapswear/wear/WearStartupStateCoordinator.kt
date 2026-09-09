@@ -41,7 +41,7 @@ internal object WearStartupStateCoordinator {
     }
 }
 
-private fun TherapyDisplayState.withoutDirectToWatchInput(): TherapyDisplayState {
+internal fun TherapyDisplayState.withoutDirectToWatchInput(): TherapyDisplayState {
     val filteredHistory = glucoseHistory.filter { it.source != DataSourceId.DEXCOM_G7_WATCH }
     val currentIsDirect =
         source == DataSourceId.DEXCOM_G7_WATCH || glucose?.source == DataSourceId.DEXCOM_G7_WATCH
@@ -56,7 +56,10 @@ private fun TherapyDisplayState.withoutDirectToWatchInput(): TherapyDisplayState
     } else capabilities
 
     return copy(
-        source = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.OTHER else source,
+        // Sugarlicious Wear is phone-fed. Removing a legacy SugarWear snapshot must not turn
+        // the configured phone source into the runtime pseudo-source OTHER. There may be no
+        // current phone measurement yet, but the expected input remains AndroidAPS.
+        source = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.ANDROID_APS else source,
         sourceVersion = if (currentIsDirect) null else sourceVersion,
         sourceContract = if (currentIsDirect) "WEAR_PHONE_ONLY:NO_DIRECT_WATCH_CGM" else sourceContract,
         glucose = safeGlucose,

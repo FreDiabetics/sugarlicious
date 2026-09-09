@@ -7,6 +7,7 @@ import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.watchface.complications.data.ComplicationType
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmSourceState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
@@ -17,6 +18,7 @@ import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.protocol.DirectToWatchSettingsContract
+import app.aapswear.protocol.WatchDataSource
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
 import java.time.Instant
@@ -30,6 +32,25 @@ import org.robolectric.Robolectric
 
 @RunWith(RobolectricTestRunner::class)
 class DirectToWatchComplicationsTest {
+    @Test fun `phone configured no source state remains AndroidAPS rather than Other`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val fallback = TherapyDisplayState(
+            source = DataSourceId.ANDROID_APS,
+            receivedAtEpochMs = now - 20 * 60_000L,
+            glucose = null,
+        )
+
+        val resolved = G7LocalReadingResolver.resolve(
+            context = context,
+            fallback = fallback,
+            nowEpochMs = now,
+            dataSource = WatchDataSource.PHONE,
+        )
+
+        assertEquals(DataSourceId.ANDROID_APS, resolved?.source)
+        assertEquals(CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+    }
+
     private val now = 1_800_000_000_000L
 
     @Test fun `fresh watch direct renders glucose trend then delta and unit`() {

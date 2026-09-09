@@ -60,6 +60,12 @@ internal fun isG7PairingAttemptActive(state: G7PersistedState, nowEpochMs: Long)
 internal fun pairingSuccessRemainingMs(deadlineEpochMs: Long, nowEpochMs: Long): Long =
     (deadlineEpochMs - nowEpochMs).coerceAtLeast(0L)
 
+internal fun nextDirectGraphHours(current: Int): Int {
+    val options = G7DirectToWatchSettingsStore.HOUR_OPTIONS
+    val index = options.indexOf(current)
+    return options[if (index < 0) 0 else (index + 1) % options.size]
+}
+
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
     private val directSettings by lazy { G7DirectToWatchSettingsStore(this) }
@@ -518,6 +524,8 @@ class G7WatchActivity : Activity() {
             addView(graphView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 150.dp))
 
             graphPeriodPill = label("${hours}h", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+                tag = "graph-scale-control"
+                contentDescription = "Graphskalierung"
                 gravity = Gravity.CENTER
                 minWidth = 72.dp
                 minHeight = 44.dp
@@ -537,8 +545,7 @@ class G7WatchActivity : Activity() {
     }
 
     private fun advanceGraphScale(current: Int) {
-        val options = listOf(1, 2, 3, 6, 12, 24)
-        val next = options[(options.indexOf(current).coerceAtLeast(0) + 1) % options.size]
+        val next = nextDirectGraphHours(current)
         directSettings.saveGraphHours(next)
     }
 
