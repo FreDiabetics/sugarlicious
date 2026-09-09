@@ -26,6 +26,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.Before
@@ -38,6 +39,19 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7WatchActivityLayoutTest {
+
+    @Test
+    fun `pairing ui key ignores per-second clock movement until presentation changes`() {
+        val deadline = 100_000L
+        val state = G7PersistedState(
+            sensor = G7Sensor("pairing"),
+            collectorEnabled = true,
+            pairingDeadlineEpochMs = deadline,
+        )
+
+        assertEquals(g7PairingUiKey(state, 10_000L), g7PairingUiKey(state, 11_000L))
+        assertNotEquals(g7PairingUiKey(state, 10_000L), g7PairingUiKey(state, deadline))
+    }
     @Test
     fun `direct graph scale cycles through every duration and wraps`() {
         assertEquals(2, nextDirectGraphHours(1))
@@ -113,7 +127,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `active pairing uses a round safe non scrolling search page`() {
+    fun `active pairing uses a round safe scroll fallback without clipping`() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(
             sensor = G7Sensor("pairing"),
@@ -123,7 +137,7 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        assertNull(findScrollView(root))
+        assertNotNull(findScrollView(root))
         assertNotNull(findText(root, "Suche Sensor"))
         assertNotNull(findText(root, "Dies kann bis zu"))
         assertNotNull(findText(root, "30 Minuten dauern"))

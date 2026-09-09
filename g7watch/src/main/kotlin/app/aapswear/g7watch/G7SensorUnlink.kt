@@ -46,6 +46,9 @@ internal fun unlinkG7Sensor(context: Context): G7UnlinkResult {
     val app = context.applicationContext
     val stateStore = G7SensorStateStore(app)
     val address = stateStore.read().sensor?.deviceAddress
+    // Cancel the live BLE owner before removing the Android bond. stopService() alone is
+    // asynchronous and previously allowed the old watch to remain connected during takeover.
+    G7CollectorRuntimeRegistry.cancelLiveCycle()
     G7CollectorService.stop(app)
     val bondResult = removeG7Bond(app, address)
     G7CredentialStore(app).clearAll()

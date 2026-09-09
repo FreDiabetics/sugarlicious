@@ -60,6 +60,21 @@ internal fun isG7PairingAttemptActive(state: G7PersistedState, nowEpochMs: Long)
 internal fun pairingSuccessRemainingMs(deadlineEpochMs: Long, nowEpochMs: Long): Long =
     (deadlineEpochMs - nowEpochMs).coerceAtLeast(0L)
 
+internal data class G7PairingUiKey(
+    val active: Boolean,
+    val timedOut: Boolean,
+    val errorCode: String?,
+    val sensorId: String?,
+)
+
+internal fun g7PairingUiKey(state: G7PersistedState, nowEpochMs: Long): G7PairingUiKey =
+    G7PairingUiKey(
+        active = isG7PairingAttemptActive(state, nowEpochMs),
+        timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { nowEpochMs >= it } == true,
+        errorCode = state.lastError?.code,
+        sensorId = state.sensor?.sensorId,
+    )
+
 internal fun nextDirectGraphHours(current: Int): Int {
     val options = G7DirectToWatchSettingsStore.HOUR_OPTIONS
     val index = options.indexOf(current)
@@ -73,6 +88,7 @@ class G7WatchActivity : Activity() {
     private var activePalette: G7AppearancePalette? = null
     private var screenBuilt = false
     private var pairingGateVisible = false
+    private var pairingUiKey: G7PairingUiKey? = null
     private var pairingSuccessDialog: android.app.Dialog? = null
     private val pairingSuccessFinish = Runnable {
         pairingSuccessDialog?.dismiss()
@@ -157,17 +173,26 @@ class G7WatchActivity : Activity() {
         val palette = appearanceStore.load()
         val state = G7SensorStateStore(this).read()
         if (requiresPairingGate(state)) {
-            buildPairingGate(palette, state)
+            val nextKey = g7PairingUiKey(state, System.currentTimeMillis())
+            if (!pairingGateVisible || nextKey != pairingUiKey || palette != activePalette) {
+                buildPairingGate(palette, state, nextKey)
+            }
         } else if (!screenBuilt || pairingGateVisible || palette != activePalette) {
             pairingGateVisible = false
+            pairingUiKey = null
             mainHandler.removeCallbacks(pairingRefresh)
             buildScreen(palette)
             showPairingSuccessIfNeeded(state)
         } else refreshLiveContent()
     }
 
-    private fun buildPairingGate(palette: G7AppearancePalette, state: G7PersistedState) {
+    private fun buildPairingGate(
+        palette: G7AppearancePalette,
+        state: G7PersistedState,
+        uiKey: G7PairingUiKey = g7PairingUiKey(state, System.currentTimeMillis()),
+    ) {
         pairingGateVisible = true
+        pairingUiKey = uiKey
         screenBuilt = false
         activePalette = palette
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
@@ -179,10 +204,9 @@ class G7WatchActivity : Activity() {
             setPadding(24.dp, 20.dp, 24.dp, 24.dp)
             setBackgroundColor(background)
         }
-        val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)
-            ?.let { System.currentTimeMillis() >= it } == true
+        val timedOut = uiKey.timedOut
         val authenticationRejected = state.lastError?.code == "G7-AUTH-204"
-        val pairingStarted = isG7PairingAttemptActive(state, System.currentTimeMillis())
+        val pairingStarted = uiKey.active
         content.addView(label("Suche Sensor", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
         if (pairingStarted) {
             content.addView(LinearLayout(this).apply {
@@ -256,25 +280,20 @@ class G7WatchActivity : Activity() {
         })
     }
 
-        setContentView(
-            if (pairingStarted) FrameLayout(this).apply {
-                setBackgroundColor(background)
-                addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-            } else G7EdgeFadeScrollView(this).apply {
-                isFillViewport = true
-                setBackgroundColor(background)
-                addView(
-                    content,
-                    FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ),
-                )
-            }.applyG7EdgeFade(),
-        )
+        setContentView(G7EdgeFadeScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(background)
+            addView(
+                content,
+                FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }.applyG7EdgeFade())
         mainHandler.removeCallbacks(pairingRefresh)
-        // Do not rebuild an idle code form every second: that used to clear the EditText while
-        // the user was entering the four digits. Poll only after pairing has actually started.
+        // Poll state while pairing, but rebuild only when the semantic pairing presentation
+        // changes. The animated dots own their own animation and must not recreate the page.
         if (pairingStarted) mainHandler.postDelayed(pairingRefresh, 1_000L)
     }
 
