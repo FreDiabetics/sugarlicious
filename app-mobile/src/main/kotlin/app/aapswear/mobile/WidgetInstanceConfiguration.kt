@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -653,8 +654,15 @@ private fun WidgetPercentSlider(
     resetValue: Int? = null,
     onChange: (Int) -> Unit,
 ) {
+    var editingValue by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var enteredValue by androidx.compose.runtime.remember(value, editingValue) { androidx.compose.runtime.mutableStateOf(value.toString()) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text("$label · $value $suffix", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+        Text(
+            "$label · $value $suffix",
+            color = ComposeColor.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { editingValue = true }.padding(vertical = 6.dp),
+        )
         if (resetValue != null && value != resetValue) {
             Text(
                 "ZURÜCKSETZEN",
@@ -666,6 +674,28 @@ private fun WidgetPercentSlider(
         }
     }
     Slider(value = value.toFloat(), onValueChange = { onChange(it.toInt()) }, valueRange = range.first.toFloat()..range.last.toFloat())
+    if (editingValue) {
+        AlertDialog(
+            onDismissRequest = { editingValue = false },
+            title = { Text(label) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = enteredValue,
+                    onValueChange = { enteredValue = it },
+                    label = { Text("${range.first} bis ${range.last}") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    enteredValue.toIntOrNull()?.takeIf { it in range }?.let { onChange(it); editingValue = false }
+                }) { Text("ÜBERNEHMEN") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { editingValue = false }) { Text("ABBRECHEN") }
+            },
+        )
+    }
 }
 
 private fun widgetPreviewState(now: Long): TherapyDisplayState = TherapyDisplayState(

@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -625,6 +626,8 @@ internal fun SugarliciousSettingSlider(
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
 ) {
+    var editingValue by remember { mutableStateOf(false) }
+    var enteredValue by remember(value, editingValue) { mutableStateOf(value.toString().trimEnd('0').trimEnd('.')) }
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -637,7 +640,16 @@ internal fun SugarliciousSettingSlider(
                 Text(title, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 Text(description, color = SugarliciousColors.TextSecondary, fontSize = 10.sp)
             }
-            Text(valueText, color = SugarliciousColors.Primary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                valueText,
+                color = SugarliciousColors.Primary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(10.dp))
+                    .clickable { editingValue = true }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
         }
         Slider(
             value = value,
@@ -652,6 +664,28 @@ internal fun SugarliciousSettingSlider(
                 activeTickColor = Color.Transparent,
                 inactiveTickColor = Color.Transparent,
             ),
+        )
+    }
+    if (editingValue) {
+        AlertDialog(
+            onDismissRequest = { editingValue = false },
+            title = { Text(title) },
+            text = {
+                OutlinedTextField(
+                    value = enteredValue,
+                    onValueChange = { enteredValue = it },
+                    label = { Text("Wert ${valueRange.start} bis ${valueRange.endInclusive}") },
+                    singleLine = true,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    enteredValue.replace(',', '.').toFloatOrNull()
+                        ?.takeIf { it in valueRange }
+                        ?.let { onValueChange(it); onValueChangeFinished(); editingValue = false }
+                }) { Text("ÜBERNEHMEN") }
+            },
+            dismissButton = { TextButton(onClick = { editingValue = false }) { Text("ABBRECHEN") } },
         )
     }
 }
@@ -901,16 +935,16 @@ internal fun ColorEditorDialog(
     onDismiss: () -> Unit,
     onChange: (Int) -> Unit,
 ) {
-    val initialHsv = remember(role, initialArgb) {
+    val initialHsv = remember(role, label) {
         FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
     }
-    var hue by remember(role, initialArgb) { mutableFloatStateOf(initialHsv[0]) }
-    var saturation by remember(role, initialArgb) { mutableFloatStateOf(initialHsv[1]) }
-    var brightness by remember(role, initialArgb) { mutableFloatStateOf(initialHsv[2]) }
-    var alpha by remember(role, initialArgb) {
+    var hue by remember(role, label) { mutableFloatStateOf(initialHsv[0]) }
+    var saturation by remember(role, label) { mutableFloatStateOf(initialHsv[1]) }
+    var brightness by remember(role, label) { mutableFloatStateOf(initialHsv[2]) }
+    var alpha by remember(role, label) {
         mutableFloatStateOf(AndroidColor.alpha(initialArgb) / 255f)
     }
-    var hex by remember(role, initialArgb) { mutableStateOf(toHex(initialArgb)) }
+    var hex by remember(role, label) { mutableStateOf(toHex(initialArgb)) }
 
     fun currentArgb(): Int = AndroidColor.HSVToColor(
         (alpha * 255f).roundToInt().coerceIn(0, 255),
@@ -1020,11 +1054,12 @@ private fun SaturationBrightnessPicker(
     brightness: Float,
     onChange: (Float, Float) -> Unit,
 ) {
+    val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
         modifier = Modifier.fillMaxWidth().height(180.dp)
-            .pointerInput(hue) {
+            .pointerInput(Unit) {
                 fun update(offset: Offset) {
-                    onChange(
+                    currentOnChange(
                         (offset.x / size.width).coerceIn(0f, 1f),
                         (1f - offset.y / size.height).coerceIn(0f, 1f),
                     )
@@ -1042,10 +1077,11 @@ private fun SaturationBrightnessPicker(
 
 @Composable
 private fun HuePicker(hue: Float, onChange: (Float) -> Unit) {
+    val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
         modifier = Modifier.fillMaxWidth().height(28.dp)
             .pointerInput(Unit) {
-                fun update(offset: Offset) = onChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
+                fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
                 detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
             },
     ) {
@@ -1063,10 +1099,11 @@ private fun HuePicker(hue: Float, onChange: (Float) -> Unit) {
 
 @Composable
 private fun AlphaPicker(color: Color, alpha: Float, onChange: (Float) -> Unit) {
+    val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
         modifier = Modifier.fillMaxWidth().height(28.dp)
             .pointerInput(Unit) {
-                fun update(offset: Offset) = onChange((offset.x / size.width).coerceIn(0f, 1f))
+                fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f))
                 detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
             },
     ) {
