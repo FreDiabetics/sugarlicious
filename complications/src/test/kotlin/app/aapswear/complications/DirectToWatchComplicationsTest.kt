@@ -86,6 +86,7 @@ class DirectToWatchComplicationsTest {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
         assertEquals("-", header.glucose)
         assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
+        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(directState(now - 16 * 60_000L), now, 3).text)
     }
 
     @Test fun `mobile fresh is never shown as direct`() {
@@ -102,7 +103,7 @@ class DirectToWatchComplicationsTest {
 
     @Test fun `absent data is explicit no source`() {
         assertEquals("Bitte Sensor\nstarten oder\nkoppeln", DirectToWatchPresentationFormatter.header(null, now).secondary)
-        assertEquals("3h • NO_SOURCE", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
+        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
     }
 
     @Test fun `active restored session without a loaded reading shows loading state only`() {

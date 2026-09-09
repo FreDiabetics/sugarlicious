@@ -114,11 +114,11 @@ internal object DirectToWatchPresentationFormatter {
     }
 
     fun graphStatus(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): DirectToWatchGraphStatusPresentation {
-        val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
+        if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
+            return DirectToWatchGraphStatusPresentation("")
+        }
         val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
-        if (activeSessionWithoutData(state)) return DirectToWatchGraphStatusPresentation("")
-        val detail = if (isDirect(state) && state?.glucose != null) age else unavailableLabel(state, freshness)
-        return DirectToWatchGraphStatusPresentation("${graphHours}h • $detail")
+        return DirectToWatchGraphStatusPresentation("${graphHours}h • $age")
     }
 
     fun samples(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): List<GlucoseSample> {
@@ -170,12 +170,6 @@ internal object DirectToWatchPresentationFormatter {
             "WAITING_FOR_NEXT_READING",
             "RECOVERING",
         )
-
-    private fun unavailableLabel(state: TherapyDisplayState?, freshness: Freshness): String = when {
-        state?.glucose?.quality == CgmQuality.SENSOR_ERROR -> "SENSOR ERROR"
-        freshness == Freshness.STALE -> "STALE"
-        else -> "NO_SOURCE"
-    }
 
     const val HOUR_MS = 60L * 60_000L
     private const val FUTURE_TOLERANCE_MS = 5L * 60_000L
@@ -479,16 +473,20 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             textAlign = Paint.Align.LEFT
         }
         if (presentation.glucose == "-") {
+            val showsPairingButton = presentation.secondary.startsWith("Bitte Sensor")
             val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (presentation.sensorError) 0xFFFF4D5E.toInt() else if (ambient) 0xFF909090.toInt() else Color.WHITE
-                textSize = 17f
+                textSize = if (showsPairingButton) 17f else 22f
                 typeface = Typeface.DEFAULT_BOLD
                 textAlign = Paint.Align.CENTER
             }
             val lines = presentation.secondary.lines()
-            val firstBaseline = if (lines.size >= 3) 20f else 31f
-            lines.forEachIndexed { index, line -> canvas.drawText(line, width / 2f, firstBaseline + index * 20f, messagePaint) }
-            if (presentation.secondary.startsWith("Bitte Sensor")) {
+            val lineStep = if (showsPairingButton) 20f else 26f
+            val textBlockHeight = (lines.size - 1) * lineStep
+            val availableCenterY = if (showsPairingButton) 37f else height / 2f
+            val firstBaseline = availableCenterY - textBlockHeight / 2f - (messagePaint.ascent() + messagePaint.descent()) / 2f
+            lines.forEachIndexed { index, line -> canvas.drawText(line, width / 2f, firstBaseline + index * lineStep, messagePaint) }
+            if (showsPairingButton) {
                 val button = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = if (ambient) 0xFF555555.toInt() else 0xFF30303A.toInt()
                     style = Paint.Style.FILL

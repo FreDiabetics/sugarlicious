@@ -153,7 +153,7 @@ object ComplicationPresentationFormatter {
 
             SugarliciousComplicationIds.TREND_ONLY ->
                 p(
-                    text = "",
+                    text = if (trend == null) DASH else "",
                     trend = trend,
                     desc = trend?.let { "Glukosetrend ${TherapyDisplayFormatter.trendArrow(it)}" } ?: "Kein Glukosetrend",
                 )
@@ -197,7 +197,12 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.GLUCOSE_TREND ->
-                p(glucoseText, trend = trend, desc = "Glukose $glucoseText mit Trend")
+                p(
+                    text = glucoseText,
+                    title = DASH.takeIf { trend == null },
+                    trend = trend,
+                    desc = if (trend == null) "Glukose $glucoseText, Trend nicht verfügbar" else "Glukose $glucoseText mit Trend",
+                )
 
             SugarliciousComplicationIds.GLUCOSE_PLUS_DELTA ->
                 p(glucoseText, delta.ifBlank { DASH }, desc = "Glukose $glucoseText, Delta ${delta.ifBlank { DASH }}")
