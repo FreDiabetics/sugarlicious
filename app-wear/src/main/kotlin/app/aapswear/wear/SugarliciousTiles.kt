@@ -46,7 +46,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
-private const val TILE_RESOURCES_VERSION = "sugarlicious-5"
+// Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
+private const val TILE_RESOURCES_VERSION = "sugarlicious-6-system-font"
 
 internal data class WearGlucoseTilePresentation(
     val value: String,

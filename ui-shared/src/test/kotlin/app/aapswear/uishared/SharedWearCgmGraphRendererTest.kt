@@ -50,6 +50,20 @@ class SharedWearCgmGraphRendererTest {
     }
 
     @Test
+    fun `fixed reading moves left while live clock advances`() {
+        val readingAt = 2_000_000_000_000L
+        val duration = 3L * 60L * 60_000L
+        val metrics = SharedWearCgmGraphRenderer.metrics(320, 180, 2f, CgmThresholds.DEFAULT)
+        val xAtArrival = metrics.xFor(GraphTimeWindow.live(readingAt, duration), readingAt)
+        val xAfterOneMinute = metrics.xFor(GraphTimeWindow.live(readingAt + 60_000L, duration), readingAt)
+        val xAfterFourMinutes = metrics.xFor(GraphTimeWindow.live(readingAt + 4 * 60_000L, duration), readingAt)
+
+        assertTrue(xAfterOneMinute < xAtArrival)
+        assertTrue(xAfterFourMinutes < xAfterOneMinute)
+        assertEquals(metrics.plot.right, xAtArrival, 0.01f)
+    }
+
+    @Test
     fun `all supplied trend vectors preserve their source canvas`() {
         val resourceIds = TrendVisualAsset.entries.map(TrendDrawableResources::forAsset)
         assertEquals(TrendVisualAsset.entries.size, resourceIds.distinct().size)

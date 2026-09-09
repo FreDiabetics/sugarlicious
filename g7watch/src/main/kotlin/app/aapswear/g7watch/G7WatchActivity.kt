@@ -57,18 +57,37 @@ internal fun isG7PairingAttemptActive(state: G7PersistedState, nowEpochMs: Long)
     return state.collectorEnabled && !timedOut && state.lastError?.code != "G7-AUTH-204"
 }
 
+internal fun pairingSuccessRemainingMs(deadlineEpochMs: Long, nowEpochMs: Long): Long =
+    (deadlineEpochMs - nowEpochMs).coerceAtLeast(0L)
+
 class G7WatchActivity : Activity() {
     private val appearanceStore by lazy { G7AppearanceStore(this) }
+    private val directSettings by lazy { G7DirectToWatchSettingsStore(this) }
     private var readingObserverRegistered = false
     private var activePalette: G7AppearancePalette? = null
     private var screenBuilt = false
     private var pairingGateVisible = false
+    private var pairingSuccessDialog: android.app.Dialog? = null
+    private val pairingSuccessFinish = Runnable {
+        pairingSuccessDialog?.dismiss()
+        pairingSuccessDialog = null
+        getSharedPreferences(PAIRING_UI_PREFERENCES, MODE_PRIVATE)
+            .edit().remove(KEY_PAIRING_SUCCESS_DEADLINE).apply()
+        if (!isFinishing && !isDestroyed) refreshScreen()
+    }
     private val pairingRefresh = object : Runnable {
         override fun run() {
             if (!isFinishing && !isDestroyed && pairingGateVisible) {
                 refreshScreen()
                 mainHandler.postDelayed(this, 1_000L)
             }
+        }
+    }
+    private val graphClockRefresh = object : Runnable {
+        override fun run() {
+            if (!isFinishing && !isDestroyed && screenBuilt) updateGraphOnly()
+            val now = System.currentTimeMillis()
+            mainHandler.postDelayed(this, 60_000L - now % 60_000L)
         }
     }
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -100,10 +119,14 @@ class G7WatchActivity : Activity() {
         super.onResume()
         registerReadingObserver()
         refreshScreen()
+        mainHandler.removeCallbacks(graphClockRefresh)
+        val now = System.currentTimeMillis()
+        mainHandler.postDelayed(graphClockRefresh, 60_000L - now % 60_000L)
     }
 
     override fun onPause() {
         mainHandler.removeCallbacks(pairingRefresh)
+        mainHandler.removeCallbacks(graphClockRefresh)
         unregisterReadingObserver()
         super.onPause()
     }
@@ -147,42 +170,45 @@ class G7WatchActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(26.dp, 24.dp, 26.dp, 36.dp)
+            setPadding(24.dp, 20.dp, 24.dp, 24.dp)
             setBackgroundColor(background)
         }
         val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)
             ?.let { System.currentTimeMillis() >= it } == true
         val authenticationRejected = state.lastError?.code == "G7-AUTH-204"
         val pairingStarted = isG7PairingAttemptActive(state, System.currentTimeMillis())
-        content.addView(label("Sensor koppeln", 19f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+        content.addView(label("Suche Sensor", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
         if (pairingStarted) {
             content.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
                 addView(ImageView(this@G7WatchActivity).apply {
-                    setImageResource(R.drawable.ic_g7_sensor)
+                    setImageResource(R.drawable.ic_sensor_outline)
+                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
                     contentDescription = "Sensor"
-                }, LinearLayout.LayoutParams(40.dp, 40.dp))
-                addView(G7IndeterminateLoader(this@G7WatchActivity).apply {
-                    contentDescription = "Sensor wird gesucht"
+                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+                addView(G7ConnectionDotsView(this@G7WatchActivity).apply {
+                    contentDescription = "7 Verbindungsdots"
                     color = palette.argb(G7AppearanceRole.MENU_PRIMARY)
-                }, LinearLayout.LayoutParams(44.dp, 44.dp).apply { setMargins(5.dp, 0, 5.dp, 0) })
+                }, LinearLayout.LayoutParams(0, 24.dp, 1f).apply { setMargins(10.dp, 0, 10.dp, 0) })
                 addView(ImageView(this@G7WatchActivity).apply {
                     setImageResource(R.drawable.ic_watch_device)
                     setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
                     contentDescription = "Smartwatch"
-                }, LinearLayout.LayoutParams(40.dp, 40.dp))
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = 12.dp; gravity = Gravity.CENTER_HORIZONTAL
+                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = 30.dp; gravity = Gravity.CENTER_HORIZONTAL
             })
-            content.addView(label(
-                "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern.",
-                11f,
-                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-            ).apply { setPadding(4.dp, 12.dp, 4.dp, 0) })
+            content.addView(label("Dies kann bis zu", 14f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
+                gravity = Gravity.CENTER; setPadding(4.dp, 34.dp, 4.dp, 0)
+            })
+            content.addView(label("30 Minuten dauern", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                gravity = Gravity.CENTER; setPadding(4.dp, 6.dp, 4.dp, 0)
+            })
         } else {
             content.addView(ImageView(this).apply {
-                setImageResource(R.drawable.ic_g7_sensor)
+                setImageResource(R.drawable.ic_sensor_outline)
+                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
                 contentDescription = "Sensor koppeln"
             }, LinearLayout.LayoutParams(56.dp, 56.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
             content.addView(label(
@@ -250,12 +276,36 @@ class G7WatchActivity : Activity() {
         val sensorId = state.sensor?.sensorId ?: return
         if (!hasUsableCollectorSession(state.lastReading, sensorId)) return
         val preferences = getSharedPreferences(PAIRING_UI_PREFERENCES, MODE_PRIVATE)
-        if (preferences.getString(KEY_PAIRING_SENSOR_ID, null) != sensorId) return
-        preferences.edit().remove(KEY_PAIRING_SENSOR_ID).apply()
-        android.app.AlertDialog.Builder(this)
-            .setTitle("✓ Sensor erfolgreich verbunden")
-            .setPositiveButton("SugarWear öffnen", null)
-            .show()
+        val now = System.currentTimeMillis()
+        if (preferences.getString(KEY_PAIRING_SENSOR_ID, null) == sensorId) {
+            preferences.edit()
+                .remove(KEY_PAIRING_SENSOR_ID)
+                .putLong(KEY_PAIRING_SUCCESS_DEADLINE, now + PAIRING_SUCCESS_DURATION_MS)
+                .apply()
+        }
+        val deadline = preferences.getLong(KEY_PAIRING_SUCCESS_DEADLINE, 0L)
+        if (deadline <= now || pairingSuccessDialog?.isShowing == true) return
+        val palette = appearanceStore.load()
+        pairingSuccessDialog = android.app.Dialog(this).apply {
+            setContentView(LinearLayout(this@G7WatchActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(28.dp, 30.dp, 28.dp, 30.dp)
+                setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+                addView(label("Sensor erfolgreich\nverbunden", 18f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                    gravity = Gravity.CENTER
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                addView(ImageView(this@G7WatchActivity).apply {
+                    setImageResource(R.drawable.ic_success_check)
+                    contentDescription = "Sensor erfolgreich verbunden"
+                }, LinearLayout.LayoutParams(72.dp, 72.dp).apply { topMargin = 28.dp; gravity = Gravity.CENTER_HORIZONTAL })
+            })
+            setCancelable(false)
+            window?.setBackgroundDrawableResource(android.R.color.transparent)
+            show()
+        }
+        mainHandler.removeCallbacks(pairingSuccessFinish)
+        mainHandler.postDelayed(pairingSuccessFinish, pairingSuccessRemainingMs(deadline, now))
     }
 
     private fun buildScreen(palette: G7AppearancePalette) {
@@ -430,8 +480,13 @@ class G7WatchActivity : Activity() {
         if (!screenBuilt) return
         val palette = activePalette ?: return
         preserveScrollPosition(preserveScroll) {
-            val hours = appearanceStore.graphHours()
-            graphPeriodPill.text = "${hours}h"
+            val hours = directSettings.graphHours()
+            val latestTimestamp = G7SensorStateStore(this).read().lastReading?.timestampEpochMs
+            val ageMinutes = latestTimestamp?.let { ((System.currentTimeMillis() - it).coerceAtLeast(0L) / 60_000L) }
+            graphPeriodPill.text = buildString {
+                append(hours).append('h')
+                if (ageMinutes != null) append(" • ").append(ageMinutes).append('m')
+            }
             graphView.bind(
                 readings = G7ReadingDatabase(this).query(limit = 300),
                 palette = palette,
@@ -447,10 +502,10 @@ class G7WatchActivity : Activity() {
     }
 
     private fun graphTile(readings: List<CgmReading>, palette: G7AppearancePalette): FrameLayout {
-        val hours = appearanceStore.graphHours()
+        val hours = directSettings.graphHours()
         return FrameLayout(this).apply {
             setOnClickListener {
-                appearanceStore.nextGraphHours()
+                advanceGraphScale(directSettings.graphHours())
                 updateGraphOnly()
             }
             graphView = G7CollectorGraphView(this@G7WatchActivity).apply {
@@ -462,22 +517,29 @@ class G7WatchActivity : Activity() {
             }
             addView(graphView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 150.dp))
 
-            graphPeriodPill = pill(
-                textValue = "${hours}h",
-                style = PillStyle.SECONDARY,
-                palette = palette,
-            ) {
-                appearanceStore.nextGraphHours()
-                updateGraphOnly()
+            graphPeriodPill = label("${hours}h", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+                gravity = Gravity.CENTER
+                minWidth = 72.dp
+                minHeight = 44.dp
+                setOnClickListener {
+                    advanceGraphScale(directSettings.graphHours())
+                    updateGraphOnly()
+                }
             }
             addView(
                 graphPeriodPill,
-                FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp, Gravity.TOP or Gravity.START).apply {
-                    topMargin = 8.dp
-                    marginStart = 8.dp
+                FrameLayout.LayoutParams(72.dp, 44.dp, Gravity.TOP or Gravity.START).apply {
+                    topMargin = 2.dp
+                    marginStart = 2.dp
                 },
             )
         }
+    }
+
+    private fun advanceGraphScale(current: Int) {
+        val options = listOf(1, 2, 3, 6, 12, 24)
+        val next = options[(options.indexOf(current).coerceAtLeast(0) + 1) % options.size]
+        directSettings.saveGraphHours(next)
     }
 
     private fun statusPill(status: G7UserStatus, palette: G7AppearancePalette): TextView {
@@ -560,6 +622,9 @@ class G7WatchActivity : Activity() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(pairingSuccessFinish)
+        pairingSuccessDialog?.dismiss()
+        pairingSuccessDialog = null
         unregisterReadingObserver()
         super.onDestroy()
     }
@@ -605,5 +670,7 @@ class G7WatchActivity : Activity() {
         const val PERMISSION_REQUEST = 7
         const val PAIRING_UI_PREFERENCES = "sugarwear_pairing_ui"
         const val KEY_PAIRING_SENSOR_ID = "pairing_sensor_id"
+        const val KEY_PAIRING_SUCCESS_DEADLINE = "pairing_success_deadline"
+        const val PAIRING_SUCCESS_DURATION_MS = 5_000L
     }
 }

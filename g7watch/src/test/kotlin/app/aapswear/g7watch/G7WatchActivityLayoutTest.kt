@@ -40,6 +40,15 @@ import org.robolectric.annotation.Config
 class G7WatchActivityLayoutTest {
 
     @Test
+    fun `pairing success deadline survives recreation without restarting five seconds`() {
+        val startedAt = 1_000_000L
+        val deadline = startedAt + 5_000L
+        assertEquals(5_000L, pairingSuccessRemainingMs(deadline, startedAt))
+        assertEquals(2_000L, pairingSuccessRemainingMs(deadline, startedAt + 3_000L))
+        assertEquals(0L, pairingSuccessRemainingMs(deadline, startedAt + 6_000L))
+    }
+
+    @Test
     fun `rejected authentication returns to actionable sensor move form`() {
         val now = 1_000_000L
         val rejected = G7PersistedState(
@@ -56,6 +65,7 @@ class G7WatchActivityLayoutTest {
     fun resetGraphPeriod() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7AppearanceStore(context).setGraphHours(3)
+        G7DirectToWatchSettingsStore(context).saveGraphHours(3)
         val seed = CgmReading(
             id = "layout-seed", source = DataSourceId.DEXCOM_G7_WATCH,
             sensorId = "layout-sensor", sessionId = "layout-session", glucoseMgDl = 120.0,
@@ -103,10 +113,13 @@ class G7WatchActivityLayoutTest {
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
         assertNull(findScrollView(root))
-        assertNotNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
+        assertNotNull(findText(root, "Suche Sensor"))
+        assertNotNull(findText(root, "Dies kann bis zu"))
+        assertNotNull(findText(root, "30 Minuten dauern"))
+        assertNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
         assertNotNull(findImageByDescription(root, "Sensor"))
         assertNotNull(findImageByDescription(root, "Smartwatch"))
-        assertNotNull(findLoader(root))
+        assertEquals(7, findConnectionDots(root)?.dotCountForTest)
         activity.finish()
     }
 
@@ -263,7 +276,7 @@ class G7WatchActivityLayoutTest {
         collectText(activity.findViewById(android.R.id.content), texts)
 
         assertFalse(texts.any { it.contains("3h Verlauf", ignoreCase = true) })
-        assertTrue("3h" in texts)
+        assertTrue(texts.any { it.startsWith("3h") })
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val titleIndex = texts.indexOf("SugarWear")
@@ -351,11 +364,11 @@ class G7WatchActivityLayoutTest {
         return null
     }
 
-    private fun findLoader(root: android.view.View): G7IndeterminateLoader? {
-        if (root is G7IndeterminateLoader) return root
+    private fun findConnectionDots(root: android.view.View): G7ConnectionDotsView? {
+        if (root is G7ConnectionDotsView) return root
         if (root is ViewGroup) {
             for (index in 0 until root.childCount) {
-                findLoader(root.getChildAt(index))?.let { return it }
+                findConnectionDots(root.getChildAt(index))?.let { return it }
             }
         }
         return null
@@ -436,13 +449,13 @@ class G7WatchActivityLayoutTest {
         measureAndLayout(activity.findViewById(android.R.id.content))
         scroll.scrollTo(0, 120)
 
-        findText(rootBefore, "3h")!!.performClick()
+        findTextStartingWith(rootBefore, "3h")!!.performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val rootAfter = activity.findViewById<android.view.View>(android.R.id.content).let { (it as ViewGroup).getChildAt(0) }
         assertSame(rootBefore, rootAfter)
         assertSame(graphBefore, findGraph(rootAfter))
-        assertNotNull(findText(rootAfter, "6h"))
+        assertNotNull(findTextStartingWith(rootAfter, "6h"))
         assertEquals(120, scroll.scrollY)
         activity.finish()
     }

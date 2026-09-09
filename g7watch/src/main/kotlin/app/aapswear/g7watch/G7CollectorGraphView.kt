@@ -28,7 +28,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
     private val directSettings by lazy { G7DirectToWatchSettingsStore(context) }
     private var readings: List<CgmReading> = emptyList()
-    private var nowEpochMs = 0L
+    private var nowOverrideEpochMs: Long? = null
 
     init {
         outlineProvider = object : ViewOutlineProvider() {
@@ -56,7 +56,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         readings: List<CgmReading>,
         palette: G7AppearancePalette,
         graphHours: Int,
-        nowEpochMs: Long = System.currentTimeMillis(),
+        nowEpochMs: Long? = null,
         targetLowMgDl: Double = 80.0,
         targetHighMgDl: Double = 160.0,
     ) {
@@ -67,14 +67,14 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         targetLowMgDl.hashCode()
         targetHighMgDl.hashCode()
         this.readings = normalizeLocalHistory(readings)
-        this.nowEpochMs = nowEpochMs
+        this.nowOverrideEpochMs = nowEpochMs
         invalidateOutline()
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val now = nowEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis()
+        val now = nowOverrideEpochMs ?: System.currentTimeMillis()
         val graphHours = directSettings.graphHours()
         val thresholds = directSettings.thresholds()
         val style = directSettings.graphStyle()

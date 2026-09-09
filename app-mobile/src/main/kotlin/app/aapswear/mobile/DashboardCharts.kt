@@ -756,7 +756,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
                 // Never collapse timestamp positions onto a radius-dependent edge. The rounded
                 // plot clip owns edge clipping; X remains a pure function of timestamp + viewport.
-                val x = if (current) dividerX else mappedX
+                // "Current" changes only the dot styling. Its position still belongs to the
+                // reading timestamp, so the gap to the clock grows naturally between readings.
+                val x = mappedX
                 fillPaint.color = dotColor(point.valueMgDl, thresholds)
                 canvas.drawCircle(x, y, dotRadius, fillPaint)
                 if (cgmDotOutlineEnabled) {

@@ -244,8 +244,9 @@ object SharedWearCgmGraphRenderer {
         val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
             val isCurrent = index == history.lastIndex
-            // Current is the live marker; historical points remain timestamp-derived.
-            val x = if (isCurrent) liveX else metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
+            // "Current" controls styling only. Every point, including the newest one, belongs to
+            // its real sensor event time; it must drift left as the wall-clock viewport advances.
+            val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
             val y = metrics.yFor(sample.valueMgDl)
             val outlineEnabled = input.style.dotOutlineEnabled &&
                 if (isCurrent) input.style.currentDotOutlineEnabled else input.style.historicalDotOutlineEnabled
