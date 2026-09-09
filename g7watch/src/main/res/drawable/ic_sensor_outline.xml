@@ -1,13 +1,21 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp" android:height="48dp"
-    android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M8,17 Q8,10 15,8 L33,8 Q40,10 40,17 L40,31 Q40,38 33,40 L15,40 Q8,38 8,31 Z" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2.5" android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M15,24 A9,9 0,1 0,33 24 A9,9 0,1 0,15 24" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="2.5" android:strokeLineCap="round"
-        android:pathData="M22,24 A2,2 0,1 0,26 24 A2,2 0,1 0,22 24" />
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="70"
+    android:viewportHeight="70">
+    <!-- Monochrome outline derived from ic_sensor_monochrome_outlined.svg. -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M30,3 C27,4 23,6 20,8 C17,10 13,13 11,17 C9,21 8,27 6,33 C5,38 6,44 9,49 C11,54 15,58 20,61 C24,64 29,66 32,67 C34,66 36,64 39,65 C42,66 44,68 47,66 C52,64 57,60 60,56 C63,52 65,47 67,42 C68,37 67,32 66,28 C65,24 64,19 61,15 C58,11 54,9 50,7 C46,5 42,3 39,4 C36,6 33,6 30,3 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M35,18.5 A3.7,3.7 0,1 1,35,25.9 A3.7,3.7 0,1 1,35,18.5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.5" />
 </vector>
