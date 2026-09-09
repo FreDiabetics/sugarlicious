@@ -51,7 +51,7 @@ internal object TrendComplicationIcon {
             )
         } ?: TrendArrowStyleOverride()
         val bitmap = renderScaled(context, trend, sizePx, scale, offsetX, offsetY, override.resolve(parent)) ?: return null
-        return MonochromaticImage.Builder(Icon.createWithBitmap(bitmap)).build()
+        return MonochromaticImage.Builder(Icon.createWithBitmap(normalizeComplicationCanvas(bitmap))).build()
     }
 
     /**
@@ -115,6 +115,15 @@ internal object TrendComplicationIcon {
         }
         return if (right < left || bottom < top) bitmap
         else Bitmap.createBitmap(bitmap, left, top, right - left + 1, bottom - top + 1)
+    }
+
+    /** Wear OS treats monochromatic complication icons as square masks. Supplying the intrinsic
+     * 125:60 double-arrow bitmap can clip one half on several slot renderers, so normalize only
+     * the provider payload while retaining both vector paths and the configured style. */
+    internal fun normalizeComplicationCanvas(bitmap: Bitmap): Bitmap {
+        if (bitmap.width == bitmap.height) return bitmap
+        val side = bitmap.height.coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, side, side, true)
     }
 
     fun render(

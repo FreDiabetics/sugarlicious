@@ -116,7 +116,7 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
             .with(instance.colorOverrides)
             .with(WidgetColorRole.BACKGROUND, if (instance.backgroundEnabled) instance.backgroundArgb else AndroidColor.TRANSPARENT)
         val thresholds = CgmThresholdPreferences.read(dashboardPreferences)
-        provideContent { WidgetShell(kind, state, activitySnapshot, palette, thresholds, instance) }
+        provideContent { WidgetShell(kind, state, activitySnapshot, palette, thresholds, instance, appearanceMode) }
     }
 }
 
@@ -181,6 +181,7 @@ private fun WidgetShell(
     palette: WidgetPalette,
     thresholds: app.aapswear.model.CgmThresholds,
     instance: WidgetInstanceConfiguration,
+    appearanceMode: AppearanceMode,
 ) {
     val size = LocalSize.current
     val layout = responsiveWidgetLayout(size.width.value, size.height.value)
@@ -214,9 +215,9 @@ private fun WidgetShell(
         verticalAlignment = Alignment.Vertical.CenterVertically,
     ) {
         when (kind) {
-            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout, renderInstance)
+            WidgetKind.GLUCOSE -> GlucoseWidgetContent(state, palette, thresholds, layout, renderInstance, appearanceMode)
             WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, renderInstance)
-            WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidgetContent(state, palette, thresholds, layout, renderInstance)
+            WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidgetContent(state, palette, thresholds, layout, renderInstance, appearanceMode)
             WidgetKind.METABOLIC,
             WidgetKind.ACTIVITY,
             -> {
@@ -264,12 +265,12 @@ private fun GlucoseWidgetContent(
     thresholds: app.aapswear.model.CgmThresholds,
     layout: ResponsiveWidgetLayout,
     instance: WidgetInstanceConfiguration,
+    appearanceMode: AppearanceMode,
 ) {
     val size = LocalSize.current
     val pixelDensity = LocalContext.current.resources.displayMetrics.density.coerceAtLeast(1f)
     val context = LocalContext.current
-    val mode = if ((context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
-    val trendStyle = instance.trendStyle(mode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode))
+    val trendStyle = instance.trendStyle(appearanceMode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), appearanceMode))
     val bitmap = renderMinimalGlucoseWidget(
         state = state,
         palette = palette,
@@ -734,12 +735,12 @@ private fun GlucoseGraphWidgetContent(
     thresholds: app.aapswear.model.CgmThresholds,
     layout: ResponsiveWidgetLayout,
     instance: WidgetInstanceConfiguration,
+    appearanceMode: AppearanceMode,
 ) {
     val size = LocalSize.current
     val context = LocalContext.current
     val density = context.resources.displayMetrics.density.coerceAtLeast(1f)
-    val mode = if ((context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
-    val trendStyle = instance.trendStyle(mode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode))
+    val trendStyle = instance.trendStyle(appearanceMode, MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), appearanceMode))
     val bitmap = renderGlucoseGraphWidget(
         state, palette,
         (size.width.value * density).roundToInt().coerceAtLeast(96),
