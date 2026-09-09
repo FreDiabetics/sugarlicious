@@ -187,6 +187,7 @@ internal data class WearDisplayPreferences(
                         tileBorder = preferences.getInt(prefix + UI_PREFIX + "tile_border", uiDefaults.tileBorder),
                         textPrimary = preferences.getInt(prefix + UI_PREFIX + "text_primary", uiDefaults.textPrimary),
                         textSecondary = preferences.getInt(prefix + UI_PREFIX + "text_secondary", uiDefaults.textSecondary),
+                        deltaUnit = preferences.getInt(prefix + UI_PREFIX + "delta_unit", uiDefaults.deltaUnit),
                         accent = preferences.getInt(prefix + UI_PREFIX + "accent", uiDefaults.accent),
                         glucoseLow = preferences.getInt(prefix + UI_PREFIX + "glucose_low", uiDefaults.glucoseLow),
                         glucoseInRange = preferences.getInt(prefix + UI_PREFIX + "glucose_in_range", uiDefaults.glucoseInRange),
@@ -354,6 +355,7 @@ internal data class WearDisplayPreferences(
             putInt(prefix + UI_PREFIX + "tile_border", ui.tileBorder)
             putInt(prefix + UI_PREFIX + "text_primary", ui.textPrimary)
             putInt(prefix + UI_PREFIX + "text_secondary", ui.textSecondary)
+            putInt(prefix + UI_PREFIX + "delta_unit", ui.deltaUnit)
             putInt(prefix + UI_PREFIX + "accent", ui.accent)
             putInt(prefix + UI_PREFIX + "glucose_low", ui.glucoseLow)
             putInt(prefix + UI_PREFIX + "glucose_in_range", ui.glucoseInRange)

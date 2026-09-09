@@ -38,6 +38,14 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
     fun glucoseBold(): Boolean = preferences.getBoolean(KEY_GLUCOSE_BOLD, true)
     fun saveGlucoseBold(value: Boolean) = update { putBoolean(KEY_GLUCOSE_BOLD, value) }
 
+    fun deltaUnitColor(mode: AppearanceMode): Int = preferences.getInt(
+        "$KEY_DELTA_UNIT_COLOR.${mode.storageKey}",
+        if (mode == AppearanceMode.LIGHT) 0xFF666666.toInt() else 0xFFA8A8BA.toInt(),
+    )
+    fun saveDeltaUnitColor(mode: AppearanceMode, value: Int) = update {
+        putInt("$KEY_DELTA_UNIT_COLOR.${mode.storageKey}", value)
+    }
+
     fun statusSizePercent(): Int = preferences.getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
     fun saveStatusSizePercent(value: Int) = update { putInt(KEY_STATUS_SIZE_PERCENT, value.coerceIn(75, 150)) }
     fun statusColor(): Int = preferences.getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
@@ -166,6 +174,7 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_HOURS = "graph.hours"
         private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
         private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
+        private const val KEY_DELTA_UNIT_COLOR = "watchface.delta_unit_color"
         private const val KEY_STATUS_SIZE_PERCENT = "watchface.status_size_percent"
         private const val KEY_STATUS_COLOR = "watchface.status_color"
         private const val KEY_STATUS_BOLD = "watchface.status_bold"

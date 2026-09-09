@@ -36,7 +36,7 @@ enum class G7AppearanceRole(
     GLUCOSE_HIGH("glucose_high", AppearanceTerminology.GLUCOSE_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFFD040.toInt()),
     GLUCOSE_VERY_HIGH("glucose_very_high", AppearanceTerminology.GLUCOSE_VERY_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
     GLUCOSE_TREND("glucose_trend", AppearanceTerminology.TREND_ARROW, G7AppearanceSection.GLUCOSE, 0xFFFFFFFF.toInt()),
-    GLUCOSE_DELTA("glucose_delta", "Delta / Alter", G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt()),
+    GLUCOSE_DELTA("glucose_delta", AppearanceTerminology.DELTA_UNIT, G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
     GLUCOSE_DELAYED("glucose_delayed", "DELAYED", G7AppearanceSection.GLUCOSE, 0xFFF4DE00.toInt()),
     GLUCOSE_STALE("glucose_stale", "STALE", G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
     GLUCOSE_NO_SOURCE("glucose_no_source", "NO_SOURCE", G7AppearanceSection.GLUCOSE, 0xFF969696.toInt()),

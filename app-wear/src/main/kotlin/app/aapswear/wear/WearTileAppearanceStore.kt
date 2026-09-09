@@ -55,6 +55,7 @@ internal object WearTileAppearanceStore {
             tileBorder = preferences.getInt(prefix + "tile_border", defaults.tileBorder),
             textPrimary = preferences.getInt(prefix + "text_primary", defaults.textPrimary),
             textSecondary = preferences.getInt(prefix + "text_secondary", defaults.textSecondary),
+            deltaUnit = preferences.getInt(prefix + "delta_unit", defaults.deltaUnit),
             accent = preferences.getInt(prefix + "accent", defaults.accent),
             glucoseLow = preferences.getInt(prefix + "glucose_low", defaults.glucoseLow),
             glucoseInRange = preferences.getInt(prefix + "glucose_in_range", defaults.glucoseInRange),
@@ -80,6 +81,7 @@ internal object WearTileAppearanceStore {
             .putInt(prefix + "tile_border", colors.tileBorder)
             .putInt(prefix + "text_primary", colors.textPrimary)
             .putInt(prefix + "text_secondary", colors.textSecondary)
+            .putInt(prefix + "delta_unit", colors.deltaUnit)
             .putInt(prefix + "accent", colors.accent)
             .putInt(prefix + "glucose_low", colors.glucoseLow)
             .putInt(prefix + "glucose_in_range", colors.glucoseInRange)

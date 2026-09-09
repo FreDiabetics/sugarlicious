@@ -40,6 +40,7 @@ enum class SugarliciousColorRole(
     BORDER("border", AppearanceTerminology.SURFACE_BORDER, SugarliciousColorGroup.APP, 0xFF404040.toInt(), 0xFFD0D0D0.toInt(), configurable = true),
     TEXT_PRIMARY("text_primary", AppearanceTerminology.PRIMARY_TEXT, SugarliciousColorGroup.APP, 0xFFF5F5F5.toInt(), 0xFF252525.toInt()),
     TEXT_SECONDARY("text_secondary", AppearanceTerminology.SECONDARY_TEXT, SugarliciousColorGroup.APP, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
+    DELTA_UNIT("delta_unit", AppearanceTerminology.DELTA_UNIT, SugarliciousColorGroup.GLUCOSE, 0xFFB5B5B5.toInt(), 0xFF666666.toInt(), true),
 
     GLUCOSE_LOW("glucose_low", AppearanceTerminology.GLUCOSE_LOW, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
     GLUCOSE_IN_RANGE("glucose_in_range", AppearanceTerminology.GLUCOSE_IN_RANGE, SugarliciousColorGroup.GLUCOSE, 0xFFF5F5F5.toInt(), 0xFF202020.toInt(), true),
@@ -362,6 +363,7 @@ object SugarliciousColors {
 
     val TextPrimary get() = color(SugarliciousColorRole.TEXT_PRIMARY)
     val TextSecondary get() = color(SugarliciousColorRole.TEXT_SECONDARY)
+    val DeltaUnit get() = color(SugarliciousColorRole.DELTA_UNIT)
 
     val GlucoseLow get() = color(SugarliciousColorRole.GLUCOSE_LOW)
     val GlucoseInRange get() = color(SugarliciousColorRole.GLUCOSE_IN_RANGE)

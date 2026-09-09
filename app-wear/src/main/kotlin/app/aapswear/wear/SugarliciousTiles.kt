@@ -238,7 +238,17 @@ private fun glucoseTileContent(
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
             .addContent(card)
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-            .addContent(tileText(presentation.meta.replace("  ·  mg/dL", "") + presentation.footer.substringAfterLast("vor ", "").let { if (it.isBlank()) "" else " · ${it.replace(" min", "m")}" }, 14f, colors.textPrimary, bold = true))
+            .addContent(
+                Row.Builder()
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                    .addContent(tileText(presentation.meta.replace("  ·  ", " "), 14f, colors.deltaUnit, bold = true))
+                    .apply {
+                        presentation.footer.substringAfterLast("vor ", "").takeIf(String::isNotBlank)?.let {
+                            addContent(tileText(" · ${it.replace(" min", "m")}", 14f, colors.textSecondary, bold = true))
+                        }
+                    }
+                    .build(),
+            )
             .addContent(Spacer.Builder().setHeight(dp(4f)).build())
             .build()
         return tileRoot(colors.background, column)

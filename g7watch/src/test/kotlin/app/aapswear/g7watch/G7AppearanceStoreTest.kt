@@ -56,6 +56,17 @@ class G7AppearanceStoreTest {
         assertEquals(0xFF112233.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.MENU_BACKGROUND))
     }
 
+    @Test fun `delta and unit color is independent between SugarWear light and dark`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7AppearanceStore(context)
+        store.save(AppearanceMode.LIGHT, G7AppearanceRole.GLUCOSE_DELTA, 0xAA102030.toInt())
+        store.save(AppearanceMode.DARK, G7AppearanceRole.GLUCOSE_DELTA, 0xCC405060.toInt())
+
+        assertEquals(0xAA102030.toInt(), store.load(AppearanceMode.LIGHT).argb(G7AppearanceRole.GLUCOSE_DELTA))
+        assertEquals(0xCC405060.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.GLUCOSE_DELTA))
+    }
+
     @Test fun `explicit dark mode survives activity and store recreation`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()

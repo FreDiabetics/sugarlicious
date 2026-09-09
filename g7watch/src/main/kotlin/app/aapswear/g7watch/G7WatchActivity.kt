@@ -446,7 +446,7 @@ class G7WatchActivity : Activity() {
         })
         tile.addView(label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
         if (presentation.secondaryMeta.isNotBlank()) {
-            tile.addView(label(presentation.secondaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+            tile.addView(label(presentation.secondaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true))
         }
         return tile
     }

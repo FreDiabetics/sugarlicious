@@ -123,6 +123,7 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
             colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
             colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
+            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
             colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
             section("THERAPIE")
             colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
@@ -357,6 +358,9 @@ class WearSettingsActivity : Activity() {
         }
         colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary) {
             updateTileColors(kind) { value -> value.copy(textSecondary = it) }
+        }
+        colorRow(AppearanceTerminology.DELTA_UNIT, colors.deltaUnit) {
+            updateTileColors(kind) { value -> value.copy(deltaUnit = it) }
         }
         colorRow(AppearanceTerminology.ACCENT, colors.accent) {
             updateTileColors(kind) { value -> value.copy(accent = it) }

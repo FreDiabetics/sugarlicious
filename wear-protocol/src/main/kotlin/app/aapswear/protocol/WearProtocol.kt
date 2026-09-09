@@ -131,6 +131,7 @@ data class WatchUiColors(
     val tileBorder: Int = 0xFF404040.toInt(),
     val textPrimary: Int = 0xFFF5F5F5.toInt(),
     val textSecondary: Int = 0xFFB5B5B5.toInt(),
+    val deltaUnit: Int = textSecondary,
     val accent: Int = 0xFF6DE892.toInt(),
     val glucoseLow: Int = 0xFFFF5C69.toInt(),
     val glucoseInRange: Int = 0xFFF5F5F5.toInt(),

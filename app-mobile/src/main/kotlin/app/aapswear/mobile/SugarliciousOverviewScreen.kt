@@ -36,6 +36,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -327,7 +330,13 @@ private fun GlucoseHeroCard(
                     Spacer(Modifier.height(3.dp))
 
                     Text(
-                        text = "Δ $delta · $age · $unitLabel",
+                        text = buildAnnotatedString {
+                            append("Δ ")
+                            withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) {
+                                append("$delta $unitLabel")
+                            }
+                            append(" · $age")
+                        },
                         color = SugarliciousColors.TextSecondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,

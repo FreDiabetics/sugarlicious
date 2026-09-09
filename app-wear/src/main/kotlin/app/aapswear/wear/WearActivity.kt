@@ -302,6 +302,7 @@ class WearActivity : Activity() {
                 style = preferences.trendArrowStyle,
             )
             delta.text = presentation.primaryMeta
+            delta.setTextColor(preferences.uiColors.deltaUnit)
             age.text = ""
             age.visibility = View.GONE
 

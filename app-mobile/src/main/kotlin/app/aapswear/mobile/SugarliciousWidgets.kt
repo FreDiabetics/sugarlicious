@@ -1003,8 +1003,7 @@ internal fun renderGlucoseGraphWidget(
         val delta = state?.glucose?.let { TherapyDisplayFormatter.signedDelta(it.deltaMgDl, it.displayUnit) }.orEmpty()
         val secondary = listOf(delta, unit).filter(String::isNotBlank).joinToString(" ")
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.argb(WidgetColorRole.TEXT)
-            alpha = 170
+            color = palette.argb(WidgetColorRole.DELTA_UNIT)
             textAlign = Paint.Align.LEFT
             textSize = (13f * pixelDensity).coerceAtMost(topHeight * 0.19f)
             typeface = widgetTextTypeface(configuration.deltaUnitBold)

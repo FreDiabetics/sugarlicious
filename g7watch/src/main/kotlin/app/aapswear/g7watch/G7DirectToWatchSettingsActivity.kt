@@ -17,6 +17,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.text.InputType
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseTrendSizing
@@ -62,6 +63,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(glucoseUnitRow(settings.glucoseUnit(), palette), params(5))
         root.addView(toggle("Zuckerwert fett", settings.glucoseBold(), palette) {
             settings.saveGlucoseBold(it)
+        }, params(5))
+        root.addView(colorRow(AppearanceTerminology.DELTA_UNIT, settings.deltaUnitColor(mode), palette) {
+            settings.saveDeltaUnitColor(mode, it)
         }, params(5))
         section(root, "WATCHFACE · SKALA UND ALTER", palette)
         root.addView(slider("Größe", 75, 150, settings.statusSizePercent(), palette, { "Größe · $it %" }) {

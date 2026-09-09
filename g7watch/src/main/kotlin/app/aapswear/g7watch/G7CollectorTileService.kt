@@ -277,7 +277,7 @@ class G7CollectorTileService : TileService() {
                         addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
                     }
                     if (presentation.age.isNotBlank()) {
-                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
+                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = true))
                     }
                 }
                 .build()

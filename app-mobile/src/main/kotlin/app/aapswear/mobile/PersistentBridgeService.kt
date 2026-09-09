@@ -19,6 +19,9 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
@@ -209,6 +212,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val palette = SugarliciousColorStore.load(uiPreferences)
         val textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY)
         val textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY)
+        val deltaUnitColor = palette.argb(SugarliciousColorRole.DELTA_UNIT)
 
         val layout = NotificationLayoutSettingsStore.read(uiPreferences, profile)
         val systemTrendScale = DashboardUiPreferences.read(uiPreferences).trendScalePercent
@@ -219,7 +223,13 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
             setTextViewText(R.id.notification_value, display.title)
-            setTextViewText(R.id.notification_meta, display.subtitle)
+            val styledSubtitle = SpannableString(display.subtitle).apply {
+                display.deltaUnitText?.let { segment ->
+                    val start = display.subtitle.indexOf(segment)
+                    if (start >= 0) setSpan(ForegroundColorSpan(deltaUnitColor), start, start + segment.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+            setTextViewText(R.id.notification_meta, styledSubtitle)
             setTextViewTextSize(R.id.notification_value, android.util.TypedValue.COMPLEX_UNIT_SP, valueBaseSp * layout.glucoseScalePercent / 100f)
             setTextViewTextSize(R.id.notification_meta, android.util.TypedValue.COMPLEX_UNIT_SP, metaBaseSp * layout.metaScalePercent / 100f)
             setFloat(R.id.notification_value, "setTranslationX", layout.glucoseXPercent / 100f * 40f * density)
@@ -264,7 +274,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
-            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null)
+            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null)
         }
 
         val selectedUnit = DashboardUiPreferences.read(uiPreferences).unitFor(state)
@@ -286,11 +296,14 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             Freshness.NO_DATA -> "Keine Quelle · "
         }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
-        val subtitle = "$prefix$delta · $age min alt"
+        val unit = if (selectedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+        val deltaUnit = "$delta $unit"
+        val subtitle = "$prefix$deltaUnit · $age min alt"
         return NotificationDisplay(
             value,
             subtitle,
             glucose.trend.takeIf { freshness == Freshness.CURRENT || freshness == Freshness.DELAYED },
+            deltaUnit,
         )
     }
 
@@ -312,6 +325,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val title: String,
         val subtitle: String,
         val trend: app.aapswear.model.Trend?,
+        val deltaUnitText: String?,
     )
 
     companion object {

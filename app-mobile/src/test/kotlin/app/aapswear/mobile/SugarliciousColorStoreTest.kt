@@ -95,6 +95,20 @@ class SugarliciousColorStoreTest {
     }
 
     @Test
+    fun `delta and unit color preserves alpha and stays isolated by appearance mode`() {
+        val preferences = context.getSharedPreferences("delta_unit_color_scope", Context.MODE_PRIVATE)
+        val light = Color.argb(122, 11, 22, 33)
+        val dark = Color.argb(211, 44, 55, 66)
+        preferences.edit().clear().commit()
+
+        SugarliciousColorStore.save(preferences, AppearanceMode.LIGHT, SugarliciousColorRole.DELTA_UNIT, light)
+        SugarliciousColorStore.save(preferences, AppearanceMode.DARK, SugarliciousColorRole.DELTA_UNIT, dark)
+
+        assertEquals(light, SugarliciousColorStore.load(preferences, AppearanceMode.LIGHT).argb(SugarliciousColorRole.DELTA_UNIT))
+        assertEquals(dark, SugarliciousColorStore.load(preferences, AppearanceMode.DARK).argb(SugarliciousColorRole.DELTA_UNIT))
+    }
+
+    @Test
     fun `light graph and in range dots remain independently configurable`() {
         val preferences = context.getSharedPreferences("light_graph_contrast", Context.MODE_PRIVATE)
         preferences.edit().clear()
