@@ -9,6 +9,7 @@ import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
@@ -31,6 +32,14 @@ abstract class PrepareDefaultWatchFaceTask
 
         @get:OutputFile
         abstract val outputApk: RegularFileProperty
+
+        @get:Optional
+        @get:OutputFile
+        abstract val selectableApk: RegularFileProperty
+
+        @get:Optional
+        @get:OutputFile
+        abstract val selectableToken: RegularFileProperty
 
         @get:OutputFile
         abstract val outputTokenResource: RegularFileProperty
@@ -76,6 +85,18 @@ abstract class PrepareDefaultWatchFaceTask
             asset.parentFile.mkdirs()
             watchFaceApk.get().asFile.copyTo(asset, overwrite = true)
 
+            if (selectableApk.isPresent) {
+                val selectableAsset = selectableApk.get().asFile
+                selectableAsset.parentFile.mkdirs()
+                watchFaceApk.get().asFile.copyTo(selectableAsset, overwrite = true)
+            }
+
+            if (selectableToken.isPresent) {
+                val selectableTokenAsset = selectableToken.get().asFile
+                selectableTokenAsset.parentFile.mkdirs()
+                selectableTokenAsset.writeText(token)
+            }
+
             val resource = outputTokenResource.get().asFile
             resource.parentFile.mkdirs()
             val resourceName = tokenResourceName.get()
@@ -113,6 +134,12 @@ val prepareDefaultWatchFace = tasks.register<PrepareDefaultWatchFaceTask>("prepa
         },
     )
     outputApk.set(generatedWatchFaceAssets.map { it.file("default_watchface.apk") })
+    selectableApk.set(
+        generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog.apk") },
+    )
+    selectableToken.set(
+        generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog_token.txt") },
+    )
     outputTokenResource.set(
         generatedWatchFaceResources.map {
             it.file("values/default_watchface_token.xml")

@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -84,6 +85,14 @@ class WatchFacePushControllerTest {
             assertEquals('P'.code, apk.read())
             assertEquals('K'.code, apk.read())
         }
+
+        val pickerApk = context.assets.open("default_watchface.apk").use { it.readBytes() }
+        val selectableApk = context.assets.open("watchfaces/sugarlicious_analog.apk").use { it.readBytes() }
+        assertArrayEquals(
+            "The picker and the selectable ApeX asset must be the same freshly built WFF",
+            pickerApk,
+            selectableApk,
+        )
     }
 
     @Test

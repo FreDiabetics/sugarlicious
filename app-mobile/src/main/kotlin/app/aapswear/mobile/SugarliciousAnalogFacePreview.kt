@@ -23,11 +23,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
-import app.aapswear.model.Freshness
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
-import app.aapswear.model.TrendVisuals
-import app.aapswear.uishared.TrendVectorPaths
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -61,9 +58,15 @@ internal object SugarliciousAnalogGeometry {
     const val centerSafetyRadius = 24f
     val handPivot = center
     val graph = fromWfsRect(51.8748f, 54.9999f, 346.2504f, 121.3336f)
+    val graphContent = within(graph, 61.1252f, 0.91f, 224f, 121.3336f)
     val middleLeft = fromWfsRect(73f, 171f, 108.3334f, 108.3334f)
     val middleRight = fromWfsRect(269f, 171f, 108.3334f, 108.3334f)
     val bottomCenter = fromWfsRect(158.9996f, 247f, 132.0008f, 130.9996f)
+    val middleLeftText = within(middleLeft, 7f, 56f, 98f, 28f)
+    val middleLeftTitle = within(middleLeft, 7f, 25f, 94f, 27.3077f)
+    val middleRightText = within(middleRight, 7f, 56f, 94f, 28f)
+    val middleRightTitle = within(middleRight, 7f, 25f, 94f, 26.5385f)
+    val bottomText = within(bottomCenter, 5.7392f, 45.7142f, 120.5224f, 39.8695f)
 
     const val outerCenter = 256f
     val outerTextDiameter = fromWfsValue(376f)
@@ -89,6 +92,14 @@ internal object SugarliciousAnalogGeometry {
             height = fromWfsValue(height),
         )
 
+    private fun within(parent: AnalogRectGeometry, x: Float, y: Float, width: Float, height: Float) =
+        AnalogRectGeometry(
+            x = parent.x + fromWfsValue(x),
+            y = parent.y + fromWfsValue(y),
+            width = fromWfsValue(width),
+            height = fromWfsValue(height),
+        )
+
     fun mirrorHorizontally(rect: AnalogRectGeometry): AnalogRectGeometry =
         rect.copy(x = CANVAS - rect.x - rect.width)
 
@@ -103,22 +114,13 @@ internal fun SugarliciousAnalogFacePreview(
     modifier: Modifier = Modifier,
 ) {
     val now = System.currentTimeMillis()
-    val freshness = TherapyDisplayFormatter.freshness(state, now)
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val glucoseState = state?.glucose
     val glucose = if (displayable && glucoseState != null) TherapyDisplayFormatter.glucose(glucoseState) else "—"
     val age = TherapyDisplayFormatter.ageMinutes(glucoseState?.measuredAtEpochMs, now)
-    val source = TherapyDisplayFormatter.sourceName(state?.source)
     val iob = state?.insulin?.totalIob?.let { TherapyDisplayFormatter.units(it, "U", 1) } ?: "1.2U"
     val cob = state?.carbs?.cobGrams?.let { TherapyDisplayFormatter.units(it, "g", 0) } ?: "15g"
     val basal = state?.basal?.displayText?.takeIf { it.isNotBlank() } ?: "0.8U/h"
-    val status = when (freshness) {
-        Freshness.CURRENT -> "$source · $age"
-        Freshness.DELAYED -> "VERZÖGERT · $age"
-        Freshness.STALE -> "VERALTET"
-        Freshness.ERROR -> "SENSORFEHLER"
-        Freshness.NO_DATA -> "KEINE DATEN"
-    }
     val accent = Color(0xFFEB600A)
 
     Box(
@@ -131,7 +133,7 @@ internal fun SugarliciousAnalogFacePreview(
             val originY = (size.height - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
             fun x(v: Float) = originX + v * scale
             fun y(v: Float) = originY + v * scale
-            val graph = SugarliciousAnalogGeometry.graph
+            val graph = SugarliciousAnalogGeometry.graphContent
 
             drawRect(
                 color = Color(0xFF111416),
@@ -242,10 +244,15 @@ internal fun SugarliciousAnalogFacePreview(
                 textAlign = Paint.Align.CENTER
                 typeface = android.graphics.Typeface.create("sans", android.graphics.Typeface.BOLD)
             }
-            fun text(value: String, px: Float, py: Float, textSize: Float, color: Int) {
+            fun textCenteredInRect(value: String, rect: AnalogRectGeometry, textSize: Float, color: Int) {
                 textPaint.textSize = textSize * scale
                 textPaint.color = color
-                drawIntoCanvas { it.nativeCanvas.drawText(value, x(px), y(py), textPaint) }
+                textPaint.textAlign = Paint.Align.CENTER
+                val metrics = textPaint.fontMetrics
+                val baseline = y(rect.y + rect.height / 2f) - (metrics.ascent + metrics.descent) / 2f
+                drawIntoCanvas {
+                    it.nativeCanvas.drawText(value, x(rect.x + rect.width / 2f), baseline, textPaint)
+                }
             }
             fun curvedOuterText(value: String, arc: AnalogArcGeometry, textSize: Float, color: Int) {
                 textPaint.textSize = textSize * scale
@@ -268,43 +275,25 @@ internal fun SugarliciousAnalogFacePreview(
                 }
                 textPaint.textAlign = Paint.Align.CENTER
             }
-            fun trendIcon(centerX: Float, centerY: Float, height: Float) {
-                val spec = glucoseState?.trend?.let(TrendVisuals::spec) ?: return
-                val assetScale = height * scale / spec.canvasHeight
-                val iconWidth = spec.canvasWidth * assetScale
-                val iconHeight = spec.canvasHeight * assetScale
-                val arrowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    color = 0xFFEB600A.toInt()
-                    style = Paint.Style.FILL
-                }
-                drawIntoCanvas { composeCanvas ->
-                    val native = composeCanvas.nativeCanvas
-                    native.save()
-                    native.translate(x(centerX) - iconWidth / 2f, y(centerY) - iconHeight / 2f)
-                    native.scale(assetScale, assetScale)
-                    TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
-                        native.drawPath(androidx.core.graphics.PathParser.createPathFromPathData(pathData), arrowPaint)
-                    }
-                    native.restore()
-                }
-            }
-
-            text("74%", 105f, 89f, 18f, 0xFFEB600A.toInt())
-            text("160U", 345f, 92f, 17f, 0xFFEB600A.toInt())
-            text(cob, 349f, 330f, 18f, 0xFFEB600A.toInt())
+            curvedOuterText("74%", SugarliciousAnalogGeometry.outerUpperLeft, 31f, 0xFFEB600A.toInt())
+            curvedOuterText("160U", SugarliciousAnalogGeometry.outerUpperRight, 31f, 0xFFEB600A.toInt())
+            curvedOuterText(cob, SugarliciousAnalogGeometry.outerLowerRight, 31f, 0xFFEB600A.toInt())
             curvedOuterText(
                 "$iob · $basal",
                 SugarliciousAnalogGeometry.outerLowerLeft,
-                14f,
+                30f,
                 0xFFEB600A.toInt(),
             )
-            text(iob, 127f, 218f, 18f, 0xFFEB600A.toInt())
-            text("IOB", 127f, 241f, 13f, Color.White.toArgb())
-            text(if (displayable) glucose else "—", 310f, 218f, 18f, 0xFFEB600A.toInt())
-            if (displayable) trendIcon(349f, 211f, 18f)
-            text(age, 323f, 242f, 13f, Color.White.toArgb())
-            text(if (displayable) glucose else "—", 225f, 310f, 34f, Color.White.toArgb())
-            text(status, 225f, 342f, 11f, 0xFFEB600A.toInt())
+            textCenteredInRect("$iob · $cob", SugarliciousAnalogGeometry.middleLeftText, 25f, Color.White.toArgb())
+            textCenteredInRect(basal, SugarliciousAnalogGeometry.middleLeftTitle, 27f, 0xFFADADAD.toInt())
+            textCenteredInRect(age, SugarliciousAnalogGeometry.middleRightText, 25f, Color.White.toArgb())
+            textCenteredInRect(if (displayable) glucose else "—", SugarliciousAnalogGeometry.middleRightTitle, 25f, 0xFFADADAD.toInt())
+            textCenteredInRect(
+                if (displayable) glucose else "—",
+                SugarliciousAnalogGeometry.bottomText,
+                40f,
+                0xFFFFB146.toInt(),
+            )
 
         }
 
