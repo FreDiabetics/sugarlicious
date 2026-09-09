@@ -34,6 +34,9 @@ class AapsStatusReceiver : BroadcastReceiver() {
         if (intent.action != AapsPayloadAdapter.ACTION) return
         val pending = goAsync()
         val app = context.applicationContext
+        // A valid AAPS delivery is also a recovery signal. Keep the state bridge alive even when
+        // the Activity was swiped away or Android recreated the process in the background.
+        PersistentBridgeService.start(app)
 
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
@@ -86,15 +89,13 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     ),
                 )
 
-                if (previous?.copy(receivedAtEpochMs = displayState.receivedAtEpochMs) == displayState) {
-                    app.diagnostics().edit {
-                        putLong("received", now)
-                        putString("lastSyncStatus", "unchanged")
-                    }
-                    return@launch
+                val stateChanged = previous?.copy(receivedAtEpochMs = displayState.receivedAtEpochMs) != displayState
+                if (stateChanged) {
+                    runCatching { HealthConnectIntegration.exportCgmReading(app, displayState) }
                 }
-
-                runCatching { HealthConnectIntegration.exportCgmReading(app, displayState) }
+                // Re-render even for an idempotent transport copy: the widget host or Wear side
+                // may have been recreated since the previous measurement and still need the
+                // durable canonical snapshot.
                 SugarliciousWidgets.update(app)
                 app.diagnostics().edit {
                     putLong("received", now)
@@ -103,7 +104,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     putString("sourceVersion", displayState.sourceVersion)
                     putString("sourcePackage", installation?.packageName)
                     putLong("sourceVersionCode", installation?.versionCode ?: 0L)
-                    putString("lastSyncStatus", "pending")
+                    putString("lastSyncStatus", if (stateChanged) "pending" else "unchanged_refresh")
                 }
 
                 runCatching {

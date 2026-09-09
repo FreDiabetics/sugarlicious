@@ -145,6 +145,10 @@ internal fun g7TileStatusPresentation(status: G7UserStatus, palette: G7Appearanc
 internal fun tileForegroundFor(backgroundArgb: Int): Int =
     if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
+/** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
+internal fun sugarWearTileWeight(emphasized: Boolean): Int =
+    if (emphasized) 500 else 400
+
 class G7CollectorTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -378,13 +382,13 @@ class G7CollectorTileService : TileService() {
                     .setSize(sp(size))
                     .setColor(argb(color))
                     .setPreferredFontFamilies("sans-serif")
-                    .apply { if (bold) setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD) }
+                    .setWeight(sugarWearTileWeight(bold))
                     .build(),
             )
             .build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-7-system-sans"
+        private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
         private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         fun requestUpdate(context: Context) {

@@ -13,12 +13,8 @@ import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ActiveComplicationRegistry
-import app.aapswear.complications.AllProviders
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.complications.G7LocalReadingResolver
-import app.aapswear.complications.DirectToWatchClockComplication
-import app.aapswear.complications.DirectToWatchAmbientClockComplication
-import app.aapswear.complications.DirectToWatchStatusComplication
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DiagnosticSeverity
@@ -62,7 +58,7 @@ class StateDataLayerService : WearableListenerService() {
     private val stateSyncMutex = Mutex()
     private val wallClockReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action in WALL_CLOCK_ACTIONS) requestVigilMinuteUpdates()
+            if (intent?.action in WALL_CLOCK_ACTIONS) requestTimeSensitiveComplicationUpdates()
         }
     }
 
@@ -74,7 +70,7 @@ class StateDataLayerService : WearableListenerService() {
             wallClockReceiver,
             IntentFilter().apply { WALL_CLOCK_ACTIONS.forEach(::addAction) },
         )
-        requestVigilMinuteUpdates()
+        requestTimeSensitiveComplicationUpdates()
         scope.launch {
             runCatching { WearStartupStateCoordinator.rehydrate(this@StateDataLayerService) }
                 .onSuccess { state ->
@@ -624,18 +620,11 @@ class StateDataLayerService : WearableListenerService() {
     }
 
     private fun requestAllComplicationUpdates() {
-        requestComplicationUpdates(AllProviders.classes)
+        requestComplicationUpdates(ComplicationUpdatePlanner.allManagedProviders)
     }
 
-    private fun requestVigilMinuteUpdates() {
-        requestComplicationUpdates(
-            listOf(
-                DirectToWatchClockComplication::class.java,
-                DirectToWatchAmbientClockComplication::class.java,
-                DirectToWatchStatusComplication::class.java,
-            ),
-        )
-    }
+    private fun requestTimeSensitiveComplicationUpdates() =
+        requestComplicationUpdates(ComplicationUpdatePlanner.timeSensitiveProviders)
 
     private fun requestComplicationUpdates(providers: List<Class<*>>) {
         providers.forEach { provider ->

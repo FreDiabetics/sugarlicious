@@ -42,6 +42,13 @@ import app.aapswear.model.GlucoseTrendSizing
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
+    @Test
+    fun `external surfaces refresh on the next aligned minute boundary`() {
+        assertEquals(60_000L, delayUntilNextExternalSurfaceMinute(120_000L))
+        assertEquals(45_000L, delayUntilNextExternalSurfaceMinute(135_000L))
+        assertEquals(1L, delayUntilNextExternalSurfaceMinute(179_999L))
+    }
+
 
     @Test
     fun `notification value block keeps metadata below the value and flat arrow`() {

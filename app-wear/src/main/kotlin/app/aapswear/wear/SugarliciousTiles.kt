@@ -47,7 +47,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
-private const val TILE_RESOURCES_VERSION = "sugarlicious-7-system-sans"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-8-shared-card-type"
+
+/** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
+internal fun sugarliciousTileWeight(emphasized: Boolean): Int =
+    if (emphasized) 500 else 400
 
 internal data class WearGlucoseTilePresentation(
     val value: String,
@@ -422,7 +426,7 @@ private fun tileText(value: String, size: Float, color: Int, bold: Boolean): Tex
                 .setSize(sp(size))
                 .setColor(argb(color))
                 .setPreferredFontFamilies("sans-serif")
-                .apply { if (bold) setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD) }
+                .setWeight(sugarliciousTileWeight(bold))
                 .build(),
         )
         .build()

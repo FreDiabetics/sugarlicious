@@ -44,10 +44,20 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+private const val EXTERNAL_SURFACE_MINUTE_MS = 60_000L
+
+internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
+    val remainder = Math.floorMod(nowEpochMs, EXTERNAL_SURFACE_MINUTE_MS)
+    return (EXTERNAL_SURFACE_MINUTE_MS - remainder).coerceAtLeast(1L)
+}
 
 class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceChangeListener {
     private lateinit var uiPreferences: SharedPreferences
@@ -55,6 +65,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var latestState: TherapyDisplayState? = null
     private var foregroundStarted = false
+    private var externalSurfaceClockJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -66,7 +77,22 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
                 latestState = it
-                if (foregroundStarted) notifyUpdated()
+                if (foregroundStarted) {
+                    notifyUpdated()
+                    runCatching { SugarliciousWidgets.update(applicationContext) }
+                }
+            }
+        }
+        externalSurfaceClockJob = scope.launch {
+            while (isActive) {
+                delay(delayUntilNextExternalSurfaceMinute(System.currentTimeMillis()))
+                if (foregroundStarted) {
+                    // Age/freshness and the live graph edge change without a new AAPS broadcast.
+                    // Refresh the external surfaces on the aligned minute boundary so widgets and
+                    // the notification do not freeze when the Activity is closed or signal is lost.
+                    notifyUpdated()
+                    runCatching { SugarliciousWidgets.update(applicationContext) }
+                }
             }
         }
     }
@@ -87,6 +113,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         diagnostics.unregisterOnSharedPreferenceChangeListener(this)
+        externalSurfaceClockJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }
