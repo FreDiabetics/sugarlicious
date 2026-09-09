@@ -126,8 +126,8 @@ class WidgetColorsTest {
     }
 
     @Test
-    fun `light colored icons alone receive the silhouette`() {
-        assertTrue(shouldOutlineSugarliciousIcon(isLight = true, colored = true))
+    fun `light mode never adds an automatic icon silhouette`() {
+        assertFalse(shouldOutlineSugarliciousIcon(isLight = true, colored = true))
         assertFalse(shouldOutlineSugarliciousIcon(isLight = false, colored = true))
         assertFalse(shouldOutlineSugarliciousIcon(isLight = true, colored = false))
     }

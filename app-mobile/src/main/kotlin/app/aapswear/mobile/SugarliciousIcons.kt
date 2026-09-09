@@ -21,9 +21,9 @@ import androidx.compose.ui.unit.dp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 
 internal fun shouldOutlineSugarliciousIcon(isLight: Boolean, colored: Boolean): Boolean =
-    isLight && colored
+    false
 
-/** Shared colored-icon renderer. Light mode adds a subtle black silhouette; Dark stays untouched. */
+/** Shared colored-icon renderer. Outlines are never inferred from the active color mode. */
 @Composable
 internal fun SugarliciousIcon(
     @DrawableRes drawableRes: Int,
