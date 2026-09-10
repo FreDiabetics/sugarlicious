@@ -149,6 +149,7 @@ enum class CollectorCycleClassification {
     DIRECT_CONNECT_FAILED,
     FALLBACK_SCAN_FAILED,
     HUNG,
+    PROCESS_INTERRUPTED,
     COALESCED,
     MISSED_SENSOR_WINDOW,
     GATT_NO_CALLBACK,
@@ -268,6 +269,7 @@ data class CollectorCycleTiming(
 data class CollectorExpectedWindow(
     val expectedWindowId: String,
     val expectedAt: Long,
+    val windowCreatedAt: Long? = null,
     val primaryAlarmScheduledAt: Long? = null,
     val primaryAlarmTriggeredAt: Long? = null,
     val cycleStartedAt: Long? = null,
@@ -293,6 +295,7 @@ data class CollectorExpectedWindow(
     val serviceStartedAt: Long? = null,
     val wakeLockAcquiredAt: Long? = null,
     val processId: Int? = null,
+    val processInstanceId: String? = null,
     val processUptimeMs: Long? = null,
     val bootId: String? = null,
     val attemptId: Long? = null,
@@ -301,6 +304,14 @@ data class CollectorExpectedWindow(
     val terminalState: CollectorWindowTerminalState? = null,
     val terminalReason: String? = null,
     val completedAt: Long? = null,
+    val gapDetectedAt: Long? = null,
+    val nextLiveMeasuredAt: Long? = null,
+    val nextLiveReceivedAt: Long? = null,
+    val liveCommittedAt: Long? = null,
+    val backfillRequestedAt: Long? = null,
+    val backfillResponseAt: Long? = null,
+    val backfillInsertedAt: Long? = null,
+    val recoveredMeasuredAt: Long? = null,
 )
 
 @Serializable
@@ -352,6 +363,7 @@ data class CollectorDiagnosticEvent(
 data class CollectorDiagnosticAttempt(
     val attemptId: Long,
     val startedAtEpochMs: Long,
+    val processInstanceId: String? = null,
     val lastProgressAtEpochMs: Long = startedAtEpochMs,
     val currentStage: CollectorDiagnosticStage = CollectorDiagnosticStage.IDLE,
     val deadlineEpochMs: Long? = null,

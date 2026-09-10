@@ -370,6 +370,7 @@ class G7CollectorService : Service() {
                 else -> G7_RECONNECT_SCAN_TIMEOUT_MS
             }
             var liveCommittedBeforeBackfill = false
+            var backfillRequestedAt: Long? = null
             val result = collector.collect(
                 initialSensor = collectionSensor,
                 credentials = storedCredentials,
@@ -410,7 +411,10 @@ class G7CollectorService : Service() {
                 },
                 scanTimeoutMsOverride = boundedScanTimeout,
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
-                onTelemetry = { telemetry -> recordBleTelemetry(attemptId, telemetry) },
+                onTelemetry = { telemetry ->
+                    if (telemetry is G7BackfillRequestTelemetry) backfillRequestedAt = telemetry.timestampEpochMs
+                    recordBleTelemetry(attemptId, telemetry)
+                },
                 attemptId = attemptId,
                 lastStoredSensorClock = lastStoredSensorClock,
                 onLiveReading = { live ->
@@ -569,6 +573,16 @@ class G7CollectorService : Service() {
                 )
             }
             val storedAt = System.currentTimeMillis()
+            G7ExpectedWindowLedger(this).markNextLiveAndBackfill(
+                sensorId = reading.sensorId,
+                sessionId = reading.sessionId,
+                liveMeasuredAt = reading.timestampEpochMs,
+                liveReceivedAt = reading.receivedAtEpochMs,
+                committedAt = storedAt,
+                requestedAt = backfillRequestedAt,
+                responseAt = if (backfillRequestedAt != null) now else null,
+                inserted = result.backfillReadings.map { it.sensorTimestampEpochMs },
+            )
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
             attemptStore.updateCycle(attemptId) { it.copy(storeCompletedAt = storedAt) }
             attemptStore.record(

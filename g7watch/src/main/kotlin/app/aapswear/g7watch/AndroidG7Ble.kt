@@ -41,6 +41,9 @@ internal const val G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS = 30 * 60_000L
 internal const val G7_RECONNECT_SCAN_TIMEOUT_MS = 60_000L
 internal const val G7_GATT_133_ERROR_CODE = "G7-GATT-133"
 internal const val G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE = "G7-GATT-215"
+internal const val G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-216"
+internal const val G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-217"
+internal const val G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-218"
 internal const val G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS = 20_000L
 internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
@@ -145,7 +148,12 @@ internal fun shouldRetryNoCallbackDirectly(
     retriesUsed: Int,
     fallbackUsed: Boolean,
 ): Boolean =
-    errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE &&
+    errorCode in setOf(
+        G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
+        G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE,
+        G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE,
+        G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE,
+    ) &&
         retriesUsed < 1 &&
         !fallbackUsed
 
@@ -655,7 +663,11 @@ private class G7GattConnection(
         onState(G7ProtocolState.DISCOVERING_SERVICES)
         val current = requireNotNull(gatt)
         if (!current.discoverServices()) throw G7BleException("G7-GATT-202", "Dienstsuche konnte nicht gestartet werden", true)
-        val discoveryStatus = withTimeout(OPERATION_TIMEOUT_MS) { serviceEvents.receive() }
+        val discoveryStatus = try {
+            withTimeout(OPERATION_TIMEOUT_MS) { serviceEvents.receive() }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Dienstsuche ohne Callback", true, timeout)
+        }
         if (discoveryStatus != BluetoothGatt.GATT_SUCCESS) {
             throw G7BleException("G7-GATT-203", "G7-Dienste konnten nicht gelesen werden ($discoveryStatus)", true)
         }
@@ -862,7 +874,11 @@ private class G7GattConnection(
         if (gatt.writeDescriptor(descriptor, value) != BluetoothStatusCodes.SUCCESS) {
             throw G7BleException("G7-GATT-210", "G7-Benachrichtigung konnte nicht konfiguriert werden", true)
         }
-        val (uuid, status) = withTimeout(OPERATION_TIMEOUT_MS) { descriptorEvents.receive() }
+        val (uuid, status) = try {
+            withTimeout(OPERATION_TIMEOUT_MS) { descriptorEvents.receive() }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Descriptor ohne Callback", true, timeout)
+        }
         if (uuid != characteristic.uuid || status != BluetoothGatt.GATT_SUCCESS) {
             throw G7BleException("G7-GATT-211", "G7-Benachrichtigung wurde abgelehnt ($status)", true)
         }
@@ -880,18 +896,22 @@ private class G7GattConnection(
             throw G7BleException("G7-GATT-212", "G7-Daten konnten nicht gesendet werden", true)
         }
         if (!awaitCallback) return
-        withTimeout(OPERATION_TIMEOUT_MS) {
-            while (true) {
-                val (uuid, status) = writeEvents.receive()
-                when (classifyG7WriteCallback(characteristic.uuid, uuid, status)) {
-                    G7WriteCallbackDisposition.EXPECTED_SUCCESS -> return@withTimeout
-                    G7WriteCallbackDisposition.EXPECTED_FAILURE ->
-                        throw G7BleException("G7-GATT-213", "G7-Daten wurden abgelehnt ($status)", true)
-                    G7WriteCallbackDisposition.STALE_SUCCESS -> Unit
-                    G7WriteCallbackDisposition.STALE_FAILURE ->
-                        throw G7BleException("G7-GATT-214", "Vorheriger G7-Datentransfer ist fehlgeschlagen ($status)", true)
+        try {
+            withTimeout(OPERATION_TIMEOUT_MS) {
+                while (true) {
+                    val (uuid, status) = writeEvents.receive()
+                    when (classifyG7WriteCallback(characteristic.uuid, uuid, status)) {
+                        G7WriteCallbackDisposition.EXPECTED_SUCCESS -> return@withTimeout
+                        G7WriteCallbackDisposition.EXPECTED_FAILURE ->
+                            throw G7BleException("G7-GATT-213", "G7-Daten wurden abgelehnt ($status)", true)
+                        G7WriteCallbackDisposition.STALE_SUCCESS -> Unit
+                        G7WriteCallbackDisposition.STALE_FAILURE ->
+                            throw G7BleException("G7-GATT-214", "Vorheriger G7-Datentransfer ist fehlgeschlagen ($status)", true)
+                    }
                 }
             }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Schreibvorgang ohne Callback", true, timeout)
         }
     }
 

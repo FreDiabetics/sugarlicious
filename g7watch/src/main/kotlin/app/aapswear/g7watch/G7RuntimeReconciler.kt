@@ -269,8 +269,33 @@ internal object G7RuntimeReconciler {
         if (assessment.cleanupRequired) {
             (cancelLiveCycle ?: G7CollectorRuntimeRegistry::cancelLiveCycle).invoke()
             AndroidG7Scanner.forceCleanup()
-            diagnosticStore.expireStaleAttempts(nowEpochMs, 0L)
+            G7ExpectedWindowLedger(app).markProcessInterrupted(
+                activeAttempt?.cycle?.expectedWindowId,
+                nowEpochMs,
+            )
+            diagnosticStore.expireStaleAttempts(nowEpochMs, 0L, interruptedByProcessRestart = !effectiveLiveCycle)
         }
+        val sensor = state.sensor
+        val reconstructedWindows = if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
+            val ledger = G7ExpectedWindowLedger(app)
+            val latestExpected = ledger.snapshot()
+                .asSequence()
+                .filter { it.sensorId == sensor.sensorId && it.sessionId == (sensor.sessionId ?: sensor.sensorId) }
+                .maxOfOrNull { it.expectedAt }
+            val firstMissing = latestExpected?.plus(G7_SLOT_INTERVAL_MS)
+                ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)
+            if (firstMissing != null && firstMissing < nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS) {
+                ledger.reconstructMissed(
+                    sensorId = sensor.sensorId,
+                    sessionId = sensor.sessionId ?: sensor.sensorId,
+                    fromExpectedAt = firstMissing,
+                    untilExclusive = nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS,
+                    sensorStartAt = sensor.sensorStartEpochMs,
+                    sensorEndAt = sensor.sensorEndEpochMs,
+                    nowEpochMs = nowEpochMs,
+                )
+            } else 0
+        } else 0
         val cleaned = stateStore.read().copy(
             connectionState = G7ConnectionState.DISCONNECTED,
             protocolState = G7ProtocolState.RECOVERING,
@@ -307,6 +332,19 @@ internal object G7RuntimeReconciler {
             else -> if (restored == G7RuntimeHealth.HEALTHY_ARMED) "RECOVERY_INVARIANT_RESTORED" else "RECOVERY_ALARM_REARM_FAILED"
         }
         recordRuntimeEvent(app, event, entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
+        if (reconstructedWindows > 0) {
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                app.recordG7Diagnostic(
+                    code = "MISSED_WINDOWS_RECONSTRUCTED",
+                    message = "MISSED_WINDOWS_RECONSTRUCTED · $reconstructedWindows lifecycle gaps",
+                    severity = DiagnosticSeverity.WARNING,
+                    metadata = mapOf(
+                        "processInstanceId" to G7ProcessInstance.id,
+                        "reconstructedWindowCount" to reconstructedWindows,
+                    ),
+                )
+            }
+        }
         if (recoveryAt != null) {
             recordRuntimeEvent(app, "RECOVERY_ALARM_ARMED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
             recordRuntimeEvent(app, "RECOVERY_INVARIANT_RESTORED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
@@ -332,6 +370,16 @@ internal object G7RuntimeReconciler {
                     DiagnosticSeverity.INFO
                 },
                 metadata = mapOf(
+                    "processInstanceId" to G7ProcessInstance.id,
+                    "pid" to android.os.Process.myPid(),
+                    "processStartedAtEpochMs" to G7ProcessInstance.startedAtEpochMs,
+                    "processUptimeMs" to android.os.SystemClock.elapsedRealtime(),
+                    "appVersion" to runCatching {
+                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                    }.getOrNull(),
+                    "collectorEnabled" to G7SensorStateStore(context).read().collectorEnabled,
+                    "sensorId" to G7SensorStateStore(context).read().sensor?.sensorId,
+                    "sessionId" to G7SensorStateStore(context).read().sensor?.sessionId,
                     "runtimeHealth" to assessment.health.name,
                     "attemptAgeMs" to assessment.attemptAgeMs,
                     "lastProgressAgeMs" to assessment.lastProgressAgeMs,

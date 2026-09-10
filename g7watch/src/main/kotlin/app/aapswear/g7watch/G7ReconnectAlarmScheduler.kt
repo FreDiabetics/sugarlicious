@@ -132,7 +132,10 @@ internal object G7ReconnectAlarmScheduler {
         val power = app.getSystemService(PowerManager::class.java)
         val cycle =
             CollectorCycleTiming(
-                expectedWindowId = expectedWindowId(expectedReadingEpochMs),
+                expectedWindowId = expectedWindowId(
+                    state = G7SensorStateStore(app).read(),
+                    expectedAt = expectedReadingEpochMs,
+                ),
                 expectedReadingEpoch = expectedReadingEpochMs,
                 requestedReconnectEpoch = triggerAt,
                 alarmKind = if (exactScheduled) CollectorAlarmKind.EXACT else CollectorAlarmKind.INEXACT,
@@ -190,6 +193,9 @@ internal object G7ReconnectAlarmScheduler {
             state.sensor?.deviceAddress,
         )
 }
+
+private fun expectedWindowId(state: G7PersistedState, expectedAt: Long): String =
+    expectedWindowId(state.sensor?.sensorId, state.sensor?.sessionId ?: state.sensor?.sensorId, expectedAt)
 
 // Hardware baseline 2026-08-24: a nominal 5 s alarm lead produced the actual GATT request only
 // ~3 s before the slot, while connection p50/p95 completed ~2.7/5.0 s after it. Ten seconds keeps
