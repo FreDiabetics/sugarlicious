@@ -41,16 +41,11 @@ import org.robolectric.annotation.Config
 class G7WatchActivityLayoutTest {
 
     @Test
-    fun `pairing ui key ignores per-second clock movement until presentation changes`() {
-        val deadline = 100_000L
-        val state = G7PersistedState(
-            sensor = G7Sensor("pairing"),
-            collectorEnabled = true,
-            pairingDeadlineEpochMs = deadline,
-        )
-
-        assertEquals(g7PairingUiKey(state, 10_000L), g7PairingUiKey(state, 11_000L))
-        assertNotEquals(g7PairingUiKey(state, 10_000L), g7PairingUiKey(state, deadline))
+    fun `collector updates cannot advance an unstarted pairing flow`() {
+        val backgroundPairing = G7PersistedState(sensor = G7Sensor("old"), collectorEnabled = true)
+        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, backgroundPairing))
+        assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, backgroundPairing))
+        assertEquals(G7PairingScreenStep.CONNECTING, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, backgroundPairing))
     }
     @Test
     fun `direct graph scale cycles through every duration and wraps`() {
@@ -65,12 +60,11 @@ class G7WatchActivityLayoutTest {
 
 
     @Test
-    fun `pairing success deadline survives recreation without restarting five seconds`() {
+    fun `pairing success delay is three seconds`() {
         val startedAt = 1_000_000L
-        val deadline = startedAt + 5_000L
-        assertEquals(5_000L, pairingSuccessRemainingMs(deadline, startedAt))
-        assertEquals(2_000L, pairingSuccessRemainingMs(deadline, startedAt + 3_000L))
-        assertEquals(0L, pairingSuccessRemainingMs(deadline, startedAt + 6_000L))
+        val deadline = startedAt + 3_000L
+        assertEquals(3_000L, pairingSuccessRemainingMs(deadline, startedAt))
+        assertEquals(0L, pairingSuccessRemainingMs(deadline, startedAt + 3_000L))
     }
 
     @Test
@@ -127,7 +121,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `active pairing uses a round safe scroll fallback without clipping`() {
+    fun `pairing starts on explicit no sensor page and code page does not scroll`() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(
             sensor = G7Sensor("pairing"),
@@ -137,15 +131,37 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        assertNotNull(findScrollView(root))
-        assertNotNull(findText(root, "Suche Sensor"))
-        assertNotNull(findText(root, "Dies kann bis zu"))
-        assertNotNull(findText(root, "30 Minuten dauern"))
-        assertNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
-        assertNotNull(findImageByDescription(root, "Sensor"))
-        assertNotNull(findImageByDescription(root, "Smartwatch"))
-        assertEquals(7, findConnectionDots(root)?.dotCountForTest)
+        assertNull(findScrollView(root))
+        assertNotNull(findText(root, "Kein Sensor verbunden"))
+        assertNotNull(findText(root, "Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch."))
+        findText(root, "Sensor verbinden")!!.performClick()
+        assertNotNull(findText(activity.findViewById(android.R.id.content), "Vierstelligen Sensorcode eingeben"))
+        assertNotNull(findText(activity.findViewById(android.R.id.content), "Verbinden"))
         activity.finish()
+    }
+
+    @Test
+    fun `only connecting can consume pairing success`() {
+        val reading = CgmReading(
+            id = "success", source = DataSourceId.DEXCOM_G7_WATCH, sensorId = "sensor", sessionId = "session",
+            glucoseMgDl = 120.0, timestampEpochMs = 1_000L, receivedAtEpochMs = 1_000L,
+            status = CgmReadingStatus.VALID,
+        )
+        val connected = G7PersistedState(sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, connected))
+        assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, connected))
+        assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, connected))
+        assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTED, connected))
+    }
+
+    @Test
+    fun `connect action is debounced and completion is scheduled once`() {
+        assertTrue(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, false, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, true, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.CONNECTING, false, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, false, "123"))
+        assertTrue(shouldScheduleG7PairingCompletion(G7PairingScreenStep.CONNECTED, false))
+        assertFalse(shouldScheduleG7PairingCompletion(G7PairingScreenStep.CONNECTED, true))
     }
 
     @Test

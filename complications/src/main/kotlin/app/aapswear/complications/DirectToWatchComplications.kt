@@ -59,9 +59,15 @@ internal data class DirectToWatchHeaderPresentation(
     val trend: Trend? = null,
     val sensorError: Boolean = false,
     val trendUnavailable: Boolean = false,
+    val sensorDisconnected: Boolean = false,
 )
 
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
+
+internal fun vigilSensorStatusPillText(state: TherapyDisplayState?): String? =
+    "Sensor nicht mit Uhr verbunden".takeIf {
+        G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE")
+    }
 
 internal object DirectToWatchPresentationFormatter {
     fun header(
@@ -71,7 +77,12 @@ internal object DirectToWatchPresentationFormatter {
     ): DirectToWatchHeaderPresentation {
         when (G7LocalReadingResolver.directSensorState(state)) {
             "ERROR" -> return DirectToWatchHeaderPresentation("-", "Sensorfehler", sensorError = true)
-            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation("-", "Kein aktiver Sensor\nBitte Sensor koppeln")
+            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation(
+                glucose = "-",
+                secondary = "-",
+                trendUnavailable = true,
+                sensorDisconnected = true,
+            )
         }
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
@@ -114,6 +125,9 @@ internal object DirectToWatchPresentationFormatter {
     }
 
     fun graphStatus(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): DirectToWatchGraphStatusPresentation {
+        if (G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE")) {
+            return DirectToWatchGraphStatusPresentation("${graphHours}h")
+        }
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
             return DirectToWatchGraphStatusPresentation("")
         }
@@ -480,7 +494,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
-        if (presentation.glucose == "-") {
+        if (presentation.glucose == "-" && !presentation.sensorDisconnected) {
             val showsPairingButton = presentation.secondary.startsWith("Bitte Sensor")
             val messagePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (presentation.sensorError) 0xFFFF4D5E.toInt() else if (ambient) 0xFF909090.toInt() else Color.WHITE
@@ -620,10 +634,8 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val height = 250
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        if (
-            G7LocalReadingResolver.directSensorState(state) in setOf("ERROR", "ENDED", "NOT_ACTIVE") ||
-            DirectToWatchPresentationFormatter.activeSessionWithoutData(state)
-        ) return bitmap
+        val sensorStatusPill = vigilSensorStatusPillText(state)
+        if (G7LocalReadingResolver.directSensorState(state) == "ERROR") return bitmap
         val density = resources.displayMetrics.density
         val graphStyle = DirectToWatchPreferences.graphStyle(this)
         val radius = graphStyle.cornerRadiusDp * density
@@ -631,6 +643,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
         val graphAnchor = state?.glucose?.measuredAtEpochMs ?: nowEpochMs
+        canvas.save()
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
             widthPx = width,
@@ -647,7 +660,32 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 emptyLabel = "",
             ),
         )
+        canvas.restore()
+        sensorStatusPill?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
         return bitmap
+    }
+
+    private fun drawSensorDisconnectedPill(canvas: Canvas, colors: WatchGraphColors, label: String) {
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(230, Color.red(colors.graphBackground), Color.green(colors.graphBackground), Color.blue(colors.graphBackground))
+            style = Paint.Style.FILL
+        }
+        val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(210, Color.red(colors.divider), Color.green(colors.divider), Color.blue(colors.divider))
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+        }
+        val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(255, Color.red(colors.axisLabel), Color.green(colors.axisLabel), Color.blue(colors.axisLabel))
+            textSize = 17f
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER
+        }
+        val bounds = RectF(54f, 10f, 396f, 48f)
+        canvas.drawRoundRect(bounds, 19f, 19f, fill)
+        canvas.drawRoundRect(bounds, 19f, 19f, stroke)
+        val baseline = bounds.centerY() - (text.ascent() + text.descent()) / 2f
+        canvas.drawText(label, bounds.centerX(), baseline, text)
     }
 
     private fun WatchGraphColors.toSharedPalette() = SharedWearCgmGraphPalette(

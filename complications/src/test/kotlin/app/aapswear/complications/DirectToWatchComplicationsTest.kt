@@ -122,7 +122,7 @@ class DirectToWatchComplicationsTest {
 
         val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val bitmap = service.renderGraph(state, now, 3)
-        assertTrue((0 until bitmap.height).all { y -> (0 until bitmap.width).all { x -> Color.alpha(bitmap.getPixel(x, y)) == 0 } })
+        assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
     }
 
     @Test fun `vigil distinguishes sensor error from an ended sensor in active and ambient data`() {
@@ -135,17 +135,23 @@ class DirectToWatchComplicationsTest {
         )
 
         assertEquals("Sensorfehler", DirectToWatchPresentationFormatter.header(error, now).secondary)
-        assertEquals("Kein aktiver Sensor\nBitte Sensor koppeln", DirectToWatchPresentationFormatter.header(ended, now).secondary)
+        val presentation = DirectToWatchPresentationFormatter.header(ended, now)
+        assertEquals("-", presentation.glucose)
+        assertEquals("-", presentation.secondary)
+        assertTrue(presentation.sensorDisconnected)
+        assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(ended, now, 3).text)
     }
 
-    @Test fun `vigil graph is hidden for terminal sensor states`() {
+    @Test fun `vigil keeps graph visible and adds status pill for disconnected sensor`() {
         val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val ended = directState(now - 60_000L).copy(
             sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ENDED",
         )
         val bitmap = service.renderGraph(ended, now, 3)
 
-        assertTrue((0 until bitmap.height).all { y -> (0 until bitmap.width).all { x -> Color.alpha(bitmap.getPixel(x, y)) == 0 } })
+        assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
+        assertEquals("Sensor nicht mit Uhr verbunden", vigilSensorStatusPillText(ended))
+        assertEquals(null, vigilSensorStatusPillText(directState(now - 60_000L)))
     }
 
     @Test fun `invalid delta is not invented`() {
