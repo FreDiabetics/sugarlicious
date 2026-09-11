@@ -38,6 +38,8 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
 import com.google.common.util.concurrent.Futures
@@ -149,6 +151,42 @@ internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long)
         },
         displayable = displayable,
     )
+}
+
+internal data class WearTileGraphPoint(val sample: GlucoseSample, val xDp: Float)
+
+internal fun wearTileGraphPoints(
+    state: TherapyDisplayState?,
+    now: Long,
+    graphHours: Int,
+    plotWidthDp: Float,
+): List<WearTileGraphPoint> {
+    val window = GraphTimeWindow.live(now, graphHours * 60L * 60_000L)
+    val samples = buildList {
+        addAll(state?.glucoseHistory.orEmpty())
+        state?.glucose?.let { glucose ->
+            add(
+                GlucoseSample(
+                    valueMgDl = glucose.valueMgDl,
+                    measuredAtEpochMs = glucose.measuredAtEpochMs,
+                    source = glucose.source,
+                    sensorId = glucose.sensorId,
+                    sessionId = glucose.sessionId,
+                    sequenceNumber = glucose.sequenceNumber,
+                    receivedAtEpochMs = glucose.receivedAtEpochMs,
+                    quality = glucose.quality,
+                ),
+            )
+        }
+    }
+    return samples
+        .asSequence()
+        .filter { it.quality == app.aapswear.model.CgmQuality.VALID }
+        .filter { it.measuredAtEpochMs in window.startEpochMs..window.endEpochMs }
+        .distinctBy { listOf(it.sensorId, it.sessionId, it.sequenceNumber, it.measuredAtEpochMs, it.source) }
+        .sortedBy(GlucoseSample::measuredAtEpochMs)
+        .map { WearTileGraphPoint(it, window.plotX(it.measuredAtEpochMs, 0f, plotWidthDp)) }
+        .toList()
 }
 
 abstract class SugarliciousTileService : TileService() {
@@ -330,15 +368,18 @@ private fun graphTileContent(
     now: Long,
     preferences: WearDisplayPreferences,
 ): LayoutElementBuilders.LayoutElement {
-    val cutoff = now - preferences.graphHours * 60L * 60_000L
-    val samples = state?.glucoseHistory.orEmpty().filter { it.measuredAtEpochMs in cutoff..now }.sortedBy { it.measuredAtEpochMs }.takeLast(18)
+    val plotWidthDp = 148f
+    val points = wearTileGraphPoints(state, now, preferences.graphHours, plotWidthDp).takeLast(36)
     val dots = Row.Builder().setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER).apply {
-        samples.forEach { sample ->
-            val color = when (preferences.cgmThresholds.classify(sample.valueMgDl)) {
+        var cursorDp = 0f
+        points.forEach { point ->
+            val color = when (preferences.cgmThresholds.classify(point.sample.valueMgDl)) {
                 CgmRangeClass.VERY_LOW, CgmRangeClass.LOW -> colors.glucoseLow
                 CgmRangeClass.HIGH, CgmRangeClass.VERY_HIGH -> colors.glucoseHigh
                 else -> colors.glucoseInRange
             }
+            val gapDp = (point.xDp - cursorDp).coerceAtLeast(0f)
+            if (gapDp > 0f) addContent(Spacer.Builder().setWidth(dp(gapDp)).build())
             addContent(
                 Box.Builder().setWidth(dp(7f)).setHeight(dp(7f)).setModifiers(
                     Modifiers.Builder().setBackground(
@@ -346,13 +387,13 @@ private fun graphTileContent(
                     ).build(),
                 ).build(),
             )
-            addContent(Spacer.Builder().setWidth(dp(2f)).build())
+            cursorDp = point.xDp + 7f
         }
-    }.build()
+    }.setWidth(dp(plotWidthDp + 7f)).build()
     val column = Column.Builder().setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
         .addContent(tileText("CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
         .addContent(Spacer.Builder().setHeight(dp(18f)).build())
-        .apply { if (samples.isNotEmpty()) addContent(dots) }
+        .apply { if (points.isNotEmpty()) addContent(dots) }
         .build()
     return tileRoot(colors.background, roundedTileCard(colors, 18f, column))
 }

@@ -32,6 +32,39 @@ import org.robolectric.Robolectric
 
 @RunWith(RobolectricTestRunner::class)
 class DirectToWatchComplicationsTest {
+    @Test fun `vigil live edge follows wall clock while measured timestamps keep every dot aligned`() {
+        val readingAt = now
+        val durationHours = 3
+        val atArrival = directToWatchGraphWindow(readingAt, durationHours)
+        val afterOneMinute = directToWatchGraphWindow(readingAt + 60_000L, durationHours)
+        val afterFourMinutes = directToWatchGraphWindow(readingAt + 4 * 60_000L, durationHours)
+        val afterFiveMinutes = directToWatchGraphWindow(readingAt + 5 * 60_000L, durationHours)
+
+        assertEquals(1f, atArrival.xFraction(readingAt), 0.0001f)
+        assertTrue(afterOneMinute.xFraction(readingAt) < atArrival.xFraction(readingAt))
+        assertTrue(afterFourMinutes.xFraction(readingAt) < afterOneMinute.xFraction(readingAt))
+        assertEquals(1f, afterFiveMinutes.xFraction(readingAt + 5 * 60_000L), 0.0001f)
+        assertEquals(
+            atArrival.xFraction(readingAt - 5 * 60_000L),
+            afterFiveMinutes.xFraction(readingAt),
+            0.0001f,
+        )
+    }
+
+    @Test fun `vigil positions backfill only by measured time even when received now`() {
+        val measuredAt = now - 45 * 60_000L
+        val backfill = GlucoseSample(
+            valueMgDl = 120.0,
+            measuredAtEpochMs = measuredAt,
+            receivedAtEpochMs = now,
+            source = DataSourceId.DEXCOM_G7_WATCH,
+        )
+        val window = directToWatchGraphWindow(now, 3)
+
+        assertEquals(window.xFraction(measuredAt), window.xFraction(backfill.measuredAtEpochMs), 0.0001f)
+        assertTrue(window.xFraction(backfill.measuredAtEpochMs) < window.xFraction(now))
+    }
+
     @Test fun `phone configured no source state remains AndroidAPS rather than Other`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val fallback = TherapyDisplayState(

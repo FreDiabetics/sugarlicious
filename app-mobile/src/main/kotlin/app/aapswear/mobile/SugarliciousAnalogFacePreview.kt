@@ -23,6 +23,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import kotlin.math.cos
@@ -145,14 +148,40 @@ internal fun SugarliciousAnalogFacePreview(
                 topLeft = androidx.compose.ui.geometry.Offset(x(graph.x), y(graph.y + 33f)),
                 size = androidx.compose.ui.geometry.Size(graph.width * scale, 38f * scale),
             )
-            val history = state?.glucoseHistory.orEmpty().takeLast(24)
-            val samples = if (history.size >= 2) history.map { it.valueMgDl } else listOf(105.0, 112.0, 118.0, 114.0, 121.0, 128.0, 124.0, 132.0, 123.0)
+            val graphWindow = GraphTimeWindow.live(now, 2L * 60L * 60_000L)
+            val history = buildList {
+                addAll(state?.glucoseHistory.orEmpty())
+                state?.glucose?.let { current ->
+                    add(
+                        GlucoseSample(
+                            valueMgDl = current.valueMgDl,
+                            measuredAtEpochMs = current.measuredAtEpochMs,
+                            source = current.source,
+                            sensorId = current.sensorId,
+                            sessionId = current.sessionId,
+                            sequenceNumber = current.sequenceNumber,
+                            receivedAtEpochMs = current.receivedAtEpochMs,
+                            quality = current.quality,
+                        ),
+                    )
+                }
+            }.filter { it.quality == CgmQuality.VALID && it.measuredAtEpochMs in graphWindow.startEpochMs..graphWindow.endEpochMs }
+                .distinctBy { listOf(it.sensorId, it.sessionId, it.sequenceNumber, it.measuredAtEpochMs, it.source) }
+                .sortedBy(GlucoseSample::measuredAtEpochMs)
+            val samples = if (history.size >= 2) {
+                history
+            } else {
+                listOf(105.0, 112.0, 118.0, 114.0, 121.0, 128.0, 124.0, 132.0, 123.0)
+                    .mapIndexed { index, value ->
+                        GlucoseSample(valueMgDl = value, measuredAtEpochMs = now - (8 - index) * 5L * 60_000L)
+                    }
+            }
             val min = 60.0
             val max = 220.0
-            samples.forEachIndexed { index, value ->
-                val fraction = if (samples.size <= 1) 0f else index.toFloat() / (samples.size - 1).toFloat()
+            samples.forEach { sample ->
+                val fraction = graphWindow.xFraction(sample.measuredAtEpochMs).coerceIn(0f, 1f)
                 val px = x(graph.x + 12f + fraction * (graph.width - 26f))
-                val normalized = ((value - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
+                val normalized = ((sample.valueMgDl - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
                 val py = y(graph.y + graph.height - 12f - normalized * (graph.height - 24f))
                 drawCircle(Color.White, 2.7f * scale, androidx.compose.ui.geometry.Offset(px, py))
             }

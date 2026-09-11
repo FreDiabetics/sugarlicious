@@ -69,6 +69,9 @@ internal fun vigilSensorStatusPillText(state: TherapyDisplayState?): String? =
         G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE")
     }
 
+internal fun directToWatchGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
+    GraphTimeWindow.live(nowEpochMs, graphHours * DirectToWatchPresentationFormatter.HOUR_MS)
+
 internal object DirectToWatchPresentationFormatter {
     fun header(
         state: TherapyDisplayState?,
@@ -642,7 +645,6 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
-        val graphAnchor = state?.glucose?.measuredAtEpochMs ?: nowEpochMs
         canvas.save()
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
@@ -652,7 +654,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             scaledDensity = resources.displayMetrics.scaledDensity,
             input = SharedWearCgmGraphInput(
                 history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours),
-                timeWindow = GraphTimeWindow.live(graphAnchor, hours * DirectToWatchPresentationFormatter.HOUR_MS),
+                timeWindow = directToWatchGraphWindow(nowEpochMs, hours),
                 nowEpochMs = nowEpochMs,
                 thresholds = thresholds,
                 palette = colors.toSharedPalette(),

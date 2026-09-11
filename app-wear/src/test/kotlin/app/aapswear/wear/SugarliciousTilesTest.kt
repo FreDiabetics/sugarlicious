@@ -4,6 +4,7 @@ import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseState
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TargetState
@@ -66,6 +67,23 @@ class SugarliciousTilesTest {
         assertEquals("1.2 U", presentation.iob)
         assertEquals("18 g", presentation.cob)
         assertEquals("0.70", presentation.basal)
+    }
+
+    @Test
+    fun `graph tile positions every dot by measured time and advances with the minute clock`() {
+        val measuredAt = now - 5 * 60_000L
+        val oldReceivedNow = GlucoseSample(110.0, measuredAt, receivedAtEpochMs = now)
+        val source = state(123.0, now).copy(glucoseHistory = listOf(oldReceivedNow))
+
+        val initial = wearTileGraphPoints(source, now, 3, 180f)
+        val oneMinuteLater = wearTileGraphPoints(source, now + 60_000L, 3, 180f)
+        val oldInitial = initial.single { it.sample.measuredAtEpochMs == measuredAt }
+        val oldLater = oneMinuteLater.single { it.sample.measuredAtEpochMs == measuredAt }
+        val currentInitial = initial.single { it.sample.measuredAtEpochMs == now }
+
+        assertEquals(180f, currentInitial.xDp, 0.001f)
+        assertTrue(oldLater.xDp < oldInitial.xDp)
+        assertTrue(oldInitial.xDp < currentInitial.xDp)
     }
 
     private fun state(value: Double, measuredAt: Long) = TherapyDisplayState(
