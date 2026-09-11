@@ -517,7 +517,10 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             val textBlockHeight = (lines.size - 1) * lineStep
             val availableCenterY = if (showsPairingButton) 37f else height / 2f
             val firstBaseline = availableCenterY - textBlockHeight / 2f - (messagePaint.ascent() + messagePaint.descent()) / 2f
-            lines.forEachIndexed { index, line -> canvas.drawText(line, width / 2f, firstBaseline + index * lineStep, messagePaint) }
+            // The WFF header slot starts at x=90 in the 450px face. Its visual face center is
+            // therefore local x=135, not the 340px bitmap's geometric center at x=170.
+            val watchFaceCenterX = 135f
+            lines.forEachIndexed { index, line -> canvas.drawText(line, watchFaceCenterX, firstBaseline + index * lineStep, messagePaint) }
             if (showsPairingButton) {
                 val button = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = if (ambient) 0xFF555555.toInt() else 0xFF30303A.toInt()
