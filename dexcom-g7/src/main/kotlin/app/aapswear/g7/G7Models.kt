@@ -312,6 +312,9 @@ data class CollectorExpectedWindow(
     val backfillResponseAt: Long? = null,
     val backfillInsertedAt: Long? = null,
     val recoveredMeasuredAt: Long? = null,
+    val recoveryAttemptCount: Int = 0,
+    val lastRecoveryAttemptAt: Long? = null,
+    val lastRecoveryOutcome: String? = null,
 )
 
 @Serializable

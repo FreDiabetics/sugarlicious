@@ -338,6 +338,27 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `persisted gap anchor overrides a newer unrelated database gap`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun reading(id: String, minutes: Long, clock: Long) = CgmReading(
+            id = id, source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 120.0,
+            timestampEpochMs = now + minutes * 60_000L,
+            receivedAtEpochMs = now + minutes * 60_000L,
+            status = CgmReadingStatus.VALID, rawSourceTimestamp = clock,
+        )
+        database.insert(reading("before", 0, 10_000L))
+        database.insert(reading("after", 10, 10_600L))
+        database.insert(reading("latest", 20, 11_200L))
+
+        assertEquals(
+            10_000L,
+            database.getBackfillAnchorSensorClockForGap("sensor-a", "session-a", now + 5 * 60_000L),
+        )
+        assertNull(database.getBackfillAnchorSensorClockForGap("sensor-b", "session-b", now + 5 * 60_000L))
+    }
+
+    @Test
     fun `late first live value retries initial sensor history`() = runBlocking {
         val now = System.currentTimeMillis()
         database.insert(

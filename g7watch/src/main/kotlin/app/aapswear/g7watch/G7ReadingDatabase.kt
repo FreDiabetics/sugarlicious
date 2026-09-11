@@ -271,6 +271,26 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             ),
         )
 
+    fun getBackfillAnchorSensorClockForGap(sensorId: String, sessionId: String, expectedAt: Long): Long? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=? AND measured_at<? AND sensor_clock IS NOT NULL",
+            args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId, (expectedAt + IDENTITY_TOLERANCE_MS).toString()),
+            limit = 1,
+        ).firstOrNull()?.rawSourceTimestamp
+
+    fun validReadingNear(sensorId: String, sessionId: String, expectedAt: Long): Long? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=? AND measured_at BETWEEN ? AND ?",
+            args = arrayOf(
+                CgmReadingStatus.VALID.name,
+                sensorId,
+                sessionId,
+                (expectedAt - IDENTITY_TOLERANCE_MS).toString(),
+                (expectedAt + IDENTITY_TOLERANCE_MS).toString(),
+            ),
+            limit = 1,
+        ).firstOrNull()?.timestampEpochMs
+
     /**
      * Returns the closest validated predecessor for one sensor/session stream. Delta/trend must
      * never be derived from a future or out-of-order row that happened to be newest globally.

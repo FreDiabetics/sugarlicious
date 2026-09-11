@@ -61,8 +61,18 @@ internal class G7ExpectedWindowLedger(context: Context) {
     fun markReading(id: String?, at: Long) = update(id) {
         it.copy(readingReceivedAt = at, finalResult = CollectorCycleClassification.SUCCESS_FRESH, recoveryRequired = false, terminalState = CollectorWindowTerminalState.SUCCESS_FRESH, terminalReason = "validated live reading stored", completedAt = at)
     }
-    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean, reason: String? = null) = update(id) {
-        it.copy(finalResult = result, recoveryRequired = recoveryRequired, terminalState = result.toTerminalState(), terminalReason = reason ?: result.name, completedAt = System.currentTimeMillis())
+    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean, reason: String? = null) {
+        val at = System.currentTimeMillis()
+        update(id) {
+            it.copy(
+                finalResult = result,
+                recoveryRequired = recoveryRequired,
+                gapDetectedAt = if (recoveryRequired) it.gapDetectedAt ?: at else it.gapDetectedAt,
+                terminalState = result.toTerminalState(),
+                terminalReason = reason ?: result.name,
+                completedAt = at,
+            )
+        }
     }
     fun markWatchdogScheduled(id: String?, at: Long) = update(id) { it.copy(watchdogScheduledAt = at) }
     fun markWatchdogTriggered(id: String?, at: Long) = update(id) { it.copy(watchdogTriggeredAt = at) }
@@ -86,6 +96,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
             val recoveredAt = recovered.minByOrNull { kotlin.math.abs(it - window.expectedAt) }
                 ?.takeIf { kotlin.math.abs(it - window.expectedAt) <= G7_READING_IDENTITY_TOLERANCE_MS }
             window.copy(
+                gapDetectedAt = window.gapDetectedAt ?: committedAt,
                 nextLiveMeasuredAt = window.nextLiveMeasuredAt ?: liveMeasuredAt,
                 nextLiveReceivedAt = window.nextLiveReceivedAt ?: liveReceivedAt,
                 liveCommittedAt = window.liveCommittedAt ?: committedAt,
@@ -95,9 +106,48 @@ internal class G7ExpectedWindowLedger(context: Context) {
                 recoveredMeasuredAt = recoveredAt ?: window.recoveredMeasuredAt,
                 terminalState = if (recoveredAt != null) CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY else window.terminalState,
                 recoveryRequired = if (recoveredAt != null) false else window.recoveryRequired,
+                recoveryAttemptCount = window.recoveryAttemptCount,
+                lastRecoveryAttemptAt = requestedAt ?: window.lastRecoveryAttemptAt,
+                lastRecoveryOutcome = when {
+                    recoveredAt != null -> "RECOVERED"
+                    requestedAt != null && responseAt != null -> "RESPONSE_WITHOUT_GAP"
+                    requestedAt != null -> "REQUEST_FAILED"
+                    else -> window.lastRecoveryOutcome
+                },
             )
         }
         saveAll(updated)
+    }
+
+    fun markRecoveryRequestStarted(
+        sensorId: String,
+        sessionId: String,
+        liveMeasuredAt: Long,
+        requestedAt: Long,
+    ) = synchronized(lock) {
+        saveAll(load().map { window ->
+            if (
+                window.sensorId != sensorId || window.sessionId != sessionId ||
+                window.recoveryRequired.not() || window.expectedAt >= liveMeasuredAt
+            ) window else window.copy(
+                gapDetectedAt = window.gapDetectedAt ?: requestedAt,
+                backfillRequestedAt = window.backfillRequestedAt ?: requestedAt,
+                recoveryAttemptCount = window.recoveryAttemptCount + 1,
+                lastRecoveryAttemptAt = requestedAt,
+                lastRecoveryOutcome = "REQUEST_STARTED",
+            )
+        })
+    }
+
+    fun markSatisfiedByExistingReading(id: String, measuredAt: Long, at: Long) = update(id) {
+        it.copy(
+            recoveryRequired = false,
+            recoveredMeasuredAt = measuredAt,
+            backfillInsertedAt = it.backfillInsertedAt ?: at,
+            terminalState = CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY,
+            terminalReason = "validated reading already present",
+            lastRecoveryOutcome = "ALREADY_PRESENT",
+        )
     }
 
     fun markProcessInterrupted(id: String?, at: Long) = update(id) {
@@ -152,6 +202,19 @@ internal class G7ExpectedWindowLedger(context: Context) {
     }
 
     fun snapshot(): List<CollectorExpectedWindow> = synchronized(lock) { load().sortedBy { it.expectedAt } }
+
+    fun oldestOpenGap(sensorId: String?, sessionId: String?): CollectorExpectedWindow? = synchronized(lock) {
+        val now = System.currentTimeMillis()
+        val values = load()
+        val repaired = values.map { window ->
+            if (window.recoveryRequired && window.gapDetectedAt == null) window.copy(gapDetectedAt = now) else window
+        }
+        if (repaired != values) saveAll(repaired)
+        repaired.asSequence()
+            .filter { it.sensorId == sensorId && it.sessionId == sessionId && it.recoveryRequired }
+            .filter { it.terminalState != CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY }
+            .minByOrNull { it.expectedAt }
+    }
     fun metrics(): CollectorHardwareMetrics = calculateG7HardwareMetrics(snapshot())
 
     private fun update(id: String?, transform: (CollectorExpectedWindow) -> CollectorExpectedWindow) = synchronized(lock) {

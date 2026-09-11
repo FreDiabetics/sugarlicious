@@ -347,15 +347,38 @@ class G7CollectorService : Service() {
 
         try {
             val collector = AndroidG7Collector(this)
+            val sessionId = collectionSensor.sessionId ?: collectionSensor.sensorId
+            val ledger = G7ExpectedWindowLedger(this)
+            var recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
             val lastStoredSensorClock = G7ReadingDatabase(this).let { database ->
                 try {
-                    database.getBackfillAnchorSensorClock(
-                        collectionSensor.sensorId,
-                        collectionSensor.sessionId ?: collectionSensor.sensorId,
-                    )
+                    while (recoveryGap != null) {
+                        val gap = recoveryGap
+                        val presentAt = database.validReadingNear(collectionSensor.sensorId, sessionId, gap.expectedAt)
+                            ?: break
+                        ledger.markSatisfiedByExistingReading(gap.expectedWindowId, presentAt, System.currentTimeMillis())
+                        recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
+                    }
+                    recoveryGap?.let {
+                        database.getBackfillAnchorSensorClockForGap(collectionSensor.sensorId, sessionId, it.expectedAt)
+                    } ?: database.getBackfillAnchorSensorClock(collectionSensor.sensorId, sessionId)
                 } finally {
                     database.close()
                 }
+            }
+            if (recoveryGap != null) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-BACKFILL-GAP-SELECTED",
+                    "Oldest persisted recoverable gap selected for the next successful LIVE cycle",
+                    metadata = mapOf(
+                        "expectedWindowId" to recoveryGap.expectedWindowId,
+                        "gapExpectedAt" to recoveryGap.expectedAt,
+                        "sensorId" to collectionSensor.sensorId,
+                        "sessionId" to sessionId,
+                        "recoveryAttemptCount" to recoveryGap.recoveryAttemptCount,
+                        "anchorSensorClock" to lastStoredSensorClock,
+                    ),
+                )
             }
             val pairingRemainingMs = store.read()
                 .takeIf { it.lastReading == null }
@@ -371,6 +394,7 @@ class G7CollectorService : Service() {
             }
             var liveCommittedBeforeBackfill = false
             var backfillRequestedAt: Long? = null
+            var liveMeasuredAtForRecovery: Long? = null
             val result = collector.collect(
                 initialSensor = collectionSensor,
                 credentials = storedCredentials,
@@ -412,12 +436,23 @@ class G7CollectorService : Service() {
                 scanTimeoutMsOverride = boundedScanTimeout,
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
                 onTelemetry = { telemetry ->
-                    if (telemetry is G7BackfillRequestTelemetry) backfillRequestedAt = telemetry.timestampEpochMs
+                    if (telemetry is G7BackfillRequestTelemetry) {
+                        backfillRequestedAt = telemetry.timestampEpochMs
+                        liveMeasuredAtForRecovery?.let { liveMeasuredAt ->
+                            G7ExpectedWindowLedger(this).markRecoveryRequestStarted(
+                                sensorId = collectionSensor.sensorId,
+                                sessionId = sessionId,
+                                liveMeasuredAt = liveMeasuredAt,
+                                requestedAt = telemetry.timestampEpochMs,
+                            )
+                        }
+                    }
                     recordBleTelemetry(attemptId, telemetry)
                 },
                 attemptId = attemptId,
                 lastStoredSensorClock = lastStoredSensorClock,
                 onLiveReading = { live ->
+                    liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
                     val provisional = G7ReadingDatabase(this).let { database ->
                         try {
                             val previous = database.getLatestValidBefore(
