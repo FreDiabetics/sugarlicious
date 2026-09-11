@@ -391,7 +391,7 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
     private fun android.database.Cursor.longOrNull(name: String): Long? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getLong(it) }
     private fun android.database.Cursor.intOrNull(name: String): Int? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getInt(it) }
 
-    private companion object {
+    companion object {
         const val ACTION_G7_READING_UPDATED = "app.aapswear.g7watch.READING_UPDATED"
         const val SUGARLICIOUS_PACKAGE = "app.aapswear"
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"

@@ -121,7 +121,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `pairing starts on explicit no sensor page and code page does not scroll`() {
+    fun `pairing starts explicitly and every page has scroll fallback without field chrome`() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(
             sensor = G7Sensor("pairing"),
@@ -131,12 +131,18 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        assertNull(findScrollView(root))
+        assertNotNull(findScrollView(root))
         assertNotNull(findText(root, "Kein Sensor verbunden"))
         assertNotNull(findText(root, "Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch."))
         findText(root, "Sensor verbinden")!!.performClick()
-        assertNotNull(findText(activity.findViewById(android.R.id.content), "Vierstelligen Sensorcode eingeben"))
-        assertNotNull(findText(activity.findViewById(android.R.id.content), "Verbinden"))
+        val codeRoot = activity.findViewById<android.view.View>(android.R.id.content)
+        assertNotNull(findScrollView(codeRoot))
+        assertNotNull(findText(codeRoot, "Sensorcode eingeben"))
+        assertNull(findText(codeRoot, "Vierstelligen Sensorcode eingeben"))
+        assertNotNull(findText(codeRoot, "Verbinden"))
+        val editor = findEditor(codeRoot)
+        assertNotNull(editor)
+        assertNull(editor?.background)
         activity.finish()
     }
 
@@ -527,6 +533,12 @@ class G7WatchActivityLayoutTest {
     private fun findText(view: android.view.View, value: String): TextView? {
         if (view is TextView && view.text?.toString() == value) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) findText(view.getChildAt(index), value)?.let { return it }
+        return null
+    }
+
+    private fun findEditor(view: android.view.View): android.widget.EditText? {
+        if (view is android.widget.EditText) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) findEditor(view.getChildAt(index))?.let { return it }
         return null
     }
 

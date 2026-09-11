@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
@@ -54,6 +55,11 @@ internal fun unlinkG7Sensor(context: Context): G7UnlinkResult {
     G7CredentialStore(app).clearAll()
     stateStore.save(G7PersistedState())
     G7CgmAlarmCoordinator.clearSuppressed(app)
+    // State changed but the retained reading rows did not. Explicitly invalidate both provider
+    // views so Vigil switches to its detached status without requiring a new glucose insert.
+    app.contentResolver.notifyChange(G7ReadingProvider.STATE_URI, null)
+    app.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
+    app.sendBroadcast(Intent(G7ReadingDatabase.ACTION_G7_READING_UPDATED).setPackage("app.aapswear"))
     return G7UnlinkResult(
         bondRemovalAttempted = bondResult != null,
         bondRemovalRequested = bondResult == true,

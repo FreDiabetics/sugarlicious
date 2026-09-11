@@ -187,6 +187,15 @@ class DirectToWatchComplicationsTest {
         assertEquals(null, vigilSensorStatusPillText(directState(now - 60_000L)))
     }
 
+    @Test fun `vigil keeps history visible and adds signal loss pill for stale direct data`() {
+        val stale = directState(now - 20 * 60_000L).copy(
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ACTIVE",
+        )
+
+        assertEquals("Signalverlust", vigilSensorStatusPillText(stale))
+        assertTrue(DirectToWatchPresentationFormatter.samples(stale, now, 3).isNotEmpty())
+    }
+
     @Test fun `invalid delta is not invented`() {
         val state = directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(deltaMgDl = null))
         assertEquals("- mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)

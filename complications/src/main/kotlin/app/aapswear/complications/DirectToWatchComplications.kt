@@ -65,8 +65,13 @@ internal data class DirectToWatchHeaderPresentation(
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
 
 internal fun vigilSensorStatusPillText(state: TherapyDisplayState?): String? =
-    "Sensor nicht mit Uhr verbunden".takeIf {
-        G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE")
+    when {
+        G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE") ->
+            "Sensor nicht mit Uhr verbunden"
+        G7LocalReadingResolver.sourceState(state) == CgmSourceState.NO_SOURCE ||
+            TherapyDisplayFormatter.freshness(state, System.currentTimeMillis()) == Freshness.STALE ->
+            "Signalverlust"
+        else -> null
     }
 
 internal fun directToWatchGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
@@ -673,12 +678,14 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             style = Paint.Style.FILL
         }
         val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(210, Color.red(colors.divider), Color.green(colors.divider), Color.blue(colors.divider))
+            val semantic = if (label == "Signalverlust") colors.signalLoss else colors.divider
+            color = Color.argb(230, Color.red(semantic), Color.green(semantic), Color.blue(semantic))
             style = Paint.Style.STROKE
             strokeWidth = 2f
         }
         val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.argb(255, Color.red(colors.axisLabel), Color.green(colors.axisLabel), Color.blue(colors.axisLabel))
+            val semantic = if (label == "Signalverlust") colors.signalLoss else colors.axisLabel
+            color = Color.argb(255, Color.red(semantic), Color.green(semantic), Color.blue(semantic))
             textSize = 17f
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.CENTER

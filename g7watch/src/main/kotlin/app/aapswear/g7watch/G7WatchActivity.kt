@@ -106,6 +106,9 @@ class G7WatchActivity : Activity() {
     private var pairingErrorCode: String? = null
     private var pairingStartedAtEpochMs = Long.MAX_VALUE
     private var pairingFailureMessage: String? = null
+    private var pairingScrollView: ScrollView? = null
+    private var renderedPairingStep: G7PairingScreenStep? = null
+    private val pairingScrollPositions = mutableMapOf<G7PairingScreenStep, Int>()
     private val pairingExecutor = Executors.newSingleThreadExecutor()
     private val pairingSuccessFinish = Runnable {
         if (!pairingCompletionScheduled) return@Runnable
@@ -231,6 +234,7 @@ class G7WatchActivity : Activity() {
         palette: G7AppearancePalette,
         state: G7PersistedState,
     ) {
+        renderedPairingStep?.let { previous -> pairingScrollView?.let { pairingScrollPositions[previous] = it.scrollY } }
         pairingGateVisible = true
         screenBuilt = false
         activePalette = palette
@@ -240,7 +244,7 @@ class G7WatchActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(24.dp, 20.dp, 24.dp, 24.dp)
+            setPadding(32.dp, 12.dp, 32.dp, 24.dp)
             setBackgroundColor(background)
         }
         val step = pairingStep ?: G7PairingScreenStep.NO_SENSOR
@@ -253,7 +257,7 @@ class G7WatchActivity : Activity() {
             G7PairingScreenStep.ENTER_CODE -> "Sensor verbinden"
             G7PairingScreenStep.CONNECTING -> "Sensor verbinden"
             G7PairingScreenStep.CONNECTED -> "Sensor verbunden"
-        }, 20f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.CENTER })
+        }, 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.CENTER })
         if (step == G7PairingScreenStep.NO_SENSOR) {
             content.addView(label("Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch.", 13f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
                 gravity = Gravity.CENTER; setPadding(8.dp, 14.dp, 8.dp, 12.dp)
@@ -281,10 +285,10 @@ class G7WatchActivity : Activity() {
                     contentDescription = "Smartwatch"
                 }, LinearLayout.LayoutParams(40.dp, 40.dp))
             }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                topMargin = 16.dp; gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = 10.dp; gravity = Gravity.CENTER_HORIZONTAL
             })
             content.addView(label(if (step == G7PairingScreenStep.CONNECTED) "Sensor erfolgreich verbunden" else "Dies kann bis zu\n30 Minuten dauern", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                gravity = Gravity.CENTER; setPadding(4.dp, 14.dp, 4.dp, 8.dp)
+                gravity = Gravity.CENTER; setPadding(4.dp, 9.dp, 4.dp, 6.dp)
             })
             if (step == G7PairingScreenStep.CONNECTED) content.addView(ImageView(this).apply {
                 setImageResource(R.drawable.ic_success_check)
@@ -314,8 +318,12 @@ class G7WatchActivity : Activity() {
                 contentDescription = "Sensor koppeln"
             }, LinearLayout.LayoutParams(42.dp, 42.dp).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = 6.dp })
             content.addView(label(
-                "Vierstelligen Sensorcode eingeben", 13f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)
-            ).apply { gravity = Gravity.CENTER; setPadding(4.dp, 5.dp, 4.dp, 5.dp) })
+                "Sensorcode eingeben", 13f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)
+            ).apply {
+                gravity = Gravity.CENTER
+                setPadding(0, 4.dp, 0, 3.dp)
+                maxLines = 1
+            })
             pairingFailureMessage?.let { message ->
                 content.addView(label(message, 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR), true).apply { gravity = Gravity.CENTER })
             }
@@ -327,7 +335,9 @@ class G7WatchActivity : Activity() {
                 textSize = 24f
                 setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
-                this.background = rounded(Color.TRANSPARENT, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), 12f)
+                this.background = null
+                setPadding(0, 0, 0, 0)
+                letterSpacing = 0.18f
                 setText(pairingCodeDraft)
                 setSelection(text.length)
                 addTextChangedListener(object : android.text.TextWatcher {
@@ -337,7 +347,7 @@ class G7WatchActivity : Activity() {
                 })
                 contentDescription = "Vierstelliger G7 Kopplungscode"
             }
-            content.addView(code, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 50.dp))
+            content.addView(code, LinearLayout.LayoutParams(170.dp, 44.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
             content.addView(pill("Verbinden", PillStyle.PRIMARY, palette) {
                 val entered = code.text?.toString().orEmpty()
                 if (!canStartG7Pairing(pairingStep, pairingStartInFlight, entered)) {
@@ -371,16 +381,25 @@ class G7WatchActivity : Activity() {
         })
         }
 
+        val newScrollView = G7EdgeFadeScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+            setBackgroundColor(background)
+            addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }.applyG7EdgeFade()
+        pairingScrollView = newScrollView
+        renderedPairingStep = step
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(background)
             addView(
-                content,
+                newScrollView,
                 FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
                 ),
             )
         })
+        newScrollView.post { newScrollView.scrollTo(0, pairingScrollPositions[step] ?: 0) }
         mainHandler.removeCallbacks(pairingRefresh)
         // Poll state while pairing, but rebuild only when the semantic pairing presentation
         // changes. The animated dots own their own animation and must not recreate the page.
