@@ -493,14 +493,14 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         val canvas = Canvas(bitmap)
         val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = if (ambient) 0xFFD0D0D0.toInt() else Color.WHITE
-            textSize = 54f
+            textSize = 61f
             typeface = if (glucoseBold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             textAlign = Paint.Align.LEFT
         }
         val mode = DirectToWatchPreferences.activeAppearanceMode(this)
         val secondaryPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = if (ambient) AMBIENT_SECONDARY else DirectToWatchPreferences.deltaUnitColor(this@DirectToWatchHeaderComplication, mode)
-            textSize = 20f
+            textSize = 23f
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.LEFT
         }
@@ -535,11 +535,11 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             outlineColor = AMBIENT_SECONDARY,
         ) else configuredStyle
         val arrow = presentation.trend?.let {
-            TrendComplicationIcon.renderScaled(this, it, 30, style.sizePercent, style = style)
+            TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
         }?.let(TrendComplicationIcon::cropTransparentPadding)
         val gap = if (arrow == null) 0f else 6f
         val valueWidth = valuePaint.measureText(presentation.glucose)
-        val valueBaseline = 55f
+        val valueBaseline = 58f
         val valueBounds = android.graphics.Rect().also {
             valuePaint.getTextBounds(presentation.glucose, 0, presentation.glucose.length, it)
         }
