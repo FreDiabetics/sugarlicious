@@ -171,6 +171,41 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
+    fun `recoverable BLE errors keep pairing active but terminal errors stop it`() {
+        val startedAt = 1_000_000L
+        val recoverable = G7PersistedState(
+            pairingStartedAtEpochMs = startedAt,
+            pairingDeadlineEpochMs = startedAt + 60_000L,
+            lastError = app.aapswear.g7.G7CollectorError("G7-GATT-133", true, startedAt + 1_000L, "temporary"),
+        )
+        assertFalse(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 2_000L))
+        assertTrue(isTerminalG7PairingFailure(
+            recoverable.copy(lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, startedAt + 1_000L, "rejected")),
+            startedAt,
+            startedAt + 2_000L,
+        ))
+        assertTrue(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 60_000L))
+    }
+
+    @Test
+    fun `connecting screen has one animated indicator and a cancel action`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = System.currentTimeMillis()
+        G7SensorStateStore(context).save(G7PersistedState(
+            sensor = G7Sensor("pairing"), collectorEnabled = true,
+            pairingStartedAtEpochMs = now, pairingDeadlineEpochMs = now + 60_000L,
+        ))
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.CONNECTING.name) }
+        val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create(saved).start().resume().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        assertNotNull(findConnectionDots(root))
+        assertNull(findProgressBar(root))
+        assertNotNull(findText(root, "Abbrechen"))
+        activity.finish()
+    }
+
+    @Test
     fun `collector settings keep live status above eight grouped sections`() {
         val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)

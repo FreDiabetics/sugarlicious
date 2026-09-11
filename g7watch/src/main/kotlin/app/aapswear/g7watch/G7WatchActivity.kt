@@ -20,7 +20,6 @@ import android.widget.FrameLayout
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import app.aapswear.g7.CgmReading
@@ -86,6 +85,13 @@ internal fun canStartG7Pairing(step: G7PairingScreenStep?, inFlight: Boolean, co
 internal fun shouldScheduleG7PairingCompletion(step: G7PairingScreenStep?, alreadyScheduled: Boolean): Boolean =
     step == G7PairingScreenStep.CONNECTED && !alreadyScheduled
 
+internal fun isTerminalG7PairingFailure(state: G7PersistedState, pairingStartedAtEpochMs: Long, nowEpochMs: Long): Boolean {
+    val error = state.lastError?.takeIf { it.occurredAtEpochMs >= pairingStartedAtEpochMs }
+    val timedOut = state.pairingStartedAtEpochMs?.let { it >= pairingStartedAtEpochMs } == true &&
+        (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { nowEpochMs >= it } == true
+    return timedOut || error?.code == "G7-AUTH-204" || error?.recoverable == false
+}
+
 internal fun nextDirectGraphHours(current: Int): Int {
     val options = G7DirectToWatchSettingsStore.HOUR_OPTIONS
     val index = options.indexOf(current)
@@ -102,6 +108,7 @@ class G7WatchActivity : Activity() {
     private var pairingStep: G7PairingScreenStep? = null
     private var pairingCodeDraft = ""
     private var pairingStartInFlight = false
+    private var pairingCancelInFlight = false
     private var pairingCompletionScheduled = false
     private var pairingErrorCode: String? = null
     private var pairingStartedAtEpochMs = Long.MAX_VALUE
@@ -243,21 +250,23 @@ class G7WatchActivity : Activity() {
         window.navigationBarColor = background
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(32.dp, 12.dp, 32.dp, 24.dp)
+            gravity = Gravity.CENTER
+            setPadding(28.dp, 8.dp, 28.dp, 16.dp)
             setBackgroundColor(background)
         }
         val step = pairingStep ?: G7PairingScreenStep.NO_SENSOR
-        val timedOut = state.pairingStartedAtEpochMs?.let { it >= pairingStartedAtEpochMs } == true &&
-            (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { System.currentTimeMillis() >= it } == true
         val currentPairingError = state.lastError?.takeIf { it.occurredAtEpochMs >= pairingStartedAtEpochMs }
         val authenticationRejected = currentPairingError?.code == "G7-AUTH-204"
+        val pairingFailed = isTerminalG7PairingFailure(state, pairingStartedAtEpochMs, System.currentTimeMillis())
         content.addView(label(when (step) {
             G7PairingScreenStep.NO_SENSOR -> "Kein Sensor verbunden"
             G7PairingScreenStep.ENTER_CODE -> "Sensor verbinden"
             G7PairingScreenStep.CONNECTING -> "Sensor verbinden"
             G7PairingScreenStep.CONNECTED -> "Sensor verbunden"
-        }, 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.CENTER })
+        }, 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+            gravity = Gravity.CENTER
+            maxLines = 2
+        })
         if (step == G7PairingScreenStep.NO_SENSOR) {
             content.addView(label("Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch.", 13f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
                 gravity = Gravity.CENTER; setPadding(8.dp, 14.dp, 8.dp, 12.dp)
@@ -277,7 +286,8 @@ class G7WatchActivity : Activity() {
                 }, LinearLayout.LayoutParams(40.dp, 40.dp))
                 addView(G7ConnectionDotsView(this@G7WatchActivity).apply {
                     contentDescription = "7 Verbindungsdots"
-                    color = palette.argb(G7AppearanceRole.MENU_PRIMARY)
+                    color = if (pairingFailed) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_PRIMARY)
+                    isAnimating = !pairingFailed && step == G7PairingScreenStep.CONNECTING
                 }, LinearLayout.LayoutParams(0, 24.dp, 1f).apply { setMargins(10.dp, 0, 10.dp, 0) })
                 addView(ImageView(this@G7WatchActivity).apply {
                     setImageResource(R.drawable.ic_watch_device)
@@ -294,13 +304,12 @@ class G7WatchActivity : Activity() {
                 setImageResource(R.drawable.ic_success_check)
                 contentDescription = "Sensor erfolgreich verbunden"
             }, LinearLayout.LayoutParams(52.dp, 52.dp).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = 6.dp })
-            content.addView(ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                isIndeterminate = step == G7PairingScreenStep.CONNECTING
-                progress = if (step == G7PairingScreenStep.CONNECTED) 100 else 0
-                contentDescription = if (step == G7PairingScreenStep.CONNECTED) "Verbindung abgeschlossen" else "Sensorverbindung läuft"
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 8.dp).apply { setMargins(20.dp, 0, 20.dp, 0) })
-            if (step == G7PairingScreenStep.CONNECTING && (timedOut || authenticationRejected || currentPairingError != null)) {
-                content.addView(label(if (authenticationRejected) "Sensor ist noch mit einer anderen Uhr verbunden." else "Verbindung zum Sensor fehlgeschlagen. Erneuter Versuch möglich.", 12f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR), true).apply {
+            if (step == G7PairingScreenStep.CONNECTING && pairingFailed) {
+                content.addView(ImageView(this).apply {
+                    setImageResource(R.drawable.ic_pairing_error)
+                    contentDescription = "Sensorverbindung fehlgeschlagen"
+                }, LinearLayout.LayoutParams(52.dp, 52.dp).apply { gravity = Gravity.CENTER_HORIZONTAL; bottomMargin = 4.dp })
+                content.addView(label("Verbindung zum Sensor konnte nicht hergestellt werden", 12f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR), true).apply {
                     gravity = Gravity.CENTER; setPadding(4.dp, 10.dp, 4.dp, 0)
                 })
                 content.addView(pill("Erneut versuchen", PillStyle.PRIMARY, palette) {
@@ -309,6 +318,25 @@ class G7WatchActivity : Activity() {
                     buildPairingGate(palette, state)
                 }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                     topMargin = 5.dp; gravity = Gravity.CENTER_HORIZONTAL
+                })
+            }
+            if (step == G7PairingScreenStep.CONNECTING) {
+                content.addView(pill("Abbrechen", PillStyle.SECONDARY, palette) {
+                    if (pairingCancelInFlight) return@pill
+                    pairingCancelInFlight = true
+                    pairingExecutor.execute {
+                        runCatching { unlinkG7Sensor(applicationContext) }
+                        mainHandler.post {
+                            pairingCancelInFlight = false
+                            pairingStartInFlight = false
+                            pairingErrorCode = null
+                            pairingFailureMessage = null
+                            pairingStep = G7PairingScreenStep.NO_SENSOR
+                            if (!isFinishing && !isDestroyed) buildPairingGate(appearanceStore.load(), G7SensorStateStore(this).read())
+                        }
+                    }
+                }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    topMargin = 6.dp; gravity = Gravity.CENTER_HORIZONTAL
                 })
             }
         } else {

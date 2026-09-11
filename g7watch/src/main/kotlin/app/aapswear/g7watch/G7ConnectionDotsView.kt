@@ -14,6 +14,12 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
     internal val dotCountForTest: Int get() = DOT_COUNT
     var color: Int = 0xffffffff.toInt()
         set(value) { field = value; paint.color = value; invalidate() }
+    var isAnimating: Boolean = true
+        set(value) {
+            field = value
+            if (value && isAttachedToWindow && visibility == VISIBLE) animator.start() else animator.cancel()
+            invalidate()
+        }
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private var phase = 0f
@@ -26,7 +32,7 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (visibility == VISIBLE && !animator.isStarted) animator.start()
+        if (isAnimating && visibility == VISIBLE && !animator.isStarted) animator.start()
     }
 
     override fun onDetachedFromWindow() {
@@ -36,7 +42,7 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
-        if (visibility == VISIBLE && isAttachedToWindow) {
+        if (isAnimating && visibility == VISIBLE && isAttachedToWindow) {
             if (!animator.isStarted) animator.start()
         } else animator.cancel()
     }

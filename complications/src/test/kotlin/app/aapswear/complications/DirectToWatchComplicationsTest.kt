@@ -135,8 +135,10 @@ class DirectToWatchComplicationsTest {
     }
 
     @Test fun `absent data is explicit no source`() {
-        assertEquals("Bitte Sensor\nstarten oder\nkoppeln", DirectToWatchPresentationFormatter.header(null, now).secondary)
-        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
+        val header = DirectToWatchPresentationFormatter.header(null, now)
+        assertEquals("-", header.secondary)
+        assertTrue(header.sensorDisconnected)
+        assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
     }
 
     @Test fun `active restored session without a loaded reading shows loading state only`() {
@@ -183,8 +185,16 @@ class DirectToWatchComplicationsTest {
         val bitmap = service.renderGraph(ended, now, 3)
 
         assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
-        assertEquals("Sensor nicht mit Uhr verbunden", vigilSensorStatusPillText(ended))
+        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(ended))
         assertEquals(null, vigilSensorStatusPillText(directState(now - 60_000L)))
+    }
+
+    @Test fun `vigil treats missing collector state as disconnected rather than signal loss`() {
+        assertTrue(isVigilSensorDisconnected(null))
+        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(null))
+        val header = DirectToWatchPresentationFormatter.header(null, now)
+        assertTrue(header.sensorDisconnected)
+        assertEquals("-", header.secondary)
     }
 
     @Test fun `vigil keeps history visible and adds signal loss pill for stale direct data`() {

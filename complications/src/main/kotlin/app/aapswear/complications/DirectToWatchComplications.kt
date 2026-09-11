@@ -64,10 +64,12 @@ internal data class DirectToWatchHeaderPresentation(
 
 internal data class DirectToWatchGraphStatusPresentation(val text: String)
 
+internal fun isVigilSensorDisconnected(state: TherapyDisplayState?): Boolean =
+    state == null || G7LocalReadingResolver.directSensorState(state) in setOf("UNKNOWN", "ENDED", "NOT_ACTIVE")
+
 internal fun vigilSensorStatusPillText(state: TherapyDisplayState?): String? =
     when {
-        G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE") ->
-            "Sensor nicht mit Uhr verbunden"
+        isVigilSensorDisconnected(state) -> "Kein Sensor verbunden"
         G7LocalReadingResolver.sourceState(state) == CgmSourceState.NO_SOURCE ||
             TherapyDisplayFormatter.freshness(state, System.currentTimeMillis()) == Freshness.STALE ->
             "Signalverlust"
@@ -83,14 +85,14 @@ internal object DirectToWatchPresentationFormatter {
         nowEpochMs: Long,
         displayUnit: GlucoseUnit? = null,
     ): DirectToWatchHeaderPresentation {
+        if (isVigilSensorDisconnected(state)) return DirectToWatchHeaderPresentation(
+            glucose = "-",
+            secondary = "-",
+            trendUnavailable = true,
+            sensorDisconnected = true,
+        )
         when (G7LocalReadingResolver.directSensorState(state)) {
             "ERROR" -> return DirectToWatchHeaderPresentation("-", "Sensorfehler", sensorError = true)
-            "ENDED", "NOT_ACTIVE" -> return DirectToWatchHeaderPresentation(
-                glucose = "-",
-                secondary = "-",
-                trendUnavailable = true,
-                sensorDisconnected = true,
-            )
         }
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
@@ -133,7 +135,7 @@ internal object DirectToWatchPresentationFormatter {
     }
 
     fun graphStatus(state: TherapyDisplayState?, nowEpochMs: Long, graphHours: Int): DirectToWatchGraphStatusPresentation {
-        if (G7LocalReadingResolver.directSensorState(state) in setOf("ENDED", "NOT_ACTIVE")) {
+        if (isVigilSensorDisconnected(state)) {
             return DirectToWatchGraphStatusPresentation("${graphHours}h")
         }
         if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
