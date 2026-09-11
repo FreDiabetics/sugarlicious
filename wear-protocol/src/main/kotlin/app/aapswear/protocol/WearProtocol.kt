@@ -71,10 +71,10 @@ data class WatchGraphColors(
 
 object DirectToWatchGraphColorDefaults {
     fun create() = WatchGraphColors(
-        graphBackground = 0xFF000000.toInt(),
-        rangeInRange = 0x665C5C5C,
-        rangeHigh = 0x4DFFD040,
-        rangeLow = 0x4DFF5C69,
+        graphBackground = -14935012,
+        rangeInRange = 1717328988,
+        rangeHigh = 1308610624,
+        rangeLow = 1308580969,
     )
 }
 

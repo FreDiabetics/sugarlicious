@@ -274,9 +274,9 @@ class DirectToWatchComplicationsTest {
     @Test fun `graph scale cycles in its own persistence file`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(DirectToWatchPreferences.NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        assertEquals(3, DirectToWatchPreferences.graphHours(context))
-        assertEquals(6, DirectToWatchPreferences.cycleGraphHours(context))
         assertEquals(6, DirectToWatchPreferences.graphHours(context))
+        assertEquals(12, DirectToWatchPreferences.cycleGraphHours(context))
+        assertEquals(12, DirectToWatchPreferences.graphHours(context))
         assertFalse(context.getSharedPreferences("watch_display", Context.MODE_PRIVATE).contains("graph.hours"))
     }
 

@@ -223,7 +223,7 @@ object DirectToWatchPreferences {
 
     fun graphHours(context: Context): Int =
         context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
-            .getInt(KEY_GRAPH_HOURS, 3).takeIf { it in graphHourOptions } ?: 3
+            .getInt(KEY_GRAPH_HOURS, 6).takeIf { it in graphHourOptions } ?: 6
 
     fun glucoseUnit(context: Context): GlucoseUnit = runCatching {
         GlucoseUnit.valueOf(
@@ -242,11 +242,11 @@ object DirectToWatchPreferences {
         )
 
     fun statusSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
-    fun statusColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_COLOR, 0xFFA8A8BA.toInt())
-    fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, false)
-    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
-    fun clockColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
-    fun clockBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_CLOCK_BOLD, false)
+    fun statusColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_COLOR, Color.WHITE)
+    fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, true)
+    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 150).coerceIn(75, 150)
+    fun clockColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_COLOR, Color.WHITE)
+    fun clockBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_CLOCK_BOLD, true)
 
     fun thresholds(context: Context): CgmThresholds {
         val preferences = context.getSharedPreferences(NAME, Context.MODE_PRIVATE)
