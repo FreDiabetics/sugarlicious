@@ -2,6 +2,11 @@ package app.aapswear.g7watch
 
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.RangeExcursion
 
 enum class G7RangeExcursion { NONE, HIGH, LOW }
 
@@ -30,58 +35,31 @@ internal object G7GraphPolicy {
     ): G7RangeExcursion {
         if (!lowMgDl.isFinite() || !highMgDl.isFinite() || lowMgDl >= highMgDl) return G7RangeExcursion.NONE
 
-        val sequence = mutableListOf<CgmReading>()
-        val seenIds = mutableSetOf<String>()
-        val seenKeys = mutableSetOf<Triple<String, String, Long>>()
-        var previousMeasuredAt: Long? = null
-
-        readings
-            .sortedBy { it.receivedAtEpochMs }
-            .forEach { reading ->
-                if (!isValidReading(reading)) {
-                    // Non-CGM events do not create or reset semantic range state.
-                    return@forEach
-                }
-
-                val key = Triple(reading.sensorId, reading.sessionId, reading.timestampEpochMs)
-                if (!seenIds.add(reading.id) || !seenKeys.add(key)) {
-                    // A duplicate is not a new CGM value and cannot advance the sequence.
-                    return@forEach
-                }
-
-                val previous = sequence.lastOrNull()
-                if (previous != null) {
-                    if (
-                        previous.sensorId != reading.sensorId ||
-                        previous.sessionId != reading.sessionId
-                    ) {
-                        sequence.clear()
-                    } else {
-                        val gap = reading.timestampEpochMs - previous.timestampEpochMs
-                        if (gap !in 1L..MAX_CONTIGUOUS_GAP_MS) {
-                            sequence.clear()
-                        }
-                    }
-                }
-
-                val priorMeasured = previousMeasuredAt
-                if (priorMeasured != null && reading.timestampEpochMs <= priorMeasured) {
-                    // Backfill/out-of-order data is not a new live semantic measurement.
-                    return@forEach
-                }
-
-                sequence += reading
-                previousMeasuredAt = reading.timestampEpochMs
-                if (sequence.size > 2) sequence.removeAt(0)
-            }
-
-        sequence.lastOrNull() ?: return G7RangeExcursion.NONE
-        if (sequence.size < 2) return G7RangeExcursion.NONE
-
-        return when {
-            sequence.all { it.glucoseMgDl > highMgDl } -> G7RangeExcursion.HIGH
-            sequence.all { it.glucoseMgDl < lowMgDl } -> G7RangeExcursion.LOW
-            else -> G7RangeExcursion.NONE
+        val thresholds = CgmThresholds(
+            veryHighMgDl = maxOf(CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
+            highMgDl = highMgDl,
+            lowMgDl = lowMgDl,
+            veryLowMgDl = minOf(CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
+        )
+        val excursion = CgmGraphPolicy.rangeExcursion(
+            readings.map { reading ->
+                GlucoseSample(
+                    valueMgDl = reading.glucoseMgDl,
+                    measuredAtEpochMs = reading.timestampEpochMs,
+                    source = reading.source,
+                    sensorId = reading.sensorId,
+                    sessionId = reading.sessionId,
+                    sequenceNumber = reading.sequenceNumber,
+                    receivedAtEpochMs = reading.receivedAtEpochMs,
+                    quality = if (isValidReading(reading)) CgmQuality.VALID else CgmQuality.INVALID,
+                )
+            },
+            thresholds,
+        )
+        return when (excursion) {
+            RangeExcursion.HIGH -> G7RangeExcursion.HIGH
+            RangeExcursion.LOW -> G7RangeExcursion.LOW
+            null -> G7RangeExcursion.NONE
         }
     }
 

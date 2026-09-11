@@ -653,9 +653,10 @@ class G7WatchActivity : Activity() {
             graphPeriodPill = label("${hours}h", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
                 tag = "graph-scale-control"
                 contentDescription = "Graphskalierung"
-                gravity = Gravity.CENTER
-                minWidth = 72.dp
-                minHeight = 44.dp
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setPadding(4.dp, 0, 0, 0)
+                minWidth = 0
+                minHeight = 0
                 setOnClickListener {
                     advanceGraphScale(directSettings.graphHours())
                     updateGraphOnly()
@@ -663,9 +664,9 @@ class G7WatchActivity : Activity() {
             }
             addView(
                 graphPeriodPill,
-                FrameLayout.LayoutParams(72.dp, 44.dp, Gravity.TOP or Gravity.START).apply {
-                    topMargin = 2.dp
-                    marginStart = 2.dp
+                FrameLayout.LayoutParams(72.dp, 34.dp, Gravity.TOP or Gravity.START).apply {
+                    topMargin = 3.dp
+                    marginStart = 4.dp
                 },
             )
         }

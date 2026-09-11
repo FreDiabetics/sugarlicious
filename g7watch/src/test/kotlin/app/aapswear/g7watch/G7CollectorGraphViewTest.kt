@@ -116,7 +116,9 @@ class G7CollectorGraphViewTest {
             palette = testPalette(),
         )
 
-        assertEquals(Color.argb(76, 87, 87, 87), graph.getPixel(380, 75))
+        val gutter = graph.getPixel(380, 75)
+        assertEquals(255, Color.alpha(gutter))
+        assertTrue(gutter != background)
     }
 
     @Test

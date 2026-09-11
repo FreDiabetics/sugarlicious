@@ -172,6 +172,11 @@ object SharedWearCgmGraphRenderer {
             addRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), cornerRadius, cornerRadius, Path.Direction.CW)
         })
 
+        // Paint the complete tile first. Previously the configured background only covered the
+        // plot bands, leaving the time-axis strip and parts of the scale lane transparent.
+        fill.color = palette.background
+        canvas.drawRect(0f, 0f, widthPx.toFloat(), heightPx.toFloat(), fill)
+
         val history = input.history
             .asSequence()
             .filter {
