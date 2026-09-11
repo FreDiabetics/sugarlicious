@@ -22,6 +22,19 @@ import java.time.Instant
 class TherapyComplicationsTest {
 
     @Test
+    fun `all standard Watchface graph slots advance by measured time and wall clock`() {
+        val minute = 60_000L
+        val readingAt = 50_000_000L
+        val duration = 3L * 60L * minute
+        val arrival = standardWearGraphWindow(readingAt, duration)
+        val later = standardWearGraphWindow(readingAt + minute, duration)
+
+        assertEquals(1f, arrival.xFraction(readingAt), 0.0001f)
+        assertTrue(later.xFraction(readingAt) < arrival.xFraction(readingAt))
+        assertTrue(later.xFraction(readingAt - 45 * minute) < later.xFraction(readingAt))
+    }
+
+    @Test
     fun `all documented providers remain active`() {
         assertEquals(41, AllProviders.classes.distinct().size)
         assertEquals(GlucoseComplication::class.java, AllProviders.classes.first())

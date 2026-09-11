@@ -33,6 +33,7 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.GlucoseUnit
@@ -599,6 +600,9 @@ internal object NotificationGraphRenderer {
             .takeIf { it in 1..3 }
             ?: 3
 
+    internal fun notificationGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
+        GraphTimeWindow.live(nowEpochMs, graphHours * 60L * 60_000L)
+
     private fun render(
         context: Context,
         state: TherapyDisplayState?,
@@ -645,7 +649,7 @@ internal object NotificationGraphRenderer {
             .takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS }
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
-        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val timeWindow = notificationGraphWindow(now, graphHours)
         val start = timeWindow.startEpochMs
         val validSamples = CanonicalCgmHistory.merge(
             samples = buildList {
@@ -680,10 +684,6 @@ internal object NotificationGraphRenderer {
                 validSamples,
                 thresholds,
             )
-        val highest = points.maxOf { it.value }
-        val minValue = 40.0
-        val maxValue = max(400.0, highest + max(12.0, highest * 0.08))
-
         val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
         fun dp(value: Float) = value * renderDensity
         val axisText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -715,8 +715,7 @@ internal object NotificationGraphRenderer {
             canvas.drawRect(labelLaneLeft, top, visualRight, bottom, paint)
         }
         fun y(value: Double): Float {
-            val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
-                .coerceIn(0.0, 1.0)
+            val fraction = GlucoseGraphScale.ratio(value)
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 

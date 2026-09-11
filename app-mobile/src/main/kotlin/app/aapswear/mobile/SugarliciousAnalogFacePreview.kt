@@ -25,7 +25,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import kotlin.math.cos
@@ -176,14 +179,19 @@ internal fun SugarliciousAnalogFacePreview(
                         GlucoseSample(valueMgDl = value, measuredAtEpochMs = now - (8 - index) * 5L * 60_000L)
                     }
             }
-            val min = 60.0
-            val max = 220.0
             samples.forEach { sample ->
                 val fraction = graphWindow.xFraction(sample.measuredAtEpochMs).coerceIn(0f, 1f)
                 val px = x(graph.x + 12f + fraction * (graph.width - 26f))
-                val normalized = ((sample.valueMgDl - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
+                val normalized = GlucoseGraphScale.ratio(sample.valueMgDl).toFloat()
                 val py = y(graph.y + graph.height - 12f - normalized * (graph.height - 24f))
-                drawCircle(Color.White, 2.7f * scale, androidx.compose.ui.geometry.Offset(px, py))
+                val center = androidx.compose.ui.geometry.Offset(px, py)
+                drawCircle(SugarliciousColors.color(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE), 3.35f * scale, center)
+                val dotColor = when {
+                    sample.valueMgDl < 70.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_LOW)
+                    sample.valueMgDl > 180.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_HIGH)
+                    else -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_IN_RANGE)
+                }
+                drawCircle(dotColor, 2.4f * scale, center)
             }
         }
 

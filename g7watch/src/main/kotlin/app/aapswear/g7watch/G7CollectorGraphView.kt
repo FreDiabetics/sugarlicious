@@ -20,6 +20,9 @@ import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 
+internal fun g7CollectorGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
+    GraphTimeWindow.live(nowEpochMs, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
     context: Context,
@@ -80,7 +83,7 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         val thresholds = directSettings.thresholds()
         val style = directSettings.graphStyle()
         val colors = directSettings.graphColors()
-        val window = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+        val window = g7CollectorGraphWindow(now, graphHours)
 
         SharedWearCgmGraphRenderer.render(
             canvas,

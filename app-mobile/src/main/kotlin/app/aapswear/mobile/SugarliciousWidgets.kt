@@ -56,6 +56,7 @@ import app.aapswear.model.Freshness
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GraphAxisLayoutSpec
@@ -903,12 +904,13 @@ internal fun trendArrowGeometry(targetVisibleHeightPx: Float, spec: TrendVisualS
 internal data class WidgetYScale(val mode: WidgetScaleMode, val minimum: Double, val maximum: Double) {
     fun map(value: Double, plot: RectF): Float {
         val ratio = when (mode) {
+            WidgetScaleMode.STATIC -> GlucoseGraphScale.ratio(value)
             WidgetScaleMode.LOGARITHMIC -> {
                 val safe = value.coerceAtLeast(1.0)
                 ((kotlin.math.ln(safe) - kotlin.math.ln(minimum)) /
                     (kotlin.math.ln(maximum) - kotlin.math.ln(minimum))).coerceIn(0.0, 1.0)
             }
-            else -> ((value - minimum) / (maximum - minimum)).coerceIn(0.0, 1.0)
+            WidgetScaleMode.DYNAMIC -> ((value - minimum) / (maximum - minimum)).coerceIn(0.0, 1.0)
         }
         return plot.bottom - ratio.toFloat() * plot.height()
     }

@@ -8,6 +8,7 @@ import android.widget.ImageView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TargetState
 import kotlin.math.abs
@@ -26,6 +27,26 @@ import org.robolectric.annotation.GraphicsMode
 class NotificationGraphProfilesTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+
+    @Test
+    fun `notification graph advances a fixed reading with the wall clock`() {
+        val measuredAt = 2_000_000_000_000L
+        val initial = NotificationGraphRenderer.notificationGraphWindow(measuredAt, 3)
+        val later = NotificationGraphRenderer.notificationGraphWindow(measuredAt + 60_000L, 3)
+
+        assertTrue(later.xFraction(measuredAt) < initial.xFraction(measuredAt))
+        assertEquals(1f, initial.xFraction(measuredAt), 0.0001f)
+    }
+
+    @Test
+    fun `notification graph positions delayed backfill by measurement time`() {
+        val now = 2_000_000_000_000L
+        val window: GraphTimeWindow = NotificationGraphRenderer.notificationGraphWindow(now, 3)
+        val measuredAt = now - 45 * 60_000L
+        val receivedAt = now
+
+        assertTrue(window.xFraction(measuredAt) < window.xFraction(receivedAt))
+    }
 
     @Test
     fun `remote views preserve bitmap aspect ratio instead of stretching`() {

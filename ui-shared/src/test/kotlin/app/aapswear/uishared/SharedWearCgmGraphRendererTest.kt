@@ -2,6 +2,7 @@ package app.aapswear.uishared
 
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.TrendVisualAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -14,9 +15,15 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
     @Test
-    fun `wear scale starts at forty and ends at four hundred`() {
-        assertEquals(0.0, WearCgmGraphScale.ratio(39.0), 0.0)
-        assertEquals(0.0, WearCgmGraphScale.ratio(40.0), 0.0)
+    fun `Wear and Mobile use the identical canonical glucose scale`() {
+        listOf(0.0, 40.0, 70.0, 80.0, 120.0, 160.0, 250.0, 400.0).forEach { value ->
+            assertEquals(GlucoseGraphScale.ratio(value), WearCgmGraphScale.ratio(value), 0.000001)
+        }
+    }
+    @Test
+    fun `shared scale preserves canonical lower padding and four hundred ceiling`() {
+        assertEquals(GlucoseGraphScale.ratio(0.0), WearCgmGraphScale.ratio(0.0), 0.0)
+        assertEquals(GlucoseGraphScale.ratio(40.0), WearCgmGraphScale.ratio(40.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(400.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(401.0), 0.0)
     }

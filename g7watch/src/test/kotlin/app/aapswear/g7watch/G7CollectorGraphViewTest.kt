@@ -27,6 +27,27 @@ class G7CollectorGraphViewTest {
     private val background = Color.rgb(25, 25, 25)
 
     @Test
+    fun `SugarWear collector graph advances all measured timestamps with wall clock`() {
+        val readingAt = now
+        val atArrival = g7CollectorGraphWindow(readingAt, 3)
+        val oneMinuteLater = g7CollectorGraphWindow(readingAt + 60_000L, 3)
+        val fourMinutesLater = g7CollectorGraphWindow(readingAt + 4 * 60_000L, 3)
+
+        assertEquals(1f, atArrival.xFraction(readingAt), 0.0001f)
+        assertTrue(oneMinuteLater.xFraction(readingAt) < atArrival.xFraction(readingAt))
+        assertTrue(fourMinutesLater.xFraction(readingAt) < oneMinuteLater.xFraction(readingAt))
+    }
+
+    @Test
+    fun `SugarWear collector graph uses measured time for delayed backfill`() {
+        val measuredAt = now - 45 * 60_000L
+        val receivedAt = now
+        val window = g7CollectorGraphWindow(now, 3)
+
+        assertTrue(window.xFraction(measuredAt) < window.xFraction(receivedAt))
+    }
+
+    @Test
     fun `latest cgm keeps timestamp position at live edge`() {
         val left = 16f
         val divider = 369f

@@ -10,6 +10,7 @@ import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucosePrediction
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GraphAxisLayoutSpec
@@ -70,19 +71,9 @@ object DirectToWatchGraphDefaults {
     )
 }
 
-/** Wear-only CGM scale. Mobile and graph complications outside Vigil keep their existing scale. */
+/** One canonical glucose Y scale for Mobile, SugarWear, Wear, complications and previews. */
 object WearCgmGraphScale {
-    const val MIN_MG_DL = 40.0
-    const val MAX_MG_DL = 400.0
-
-    fun ratio(valueMgDl: Double): Double {
-        val value = valueMgDl.coerceIn(MIN_MG_DL, MAX_MG_DL)
-        return when {
-            value <= 80.0 -> ((value - MIN_MG_DL) / 40.0) * 0.215
-            value <= 160.0 -> 0.215 + ((value - 80.0) / 80.0) * 0.300
-            else -> 0.515 + ((value - 160.0) / 240.0) * 0.485
-        }.coerceIn(0.0, 1.0)
-    }
+    fun ratio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
 }
 
 data class SharedWearCgmGraphInput(
