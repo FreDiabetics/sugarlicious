@@ -20,10 +20,17 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
 
     init {
         // Range confirmation is a system-wide graph policy, not a per-watchface preference.
-        preferences.edit()
+        val editor = preferences.edit()
             .remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
             .remove(KEY_TARGET_TICKS_ENABLED)
-            .apply()
+        if (!preferences.getBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, false)) {
+            // Older copied/default profiles disabled the tile outline, making its configured
+            // contour color appear broken. Repair that legacy state once without preventing a
+            // deliberate later change in the settings screen.
+            editor.putBoolean(KEY_BORDER_ENABLED, true)
+            editor.putBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, true)
+        }
+        editor.apply()
     }
 
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
@@ -195,5 +202,6 @@ class G7DirectToWatchSettingsStore(private val context: Context) {
         private const val KEY_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
         private const val LEGACY_KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
+        private const val KEY_GRAPH_SURFACE_FIX_APPLIED = "migration.graph_surface_fix_v1"
     }
 }

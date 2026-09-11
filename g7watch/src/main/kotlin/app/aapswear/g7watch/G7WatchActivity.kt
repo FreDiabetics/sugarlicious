@@ -180,6 +180,9 @@ class G7WatchActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // Rehydrate the separately installed Vigil complication provider as well. This also
+        // repairs settings after that package was reinstalled while SugarWear data stayed intact.
+        directSettings.sync()
         registerReadingObserver()
         refreshScreen()
         mainHandler.removeCallbacks(graphClockRefresh)
