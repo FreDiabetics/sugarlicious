@@ -159,7 +159,7 @@ class G7CollectorTileService : TileService() {
                 Tile.Builder()
                     .setResourcesVersion(RESOURCES_VERSION)
                     .setFreshnessIntervalMillis(60_000L)
-                    .setTileTimeline(Timeline.fromLayoutElement(layout()))
+                    .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams)))
                     .build()
             }.onSuccess(future::set)
                 .onFailure(future::setException)
@@ -203,7 +203,7 @@ class G7CollectorTileService : TileService() {
                 .build(),
         )
 
-    private suspend fun layout(): LayoutElementBuilders.LayoutElement {
+    private suspend fun layout(requestParams: RequestBuilders.TileRequest): LayoutElementBuilders.LayoutElement {
         val reading =
             G7ReadingDatabase(this@G7CollectorTileService).let { database ->
                 try {
@@ -229,30 +229,35 @@ class G7CollectorTileService : TileService() {
                 trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(WearGlucoseCardStyle.VALUE_TEXT_SP),
                 spacing = 8f,
             ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
+        val device = requestParams.deviceConfiguration
+        val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
+        val valueTextSize = (visualSpec.glucoseTextSize * square.sideDp / 146f).coerceIn(30f, 46f)
+        val trendHeight = (visualSpec.trendHeight * square.sideDp / 146f).coerceIn(24f, 40f)
 
         val primaryRow =
             Row.Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(text(presentation.tileValue, visualSpec.glucoseTextSize, presentation.cardForeground, bold = true))
+                .addContent(text(presentation.tileValue, valueTextSize, presentation.cardForeground, bold = true))
                 .apply {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        addContent(trendImage(spec, trendStyle.fillColor, visualSpec.trendHeight))
+                        addContent(trendImage(spec, trendStyle.fillColor, trendHeight))
                     }
                 }
                 .build()
 
         val valueCard =
             Column.Builder()
-                .setWidth(expand())
+                .setWidth(dp(square.sideDp))
+                .setHeight(dp(square.sideDp))
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .setModifiers(
                     Modifiers.Builder()
                         .setBackground(
                             Background.Builder()
                                 .setColor(argb(presentation.cardBackground))
-                                .setCorner(Corner.Builder().setRadius(dp(WearGlucoseCardStyle.CARD_RADIUS_DP)).build())
+                                .setCorner(Corner.Builder().setRadius(dp(square.cornerRadiusDp)).build())
                                 .build(),
                         )
                         .setBorder(
@@ -263,14 +268,16 @@ class G7CollectorTileService : TileService() {
                         )
                         .setPadding(
                             Padding.Builder()
-                                .setStart(dp(WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.toFloat()))
-                                .setEnd(dp(WearGlucoseCardStyle.HORIZONTAL_PADDING_DP.toFloat()))
-                                .setTop(dp(WearGlucoseCardStyle.VERTICAL_PADDING_DP.toFloat()))
-                                .setBottom(dp(WearGlucoseCardStyle.VERTICAL_PADDING_DP.toFloat()))
+                            .setStart(dp(square.innerPaddingDp))
+                            .setEnd(dp(square.innerPaddingDp))
+                            .setTop(dp(square.innerPaddingDp))
+                            .setBottom(dp(square.innerPaddingDp))
                                 .build(),
                         )
                         .build(),
                 )
+                .addContent(text("Gewebeglukose", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = false))
+                .addContent(Spacer.Builder().setHeight(dp(5f)).build())
                 .addContent(primaryRow)
                 .apply {
                     if (presentation.meta.isNotBlank()) {
@@ -280,32 +287,7 @@ class G7CollectorTileService : TileService() {
                         addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = true))
                     }
                 }
-                .build()
-
-        val header =
-            Box.Builder()
-                .setWidth(expand())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-                .setModifiers(
-                    Modifiers.Builder()
-                        .setPadding(
-                            Padding.Builder()
-                                .setStart(dp(WearGlucoseCardStyle.CARD_RADIUS_DP))
-                                .build(),
-                        )
-                        .build(),
-                )
-                .addContent(text("Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), bold = false))
-                .build()
-
-        val content =
-            Column.Builder()
-                .setWidth(expand())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                .addContent(header)
-                .addContent(Spacer.Builder().setHeight(dp(5f)).build())
-                .addContent(valueCard)
-                .addContent(Spacer.Builder().setHeight(dp(5f)).build())
+                .addContent(Spacer.Builder().setHeight(dp(7f)).build())
                 .addContent(statusPill(statusPresentation))
                 .build()
 
@@ -317,7 +299,6 @@ class G7CollectorTileService : TileService() {
             .setModifiers(
                 Modifiers.Builder()
                     .setBackground(Background.Builder().setColor(argb(palette.argb(G7AppearanceRole.MENU_BACKGROUND))).build())
-                    .setPadding(Padding.Builder().setAll(dp(8f)).build())
                     .setClickable(
                         Clickable.Builder()
                             .setId(OPEN_COLLECTOR_CLICK_ID)
@@ -330,7 +311,7 @@ class G7CollectorTileService : TileService() {
                     )
                     .build(),
             )
-            .addContent(content)
+            .addContent(valueCard)
             .build()
     }
 
@@ -362,7 +343,7 @@ class G7CollectorTileService : TileService() {
                     )
                     .build(),
             )
-            .addContent(text("●  ${presentation.label}", 10f, presentation.color, bold = true))
+            .addContent(text("●  ${presentation.label}", if (presentation.label.length > 18) 7.5f else 9.5f, presentation.color, bold = true))
             .build()
 
     private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, height: Float): Image =
@@ -393,6 +374,7 @@ class G7CollectorTileService : TileService() {
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
+            TileService.getUpdater(context).requestUpdate(G7GraphTileService::class.java)
         }
     }
 }

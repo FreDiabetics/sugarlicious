@@ -62,6 +62,16 @@
             <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
             <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/tile_preview_g7" />
         </service>
+        <service
+            android:name=".G7GraphTileService"
+            android:label="@string/tile_graph_label"
+            android:description="@string/tile_graph_description"
+            android:icon="@drawable/ic_sensor_outline"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+            <meta-data android:name="androidx.wear.tiles.PREVIEW" android:resource="@drawable/tile_preview_graph" />
+        </service>
         <receiver android:name=".G7BootReceiver" android:enabled="true" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
