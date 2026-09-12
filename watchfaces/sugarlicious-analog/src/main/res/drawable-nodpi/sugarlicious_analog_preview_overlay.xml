@@ -22,18 +22,4 @@
     <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeWidth="10" android:strokeLineCap="round" android:pathData="M179.04,275.43 A60,60 0,1 1,179.04,352.57" />
     <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeWidth="10" android:strokeLineCap="round" android:pathData="M179.04,275.43 A60,60 0,0 1,283.86,325.65" />
 
-    <!-- Current Sugarlicious Outline hands, preview time 10:07:32. -->
-    <group android:pivotX="225" android:pivotY="225" android:rotation="303.5">
-        <path android:fillColor="#FFFFFFFF" android:pathData="M222.14,197.57H227.86V223.55H222.14Z" />
-        <path android:fillColor="#4DFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="5.27" android:pathData="M222.72,102.76C219.12,102.76 216.21,105.67 216.21,109.27V191.18C216.21,194.78 219.12,197.69 222.72,197.69H227.28C230.88,197.69 233.79,194.78 233.79,191.18V109.27C233.79,105.67 230.88,102.76 227.28,102.76Z" />
-    </group>
-    <group android:pivotX="225" android:pivotY="225" android:rotation="42">
-        <path android:fillColor="#FFFFFFFF" android:pathData="M222.14,197.57H227.86V223.55H222.14Z" />
-        <path android:fillColor="#4DFFFFFF" android:strokeColor="#FFFFFFFF" android:strokeWidth="5.27" android:pathData="M222.72,33.28C219.12,33.28 216.21,36.19 216.21,39.79V191.13C216.21,194.73 219.12,197.64 222.72,197.64H227.28C230.88,197.64 233.79,194.73 233.79,191.13V39.79C233.79,36.19 230.88,33.28 227.28,33.28Z" />
-    </group>
-    <group android:pivotX="225" android:pivotY="225" android:rotation="192">
-        <path android:fillColor="#FFF44336" android:pathData="M223,8H227V296H223Z" />
-    </group>
-    <path android:fillColor="#FFBCBCBC" android:pathData="M214,225a11,11 0,1 0,22 0a11,11 0,1 0,-22 0" />
-    <path android:fillColor="#FF000000" android:pathData="M221,225a4,4 0,1 0,8 0a4,4 0,1 0,-8 0" />
 </vector>

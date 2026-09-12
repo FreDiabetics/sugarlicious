@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <WatchFace width="512" height="512">
     <Metadata key="CLOCK_TYPE" value="ANALOG" />
-    <Metadata key="PREVIEW_TIME" value="10:07:32" />
+    <Metadata key="PREVIEW_TIME" value="10:08:32" />
     <UserConfigurations>
         <ColorConfiguration id="materialAccent" displayName="material_color_label" defaultValue="0">
             <ColorOption id="0" displayName="material_green" colors="#FF4CAF50" />
@@ -11,11 +11,6 @@
             <ColorOption id="4" displayName="material_orange" colors="#FFFF9800" />
             <ColorOption id="5" displayName="material_red" colors="#FFF44336" />
         </ColorConfiguration>
-        <ListConfiguration id="handStyle" displayName="hand_style_label" defaultValue="0">
-            <ListOption id="0" displayName="hand_style_standard" />
-            <ListOption id="1" displayName="hand_style_transparent" />
-            <ListOption id="2" displayName="hand_style_black_gray" />
-        </ListConfiguration>
     </UserConfigurations>
     <Scene backgroundColor="#000000">
         <ComplicationSlot slotId="7" displayName="Glucose graph" isCustomizable="TRUE" supportedTypes="LONG_TEXT RANGED_VALUE SMALL_IMAGE EMPTY" x="59" y="63" width="394" height="138">
@@ -347,34 +342,5 @@
             <Complication type="SMALL_IMAGE"><PartImage x="1" y="0" width="149" height="149"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ListConfiguration id="handStyle">
-            <ListOption id="0">
-                <AnalogClock x="0" y="0" width="512" height="512">
-                    <HourHand resource="hour_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <MinuteHand resource="minute_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <SecondHand resource="second_hand" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
-                        <Variant mode="AMBIENT" target="alpha" value="0" />
-                    </SecondHand>
-                </AnalogClock>
-            </ListOption>
-            <ListOption id="1">
-                <AnalogClock x="0" y="0" width="512" height="512">
-                    <HourHand resource="hour_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <MinuteHand resource="minute_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <SecondHand resource="second_hand_transparent" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
-                        <Variant mode="AMBIENT" target="alpha" value="0" />
-                    </SecondHand>
-                </AnalogClock>
-            </ListOption>
-            <ListOption id="2">
-                <AnalogClock x="0" y="0" width="512" height="512">
-                    <HourHand resource="hour_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <MinuteHand resource="minute_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5" />
-                    <SecondHand resource="second_hand_tblack" x="0" y="0" width="512" height="512" pivotX="0.5" pivotY="0.5">
-                        <Variant mode="AMBIENT" target="alpha" value="0" />
-                    </SecondHand>
-                </AnalogClock>
-            </ListOption>
-        </ListConfiguration>
     </Scene>
 </WatchFace>

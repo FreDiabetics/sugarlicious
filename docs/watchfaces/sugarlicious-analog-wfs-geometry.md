@@ -40,12 +40,11 @@ The WFS text rectangles describe visual boxes. Mobile preview text is centered
 inside those rectangles from actual `FontMetrics` rather than treating the
 rectangle center as an Android baseline.
 
-The dial artwork is generated from the authoritative 450 x 450 SVG sources
-provided with the WFS revision. `indices_hours.png`, `indices_dots.png`, and
-`graph_mask.png` retain that native canvas. The runtime
-`sugarlicious_analog_template.png` composites those exact paths with the three
-WFS complication outlines; the graph mask contributes its silhouette while
-the obscuring area remains the watch face's black background.
+The dial artwork is imported directly from the authoritative WFS archive by
+`tools/import_sugarlicious_analog_wfs.ps1`. It applies the WFS project's own
+-10 lightness adjustment to the hour numerals and -70 adjustment to the small
+indices before producing the native 450 x 450 runtime assets. The three
+complication outlines use the exact WFS stroke color `#888888` and geometry.
 
 Source SVG SHA-256 fingerprints:
 
@@ -119,8 +118,7 @@ Preview and runtime share the same snapped WFF geometry values, guarded by
 
 ## Hands and AOD
 
-The WFS archive contains hand images, but they are intentionally not imported.
-The existing three Sugarlicious hand sets (`standard`, `transparent`, and
-`black/gray`) remain unchanged and all pivot at the exact watch center. Second
-hands remain hidden in ambient mode. The graph keeps its existing ambient hide
-rule; other complications retain their WFF ambient behavior.
+The authoritative WFS scene does not contain an hour, minute, or second hand
+layer. The similarly named PNGs in the archive are unused resources and are
+therefore not inserted into the WFF. The graph keeps its ambient hide rule;
+other complications retain their WFF ambient behavior.

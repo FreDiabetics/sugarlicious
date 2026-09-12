@@ -27,13 +27,9 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertTrue(xml.contains("<Arc centerX=\"75\" centerY=\"76\" width=\"137\" height=\"137\""))
         assertTrue(xml.contains("<PartText x=\"7\" y=\"52\" width=\"137\" height=\"45\">"))
         assertTrue(xml.contains("resource=\"sugarlicious_analog_template\""))
-        assertTrue(xml.contains("resource=\"hour_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"minute_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"second_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"hour_hand_tblack\""))
-        assertTrue(xml.contains("resource=\"minute_hand_tblack\""))
-        assertTrue(xml.contains("resource=\"second_hand_tblack\""))
-        assertFalse(xml.contains("id=\"3\" displayName=\"hand_style_"))
+        assertTrue(xml.contains("<Metadata key=\"PREVIEW_TIME\" value=\"10:08:32\" />"))
+        assertFalse(xml.contains("<AnalogClock"))
+        assertFalse(xml.contains("handStyle"))
 
         assertTrue(SugarliciousAnalogGeometry.graph == AnalogRectGeometry(59f, 63f, 394f, 138f))
         assertTrue(SugarliciousAnalogGeometry.graphContent == AnalogRectGeometry(129f, 64f, 255f, 138f))
@@ -103,6 +99,15 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertTrue("$name must be 450 px wide", image.width == 450)
             assertTrue("$name must be 450 px high", image.height == 450)
         }
+    }
+
+    @Test
+    fun `dial uses the exact WFS luminance and outline colors`() {
+        val template = requireNotNull(
+            ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png")),
+        )
+        assertTrue(template.getRGB(291, 26) and 0xFFFFFF == 0x4C4C4C)
+        assertTrue(template.getRGB(73, 225) and 0xFFFFFF == 0x888888)
     }
 
     private fun watchfaceFile(): File = repoFile(
