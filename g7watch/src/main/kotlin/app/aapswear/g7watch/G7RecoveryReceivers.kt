@@ -60,7 +60,7 @@ class G7BootReceiver : BroadcastReceiver() {
         // If Android temporarily refuses the FGS launch, keep collectorEnabled=true and retain a
         // durable future alarm so a later slot can recover without re-pairing or losing the session.
         runCatching { G7CollectorService.start(context) }
-            .onFailure { G7ReconnectAlarmScheduler.scheduleRecovery(context, state) }
+            .onFailure { G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state) }
     }
 }
 
@@ -88,7 +88,7 @@ class G7ReconnectReceiver : BroadcastReceiver() {
                 // The alarm that brought us here has already fired. Always stage another future
                 // slot before returning, otherwise a transient FGS launch rejection can strand the
                 // collector indefinitely.
-                G7ReconnectAlarmScheduler.scheduleRecovery(context, state, now)
+                G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state, now)
                 val attempt = diagnosticStore.begin(
                     manual = false,
                     restart = false,

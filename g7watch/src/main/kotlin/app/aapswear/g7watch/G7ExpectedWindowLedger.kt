@@ -7,6 +7,8 @@ import app.aapswear.g7.CollectorExpectedWindow
 import app.aapswear.g7.CollectorHardwareMetrics
 import app.aapswear.g7.CollectorWindowTerminalState
 import app.aapswear.g7.DirectConnectResult
+import app.aapswear.g7.G7BackfillOutcome
+import app.aapswear.g7.G7GapRecoveryState
 import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
@@ -25,9 +27,13 @@ internal class G7ExpectedWindowLedger(context: Context) {
     fun create(expectedAt: Long, primaryAlarmScheduledAt: Long, alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE): CollectorExpectedWindow = synchronized(lock) {
         val sensor = G7SensorStateStore(app).read().sensor
         val sessionId = sensor?.sessionId ?: sensor?.sensorId
-        val id = expectedWindowId(sensor?.sensorId, sessionId, expectedAt)
-        val current = load().firstOrNull { it.expectedWindowId == id }
-        val window = (current ?: CollectorExpectedWindow(id, expectedAt)).copy(
+        val current = load().firstOrNull {
+            it.sensorId == sensor?.sensorId && it.sessionId == sessionId &&
+                kotlin.math.abs(it.expectedAt - expectedAt) <= WINDOW_CANONICAL_TOLERANCE_MS
+        }
+        val canonicalExpectedAt = current?.expectedAt ?: expectedAt
+        val id = current?.expectedWindowId ?: expectedWindowId(sensor?.sensorId, sessionId, canonicalExpectedAt)
+        val window = (current ?: CollectorExpectedWindow(id, canonicalExpectedAt)).copy(
             windowCreatedAt = current?.windowCreatedAt ?: System.currentTimeMillis(),
             primaryAlarmScheduledAt = primaryAlarmScheduledAt,
             sensorId = current?.sensorId ?: sensor?.sensorId,
@@ -45,8 +51,14 @@ internal class G7ExpectedWindowLedger(context: Context) {
         it.copy(cycleStartedAt = at, serviceStartedAt = at, wakeLockAcquiredAt = wakeLockAt, processId = Process.myPid(), processInstanceId = G7ProcessInstance.id, processUptimeMs = SystemClock.elapsedRealtime(), attemptId = attemptId)
     }
     fun markAdvertisement(id: String?, at: Long) = update(id) { it.copy(advertisementSeenAt = at) }
-    fun markFallbackScan(id: String?, advertisementSeenAt: Long?) = update(id) {
-        it.copy(fallbackScanUsed = true, advertisementSeenAt = advertisementSeenAt ?: it.advertisementSeenAt)
+    fun markFallbackScan(id: String?, startedAt: Long, endedAt: Long, resultCount: Int, advertisementSeenAt: Long?) = update(id) {
+        it.copy(
+            fallbackScanUsed = true,
+            scanStartedAt = it.scanStartedAt ?: startedAt,
+            scanEndedAt = endedAt,
+            scanResultCount = resultCount,
+            advertisementSeenAt = advertisementSeenAt ?: it.advertisementSeenAt,
+        )
     }
     fun markGattStarted(id: String?, at: Long, generation: Long) = update(id) {
         it.copy(gattStartedAt = it.gattStartedAt ?: at, gattGeneration = generation, gattAttempts = it.gattAttempts + 1)
@@ -68,6 +80,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
                 finalResult = result,
                 recoveryRequired = recoveryRequired,
                 gapDetectedAt = if (recoveryRequired) it.gapDetectedAt ?: at else it.gapDetectedAt,
+                gapRecoveryState = if (recoveryRequired) G7GapRecoveryState.RECOVERY_REQUIRED else it.gapRecoveryState,
                 terminalState = result.toTerminalState(),
                 terminalReason = reason ?: result.name,
                 completedAt = at,
@@ -109,11 +122,13 @@ internal class G7ExpectedWindowLedger(context: Context) {
                 recoveryAttemptCount = window.recoveryAttemptCount,
                 lastRecoveryAttemptAt = requestedAt ?: window.lastRecoveryAttemptAt,
                 lastRecoveryOutcome = when {
-                    recoveredAt != null -> "RECOVERED"
-                    requestedAt != null && responseAt != null -> "RESPONSE_WITHOUT_GAP"
-                    requestedAt != null -> "REQUEST_FAILED"
+                    recoveredAt != null -> G7BackfillOutcome.GAP_RECOVERED.name
+                    requestedAt != null && responseAt != null -> G7BackfillOutcome.RESPONSE_DID_NOT_CONTAIN_GAP.name
+                    requestedAt != null -> G7BackfillOutcome.REQUEST_FAILED.name
                     else -> window.lastRecoveryOutcome
                 },
+                gapRecoveryState = if (recoveredAt != null) G7GapRecoveryState.RECOVERED else window.gapRecoveryState,
+                firstRecoveryOpportunityAt = window.firstRecoveryOpportunityAt ?: liveReceivedAt,
             )
         }
         saveAll(updated)
@@ -134,7 +149,9 @@ internal class G7ExpectedWindowLedger(context: Context) {
                 backfillRequestedAt = window.backfillRequestedAt ?: requestedAt,
                 recoveryAttemptCount = window.recoveryAttemptCount + 1,
                 lastRecoveryAttemptAt = requestedAt,
-                lastRecoveryOutcome = "REQUEST_STARTED",
+                lastRecoveryOutcome = G7BackfillOutcome.REQUEST_STARTED.name,
+                gapRecoveryState = G7GapRecoveryState.RECOVERY_IN_FLIGHT,
+                firstRecoveryOpportunityAt = window.firstRecoveryOpportunityAt ?: requestedAt,
             )
         })
     }
@@ -146,7 +163,8 @@ internal class G7ExpectedWindowLedger(context: Context) {
             backfillInsertedAt = it.backfillInsertedAt ?: at,
             terminalState = CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY,
             terminalReason = "validated reading already present",
-            lastRecoveryOutcome = "ALREADY_PRESENT",
+            lastRecoveryOutcome = G7BackfillOutcome.ALREADY_PRESENT.name,
+            gapRecoveryState = G7GapRecoveryState.RECOVERED,
         )
     }
 
@@ -157,8 +175,21 @@ internal class G7ExpectedWindowLedger(context: Context) {
             finalResult = CollectorCycleClassification.PROCESS_INTERRUPTED,
             recoveryRequired = true,
             gapDetectedAt = it.gapDetectedAt ?: at,
+            gapRecoveryState = G7GapRecoveryState.RECOVERY_REQUIRED,
             completedAt = at,
         )
+    }
+
+    fun markSessionEnded(sensorId: String?, sessionId: String?, at: Long) = synchronized(lock) {
+        saveAll(load().map { window ->
+            if (window.sensorId != sensorId || window.sessionId != sessionId || !window.recoveryRequired) window
+            else window.copy(
+                recoveryRequired = false,
+                gapRecoveryState = G7GapRecoveryState.SESSION_ENDED,
+                terminalGapReason = "collector ownership released or sensor session replaced",
+                completedAt = window.completedAt ?: at,
+            )
+        })
     }
 
     fun reconstructMissed(
@@ -173,8 +204,12 @@ internal class G7ExpectedWindowLedger(context: Context) {
         val slots = missingExpectedSlots(fromExpectedAt, untilExclusive, sensorStartAt, sensorEndAt)
         var inserted = 0
         slots.forEach { expectedAt ->
+            val existing = load().firstOrNull {
+                it.sensorId == sensorId && it.sessionId == sessionId &&
+                    kotlin.math.abs(it.expectedAt - expectedAt) <= WINDOW_CANONICAL_TOLERANCE_MS
+            }
             val id = expectedWindowId(sensorId, sessionId, expectedAt)
-            if (load().none { it.expectedWindowId == id }) {
+            if (existing == null) {
                 saveUpsert(
                     CollectorExpectedWindow(
                         expectedWindowId = id,
@@ -188,6 +223,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
                         finalResult = CollectorCycleClassification.MISSED_SENSOR_WINDOW,
                         recoveryRequired = true,
                         gapDetectedAt = nowEpochMs,
+                        gapRecoveryState = G7GapRecoveryState.RECOVERY_REQUIRED,
                         completedAt = nowEpochMs,
                     ),
                 )
@@ -250,6 +286,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
         const val PREFERENCES = "g7_expected_window_ledger"
         const val KEY_WINDOWS = "windows_v1"
         const val MAX_WINDOWS = 2_304
+        const val WINDOW_CANONICAL_TOLERANCE_MS = 60_000L
         val lock = Any()
     }
 }
@@ -302,6 +339,15 @@ internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>):
         .map { it.coerceAtLeast(0L) }.sorted()
     val readingTimes = successes.mapNotNull(CollectorExpectedWindow::readingReceivedAt).sorted()
     val gaps = readingTimes.zipWithNext { a, b -> b - a }
+    val recovered = ordered.filter { it.gapRecoveryState == G7GapRecoveryState.RECOVERED }
+    val withinSla = recovered.count { window ->
+        val opportunity = window.firstRecoveryOpportunityAt
+        val committed = window.backfillInsertedAt
+        opportunity != null && committed != null && committed - opportunity <= G7_BACKFILL_SLA_MS
+    }
+    val canonicalDuplicates = ordered.groupBy {
+        Triple(it.sensorId, it.sessionId, it.expectedAt / G7_SLOT_INTERVAL_MS)
+    }.values.sumOf { (it.size - 1).coerceAtLeast(0) }
     fun percentile(values: List<Long>, fraction: Double): Long? =
         values.takeIf { it.isNotEmpty() }?.get((ceil(values.size * fraction).toInt() - 1).coerceIn(0, values.lastIndex))
     return CollectorHardwareMetrics(
@@ -318,5 +364,24 @@ internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>):
         availabilityPercent = if (ordered.isEmpty()) 0.0 else successes.size * 100.0 / ordered.size,
         medianReceiveDelayMs = percentile(delays, 0.5),
         p95ReceiveDelayMs = percentile(delays, 0.95),
+        connectAttempts = ordered.sumOf(CollectorExpectedWindow::gattAttempts),
+        bleScanTimeMs = ordered.sumOf { window ->
+            val start = window.scanStartedAt
+            val end = window.scanEndedAt
+            if (start != null && end != null) (end - start).coerceAtLeast(0L) else 0L
+        },
+        wakeLockDurationMs = ordered.sumOf { window ->
+            val start = window.wakeLockAcquiredAt
+            val end = window.completedAt
+            if (start != null && end != null) (end - start).coerceIn(0L, 3L * 60_000L) else 0L
+        },
+        sensorNotVisibleEpisodes = ordered.count { it.fallbackScanUsed && it.advertisementSeenAt == null },
+        silentWindows = ordered.count { it.cycleStartedAt == null && it.expectedAt < System.currentTimeMillis() },
+        duplicateCanonicalWindows = canonicalDuplicates,
+        recoveredGapCount = recovered.size,
+        backfillWithinTenMinutesCount = withinSla,
+        backfillWithinTenMinutesPercent = if (recovered.isEmpty()) 0.0 else withinSla * 100.0 / recovered.size,
     )
 }
+
+internal const val G7_BACKFILL_SLA_MS = 10L * 60_000L

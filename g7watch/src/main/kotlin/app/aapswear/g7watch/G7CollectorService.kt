@@ -103,6 +103,7 @@ class G7CollectorService : Service() {
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
+        store.save(G7CollectorReliability.rehydrate(store.read(), System.currentTimeMillis()))
         // A newly created Service has no surviving collector coroutine. Reconcile persisted BLE
         // state before accepting any new work and restore the future recovery invariant first.
         // The one exception is an AlarmManager handoff that the receiver has already marked as
@@ -347,6 +348,7 @@ class G7CollectorService : Service() {
 
         try {
             val collector = AndroidG7Collector(this)
+            store.save(store.read().copy(health = G7CollectorReliability.collecting(store.read().health)))
             val sessionId = collectionSensor.sessionId ?: collectionSensor.sensorId
             val ledger = G7ExpectedWindowLedger(this)
             var recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
@@ -401,6 +403,13 @@ class G7CollectorService : Service() {
                 onState = { protocolState ->
                     val current = store.read()
                     val now = System.currentTimeMillis()
+                    val health = when (protocolState) {
+                        G7ProtocolState.SENSOR_FOUND -> G7CollectorReliability.reachable(current.health, now)
+                        G7ProtocolState.DISCOVERING, G7ProtocolState.DISCOVERING_SERVICES ->
+                            G7CollectorReliability.reachable(current.health, now, connected = true)
+                        G7ProtocolState.AUTHENTICATED -> G7CollectorReliability.authenticated(current.health, now)
+                        else -> current.health
+                    }
                     val next = current.copy(
                         protocolState = protocolState,
                         connectionState = protocolState.toConnectionState(),
@@ -413,6 +422,7 @@ class G7CollectorService : Service() {
                         } else current.scanTimeoutAtEpochMs,
                         lastScanAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) now else current.lastScanAtEpochMs,
+                        health = health,
                     )
                     store.save(next)
                     updateAttemptCycleForProtocolState(attemptId, protocolState, now)
@@ -451,6 +461,7 @@ class G7CollectorService : Service() {
                 },
                 attemptId = attemptId,
                 lastStoredSensorClock = lastStoredSensorClock,
+                allowFallbackScan = G7CollectorReliability.shouldRunPresenceScan(store.read().health),
                 onLiveReading = { live ->
                     liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
                     val provisional = G7ReadingDatabase(this).let { database ->
@@ -537,7 +548,7 @@ class G7CollectorService : Service() {
             } catch (error: Throwable) {
                 throw G7BleException("G7-STORE-500", "Lokaler G7-Wert konnte nicht gespeichert werden", true, error)
             }
-            val backfillInserted = try {
+            val (backfillInserted, committedBackfillMeasurements) = try {
                 G7ReadingDatabase(this).let { database ->
                     try {
                         var predecessor = database.getLatestValidBefore(
@@ -546,14 +557,18 @@ class G7CollectorService : Service() {
                             result.backfillReadings.minOfOrNull { it.sensorTimestampEpochMs } ?: reading.timestampEpochMs,
                         )
                         var acceptedCount = 0
+                        val committed = mutableListOf<Long>()
                         result.backfillReadings
                             .sortedBy { it.sensorTimestampEpochMs }
                             .forEach { historical ->
                                 val converted = historical.toCgm(predecessor)
                                 if (database.insertOrIgnore(converted)) acceptedCount += 1
                                 if (converted.status == CgmReadingStatus.VALID) predecessor = converted
+                                if (database.validReadingNear(converted.sensorId, converted.sessionId, converted.timestampEpochMs) != null) {
+                                    committed += converted.timestampEpochMs
+                                }
                             }
-                        acceptedCount
+                        acceptedCount to committed
                     } finally {
                         database.close()
                     }
@@ -564,7 +579,7 @@ class G7CollectorService : Service() {
                     "Collector history could not be stored",
                     metadata = mapOf("error" to error.javaClass.simpleName),
                 )
-                0
+                0 to emptyList<Long>()
             }
             // The live packet arrives before its history stream. After a signal-loss gap the
             // first live value was therefore initially compared with the old pre-gap value and
@@ -616,7 +631,7 @@ class G7CollectorService : Service() {
                 committedAt = storedAt,
                 requestedAt = backfillRequestedAt,
                 responseAt = if (backfillRequestedAt != null) now else null,
-                inserted = result.backfillReadings.map { it.sensorTimestampEpochMs },
+                inserted = committedBackfillMeasurements,
             )
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
             attemptStore.updateCycle(attemptId) { it.copy(storeCompletedAt = storedAt) }
@@ -653,6 +668,7 @@ class G7CollectorService : Service() {
                 pairingStartedAtEpochMs = null,
                 pairingDeadlineEpochMs = null,
                 scanTimeoutAtEpochMs = null,
+                health = G7CollectorReliability.succeeded(store.read().health, reading.timestampEpochMs, storedAt),
             )
             store.save(next)
 
@@ -783,6 +799,15 @@ class G7CollectorService : Service() {
         )
         val managed = G7SessionManager(state).failure(error)
         val softWindowFailure = error.recoverable && error.code in SOFT_WINDOW_ERRORS
+        val sensorAdvertisementSeen = (cycle?.scanNamedG7Results ?: 0) > 0 || (cycle?.scanExactAddressResults ?: 0) > 0
+        val foreignAdvertisementsSeen = (cycle?.scanTotalResults ?: 0) > 0 && !sensorAdvertisementSeen
+        val reliability = G7CollectorReliability.failed(
+            health = state.health,
+            failure = g7FailureClass(error.code, sensorAdvertisementSeen, foreignAdvertisementsSeen),
+            sensorAdvertisementSeen = sensorAdvertisementSeen,
+            foreignAdvertisementsSeen = foreignAdvertisementsSeen,
+            now = System.currentTimeMillis(),
+        )
         val next = managed.copy(
             connectionState = G7ConnectionState.DISCONNECTED,
             protocolState = if (softWindowFailure) G7ProtocolState.RECOVERING else G7ProtocolState.ERROR,
@@ -791,6 +816,7 @@ class G7CollectorService : Service() {
             nextReconnectEpochMs =
                 stagedSafety?.expectedReadingEpoch?.minus(G7ReconnectScheduler.PRECONNECT_LEAD_MS)
                     ?: managed.nextReconnectEpochMs,
+            health = reliability,
         )
         store.save(next)
         val scheduledReconnectAt = stagedSafety?.requestedReconnectEpoch ?: scheduleReconnect(next)
@@ -952,6 +978,9 @@ class G7CollectorService : Service() {
                 )
                 G7ExpectedWindowLedger(this).markFallbackScan(
                     attemptStore.activeAttempt(attemptId)?.cycle?.expectedWindowId,
+                    telemetry.startedAtEpochMs,
+                    telemetry.endedAtEpochMs,
+                    telemetry.totalResults,
                     telemetry.endedAtEpochMs.takeIf { telemetry.namedG7Results > 0 || telemetry.exactAddressResults > 0 },
                 )
             }

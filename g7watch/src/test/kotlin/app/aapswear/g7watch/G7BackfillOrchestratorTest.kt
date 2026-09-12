@@ -9,6 +9,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import app.aapswear.g7.G7GapRecoveryState
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -62,7 +63,7 @@ class G7BackfillOrchestratorTest {
         val afterRestart = G7ExpectedWindowLedger(context).oldestOpenGap(gap.sensorId, gap.sessionId)
         assertNotNull(afterRestart)
         assertEquals(1, afterRestart?.recoveryAttemptCount)
-        assertEquals("RESPONSE_WITHOUT_GAP", afterRestart?.lastRecoveryOutcome)
+        assertEquals("RESPONSE_DID_NOT_CONTAIN_GAP", afterRestart?.lastRecoveryOutcome)
 
         ledger.markRecoveryRequestStarted(sensorId, sessionId, 900_000L, 901_500L)
         assertEquals(2, ledger.window(gap.expectedWindowId)?.recoveryAttemptCount)
@@ -82,5 +83,43 @@ class G7BackfillOrchestratorTest {
 
         assertNull(ledger.oldestOpenGap(first.sensorId, first.sessionId))
         assertTrue(ledger.snapshot().filter { it.expectedWindowId in setOf(first.expectedWindowId, second.expectedWindowId) }.all { !it.recoveryRequired })
+    }
+
+    @Test fun `near-identical lifecycle windows canonicalize to one record`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val first = ledger.create(300_000L, 290_000L)
+        val duplicate = ledger.create(320_000L, 310_000L)
+
+        assertEquals(first.expectedWindowId, duplicate.expectedWindowId)
+        assertEquals(1, ledger.snapshot().size)
+        assertEquals(300_000L, ledger.snapshot().single().expectedAt)
+    }
+
+    @Test fun `second successful contact retries and closes gap inside ten minute SLA`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val gap = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(gap.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val sensorId = gap.sensorId ?: "unknown"
+        val sessionId = gap.sessionId ?: "unknown"
+
+        ledger.markRecoveryRequestStarted(sensorId, sessionId, 600_000L, 601_000L)
+        ledger.markNextLiveAndBackfill(sensorId, sessionId, 600_000L, 600_500L, 601_500L, 601_000L, 601_400L, emptyList())
+        ledger.markRecoveryRequestStarted(sensorId, sessionId, 900_000L, 901_000L)
+        ledger.markNextLiveAndBackfill(sensorId, sessionId, 900_000L, 900_500L, 901_500L, 901_000L, 901_400L, listOf(300_000L))
+
+        val recovered = requireNotNull(ledger.window(gap.expectedWindowId))
+        assertEquals(2, recovered.recoveryAttemptCount)
+        assertEquals(G7GapRecoveryState.RECOVERED, recovered.gapRecoveryState)
+        assertTrue(requireNotNull(recovered.backfillInsertedAt) - requireNotNull(recovered.firstRecoveryOpportunityAt) <= 10 * 60_000L)
+    }
+
+    @Test fun `ending session prevents old gaps contaminating replacement sensor`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val gap = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(gap.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        ledger.markSessionEnded(gap.sensorId, gap.sessionId, 400_000L)
+
+        assertNull(ledger.oldestOpenGap(gap.sensorId, gap.sessionId))
+        assertEquals(G7GapRecoveryState.SESSION_ENDED, ledger.window(gap.expectedWindowId)?.gapRecoveryState)
     }
 }

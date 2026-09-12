@@ -4,6 +4,7 @@ import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
+import app.aapswear.g7.G7SensorAvailability
 
 internal enum class G7UserStatusLevel { OK, WORKING, ATTENTION, ERROR, OFF }
 
@@ -74,13 +75,20 @@ internal fun deriveG7UserStatus(
     }
 
     if (ageMs != null && ageMs >= G7_SIGNAL_LOSS_AFTER_MS) {
+        val ownershipSuspected = state.health.sensorAvailability == G7SensorAvailability.POSSIBLY_OWNED_BY_OTHER_COLLECTOR
         return G7UserStatus(
             G7UserStatusLevel.ATTENTION,
             "Signalverlust",
             phaseName(state.protocolState),
             "Kein aktueller Sensorwert",
-            "Seit mindestens 16 Minuten wurde kein valider direkter Sensorwert empfangen.",
-            actionForError(state.lastError?.code) ?: "Bluetooth und Sensorreichweite prüfen und die Uhr am Sensor lassen. Bond, Shared Key und Sensorcode nicht löschen.",
+            if (ownershipSuspected) {
+                "Der Sensor ist gespeichert, aber aktuell nicht erreichbar. Möglicherweise ist noch ein anderer Collector aktiv."
+            } else {
+                "Seit mindestens 16 Minuten wurde kein valider direkter Sensorwert empfangen."
+            },
+            if (ownershipSuspected) {
+                "Den Sensor auf der bisherigen Uhr ausdrücklich freigeben und diese Uhr anschließend in Sensornähe lassen."
+            } else actionForError(state.lastError?.code) ?: "Bluetooth und Sensorreichweite prüfen und die Uhr am Sensor lassen. Bond, Shared Key und Sensorcode nicht löschen.",
         )
     }
 
@@ -106,7 +114,7 @@ internal fun deriveG7UserStatus(
         G7ProtocolState.BACKFILL,
         -> G7UserStatus(
             G7UserStatusLevel.WORKING,
-            if (ageMs == null) "Verbindung wird aufgebaut" else "Verbunden",
+            if (ageMs == null) "Verbindung wird aufgebaut" else "Sensorkontakt",
             phaseName(state.protocolState),
             "Aktiv · Messzyklus läuft",
             "Der Collector verarbeitet das aktuelle Sensorfenster.",
@@ -118,7 +126,7 @@ internal fun deriveG7UserStatus(
         G7ProtocolState.DISCONNECTED,
         -> G7UserStatus(
             G7UserStatusLevel.OK,
-            if (ageMs == null) "Bereit" else "Verbunden",
+            if (ageMs == null) "Bereit" else "Sensor aktiv",
             "Bereit für nächsten Wert",
             "Aktiv · Datenfluss in Ordnung",
             ageMs?.let { "Der letzte valide Sensorwert ist ${formatAge(it)} alt. Der nächste Messzyklus wird automatisch zum Sensorfenster gestartet." }

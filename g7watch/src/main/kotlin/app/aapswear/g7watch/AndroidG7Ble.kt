@@ -98,8 +98,9 @@ internal object G7GattGenerationRegistry {
     private val nextGeneration = java.util.concurrent.atomic.AtomicLong(0L)
     @Volatile private var active: G7GattOwnership? = null
 
-    @Synchronized fun acquire(attemptId: Long): G7GattOwnership =
-        G7GattOwnership(attemptId, nextGeneration.incrementAndGet()).also { active = it }
+    @Synchronized fun acquire(attemptId: Long): G7GattOwnership {
+        return G7GattOwnership(attemptId, nextGeneration.incrementAndGet()).also { active = it }
+    }
 
     fun isActive(ownership: G7GattOwnership): Boolean = active == ownership
 
@@ -402,6 +403,7 @@ internal class AndroidG7Collector(
         attemptId: Long = 0L,
         lastStoredSensorClock: Long? = null,
         onLiveReading: suspend (G7Reading) -> Unit = {},
+        allowFallbackScan: Boolean = true,
     ): G7CollectionResult {
         var sensor = initialSensor
         var sharedKey = credentials.sharedKey?.takeIf {
@@ -506,7 +508,7 @@ internal class AndroidG7Collector(
                     discoveryRequired = false
                     onState(G7ProtocolState.RECOVERING)
                     delay(GATT_133_STACK_SETTLE_DELAY_MS)
-                } else if (shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
+                } else if (allowFallbackScan && shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
                     pendingGatt133 = error.takeIf { it.errorCode == G7_GATT_133_ERROR_CODE }
                     fallbackUsed = true
                     discoveryRequired = true
@@ -522,7 +524,7 @@ internal class AndroidG7Collector(
                     true,
                     timeout,
                 )
-                if (shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
+                if (allowFallbackScan && shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)) {
                     fallbackUsed = true
                     discoveryRequired = true
                     onState(G7ProtocolState.RECOVERING)
@@ -574,6 +576,7 @@ private class G7GattConnection(
     private var connectStartedAtEpochMs: Long? = null
     private var connectStartedElapsedMs: Long? = null
     private val directResultRecorded = AtomicBoolean(false)
+    private val closeStarted = AtomicBoolean(false)
 
     private val callback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -917,6 +920,7 @@ private class G7GattConnection(
 
     @SuppressLint("MissingPermission")
     fun close() {
+        if (!closeStarted.compareAndSet(false, true)) return
         val current = gatt
         onTelemetry(
             G7GattCleanupTelemetry(

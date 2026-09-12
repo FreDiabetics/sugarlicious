@@ -7,6 +7,8 @@ import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
+import app.aapswear.g7.G7CollectorHealth
+import app.aapswear.g7.G7SensorAvailability
 import app.aapswear.model.DataSourceId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -40,9 +42,27 @@ class G7UserStatusTest {
         )
 
         assertEquals(G7UserStatusLevel.OK, status.level)
-        assertEquals("Verbunden", status.title)
+        assertEquals("Sensor aktiv", status.title)
         assertTrue(status.status.contains("Datenfluss in Ordnung"))
         assertTrue(status.action.contains("Kein Eingriff"))
+    }
+
+    @Test fun `stale bonded sensor never appears connected and ownership remains a heuristic`() {
+        val status = deriveG7UserStatus(
+            G7PersistedState(
+                sensor = sensor,
+                collectorEnabled = true,
+                protocolState = G7ProtocolState.RECOVERING,
+                sessionState = G7SessionState.RECOVERING,
+                lastReading = reading(now - G7_SIGNAL_LOSS_AFTER_MS),
+                health = G7CollectorHealth(sensorAvailability = G7SensorAvailability.POSSIBLY_OWNED_BY_OTHER_COLLECTOR),
+            ),
+            credentialsPresent = true,
+            nowEpochMs = now,
+        )
+        assertEquals("Signalverlust", status.title)
+        assertTrue(status.description.contains("Möglicherweise"))
+        assertTrue(status.action.contains("freigeben"))
     }
 
     @Test fun `single missed window remains automatic recovery before sixteen minutes`() {

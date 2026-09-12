@@ -15,6 +15,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `registry permits exactly one active GATT generation`() {
+        G7GattGenerationRegistry.resetForTest()
+        val first = G7GattGenerationRegistry.acquire(1)
+        val second = G7GattGenerationRegistry.acquire(2)
+        assertFalse(G7GattGenerationRegistry.isActive(first))
+        assertTrue(G7GattGenerationRegistry.isActive(second))
+        assertTrue(second.generation > first.generation)
+        G7GattGenerationRegistry.invalidate(second)
+    }
     @Test fun `known candidate without first reading retains initial pairing deadline`() {
         val state = G7PersistedState(
             sensor = G7Sensor("new-sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"),

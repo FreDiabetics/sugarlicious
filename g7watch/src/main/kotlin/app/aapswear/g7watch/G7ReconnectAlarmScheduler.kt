@@ -30,6 +30,22 @@ internal object G7ReconnectAlarmScheduler {
     private const val REQUEST_CODE = 0
     private const val MIN_TRIGGER_LEAD_MS = 1_000L
 
+    /** Idempotent lifecycle entry point: retain a valid future slot or rebuild exactly one. */
+    fun ensureCollectorSchedule(
+        context: Context,
+        state: G7PersistedState,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): CollectorCycleTiming? {
+        if (!state.collectorEnabled || state.sensor == null) return null
+        val pending = G7CollectorDiagnosticStore(context.applicationContext).pendingScheduledCycle()
+        val validPending = pending?.takeIf {
+            it.requestedReconnectEpoch?.let { requested -> requested > nowEpochMs + MIN_TRIGGER_LEAD_MS } == true &&
+                it.expectedWindowId == expectedWindowId(state, it.expectedReadingEpoch ?: Long.MIN_VALUE)
+        }
+        return validPending?.let { rearmScheduledCycle(context, it, state) }
+            ?: scheduleRecovery(context, state, nowEpochMs)
+    }
+
     fun scheduleForState(
         context: Context,
         state: G7PersistedState,
