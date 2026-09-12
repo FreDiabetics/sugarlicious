@@ -21,6 +21,25 @@ class ComplicationUpdatePlannerTest {
         assertTrue(DirectToWatchHeaderComplication::class.java in providers)
         assertTrue(DirectToWatchGraphComplication::class.java in providers)
         assertTrue(DirectToWatchStatusComplication::class.java in providers)
+        assertTrue(DirectToWatchClockComplication::class.java in providers)
+        assertTrue(DirectToWatchAmbientClockComplication::class.java in providers)
+        assertTrue(DirectToWatchAmbientHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchAmbientGraphComplication::class.java in providers)
+        assertEquals(providers.size, providers.distinct().size)
+    }
+
+    @Test
+    fun `minute refresh includes every glucose trend graph and Vigil surface`() {
+        val providers = ComplicationUpdatePlanner.timeSensitiveProviders
+
+        assertTrue(GlucoseRangedValueComplication::class.java in providers)
+        assertTrue(GlucoseTrendRangedValueComplication::class.java in providers)
+        assertTrue(TrendOnlyComplication::class.java in providers)
+        assertTrue(GlucoseGraphComplication::class.java in providers)
+        assertTrue(DirectToWatchHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchGraphComplication::class.java in providers)
+        assertTrue(DirectToWatchAmbientHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchAmbientGraphComplication::class.java in providers)
         assertEquals(providers.size, providers.distinct().size)
     }
 

@@ -31,6 +31,7 @@ internal enum class WidgetColorRole(
     AXIS("axis", AppearanceTerminology.GRAPH_AXIS_TEXT),
     AXIS_TICK("axis_tick", AppearanceTerminology.GRAPH_AXIS_TICK),
     TEXT("text", "Text"),
+    DELTA_UNIT("delta_unit", AppearanceTerminology.DELTA_UNIT),
     TREND("trend", AppearanceTerminology.TREND_ARROW),
     TREND_HIGH("trend_high", "Trend Hoch"),
     TREND_IN_RANGE("trend_in_range", "Trend im Ziel"),
@@ -137,6 +138,7 @@ internal object WidgetColorStore {
                             WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
                             WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                             WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
+                            WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
                             WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
                             WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                             WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
@@ -201,6 +203,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
                 WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                 WidgetColorRole.TEXT -> SugarliciousColorRole.TEXT_PRIMARY
+                WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
                 WidgetColorRole.TREND -> SugarliciousColorRole.PRIMARY
                 WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                 WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE

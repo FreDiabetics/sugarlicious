@@ -72,7 +72,7 @@ class G7CollectorDiagnosticsTest {
     }
 
     @Test
-    fun `attempt ids survive recreation and only the latest overnight window remains`() {
+    fun `attempt ids survive recreation across the former overnight limit`() {
         repeat(517) { index ->
             val store = G7CollectorDiagnosticStore(context)
             val attempt = store.begin(manual = index % 2 == 0, restart = index % 3 == 0, nowEpochMs = index.toLong())
@@ -86,9 +86,9 @@ class G7CollectorDiagnosticsTest {
         }
 
         val restored = G7CollectorDiagnosticStore(context).snapshot()
-        assertEquals(512, restored.size)
+        assertEquals(517, restored.size)
         assertEquals(517L, restored.first().attemptId)
-        assertEquals(6L, restored.last().attemptId)
+        assertEquals(1L, restored.last().attemptId)
         assertTrue(restored.all { it.completedAtEpochMs != null })
     }
 

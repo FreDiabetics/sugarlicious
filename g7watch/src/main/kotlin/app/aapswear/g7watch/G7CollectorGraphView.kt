@@ -20,6 +20,9 @@ import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 
+internal fun g7CollectorGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
+    GraphTimeWindow.live(nowEpochMs, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+
 @SuppressLint("DrawAllocation")
 internal class G7CollectorGraphView @JvmOverloads constructor(
     context: Context,
@@ -28,7 +31,9 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
     private val density = resources.displayMetrics.density
     private val directSettings by lazy { G7DirectToWatchSettingsStore(context) }
     private var readings: List<CgmReading> = emptyList()
-    private var nowEpochMs = 0L
+    private var nowOverrideEpochMs: Long? = null
+    private var boundGraphHours: Int = 3
+    private var boundPalette: G7AppearancePalette? = null
 
     init {
         outlineProvider = object : ViewOutlineProvider() {
@@ -56,30 +61,51 @@ internal class G7CollectorGraphView @JvmOverloads constructor(
         readings: List<CgmReading>,
         palette: G7AppearancePalette,
         graphHours: Int,
-        nowEpochMs: Long = System.currentTimeMillis(),
+        nowEpochMs: Long? = null,
         targetLowMgDl: Double = 80.0,
         targetHighMgDl: Double = 160.0,
     ) {
-        // Legacy parameters remain only for source compatibility with G7WatchActivity. Rendering is
-        // owned entirely by the Direct-to-Watch settings store, never by Sugarlicious colors.
-        palette.hashCode()
-        graphHours.hashCode()
+        // The in-app graph belongs to SugarWear and therefore follows SugarWear's appearance
+        // palette. Direct-to-Watch settings remain exclusive to Vigil.
+        boundPalette = palette
+        boundGraphHours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
         targetLowMgDl.hashCode()
         targetHighMgDl.hashCode()
         this.readings = normalizeLocalHistory(readings)
-        this.nowEpochMs = nowEpochMs
+        this.nowOverrideEpochMs = nowEpochMs
         invalidateOutline()
         invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val now = nowEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis()
-        val graphHours = directSettings.graphHours()
+        val now = nowOverrideEpochMs ?: System.currentTimeMillis()
+        val graphHours = boundGraphHours
         val thresholds = directSettings.thresholds()
         val style = directSettings.graphStyle()
-        val colors = directSettings.graphColors()
-        val window = GraphTimeWindow.live(now, graphHours * RelativeGraphTimeAxis.HOUR_MS)
+        val palette = boundPalette ?: G7AppearanceStore(context).load()
+        val colors = directSettings.graphColors().copy(
+            graphBackground = palette.argb(G7AppearanceRole.GRAPH_BACKGROUND),
+            rangeLow = palette.argb(G7AppearanceRole.GRAPH_LOW_AREA),
+            rangeInRange = palette.argb(G7AppearanceRole.GRAPH_TARGET_AREA),
+            rangeHigh = palette.argb(G7AppearanceRole.GRAPH_HIGH_AREA),
+            cgmLow = palette.argb(G7AppearanceRole.GRAPH_DOT_LOW),
+            cgmInRange = palette.argb(G7AppearanceRole.GRAPH_DOT_IN_RANGE),
+            cgmHigh = palette.argb(G7AppearanceRole.GRAPH_DOT_HIGH),
+            cgmVeryLow = palette.argb(G7AppearanceRole.GLUCOSE_VERY_LOW),
+            cgmVeryHigh = palette.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH),
+            divider = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
+            highLine = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE),
+            lowLine = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE),
+            axisLabel = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
+            axisTick = palette.argb(G7AppearanceRole.GRAPH_GRID),
+            outline = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE),
+            predictionIob = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
+            predictionCob = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
+            predictionUam = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
+            predictionZeroTemp = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
+        )
+        val window = g7CollectorGraphWindow(now, graphHours)
 
         SharedWearCgmGraphRenderer.render(
             canvas,

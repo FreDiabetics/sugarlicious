@@ -5,11 +5,11 @@ import app.aapswear.g7.G7SyncDispatch
 import app.aapswear.protocol.G7ReadingAck
 
 /**
- * Direct-to-Watch sensor history is private to the standalone collector.
+ * SugarWear sensor history is private to the standalone collector.
  *
  * Sugarlicious Wear must never request, transport, acknowledge, persist or render sensor backfill.
- * Backfill is fetched by the Direct-to-Watch collector only and is stored in its local reading DB
- * for repairing gaps in the Direct-to-Watch graph.
+ * Backfill is fetched by SugarWear only and is stored in its local reading DB
+ * for repairing gaps in the SugarWear graph.
  *
  * These no-op entry points remain temporarily for source compatibility with older callers while
  * the transport hooks are removed from the surrounding services.

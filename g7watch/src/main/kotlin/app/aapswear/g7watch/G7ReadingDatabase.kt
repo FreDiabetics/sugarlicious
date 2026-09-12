@@ -14,7 +14,7 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 4), CgmReadingRepository {
+internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "g7_readings.db", null, 6), CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
@@ -61,6 +61,39 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
                     OR (preferred.origin=readings.origin AND preferred.rowid<readings.rowid)))""".trimIndent(),
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS readings_identity ON readings(sensor_id, session_id, status, measured_at)")
+        }
+        if (oldVersion < 5) {
+            // LIVE timestamps include the packet age in seconds while history is aligned to the
+            // sensor's cadence boundary. Collapse the same physical reading inside one minute so
+            // duplicate rows cannot halve a 300-point graph to roughly twelve visible hours.
+            db.execSQL(
+                """DELETE FROM readings WHERE origin='BACKFILL' AND status='VALID' AND EXISTS (
+                    SELECT 1 FROM readings live
+                    WHERE live.sensor_id=readings.sensor_id AND live.session_id=readings.session_id
+                    AND live.status='VALID' AND live.origin='LIVE'
+                    AND ABS(live.measured_at-readings.measured_at)<=60000)""".trimIndent(),
+            )
+        }
+        if (oldVersion < 6) {
+            // sensorStart is reconstructed from each live packet and can vary by milliseconds.
+            // Repeated downloads therefore produced different measured_at values for the same
+            // immutable sensor-clock slot. Retain LIVE over BACKFILL and otherwise the newest copy.
+            db.execSQL(
+                """DELETE FROM readings AS victim
+                    WHERE victim.status='VALID' AND victim.sensor_clock IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM readings AS keeper
+                        WHERE keeper.sensor_id=victim.sensor_id AND keeper.session_id=victim.session_id
+                        AND keeper.status=victim.status AND keeper.sensor_clock=victim.sensor_clock
+                        AND (
+                            (keeper.origin='LIVE' AND victim.origin!='LIVE') OR
+                            (keeper.origin=victim.origin AND (
+                                keeper.received_at>victim.received_at OR
+                                (keeper.received_at=victim.received_at AND keeper.id>victim.id)
+                            ))
+                        )
+                    )""".trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS readings_sensor_clock ON readings(sensor_id, session_id, status, sensor_clock)")
         }
     }
 
@@ -118,6 +151,35 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         G7CollectorTileService.requestUpdate(appContext)
     }
 
+    /** Replaces only values derived from the temporal predecessor after history was backfilled. */
+    fun updateDerivedFields(reading: CgmReading): Boolean {
+        val values = ContentValues().apply {
+            if (reading.deltaMgDl == null) putNull("delta") else put("delta", reading.deltaMgDl)
+            put("trend", reading.trend.name)
+            if (reading.trendRateMgDlPerMinute == null) putNull("trend_rate")
+            else put("trend_rate", reading.trendRateMgDlPerMinute)
+        }
+        val updated = writableDatabase.update(
+            "readings",
+            values,
+            """sensor_id=? AND session_id=? AND status=? AND (
+                (origin!=? AND measured_at BETWEEN ? AND ?) OR
+                (origin=? AND measured_at=?))""".trimIndent(),
+            arrayOf(
+                reading.sensorId,
+                reading.sessionId,
+                CgmReadingStatus.VALID.name,
+                reading.origin.name,
+                (reading.timestampEpochMs - IDENTITY_TOLERANCE_MS).toString(),
+                (reading.timestampEpochMs + IDENTITY_TOLERANCE_MS).toString(),
+                reading.origin.name,
+                reading.timestampEpochMs.toString(),
+            ),
+        ) > 0
+        if (updated) publishChanged()
+        return updated
+    }
+
     /** Sensor-error packets can be replayed on later windows; retain one diagnostic row per
      * sensor/session/sequence/error signature without changing valid-reading deduplication. */
     private fun hasSameSensorError(reading: CgmReading): Boolean {
@@ -134,13 +196,26 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
         ).use { it.moveToFirst() }
     }
 
-    /** Sequence and sensor-clock fields are transport metadata. The real measurement identity is
-     * the exact event timestamp inside one sensor/session, with LIVE preferred over BACKFILL. */
+    /** Sequence and sensor-clock fields are transport metadata. LIVE contains a few seconds of
+     * packet age while BACKFILL is cadence-aligned, so identity uses a one-minute event window. */
     private fun validIdentity(reading: CgmReading): ExistingValidIdentity? = readableDatabase.query(
             "readings",
             arrayOf("id", "origin"),
-            "sensor_id=? AND session_id=? AND status=? AND measured_at=?",
-            arrayOf(reading.sensorId, reading.sessionId, CgmReadingStatus.VALID.name, reading.timestampEpochMs.toString()),
+            """sensor_id=? AND session_id=? AND status=? AND (
+                (sensor_clock IS NOT NULL AND sensor_clock=?) OR
+                (origin=? AND measured_at=?) OR
+                (origin!=? AND measured_at BETWEEN ? AND ?))""".trimIndent(),
+            arrayOf(
+                reading.sensorId,
+                reading.sessionId,
+                CgmReadingStatus.VALID.name,
+                reading.rawSourceTimestamp?.toString() ?: Long.MIN_VALUE.toString(),
+                reading.origin.name,
+                reading.timestampEpochMs.toString(),
+                reading.origin.name,
+                (reading.timestampEpochMs - IDENTITY_TOLERANCE_MS).toString(),
+                (reading.timestampEpochMs + IDENTITY_TOLERANCE_MS).toString(),
+            ),
             null,
             null,
             null,
@@ -177,6 +252,44 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
             args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId),
             limit = 1,
         ).firstOrNull()
+
+    /**
+     * Returns the sensor-clock immediately before the oldest unresolved cadence gap. Falling back
+     * to the latest clock preserves the cheap no-gap path. Because this is reconstructed from the
+     * durable reading history, an incomplete history response is retried after later reconnects,
+     * process death and watch reboot instead of being hidden behind a newer LIVE sample.
+     */
+    fun getBackfillAnchorSensorClock(sensorId: String, sessionId: String): Long? =
+        backfillAnchorSensorClock(
+            query(
+                selection = "status=? AND sensor_id=? AND session_id=? AND sensor_clock IS NOT NULL",
+                args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId),
+                limit = 300,
+                // Read the current 24-hour-sized tail. ASC + LIMIT selected the oldest retained
+                // rows and therefore could not see a recent multi-hour gap at all.
+                ascending = false,
+            ),
+        )
+
+    fun getBackfillAnchorSensorClockForGap(sensorId: String, sessionId: String, expectedAt: Long): Long? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=? AND measured_at<? AND sensor_clock IS NOT NULL",
+            args = arrayOf(CgmReadingStatus.VALID.name, sensorId, sessionId, (expectedAt + IDENTITY_TOLERANCE_MS).toString()),
+            limit = 1,
+        ).firstOrNull()?.rawSourceTimestamp
+
+    fun validReadingNear(sensorId: String, sessionId: String, expectedAt: Long): Long? =
+        query(
+            selection = "status=? AND sensor_id=? AND session_id=? AND measured_at BETWEEN ? AND ?",
+            args = arrayOf(
+                CgmReadingStatus.VALID.name,
+                sensorId,
+                sessionId,
+                (expectedAt - IDENTITY_TOLERANCE_MS).toString(),
+                (expectedAt + IDENTITY_TOLERANCE_MS).toString(),
+            ),
+            limit = 1,
+        ).firstOrNull()?.timestampEpochMs
 
     /**
      * Returns the closest validated predecessor for one sensor/session stream. Delta/trend must
@@ -278,13 +391,48 @@ internal class G7ReadingDatabase(context: Context) : SQLiteOpenHelper(context, "
     private fun android.database.Cursor.longOrNull(name: String): Long? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getLong(it) }
     private fun android.database.Cursor.intOrNull(name: String): Int? = getColumnIndexOrThrow(name).let { if (isNull(it)) null else getInt(it) }
 
-    private companion object {
+    companion object {
         const val ACTION_G7_READING_UPDATED = "app.aapswear.g7watch.READING_UPDATED"
         const val SUGARLICIOUS_PACKAGE = "app.aapswear"
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
         const val MAX_ROWS = 2_000
+        const val IDENTITY_TOLERANCE_MS = 60_000L
     }
 
     private data class ExistingValidIdentity(val id: String, val origin: CgmReadingOrigin)
 }
+
+internal fun backfillAnchorSensorClock(readings: List<CgmReading>): Long? {
+    val ordered = readings
+        .mapNotNull { reading -> reading.rawSourceTimestamp?.let { it to reading } }
+        .sortedBy { it.first }
+    val first = ordered.firstOrNull()
+    val firstClock = first?.first
+    val latestClock = ordered.lastOrNull()?.first
+    // Repair an already running session whose initial 24-hour bootstrap was rejected by the old
+    // second-1 request. Once history reaches the warm-up boundary, normal cadence-gap detection
+    // takes over. The 24-hour bound prevents retention of an old sensor session from causing a
+    // full-window download on every later connection.
+    if (
+        firstClock != null &&
+        latestClock != null &&
+        first.second.sensorStartEpochMs != null &&
+        firstClock >
+            if (latestClock <= G7CollectorBackfillProtocol.MAX_WINDOW_SECONDS) {
+                INITIAL_HISTORY_GRACE_SECONDS
+            } else {
+                latestClock - G7CollectorBackfillProtocol.MAX_WINDOW_SECONDS + BACKFILL_GAP_TOLERANCE_SECONDS
+            }
+    ) {
+        return null
+    }
+    val gapAnchor = ordered.zipWithNext().firstOrNull { (before, after) ->
+        after.first - before.first > BACKFILL_CADENCE_SECONDS + BACKFILL_GAP_TOLERANCE_SECONDS
+    }?.first?.first
+    return gapAnchor ?: ordered.lastOrNull()?.first
+}
+
+private const val BACKFILL_CADENCE_SECONDS = 5L * 60L
+private const val BACKFILL_GAP_TOLERANCE_SECONDS = 90L
+private const val INITIAL_HISTORY_GRACE_SECONDS = 45L * 60L

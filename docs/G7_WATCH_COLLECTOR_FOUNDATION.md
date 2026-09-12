@@ -1,4 +1,4 @@
-# Dexcom G7 Direct-to-Watch collector
+# SugarWear collector foundation
 
 Sugarlicious contains an independently installable Wear OS collector (`:g7watch`) that can obtain Dexcom G7 glucose readings without routing the sensor through the phone. It remains a read-only display integration: it does not dose insulin, change therapy, control a pump, or upload sensor credentials.
 

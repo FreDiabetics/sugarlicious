@@ -41,4 +41,34 @@ class WearStartupStateCoordinatorTest {
         assertEquals(null, restored.state)
         assertEquals(Freshness.NO_DATA, restored.freshness)
     }
+
+    @Test fun `legacy direct snapshot is removed without mutating configured phone source to other`() {
+        val measuredAt = 1_000_000L
+        val persisted = TherapyDisplayState(
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sourceVersion = "SugarWear",
+            sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:test",
+            receivedAtEpochMs = measuredAt + 5_000L,
+            glucose = GlucoseState(
+                valueMgDl = 123.0,
+                displayUnit = GlucoseUnit.MG_DL,
+                measuredAtEpochMs = measuredAt,
+                source = DataSourceId.DEXCOM_G7_WATCH,
+            ),
+            glucoseHistory = listOf(
+                app.aapswear.model.GlucoseSample(
+                    valueMgDl = 123.0,
+                    measuredAtEpochMs = measuredAt,
+                    source = DataSourceId.DEXCOM_G7_WATCH,
+                ),
+            ),
+        )
+
+        val sanitized = persisted.withoutDirectToWatchInput()
+
+        assertEquals(DataSourceId.ANDROID_APS, sanitized.source)
+        assertEquals(null, sanitized.glucose)
+        assertEquals(emptyList<app.aapswear.model.GlucoseSample>(), sanitized.glucoseHistory)
+        assertEquals("WEAR_PHONE_ONLY:NO_DIRECT_WATCH_CGM", sanitized.sourceContract)
+    }
 }

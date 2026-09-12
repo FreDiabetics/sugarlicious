@@ -3,28 +3,24 @@
     android:height="450dp"
     android:viewportWidth="450"
     android:viewportHeight="450">
-    <!-- Graph slot 7: WFF 96,78 320x112 scaled into the 450 preview canvas. -->
-    <path android:fillColor="#FF111416" android:pathData="M84,69H366V167H84Z" />
-    <path android:fillColor="#2219D7E8" android:pathData="M84,98H366V136H84Z" />
-    <path android:fillColor="#FFF5F5F5" android:pathData="M91,146a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M122,140a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M153,143a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M184,131a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M215,135a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M246,124a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M277,128a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M308,116a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M339,121a3,3 0,1 0,6 0a3,3 0,1 0,-6 0" />
+    <!-- WFS graph image bounds: slot origin 51.8748,54.9999 plus local 61.1252,0.91. -->
+    <path android:fillColor="#FF111416" android:pathData="M113,56H337V176H113Z" />
+    <path android:fillColor="#2219D7E8" android:pathData="M113,94H337V132H113Z" />
+    <path android:fillColor="#FFF5F5F5" android:pathData="M116,155a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M140,149a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M164,152a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M188,140a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M212,144a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M236,133a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M260,137a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M284,125a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M308,130a3,3 0,1 0,6 0a3,3 0,1 0,-6 0M328,125a3,3 0,1 0,6 0a3,3 0,1 0,-6 0" />
 
     <!-- Exact outer complication arc geometry from watchface.xml. -->
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M166.17,63.37 A172,172 0,0 1,382.13,155.04" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M166.17,63.37 A172,172 0,0 1,325.20,80.10" />
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M395.33,248.94 A172,172 0,0 1,292.21,383.33" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M395.33,248.94 A172,172 0,0 1,354.80,337.90" />
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M207.02,396.06 A172,172 0,0 1,65.52,289.43" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M207.02,396.06 A172,172 0,0 1,134.20,371.00" />
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M213.00,53.42 A172,172 0,0 0,55.61,195.13" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="12" android:pathData="M213.00,53.42 A172,172 0,0 0,100.00,96.00" />
+    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M271.46,51.62 A179.5,179.5 0,0 1,384.94,143.51" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M271.46,51.62 A179.5,179.5 0,0 1,363.55,110.87" />
+    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M398.38,271.46 A179.5,179.5 0,0 1,306.49,384.94" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M398.38,271.46 A179.5,179.5 0,0 1,353.51,350.32" />
+    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M184.62,399.90 A179.5,179.5 0,0 1,68.01,312.02" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M184.62,399.90 A179.5,179.5 0,0 1,119.39,370.14" />
+    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M172.52,53.34 A179.5,179.5 0,0 0,62.32,149.14" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeLineCap="round" android:strokeWidth="15" android:pathData="M172.52,53.34 A179.5,179.5 0,0 0,87.25,109.91" />
 
-    <!-- Middle left/right and bottom-center exact bounds. -->
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeWidth="6" android:pathData="M80,225a47,47 0,1 0,94 0a47,47 0,1 0,-94 0" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeWidth="6" android:pathData="M87,249 A52,52 0,1 1,161,189" />
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeWidth="6" android:pathData="M276,225a47,47 0,1 0,94 0a47,47 0,1 0,-94 0" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeWidth="6" android:pathData="M283,249 A52,52 0,1 1,357,189" />
-    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeWidth="10" android:pathData="M167,314a58,58 0,1 0,116 0a58,58 0,1 0,-116 0" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeWidth="10" android:pathData="M181,349 A58,58 0,0 1,270,275" />
+    <!-- WFS has no progress rings in the two middle slots; their ellipse outlines are in the template. -->
+    <path android:fillColor="#00000000" android:strokeColor="#55EB600A" android:strokeWidth="10" android:strokeLineCap="round" android:pathData="M179.04,275.43 A60,60 0,1 1,179.04,352.57" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFEB600A" android:strokeWidth="10" android:strokeLineCap="round" android:pathData="M179.04,275.43 A60,60 0,0 1,283.86,325.65" />
 
     <!-- Current Sugarlicious Outline hands, preview time 10:07:32. -->
     <group android:pivotX="225" android:pivotY="225" android:rotation="303.5">

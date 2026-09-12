@@ -83,11 +83,11 @@ class G7GraphPolicyTest {
         )
     }
 
-    @Test fun `out of order arrival resets sequence`() {
+    @Test fun `persisted values are evaluated by measurement time after reconnect`() {
         val first = reading("1", 170.0, now - 5 * 60_000L, receivedAt = now - 4 * 60_000L)
         val olderArrivingLater = reading("2", 172.0, now - 10 * 60_000L, receivedAt = now - 3 * 60_000L)
         val latest = reading("3", 174.0, now, receivedAt = now)
-        assertEquals(G7RangeExcursion.NONE, G7GraphPolicy.rangeExcursion(listOf(first, olderArrivingLater, latest), 80.0, 160.0, now))
+        assertEquals(G7RangeExcursion.HIGH, G7GraphPolicy.rangeExcursion(listOf(first, olderArrivingLater, latest), 80.0, 160.0, now))
     }
 
     @Test fun `sensor or session switch resets sequence`() {

@@ -10,6 +10,16 @@ import org.junit.Test
 
 class WearGlucoseChartTest {
     @Test
+    fun `wear graph advances a fixed reading with the wall clock`() {
+        val measuredAt = 1_786_889_891_000L
+        val first = wearChartTimeWindow(measuredAt, measuredAt, 3, false)
+        val later = wearChartTimeWindow(measuredAt + 60_000L, measuredAt, 3, false)
+
+        assertEquals(1f, first.xFraction(measuredAt), 0.0001f)
+        assertTrue(later.xFraction(measuredAt) < first.xFraction(measuredAt))
+    }
+
+    @Test
     fun `prediction horizon extends graph without removing cgm history`() {
         val current = 1_786_889_891_000L
         val predictionEnd = current + 120L * 60_000L + 15_144L

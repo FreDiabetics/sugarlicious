@@ -44,11 +44,11 @@ class MainActivityTest {
         assertEquals(basal, colors.basal)
     }
 
-    @Test fun `watch config carries direct G7 source selection`() {
+    @Test fun `watch config remains phone sourced despite a legacy direct G7 preference`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
             .edit().clear().putString("dataSource", DataSourcePreference.DEXCOM_G7_WATCH.name).commit()
-        assertEquals(app.aapswear.protocol.WatchDataSource.DEXCOM_G7_WATCH, readWatchConfig(context).dataSource)
+        assertEquals(app.aapswear.protocol.WatchDataSource.PHONE, readWatchConfig(context).dataSource)
     }
 
     @Test fun `app surfaces are neutral gray and system accent follows the icon`() {

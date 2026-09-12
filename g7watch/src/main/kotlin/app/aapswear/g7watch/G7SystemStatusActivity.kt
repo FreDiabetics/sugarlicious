@@ -4,9 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.app.AlarmManager
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
-import android.database.ContentObserver
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -23,14 +21,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.G7PersistedState
-import app.aapswear.g7.G7Sensor
-import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SetupPayload
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
@@ -41,33 +39,14 @@ import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.UUID
 
 class G7SystemStatusActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var batteryRequestPending = false
     private var showPairingEditor = false
-    private var observerRegistered = false
     private var hardwareExpanded = false
     private var diagnosticsExpanded = false
-    private val livePreferenceNames = listOf(
-        "g7_collector_state",
-        "g7_collector_attempts",
-        "g7_collector_attempt_active",
-        "g7_collector_slot_history",
-    )
-    private val livePreferences by lazy {
-        livePreferenceNames.map { getSharedPreferences(it, MODE_PRIVATE) }
-    }
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        if (!isFinishing && !isDestroyed) runOnUiThread(::render)
-    }
     private var scrollView: ScrollView? = null
-    private val readingObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) {
-            if (!isFinishing && !isDestroyed) render()
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,8 +60,6 @@ class G7SystemStatusActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        registerObserver()
-        livePreferences.forEach { it.registerOnSharedPreferenceChangeListener(preferenceListener) }
         if (batteryRequestPending) {
             batteryRequestPending = false
             val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
@@ -98,12 +75,6 @@ class G7SystemStatusActivity : Activity() {
             )
         }
         render()
-    }
-
-    override fun onPause() {
-        livePreferences.forEach { it.unregisterOnSharedPreferenceChangeListener(preferenceListener) }
-        unregisterObserver()
-        super.onPause()
     }
 
     private fun render() {
@@ -312,6 +283,78 @@ class G7SystemStatusActivity : Activity() {
             if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
             Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
         }, buttonParams())
+        if (state.sensor != null) {
+            target.addView(pill("Sensor für andere Uhr freigeben", palette, danger = true) {
+                showReleaseSensorDialog(palette)
+            }, buttonParams())
+        }
+    }
+
+    private fun showReleaseSensorDialog(palette: G7AppearancePalette) {
+        val dialog = android.app.Dialog(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(22.dp, 12.dp, 22.dp, 28.dp)
+            setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+            addView(LinearLayout(this@G7SystemStatusActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = 52.dp
+                addView(label("‹", 30f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply {
+                    contentDescription = "Zurück"
+                    setOnClickListener { dialog.dismiss() }
+                }, LinearLayout.LayoutParams(48.dp, 48.dp))
+                addView(label("Sensor freigeben", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(8.dp, 0, 0, 0)
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(LinearLayout(this@G7SystemStatusActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                addView(ImageView(this@G7SystemStatusActivity).apply {
+                    setImageResource(R.drawable.ic_sensor_outline)
+                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                    contentDescription = "Sensor"
+                }, LinearLayout.LayoutParams(52.dp, 52.dp))
+                addView(label("→", 24f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true), LinearLayout.LayoutParams(54.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
+                addView(ImageView(this@G7SystemStatusActivity).apply {
+                    setImageResource(R.drawable.ic_watch_device)
+                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                    contentDescription = "Andere Smartwatch"
+                }, LinearLayout.LayoutParams(52.dp, 52.dp))
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16.dp })
+            addView(label("Sensor auf eine andere Uhr umziehen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                gravity = Gravity.CENTER
+                setPadding(4.dp, 18.dp, 4.dp, 6.dp)
+            })
+            addView(label(
+                "SugarWear beendet auf dieser Uhr die direkte Verbindung und entfernt den lokalen Sensor-Bond. Messhistorie und Einstellungen bleiben erhalten.",
+                11f,
+                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+            ).apply { gravity = Gravity.CENTER })
+            addView(pill("Für andere Uhr freigeben", palette, danger = true) {
+                val result = unlinkG7Sensor(this@G7SystemStatusActivity)
+                dialog.dismiss()
+                Toast.makeText(
+                    this@G7SystemStatusActivity,
+                    if (result.bondRemovalRequested) "Sensor ist für eine andere Uhr freigegeben" else "Lokale Verbindung entfernt – Bluetooth-Bond bitte prüfen",
+                    Toast.LENGTH_LONG,
+                ).show()
+                render()
+            }, buttonParams().apply { topMargin = 18.dp })
+            addView(pill("Abbrechen", palette) { dialog.dismiss() }, buttonParams())
+        }
+        dialog.setContentView(G7EdgeFadeScrollView(this).apply {
+            isFillViewport = true
+            setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+            addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }.applyG7EdgeFade())
+        dialog.setCancelable(true)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
 
     private fun hasNearbyPermission(): Boolean =
@@ -343,13 +386,7 @@ class G7SystemStatusActivity : Activity() {
                 input.error = "4 Ziffern erforderlich"
                 return@pill
             }
-            G7CredentialStore(this@G7SystemStatusActivity).saveSetup(payload)
-            val sensorId = "G7-${UUID.randomUUID().toString().take(8)}"
-            val sensor = G7Sensor(sensorId, sensorId, "Dexcom G7")
-            G7SensorStateStore(this@G7SystemStatusActivity).save(
-                G7SessionManager(G7SensorStateStore(this@G7SystemStatusActivity).read()).prepareInitialSetup(sensor),
-            )
-            G7CollectorService.start(this@G7SystemStatusActivity)
+            moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode)
             showPairingEditor = false
             render()
         }, buttonParams())
@@ -444,20 +481,7 @@ class G7SystemStatusActivity : Activity() {
         diagnosticScope.launch { applicationContext.recordG7Diagnostic(code, message, severity) }
     }
 
-    private fun registerObserver() {
-        if (observerRegistered) return
-        contentResolver.registerContentObserver(G7ReadingProvider.CONTENT_URI, true, readingObserver)
-        observerRegistered = true
-    }
-
-    private fun unregisterObserver() {
-        if (!observerRegistered) return
-        contentResolver.unregisterContentObserver(readingObserver)
-        observerRegistered = false
-    }
-
     override fun onDestroy() {
-        unregisterObserver()
         diagnosticScope.cancel()
         super.onDestroy()
     }

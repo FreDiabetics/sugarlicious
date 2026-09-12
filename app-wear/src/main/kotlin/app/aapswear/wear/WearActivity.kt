@@ -42,6 +42,20 @@ import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.roundToInt
 
+internal fun nextWearGraphHours(current: Int): Int {
+    val values = WearDisplayPreferences.allowedGraphHours
+    val index = values.indexOf(current)
+    return values[if (index < 0) 0 else (index + 1) % values.size]
+}
+
+internal fun wearGraphScaleAgeText(graphHours: Int, measuredAtEpochMs: Long?, nowEpochMs: Long): String {
+    val age = measuredAtEpochMs
+        ?.takeIf { it <= nowEpochMs + 60_000L }
+        ?.let { "${((nowEpochMs - it).coerceAtLeast(0L) / 60_000L)}m" }
+        ?: "—"
+    return "${graphHours}h • $age"
+}
+
 class WearActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -104,12 +118,17 @@ class WearActivity : Activity() {
                 render()
             }
         }
-        findViewById<View>(R.id.wear_graph_period).setOnClickListener {
+        val advanceGraphScale = View.OnClickListener {
             val current = WearDisplayPreferences.read(this)
-            val values = WearDisplayPreferences.allowedGraphHours
-            val next = values[(values.indexOf(current.graphHours).coerceAtLeast(0) + 1) % values.size]
+            val next = nextWearGraphHours(current.graphHours)
             WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
             render(refreshClock = true)
+        }
+        // Graph gestures and scale selection stay separate. This explicit round-safe hit target
+        // remains above the chart canvas and is the single source of the scale action.
+        findViewById<View>(R.id.wear_graph_period).apply {
+            setOnClickListener(advanceGraphScale)
+            bringToFront()
         }
         scope.launch {
             WearCanonicalStateEvents.updates.collectLatest {
@@ -283,8 +302,9 @@ class WearActivity : Activity() {
                 style = preferences.trendArrowStyle,
             )
             delta.text = presentation.primaryMeta
-            age.text = presentation.secondaryMeta
-            age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
+            delta.setTextColor(preferences.uiColors.deltaUnit)
+            age.text = ""
+            age.visibility = View.GONE
 
             findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, preferences.uiColors.tileBorder, WearGlucoseCardStyle.CARD_RADIUS_DP)
@@ -299,8 +319,8 @@ class WearActivity : Activity() {
             thresholds = preferences.cgmThresholds,
         )
         findViewById<TextView>(R.id.wear_graph_period).apply {
-            text = "${preferences.graphHours}h"
-            setTextColor(preferences.uiColors.textPrimary)
+            text = wearGraphScaleAgeText(preferences.graphHours, state?.glucose?.measuredAtEpochMs, now)
+            setTextColor(preferences.uiColors.textSecondary)
             background = null
         }
         if (refreshClock) chart.invalidate()
@@ -331,7 +351,7 @@ class WearActivity : Activity() {
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
             source.text = when (state?.source) {
-                DataSourceId.DEXCOM_G7_WATCH -> "Direct to Watch"
+                DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                 DataSourceId.ANDROID_APS -> "AndroidAPS"
                 DataSourceId.NIGHTSCOUT -> "Nightscout"
                 DataSourceId.XDRIP_PLUS -> state.sourceVersion?.let { "xDrip+ $it" } ?: "xDrip+"

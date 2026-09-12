@@ -49,6 +49,18 @@ class TrendComplicationIconTest {
     }
 
     @Test
+    fun `double arrows use a square complication payload so neither glyph is clipped`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
+            val wide = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
+            val normalized = TrendComplicationIcon.normalizeComplicationCanvas(wide)
+            assertEquals(normalized.height, normalized.width)
+            assertTrue((0 until normalized.height).any { y -> android.graphics.Color.alpha(normalized.getPixel(normalized.width / 4, y)) > 0 })
+            assertTrue((0 until normalized.height).any { y -> android.graphics.Color.alpha(normalized.getPixel(normalized.width * 3 / 4, y)) > 0 })
+        }
+    }
+
+    @Test
     fun complicationScaleUsesMostOfHostIconAtDefaultAndStillGrows() {
         val small = TrendComplicationIcon.glyphFillFraction(70)
         val default = TrendComplicationIcon.glyphFillFraction(100)

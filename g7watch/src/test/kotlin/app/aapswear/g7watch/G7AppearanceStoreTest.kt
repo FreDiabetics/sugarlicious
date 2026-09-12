@@ -10,6 +10,14 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7AppearanceStoreTest {
+    @Test fun `fresh installation defaults to dark mode`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).activeMode())
+        assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).load().mode)
+    }
+
     @Test fun `colors persist alpha and reset to defaults`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
@@ -46,6 +54,17 @@ class G7AppearanceStoreTest {
         store.save(AppearanceMode.DARK, G7AppearanceRole.MENU_BACKGROUND, 0xFF112233.toInt())
         assertEquals(0xFFEEDDCC.toInt(), store.load(AppearanceMode.LIGHT).argb(G7AppearanceRole.MENU_BACKGROUND))
         assertEquals(0xFF112233.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.MENU_BACKGROUND))
+    }
+
+    @Test fun `delta and unit color is independent between SugarWear light and dark`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        val store = G7AppearanceStore(context)
+        store.save(AppearanceMode.LIGHT, G7AppearanceRole.GLUCOSE_DELTA, 0xAA102030.toInt())
+        store.save(AppearanceMode.DARK, G7AppearanceRole.GLUCOSE_DELTA, 0xCC405060.toInt())
+
+        assertEquals(0xAA102030.toInt(), store.load(AppearanceMode.LIGHT).argb(G7AppearanceRole.GLUCOSE_DELTA))
+        assertEquals(0xCC405060.toInt(), store.load(AppearanceMode.DARK).argb(G7AppearanceRole.GLUCOSE_DELTA))
     }
 
     @Test fun `explicit dark mode survives activity and store recreation`() {

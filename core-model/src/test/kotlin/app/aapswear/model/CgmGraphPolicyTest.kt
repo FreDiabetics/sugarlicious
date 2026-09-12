@@ -37,17 +37,31 @@ class CgmGraphPolicyTest {
     }
 
     @Test
-    fun `duplicate backfill and invalid events do not advance or reset live range`() {
+    fun `duplicate and invalid events do not count but recovered history does`() {
         val firstHigh = sample(1, 190.0)
         val duplicate = firstHigh.copy(sequenceNumber = 99, receivedAtEpochMs = 2 * minute)
         val invalid = sample(3, 110.0, quality = CgmQuality.INVALID)
         val backfill = sample(0, 200.0).copy(receivedAtEpochMs = 4 * minute)
         val secondHigh = sample(6, 195.0).copy(receivedAtEpochMs = 6 * minute)
 
-        assertNull(CgmGraphPolicy.rangeExcursion(listOf(firstHigh, duplicate, invalid, backfill), 70.0, 180.0))
+        assertEquals(
+            RangeExcursion.HIGH,
+            CgmGraphPolicy.rangeExcursion(listOf(firstHigh, duplicate, invalid, backfill), 70.0, 180.0),
+        )
         assertEquals(
             RangeExcursion.HIGH,
             CgmGraphPolicy.rangeExcursion(listOf(firstHigh, duplicate, invalid, backfill, secondHigh), 70.0, 180.0),
+        )
+    }
+
+    @Test
+    fun `persisted consecutive values tint immediately after reconnect regardless of arrival order`() {
+        val olderHigh = sample(1, 190.0).copy(receivedAtEpochMs = 20 * minute)
+        val newerHigh = sample(6, 195.0).copy(receivedAtEpochMs = 10 * minute)
+
+        assertEquals(
+            RangeExcursion.HIGH,
+            CgmGraphPolicy.rangeExcursion(listOf(newerHigh, olderHigh), 70.0, 180.0),
         )
     }
 

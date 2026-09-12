@@ -22,23 +22,22 @@ object CgmGraphPolicy {
     ): RangeExcursion? {
         if (!thresholds.isValid) return null
 
-        val recent = mutableListOf<GlucoseSample>()
-        val seen = mutableSetOf<List<Any?>>()
-        var latestMeasuredAt: Long? = null
-        samples.sortedBy { it.receivedAtEpochMs ?: it.measuredAtEpochMs }.forEach { sample ->
-            if (
-                sample.quality != CgmQuality.VALID ||
-                !sample.valueMgDl.isFinite() ||
-                sample.valueMgDl !in 20.0..1_000.0
-            ) return@forEach
-            val identity = listOf(sample.sensorId, sample.sessionId, sample.measuredAtEpochMs, sample.source)
-            if (!seen.add(identity)) return@forEach
-
-            val previousMeasuredAt = latestMeasuredAt
-            if (previousMeasuredAt != null && sample.measuredAtEpochMs <= previousMeasuredAt) {
-                // Backfill/out-of-order history is displayable, but is not a new live semantic event.
-                return@forEach
+        // The graph state is derived from canonical sensor event time, not arrival order. This is
+        // important after reconnect/backfill: two already persisted consecutive readings must tint
+        // the graph immediately instead of waiting for two additional LIVE callbacks.
+        val chronological = samples
+            .asSequence()
+            .filter {
+                it.quality == CgmQuality.VALID &&
+                    it.valueMgDl.isFinite() &&
+                    it.valueMgDl in 20.0..1_000.0
             }
+            .sortedBy(GlucoseSample::measuredAtEpochMs)
+            .distinctBy { listOf(it.sensorId, it.sessionId, it.measuredAtEpochMs, it.source) }
+            .toList()
+
+        val recent = mutableListOf<GlucoseSample>()
+        chronological.forEach { sample ->
             val previous = recent.lastOrNull()
             if (previous != null) {
                 val sensorChanged = previous.sensorId != null && sample.sensorId != null && previous.sensorId != sample.sensorId
@@ -48,7 +47,6 @@ object CgmGraphPolicy {
                 if (sensorChanged || sessionChanged || sourceChanged || gap !in 1L..MAX_GAP_MS) recent.clear()
             }
             recent += sample
-            latestMeasuredAt = sample.measuredAtEpochMs
             if (recent.size > REQUIRED_POINTS) recent.removeAt(0)
         }
 

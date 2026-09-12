@@ -41,6 +41,9 @@ internal const val G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS = 30 * 60_000L
 internal const val G7_RECONNECT_SCAN_TIMEOUT_MS = 60_000L
 internal const val G7_GATT_133_ERROR_CODE = "G7-GATT-133"
 internal const val G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE = "G7-GATT-215"
+internal const val G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-216"
+internal const val G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-217"
+internal const val G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE = "G7-GATT-218"
 internal const val G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS = 20_000L
 internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
@@ -79,6 +82,14 @@ internal data class G7StaleGattCallbackTelemetry(
     val attemptId: Long,
     val gattGeneration: Long,
     val callback: String,
+) : G7BleTelemetry
+
+internal data class G7BackfillRequestTelemetry(
+    val timestampEpochMs: Long,
+    val attemptId: Long,
+    val gattGeneration: Long,
+    val startSensorClock: Long,
+    val endSensorClock: Long,
 ) : G7BleTelemetry
 
 internal data class G7GattOwnership(val attemptId: Long, val generation: Long)
@@ -137,7 +148,12 @@ internal fun shouldRetryNoCallbackDirectly(
     retriesUsed: Int,
     fallbackUsed: Boolean,
 ): Boolean =
-    errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE &&
+    errorCode in setOf(
+        G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
+        G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE,
+        G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE,
+        G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE,
+    ) &&
         retriesUsed < 1 &&
         !fallbackUsed
 
@@ -412,7 +428,7 @@ internal class AndroidG7Collector(
             if (discoveryRequired) {
                 onState(G7ProtocolState.SCANNING)
                 val scanTimeout = when {
-                    scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, G7_RECONNECT_SCAN_TIMEOUT_MS)
+                    scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, g7ScanTimeoutMs(sensor))
                     pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
                     fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
                     else -> g7ScanTimeoutMs(sensor)
@@ -647,7 +663,11 @@ private class G7GattConnection(
         onState(G7ProtocolState.DISCOVERING_SERVICES)
         val current = requireNotNull(gatt)
         if (!current.discoverServices()) throw G7BleException("G7-GATT-202", "Dienstsuche konnte nicht gestartet werden", true)
-        val discoveryStatus = withTimeout(OPERATION_TIMEOUT_MS) { serviceEvents.receive() }
+        val discoveryStatus = try {
+            withTimeout(OPERATION_TIMEOUT_MS) { serviceEvents.receive() }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Dienstsuche ohne Callback", true, timeout)
+        }
         if (discoveryStatus != BluetoothGatt.GATT_SUCCESS) {
             throw G7BleException("G7-GATT-203", "G7-Dienste konnten nicht gelesen werden ($discoveryStatus)", true)
         }
@@ -722,14 +742,50 @@ private class G7GattConnection(
                         ?: return live to emptyList()
                     if (start > end) return live to emptyList()
                     val request = G7CollectorBackfillProtocol.request(start, end)
+                    onTelemetry(
+                        G7BackfillRequestTelemetry(
+                            timestampEpochMs = System.currentTimeMillis(),
+                            attemptId = ownership.attemptId,
+                            gattGeneration = ownership.generation,
+                            startSensorClock = start,
+                            endSensorClock = end,
+                        ),
+                    )
                     write(current, controlCharacteristic, request, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                     val historical = mutableListOf<G7Reading>()
-                    while (historical.size < MAX_BACKFILL_RECORDS) {
-                        val event = withTimeoutOrNull(BACKFILL_IDLE_TIMEOUT_MS) { notifications.receive() } ?: break
-                        if (event.first != G7GattProfile.backfillUuid) continue
-                        runCatching {
-                            G7CollectorBackfillProtocol.parseRecord(event.second, sensor, live, System.currentTimeMillis())
-                        }.getOrNull()?.let(historical::add)
+                    // History is a stream on 3536 followed by the 0x59 completion response on
+                    // the control characteristic. Waiting only 2.5 seconds after the first record
+                    // truncated real Watch transfers to a single value, especially while Wear OS
+                    // throttled the BLE callback stream. Consume until the protocol completion
+                    // marker (with bounded total/idle guards), and tolerate an Android callback
+                    // containing more than one complete 9-byte record.
+                    withTimeoutOrNull(BACKFILL_TOTAL_TIMEOUT_MS) {
+                        backfill@ while (historical.size < MAX_BACKFILL_RECORDS) {
+                            val event = withTimeoutOrNull(BACKFILL_IDLE_TIMEOUT_MS) { notifications.receive() }
+                                ?: break@backfill
+                            when (event.first) {
+                                G7GattProfile.backfillUuid ->
+                                    event.second
+                                        .asList()
+                                        .chunked(G7CollectorBackfillProtocol.RECORD_BYTES)
+                                        .filter { it.size == G7CollectorBackfillProtocol.RECORD_BYTES }
+                                        .forEach { record ->
+                                            runCatching {
+                                                G7CollectorBackfillProtocol.parseRecord(
+                                                    record.toByteArray(),
+                                                    sensor,
+                                                    live,
+                                                    System.currentTimeMillis(),
+                                                )
+                                            }.getOrNull()?.let(historical::add)
+                                        }
+
+                                G7GattProfile.controlUuid ->
+                                    if (event.second.firstOrNull() == G7CollectorBackfillProtocol.REQUEST_OPCODE) {
+                                        break@backfill
+                                    }
+                            }
+                        }
                     }
                     return live to historical
                 }
@@ -818,7 +874,11 @@ private class G7GattConnection(
         if (gatt.writeDescriptor(descriptor, value) != BluetoothStatusCodes.SUCCESS) {
             throw G7BleException("G7-GATT-210", "G7-Benachrichtigung konnte nicht konfiguriert werden", true)
         }
-        val (uuid, status) = withTimeout(OPERATION_TIMEOUT_MS) { descriptorEvents.receive() }
+        val (uuid, status) = try {
+            withTimeout(OPERATION_TIMEOUT_MS) { descriptorEvents.receive() }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Descriptor ohne Callback", true, timeout)
+        }
         if (uuid != characteristic.uuid || status != BluetoothGatt.GATT_SUCCESS) {
             throw G7BleException("G7-GATT-211", "G7-Benachrichtigung wurde abgelehnt ($status)", true)
         }
@@ -836,18 +896,22 @@ private class G7GattConnection(
             throw G7BleException("G7-GATT-212", "G7-Daten konnten nicht gesendet werden", true)
         }
         if (!awaitCallback) return
-        withTimeout(OPERATION_TIMEOUT_MS) {
-            while (true) {
-                val (uuid, status) = writeEvents.receive()
-                when (classifyG7WriteCallback(characteristic.uuid, uuid, status)) {
-                    G7WriteCallbackDisposition.EXPECTED_SUCCESS -> return@withTimeout
-                    G7WriteCallbackDisposition.EXPECTED_FAILURE ->
-                        throw G7BleException("G7-GATT-213", "G7-Daten wurden abgelehnt ($status)", true)
-                    G7WriteCallbackDisposition.STALE_SUCCESS -> Unit
-                    G7WriteCallbackDisposition.STALE_FAILURE ->
-                        throw G7BleException("G7-GATT-214", "Vorheriger G7-Datentransfer ist fehlgeschlagen ($status)", true)
+        try {
+            withTimeout(OPERATION_TIMEOUT_MS) {
+                while (true) {
+                    val (uuid, status) = writeEvents.receive()
+                    when (classifyG7WriteCallback(characteristic.uuid, uuid, status)) {
+                        G7WriteCallbackDisposition.EXPECTED_SUCCESS -> return@withTimeout
+                        G7WriteCallbackDisposition.EXPECTED_FAILURE ->
+                            throw G7BleException("G7-GATT-213", "G7-Daten wurden abgelehnt ($status)", true)
+                        G7WriteCallbackDisposition.STALE_SUCCESS -> Unit
+                        G7WriteCallbackDisposition.STALE_FAILURE ->
+                            throw G7BleException("G7-GATT-214", "Vorheriger G7-Datentransfer ist fehlgeschlagen ($status)", true)
+                    }
                 }
             }
+        } catch (timeout: TimeoutCancellationException) {
+            throw G7BleException(G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE, "G7-Schreibvorgang ohne Callback", true, timeout)
         }
     }
 
@@ -933,7 +997,8 @@ private class G7GattConnection(
 
     private companion object {
         val GLUCOSE_REQUEST = byteArrayOf(0x4e)
-        const val BACKFILL_IDLE_TIMEOUT_MS = 2_500L
+        const val BACKFILL_IDLE_TIMEOUT_MS = 10_000L
+        const val BACKFILL_TOTAL_TIMEOUT_MS = 45_000L
         const val MAX_BACKFILL_RECORDS = 300
         const val GATT_ERROR_133 = 133
         const val OPERATION_TIMEOUT_MS = 15_000L

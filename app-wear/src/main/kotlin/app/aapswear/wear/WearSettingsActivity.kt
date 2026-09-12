@@ -27,6 +27,7 @@ import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.uishared.SharedColorEditor
+import app.aapswear.uishared.SharedNumberEditor
 import kotlin.math.roundToInt
 
 class WearSettingsActivity : Activity() {
@@ -35,6 +36,7 @@ class WearSettingsActivity : Activity() {
     private var current = WearDisplayPreferences()
     private var selectedAppearanceMode = AppearanceMode.DARK
     private var selectedSettingsCategory: String? = null
+    private var colorEditorOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -111,6 +113,7 @@ class WearSettingsActivity : Activity() {
                 selectedAppearanceMode,
             ) { mode ->
                 selectedAppearanceMode = mode
+                WearDisplayPreferences.setActiveAppearanceMode(this, mode)
                 buildUi()
             },
             cardParams(),
@@ -123,6 +126,7 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
             colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
             colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary) { updateUiColors { c -> c.copy(textSecondary = it) } }
+            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
             colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
             section("THERAPIE")
             colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
@@ -358,6 +362,9 @@ class WearSettingsActivity : Activity() {
         colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary) {
             updateTileColors(kind) { value -> value.copy(textSecondary = it) }
         }
+        colorRow(AppearanceTerminology.DELTA_UNIT, colors.deltaUnit) {
+            updateTileColors(kind) { value -> value.copy(deltaUnit = it) }
+        }
         colorRow(AppearanceTerminology.ACCENT, colors.accent) {
             updateTileColors(kind) { value -> value.copy(accent = it) }
         }
@@ -366,7 +373,7 @@ class WearSettingsActivity : Activity() {
     private fun updateTileColors(kind: WearTileKind, transform: (WatchUiColors) -> WatchUiColors) {
         WearTileAppearanceStore.write(this, kind, selectedAppearanceMode, transform(WearTileAppearanceStore.read(this, kind, selectedAppearanceMode)))
         requestSugarliciousTileUpdates(this)
-        buildUi()
+        if (!colorEditorOpen) buildUi()
     }
 
     private fun tileContentRows(kind: WearTileKind) {
@@ -557,6 +564,13 @@ class WearSettingsActivity : Activity() {
             gravity = Gravity.END
             setTextColor(current.uiColors.accent)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setPadding(10.dp, 5.dp, 10.dp, 5.dp)
+            background = cardBackground()
+            setOnClickListener {
+                SharedNumberEditor.show(this@WearSettingsActivity, title, progress.coerceIn(min, max), min, max) { selected ->
+                    changed(selected)
+                }
+            }
         }
         addView(LinearLayout(this@WearSettingsActivity).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -575,6 +589,10 @@ class WearSettingsActivity : Activity() {
             progressTintList = ColorStateList.valueOf(current.uiColors.accent)
             progressBackgroundTintList = ColorStateList.valueOf(current.uiColors.tileBorder)
             thumbTintList = ColorStateList.valueOf(current.uiColors.accent)
+            setOnTouchListener { view, event ->
+                view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked == android.view.MotionEvent.ACTION_DOWN || event.actionMasked == android.view.MotionEvent.ACTION_MOVE)
+                false
+            }
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 private var pendingValue = progress.coerceIn(min, max)
 
@@ -612,12 +630,14 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun showColorPicker(title: String, selected: Int, changed: (Int) -> Unit) {
+        colorEditorOpen = true
         SharedColorEditor.show(
             this, title, selected,
             current.uiColors.tileBackground, current.uiColors.textPrimary, current.uiColors.tileBorder,
             selected,
             onChange = changed,
             onReset = { changed(selected) },
+            onDismiss = { colorEditorOpen = false; buildUi() },
         )
     }
 
@@ -638,7 +658,7 @@ class WearSettingsActivity : Activity() {
                 ComplicationDataSourceUpdateRequester.create(this, ComponentName(this, provider)).requestUpdateAll()
             }
         }
-        if (rebuild) buildUi()
+        if (rebuild && !colorEditorOpen) buildUi()
     }
 
     private fun compactActionBackground(): GradientDrawable = GradientDrawable().apply {

@@ -5,6 +5,7 @@ import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
+import androidx.wear.protolayout.LayoutElementBuilders
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -20,6 +21,12 @@ class G7CollectorTilePresentationTest {
         cgmLow = 0xFFFF0000.toInt(),
         cgmHigh = 0xFFFFCC00.toInt(),
     )
+
+    @Test
+    fun `tile emphasis is calibrated to match the in app system font`() {
+        assertEquals(500, sugarWearTileWeight(true))
+        assertEquals(400, sugarWearTileWeight(false))
+    }
 
     @Test
     fun `stale keeps validated value while no data invalid and sensor errors stay neutral`() {

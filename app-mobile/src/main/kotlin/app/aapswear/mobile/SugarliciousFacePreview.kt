@@ -25,7 +25,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aapswear.model.ComplicationPresentationFormatter
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.TherapyDisplayState
 import kotlin.math.cos
@@ -421,7 +423,8 @@ private fun MiniPreviewGraph(
     modifier: Modifier,
 ) {
     val now = System.currentTimeMillis()
-    val cutoff = now - 90L * 60_000L
+    val timeWindow = GraphTimeWindow.live(now, 90L * 60_000L)
+    val cutoff = timeWindow.startEpochMs
     val effectiveState = state ?: previewFaceState(now)
     val points =
         (effectiveState.glucoseHistory +
@@ -433,10 +436,9 @@ private fun MiniPreviewGraph(
         if (points.isEmpty()) return@Canvas
         val low = 70.0
         val high = 180.0
-        fun x(ts: Long): Float =
-            (((ts - cutoff).toFloat() / (90f * 60_000f)).coerceIn(0f, 1f)) * size.width
+        fun x(ts: Long): Float = timeWindow.plotX(ts, 0f, size.width)
         fun y(value: Double): Float =
-            size.height - (((value - 50.0) / 180.0).coerceIn(0.0, 1.0).toFloat() * size.height)
+            size.height - (GlucoseGraphScale.ratio(value).toFloat() * size.height)
         drawRoundRect(
             Color(0x2219D7E8),
             size = size,

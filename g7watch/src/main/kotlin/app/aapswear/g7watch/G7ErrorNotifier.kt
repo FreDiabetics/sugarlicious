@@ -29,7 +29,7 @@ internal fun g7ErrorSignature(error: G7CollectorError): String =
 internal object G7ErrorNotifier {
     private const val CHANNEL_ID = "direct_watch_collector_errors_v2"
     private const val LEGACY_CHANNEL_ID = "g7_collector_errors_v1"
-    private const val CHANNEL_NAME = "Direct-to-Watch-Fehler"
+    private const val CHANNEL_NAME = "SugarWear-Fehler"
     private const val NOTIFICATION_ID = 7002
     private const val PREFS = "g7_error_notifications"
     private const val KEY_ACTIVE_SIGNATURE = "active_signature"
@@ -46,7 +46,7 @@ internal object G7ErrorNotifier {
         val sound = Uri.parse("android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}")
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Dringende Fehler von Direct to Watch"
+                description = "Dringende Fehler von SugarWear"
                 enableVibration(true)
                 setSound(
                     sound,
@@ -85,7 +85,7 @@ internal object G7ErrorNotifier {
             NOTIFICATION_ID,
             buildNotification(
                 context = app,
-                title = if (error.code == "G7-SIGNAL-LOSS") "Signalverlust" else "Direct-to-Watch-Fehler ${error.code}",
+                title = if (error.code == "G7-SIGNAL-LOSS") "Signalverlust" else "SugarWear-Fehler ${error.code}",
                 body = error.safeMessage,
                 occurredAtEpochMs = firstOccurredAt,
                 onlyAlertOnce = sameActiveError,

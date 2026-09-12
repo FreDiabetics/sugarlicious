@@ -892,6 +892,21 @@ class DashboardViewFactory(
         fun progressToValue(progress: Int): Float = minimum + (maximum - minimum) * progress.toFloat() / steps.toFloat()
         fun valueToProgress(current: Float): Int = (((current.coerceIn(minimum, maximum) - minimum) / (maximum - minimum)) * steps).toInt().coerceIn(0, steps)
         valueLabel.text = valueFormatter(value)
+        valueLabel.setOnClickListener {
+            val input = android.widget.EditText(context).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                setText(value.toString())
+                setSelectAllOnFocus(true)
+            }
+            android.app.AlertDialog.Builder(context)
+                .setTitle(title)
+                .setView(input)
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Übernehmen") { _, _ ->
+                    input.text.toString().replace(',', '.').toFloatOrNull()?.coerceIn(minimum, maximum)?.let(callback)
+                }
+                .show()
+        }
         addView(
             SeekBar(context).apply {
                 max = steps
@@ -900,6 +915,10 @@ class DashboardViewFactory(
                 progressBackgroundTintList =
                     ColorStateList.valueOf(SugarliciousColors.argb(SugarliciousColorRole.SURFACE_RAISED))
                 thumbTintList = ColorStateList.valueOf(accent)
+                setOnTouchListener { view, event ->
+                    view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked == android.view.MotionEvent.ACTION_DOWN || event.actionMasked == android.view.MotionEvent.ACTION_MOVE)
+                    false
+                }
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         private var currentValue = value.coerceIn(minimum, maximum)

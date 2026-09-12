@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.res.Configuration
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseTrendSizing
@@ -37,7 +36,7 @@ enum class G7AppearanceRole(
     GLUCOSE_HIGH("glucose_high", AppearanceTerminology.GLUCOSE_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFFD040.toInt()),
     GLUCOSE_VERY_HIGH("glucose_very_high", AppearanceTerminology.GLUCOSE_VERY_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
     GLUCOSE_TREND("glucose_trend", AppearanceTerminology.TREND_ARROW, G7AppearanceSection.GLUCOSE, 0xFFFFFFFF.toInt()),
-    GLUCOSE_DELTA("glucose_delta", "Delta / Alter", G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt()),
+    GLUCOSE_DELTA("glucose_delta", AppearanceTerminology.DELTA_UNIT, G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
     GLUCOSE_DELAYED("glucose_delayed", "DELAYED", G7AppearanceSection.GLUCOSE, 0xFFF4DE00.toInt()),
     GLUCOSE_STALE("glucose_stale", "STALE", G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
     GLUCOSE_NO_SOURCE("glucose_no_source", "NO_SOURCE", G7AppearanceSection.GLUCOSE, 0xFF969696.toInt()),
@@ -67,8 +66,9 @@ data class G7AppearancePalette(
 }
 
 class G7AppearanceStore(context: Context) {
+    private val appContext = context.applicationContext
     private val preferences: SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     init {
         preferences.ensureSettingsSchema(SettingsSchemaVersions.COLLECTOR)
@@ -77,11 +77,12 @@ class G7AppearanceStore(context: Context) {
     fun activeMode(): AppearanceMode =
         preferences.getString(KEY_ACTIVE_MODE, null)
             ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
-            ?: systemMode()
+            ?: AppearanceMode.DARK
 
     fun setActiveMode(mode: AppearanceMode) {
         // The next activity draw must see the selection immediately, even when Android pauses us.
         preferences.edit().putString(KEY_ACTIVE_MODE, mode.storageKey).commit()
+        notifyTileChanged()
     }
 
     fun glucoseScalePercent(): Int = preferences.getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
@@ -101,29 +102,28 @@ class G7AppearanceStore(context: Context) {
 
     fun saveTrendArrowStyle(mode: AppearanceMode, style: TrendArrowStyle) {
         TrendArrowStylePreferences.write(preferences, mode, style)
+        notifyTileChanged()
     }
 
     fun resetTrendArrowStyle(mode: AppearanceMode) {
         TrendArrowStylePreferences.reset(preferences, mode)
+        notifyTileChanged()
     }
 
     fun setGlucoseScalePercent(value: Int) {
         preferences.edit().putInt(KEY_GLUCOSE_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
+        notifyTileChanged()
     }
 
     fun setTrendScalePercent(value: Int) {
         preferences.edit().putInt(KEY_TREND_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)).apply()
+        notifyTileChanged()
     }
 
     fun historicalDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_HISTORICAL_DOT_OUTLINE, true)
     fun currentDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, true)
-    fun setHistoricalDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value).apply() }
-    fun setCurrentDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_CURRENT_DOT_OUTLINE, value).apply() }
-
-    private fun systemMode(): AppearanceMode =
-        if ((preferencesContext.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
-
-    private val preferencesContext = context.applicationContext
+    fun setHistoricalDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value).apply(); notifyTileChanged() }
+    fun setCurrentDotOutlineEnabled(value: Boolean) { preferences.edit().putBoolean(KEY_CURRENT_DOT_OUTLINE, value).apply(); notifyTileChanged() }
 
     fun load(): G7AppearancePalette = load(activeMode())
 
@@ -144,6 +144,7 @@ class G7AppearanceStore(context: Context) {
     fun save(mode: AppearanceMode, role: G7AppearanceRole, argb: Int) {
         migrateLegacy()
         preferences.edit().putInt(colorKey(mode, role), argb).apply()
+        notifyTileChanged()
     }
 
     fun reset(role: G7AppearanceRole) {
@@ -152,6 +153,7 @@ class G7AppearanceStore(context: Context) {
 
     fun reset(mode: AppearanceMode, role: G7AppearanceRole) {
         preferences.edit().remove(colorKey(mode, role)).apply()
+        notifyTileChanged()
     }
 
     fun resetAll() {
@@ -161,6 +163,7 @@ class G7AppearanceStore(context: Context) {
             remove(KEY_HISTORICAL_DOT_OUTLINE)
             remove(KEY_CURRENT_DOT_OUTLINE)
         }.apply()
+        notifyTileChanged()
     }
 
     fun graphHours(): Int =
@@ -170,6 +173,7 @@ class G7AppearanceStore(context: Context) {
 
     fun setGraphHours(hours: Int) {
         preferences.edit().putInt(KEY_GRAPH_HOURS, hours.takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS).apply()
+        notifyTileChanged()
     }
 
     fun nextGraphHours(): Int {
@@ -181,6 +185,10 @@ class G7AppearanceStore(context: Context) {
 
     private fun colorKey(role: G7AppearanceRole): String = "color.${role.key}"
     private fun colorKey(mode: AppearanceMode, role: G7AppearanceRole): String = "color.${mode.storageKey}.${role.key}"
+
+    private fun notifyTileChanged() {
+        G7CollectorTileService.requestUpdate(appContext)
+    }
 
     private fun migrateLegacy() {
         if (preferences.getBoolean("appearance_profiles_v1", false)) return

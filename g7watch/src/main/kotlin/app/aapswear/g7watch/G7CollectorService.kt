@@ -63,6 +63,17 @@ internal fun needsG7FollowUpRepair(
     nowEpochMs: Long,
 ): Boolean = collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
 
+internal fun ensureG7PairingAttempt(state: G7PersistedState, nowEpochMs: Long): G7PersistedState {
+    if (!state.collectorEnabled || state.sensor == null || state.lastReading != null) return state
+    val deadline = state.pairingDeadlineEpochMs ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+    return state.copy(
+        pairingAttemptId = state.pairingAttemptId ?: java.util.UUID.randomUUID().toString(),
+        pairingStartedAtEpochMs = state.pairingStartedAtEpochMs ?: nowEpochMs,
+        pairingDeadlineEpochMs = deadline,
+        scanTimeoutAtEpochMs = deadline,
+    )
+}
+
 internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState =
     state.copy(
         connectionState = G7ConnectionState.DISCONNECTED,
@@ -73,7 +84,7 @@ internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState
         lastError = null,
         activeAttemptId = null,
         scanStartedAtEpochMs = null,
-        scanTimeoutAtEpochMs = null,
+        scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
     )
 
 class G7CollectorService : Service() {
@@ -109,7 +120,7 @@ class G7CollectorService : Service() {
             cancelAction = { collectionJob?.cancel() },
         )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "Direct to Watch", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL, "SugarWear", NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Permanenter direkter Sensor-Collector"
                 setSound(null, null)
                 enableVibration(false)
@@ -134,7 +145,8 @@ class G7CollectorService : Service() {
             return START_NOT_STICKY
         }
 
-        var persisted = store.read()
+        var persisted = ensureG7PairingAttempt(store.read(), serviceStartAt)
+        store.save(persisted)
         if (!persisted.collectorEnabled) {
             G7SignalLossMonitor.cancel(this)
             G7ErrorNotifier.clearActive(this)
@@ -335,18 +347,54 @@ class G7CollectorService : Service() {
 
         try {
             val collector = AndroidG7Collector(this)
+            val sessionId = collectionSensor.sessionId ?: collectionSensor.sensorId
+            val ledger = G7ExpectedWindowLedger(this)
+            var recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
             val lastStoredSensorClock = G7ReadingDatabase(this).let { database ->
                 try {
-                    database.getLatestValidForSession(
-                        collectionSensor.sensorId,
-                        collectionSensor.sessionId ?: collectionSensor.sensorId,
-                    )?.rawSourceTimestamp
+                    while (recoveryGap != null) {
+                        val gap = recoveryGap
+                        val presentAt = database.validReadingNear(collectionSensor.sensorId, sessionId, gap.expectedAt)
+                            ?: break
+                        ledger.markSatisfiedByExistingReading(gap.expectedWindowId, presentAt, System.currentTimeMillis())
+                        recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
+                    }
+                    recoveryGap?.let {
+                        database.getBackfillAnchorSensorClockForGap(collectionSensor.sensorId, sessionId, it.expectedAt)
+                    } ?: database.getBackfillAnchorSensorClock(collectionSensor.sensorId, sessionId)
                 } finally {
                     database.close()
                 }
             }
-            val boundedScanTimeout =
-                if (request == CycleRequest.AUTOMATIC) null else G7_RECONNECT_SCAN_TIMEOUT_MS
+            if (recoveryGap != null) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-BACKFILL-GAP-SELECTED",
+                    "Oldest persisted recoverable gap selected for the next successful LIVE cycle",
+                    metadata = mapOf(
+                        "expectedWindowId" to recoveryGap.expectedWindowId,
+                        "gapExpectedAt" to recoveryGap.expectedAt,
+                        "sensorId" to collectionSensor.sensorId,
+                        "sessionId" to sessionId,
+                        "recoveryAttemptCount" to recoveryGap.recoveryAttemptCount,
+                        "anchorSensorClock" to lastStoredSensorClock,
+                    ),
+                )
+            }
+            val pairingRemainingMs = store.read()
+                .takeIf { it.lastReading == null }
+                ?.pairingDeadlineEpochMs
+                ?.minus(System.currentTimeMillis())
+            if (pairingRemainingMs != null && pairingRemainingMs <= 0L) {
+                throw G7BleException("G7-PAIRING-TIMEOUT", "Verbindung zum Sensor fehlgeschlagen", false)
+            }
+            val boundedScanTimeout = when {
+                pairingRemainingMs != null -> pairingRemainingMs
+                request == CycleRequest.AUTOMATIC -> null
+                else -> G7_RECONNECT_SCAN_TIMEOUT_MS
+            }
+            var liveCommittedBeforeBackfill = false
+            var backfillRequestedAt: Long? = null
+            var liveMeasuredAtForRecovery: Long? = null
             val result = collector.collect(
                 initialSensor = collectionSensor,
                 credentials = storedCredentials,
@@ -359,12 +407,10 @@ class G7CollectorService : Service() {
                         sessionState = protocolState.toSessionState(),
                         scanStartedAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) now else current.scanStartedAtEpochMs,
-                        scanTimeoutAtEpochMs =
-                            if (protocolState == G7ProtocolState.SCANNING) {
-                                now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
-                            } else {
-                                current.scanTimeoutAtEpochMs
-                            },
+                        scanTimeoutAtEpochMs = if (protocolState == G7ProtocolState.SCANNING) {
+                            current.pairingDeadlineEpochMs
+                                ?: now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
+                        } else current.scanTimeoutAtEpochMs,
                         lastScanAtEpochMs =
                             if (protocolState == G7ProtocolState.SCANNING) now else current.lastScanAtEpochMs,
                     )
@@ -389,11 +435,40 @@ class G7CollectorService : Service() {
                 },
                 scanTimeoutMsOverride = boundedScanTimeout,
                 reconnectStrategy = G7ReconnectStrategyStore.read(this),
-                onTelemetry = { telemetry -> recordBleTelemetry(attemptId, telemetry) },
+                onTelemetry = { telemetry ->
+                    if (telemetry is G7BackfillRequestTelemetry) {
+                        backfillRequestedAt = telemetry.timestampEpochMs
+                        liveMeasuredAtForRecovery?.let { liveMeasuredAt ->
+                            G7ExpectedWindowLedger(this).markRecoveryRequestStarted(
+                                sensorId = collectionSensor.sensorId,
+                                sessionId = sessionId,
+                                liveMeasuredAt = liveMeasuredAt,
+                                requestedAt = telemetry.timestampEpochMs,
+                            )
+                        }
+                    }
+                    recordBleTelemetry(attemptId, telemetry)
+                },
                 attemptId = attemptId,
                 lastStoredSensorClock = lastStoredSensorClock,
                 onLiveReading = { live ->
-                    val provisional = live.toCgm()
+                    liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
+                    val provisional = G7ReadingDatabase(this).let { database ->
+                        try {
+                            val previous = database.getLatestValidBefore(
+                                live.sensorId,
+                                live.sessionId,
+                                live.sensorTimestampEpochMs,
+                            )
+                            live.toCgm(previous).also { candidate ->
+                                if (candidate.status == CgmReadingStatus.VALID) {
+                                    liveCommittedBeforeBackfill = database.insertOrIgnore(candidate)
+                                }
+                            }
+                        } finally {
+                            database.close()
+                        }
+                    }
                     if (provisional.status == CgmReadingStatus.VALID) {
                         val current = store.read()
                         store.save(
@@ -429,7 +504,7 @@ class G7CollectorService : Service() {
                     database.close()
                 }
             }
-            val reading = result.reading.toCgm(previousValid)
+            var reading = result.reading.toCgm(previousValid)
             attemptStore.updateCycle(attemptId) {
                 it.copy(
                     glucosePacketReceivedAt = it.glucosePacketReceivedAt ?: now,
@@ -454,7 +529,7 @@ class G7CollectorService : Service() {
             val inserted = try {
                 G7ReadingDatabase(this).let { database ->
                     try {
-                        database.insertOrIgnore(reading)
+                        liveCommittedBeforeBackfill || database.insertOrIgnore(reading)
                     } finally {
                         database.close()
                     }
@@ -491,7 +566,58 @@ class G7CollectorService : Service() {
                 )
                 0
             }
+            // The live packet arrives before its history stream. After a signal-loss gap the
+            // first live value was therefore initially compared with the old pre-gap value and
+            // had no valid delta. Re-resolve its immediate predecessor after committing backfill,
+            // then update the already stored live row and all observing surfaces atomically.
+            if (result.backfillReadings.isNotEmpty()) {
+                G7ReadingDatabase(this).let { database ->
+                    try {
+                        val restoredPrevious = database.getLatestValidBefore(
+                            reading.sensorId,
+                            reading.sessionId,
+                            reading.timestampEpochMs,
+                        )
+                        reading = result.reading.toCgm(restoredPrevious)
+                        database.updateDerivedFields(reading)
+                    } finally {
+                        database.close()
+                    }
+                }
+            }
+            val backfillStart = G7CollectorBackfillProtocol.requestedStart(
+                lastStoredSensorClock,
+                result.reading.sensorClockSeconds ?: 0L,
+            )
+            val backfillEnd = G7CollectorBackfillProtocol.requestedEnd(result.reading.sensorClockSeconds ?: 0L)
+            if (backfillStart != null && backfillEnd != null) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-BACKFILL-200",
+                    "Collector history request completed",
+                    metadata = mapOf(
+                        "backfillRequestId" to "$attemptId:$backfillStart-$backfillEnd",
+                        "triggerReason" to if (lastStoredSensorClock == null) "INITIAL_HISTORY" else "GAP_OR_RECONNECT",
+                        "requestedStartSensorClock" to backfillStart,
+                        "requestedEndSensorClock" to backfillEnd,
+                        "responseReceived" to true,
+                        "parsed" to result.backfillReadings.size,
+                        "inserted" to backfillInserted,
+                        "duplicateOrRejected" to (result.backfillReadings.size - backfillInserted).coerceAtLeast(0),
+                        "terminalState" to "COMPLETE",
+                    ),
+                )
+            }
             val storedAt = System.currentTimeMillis()
+            G7ExpectedWindowLedger(this).markNextLiveAndBackfill(
+                sensorId = reading.sensorId,
+                sessionId = reading.sessionId,
+                liveMeasuredAt = reading.timestampEpochMs,
+                liveReceivedAt = reading.receivedAtEpochMs,
+                committedAt = storedAt,
+                requestedAt = backfillRequestedAt,
+                responseAt = if (backfillRequestedAt != null) now else null,
+                inserted = result.backfillReadings.map { it.sensorTimestampEpochMs },
+            )
             G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
             attemptStore.updateCycle(attemptId) { it.copy(storeCompletedAt = storedAt) }
             attemptStore.record(
@@ -523,6 +649,10 @@ class G7CollectorService : Service() {
                 lastSuccessfulConnectionEpochMs = storedAt,
                 activeAttemptId = null,
                 lastAttemptCompletedAtEpochMs = storedAt,
+                pairingAttemptId = null,
+                pairingStartedAtEpochMs = null,
+                pairingDeadlineEpochMs = null,
+                scanTimeoutAtEpochMs = null,
             )
             store.save(next)
 
@@ -840,6 +970,13 @@ class G7CollectorService : Service() {
                 errorCode = "STALE_GATT_CALLBACK",
                 nowEpochMs = telemetry.timestampEpochMs,
             )
+            is G7BackfillRequestTelemetry -> attemptStore.record(
+                attemptId,
+                CollectorDiagnosticStage.SYNC,
+                CollectorDiagnosticResult.STARTED,
+                "BACKFILL_REQUEST_STARTED · ${telemetry.startSensorClock}-${telemetry.endSensorClock} · generation=${telemetry.gattGeneration}",
+                nowEpochMs = telemetry.timestampEpochMs,
+            )
         }
     }
 
@@ -869,7 +1006,7 @@ class G7CollectorService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_g7_notification)
             .setColor(0xFF6DE892.toInt())
-            .setContentTitle("Direct to Watch")
+            .setContentTitle("SugarWear")
             .setContentText(message)
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_SERVICE)
@@ -1001,7 +1138,18 @@ class G7CollectorService : Service() {
             val current = stateStore.read()
             if (current.sensor == null || G7CredentialStore(app).read() == null) return
             if (!current.collectorEnabled) {
-                stateStore.save(G7SessionManager(current).startCollector())
+                val started = G7SessionManager(current).startCollector()
+                val now = System.currentTimeMillis()
+                stateStore.save(
+                    if (started.lastReading == null) {
+                        started.copy(
+                            pairingAttemptId = started.pairingAttemptId ?: java.util.UUID.randomUUID().toString(),
+                            pairingStartedAtEpochMs = started.pairingStartedAtEpochMs ?: now,
+                            pairingDeadlineEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+                            scanTimeoutAtEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+                        )
+                    } else started,
+                )
             }
             G7SignalLossMonitor.scheduleFromState(app, stateStore.read())
             app.startForegroundService(

@@ -19,6 +19,9 @@ import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.text.Spannable
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
@@ -30,6 +33,7 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.GlucoseUnit
@@ -44,10 +48,20 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+
+private const val EXTERNAL_SURFACE_MINUTE_MS = 60_000L
+
+internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
+    val remainder = Math.floorMod(nowEpochMs, EXTERNAL_SURFACE_MINUTE_MS)
+    return (EXTERNAL_SURFACE_MINUTE_MS - remainder).coerceAtLeast(1L)
+}
 
 class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceChangeListener {
     private lateinit var uiPreferences: SharedPreferences
@@ -55,6 +69,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var latestState: TherapyDisplayState? = null
     private var foregroundStarted = false
+    private var externalSurfaceClockJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -66,7 +81,22 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
                 latestState = it
-                if (foregroundStarted) notifyUpdated()
+                if (foregroundStarted) {
+                    notifyUpdated()
+                    runCatching { SugarliciousWidgets.update(applicationContext) }
+                }
+            }
+        }
+        externalSurfaceClockJob = scope.launch {
+            while (isActive) {
+                delay(delayUntilNextExternalSurfaceMinute(System.currentTimeMillis()))
+                if (foregroundStarted) {
+                    // Age/freshness and the live graph edge change without a new AAPS broadcast.
+                    // Refresh the external surfaces on the aligned minute boundary so widgets and
+                    // the notification do not freeze when the Activity is closed or signal is lost.
+                    notifyUpdated()
+                    runCatching { SugarliciousWidgets.update(applicationContext) }
+                }
             }
         }
     }
@@ -87,6 +117,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         diagnostics.unregisterOnSharedPreferenceChangeListener(this)
+        externalSurfaceClockJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }
@@ -182,6 +213,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val palette = SugarliciousColorStore.load(uiPreferences)
         val textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY)
         val textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY)
+        val deltaUnitColor = palette.argb(SugarliciousColorRole.DELTA_UNIT)
 
         val layout = NotificationLayoutSettingsStore.read(uiPreferences, profile)
         val systemTrendScale = DashboardUiPreferences.read(uiPreferences).trendScalePercent
@@ -192,7 +224,13 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
             setTextViewText(R.id.notification_value, display.title)
-            setTextViewText(R.id.notification_meta, display.subtitle)
+            val styledSubtitle = SpannableString(display.subtitle).apply {
+                display.deltaUnitText?.let { segment ->
+                    val start = display.subtitle.indexOf(segment)
+                    if (start >= 0) setSpan(ForegroundColorSpan(deltaUnitColor), start, start + segment.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+            setTextViewText(R.id.notification_meta, styledSubtitle)
             setTextViewTextSize(R.id.notification_value, android.util.TypedValue.COMPLEX_UNIT_SP, valueBaseSp * layout.glucoseScalePercent / 100f)
             setTextViewTextSize(R.id.notification_meta, android.util.TypedValue.COMPLEX_UNIT_SP, metaBaseSp * layout.metaScalePercent / 100f)
             setFloat(R.id.notification_value, "setTranslationX", layout.glucoseXPercent / 100f * 40f * density)
@@ -237,7 +275,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
-            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null)
+            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null)
         }
 
         val selectedUnit = DashboardUiPreferences.read(uiPreferences).unitFor(state)
@@ -259,11 +297,14 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
             Freshness.NO_DATA -> "Keine Quelle · "
         }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
-        val subtitle = "$prefix$delta · $age min alt"
+        val unit = if (selectedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+        val deltaUnit = "$delta $unit"
+        val subtitle = "$prefix$deltaUnit · $age min alt"
         return NotificationDisplay(
             value,
             subtitle,
             glucose.trend.takeIf { freshness == Freshness.CURRENT || freshness == Freshness.DELAYED },
+            deltaUnit,
         )
     }
 
@@ -285,6 +326,7 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
         val title: String,
         val subtitle: String,
         val trend: app.aapswear.model.Trend?,
+        val deltaUnitText: String?,
     )
 
     companion object {
@@ -558,6 +600,9 @@ internal object NotificationGraphRenderer {
             .takeIf { it in 1..3 }
             ?: 3
 
+    internal fun notificationGraphWindow(nowEpochMs: Long, graphHours: Int): GraphTimeWindow =
+        GraphTimeWindow.live(nowEpochMs, graphHours * 60L * 60_000L)
+
     private fun render(
         context: Context,
         state: TherapyDisplayState?,
@@ -604,7 +649,7 @@ internal object NotificationGraphRenderer {
             .takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS }
             ?: 3
         val windowMs = graphHours * 60L * 60L * 1000L
-        val timeWindow = GraphTimeWindow.live(now, windowMs)
+        val timeWindow = notificationGraphWindow(now, graphHours)
         val start = timeWindow.startEpochMs
         val validSamples = CanonicalCgmHistory.merge(
             samples = buildList {
@@ -639,10 +684,6 @@ internal object NotificationGraphRenderer {
                 validSamples,
                 thresholds,
             )
-        val highest = points.maxOf { it.value }
-        val minValue = 40.0
-        val maxValue = max(400.0, highest + max(12.0, highest * 0.08))
-
         val axis = if (profile == NotificationGraphProfile.COLLAPSED) GraphAxisLayoutSpec.COMPACT else GraphAxisLayoutSpec.DEFAULT
         fun dp(value: Float) = value * renderDensity
         val axisText = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -674,13 +715,17 @@ internal object NotificationGraphRenderer {
             canvas.drawRect(labelLaneLeft, top, visualRight, bottom, paint)
         }
         fun y(value: Double): Float {
-            val fraction = ((value - minValue) / (maxValue - minValue).coerceAtLeast(1.0))
-                .coerceIn(0.0, 1.0)
+            val fraction = GlucoseGraphScale.ratio(value)
             return (plotBottom - fraction * (plotBottom - plotTop)).toFloat()
         }
 
+        // The configured graph background is the base layer for the complete visual graph,
+        // including the lane underneath the existing translucent scale-area layers. Time-based
+        // content remains clipped/projected to plotRight below; only the background reaches right.
         paint.color = graphColor(SugarliciousColorRole.GRAPH_BACKGROUND)
-        canvas.drawRect(visualLeft, visualTop, labelLaneLeft, bounds.bottom, paint)
+        canvas.drawRect(visualLeft, visualTop, visualRight, bounds.bottom, paint)
+        // Preserve the established translucent scale-lane composition exactly as before. These
+        // draws are now overlays rather than pixels composited against a transparent bitmap.
         paint.color = laneColor(graphColor(SugarliciousColorRole.GRAPH_BACKGROUND))
         canvas.drawRect(labelLaneLeft, visualTop, visualRight, y(targetHigh), paint)
         canvas.drawRect(labelLaneLeft, y(targetLow), visualRight, bounds.bottom, paint)

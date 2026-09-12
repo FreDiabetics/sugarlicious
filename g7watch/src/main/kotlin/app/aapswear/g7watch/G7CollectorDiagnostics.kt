@@ -102,6 +102,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         val attempt =
             CollectorDiagnosticAttempt(
                 attemptId = attemptId,
+                processInstanceId = G7ProcessInstance.id,
                 startedAtEpochMs = nowEpochMs,
                 lastProgressAtEpochMs = nowEpochMs,
                 currentStage = CollectorDiagnosticStage.IDLE,
@@ -246,6 +247,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
     fun expireStaleAttempts(
         nowEpochMs: Long = System.currentTimeMillis(),
         maxAgeMs: Long = STALE_ATTEMPT_AGE_MS,
+        interruptedByProcessRestart: Boolean = false,
     ): Int = synchronized(lock) {
         val active = loadActive().toMutableList()
         val stale = active.filter { attempt ->
@@ -260,16 +262,24 @@ internal class G7CollectorDiagnosticStore(context: Context) {
             val terminal = attempt.copy(
                 completedAtEpochMs = nowEpochMs,
                 result = CollectorDiagnosticResult.RECOVERABLE_ERROR,
-                summary = "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt",
-                classification = CollectorCycleClassification.HUNG,
+                summary = if (interruptedByProcessRestart) {
+                    "PROCESS_INTERRUPTED · Prozess endete vor dem Terminalzustand"
+                } else {
+                    "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt"
+                },
+                classification = if (interruptedByProcessRestart) {
+                    CollectorCycleClassification.PROCESS_INTERRUPTED
+                } else {
+                    CollectorCycleClassification.HUNG
+                },
                 cycle = attempt.cycle?.copy(cycleEndedAt = nowEpochMs),
                 events = (attempt.events + CollectorDiagnosticEvent(
                     timestampEpochMs = nowEpochMs,
                     attemptId = attempt.attemptId,
                     stage = CollectorDiagnosticStage.ERROR,
                     result = CollectorDiagnosticResult.RECOVERABLE_ERROR,
-                    message = "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt",
-                    errorCode = "G7-CYCLE-HUNG",
+                    message = if (interruptedByProcessRestart) "PROCESS_INTERRUPTED · Prozess endete vor dem Terminalzustand" else "HUNG · veralteter aktiver Collector-Zyklus automatisch bereinigt",
+                    errorCode = if (interruptedByProcessRestart) "G7-PROCESS-INTERRUPTED" else "G7-CYCLE-HUNG",
                     durationMs = nowEpochMs - attempt.startedAtEpochMs,
                 )).takeLast(MAX_EVENTS_PER_ATTEMPT),
             )
@@ -405,7 +415,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
         const val KEY_PENDING_CYCLE = "pending_cycle_v2"
         // 192 five-minute attempts retain roughly 16 hours, enough to preserve a complete
         // overnight test plus the morning recovery while remaining bounded on Wear OS storage.
-        const val MAX_ATTEMPTS = 512
+        const val MAX_ATTEMPTS = 2_304
         // Normally only one cycle is active. A small bound also preserves rare overlap/process-death
         // evidence without allowing interrupted attempts to grow unbounded.
         const val MAX_ACTIVE_ATTEMPTS = 8
@@ -416,7 +426,7 @@ internal class G7CollectorDiagnosticStore(context: Context) {
     }
 }
 
-internal const val G7_SLOT_RETENTION_COUNT = 320
+internal const val G7_SLOT_RETENTION_COUNT = 2_304
 internal const val G7_SLOT_INTERVAL_MS = 5L * 60_000L
 internal fun g7SlotRetentionDurationMs(): Long = G7_SLOT_RETENTION_COUNT * G7_SLOT_INTERVAL_MS
 
@@ -427,6 +437,9 @@ internal fun classifyG7CycleFailure(
     errorCode == "G7-BLE-FALLBACK-107" -> CollectorCycleClassification.FALLBACK_SCAN_FAILED
     errorCode == "G7-BLE-107" -> CollectorCycleClassification.NO_ADVERTISEMENT
     errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE -> CollectorCycleClassification.GATT_NO_CALLBACK
+    errorCode == G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE -> CollectorCycleClassification.GATT_NO_CALLBACK
+    errorCode == G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE -> CollectorCycleClassification.GATT_NO_CALLBACK
+    errorCode == G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE -> CollectorCycleClassification.GATT_NO_CALLBACK
     errorCode == "G7-GATT-133" || errorCode?.startsWith("G7-GATT-") == true -> CollectorCycleClassification.GATT_CONNECT_FAILED
     errorCode?.startsWith("G7-AUTH-") == true || errorCode?.startsWith("AUTH") == true -> CollectorCycleClassification.AUTH_FAILED
     errorCode == "G7-BLE-111" -> CollectorCycleClassification.GLUCOSE_TIMEOUT

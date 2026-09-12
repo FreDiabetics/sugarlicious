@@ -26,6 +26,7 @@ import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.uishared.SharedColorEditor
+import app.aapswear.uishared.SharedNumberEditor
 
 class G7AppearanceActivity : Activity() {
     private lateinit var store: G7AppearanceStore
@@ -179,10 +180,25 @@ class G7AppearanceActivity : Activity() {
             setPadding(10.dp, 8.dp, 10.dp, 8.dp)
             background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
             val valueLabel = label(format(initial), 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
+            valueLabel.setPadding(8.dp, 4.dp, 8.dp, 4.dp)
+            valueLabel.background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 10f)
+            valueLabel.setOnClickListener {
+                SharedNumberEditor.show(this@G7AppearanceActivity, title, initial.coerceIn(min, max), min, max) { value ->
+                    save(value)
+                    render()
+                }
+            }
             addView(valueLabel)
             addView(SeekBar(this@G7AppearanceActivity).apply {
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
+                progressTintList = android.content.res.ColorStateList.valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(palette.argb(G7AppearanceRole.MENU_BORDER))
+                thumbTintList = android.content.res.ColorStateList.valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
+                setOnTouchListener { view, event ->
+                    view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked == android.view.MotionEvent.ACTION_DOWN || event.actionMasked == android.view.MotionEvent.ACTION_MOVE)
+                    false
+                }
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                     override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                         val value = progress + min

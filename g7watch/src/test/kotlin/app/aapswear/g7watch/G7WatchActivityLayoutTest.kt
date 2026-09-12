@@ -23,8 +23,10 @@ import app.aapswear.model.Trend
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.Before
@@ -37,10 +39,52 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7WatchActivityLayoutTest {
+
+    @Test
+    fun `collector updates cannot advance an unstarted pairing flow`() {
+        val backgroundPairing = G7PersistedState(sensor = G7Sensor("old"), collectorEnabled = true)
+        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, backgroundPairing))
+        assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, backgroundPairing))
+        assertEquals(G7PairingScreenStep.CONNECTING, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, backgroundPairing))
+    }
+    @Test
+    fun `direct graph scale cycles through every duration and wraps`() {
+        assertEquals(2, nextDirectGraphHours(1))
+        assertEquals(3, nextDirectGraphHours(2))
+        assertEquals(6, nextDirectGraphHours(3))
+        assertEquals(12, nextDirectGraphHours(6))
+        assertEquals(24, nextDirectGraphHours(12))
+        assertEquals(1, nextDirectGraphHours(24))
+        assertEquals(1, nextDirectGraphHours(99))
+    }
+
+
+    @Test
+    fun `pairing success delay is three seconds`() {
+        val startedAt = 1_000_000L
+        val deadline = startedAt + 3_000L
+        assertEquals(3_000L, pairingSuccessRemainingMs(deadline, startedAt))
+        assertEquals(0L, pairingSuccessRemainingMs(deadline, startedAt + 3_000L))
+    }
+
+    @Test
+    fun `rejected authentication returns to actionable sensor move form`() {
+        val now = 1_000_000L
+        val rejected = G7PersistedState(
+            collectorEnabled = true,
+            pairingDeadlineEpochMs = now + 60_000L,
+            lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, now, "rejected"),
+        )
+
+        assertFalse(isG7PairingAttemptActive(rejected, now))
+        assertTrue(isG7PairingAttemptActive(rejected.copy(lastError = null), now))
+        assertFalse(isG7PairingAttemptActive(rejected.copy(lastError = null), now + 60_000L))
+    }
     @Before
     fun resetGraphPeriod() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7AppearanceStore(context).setGraphHours(3)
+        G7DirectToWatchSettingsStore(context).saveGraphHours(3)
         val seed = CgmReading(
             id = "layout-seed", source = DataSourceId.DEXCOM_G7_WATCH,
             sensorId = "layout-sensor", sessionId = "layout-session", glucoseMgDl = 120.0,
@@ -56,7 +100,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `pairing gate follows sensor session state instead of waiting for glucose`() {
+    fun `pairing gate remains until a validated reading proves the session`() {
         assertTrue(requiresPairingGate(G7PersistedState()))
         assertTrue(requiresPairingGate(G7PersistedState(sensor = G7Sensor("ended", state = G7SensorState.ENDED))))
         assertTrue(requiresPairingGate(G7PersistedState(
@@ -64,12 +108,12 @@ class G7WatchActivityLayoutTest {
             collectorEnabled = true,
             sessionState = G7SessionState.INITIAL_SETUP,
         )))
-        assertFalse(requiresPairingGate(G7PersistedState(
+        assertTrue(requiresPairingGate(G7PersistedState(
             sensor = G7Sensor("warming", state = G7SensorState.WARMUP),
             collectorEnabled = true,
             sessionState = G7SessionState.AUTHENTICATED,
         )))
-        assertFalse(requiresPairingGate(G7PersistedState(
+        assertTrue(requiresPairingGate(G7PersistedState(
             sensor = G7Sensor("error", state = G7SensorState.ERROR),
             collectorEnabled = true,
             sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
@@ -77,7 +121,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `active pairing uses a single non scrolling search page`() {
+    fun `pairing starts explicitly and every page has scroll fallback without field chrome`() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(
             sensor = G7Sensor("pairing"),
@@ -87,11 +131,79 @@ class G7WatchActivityLayoutTest {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        assertEquals(null, findScrollView(root))
-        assertNotNull(findText(root, "Sensor wird gesucht. Dies kann bis zu 30 Minuten dauern."))
-        assertNotNull(findImageByDescription(root, "Sensor"))
-        assertNotNull(findImageByDescription(root, "Smartwatch"))
-        assertNotNull(findProgressBar(root))
+        assertNotNull(findScrollView(root))
+        assertNotNull(findText(root, "Kein Sensor verbunden"))
+        assertNotNull(findText(root, "Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch."))
+        findText(root, "Sensor verbinden")!!.performClick()
+        val codeRoot = activity.findViewById<android.view.View>(android.R.id.content)
+        assertNotNull(findScrollView(codeRoot))
+        assertNotNull(findText(codeRoot, "Sensorcode eingeben"))
+        assertNull(findText(codeRoot, "Vierstelligen Sensorcode eingeben"))
+        assertNotNull(findText(codeRoot, "Verbinden"))
+        val editor = findEditor(codeRoot)
+        assertNotNull(editor)
+        assertTrue(editor?.isFocusable == true)
+        assertTrue(editor?.isFocusableInTouchMode == true)
+        assertNull(editor?.background)
+        activity.finish()
+    }
+
+    @Test
+    fun `only connecting can consume pairing success`() {
+        val reading = CgmReading(
+            id = "success", source = DataSourceId.DEXCOM_G7_WATCH, sensorId = "sensor", sessionId = "session",
+            glucoseMgDl = 120.0, timestampEpochMs = 1_000L, receivedAtEpochMs = 1_000L,
+            status = CgmReadingStatus.VALID,
+        )
+        val connected = G7PersistedState(sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, connected))
+        assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, connected))
+        assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, connected))
+        assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTED, connected))
+    }
+
+    @Test
+    fun `connect action is debounced and completion is scheduled once`() {
+        assertTrue(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, false, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, true, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.CONNECTING, false, "1234"))
+        assertFalse(canStartG7Pairing(G7PairingScreenStep.ENTER_CODE, false, "123"))
+        assertTrue(shouldScheduleG7PairingCompletion(G7PairingScreenStep.CONNECTED, false))
+        assertFalse(shouldScheduleG7PairingCompletion(G7PairingScreenStep.CONNECTED, true))
+    }
+
+    @Test
+    fun `recoverable BLE errors keep pairing active but terminal errors stop it`() {
+        val startedAt = 1_000_000L
+        val recoverable = G7PersistedState(
+            pairingStartedAtEpochMs = startedAt,
+            pairingDeadlineEpochMs = startedAt + 60_000L,
+            lastError = app.aapswear.g7.G7CollectorError("G7-GATT-133", true, startedAt + 1_000L, "temporary"),
+        )
+        assertFalse(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 2_000L))
+        assertTrue(isTerminalG7PairingFailure(
+            recoverable.copy(lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, startedAt + 1_000L, "rejected")),
+            startedAt,
+            startedAt + 2_000L,
+        ))
+        assertTrue(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 60_000L))
+    }
+
+    @Test
+    fun `connecting screen has one animated indicator and a cancel action`() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = System.currentTimeMillis()
+        G7SensorStateStore(context).save(G7PersistedState(
+            sensor = G7Sensor("pairing"), collectorEnabled = true,
+            pairingStartedAtEpochMs = now, pairingDeadlineEpochMs = now + 60_000L,
+        ))
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.CONNECTING.name) }
+        val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create(saved).start().resume().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        assertNotNull(findConnectionDots(root))
+        assertNull(findProgressBar(root))
+        assertNotNull(findText(root, "Abbrechen"))
         activity.finish()
     }
 
@@ -134,7 +246,7 @@ class G7WatchActivityLayoutTest {
     fun `direct to watch category opens complete watchface settings`() {
         val settings = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = settings.findViewById<android.view.View>(android.R.id.content)
-        val header = findText(root, "Direct to Watch")!!
+        val header = findText(root, "SugarWear")!!
         (header.parent.parent as android.view.View).performClick()
         assertEquals(G7DirectToWatchSettingsActivity::class.java.name, Shadows.shadowOf(settings).nextStartedActivity.component?.className)
 
@@ -248,14 +360,13 @@ class G7WatchActivityLayoutTest {
         collectText(activity.findViewById(android.R.id.content), texts)
 
         assertFalse(texts.any { it.contains("3h Verlauf", ignoreCase = true) })
-        assertTrue("3h" in texts)
+        assertTrue(texts.any { it.startsWith("3h") })
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
-        val systemIndex = texts.indexOf("Systemstatus")
-        val titleIndex = texts.indexOf("Direct to Watch")
+        val titleIndex = texts.indexOf("SugarWear")
         val brandIndex = texts.indexOf("by Sugarlicious")
-        assertTrue(systemIndex >= 0)
-        assertTrue(titleIndex > systemIndex)
+        assertFalse(texts.contains("Systemstatus"))
+        assertTrue(titleIndex >= 0)
         assertTrue(brandIndex > titleIndex)
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
@@ -265,7 +376,7 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
         assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Direct to Watch"))
+        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "SugarWear"))
 
         assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
         activity.finish()
@@ -308,12 +419,11 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `system status pill and settings icon open existing screens`() {
+    fun `overview omits system status pill and settings icon opens settings`() {
         val activity = Robolectric.buildActivity(G7WatchActivity::class.java).create().start().resume().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        findText(root, "Systemstatus")!!.performClick()
-        assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
+        assertNull(findText(root, "Systemstatus"))
 
         findImageByDescription(root, "Einstellungen")!!.performClick()
         assertEquals(G7SettingsActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
@@ -334,6 +444,16 @@ class G7WatchActivityLayoutTest {
         if (root is ProgressBar) return root
         if (root is ViewGroup) {
             for (index in 0 until root.childCount) findProgressBar(root.getChildAt(index))?.let { return it }
+        }
+        return null
+    }
+
+    private fun findConnectionDots(root: android.view.View): G7ConnectionDotsView? {
+        if (root is G7ConnectionDotsView) return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                findConnectionDots(root.getChildAt(index))?.let { return it }
+            }
         }
         return null
     }
@@ -413,13 +533,13 @@ class G7WatchActivityLayoutTest {
         measureAndLayout(activity.findViewById(android.R.id.content))
         scroll.scrollTo(0, 120)
 
-        findText(rootBefore, "3h")!!.performClick()
+        findTextStartingWith(rootBefore, "3h")!!.performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val rootAfter = activity.findViewById<android.view.View>(android.R.id.content).let { (it as ViewGroup).getChildAt(0) }
         assertSame(rootBefore, rootAfter)
         assertSame(graphBefore, findGraph(rootAfter))
-        assertNotNull(findText(rootAfter, "6h"))
+        assertNotNull(findTextStartingWith(rootAfter, "6h"))
         assertEquals(120, scroll.scrollY)
         activity.finish()
     }
@@ -450,6 +570,12 @@ class G7WatchActivityLayoutTest {
     private fun findText(view: android.view.View, value: String): TextView? {
         if (view is TextView && view.text?.toString() == value) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) findText(view.getChildAt(index), value)?.let { return it }
+        return null
+    }
+
+    private fun findEditor(view: android.view.View): android.widget.EditText? {
+        if (view is android.widget.EditText) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) findEditor(view.getChildAt(index))?.let { return it }
         return null
     }
 

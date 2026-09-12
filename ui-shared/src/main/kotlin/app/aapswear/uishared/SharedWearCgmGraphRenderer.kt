@@ -10,6 +10,7 @@ import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucosePrediction
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GraphAxisLayoutSpec
@@ -70,19 +71,9 @@ object DirectToWatchGraphDefaults {
     )
 }
 
-/** Wear-only CGM scale. Mobile and graph complications outside Vigil keep their existing scale. */
+/** One canonical glucose Y scale for Mobile, SugarWear, Wear, complications and previews. */
 object WearCgmGraphScale {
-    const val MIN_MG_DL = 40.0
-    const val MAX_MG_DL = 400.0
-
-    fun ratio(valueMgDl: Double): Double {
-        val value = valueMgDl.coerceIn(MIN_MG_DL, MAX_MG_DL)
-        return when {
-            value <= 80.0 -> ((value - MIN_MG_DL) / 40.0) * 0.215
-            value <= 160.0 -> 0.215 + ((value - 80.0) / 80.0) * 0.300
-            else -> 0.515 + ((value - 160.0) / 240.0) * 0.485
-        }.coerceIn(0.0, 1.0)
-    }
+    fun ratio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
 }
 
 data class SharedWearCgmGraphInput(
@@ -181,6 +172,11 @@ object SharedWearCgmGraphRenderer {
             addRoundRect(RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), cornerRadius, cornerRadius, Path.Direction.CW)
         })
 
+        // Paint the complete tile first. Previously the configured background only covered the
+        // plot bands, leaving the time-axis strip and parts of the scale lane transparent.
+        fill.color = palette.background
+        canvas.drawRect(0f, 0f, widthPx.toFloat(), heightPx.toFloat(), fill)
+
         val history = input.history
             .asSequence()
             .filter {
@@ -244,8 +240,9 @@ object SharedWearCgmGraphRenderer {
         val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
             val isCurrent = index == history.lastIndex
-            // Current is the live marker; historical points remain timestamp-derived.
-            val x = if (isCurrent) liveX else metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
+            // "Current" controls styling only. Every point, including the newest one, belongs to
+            // its real sensor event time; it must drift left as the wall-clock viewport advances.
+            val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
             val y = metrics.yFor(sample.valueMgDl)
             val outlineEnabled = input.style.dotOutlineEnabled &&
                 if (isCurrent) input.style.currentDotOutlineEnabled else input.style.historicalDotOutlineEnabled

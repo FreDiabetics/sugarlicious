@@ -30,6 +30,7 @@ import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.PredictionKind
@@ -57,10 +58,6 @@ internal const val MIN_VISIBLE_HISTORY_HOURS = 1f
 private const val BASAL_HEIGHT_FRACTION = 0.28f
 private const val ACTIVITY_HEIGHT_FRACTION = 0.92f
 private const val GRAPH_CORNER_RADIUS_DP = 18f
-private const val GLUCOSE_ZERO_RATIO = 0.02
-private const val GLUCOSE_LOW_RATIO = 0.10
-private const val GLUCOSE_TARGET_HIGH_RATIO = 0.515
-private const val GLUCOSE_DISPLAY_MIN = 40.0
 private const val GLUCOSE_DISPLAY_MAX = 400.0
 private const val TOOLKIT_ACTIVITY_SCALE_FACTOR = 1.15
 private const val VALUE_AXIS_WIDTH_DP = 29f
@@ -756,7 +753,9 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                 val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
                 // Never collapse timestamp positions onto a radius-dependent edge. The rounded
                 // plot clip owns edge clipping; X remains a pure function of timestamp + viewport.
-                val x = if (current) dividerX else mappedX
+                // "Current" changes only the dot styling. Its position still belongs to the
+                // reading timestamp, so the gap to the clock grows naturally between readings.
+                val x = mappedX
                 fillPaint.color = dotColor(point.valueMgDl, thresholds)
                 canvas.drawCircle(x, y, dotRadius, fillPaint)
                 if (cgmDotOutlineEnabled) {
@@ -1510,14 +1509,7 @@ internal fun formatEventAmount(amount: Double, unit: String): String {
     return String.format(Locale.getDefault(), "$rounded %s", amount, unit)
 }
 
-internal fun glucoseLogRatio(valueMgDl: Double): Double {
-    val value = valueMgDl.coerceIn(GLUCOSE_DISPLAY_MIN, GLUCOSE_DISPLAY_MAX)
-    return when {
-        value <= 80.0 -> GLUCOSE_ZERO_RATIO + (value - GLUCOSE_DISPLAY_MIN) / (80.0 - GLUCOSE_DISPLAY_MIN) * (GLUCOSE_LOW_RATIO - GLUCOSE_ZERO_RATIO)
-        value <= 160.0 -> GLUCOSE_LOW_RATIO + (ln(value / 80.0) / ln(2.0)) * (GLUCOSE_TARGET_HIGH_RATIO - GLUCOSE_LOW_RATIO)
-        else -> GLUCOSE_TARGET_HIGH_RATIO + (ln(value / 160.0) / ln(GLUCOSE_DISPLAY_MAX / 160.0)) * (1.0 - GLUCOSE_TARGET_HIGH_RATIO)
-    }.coerceIn(GLUCOSE_ZERO_RATIO, 1.0)
-}
+internal fun glucoseLogRatio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
 
 internal data class MobileCgmGraphBounds(
     val content: RectF,
@@ -1551,15 +1543,8 @@ internal fun mobileCgmGraphBounds(
 private fun mapGlucoseY(valueMgDl: Double, plot: RectF, maximumMgDl: Double): Float =
     plot.bottom - glucoseLogRatio(valueMgDl, maximumMgDl).toFloat() * plot.height()
 
-internal fun glucoseLogRatio(valueMgDl: Double, maximumMgDl: Double): Double {
-    val maximum = maximumMgDl.coerceAtLeast(180.0)
-    val value = valueMgDl.coerceIn(GLUCOSE_DISPLAY_MIN, maximum)
-    return when {
-        value <= 80.0 -> GLUCOSE_ZERO_RATIO + (value - GLUCOSE_DISPLAY_MIN) / (80.0 - GLUCOSE_DISPLAY_MIN) * (GLUCOSE_LOW_RATIO - GLUCOSE_ZERO_RATIO)
-        value <= 160.0 -> GLUCOSE_LOW_RATIO + (ln(value / 80.0) / ln(2.0)) * (GLUCOSE_TARGET_HIGH_RATIO - GLUCOSE_LOW_RATIO)
-        else -> GLUCOSE_TARGET_HIGH_RATIO + (ln(value / 160.0) / ln(maximum / 160.0)) * (1.0 - GLUCOSE_TARGET_HIGH_RATIO)
-    }.coerceIn(GLUCOSE_ZERO_RATIO, 1.0)
-}
+internal fun glucoseLogRatio(valueMgDl: Double, maximumMgDl: Double): Double =
+    GlucoseGraphScale.ratio(valueMgDl, maximumMgDl)
 
 private fun windowedStepSamples(points: List<TherapyHistorySample>, start: Long, end: Long): List<TherapyHistorySample> {
     if (points.isEmpty()) return emptyList()

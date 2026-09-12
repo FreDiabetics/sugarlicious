@@ -18,11 +18,11 @@ internal enum class G7SettingsSection(val title: String, val summary: String) {
     SENSOR_SESSION("Sensor und Session", "Sensoridentität, Laufzeit und Kopplung"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
-    DIRECT_TO_WATCH("Direct to Watch", "Watchface"),
+    DIRECT_TO_WATCH("SugarWear", "Watchface"),
     HARDWARE_TEST("Hardwaretest", "BLE-, GATT- und Sensorfenster-Diagnose"),
     DIAGNOSTICS("Diagnose", "Attempts, Fehlercodes und Recovery"),
     DATA_MANAGEMENT("Datenverwaltung", "Lokale Collector- und Sitzungsdaten"),
-    ABOUT("Über", "Direct to Watch by Sugarlicious"),
+    ABOUT("Über", "SugarWear"),
 }
 
 class G7SettingsActivity : Activity() {
@@ -98,7 +98,7 @@ class G7SettingsActivity : Activity() {
             when (section) {
                 G7SettingsSection.ABOUT -> {
                     val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                    addView(infoCard("Direct to Watch", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
+                    addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
                 }
                 else -> Unit
             }

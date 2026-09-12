@@ -68,6 +68,29 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `updates live delta after its predecessor is backfilled`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live",
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor",
+            sessionId = "session",
+            glucoseMgDl = 123.0,
+            timestampEpochMs = now,
+            receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID,
+            deltaMgDl = null,
+            trend = Trend.UNKNOWN,
+            origin = CgmReadingOrigin.LIVE,
+        )
+        database.insert(live)
+
+        val recomputed = live.copy(deltaMgDl = 4.0, trendRateMgDlPerMinute = 0.8, trend = Trend.FLAT)
+        assertEquals(true, database.updateDerivedFields(recomputed))
+        assertEquals(recomputed, database.getLatest())
+    }
+
+    @Test
     fun `only valid readings enter the Watch to Mobile backfill queue`() = runBlocking {
         val now = System.currentTimeMillis()
         val valid =
@@ -203,6 +226,49 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `cadence aligned backfill deduplicates live packet age offset`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val live = CgmReading(
+            id = "live-aged", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 193.0,
+            timestampEpochMs = now, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, rawSourceTimestamp = 12_607L,
+            origin = CgmReadingOrigin.LIVE,
+        )
+        val cadenceAligned = live.copy(
+            id = "backfill-aligned",
+            timestampEpochMs = now - 7_000L,
+            rawSourceTimestamp = 12_601L,
+            origin = CgmReadingOrigin.BACKFILL,
+        )
+
+        assertEquals(true, database.insert(live))
+        assertEquals(false, database.insert(cadenceAligned))
+        assertEquals(listOf(live), database.query())
+    }
+
+    @Test
+    fun `repeated backfill sensor clock deduplicates despite reconstructed start drift`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val first = CgmReading(
+            id = "backfill-first", source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 145.0,
+            timestampEpochMs = now - 4_000L, receivedAtEpochMs = now,
+            status = CgmReadingStatus.VALID, rawSourceTimestamp = 24_560L,
+            origin = CgmReadingOrigin.BACKFILL,
+        )
+        val repeated = first.copy(
+            id = "backfill-repeat",
+            timestampEpochMs = now + 3_000L,
+            receivedAtEpochMs = now + 10_000L,
+        )
+
+        assertEquals(true, database.insert(first))
+        assertEquals(false, database.insert(repeated))
+        assertEquals(1, database.query().size)
+    }
+
+    @Test
     fun `live upgrades matching backfill without creating a second sync row`() = runBlocking {
         val now = System.currentTimeMillis()
         val backfill = CgmReading(
@@ -247,6 +313,97 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `backfill anchor remains before oldest unresolved gap after newer live values`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun reading(id: String, clock: Long) = CgmReading(
+            id = id,
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a",
+            sessionId = "session-a",
+            glucoseMgDl = 120.0,
+            timestampEpochMs = now + clock * 1_000L,
+            receivedAtEpochMs = now + clock * 1_000L,
+            status = CgmReadingStatus.VALID,
+            rawSourceTimestamp = clock,
+        )
+        database.insert(reading("t0", 10_000L))
+        database.insert(reading("t5", 10_300L))
+        database.insert(reading("t15", 10_900L))
+        database.insert(reading("t20", 11_200L))
+
+        assertEquals(10_300L, database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+
+        database.insert(reading("t10-backfill", 10_600L).copy(origin = CgmReadingOrigin.BACKFILL))
+        assertEquals(11_200L, database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
+    fun `persisted gap anchor overrides a newer unrelated database gap`() = runBlocking {
+        val now = System.currentTimeMillis()
+        fun reading(id: String, minutes: Long, clock: Long) = CgmReading(
+            id = id, source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 120.0,
+            timestampEpochMs = now + minutes * 60_000L,
+            receivedAtEpochMs = now + minutes * 60_000L,
+            status = CgmReadingStatus.VALID, rawSourceTimestamp = clock,
+        )
+        database.insert(reading("before", 0, 10_000L))
+        database.insert(reading("after", 10, 10_600L))
+        database.insert(reading("latest", 20, 11_200L))
+
+        assertEquals(
+            10_000L,
+            database.getBackfillAnchorSensorClockForGap("sensor-a", "session-a", now + 5 * 60_000L),
+        )
+        assertNull(database.getBackfillAnchorSensorClockForGap("sensor-b", "session-b", now + 5 * 60_000L))
+    }
+
+    @Test
+    fun `late first live value retries initial sensor history`() = runBlocking {
+        val now = System.currentTimeMillis()
+        database.insert(
+            CgmReading(
+                id = "late-first-live",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                glucoseMgDl = 120.0,
+                timestampEpochMs = now,
+                receivedAtEpochMs = now,
+                trend = Trend.FLAT,
+                status = CgmReadingStatus.VALID,
+                rawSourceTimestamp = 3L * 60L * 60L,
+                sensorStartEpochMs = now - 3L * 60L * 60_000L,
+            ),
+        )
+
+        assertNull(database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
+    fun `late first retained value retries full rolling 24 hour sensor history`() = runBlocking {
+        val now = System.currentTimeMillis()
+        val lateClock = 60L * 60L * 60L
+        database.insert(
+            CgmReading(
+                id = "late-old-sensor",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                glucoseMgDl = 120.0,
+                timestampEpochMs = now,
+                receivedAtEpochMs = now,
+                trend = Trend.FLAT,
+                status = CgmReadingStatus.VALID,
+                rawSourceTimestamp = lateClock,
+                sensorStartEpochMs = now - lateClock * 1_000L,
+            ),
+        )
+
+        assertNull(database.getBackfillAnchorSensorClock("sensor-a", "session-a"))
+    }
+
+    @Test
     fun `version four migration collapses legacy timestamp duplicates and preserves sync`() = runBlocking {
         database.close()
         context.deleteDatabase(DATABASE_NAME)
@@ -264,6 +421,26 @@ class G7ReadingDatabaseTest {
         assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
         assertEquals(2_423L, stored.single().sequenceNumber)
         assertEquals(emptyList<CgmReading>(), database.getUnsynced())
+    }
+
+    @Test
+    fun `version six migration collapses repeated sensor clock rows and prefers live`() = runBlocking {
+        database.close()
+        context.deleteDatabase(DATABASE_NAME)
+        context.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null).use { legacy ->
+            legacy.execSQL("CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE', synced INTEGER NOT NULL DEFAULT 0)")
+            legacy.execSQL("INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status,sensor_clock,origin) VALUES ('old-backfill','sensor','session',193,1000,2000,'FLAT','VALID',245601,'BACKFILL')")
+            legacy.execSQL("INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status,sensor_clock,origin) VALUES ('new-backfill','sensor','session',193,1200,3000,'FLAT','VALID',245601,'BACKFILL')")
+            legacy.execSQL("INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status,sensor_clock,origin) VALUES ('live','sensor','session',193,1100,2500,'FLAT','VALID',245601,'LIVE')")
+            legacy.version = 5
+        }
+
+        database = G7ReadingDatabase(context)
+
+        val stored = database.query()
+        assertEquals(1, stored.size)
+        assertEquals("live", stored.single().id)
+        assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
     }
 
     private companion object {

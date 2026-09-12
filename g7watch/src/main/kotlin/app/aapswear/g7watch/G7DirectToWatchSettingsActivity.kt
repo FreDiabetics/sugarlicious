@@ -17,11 +17,13 @@ import android.widget.Switch
 import android.widget.TextView
 import android.text.InputType
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.uishared.SharedColorEditor
+import app.aapswear.uishared.SharedNumberEditor
 import kotlin.math.roundToInt
 
 class G7DirectToWatchSettingsActivity : Activity() {
@@ -62,6 +64,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(glucoseUnitRow(settings.glucoseUnit(), palette), params(5))
         root.addView(toggle("Zuckerwert fett", settings.glucoseBold(), palette) {
             settings.saveGlucoseBold(it)
+        }, params(5))
+        root.addView(colorRow(AppearanceTerminology.DELTA_UNIT, settings.deltaUnitColor(mode), palette) {
+            settings.saveDeltaUnitColor(mode, it)
         }, params(5))
         section(root, "WATCHFACE · SKALA UND ALTER", palette)
         root.addView(slider("Größe", 75, 150, settings.statusSizePercent(), palette, { "Größe · $it %" }) {
@@ -261,8 +266,23 @@ class G7DirectToWatchSettingsActivity : Activity() {
     private fun slider(title: String, min: Int, max: Int, initial: Int, p: G7AppearancePalette, format: (Int) -> String, save: (Int) -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(10.dp, 8.dp, 10.dp, 8.dp); background = card(p)
         val value = label(format(initial), 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true); addView(value)
+        value.setPadding(8.dp, 4.dp, 8.dp, 4.dp)
+        value.background = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 10f)
+        value.setOnClickListener {
+            SharedNumberEditor.show(this@G7DirectToWatchSettingsActivity, title, initial.coerceIn(min, max), min, max) { selected ->
+                save(selected)
+                render()
+            }
+        }
         addView(SeekBar(this@G7DirectToWatchSettingsActivity).apply {
             this.max = max - min; progress = initial.coerceIn(min, max) - min
+            progressTintList = android.content.res.ColorStateList.valueOf(p.argb(G7AppearanceRole.MENU_PRIMARY))
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(p.argb(G7AppearanceRole.MENU_BORDER))
+            thumbTintList = android.content.res.ColorStateList.valueOf(p.argb(G7AppearanceRole.MENU_PRIMARY))
+            setOnTouchListener { view, event ->
+                view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked == android.view.MotionEvent.ACTION_DOWN || event.actionMasked == android.view.MotionEvent.ACTION_MOVE)
+                false
+            }
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) { val selected = progress + min; value.text = format(selected); if (fromUser) save(selected) }
                 override fun onStartTrackingTouch(bar: SeekBar?) = Unit

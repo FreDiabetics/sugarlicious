@@ -2,6 +2,7 @@ package app.aapswear.uishared
 
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.TrendVisualAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -14,9 +15,15 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
     @Test
-    fun `wear scale starts at forty and ends at four hundred`() {
-        assertEquals(0.0, WearCgmGraphScale.ratio(39.0), 0.0)
-        assertEquals(0.0, WearCgmGraphScale.ratio(40.0), 0.0)
+    fun `Wear and Mobile use the identical canonical glucose scale`() {
+        listOf(0.0, 40.0, 70.0, 80.0, 120.0, 160.0, 250.0, 400.0).forEach { value ->
+            assertEquals(GlucoseGraphScale.ratio(value), WearCgmGraphScale.ratio(value), 0.000001)
+        }
+    }
+    @Test
+    fun `shared scale preserves canonical lower padding and four hundred ceiling`() {
+        assertEquals(GlucoseGraphScale.ratio(0.0), WearCgmGraphScale.ratio(0.0), 0.0)
+        assertEquals(GlucoseGraphScale.ratio(40.0), WearCgmGraphScale.ratio(40.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(400.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(401.0), 0.0)
     }
@@ -47,6 +54,20 @@ class SharedWearCgmGraphRendererTest {
             assertEquals(metrics.plot.left, metrics.xFor(window, window.startEpochMs), 0.01f)
             assertTrue(metrics.xFor(window, now - 5 * 60_000L) < metrics.plot.right)
         }
+    }
+
+    @Test
+    fun `fixed reading moves left while live clock advances`() {
+        val readingAt = 2_000_000_000_000L
+        val duration = 3L * 60L * 60_000L
+        val metrics = SharedWearCgmGraphRenderer.metrics(320, 180, 2f, CgmThresholds.DEFAULT)
+        val xAtArrival = metrics.xFor(GraphTimeWindow.live(readingAt, duration), readingAt)
+        val xAfterOneMinute = metrics.xFor(GraphTimeWindow.live(readingAt + 60_000L, duration), readingAt)
+        val xAfterFourMinutes = metrics.xFor(GraphTimeWindow.live(readingAt + 4 * 60_000L, duration), readingAt)
+
+        assertTrue(xAfterOneMinute < xAtArrival)
+        assertTrue(xAfterFourMinutes < xAfterOneMinute)
+        assertEquals(metrics.plot.right, xAtArrival, 0.01f)
     }
 
     @Test

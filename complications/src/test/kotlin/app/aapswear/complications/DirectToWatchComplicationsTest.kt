@@ -7,6 +7,7 @@ import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.watchface.complications.data.ComplicationType
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmSourceState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseSample
@@ -17,6 +18,7 @@ import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.protocol.DirectToWatchSettingsContract
+import app.aapswear.protocol.WatchDataSource
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import app.aapswear.uishared.DirectToWatchGraphDefaults
 import java.time.Instant
@@ -30,6 +32,58 @@ import org.robolectric.Robolectric
 
 @RunWith(RobolectricTestRunner::class)
 class DirectToWatchComplicationsTest {
+    @Test fun `vigil live edge follows wall clock while measured timestamps keep every dot aligned`() {
+        val readingAt = now
+        val durationHours = 3
+        val atArrival = directToWatchGraphWindow(readingAt, durationHours)
+        val afterOneMinute = directToWatchGraphWindow(readingAt + 60_000L, durationHours)
+        val afterFourMinutes = directToWatchGraphWindow(readingAt + 4 * 60_000L, durationHours)
+        val afterFiveMinutes = directToWatchGraphWindow(readingAt + 5 * 60_000L, durationHours)
+
+        assertEquals(1f, atArrival.xFraction(readingAt), 0.0001f)
+        assertTrue(afterOneMinute.xFraction(readingAt) < atArrival.xFraction(readingAt))
+        assertTrue(afterFourMinutes.xFraction(readingAt) < afterOneMinute.xFraction(readingAt))
+        assertEquals(1f, afterFiveMinutes.xFraction(readingAt + 5 * 60_000L), 0.0001f)
+        assertEquals(
+            atArrival.xFraction(readingAt - 5 * 60_000L),
+            afterFiveMinutes.xFraction(readingAt),
+            0.0001f,
+        )
+    }
+
+    @Test fun `vigil positions backfill only by measured time even when received now`() {
+        val measuredAt = now - 45 * 60_000L
+        val backfill = GlucoseSample(
+            valueMgDl = 120.0,
+            measuredAtEpochMs = measuredAt,
+            receivedAtEpochMs = now,
+            source = DataSourceId.DEXCOM_G7_WATCH,
+        )
+        val window = directToWatchGraphWindow(now, 3)
+
+        assertEquals(window.xFraction(measuredAt), window.xFraction(backfill.measuredAtEpochMs), 0.0001f)
+        assertTrue(window.xFraction(backfill.measuredAtEpochMs) < window.xFraction(now))
+    }
+
+    @Test fun `phone configured no source state remains AndroidAPS rather than Other`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val fallback = TherapyDisplayState(
+            source = DataSourceId.ANDROID_APS,
+            receivedAtEpochMs = now - 20 * 60_000L,
+            glucose = null,
+        )
+
+        val resolved = G7LocalReadingResolver.resolve(
+            context = context,
+            fallback = fallback,
+            nowEpochMs = now,
+            dataSource = WatchDataSource.PHONE,
+        )
+
+        assertEquals(DataSourceId.ANDROID_APS, resolved?.source)
+        assertEquals(CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+    }
+
     private val now = 1_800_000_000_000L
 
     @Test fun `fresh watch direct renders glucose trend then delta and unit`() {
@@ -63,8 +117,9 @@ class DirectToWatchComplicationsTest {
 
     @Test fun `stale direct value is not rendered as current`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
-        assertEquals("—", header.glucose)
+        assertEquals("-", header.glucose)
         assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
+        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(directState(now - 16 * 60_000L), now, 3).text)
     }
 
     @Test fun `mobile fresh is never shown as direct`() {
@@ -74,14 +129,35 @@ class DirectToWatchComplicationsTest {
             glucose = directState(now - 60_000L).glucose?.copy(source = DataSourceId.ANDROID_APS),
         )
         val header = DirectToWatchPresentationFormatter.header(mobile, now)
-        assertEquals("—", header.glucose)
+        assertEquals("-", header.glucose)
         assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
         assertTrue(DirectToWatchPresentationFormatter.samples(mobile, now, 3).isEmpty())
     }
 
     @Test fun `absent data is explicit no source`() {
-        assertEquals("Bitte Sensor\nstarten oder\nkoppeln", DirectToWatchPresentationFormatter.header(null, now).secondary)
-        assertEquals("3h • NO_SOURCE", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
+        val header = DirectToWatchPresentationFormatter.header(null, now)
+        assertEquals("-", header.secondary)
+        assertTrue(header.sensorDisconnected)
+        assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
+    }
+
+    @Test fun `active restored session without a loaded reading shows loading state only`() {
+        val state = TherapyDisplayState(
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:restore:SENSOR_ACTIVE:SESSION_ACTIVE",
+            receivedAtEpochMs = now - 60_000L,
+            glucose = null,
+            glucoseHistory = emptyList(),
+        )
+
+        val header = DirectToWatchPresentationFormatter.header(state, now)
+        assertEquals("-", header.glucose)
+        assertEquals("Keine aktuellen Daten\nBitte warten oder Verbindung\nzum Sensor prüfen", header.secondary)
+        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(state, now, 3).text)
+
+        val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
+        val bitmap = service.renderGraph(state, now, 3)
+        assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
     }
 
     @Test fun `vigil distinguishes sensor error from an ended sensor in active and ambient data`() {
@@ -94,22 +170,45 @@ class DirectToWatchComplicationsTest {
         )
 
         assertEquals("Sensorfehler", DirectToWatchPresentationFormatter.header(error, now).secondary)
-        assertEquals("Kein aktiver Sensor\nBitte Sensor koppeln", DirectToWatchPresentationFormatter.header(ended, now).secondary)
+        val presentation = DirectToWatchPresentationFormatter.header(ended, now)
+        assertEquals("-", presentation.glucose)
+        assertEquals("-", presentation.secondary)
+        assertTrue(presentation.sensorDisconnected)
+        assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(ended, now, 3).text)
     }
 
-    @Test fun `vigil graph is hidden for terminal sensor states`() {
+    @Test fun `vigil keeps graph visible and adds status pill for disconnected sensor`() {
         val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val ended = directState(now - 60_000L).copy(
             sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ENDED",
         )
         val bitmap = service.renderGraph(ended, now, 3)
 
-        assertTrue((0 until bitmap.height).all { y -> (0 until bitmap.width).all { x -> Color.alpha(bitmap.getPixel(x, y)) == 0 } })
+        assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
+        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(ended))
+        assertEquals(null, vigilSensorStatusPillText(directState(now - 60_000L)))
+    }
+
+    @Test fun `vigil treats missing collector state as disconnected rather than signal loss`() {
+        assertTrue(isVigilSensorDisconnected(null))
+        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(null))
+        val header = DirectToWatchPresentationFormatter.header(null, now)
+        assertTrue(header.sensorDisconnected)
+        assertEquals("-", header.secondary)
+    }
+
+    @Test fun `vigil keeps history visible and adds signal loss pill for stale direct data`() {
+        val stale = directState(now - 20 * 60_000L).copy(
+            sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ACTIVE",
+        )
+
+        assertEquals("Signalverlust", vigilSensorStatusPillText(stale))
+        assertTrue(DirectToWatchPresentationFormatter.samples(stale, now, 3).isNotEmpty())
     }
 
     @Test fun `invalid delta is not invented`() {
         val state = directState(now - 60_000L).copy(glucose = directState(now - 60_000L).glucose?.copy(deltaMgDl = null))
-        assertEquals("mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)
+        assertEquals("- mg/dL", DirectToWatchPresentationFormatter.header(state, now).secondary)
     }
 
     @Test fun `graph accepts only valid direct samples inside selected window`() {
@@ -175,9 +274,9 @@ class DirectToWatchComplicationsTest {
     @Test fun `graph scale cycles in its own persistence file`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences(DirectToWatchPreferences.NAME, Context.MODE_PRIVATE).edit().clear().commit()
-        assertEquals(3, DirectToWatchPreferences.graphHours(context))
-        assertEquals(6, DirectToWatchPreferences.cycleGraphHours(context))
         assertEquals(6, DirectToWatchPreferences.graphHours(context))
+        assertEquals(12, DirectToWatchPreferences.cycleGraphHours(context))
+        assertEquals(12, DirectToWatchPreferences.graphHours(context))
         assertFalse(context.getSharedPreferences("watch_display", Context.MODE_PRIVATE).contains("graph.hours"))
     }
 

@@ -9,6 +9,11 @@ import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
 import android.view.ViewGroup
+import android.view.MotionEvent
+import android.view.InputDevice
+import android.view.HapticFeedbackConstants
+import android.view.View
+import android.view.ViewConfiguration
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -31,6 +36,7 @@ object SharedColorEditor {
         defaultArgb: Int,
         onChange: (Int) -> Unit,
         onReset: () -> Unit,
+        onDismiss: () -> Unit = {},
     ) {
         val density = activity.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).roundToInt()
@@ -56,15 +62,45 @@ object SharedColorEditor {
             if (persist) { remember(value); onChange(value) }
         }
         fun slider(label: String, max: Int, progress: Int, update: (Int) -> Unit) {
-            root.addView(TextView(activity).apply { text = label; textSize = 10f; setTextColor(textArgb) })
-            root.addView(SeekBar(activity).apply {
+            val valueInput = EditText(activity).apply {
+                setText(progress.toString())
+                inputType = InputType.TYPE_CLASS_NUMBER
+                setTextColor(textArgb)
+                textSize = 11f
+                gravity = android.view.Gravity.CENTER
+                setPadding(dp(4), 0, dp(4), 0)
+                background = background(surfaceArgb, 10f)
+            }
+            root.addView(LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                addView(TextView(activity).apply { text = label; textSize = 10f; setTextColor(textArgb) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(valueInput, LinearLayout.LayoutParams(dp(64), dp(38)))
+            })
+            val seek = SeekBar(activity).apply {
+                // Rotary input scrolls the picker; it must never silently alter hue/brightness.
+                isFocusable = false
+                isFocusableInTouchMode = false
                 this.max = max; this.progress = progress
+                progressTintList = android.content.res.ColorStateList.valueOf(initialArgb)
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(borderArgb)
+                thumbTintList = android.content.res.ColorStateList.valueOf(initialArgb)
+                setOnTouchListener { view, event ->
+                    view.parent?.requestDisallowInterceptTouchEvent(event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE)
+                    false
+                }
                 setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                    override fun onProgressChanged(view: SeekBar?, value: Int, fromUser: Boolean) { if (fromUser) { update(value); refresh() } }
+                    override fun onProgressChanged(view: SeekBar?, value: Int, fromUser: Boolean) { if (fromUser) { valueInput.setText(value.toString()); update(value); refresh() } }
                     override fun onStartTrackingTouch(view: SeekBar?) = Unit
                     override fun onStopTrackingTouch(view: SeekBar?) = Unit
                 })
-            })
+            }
+            valueInput.setOnEditorActionListener { _, _, _ ->
+                valueInput.text.toString().toIntOrNull()?.coerceIn(0, max)?.let { value -> seek.progress = value; update(value); refresh() }
+                activity.currentFocus?.let { focus -> (activity.getSystemService(Activity.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager)?.hideSoftInputFromWindow(focus.windowToken, 0) }
+                true
+            }
+            root.addView(seek)
         }
         hex.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
@@ -92,11 +128,21 @@ object SharedColorEditor {
             }
         })
         refresh(false)
-        val scroll = ScrollView(activity).apply { isFillViewport = true; addView(root) }
+        val scroll = ColorEditorRotaryScrollView(activity).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = true
+            isScrollbarFadingEnabled = true
+            scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+            scrollBarDefaultDelayBeforeFade = 250
+            scrollBarFadeDuration = 250
+            isVerticalFadingEdgeEnabled = false
+            addView(root)
+        }
         AlertDialog.Builder(activity).setTitle(title).setView(scroll)
             .setNeutralButton("Standard") { _, _ -> onReset() }
             .setNegativeButton("Fertig", null).create().apply {
                 setOnShowListener { window?.setBackgroundDrawable(background(surfaceArgb, 24f)) }
+                setOnDismissListener { onDismiss() }
                 show()
             }
     }
@@ -105,5 +151,38 @@ object SharedColorEditor {
         recentColors.remove(color)
         recentColors.addFirst(color)
         while (recentColors.size > 8) recentColors.removeLast()
+    }
+
+    private class ColorEditorRotaryScrollView(context: Activity) : ScrollView(context) {
+        private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
+        private var lastRotaryHapticAt = Long.MIN_VALUE
+
+        init {
+            isFocusable = true
+            isFocusableInTouchMode = true
+            defaultFocusHighlightEnabled = false
+            overScrollMode = OVER_SCROLL_NEVER
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            requestFocus(View.FOCUS_DOWN)
+            post { requestFocus(View.FOCUS_DOWN) }
+        }
+
+        override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+            if (event.action == MotionEvent.ACTION_SCROLL && event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)) {
+                val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * 0.55f).roundToInt()
+                val before = scrollY
+                if (delta != 0) scrollBy(0, delta)
+                if (scrollY != before && (lastRotaryHapticAt == Long.MIN_VALUE || event.eventTime - lastRotaryHapticAt >= 40L)) {
+                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    lastRotaryHapticAt = event.eventTime
+                }
+                awakenScrollBars()
+                return true
+            }
+            return super.dispatchGenericMotionEvent(event)
+        }
     }
 }

@@ -13,6 +13,7 @@ import android.provider.Settings
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlin.math.ceil
+import java.util.UUID
 
 internal class G7ExpectedWindowLedger(context: Context) {
     private val app = context.applicationContext
@@ -22,13 +23,15 @@ internal class G7ExpectedWindowLedger(context: Context) {
     private val serializer = ListSerializer(CollectorExpectedWindow.serializer())
 
     fun create(expectedAt: Long, primaryAlarmScheduledAt: Long, alarmKind: CollectorAlarmKind = CollectorAlarmKind.NONE): CollectorExpectedWindow = synchronized(lock) {
-        val id = expectedWindowId(expectedAt)
-        val current = load().firstOrNull { it.expectedWindowId == id }
         val sensor = G7SensorStateStore(app).read().sensor
+        val sessionId = sensor?.sessionId ?: sensor?.sensorId
+        val id = expectedWindowId(sensor?.sensorId, sessionId, expectedAt)
+        val current = load().firstOrNull { it.expectedWindowId == id }
         val window = (current ?: CollectorExpectedWindow(id, expectedAt)).copy(
+            windowCreatedAt = current?.windowCreatedAt ?: System.currentTimeMillis(),
             primaryAlarmScheduledAt = primaryAlarmScheduledAt,
             sensorId = current?.sensorId ?: sensor?.sensorId,
-            sessionId = current?.sessionId ?: sensor?.sessionId,
+            sessionId = current?.sessionId ?: sessionId,
             alarmKind = alarmKind,
             bootId = current?.bootId ?: bootId(),
         )
@@ -39,7 +42,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
     fun markPrimaryTriggered(id: String?, at: Long) = update(id) { it.copy(primaryAlarmTriggeredAt = at, alarmDeliveredAt = at, receiverReachedAt = at) }
     fun markServiceRequested(id: String?, at: Long) = update(id) { it.copy(serviceRequestedAt = at) }
     fun markCycleStarted(id: String?, at: Long, attemptId: Long, wakeLockAt: Long?) = update(id) {
-        it.copy(cycleStartedAt = at, serviceStartedAt = at, wakeLockAcquiredAt = wakeLockAt, processId = Process.myPid(), processUptimeMs = SystemClock.elapsedRealtime(), attemptId = attemptId)
+        it.copy(cycleStartedAt = at, serviceStartedAt = at, wakeLockAcquiredAt = wakeLockAt, processId = Process.myPid(), processInstanceId = G7ProcessInstance.id, processUptimeMs = SystemClock.elapsedRealtime(), attemptId = attemptId)
     }
     fun markAdvertisement(id: String?, at: Long) = update(id) { it.copy(advertisementSeenAt = at) }
     fun markFallbackScan(id: String?, advertisementSeenAt: Long?) = update(id) {
@@ -58,17 +61,160 @@ internal class G7ExpectedWindowLedger(context: Context) {
     fun markReading(id: String?, at: Long) = update(id) {
         it.copy(readingReceivedAt = at, finalResult = CollectorCycleClassification.SUCCESS_FRESH, recoveryRequired = false, terminalState = CollectorWindowTerminalState.SUCCESS_FRESH, terminalReason = "validated live reading stored", completedAt = at)
     }
-    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean, reason: String? = null) = update(id) {
-        it.copy(finalResult = result, recoveryRequired = recoveryRequired, terminalState = result.toTerminalState(), terminalReason = reason ?: result.name, completedAt = System.currentTimeMillis())
+    fun markFinal(id: String?, result: CollectorCycleClassification, recoveryRequired: Boolean, reason: String? = null) {
+        val at = System.currentTimeMillis()
+        update(id) {
+            it.copy(
+                finalResult = result,
+                recoveryRequired = recoveryRequired,
+                gapDetectedAt = if (recoveryRequired) it.gapDetectedAt ?: at else it.gapDetectedAt,
+                terminalState = result.toTerminalState(),
+                terminalReason = reason ?: result.name,
+                completedAt = at,
+            )
+        }
     }
     fun markWatchdogScheduled(id: String?, at: Long) = update(id) { it.copy(watchdogScheduledAt = at) }
     fun markWatchdogTriggered(id: String?, at: Long) = update(id) { it.copy(watchdogTriggeredAt = at) }
+
+    fun markNextLiveAndBackfill(
+        sensorId: String,
+        sessionId: String,
+        liveMeasuredAt: Long,
+        liveReceivedAt: Long,
+        committedAt: Long,
+        requestedAt: Long?,
+        responseAt: Long?,
+        inserted: List<Long>,
+    ) = synchronized(lock) {
+        val recovered = inserted.toSet()
+        val updated = load().map { window ->
+            if (
+                window.sensorId != sensorId || window.sessionId != sessionId ||
+                window.recoveryRequired.not() || window.expectedAt >= liveMeasuredAt
+            ) return@map window
+            val recoveredAt = recovered.minByOrNull { kotlin.math.abs(it - window.expectedAt) }
+                ?.takeIf { kotlin.math.abs(it - window.expectedAt) <= G7_READING_IDENTITY_TOLERANCE_MS }
+            window.copy(
+                gapDetectedAt = window.gapDetectedAt ?: committedAt,
+                nextLiveMeasuredAt = window.nextLiveMeasuredAt ?: liveMeasuredAt,
+                nextLiveReceivedAt = window.nextLiveReceivedAt ?: liveReceivedAt,
+                liveCommittedAt = window.liveCommittedAt ?: committedAt,
+                backfillRequestedAt = window.backfillRequestedAt ?: requestedAt,
+                backfillResponseAt = window.backfillResponseAt ?: responseAt,
+                backfillInsertedAt = if (recoveredAt != null) committedAt else window.backfillInsertedAt,
+                recoveredMeasuredAt = recoveredAt ?: window.recoveredMeasuredAt,
+                terminalState = if (recoveredAt != null) CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY else window.terminalState,
+                recoveryRequired = if (recoveredAt != null) false else window.recoveryRequired,
+                recoveryAttemptCount = window.recoveryAttemptCount,
+                lastRecoveryAttemptAt = requestedAt ?: window.lastRecoveryAttemptAt,
+                lastRecoveryOutcome = when {
+                    recoveredAt != null -> "RECOVERED"
+                    requestedAt != null && responseAt != null -> "RESPONSE_WITHOUT_GAP"
+                    requestedAt != null -> "REQUEST_FAILED"
+                    else -> window.lastRecoveryOutcome
+                },
+            )
+        }
+        saveAll(updated)
+    }
+
+    fun markRecoveryRequestStarted(
+        sensorId: String,
+        sessionId: String,
+        liveMeasuredAt: Long,
+        requestedAt: Long,
+    ) = synchronized(lock) {
+        saveAll(load().map { window ->
+            if (
+                window.sensorId != sensorId || window.sessionId != sessionId ||
+                window.recoveryRequired.not() || window.expectedAt >= liveMeasuredAt
+            ) window else window.copy(
+                gapDetectedAt = window.gapDetectedAt ?: requestedAt,
+                backfillRequestedAt = window.backfillRequestedAt ?: requestedAt,
+                recoveryAttemptCount = window.recoveryAttemptCount + 1,
+                lastRecoveryAttemptAt = requestedAt,
+                lastRecoveryOutcome = "REQUEST_STARTED",
+            )
+        })
+    }
+
+    fun markSatisfiedByExistingReading(id: String, measuredAt: Long, at: Long) = update(id) {
+        it.copy(
+            recoveryRequired = false,
+            recoveredMeasuredAt = measuredAt,
+            backfillInsertedAt = it.backfillInsertedAt ?: at,
+            terminalState = CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY,
+            terminalReason = "validated reading already present",
+            lastRecoveryOutcome = "ALREADY_PRESENT",
+        )
+    }
+
+    fun markProcessInterrupted(id: String?, at: Long) = update(id) {
+        if (it.terminalState != null) it else it.copy(
+            terminalState = CollectorWindowTerminalState.PROCESS_INTERRUPTED,
+            terminalReason = "process restarted before terminal state",
+            finalResult = CollectorCycleClassification.PROCESS_INTERRUPTED,
+            recoveryRequired = true,
+            gapDetectedAt = it.gapDetectedAt ?: at,
+            completedAt = at,
+        )
+    }
+
+    fun reconstructMissed(
+        sensorId: String,
+        sessionId: String,
+        fromExpectedAt: Long,
+        untilExclusive: Long,
+        sensorStartAt: Long?,
+        sensorEndAt: Long?,
+        nowEpochMs: Long,
+    ): Int = synchronized(lock) {
+        val slots = missingExpectedSlots(fromExpectedAt, untilExclusive, sensorStartAt, sensorEndAt)
+        var inserted = 0
+        slots.forEach { expectedAt ->
+            val id = expectedWindowId(sensorId, sessionId, expectedAt)
+            if (load().none { it.expectedWindowId == id }) {
+                saveUpsert(
+                    CollectorExpectedWindow(
+                        expectedWindowId = id,
+                        expectedAt = expectedAt,
+                        windowCreatedAt = nowEpochMs,
+                        sensorId = sensorId,
+                        sessionId = sessionId,
+                        bootId = bootId(),
+                        terminalState = CollectorWindowTerminalState.MISSED_WINDOW,
+                        terminalReason = "reconstructed after lifecycle interruption",
+                        finalResult = CollectorCycleClassification.MISSED_SENSOR_WINDOW,
+                        recoveryRequired = true,
+                        gapDetectedAt = nowEpochMs,
+                        completedAt = nowEpochMs,
+                    ),
+                )
+                inserted += 1
+            }
+        }
+        inserted
+    }
 
     fun window(id: String?): CollectorExpectedWindow? = synchronized(lock) {
         id?.let { value -> load().firstOrNull { it.expectedWindowId == value } }
     }
 
     fun snapshot(): List<CollectorExpectedWindow> = synchronized(lock) { load().sortedBy { it.expectedAt } }
+
+    fun oldestOpenGap(sensorId: String?, sessionId: String?): CollectorExpectedWindow? = synchronized(lock) {
+        val now = System.currentTimeMillis()
+        val values = load()
+        val repaired = values.map { window ->
+            if (window.recoveryRequired && window.gapDetectedAt == null) window.copy(gapDetectedAt = now) else window
+        }
+        if (repaired != values) saveAll(repaired)
+        repaired.asSequence()
+            .filter { it.sensorId == sensorId && it.sessionId == sessionId && it.recoveryRequired }
+            .filter { it.terminalState != CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY }
+            .minByOrNull { it.expectedAt }
+    }
     fun metrics(): CollectorHardwareMetrics = calculateG7HardwareMetrics(snapshot())
 
     private fun update(id: String?, transform: (CollectorExpectedWindow) -> CollectorExpectedWindow) = synchronized(lock) {
@@ -82,7 +228,14 @@ internal class G7ExpectedWindowLedger(context: Context) {
             .associateBy(CollectorExpectedWindow::expectedWindowId)
             .values.sortedBy(CollectorExpectedWindow::expectedAt)
             .takeLast(MAX_WINDOWS)
-        preferences.edit().putString(KEY_WINDOWS, json.encodeToString(serializer, values)).apply()
+        saveAll(values)
+    }
+
+    private fun saveAll(values: List<CollectorExpectedWindow>) {
+        preferences.edit().putString(
+            KEY_WINDOWS,
+            json.encodeToString(serializer, values.sortedBy { it.expectedAt }.takeLast(MAX_WINDOWS)),
+        ).apply()
     }
 
     private fun load(): List<CollectorExpectedWindow> = preferences.getString(KEY_WINDOWS, null)
@@ -96,7 +249,7 @@ internal class G7ExpectedWindowLedger(context: Context) {
     private companion object {
         const val PREFERENCES = "g7_expected_window_ledger"
         const val KEY_WINDOWS = "windows_v1"
-        const val MAX_WINDOWS = 640
+        const val MAX_WINDOWS = 2_304
         val lock = Any()
     }
 }
@@ -109,11 +262,38 @@ private fun CollectorCycleClassification.toTerminalState(): CollectorWindowTermi
     CollectorCycleClassification.GATT_CONNECT_FAILED, CollectorCycleClassification.DIRECT_CONNECT_FAILED -> CollectorWindowTerminalState.CONNECT_FAILED
     CollectorCycleClassification.FALLBACK_SCAN_FAILED, CollectorCycleClassification.NO_ADVERTISEMENT, CollectorCycleClassification.SCAN_STARTED_LATE -> CollectorWindowTerminalState.SCAN_FAILED
     CollectorCycleClassification.CANCELLED, CollectorCycleClassification.COALESCED -> CollectorWindowTerminalState.CANCELLED
+    CollectorCycleClassification.PROCESS_INTERRUPTED -> CollectorWindowTerminalState.PROCESS_INTERRUPTED
     CollectorCycleClassification.MISSED_SENSOR_WINDOW, CollectorCycleClassification.ALARM_LATE -> CollectorWindowTerminalState.MISSED_WINDOW
     else -> CollectorWindowTerminalState.UNKNOWN
 }
 
-internal fun expectedWindowId(expectedAt: Long): String = "g7-window-$expectedAt"
+internal object G7ProcessInstance {
+    val id: String = UUID.randomUUID().toString()
+    val startedAtEpochMs: Long = System.currentTimeMillis()
+}
+
+internal fun expectedWindowId(sensorId: String?, sessionId: String?, expectedAt: Long): String =
+    "g7-window-${sensorId ?: "unknown"}-${sessionId ?: "unknown"}-$expectedAt"
+
+internal fun expectedWindowId(expectedAt: Long): String = expectedWindowId(null, null, expectedAt)
+
+internal fun missingExpectedSlots(
+    fromExpectedAt: Long,
+    untilExclusive: Long,
+    sensorStartAt: Long?,
+    sensorEndAt: Long?,
+    intervalMs: Long = G7_SLOT_INTERVAL_MS,
+): List<Long> {
+    if (intervalMs <= 0L || fromExpectedAt >= untilExclusive) return emptyList()
+    val end = minOf(untilExclusive, sensorEndAt ?: Long.MAX_VALUE)
+    if (fromExpectedAt >= end) return emptyList()
+    return generateSequence(fromExpectedAt) { previous -> (previous + intervalMs).takeIf { it > previous } }
+        .dropWhile { it < (sensorStartAt ?: Long.MIN_VALUE) }
+        .takeWhile { it < end }
+        .toList()
+}
+
+internal const val G7_READING_IDENTITY_TOLERANCE_MS = 60_000L
 
 internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>): CollectorHardwareMetrics {
     val ordered = windows.sortedBy(CollectorExpectedWindow::expectedAt)

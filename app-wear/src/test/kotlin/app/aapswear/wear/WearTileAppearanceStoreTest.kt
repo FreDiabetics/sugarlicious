@@ -65,6 +65,20 @@ class WearTileAppearanceStoreTest {
     }
 
     @Test
+    fun `delta and unit color remains isolated between wear overview and tile`() {
+        val overview = WearDisplayPreferences(uiColors = WatchUiColors(deltaUnit = 0xFF112233.toInt()))
+        WearDisplayPreferences.saveLocal(context, overview)
+        WearTileAppearanceStore.write(
+            context,
+            WearTileKind.GLUCOSE,
+            WatchUiColors(deltaUnit = 0x88445566.toInt()),
+        )
+
+        assertEquals(0xFF112233.toInt(), WearDisplayPreferences.read(context).uiColors.deltaUnit)
+        assertEquals(0x88445566.toInt(), WearTileAppearanceStore.read(context, WearTileKind.GLUCOSE).deltaUnit)
+    }
+
+    @Test
     fun `wear graph persists current and historical outlines independently`() {
         val expected = WatchGraphStyle(cgmHistoricalDotOutlineEnabled = false, cgmCurrentDotOutlineEnabled = true)
         WearDisplayPreferences.saveLocal(context, WearDisplayPreferences(graphStyle = expected))

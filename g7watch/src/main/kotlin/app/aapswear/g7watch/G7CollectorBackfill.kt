@@ -25,7 +25,10 @@ internal object G7CollectorBackfillProtocol {
 
     fun requestedStart(lastStoredSensorClock: Long?, liveSensorClock: Long): Long? {
         if (liveSensorClock <= 0) return null
-        val oldestAllowed = (liveSensorClock - MAX_WINDOW_SECONDS).coerceAtLeast(1L)
+        // The sensor stores at most 24 hours and its history is addressed on five-minute
+        // cadence slots. Real firmware rejects a bootstrap range starting at second 1.
+        val oldestAllowed =
+            (liveSensorClock - MAX_WINDOW_SECONDS).coerceAtLeast(EXPECTED_INTERVAL_SECONDS)
         val start = lastStoredSensorClock?.plus(EXPECTED_INTERVAL_SECONDS) ?: oldestAllowed
         return start.coerceAtLeast(oldestAllowed)
             .takeIf { liveSensorClock - it >= EXPECTED_INTERVAL_SECONDS }
@@ -42,7 +45,12 @@ internal object G7CollectorBackfillProtocol {
     ): G7Reading {
         require(packet.size == RECORD_BYTES) { "G7 backfill record must contain 9 bytes" }
         val data = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN)
-        val sensorClock = data.int.toLong() and 0xffff_ffffL
+        // The timestamp occupies three little-endian bytes; byte 3 is reserved.
+        val sensorClock =
+            (data.get().toLong() and 0xffL) or
+                ((data.get().toLong() and 0xffL) shl 8) or
+                ((data.get().toLong() and 0xffL) shl 16)
+        data.get()
         val glucoseField = data.short.toInt() and 0xffff
         val glucose = glucoseField and 0x0fff
         val calibrationState = data.get().toInt() and 0xff
@@ -81,5 +89,5 @@ internal object G7CollectorBackfillProtocol {
         else -> G7SensorState.UNKNOWN
     }
 
-    private const val RECORD_BYTES = 9
+    const val RECORD_BYTES = 9
 }

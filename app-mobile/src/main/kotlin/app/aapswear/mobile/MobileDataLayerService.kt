@@ -167,7 +167,7 @@ class MobileDataLayerService : WearableListenerService() {
             .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
             .await()
         applicationContext.recordMobileDiagnostic(
-            "G7", "G7-SYNC-204", "Direct-to-Watch history ignored by AndroidAPS-only Mobile policy",
+            "G7", "G7-SYNC-204", "SugarWear history ignored by AndroidAPS-only Mobile policy",
             metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
         )
     }
@@ -203,19 +203,9 @@ internal fun readWatchConfig(context: Context): WatchConfig {
                 "cgm.prediction.zeroTemp",
             ).any { preferences.getBoolean(it, false) },
         glucoseUnit = unit,
-        dataSource = when (
-            runCatching {
-                DataSourcePreference.valueOf(
-                    preferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                )
-            }.getOrDefault(DataSourcePreference.AUTOMATIC)
-        ) {
-            DataSourcePreference.AUTOMATIC -> WatchDataSource.AUTOMATIC
-            DataSourcePreference.DEXCOM_G7_WATCH -> WatchDataSource.DEXCOM_G7_WATCH
-            DataSourcePreference.ANDROID_APS,
-            DataSourcePreference.XDRIP_PLUS,
-            -> WatchDataSource.PHONE
-        },
+        // Mobile is intentionally AndroidAPS-only. Do not leak a removed legacy source choice
+        // into Wear configuration before the next AAPS payload has had a chance to migrate it.
+        dataSource = WatchDataSource.PHONE,
         showTherapyStats = preferences.getBoolean("showDetails", true),
         graphColors = WatchGraphColors(
             graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
@@ -248,6 +238,7 @@ internal fun readWatchConfig(context: Context): WatchConfig {
             tileBorder = palette.argb(SugarliciousColorRole.BORDER),
             textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
             textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
+            deltaUnit = palette.argb(SugarliciousColorRole.DELTA_UNIT),
             accent = palette.argb(SugarliciousColorRole.PRIMARY),
             glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
             glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
@@ -298,6 +289,7 @@ internal fun readWatchAppearanceProfile(context: Context, mode: AppearanceMode):
             tileBorder = palette.argb(SugarliciousColorRole.BORDER),
             textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
             textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
+            deltaUnit = palette.argb(SugarliciousColorRole.DELTA_UNIT),
             accent = palette.argb(SugarliciousColorRole.PRIMARY),
             glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
             glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),

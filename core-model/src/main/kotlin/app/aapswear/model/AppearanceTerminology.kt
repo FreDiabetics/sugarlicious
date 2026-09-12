@@ -12,6 +12,7 @@ object AppearanceTerminology {
     const val SURFACE_BORDER = "Tile-Kontur"
     const val PRIMARY_TEXT = "Haupttext"
     const val SECONDARY_TEXT = "Sekundärtext"
+    const val DELTA_UNIT = "Delta + Einheit"
     const val ACCENT = "Akzent"
 
     const val GLUCOSE_VERY_LOW = "Zuckerwert · sehr tief"

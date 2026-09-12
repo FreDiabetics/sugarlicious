@@ -2,7 +2,7 @@
 
 ## Contract
 
-Sugarlicious shares one appearance schema and the same rendering semantics, while every application owns its persisted values. Mobile, Wear and G7 Watch Collector preferences are never copied or synchronized implicitly.
+Sugarlicious shares one appearance schema and the same rendering semantics, while every application owns its persisted values. Mobile, Wear and SugarWear preferences are never copied or synchronized implicitly.
 
 Resolution inside an owner follows:
 
@@ -22,7 +22,7 @@ The classic Wear/Collector color editor is shared through `ui-shared`. Compose s
 
 - Mobile owns `dashboard_ui` and widget/complication instance stores.
 - Wear owns `watch_display` and Wear tile stores.
-- G7 Watch Collector owns its collector appearance stores.
+- SugarWear owns its collector appearance stores.
 - Complication settings are transferred explicitly to Wear and remain provider/component overrides.
 
 Persistence schema versions advance only alongside an implemented migration. Legacy trend size and fill keys are read as fallbacks, preserving existing values. New outline and alpha fields default safely when absent. No medical state, source selection, freshness, alarms or range classification is changed by appearance resolution.

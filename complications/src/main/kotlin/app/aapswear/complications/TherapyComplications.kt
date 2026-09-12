@@ -28,8 +28,6 @@ import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
-import app.aapswear.model.CgmGraphPolicy
-import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.SugarliciousComplicationIds
@@ -38,7 +36,6 @@ import app.aapswear.model.DataSourceId
 import app.aapswear.model.DeviceState
 import app.aapswear.model.Freshness
 import app.aapswear.model.GlucoseSample
-import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
@@ -48,7 +45,6 @@ import app.aapswear.model.LoopVisualState
 import app.aapswear.model.loopPresentation
 import app.aapswear.model.ProfileState
 import app.aapswear.model.PumpState
-import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
@@ -56,6 +52,10 @@ import app.aapswear.model.Trend
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchGraphStyle
+import app.aapswear.uishared.SharedWearCgmGraphInput
+import app.aapswear.uishared.SharedWearCgmGraphPalette
+import app.aapswear.uishared.SharedWearCgmGraphRenderer
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 import kotlinx.coroutines.flow.first
 
 enum class ProviderKind {
@@ -96,6 +96,9 @@ enum class ProviderKind {
     LONG_STATUS,
     DATE,
 }
+
+internal fun standardWearGraphWindow(nowEpochMs: Long, windowMs: Long): GraphTimeWindow =
+    GraphTimeWindow.live(nowEpochMs, windowMs)
 
 internal fun complicationImageSize(kind: ProviderKind): Pair<Int, Int> = when (kind) {
     // Every WFF consumer presents this as a wide chart. Rendering the bitmap in that native
@@ -231,7 +234,7 @@ abstract class TherapyComplicationService(
             ProviderKind.PUMP_BATTERY -> percent(therapyState?.pump?.batteryPercent) to "Pump battery"
             ProviderKind.PHONE_BATTERY -> percent(therapyState?.device?.phoneBatteryPercent) to "Phone battery"
             ProviderKind.SOURCE -> when (state?.source) {
-                DataSourceId.DEXCOM_G7_WATCH -> "Direct to Watch"
+                DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                 DataSourceId.ANDROID_APS -> "AndroidAPS"
                 DataSourceId.NIGHTSCOUT -> "Nightscout"
                 DataSourceId.XDRIP_PLUS -> "xDrip+"
@@ -564,124 +567,74 @@ abstract class TherapyComplicationService(
         windowMs: Long,
     ) {
         val width = canvas.width
-        val glucose = state?.glucose
         val colors = readGraphColors()
         val graphStyle = readGraphStyle()
         val thresholds = readCgmThresholds()
-        val targetLow = thresholds.lowMgDl
-        val targetHigh = thresholds.highMgDl
         val density = resources.displayMetrics.density
-        val plotLeft = 0f
-        val plotRight = width.toFloat()
-        val plotTop = 0f
-        val plotBottom = height - 1f
-        val plotHeight = plotBottom - plotTop
-
-        val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.graphBackground
-            style = Paint.Style.FILL
-        }
-        canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), 22f, 22f, backgroundPaint)
-
-        fun yFor(valueMgDl: Double): Float =
-            plotBottom - (GlucoseGraphScale.ratio(valueMgDl) * plotHeight).toFloat()
-
-        val timeWindow = GraphTimeWindow.live(now, windowMs)
-        val cutoff = timeWindow.startEpochMs
-        val merged = linkedMapOf<Long, GlucoseSample>()
-        state?.glucoseHistory.orEmpty().forEach { merged[it.measuredAtEpochMs] = it }
-        glucose?.let {
-            merged[it.measuredAtEpochMs] =
-                GlucoseSample(
-                    valueMgDl = it.valueMgDl,
-                    measuredAtEpochMs = it.measuredAtEpochMs,
-                    source = state.source,
-                    sensorId = it.sensorId,
-                    sessionId = it.sessionId,
-                    sequenceNumber = it.sequenceNumber,
-                    receivedAtEpochMs = it.receivedAtEpochMs,
-                    quality = it.quality,
+        val timeWindow = standardWearGraphWindow(now, windowMs)
+        val samples = buildList {
+            addAll(state?.glucoseHistory.orEmpty())
+            state?.glucose?.let { glucose ->
+                add(
+                    GlucoseSample(
+                        valueMgDl = glucose.valueMgDl,
+                        measuredAtEpochMs = glucose.measuredAtEpochMs,
+                        source = glucose.source,
+                        sensorId = glucose.sensorId,
+                        sessionId = glucose.sessionId,
+                        sequenceNumber = glucose.sequenceNumber,
+                        receivedAtEpochMs = glucose.receivedAtEpochMs,
+                        quality = glucose.quality,
+                    ),
                 )
-        }
-        val samples = merged.values.asSequence()
-            .filter {
-                it.measuredAtEpochMs in cutoff..timeWindow.endEpochMs &&
-                    it.quality == CgmQuality.VALID &&
-                    it.valueMgDl in 20.0..1000.0
-            }
-            .sortedBy { it.measuredAtEpochMs }
-            .toList()
-        val excursion = CgmGraphPolicy.rangeExcursion(samples, targetLow, targetHigh)
-
-        val targetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-        }
-        if (excursion == RangeExcursion.HIGH) {
-            targetPaint.color = colors.rangeHigh
-            canvas.drawRect(plotLeft, plotTop, plotRight, yFor(targetHigh), targetPaint)
-        }
-        targetPaint.color = colors.rangeInRange
-        canvas.drawRect(plotLeft, yFor(targetHigh), plotRight, yFor(targetLow), targetPaint)
-        if (excursion == RangeExcursion.LOW) {
-            targetPaint.color = colors.rangeLow
-            canvas.drawRect(plotLeft, yFor(targetLow), plotRight, plotBottom, targetPaint)
-        }
-
-        val targetLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            strokeWidth = 1.35f * density
-            strokeCap = Paint.Cap.BUTT
-        }
-        targetLinePaint.color = colors.highLine
-        canvas.drawLine(plotLeft, yFor(targetHigh), plotRight, yFor(targetHigh), targetLinePaint)
-        targetLinePaint.color = colors.lowLine
-        canvas.drawLine(plotLeft, yFor(targetLow), plotRight, yFor(targetLow), targetLinePaint)
-
-        if (samples.isEmpty()) {
-            val emptyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = colors.axisLabel
-                textAlign = Paint.Align.CENTER
-                textSize = 26f
-            }
-            canvas.drawText("No history", width / 2f, (plotTop + plotBottom) / 2f, emptyPaint)
-            return
-        }
-
-        fun xFor(timestamp: Long): Float =
-            timeWindow.plotX(timestamp, plotLeft, plotRight - plotLeft)
-
-        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-        val outlinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.STROKE
-            color = colors.outline
-        }
-
-        samples.forEachIndexed { index, sample ->
-            dotPaint.color = when {
-                sample.valueMgDl < targetLow -> colors.cgmLow
-                sample.valueMgDl > targetHigh -> colors.cgmHigh
-                else -> colors.cgmInRange
-            }
-            val dotRadius = (
-                graphStyle.cgmDotRadiusDp.coerceIn(1.5f, 6.0f) +
-                    if (index == samples.lastIndex) 0.1f else 0f
-                ) * density
-            val x = xFor(sample.measuredAtEpochMs)
-            val y = yFor(sample.valueMgDl)
-            canvas.drawCircle(x, y, dotRadius, dotPaint)
-            if (graphStyle.cgmDotOutlineEnabled) {
-                val outlineWidth = graphStyle.cgmDotOutlineWidthDp.coerceIn(0.25f, 3.0f) * density
-                outlinePaint.strokeWidth = outlineWidth
-                canvas.drawCircle(x, y, dotRadius + outlineWidth / 2f, outlinePaint)
             }
         }
-
-        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = colors.divider
-            style = Paint.Style.STROKE
-            strokeWidth = 1f * density
-        }
-        canvas.drawRoundRect(plotLeft, plotTop, plotRight, plotBottom, 22f, 22f, borderPaint)
+        SharedWearCgmGraphRenderer.render(
+            canvas = canvas,
+            widthPx = width,
+            heightPx = height,
+            density = density,
+            scaledDensity = resources.displayMetrics.scaledDensity,
+            input = SharedWearCgmGraphInput(
+                history = samples,
+                timeWindow = timeWindow,
+                nowEpochMs = now,
+                thresholds = thresholds,
+                palette = SharedWearCgmGraphPalette(
+                    background = colors.graphBackground,
+                    targetArea = colors.rangeInRange,
+                    highArea = colors.rangeHigh,
+                    lowArea = colors.rangeLow,
+                    highLine = colors.highLine,
+                    lowLine = colors.lowLine,
+                    dotHigh = colors.cgmHigh,
+                    dotInRange = colors.cgmInRange,
+                    dotLow = colors.cgmLow,
+                    dotVeryHigh = colors.cgmVeryHigh,
+                    dotVeryLow = colors.cgmVeryLow,
+                    dotOutline = colors.outline,
+                    axisText = colors.axisLabel,
+                    axisTick = colors.axisTick,
+                    nowLine = colors.nowLine,
+                    border = colors.divider,
+                    predictionIob = colors.predictionIob,
+                    predictionCob = colors.predictionCob,
+                    predictionUam = colors.predictionUam,
+                    predictionZeroTemp = colors.predictionZeroTemp,
+                    targetText = colors.targetValue,
+                    emptyText = colors.signalLoss,
+                ),
+                style = SharedWearCgmGraphStyle(
+                    dotRadiusDp = graphStyle.cgmDotRadiusDp,
+                    dotOutlineWidthDp = graphStyle.cgmDotOutlineWidthDp,
+                    dotOutlineEnabled = graphStyle.cgmDotOutlineEnabled,
+                    historicalDotOutlineEnabled = graphStyle.cgmHistoricalDotOutlineEnabled,
+                    currentDotOutlineEnabled = graphStyle.cgmCurrentDotOutlineEnabled,
+                    scaleLaneOpacityPercent = graphStyle.scaleLaneOpacityPercent,
+                ),
+                emptyLabel = "No history",
+            ),
+        )
     }
 
     private fun readComplicationGraphHours(): Int =

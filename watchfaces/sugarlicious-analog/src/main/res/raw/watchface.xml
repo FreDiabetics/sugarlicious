@@ -48,7 +48,7 @@
                 <PartText x="7" y="39" width="362" height="38"><Text align="CENTER" ellipsis="TRUE"><Font family="SYNC_TO_DEVICE" size="19" color="#FFF5F5F5"><Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template></Font></Text></PartText>
             </Complication>
             <Complication type="SMALL_IMAGE">
-                <PartImage x="0" y="0" width="394" height="138">
+                <PartImage x="70" y="1" width="255" height="138">
                     <Image resource="[COMPLICATION.SMALL_IMAGE]" />
                 </PartImage>
             </Complication>
@@ -221,16 +221,16 @@
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobCobBasalComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingOval x="0" y="0" width="123" height="123" />
             <Complication type="SHORT_TEXT">
-                <PartText x="6" y="27" width="114" height="35">
+                <PartText x="8" y="64" width="112" height="32">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A">
+                        <Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFF5F5F5">
                             <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
                         </Font>
                     </Text>
                 </PartText>
-                <PartText x="6" y="61" width="114" height="32">
+                <PartText x="8" y="28" width="107" height="31">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="22" weight="BOLD" color="#FFF5F5F5">
+                        <Font family="SYNC_TO_DEVICE" size="27" weight="BOLD" color="#FFADADAD">
                             <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
                         </Font>
                     </Text>
@@ -266,17 +266,17 @@
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendDeltaAgeComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingOval x="0" y="0" width="123" height="123" />
             <Complication type="SHORT_TEXT">
-                <PartText x="6" y="27" width="114" height="35">
+                <PartText x="8" y="64" width="107" height="32">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="21" weight="BOLD" color="#FFEB600A">
-                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
+                        <Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFF5F5F5">
+                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
                         </Font>
                     </Text>
                 </PartText>
-                <PartText x="6" y="61" width="114" height="33">
+                <PartText x="8" y="28" width="107" height="30">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="21" color="#FFF5F5F5">
-                            <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
+                        <Font family="SYNC_TO_DEVICE" size="25" weight="BOLD" color="#FFADADAD">
+                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
                         </Font>
                     </Text>
                 </PartText>
@@ -311,17 +311,10 @@
             <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingOval x="0" y="0" width="150" height="149" />
             <Complication type="SHORT_TEXT">
-                <PartText x="11" y="38" width="125" height="60">
+                <PartText x="7" y="52" width="137" height="45">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="49" weight="BOLD" color="#FFF5F5F5">
+                        <Font family="SYNC_TO_DEVICE" size="40" weight="BOLD" color="#FFFFB146">
                             <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
-                        </Font>
-                    </Text>
-                </PartText>
-                <PartText x="15" y="98" width="118" height="27">
-                    <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A">
-                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
                         </Font>
                     </Text>
                 </PartText>
@@ -337,22 +330,15 @@
             </Complication>
             <Complication type="RANGED_VALUE">
                 <PartDraw x="0" y="0" width="150" height="149">
-                    <Arc centerX="75" centerY="75" width="137" height="137" startAngle="220" endAngle="220" direction="CLOCKWISE">
+                    <Arc centerX="75" centerY="76" width="137" height="137" startAngle="220" endAngle="220" direction="CLOCKWISE">
                         <Transform target="endAngle" value="220 + (((clamp([COMPLICATION.RANGED_VALUE_VALUE], [COMPLICATION.RANGED_VALUE_MIN], [COMPLICATION.RANGED_VALUE_MAX]) - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN])) * 280)" />
                         <Stroke color="#FFEB600A" cap="ROUND" thickness="11" />
                     </Arc>
                 </PartDraw>
-                <PartText x="14" y="40" width="121" height="63">
+                <PartText x="7" y="52" width="137" height="45">
                     <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="51" weight="BOLD" color="#FFF5F5F5">
+                        <Font family="SYNC_TO_DEVICE" size="40" weight="BOLD" color="#FFFFB146">
                             <Template>%s<Parameter expression="[COMPLICATION.TEXT]" /></Template>
-                        </Font>
-                    </Text>
-                </PartText>
-                <PartText x="20" y="104" width="107" height="25">
-                    <Text align="CENTER" ellipsis="TRUE">
-                        <Font family="SYNC_TO_DEVICE" size="20" weight="BOLD" color="#FFEB600A">
-                            <Template>%s<Parameter expression="[COMPLICATION.TITLE]" /></Template>
                         </Font>
                     </Text>
                 </PartText>
