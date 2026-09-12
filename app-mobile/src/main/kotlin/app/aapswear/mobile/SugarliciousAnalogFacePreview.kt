@@ -23,7 +23,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseState
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
@@ -31,6 +35,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.Trend
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -63,16 +68,16 @@ internal object SugarliciousAnalogGeometry {
     const val safeRadius = 236f
     const val centerSafetyRadius = 24f
     val handPivot = center
-    val graph = fromWfsRect(51.8748f, 54.9999f, 346.2504f, 121.3336f)
-    val graphContent = within(graph, 61.1252f, 0.91f, 224f, 121.3336f)
-    val middleLeft = fromWfsRect(73f, 171f, 108.3334f, 108.3334f)
-    val middleRight = fromWfsRect(269f, 171f, 108.3334f, 108.3334f)
-    val bottomCenter = fromWfsRect(158.9996f, 247f, 132.0008f, 130.9996f)
-    val middleLeftText = within(middleLeft, 7f, 56f, 98f, 28f)
-    val middleLeftTitle = within(middleLeft, 7f, 25f, 94f, 27.3077f)
-    val middleRightText = within(middleRight, 7f, 56f, 94f, 28f)
-    val middleRightTitle = within(middleRight, 7f, 25f, 94f, 26.5385f)
-    val bottomText = within(bottomCenter, 5.7392f, 45.7142f, 120.5224f, 39.8695f)
+    val graph = AnalogRectGeometry(92f, 68f, 328f, 140f)
+    val graphContent = AnalogRectGeometry(100f, 76f, 312f, 124f)
+    val middleLeft = AnalogRectGeometry(62f, 204f, 132f, 110f)
+    val middleRight = AnalogRectGeometry(318f, 204f, 132f, 110f)
+    val bottomCenter = AnalogRectGeometry(146f, 312f, 220f, 116f)
+    val middleLeftText = AnalogRectGeometry(70f, 268f, 112f, 32f)
+    val middleLeftTitle = AnalogRectGeometry(70f, 232f, 107f, 31f)
+    val middleRightText = AnalogRectGeometry(326f, 268f, 107f, 32f)
+    val middleRightTitle = AnalogRectGeometry(326f, 232f, 107f, 30f)
+    val bottomText = AnalogRectGeometry(164f, 334f, 184f, 64f)
 
     const val outerCenter = 256f
     val outerTextDiameter = fromWfsValue(376f)
@@ -83,10 +88,7 @@ internal object SugarliciousAnalogGeometry {
     val outerLowerRight = AnalogArcGeometry(103f, 151f, true)
     val outerLowerLeft = AnalogArcGeometry(253f, 205f, false)
 
-    val bottomArcDiameter = fromWfsValue(120f)
-    const val bottomArcStart = 220f
-    const val bottomArcSweep = 280f
-    val bottomArcStroke = fromWfsValue(10f)
+    val glucoseProgress = AnalogRectGeometry(190f, 316f, 132f, 4f)
 
     private fun fromWfsValue(value: Float): Float = (value * WFS_TO_WFF_SCALE).roundToInt().toFloat()
 
@@ -133,6 +135,12 @@ internal fun SugarliciousAnalogFacePreview(
         modifier = modifier.clip(CircleShape).background(Color.Black),
         contentAlignment = Alignment.Center,
     ) {
+        Image(
+            painter = painterResource(R.drawable.sugarlicious_analog_template),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         Canvas(Modifier.fillMaxSize()) {
             val scale = size.minDimension / SugarliciousAnalogGeometry.CANVAS
             val originX = (size.width - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
@@ -195,12 +203,6 @@ internal fun SugarliciousAnalogFacePreview(
             }
         }
 
-        Image(
-            painter = painterResource(R.drawable.sugarlicious_analog_template),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-        )
-
         Canvas(Modifier.fillMaxSize()) {
             val scale = size.minDimension / SugarliciousAnalogGeometry.CANVAS
             val originX = (size.width - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
@@ -242,39 +244,16 @@ internal fun SugarliciousAnalogFacePreview(
             outerArc(SugarliciousAnalogGeometry.outerLowerRight, 0.48f)
             outerArc(SugarliciousAnalogGeometry.outerLowerLeft, 0.69f)
 
-            fun roundSlot(rect: AnalogRectGeometry, diameter: Float, start: Float, sweep: Float, stroke: Float, progress: Float) {
-                val cx = x(rect.x + rect.width / 2f)
-                val cy = y(rect.y + rect.height / 2f)
-                val d = diameter * scale
-                val left = cx - d / 2f
-                val top = cy - d / 2f
-                drawArc(
-                    accent.copy(alpha = 0.22f),
-                    start,
-                    sweep,
-                    false,
-                    androidx.compose.ui.geometry.Offset(left, top),
-                    androidx.compose.ui.geometry.Size(d, d),
-                    style = Stroke(stroke * scale, cap = StrokeCap.Round),
-                )
-                drawArc(
-                    accent,
-                    start,
-                    sweep * progress.coerceIn(0f, 1f),
-                    false,
-                    androidx.compose.ui.geometry.Offset(left, top),
-                    androidx.compose.ui.geometry.Size(d, d),
-                    style = Stroke(stroke * scale, cap = StrokeCap.Round),
-                )
-            }
-
-            roundSlot(
-                SugarliciousAnalogGeometry.bottomCenter,
-                SugarliciousAnalogGeometry.bottomArcDiameter,
-                SugarliciousAnalogGeometry.bottomArcStart,
-                SugarliciousAnalogGeometry.bottomArcSweep,
-                SugarliciousAnalogGeometry.bottomArcStroke,
-                if (displayable) 0.54f else 0f,
+            val progress = SugarliciousAnalogGeometry.glucoseProgress
+            drawLine(
+                color = accent,
+                start = androidx.compose.ui.geometry.Offset(x(progress.x), y(progress.y + progress.height / 2f)),
+                end = androidx.compose.ui.geometry.Offset(
+                    x(progress.x + progress.width * if (displayable) 0.54f else 0f),
+                    y(progress.y + progress.height / 2f),
+                ),
+                strokeWidth = progress.height * scale,
+                cap = StrokeCap.Round,
             )
 
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -328,7 +307,7 @@ internal fun SugarliciousAnalogFacePreview(
             textCenteredInRect(
                 if (displayable) glucose else "—",
                 SugarliciousAnalogGeometry.bottomText,
-                40f,
+                55f,
                 0xFFFFB146.toInt(),
             )
 
@@ -375,3 +354,61 @@ private fun AnalogPreviewHand(drawable: Int, rotation: Float) {
                 },
     )
 }
+
+private fun apexPreviewState(
+    value: Double = 123.0,
+    ageMinutes: Long = 2,
+    source: DataSourceId = DataSourceId.DEXCOM_G7_WATCH,
+    quality: CgmQuality = CgmQuality.VALID,
+): TherapyDisplayState {
+    val now = System.currentTimeMillis()
+    return TherapyDisplayState(
+        source = source,
+        receivedAtEpochMs = now,
+        glucose = GlucoseState(
+            valueMgDl = value,
+            displayUnit = GlucoseUnit.MG_DL,
+            trend = Trend.FORTY_FIVE_UP,
+            measuredAtEpochMs = now - ageMinutes * 60_000L,
+            deltaMgDl = 7.0,
+            source = source,
+            quality = quality,
+        ),
+    )
+}
+
+@Preview(name = "ApeX Fresh", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXFreshPreview() = SugarliciousAnalogFacePreview(apexPreviewState())
+
+@Preview(name = "ApeX High", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXHighPreview() = SugarliciousAnalogFacePreview(apexPreviewState(value = 250.0))
+
+@Preview(name = "ApeX Low", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXLowPreview() = SugarliciousAnalogFacePreview(apexPreviewState(value = 55.0))
+
+@Preview(name = "ApeX Stale", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXStalePreview() = SugarliciousAnalogFacePreview(apexPreviewState(ageMinutes = 20))
+
+@Preview(name = "ApeX No source", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXNoSourcePreview() = SugarliciousAnalogFacePreview(null)
+
+@Preview(name = "ApeX Sensor error", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXSensorErrorPreview() = SugarliciousAnalogFacePreview(apexPreviewState(quality = CgmQuality.SENSOR_ERROR))
+
+@Preview(name = "ApeX Watch Direct", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXWatchDirectPreview() = SugarliciousAnalogFacePreview(apexPreviewState(source = DataSourceId.DEXCOM_G7_WATCH))
+
+@Preview(name = "ApeX Mobile", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXMobilePreview() = SugarliciousAnalogFacePreview(apexPreviewState(source = DataSourceId.ANDROID_APS))
+
+@Preview(name = "ApeX Ambient composition", widthDp = 450, heightDp = 450)
+@Composable private fun ApeXAmbientPreview() = SugarliciousAnalogFacePreview(apexPreviewState())
+
+@Preview(name = "ApeX Galaxy Watch Ultra", widthDp = 480, heightDp = 480)
+@Composable private fun ApeXGalaxyWatchUltraPreview() = SugarliciousAnalogFacePreview(apexPreviewState())
+
+@Preview(name = "ApeX Pixel Watch", widthDp = 384, heightDp = 384)
+@Composable private fun ApeXPixelWatchPreview() = SugarliciousAnalogFacePreview(apexPreviewState())
+
+@Preview(name = "ApeX Small round", widthDp = 320, heightDp = 320)
+@Composable private fun ApeXSmallRoundPreview() = SugarliciousAnalogFacePreview(apexPreviewState(value = 399.0))

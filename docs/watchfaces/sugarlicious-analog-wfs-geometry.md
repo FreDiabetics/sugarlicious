@@ -1,5 +1,7 @@
 # Sugarlicious Analog WFS geometry
 
+> Historical reconstruction note: this document describes the pre-rework WFS geometry. The active ApeX layout was replaced on 2026-09-12 and is documented in [apex-rework-2026-09.md](apex-rework-2026-09.md).
+
 Source: `Sugarlicious Analog.wfs`, Watch Face Studio project format `1.120909`.
 
 The WFS file is a ZIP container. Its authoritative project model is
