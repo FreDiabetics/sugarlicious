@@ -231,6 +231,7 @@ class G7CollectorTileService : TileService() {
             ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
         val device = requestParams.deviceConfiguration
         val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
+        val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
         val valueTextSize = (visualSpec.glucoseTextSize * square.sideDp / 146f).coerceIn(30f, 46f)
         val trendHeight = (visualSpec.trendHeight * square.sideDp / 146f).coerceIn(24f, 40f)
 
@@ -247,11 +248,28 @@ class G7CollectorTileService : TileService() {
                 }
                 .build()
 
-        val valueCard =
+        val valueContent =
             Column.Builder()
-                .setWidth(dp(square.sideDp))
-                .setHeight(dp(square.sideDp))
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                .addContent(primaryRow)
+                .apply {
+                    if (presentation.meta.isNotBlank()) {
+                        addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
+                    }
+                    if (presentation.age.isNotBlank()) {
+                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = true))
+                    }
+                }
+                .addContent(Spacer.Builder().setHeight(dp(7f)).build())
+                .addContent(statusPill(statusPresentation))
+                .build()
+
+        val valueCard =
+            Box.Builder()
+                .setWidth(dp(square.sideDp))
+                .setHeight(dp(cardHeight))
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                 .setModifiers(
                     Modifiers.Builder()
                         .setBackground(
@@ -276,20 +294,17 @@ class G7CollectorTileService : TileService() {
                         )
                         .build(),
                 )
-                .addContent(text("Gewebeglukose", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = false))
-                .addContent(Spacer.Builder().setHeight(dp(5f)).build())
-                .addContent(primaryRow)
-                .apply {
-                    if (presentation.meta.isNotBlank()) {
-                        addContent(text(presentation.meta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), bold = true))
-                    }
-                    if (presentation.age.isNotBlank()) {
-                        addContent(text(presentation.age, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = true))
-                    }
-                }
-                .addContent(Spacer.Builder().setHeight(dp(7f)).build())
-                .addContent(statusPill(statusPresentation))
+                .addContent(valueContent)
                 .build()
+
+        val content = Column.Builder()
+            .setWidth(dp(square.sideDp))
+            .setHeight(dp(square.sideDp - TILE_TOP_SAFETY_DP))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+            .addContent(text("Gewebeglukose", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = false))
+            .addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
+            .addContent(valueCard)
+            .build()
 
         return Box.Builder()
             .setWidth(expand())
@@ -311,7 +326,7 @@ class G7CollectorTileService : TileService() {
                     )
                     .build(),
             )
-            .addContent(valueCard)
+            .addContent(content)
             .build()
     }
 
@@ -372,6 +387,9 @@ class G7CollectorTileService : TileService() {
         private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
         private const val HEADER_RESOURCE_ID = "ic_sensor_outline"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
+        private const val TILE_HEADER_LANE_DP = 21f
+        private const val TILE_HEADER_GAP_DP = 4f
+        private const val TILE_TOP_SAFETY_DP = 5f
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
             TileService.getUpdater(context).requestUpdate(G7GraphTileService::class.java)

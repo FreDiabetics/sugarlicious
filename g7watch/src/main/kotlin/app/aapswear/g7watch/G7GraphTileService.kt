@@ -83,7 +83,7 @@ class G7GraphTileService : TileService() {
                 val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
                 val density = device.screenDensity.takeIf { it > 0f } ?: resources.displayMetrics.density
                 val graphWidthDp = square.sideDp - square.innerPaddingDp * 2f
-                val graphHeightDp = square.sideDp - square.innerPaddingDp * 2f - TITLE_LANE_DP
+                val graphHeightDp = square.sideDp - square.innerPaddingDp * 2f - TILE_HEADER_LANE_DP
                 Resources.Builder()
                     .setVersion(snapshot.resourceVersion)
                     .addIdToImageMapping(
@@ -120,11 +120,18 @@ class G7GraphTileService : TileService() {
             G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
         }
         val graphWidth = square.sideDp - square.innerPaddingDp * 2f
-        val graphHeight = square.sideDp - square.innerPaddingDp * 2f - TITLE_LANE_DP
-        val card = Column.Builder()
+        val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
+        val graphHeight = cardHeight - square.innerPaddingDp * 2f
+        val graphImage = Image.Builder()
+            .setResourceId(GRAPH_RESOURCE_ID)
+            .setWidth(dp(graphWidth))
+            .setHeight(dp(graphHeight))
+            .build()
+        val card = Box.Builder()
             .setWidth(dp(square.sideDp))
-            .setHeight(dp(square.sideDp))
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+            .setHeight(dp(cardHeight))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .setModifiers(
                 Modifiers.Builder()
                     .setBackground(
@@ -137,15 +144,16 @@ class G7GraphTileService : TileService() {
                     .setPadding(Padding.Builder().setAll(dp(square.innerPaddingDp)).build())
                     .build(),
             )
+            .addContent(graphImage)
+            .build()
+
+        val content = Column.Builder()
+            .setWidth(dp(square.sideDp))
+            .setHeight(dp(square.sideDp - TILE_TOP_SAFETY_DP))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
             .addContent(label("Gewebeglukose-Verlauf", 10f, titleColor))
-            .addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            .addContent(
-                Image.Builder()
-                    .setResourceId(GRAPH_RESOURCE_ID)
-                    .setWidth(dp(graphWidth))
-                    .setHeight(dp(graphHeight))
-                    .build(),
-            )
+            .addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
+            .addContent(card)
             .build()
 
         return Box.Builder()
@@ -164,7 +172,7 @@ class G7GraphTileService : TileService() {
                     )
                     .build(),
             )
-            .addContent(card)
+            .addContent(content)
             .build()
     }
 
@@ -232,7 +240,9 @@ class G7GraphTileService : TileService() {
     companion object {
         private const val GRAPH_RESOURCE_ID = "sugarwear_graph"
         private const val OPEN_GRAPH_CLICK_ID = "open_sugarwear_graph"
-        private const val TITLE_LANE_DP = 19f
+        private const val TILE_HEADER_LANE_DP = 21f
+        private const val TILE_HEADER_GAP_DP = 4f
+        private const val TILE_TOP_SAFETY_DP = 5f
     }
 }
 
