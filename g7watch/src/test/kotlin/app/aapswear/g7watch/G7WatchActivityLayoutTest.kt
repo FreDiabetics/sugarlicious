@@ -220,7 +220,7 @@ class G7WatchActivityLayoutTest {
         collect(root)
 
         assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
-        assertEquals(listOf("Anzeige", "Alarme", "SugarWear", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
+        assertEquals(listOf("Anzeige", "Alarme", "Systemstatus", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
         assertEquals(
             G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
             headers.map { it.tag.toString() },
@@ -230,11 +230,11 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `sugarwear opens system status`() {
+    fun `system status entry opens system status`() {
         val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
-        (findText(root, "SugarWear")!!.parent.parent as android.view.View).performClick()
+        (findText(root, "Systemstatus")!!.parent.parent as android.view.View).performClick()
 
         assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
         activity.finish()

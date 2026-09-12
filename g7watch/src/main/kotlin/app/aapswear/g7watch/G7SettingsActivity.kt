@@ -16,7 +16,7 @@ import android.widget.TextView
 internal enum class G7SettingsSection(val title: String, val summary: String) {
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
-    SUGARWEAR("SugarWear", "Systemstatus, Sensor und Diagnose"),
+    SUGARWEAR("Systemstatus", "Sensor, Collector und Diagnose"),
     VIGIL("Vigil", "Watchface"),
     ABOUT("Über", "SugarWear"),
 }
