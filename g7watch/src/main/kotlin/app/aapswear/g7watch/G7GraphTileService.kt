@@ -147,11 +147,20 @@ class G7GraphTileService : TileService() {
             .addContent(graphImage)
             .build()
 
+        val header = Box.Builder()
+            .setWidth(dp(square.sideDp))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+            .setModifiers(
+                Modifiers.Builder()
+                    .setPadding(Padding.Builder().setStart(dp(square.cornerRadiusDp)).build())
+                    .build(),
+            )
+            .addContent(label("Gewebeglukose-Verlauf", 11f, titleColor))
+            .build()
         val content = Column.Builder()
             .setWidth(dp(square.sideDp))
-            .setHeight(dp(square.sideDp - TILE_TOP_SAFETY_DP))
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-            .addContent(label("Gewebeglukose-Verlauf", 10f, titleColor))
+            .addContent(header)
             .addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
             .addContent(card)
             .build()
@@ -242,7 +251,6 @@ class G7GraphTileService : TileService() {
         private const val OPEN_GRAPH_CLICK_ID = "open_sugarwear_graph"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f
-        private const val TILE_TOP_SAFETY_DP = 5f
     }
 }
 

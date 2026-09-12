@@ -297,11 +297,20 @@ class G7CollectorTileService : TileService() {
                 .addContent(valueContent)
                 .build()
 
+        val header = Box.Builder()
+            .setWidth(dp(square.sideDp))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+            .setModifiers(
+                Modifiers.Builder()
+                    .setPadding(Padding.Builder().setStart(dp(square.cornerRadiusDp)).build())
+                    .build(),
+            )
+            .addContent(text("Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), bold = false))
+            .build()
         val content = Column.Builder()
             .setWidth(dp(square.sideDp))
-            .setHeight(dp(square.sideDp - TILE_TOP_SAFETY_DP))
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-            .addContent(text("Gewebeglukose", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), bold = false))
+            .addContent(header)
             .addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
             .addContent(valueCard)
             .build()
@@ -389,7 +398,6 @@ class G7CollectorTileService : TileService() {
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f
-        private const val TILE_TOP_SAFETY_DP = 5f
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)
             TileService.getUpdater(context).requestUpdate(G7GraphTileService::class.java)
