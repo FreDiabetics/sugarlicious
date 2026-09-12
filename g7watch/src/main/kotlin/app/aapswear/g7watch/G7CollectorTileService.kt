@@ -195,7 +195,7 @@ class G7CollectorTileService : TileService() {
                     ImageResource.Builder()
                         .setAndroidResourceByResId(
                             AndroidImageResourceByResId.Builder()
-                                .setResourceId(R.drawable.ic_g7_sensor)
+                                .setResourceId(R.drawable.ic_sensor_outline)
                                 .build(),
                         )
                         .build(),
@@ -389,7 +389,7 @@ class G7CollectorTileService : TileService() {
 
     companion object {
         private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
-        private const val HEADER_RESOURCE_ID = "ic_g7_sensor"
+        private const val HEADER_RESOURCE_ID = "ic_sensor_outline"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         fun requestUpdate(context: Context) {
             TileService.getUpdater(context).requestUpdate(G7CollectorTileService::class.java)

@@ -30,6 +30,18 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    fun `wear appearance is dark by default and explicit selection remains active`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+
+        assertEquals(AppearanceMode.DARK, WearDisplayPreferences.activeAppearanceMode(context))
+        WearDisplayPreferences.setActiveAppearanceMode(context, AppearanceMode.LIGHT)
+        assertEquals(AppearanceMode.LIGHT, WearDisplayPreferences.activeAppearanceMode(context))
+        WearDisplayPreferences.setActiveAppearanceMode(context, AppearanceMode.DARK)
+        assertEquals(AppearanceMode.DARK, WearDisplayPreferences.activeAppearanceMode(context))
+    }
+
+    @Test
     fun `legacy Wear source selection cannot override AndroidAPS phone policy`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)

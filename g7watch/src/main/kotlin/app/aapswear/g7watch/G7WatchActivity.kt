@@ -479,7 +479,7 @@ class G7WatchActivity : Activity() {
         })
 
         content.addView(ImageView(this).apply {
-            setImageResource(R.drawable.ic_g7_sensor)
+            setImageResource(R.drawable.ic_sensor_outline)
             contentDescription = "SugarWear"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }, LinearLayout.LayoutParams(54.dp, 54.dp).apply {

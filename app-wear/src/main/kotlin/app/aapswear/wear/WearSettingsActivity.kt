@@ -113,6 +113,7 @@ class WearSettingsActivity : Activity() {
                 selectedAppearanceMode,
             ) { mode ->
                 selectedAppearanceMode = mode
+                WearDisplayPreferences.setActiveAppearanceMode(this, mode)
                 buildUi()
             },
             cardParams(),

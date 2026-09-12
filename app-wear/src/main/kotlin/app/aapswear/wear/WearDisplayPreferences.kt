@@ -1,7 +1,6 @@
 package app.aapswear.wear
 
 import android.content.Context
-import android.content.res.Configuration
 import app.aapswear.model.AppearanceMode
 import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchGlucoseUnit
@@ -53,6 +52,7 @@ internal data class WearDisplayPreferences(
         private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_SYNCED_AT = "synced_at"
         private const val KEY_LOCAL_CUSTOMIZED = "local_customized"
+        private const val KEY_ACTIVE_APPEARANCE_MODE = "active_appearance_mode"
         private const val COLOR_PREFIX = "graph_color_"
         private const val UI_PREFIX = "ui_color_"
         private const val STYLE_DOT_RADIUS = "cgm_dot_radius_dp"
@@ -67,10 +67,21 @@ internal data class WearDisplayPreferences(
         private const val THRESHOLD_VERY_LOW = "threshold_very_low"
         val allowedGraphHours = listOf(1, 2, 3, 6, 12, 24)
 
-        fun activeAppearanceMode(context: Context): AppearanceMode =
-            if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) {
-                AppearanceMode.DARK
-            } else AppearanceMode.LIGHT
+        fun activeAppearanceMode(context: Context): AppearanceMode {
+            val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_ACTIVE_APPEARANCE_MODE, null)
+                ?.let { runCatching { AppearanceMode.valueOf(it) }.getOrNull() }
+            // Wear surfaces are dark by default. The explicit in-app selector is authoritative;
+            // Samsung's transient system uiMode must not silently pin the app to the light profile.
+            return stored ?: AppearanceMode.DARK
+        }
+
+        fun setActiveAppearanceMode(context: Context, mode: AppearanceMode) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_ACTIVE_APPEARANCE_MODE, mode.name)
+                .apply()
+        }
 
         private fun appearancePrefix(mode: AppearanceMode) = "appearance.${mode.storageKey}."
 
