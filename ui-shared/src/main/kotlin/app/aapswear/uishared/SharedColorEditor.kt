@@ -155,6 +155,19 @@ object SharedColorEditor {
     private class ColorEditorRotaryScrollView(context: Activity) : ScrollView(context) {
         private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
 
+        init {
+            isFocusable = true
+            isFocusableInTouchMode = true
+            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+            overScrollMode = OVER_SCROLL_NEVER
+        }
+
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            requestFocus(View.FOCUS_DOWN)
+            post { requestFocus(View.FOCUS_DOWN) }
+        }
+
         override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
             if (event.action == MotionEvent.ACTION_SCROLL && event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)) {
                 val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * 0.55f).roundToInt()

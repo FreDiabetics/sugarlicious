@@ -6,6 +6,7 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.widget.ScrollView
 import kotlin.math.roundToInt
 
@@ -23,11 +24,23 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     init {
         isFocusable = true
         isFocusableInTouchMode = true
+        descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        overScrollMode = OVER_SCROLL_NEVER
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (!hasFocus()) requestFocus()
+        requestRotaryFocus()
+        post { requestRotaryFocus() }
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (hasWindowFocus) requestRotaryFocus()
+    }
+
+    private fun requestRotaryFocus() {
+        if (!hasFocus()) requestFocus(View.FOCUS_DOWN)
     }
 
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
@@ -58,5 +71,6 @@ internal fun ScrollView.applyG7EdgeFade(): ScrollView = apply {
     scrollBarDefaultDelayBeforeFade = 250
     scrollBarFadeDuration = 250
     isVerticalFadingEdgeEnabled = false
-    overScrollMode = ScrollView.OVER_SCROLL_IF_CONTENT_SCROLLS
+    // Samsung/Pixel overscroll glow brightens the complete round surface during crown input.
+    overScrollMode = ScrollView.OVER_SCROLL_NEVER
 }
