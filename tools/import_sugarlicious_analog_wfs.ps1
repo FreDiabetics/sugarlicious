@@ -55,7 +55,10 @@ try {
     Render-Layer $hours (Join-Path $outputDir 'indices_hours.png');Render-Layer $dots (Join-Path $outputDir 'indices_dots.png');Render-Layer $mask (Join-Path $outputDir 'graph_mask.png')
     $template=[Drawing.Bitmap]::new(450,450,[Drawing.Imaging.PixelFormat]::Format32bppArgb);$graphics=[Drawing.Graphics]::FromImage($template)
     try {
-        $graphics.Clear([Drawing.Color]::Black)
+        # The WFF scene supplies the black background. Keep the WFS graph cutout
+        # transparent here so the graph complication, which is rendered below
+        # this dial layer, remains visible at runtime.
+        $graphics.Clear([Drawing.Color]::Transparent)
         foreach($name in @('graph_mask.png','indices_hours.png','indices_dots.png')){$image=[Drawing.Image]::FromFile((Join-Path $outputDir $name));try{$graphics.DrawImageUnscaled($image,0,0)}finally{$image.Dispose()}}
         $graphics.SmoothingMode=[Drawing.Drawing2D.SmoothingMode]::AntiAlias;$pen=[Drawing.Pen]::new([Drawing.Color]::FromArgb(255,136,136,136),2)
         try{$graphics.DrawEllipse($pen,73,171,108,108);$graphics.DrawEllipse($pen,269,171,108,108);$graphics.DrawEllipse($pen,158.5,248,132,132)}finally{$pen.Dispose()}

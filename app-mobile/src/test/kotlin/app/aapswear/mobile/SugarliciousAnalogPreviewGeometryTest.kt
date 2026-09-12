@@ -108,6 +108,8 @@ class SugarliciousAnalogPreviewGeometryTest {
         )
         assertTrue(template.getRGB(291, 26) and 0xFFFFFF == 0x4C4C4C)
         assertTrue(template.getRGB(73, 225) and 0xFFFFFF == 0x888888)
+        assertTrue("graph cutout must stay transparent", template.getRGB(225, 100) ushr 24 == 0)
+        assertTrue("dial background outside graph must stay opaque", template.getRGB(225, 225) ushr 24 == 0xFF)
     }
 
     private fun watchfaceFile(): File = repoFile(
