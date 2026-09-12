@@ -10,6 +10,9 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.view.ViewGroup
 import android.view.MotionEvent
+import android.view.InputDevice
+import android.view.View
+import android.view.ViewConfiguration
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -74,6 +77,9 @@ object SharedColorEditor {
                 addView(valueInput, LinearLayout.LayoutParams(dp(64), dp(38)))
             })
             val seek = SeekBar(activity).apply {
+                // Rotary input scrolls the picker; it must never silently alter hue/brightness.
+                isFocusable = false
+                isFocusableInTouchMode = false
                 this.max = max; this.progress = progress
                 progressTintList = android.content.res.ColorStateList.valueOf(initialArgb)
                 progressBackgroundTintList = android.content.res.ColorStateList.valueOf(borderArgb)
@@ -121,7 +127,16 @@ object SharedColorEditor {
             }
         })
         refresh(false)
-        val scroll = ScrollView(activity).apply { isFillViewport = true; addView(root) }
+        val scroll = ColorEditorRotaryScrollView(activity).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = true
+            isScrollbarFadingEnabled = true
+            scrollBarStyle = View.SCROLLBARS_INSIDE_OVERLAY
+            scrollBarDefaultDelayBeforeFade = 250
+            scrollBarFadeDuration = 250
+            isVerticalFadingEdgeEnabled = false
+            addView(root)
+        }
         AlertDialog.Builder(activity).setTitle(title).setView(scroll)
             .setNeutralButton("Standard") { _, _ -> onReset() }
             .setNegativeButton("Fertig", null).create().apply {
@@ -135,5 +150,19 @@ object SharedColorEditor {
         recentColors.remove(color)
         recentColors.addFirst(color)
         while (recentColors.size > 8) recentColors.removeLast()
+    }
+
+    private class ColorEditorRotaryScrollView(context: Activity) : ScrollView(context) {
+        private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
+
+        override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+            if (event.action == MotionEvent.ACTION_SCROLL && event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)) {
+                val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * 0.55f).roundToInt()
+                if (delta != 0) scrollBy(0, delta)
+                awakenScrollBars()
+                return true
+            }
+            return super.dispatchGenericMotionEvent(event)
+        }
     }
 }

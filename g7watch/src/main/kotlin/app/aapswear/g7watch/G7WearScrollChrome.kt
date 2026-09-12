@@ -30,17 +30,23 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
         if (!hasFocus()) requestFocus()
     }
 
-    override fun onGenericMotionEvent(event: MotionEvent): Boolean {
+    override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         if (
             event.action == MotionEvent.ACTION_SCROLL &&
             event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)
         ) {
-            val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor).roundToInt()
-            if (delta != 0) smoothScrollBy(0, delta)
+            // Consume rotary input before focused sliders/switches can interpret it as a value
+            // change. Direct small steps track the crown without stacking smooth-scroll animations.
+            val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * ROTARY_GAIN).roundToInt()
+            if (delta != 0) scrollBy(0, delta)
             awakenScrollBars()
             return true
         }
-        return super.onGenericMotionEvent(event)
+        return super.dispatchGenericMotionEvent(event)
+    }
+
+    private companion object {
+        const val ROTARY_GAIN = 0.55f
     }
 }
 
