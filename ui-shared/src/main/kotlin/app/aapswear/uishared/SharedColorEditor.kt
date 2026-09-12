@@ -11,6 +11,7 @@ import android.text.TextWatcher
 import android.view.ViewGroup
 import android.view.MotionEvent
 import android.view.InputDevice
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewConfiguration
 import android.widget.EditText
@@ -154,10 +155,12 @@ object SharedColorEditor {
 
     private class ColorEditorRotaryScrollView(context: Activity) : ScrollView(context) {
         private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
+        private var lastRotaryHapticAt = Long.MIN_VALUE
 
         init {
             isFocusable = true
             isFocusableInTouchMode = true
+            defaultFocusHighlightEnabled = false
             overScrollMode = OVER_SCROLL_NEVER
         }
 
@@ -170,7 +173,12 @@ object SharedColorEditor {
         override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
             if (event.action == MotionEvent.ACTION_SCROLL && event.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER)) {
                 val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * 0.55f).roundToInt()
+                val before = scrollY
                 if (delta != 0) scrollBy(0, delta)
+                if (scrollY != before && (lastRotaryHapticAt == Long.MIN_VALUE || event.eventTime - lastRotaryHapticAt >= 40L)) {
+                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    lastRotaryHapticAt = event.eventTime
+                }
                 awakenScrollBars()
                 return true
             }

@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.Context
 import android.util.AttributeSet
 import android.view.InputDevice
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -19,10 +20,12 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     defStyleAttr: Int = android.R.attr.scrollViewStyle,
 ) : ScrollView(context, attrs, defStyleAttr) {
     private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
+    private var lastRotaryHapticAt = Long.MIN_VALUE
 
     init {
         isFocusable = true
         isFocusableInTouchMode = true
+        defaultFocusHighlightEnabled = false
         overScrollMode = OVER_SCROLL_NEVER
     }
 
@@ -49,7 +52,12 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
             // Consume rotary input before focused sliders/switches can interpret it as a value
             // change. Direct small steps track the crown without stacking smooth-scroll animations.
             val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * ROTARY_GAIN).roundToInt()
+            val before = scrollY
             if (delta != 0) scrollBy(0, delta)
+            if (scrollY != before && (lastRotaryHapticAt == Long.MIN_VALUE || event.eventTime - lastRotaryHapticAt >= HAPTIC_INTERVAL_MS)) {
+                performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                lastRotaryHapticAt = event.eventTime
+            }
             awakenScrollBars()
             return true
         }
@@ -58,6 +66,7 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
 
     private companion object {
         const val ROTARY_GAIN = 0.55f
+        const val HAPTIC_INTERVAL_MS = 40L
     }
 }
 

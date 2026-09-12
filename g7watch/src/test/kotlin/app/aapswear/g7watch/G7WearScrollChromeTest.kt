@@ -22,6 +22,7 @@ class G7WearScrollChromeTest {
         assertFalse(scroll.isVerticalFadingEdgeEnabled)
         assertTrue(scroll.isFocusable)
         assertTrue(scroll.isFocusableInTouchMode)
+        assertFalse(scroll.defaultFocusHighlightEnabled)
         assertTrue(scroll.descendantFocusability != ViewGroup.FOCUS_BLOCK_DESCENDANTS)
         assertEquals(View.OVER_SCROLL_NEVER, scroll.overScrollMode)
     }
