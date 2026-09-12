@@ -158,7 +158,6 @@ object SharedColorEditor {
         init {
             isFocusable = true
             isFocusableInTouchMode = true
-            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
             overScrollMode = OVER_SCROLL_NEVER
         }
 

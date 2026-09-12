@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.view.View
+import android.view.ViewGroup
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,5 +22,7 @@ class G7WearScrollChromeTest {
         assertFalse(scroll.isVerticalFadingEdgeEnabled)
         assertTrue(scroll.isFocusable)
         assertTrue(scroll.isFocusableInTouchMode)
+        assertTrue(scroll.descendantFocusability != ViewGroup.FOCUS_BLOCK_DESCENDANTS)
+        assertEquals(View.OVER_SCROLL_NEVER, scroll.overScrollMode)
     }
 }

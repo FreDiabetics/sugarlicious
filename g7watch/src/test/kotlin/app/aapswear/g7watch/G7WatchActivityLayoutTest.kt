@@ -142,6 +142,8 @@ class G7WatchActivityLayoutTest {
         assertNotNull(findText(codeRoot, "Verbinden"))
         val editor = findEditor(codeRoot)
         assertNotNull(editor)
+        assertTrue(editor?.isFocusable == true)
+        assertTrue(editor?.isFocusableInTouchMode == true)
         assertNull(editor?.background)
         activity.finish()
     }

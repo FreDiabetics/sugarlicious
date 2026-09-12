@@ -6,7 +6,6 @@ import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
-import android.view.ViewGroup
 import android.widget.ScrollView
 import kotlin.math.roundToInt
 
@@ -24,7 +23,6 @@ internal class G7EdgeFadeScrollView @JvmOverloads constructor(
     init {
         isFocusable = true
         isFocusableInTouchMode = true
-        descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         overScrollMode = OVER_SCROLL_NEVER
     }
 
