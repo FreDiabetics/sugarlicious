@@ -40,6 +40,8 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 
 internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean = collectorEnabled
+internal fun shouldUpdateG7ForegroundNotification(inserted: Boolean, classification: CollectorCycleClassification): Boolean =
+    inserted && classification == CollectorCycleClassification.SUCCESS_FRESH
 
 internal fun shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs: Long?): Boolean =
     receiverReceivedAtEpochMs == null
@@ -170,9 +172,7 @@ class G7CollectorService : Service() {
         persisted = store.read()
 
         G7SignalLossMonitor.scheduleFromState(this, persisted)
-        startForegroundCollector(
-            if (collectionJob?.isActive == true) "Collector aktiv" else "Dauerbetrieb aktiv",
-        )
+        startForegroundCollector()
         val request = when (intent?.action) {
             ACTION_RESTART -> CycleRequest.RESTART
             ACTION_MANUAL_SCAN -> CycleRequest.MANUAL
@@ -426,7 +426,6 @@ class G7CollectorService : Service() {
                     )
                     store.save(next)
                     updateAttemptCycleForProtocolState(attemptId, protocolState, now)
-                    updateForeground(protocolState.label())
                     recordAttemptProtocolState(attemptId, protocolState, collectionSensor.sensorId)
                     scope.launch {
                         applicationContext.recordG7Diagnostic(
@@ -740,6 +739,9 @@ class G7CollectorService : Service() {
                 runCatching { G7ErrorNotifier.markRecovered(this) }
                 runCatching { G7CgmAlarmCoordinator.onReading(this, reading) }
             }
+            if (shouldUpdateG7ForegroundNotification(inserted, classification)) {
+                updateForegroundForNewReading()
+            }
             // For aged/invalid packets next.lastReading still points to the last fresh value, so
             // signal loss remains anchored to real current data rather than receive time.
             val scheduledReconnectAt = scheduleReconnect(next) ?: next.nextReconnectEpochMs
@@ -754,13 +756,6 @@ class G7CollectorService : Service() {
                 )
             }
 
-            updateForeground(
-                when (classification) {
-                    CollectorCycleClassification.SUCCESS_FRESH -> "${reading.glucoseMgDl.toInt()} mg/dL · Verbunden"
-                    CollectorCycleClassification.SUCCESS_AGED -> "Messwert empfangen · $ageMinutes min alt · Signalverlust bleibt aktiv"
-                    else -> "Kein frischer Sensorwert · nächster Sensorzyklus geplant"
-                },
-            )
         } catch (error: G7BleException) {
             attemptStore.record(attemptId, CollectorDiagnosticStage.GATT_CLOSE, CollectorDiagnosticResult.INFO, "BLE-/GATT-Ressourcen geschlossen")
             fail(store.read(), G7CollectorError(error.errorCode, error.recoverable, System.currentTimeMillis(), error.message), attemptId, startedAt)
@@ -831,14 +826,6 @@ class G7CollectorService : Service() {
             )
         }
         G7SignalLossMonitor.scheduleFromState(this, next)
-        updateForeground(
-            if (softWindowFailure) {
-                "Dauerbetrieb aktiv · nächstes Sensorfenster wird abgewartet"
-            } else {
-                "${error.code}: ${error.safeMessage}"
-            },
-        )
-
         val classification = when {
             error.code.startsWith("G7-SETUP-") || error.code.startsWith("G7-PERM-") -> CollectorCycleClassification.SERVICE_START_FAILED
             error.code == "G7-STORE-500" -> CollectorCycleClassification.STORE_FAILED
@@ -1009,8 +996,8 @@ class G7CollectorService : Service() {
         }
     }
 
-    private fun startForegroundCollector(message: String) {
-        val notification = notification(message)
+    private fun startForegroundCollector() {
+        val notification = notification()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } else {
@@ -1018,11 +1005,11 @@ class G7CollectorService : Service() {
         }
     }
 
-    private fun updateForeground(message: String) {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(message))
+    private fun updateForegroundForNewReading() {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
     }
 
-    internal fun notification(message: String): Notification {
+    internal fun notification(): Notification {
         val openIntent = Intent(this, G7WatchActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
@@ -1035,8 +1022,7 @@ class G7CollectorService : Service() {
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_g7_notification)
             .setColor(0xFF6DE892.toInt())
-            .setContentTitle("SugarWear")
-            .setContentText(message)
+            .setContentTitle("Foreground Channel")
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
@@ -1108,13 +1094,8 @@ class G7CollectorService : Service() {
             }
         }
         if (shouldKeepG7RuntimeForeground(current.collectorEnabled)) {
-            val message = when (current.protocolState) {
-                G7ProtocolState.WAITING_FOR_NEXT_READING -> "Dauerbetrieb aktiv · wartet auf nächstes Sensorfenster"
-                G7ProtocolState.RECOVERING -> "Dauerbetrieb aktiv · automatische Wiederverbindung"
-                G7ProtocolState.ERROR -> current.lastError?.let { "${it.code}: ${it.safeMessage}" } ?: "Collector prüfen"
-                else -> "Dauerbetrieb aktiv"
-            }
-            updateForeground(message)
+            // The ongoing notification is only a foreground-service anchor. Runtime phase and
+            // diagnostics belong in Systemstatus and must not churn the notification surface.
         } else {
             stopRuntimeForeground()
         }
