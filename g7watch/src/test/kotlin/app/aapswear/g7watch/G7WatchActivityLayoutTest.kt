@@ -208,7 +208,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `collector settings keep live status above eight grouped sections`() {
+    fun `collector settings contain product sections and retain about`() {
         val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = activity.findViewById<android.view.View>(android.R.id.content)
         val headers = mutableListOf<android.view.View>()
@@ -220,11 +220,23 @@ class G7WatchActivityLayoutTest {
         collect(root)
 
         assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
+        assertEquals(listOf("Anzeige", "Alarme", "SugarWear", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
         assertEquals(
             G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
             headers.map { it.tag.toString() },
         )
         assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+        activity.finish()
+    }
+
+    @Test
+    fun `sugarwear opens system status`() {
+        val activity = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
+        val root = activity.findViewById<android.view.View>(android.R.id.content)
+
+        (findText(root, "SugarWear")!!.parent.parent as android.view.View).performClick()
+
+        assertEquals(G7SystemStatusActivity::class.java.name, Shadows.shadowOf(activity).nextStartedActivity.component?.className)
         activity.finish()
     }
 
@@ -246,7 +258,7 @@ class G7WatchActivityLayoutTest {
     fun `direct to watch category opens complete watchface settings`() {
         val settings = Robolectric.buildActivity(G7SettingsActivity::class.java).setup().get()
         val root = settings.findViewById<android.view.View>(android.R.id.content)
-        val header = findText(root, "SugarWear")!!
+        val header = findText(root, "Vigil")!!
         (header.parent.parent as android.view.View).performClick()
         assertEquals(G7DirectToWatchSettingsActivity::class.java.name, Shadows.shadowOf(settings).nextStartedActivity.component?.className)
 

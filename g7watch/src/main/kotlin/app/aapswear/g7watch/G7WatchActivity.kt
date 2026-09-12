@@ -453,7 +453,7 @@ class G7WatchActivity : Activity() {
 
         val state = G7SensorStateStore(this).read()
         val credentials = G7CredentialStore(this).read()
-        val userStatus = deriveG7UserStatus(state, credentials != null)
+        val pillState = deriveG7StatusPillState(state, credentials != null)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -464,7 +464,7 @@ class G7WatchActivity : Activity() {
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
         content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
-        content.addView(header(palette, userStatus))
+        content.addView(header(palette, pillState))
 
         content.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_settings)
@@ -505,7 +505,7 @@ class G7WatchActivity : Activity() {
         if (previousScrollY > 0) scrollView.post { scrollView.scrollTo(0, previousScrollY) }
     }
 
-    private fun header(palette: G7AppearancePalette, status: G7UserStatus) = LinearLayout(this).apply {
+    private fun header(palette: G7AppearancePalette, status: G7StatusPillState) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
         statusHost = LinearLayout(this@G7WatchActivity).apply {
@@ -598,10 +598,10 @@ class G7WatchActivity : Activity() {
         preserveScrollPosition(preserveScroll) {
             val state = G7SensorStateStore(this).read()
             val credentials = G7CredentialStore(this).read()
-            val userStatus = deriveG7UserStatus(state, credentials != null)
+            val pillState = deriveG7StatusPillState(state, credentials != null)
 
             statusHost.removeAllViews()
-            statusHost.addView(statusPill(userStatus, palette))
+            statusHost.addView(statusPill(pillState, palette))
             glucoseHost.removeAllViews()
             glucoseHost.addView(label("Gewebeglukose", 11f, 0xFFFFFFFF.toInt(), false).apply {
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
@@ -680,9 +680,9 @@ class G7WatchActivity : Activity() {
         directSettings.saveGraphHours(next)
     }
 
-    private fun statusPill(status: G7UserStatus, palette: G7AppearancePalette): TextView {
+    private fun statusPill(status: G7StatusPillState, palette: G7AppearancePalette): TextView {
         val color = statusColor(status, palette)
-        val marker = if (status.level == G7UserStatusLevel.OFF) "○" else "●"
+        val marker = if (status == G7StatusPillState.NO_ACTIVE_SENSOR) "○" else "●"
         return label("$marker  ${status.title.uppercase(Locale.GERMANY)}", 10f, color, true).apply {
             background = rounded(withAlpha(color, 36), color, 999f)
             maxWidth = 300.dp
@@ -694,11 +694,11 @@ class G7WatchActivity : Activity() {
         }
     }
 
-    private fun statusColor(status: G7UserStatus, palette: G7AppearancePalette): Int = when (status.level) {
-        G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
-        G7UserStatusLevel.ATTENTION -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
-        G7UserStatusLevel.ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-        G7UserStatusLevel.OFF -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+    private fun statusColor(status: G7StatusPillState, palette: G7AppearancePalette): Int = when (status) {
+        G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
+        G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
+        G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
+        G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
     }
 
     private enum class PillStyle { PRIMARY, SECONDARY, DANGER }

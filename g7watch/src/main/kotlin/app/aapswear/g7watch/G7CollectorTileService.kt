@@ -132,12 +132,12 @@ internal fun g7TilePresentation(
     )
 }
 
-internal fun g7TileStatusPresentation(status: G7UserStatus, palette: G7AppearancePalette? = null): G7TileStatusPresentation {
-    val color = when (status.level) {
-        G7UserStatusLevel.OK, G7UserStatusLevel.WORKING -> palette?.argb(G7AppearanceRole.MENU_PRIMARY) ?: G7_TILE_ACCENT
-        G7UserStatusLevel.ATTENTION -> palette?.argb(G7AppearanceRole.GLUCOSE_HIGH) ?: G7_TILE_WARNING
-        G7UserStatusLevel.ERROR -> palette?.argb(G7AppearanceRole.GLUCOSE_ERROR) ?: G7_TILE_ERROR
-        G7UserStatusLevel.OFF -> palette?.argb(G7AppearanceRole.MENU_TEXT_SECONDARY) ?: G7_TILE_TEXT_SECONDARY
+internal fun g7TileStatusPresentation(status: G7StatusPillState, palette: G7AppearancePalette? = null): G7TileStatusPresentation {
+    val color = when (status) {
+        G7StatusPillState.CONNECTED -> palette?.argb(G7AppearanceRole.MENU_PRIMARY) ?: G7_TILE_ACCENT
+        G7StatusPillState.SIGNAL_LOSS -> palette?.argb(G7AppearanceRole.GLUCOSE_STALE) ?: G7_TILE_WARNING
+        G7StatusPillState.SENSOR_ERROR -> palette?.argb(G7AppearanceRole.GLUCOSE_ERROR) ?: G7_TILE_ERROR
+        G7StatusPillState.NO_ACTIVE_SENSOR -> palette?.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE) ?: G7_TILE_TEXT_SECONDARY
     }
     return G7TileStatusPresentation(status.title.uppercase(Locale.GERMANY), color)
 }
@@ -214,12 +214,12 @@ class G7CollectorTileService : TileService() {
             }
         val persistedState = G7SensorStateStore(this).read()
         val credentialsPresent = G7CredentialStore(this).read() != null
-        val userStatus = deriveG7UserStatus(persistedState, credentialsPresent)
+        val pillState = deriveG7StatusPillState(persistedState, credentialsPresent)
         val colorStore = G7GraphColorStore(this)
         val appearanceStore = G7AppearanceStore(this)
         val palette = appearanceStore.load()
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
-        val statusPresentation = g7TileStatusPresentation(userStatus, palette)
+        val statusPresentation = g7TileStatusPresentation(pillState, palette)
         val configuredTrendStyle = appearanceStore.trendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =

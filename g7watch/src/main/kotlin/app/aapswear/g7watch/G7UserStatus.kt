@@ -5,6 +5,34 @@ import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
 import app.aapswear.g7.G7SensorAvailability
+import app.aapswear.g7.CgmReadingStatus
+
+internal enum class G7StatusPillState(val title: String) {
+    CONNECTED("Verbunden"),
+    SIGNAL_LOSS("Signalverlust"),
+    SENSOR_ERROR("Sensorfehler"),
+    NO_ACTIVE_SENSOR("Kein aktiver Sensor gekoppelt"),
+}
+
+internal fun deriveG7StatusPillState(
+    state: G7PersistedState,
+    credentialsPresent: Boolean,
+    nowEpochMs: Long = System.currentTimeMillis(),
+): G7StatusPillState {
+    val sensor = state.sensor
+    if (!state.collectorEnabled || sensor == null || !credentialsPresent || sensor.state == G7SensorState.ENDED) {
+        return G7StatusPillState.NO_ACTIVE_SENSOR
+    }
+    if (sensor.state == G7SensorState.ERROR || state.lastReading?.status == CgmReadingStatus.SENSOR_ERROR) {
+        return G7StatusPillState.SENSOR_ERROR
+    }
+    val readingAgeMs = state.lastReading?.timestampEpochMs?.let { (nowEpochMs - it).coerceAtLeast(0L) }
+    return if (readingAgeMs != null && readingAgeMs < G7_SIGNAL_LOSS_AFTER_MS) {
+        G7StatusPillState.CONNECTED
+    } else {
+        G7StatusPillState.SIGNAL_LOSS
+    }
+}
 
 internal enum class G7UserStatusLevel { OK, WORKING, ATTENTION, ERROR, OFF }
 

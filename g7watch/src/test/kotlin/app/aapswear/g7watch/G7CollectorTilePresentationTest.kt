@@ -113,31 +113,17 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `collector ok and working status use Sugarlicious green pill`() {
-        val ok = g7TileStatusPresentation(
-            G7UserStatus(
-                level = G7UserStatusLevel.OK,
-                title = "Verbunden",
-                phase = "Bereit",
-                status = "Aktiv",
-                description = "ok",
-                action = "none",
-            ),
-        )
-        val working = g7TileStatusPresentation(
-            G7UserStatus(
-                level = G7UserStatusLevel.WORKING,
-                title = "Verbindung wird aufgebaut",
-                phase = "Verbinden",
-                status = "Aktiv",
-                description = "working",
-                action = "none",
-            ),
-        )
+    fun `tile pill uses only stable SugarWear status`() {
+        val connected = g7TileStatusPresentation(G7StatusPillState.CONNECTED)
+        val signalLoss = g7TileStatusPresentation(G7StatusPillState.SIGNAL_LOSS)
+        val sensorError = g7TileStatusPresentation(G7StatusPillState.SENSOR_ERROR)
+        val noSensor = g7TileStatusPresentation(G7StatusPillState.NO_ACTIVE_SENSOR)
 
-        assertEquals("VERBUNDEN", ok.label)
-        assertEquals(G7_TILE_ACCENT, ok.color)
-        assertEquals(G7_TILE_ACCENT, working.color)
+        assertEquals("VERBUNDEN", connected.label)
+        assertEquals("SIGNALVERLUST", signalLoss.label)
+        assertEquals("SENSORFEHLER", sensorError.label)
+        assertEquals("KEIN AKTIVER SENSOR GEKOPPELT", noSensor.label)
+        assertEquals(G7_TILE_ACCENT, connected.color)
         assertEquals(0x246DE892, withTileAlpha(G7_TILE_ACCENT, 36))
     }
 

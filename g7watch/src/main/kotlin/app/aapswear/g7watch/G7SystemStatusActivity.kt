@@ -50,10 +50,6 @@ class G7SystemStatusActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        when (intent.getStringExtra(EXTRA_SECTION)) {
-            G7SettingsSection.HARDWARE_TEST.name -> hardwareExpanded = true
-            G7SettingsSection.DIAGNOSTICS.name -> diagnosticsExpanded = true
-        }
         G7RuntimeReconciler.reconcile(this, G7RuntimeEntryPoint.SYSTEM_STATUS)
         render()
     }

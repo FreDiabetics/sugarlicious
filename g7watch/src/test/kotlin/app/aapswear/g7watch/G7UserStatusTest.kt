@@ -28,6 +28,51 @@ class G7UserStatusTest {
         receivedAtEpochMs = at,
     )
 
+    @Test fun `pill exposes only the four stable user states`() {
+        val healthy = G7PersistedState(
+            sensor = sensor.copy(state = G7SensorState.ACTIVE),
+            collectorEnabled = true,
+            protocolState = G7ProtocolState.RECOVERING,
+            lastReading = reading(now - 5 * 60_000L),
+        )
+
+        assertEquals(G7StatusPillState.CONNECTED, deriveG7StatusPillState(healthy, true, now))
+        assertEquals(
+            G7StatusPillState.SIGNAL_LOSS,
+            deriveG7StatusPillState(healthy.copy(lastReading = reading(now - G7_SIGNAL_LOSS_AFTER_MS)), true, now),
+        )
+        assertEquals(
+            G7StatusPillState.SENSOR_ERROR,
+            deriveG7StatusPillState(healthy.copy(sensor = sensor.copy(state = G7SensorState.ERROR)), true, now),
+        )
+        assertEquals(G7StatusPillState.NO_ACTIVE_SENSOR, deriveG7StatusPillState(G7PersistedState(), false, now))
+        assertEquals(
+            listOf("Verbunden", "Signalverlust", "Sensorfehler", "Kein aktiver Sensor gekoppelt"),
+            G7StatusPillState.entries.map { it.title },
+        )
+    }
+
+    @Test fun `collector phases do not alter a healthy connected pill`() {
+        val intermediatePhases = listOf(
+            G7ProtocolState.SCANNING,
+            G7ProtocolState.CONNECTING,
+            G7ProtocolState.AUTHENTICATING,
+            G7ProtocolState.BACKFILL,
+            G7ProtocolState.RECOVERING,
+            G7ProtocolState.WAITING_FOR_NEXT_READING,
+        )
+
+        intermediatePhases.forEach { phase ->
+            val state = G7PersistedState(
+                sensor = sensor.copy(state = G7SensorState.ACTIVE),
+                collectorEnabled = true,
+                protocolState = phase,
+                lastReading = reading(now - 5 * 60_000L),
+            )
+            assertEquals(phase.name, G7StatusPillState.CONNECTED, deriveG7StatusPillState(state, true, now))
+        }
+    }
+
     @Test fun `waiting between healthy readings is explicit normal operation`() {
         val status = deriveG7UserStatus(
             G7PersistedState(

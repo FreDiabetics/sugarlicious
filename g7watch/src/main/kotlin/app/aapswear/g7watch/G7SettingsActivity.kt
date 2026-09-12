@@ -14,19 +14,15 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 internal enum class G7SettingsSection(val title: String, val summary: String) {
-    COLLECTOR("Collector", "Betrieb, Zeitplanung und Hintergrundstatus"),
-    SENSOR_SESSION("Sensor und Session", "Sensoridentität, Laufzeit und Kopplung"),
-    ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
-    DIRECT_TO_WATCH("SugarWear", "Watchface"),
-    HARDWARE_TEST("Hardwaretest", "BLE-, GATT- und Sensorfenster-Diagnose"),
-    DIAGNOSTICS("Diagnose", "Attempts, Fehlercodes und Recovery"),
-    DATA_MANAGEMENT("Datenverwaltung", "Lokale Collector- und Sitzungsdaten"),
+    ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
+    SUGARWEAR("SugarWear", "Systemstatus, Sensor und Diagnose"),
+    VIGIL("Vigil", "Watchface"),
     ABOUT("Über", "SugarWear"),
 }
 
 class G7SettingsActivity : Activity() {
-    private val expandedSections = linkedSetOf<G7SettingsSection>()
+    private var aboutExpanded = false
     private lateinit var pageRoot: LinearLayout
     private lateinit var scrollView: ScrollView
 
@@ -90,20 +86,16 @@ class G7SettingsActivity : Activity() {
     }
 
     private fun addSection(section: G7SettingsSection, palette: G7AppearancePalette) {
-        val isInlineSection = section == G7SettingsSection.ABOUT
-        val expanded = isInlineSection && section in expandedSections
+        val isAbout = section == G7SettingsSection.ABOUT
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            visibility = if (expanded) View.VISIBLE else View.GONE
-            when (section) {
-                G7SettingsSection.ABOUT -> {
-                    val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                    addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
-                }
-                else -> Unit
+            visibility = if (isAbout && aboutExpanded) View.VISIBLE else View.GONE
+            if (isAbout) {
+                val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+                addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
             }
         }
-        val chevron = text(if (expanded) "⌄" else "›", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
+        val chevron = text(if (isAbout && aboutExpanded) "⌄" else "›", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
             gravity = Gravity.CENTER
         }
         val header = LinearLayout(this).apply {
@@ -122,11 +114,10 @@ class G7SettingsActivity : Activity() {
             }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
             setOnClickListener {
-                if (isInlineSection) {
-                    val wasExpanded = section in expandedSections
-                    if (wasExpanded) expandedSections.remove(section) else expandedSections.add(section)
-                    content.visibility = if (wasExpanded) View.GONE else View.VISIBLE
-                    chevron.text = if (wasExpanded) "›" else "⌄"
+                if (isAbout) {
+                    aboutExpanded = !aboutExpanded
+                    content.visibility = if (aboutExpanded) View.VISIBLE else View.GONE
+                    chevron.text = if (aboutExpanded) "⌄" else "›"
                 } else {
                     openSection(section)
                 }
@@ -139,23 +130,12 @@ class G7SettingsActivity : Activity() {
     private fun openSection(section: G7SettingsSection) {
         val intent = when (section) {
             G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
-            G7SettingsSection.DIRECT_TO_WATCH -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
             G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
+            G7SettingsSection.SUGARWEAR -> Intent(this, G7SystemStatusActivity::class.java)
+            G7SettingsSection.VIGIL -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
             G7SettingsSection.ABOUT -> return
-            else -> Intent(this, G7SystemStatusActivity::class.java)
-                .putExtra(G7SystemStatusActivity.EXTRA_SECTION, section.name)
         }
         startActivity(intent)
-    }
-
-    private fun sectionActionTitle(section: G7SettingsSection): String = when (section) {
-        G7SettingsSection.COLLECTOR -> "Collector-Status und Aktionen"
-        G7SettingsSection.SENSOR_SESSION -> "Sensor- und Sessionstatus"
-        G7SettingsSection.ALARMS -> "Alarm- und Berechtigungsstatus"
-        G7SettingsSection.HARDWARE_TEST -> "Hardwaretest öffnen"
-        G7SettingsSection.DIAGNOSTICS -> "Collector-Diagnose öffnen"
-        G7SettingsSection.DATA_MANAGEMENT -> "Lokale Daten und Status"
-        G7SettingsSection.DISPLAY, G7SettingsSection.DIRECT_TO_WATCH, G7SettingsSection.ABOUT -> section.title
     }
 
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Einstellungen", palette)
