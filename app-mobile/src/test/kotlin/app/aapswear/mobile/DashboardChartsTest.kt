@@ -109,6 +109,39 @@ class DashboardChartsTest {
         SugarliciousColors.apply(SugarliciousPalette.defaults())
     }
 
+    @Test fun `range backgrounds continue across the prediction side`() {
+        val preferences = context.getSharedPreferences("chart_prediction_range_color", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val inRange = Color.rgb(31, 211, 71)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_IN_RANGE, inRange)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        val now = System.currentTimeMillis()
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+            glucoseHistory = listOf(GlucoseSample(120.0, now)),
+            target = TargetState(80.0, 160.0),
+        )
+        val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L, now) }
+        val bitmap = render(
+            GlucoseDashboardChart(context, sharedViewport = viewport).apply {
+                bind(state, GlucoseUnit.MG_DL, false, 6, showTargetRange = true, clockEpochMs = now)
+            },
+            230,
+        )
+
+        val rightPredictionLanePixels = (0 until bitmap.height).sumOf { y ->
+            ((bitmap.width * 0.90).toInt() until (bitmap.width * 0.96).toInt()).count { x -> bitmap.getPixel(x, y) == inRange }
+        }
+        assertTrue("right prediction range pixels=$rightPredictionLanePixels", rightPredictionLanePixels > 20)
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
+    }
+
+    @Test fun `jetzt label is anchored at the prediction divider instead of the right edge`() {
+        assertEquals(360f, currentTimeLabelAnchor(dividerX = 360f, plotRight = 420f, edgePadding = 3f))
+        assertEquals(417f, currentTimeLabelAnchor(dividerX = 425f, plotRight = 420f, edgePadding = 3f))
+    }
+
     @Test fun `range excursion requires two consecutive valid values`() {
         val now = 10_000_000L
         fun samples(vararg values: Double) = values.mapIndexed { index, value ->
@@ -348,12 +381,13 @@ class DashboardChartsTest {
         assertTrue("dividerX=$dividerX scaleEnd=$scaleEnd", dividerX > scaleEnd)
     }
 
-    @Test fun `toolkit metabolic scaling adds headroom aligns zero and uses fixed smb sizes`() {
+    @Test fun `metabolic scaling follows AndroidAPS nice linear ranges and fixed smb sizes`() {
         val iob = toolkitMetabolicRange(listOf(0.5, 2.0))
         val cob = toolkitMetabolicRange(listOf(10.0, 30.0), iob.zeroRatio)
-        assertEquals(2.0 * 1.55, iob.maximum, 0.0001)
-        assertEquals(-iob.maximum * 0.02, iob.minimum, 0.0001)
-        assertEquals(30.0 * 1.55, cob.maximum, 0.0001)
+        assertEquals(2.0, iob.maximum, 0.0001)
+        assertEquals(0.0, iob.minimum, 0.0001)
+        assertEquals(30.0, cob.maximum, 0.0001)
+        assertEquals(0.0, cob.minimum, 0.0001)
         assertEquals(iob.zeroRatio, cob.zeroRatio, 0.0001)
         assertEquals(7f, toolkitSmbMarkerSide(0.1))
         assertEquals(11f, toolkitSmbMarkerSide(0.25))
@@ -463,6 +497,33 @@ class DashboardChartsTest {
         )
         assertEquals(boundary, actual.last().first)
         assertEquals(actual.last(), prediction.first())
+    }
+
+    @Test fun `CGM insulin activity uses AndroidAPS eighty percent of full graph height`() {
+        val now = System.currentTimeMillis()
+        val history = (0..4).map { index ->
+            TherapyHistorySample(
+                measuredAtEpochMs = now - (4 - index) * 5L * 60_000L,
+                insulinActivityUnitsPerMinute = 0.01 + index * 0.01,
+            )
+        }
+        val state = TherapyDisplayState(
+            receivedAtEpochMs = now,
+            glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+            glucoseHistory = listOf(GlucoseSample(115.0, now - 5L * 60_000L), GlucoseSample(120.0, now)),
+            therapyHistory = history,
+            target = TargetState(80.0, 160.0),
+        )
+        val bitmap = render(
+            GlucoseDashboardChart(context).apply {
+                bind(state, GlucoseUnit.MG_DL, false, 3, showActivity = true, clockEpochMs = now)
+            },
+            230,
+        )
+        val activityTop = (0 until bitmap.height).firstOrNull { y ->
+            (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
+        } ?: bitmap.height
+        assertTrue("activityTop=$activityTop", activityTop < bitmap.height * 0.35)
     }
 
     @Test fun `glucose dots use alert color outside display range`() {
