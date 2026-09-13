@@ -34,6 +34,10 @@ import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.GraphAxis
+import app.aapswear.model.GraphAxisScale
+import app.aapswear.model.GraphBounds
+import app.aapswear.model.GraphScaleSession
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RangeExcursion
@@ -48,9 +52,6 @@ import app.aapswear.model.TargetStepTimeline
 import app.aapswear.storage.PredictionDisplayTimeline
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.log10
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
@@ -73,6 +74,30 @@ internal fun sustainedRangeExcursion(
     lowMgDl: Double,
     highMgDl: Double,
 ): RangeExcursion? = CgmGraphPolicy.rangeExcursion(samples, lowMgDl, highMgDl)
+
+internal class StaticGraphScaleStore(private val preferences: SharedPreferences) {
+    fun restore(session: GraphScaleSession) {
+        listOf(GraphAxis.IOB, GraphAxis.COB, GraphAxis.INSULIN_ACTIVITY).forEach { axis ->
+            val minimumKey = key(axis, "minimum")
+            val maximumKey = key(axis, "maximum")
+            if (!preferences.contains(minimumKey) || !preferences.contains(maximumKey)) return@forEach
+            val minimum = Double.fromBits(preferences.getLong(minimumKey, 0L))
+            val maximum = Double.fromBits(preferences.getLong(maximumKey, 0L))
+            runCatching { GraphBounds(minimum, maximum) }.getOrNull()?.let { session.useConfiguredBounds(axis, it) }
+        }
+    }
+
+    fun persist(axis: GraphAxis, scale: GraphAxisScale) {
+        if (scale.mode == CgmGraphScaleMode.DYNAMIC || scale.mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) return
+        val bounds = scale.bounds
+        preferences.edit()
+            .putLong(key(axis, "minimum"), bounds.minimum.toBits())
+            .putLong(key(axis, "maximum"), bounds.maximum.toBits())
+            .apply()
+    }
+
+    private fun key(axis: GraphAxis, suffix: String) = "graph.static.${axis.name.lowercase(Locale.ROOT)}.$suffix"
+}
 
 internal fun availableGlucoseHistoryWindowMs(state: TherapyDisplayState?, nowEpochMs: Long): Long {
     val earliest =
@@ -429,6 +454,8 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
     private var graphMinimumMgDl = CgmGraphYScale.DEFAULT_MINIMUM_MG_DL
     private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
     private var renderedYScale: CgmGraphYScale? = null
+    private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
+    private val axisScaleSession = GraphScaleSession().also(staticScaleStore::restore)
     private var stateSignature: List<Any?>? = null
     private var clockBucket: Long = Long.MIN_VALUE
     private var renderNowEpochMs: Long = System.currentTimeMillis()
@@ -755,6 +782,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                     now,
                     state?.therapyHistory.orEmpty(),
                     state?.profile?.diaHours ?: 3.0,
+                    graphScaleMode,
                 )
             }
 
@@ -942,10 +970,12 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         now: Long,
         points: List<TherapyHistorySample>,
         diaHours: Double,
+        scaleMode: CgmGraphScaleMode,
     ) {
-        val actual = points.mapNotNull { point ->
+        val allActual = points.mapNotNull { point ->
             point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
-        }.filter { it.first in start..min(end, now) }.sortedBy { it.first }
+        }.sortedBy { it.first }
+        val actual = allActual.filter { it.first in start..min(end, now) }
         if (actual.size < 2) return
         val boundaryTime = max(now, actual.last().first)
         val future = buildActivityProjection(actual.last(), boundaryTime, end, diaHours)
@@ -954,8 +984,16 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         val (smoothedActual, smoothedFuture) = continuousActivitySeries(actual, future, boundaryTime)
         // Scale the curve actually drawn, so smoothing cannot shrink the intended AAPS-style
         // 80 percent graph-height envelope.
-        val maxActivity = max(0.0001, (smoothedActual.map { it.second } + smoothedFuture.map { it.second }).maxOrNull() ?: 0.0001)
-        fun activityY(value: Double): Float = band.bottom - (value / maxActivity).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
+        val activityScale = axisScaleSession.resolve(
+            axis = GraphAxis.INSULIN_ACTIVITY,
+            mode = scaleMode,
+            seedValues = allActual.map { it.second },
+            visibleValues = smoothedActual.map { it.second } + smoothedFuture.map { it.second },
+            fallbackBounds = GraphBounds(0.0, 0.01),
+            minimumSpan = 0.001,
+        )
+        staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, activityScale)
+        fun activityY(value: Double): Float = band.bottom - activityScale.ratio(value).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
         val yellow = Color.rgb(242, 201, 76)
         linePaint.color = yellow
         linePaint.strokeWidth = 1.35f.dp
@@ -1052,6 +1090,9 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private var renderNowEpochMs: Long = System.currentTimeMillis()
     private var scaleOnRight = false
     private var showTimeAxis = false
+    private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
+    private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
+    private val axisScaleSession = GraphScaleSession().also(staticScaleStore::restore)
 
     fun bind(
         state: TherapyDisplayState?,
@@ -1059,10 +1100,11 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(),
         scaleOnRight: Boolean = false,
         showTimeAxis: Boolean = false,
+        graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
         clockEpochMs: Long = System.currentTimeMillis(),
     ) {
         val clockBucket = clockEpochMs / 30_000L
-        val newStateSignature = state?.let { listOf(it.glucose, it.therapyHistory, it.therapyEvents, markerVisibility, scaleOnRight, showTimeAxis, clockBucket) }
+        val newStateSignature = listOf(state?.glucose, state?.therapyHistory, state?.therapyEvents, markerVisibility, scaleOnRight, showTimeAxis, graphScaleMode, clockBucket)
         if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
         this.state = state
         stateSignature = newStateSignature
@@ -1070,6 +1112,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         this.markerVisibility = markerVisibility
         this.scaleOnRight = scaleOnRight
         this.showTimeAxis = showTimeAxis
+        this.graphScaleMode = graphScaleMode
         renderNowEpochMs = clockEpochMs
         if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
         invalidate()
@@ -1109,14 +1152,12 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val cobProjection = buildCobProjection(allPoints, projectionNow, end)
             // AndroidAPS derives each secondary axis from the values visible in that graph,
             // including its projected continuation, and rounds to a linear nice-number range.
-            val iobRange = toolkitMetabolicRange(
-                points.mapNotNull { it.totalIob } + iobProjection.map { it.second },
-                maxTickCount = 3,
-            )
-            val cobRange = toolkitMetabolicRange(
-                points.mapNotNull { it.cobGrams } + cobProjection.map { it.second },
-                maxTickCount = 5,
-            )
+            val scales = resolveMetabolicScales(axisScaleSession, graphScaleMode, allPoints, points, iobProjection, cobProjection)
+            staticScaleStore.persist(GraphAxis.IOB, scales.iob)
+            staticScaleStore.persist(GraphAxis.COB, scales.cob)
+            staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, scales.activity)
+            val iobRange = scales.iob
+            val cobRange = scales.cob
             val dividerTimestamp = viewportSnapshot.liveEdgeEpochMs
             // Keep the semantic boundary in data coordinates. A historical viewport may move it
             // completely off-screen; clamping it to an edge would turn it into a sticky overlay.
@@ -1127,7 +1168,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 addRoundRect(cobLanePlot, radius, radius, Path.Direction.CW)
             })
             drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
-            drawInsulinActivity(canvas, iobDataPlot, allPoints, points, start, end, iobRange)
+            drawInsulinActivity(canvas, iobDataPlot, points, start, end, scales.activity)
             drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
             if (!scaleOnRight && dividerTimestamp in start..end) {
                 linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
@@ -1198,14 +1239,14 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         start: Long,
         end: Long,
         iob: Boolean,
-        range: ToolkitMetabolicRange,
+        range: GraphAxisScale,
         drawScale: Boolean = true,
     ) {
         val actual = points.mapNotNull { point ->
             (if (iob) point.totalIob else point.cobGrams)?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it }
         }.sortedBy { it.first }
         if (actual.isEmpty()) return
-        fun y(value: Double) = mapLinearY(value, range.minimum, range.maximum, plot)
+        fun y(value: Double) = mapAxisY(value, range, plot)
         val zeroY = y(0.0)
         val color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
         val area = if (iob) stepPath(actual, start, end, plot, ::y, closeAt = zeroY)
@@ -1224,7 +1265,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         if (drawScale) drawMetabolicScale(canvas, plot, range, scaleOnRight)
     }
 
-    private fun drawMetabolicScale(canvas: Canvas, plot: RectF, range: ToolkitMetabolicRange, onRight: Boolean) {
+    private fun drawMetabolicScale(canvas: Canvas, plot: RectF, range: GraphAxisScale, onRight: Boolean) {
         val tickGap = 2f.dp
         val tickLength = 5f.dp
         val labelX = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
@@ -1238,10 +1279,10 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         }
         val scaleMetrics = scalePaint.fontMetrics
         val align = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
-        drawText(canvas, formatMetabolicScale(range.maximum), labelX, maximumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
+        drawText(canvas, formatMetabolicScale(range.bounds.maximum), labelX, maximumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
         drawMetabolicScaleTick(canvas, plot, maximumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
-        if (range.minimum < -0.01) {
-            drawText(canvas, formatMetabolicScale(range.minimum), labelX, minimumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
+        if (range.bounds.minimum < -0.01) {
+            drawText(canvas, formatMetabolicScale(range.bounds.minimum), labelX, minimumBaseline, scaleTextSizeSp, labelColor, align, bold = true)
             drawMetabolicScaleTick(canvas, plot, minimumBaseline + (scaleMetrics.ascent + scaleMetrics.descent) / 2f, onRight)
         }
     }
@@ -1264,23 +1305,16 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private fun drawInsulinActivity(
         canvas: Canvas,
         plot: RectF,
-        allPoints: List<TherapyHistorySample>,
         visiblePoints: List<TherapyHistorySample>,
         start: Long,
         end: Long,
-        iobRange: ToolkitMetabolicRange,
+        activityScale: GraphAxisScale,
     ) {
         val actual = visiblePoints.mapNotNull { point ->
             point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
         }.sortedBy { it.first }
         if (actual.size < 2) return
-        val maximumActivity = allPoints.mapNotNull { it.insulinActivityUnitsPerMinute }
-            .filter { it.isFinite() && it >= 0.0 }
-            .maxOrNull()?.coerceAtLeast(0.000001) ?: return
-        val maximumIob = allPoints.mapNotNull { it.totalIob }.filter { it.isFinite() }
-            .maxOrNull()?.coerceAtLeast(0.1) ?: 0.1
-        val activityScale = maximumIob * ACTIVITY_HEIGHT_FRACTION / maximumActivity
-        fun y(value: Double) = mapLinearY(value * activityScale, iobRange.minimum, iobRange.maximum, plot)
+        fun y(value: Double) = plot.bottom - activityScale.ratio(value).toFloat() * plot.height() * ACTIVITY_HEIGHT_FRACTION
         val smoothed = smoothSeries(actual)
         linePaint.color = Color.rgb(242, 201, 76)
         linePaint.strokeWidth = 1.6f.dp
@@ -1294,12 +1328,12 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         values: List<Pair<Long, Double>>,
         start: Long,
         end: Long,
-        range: ToolkitMetabolicRange,
+        range: GraphAxisScale,
         color: Int,
         iob: Boolean,
     ) {
         if (values.size < 2) return
-        fun y(value: Double) = mapLinearY(value, range.minimum, range.maximum, plot)
+        fun y(value: Double) = mapAxisY(value, range, plot)
         linePaint.color = withAlpha(color, 210)
         linePaint.strokeWidth = 1.8f.dp
         linePaint.pathEffect = DashPathEffect(floatArrayOf(5f.dp, 4f.dp), 0f)
@@ -1321,8 +1355,8 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         legacyPoints: List<TherapyHistorySample>,
         start: Long,
         end: Long,
-        iobRange: ToolkitMetabolicRange,
-        cobRange: ToolkitMetabolicRange,
+        iobRange: GraphAxisScale,
+        cobRange: GraphAxisScale,
     ) {
         val visible = events
             .flatMap(::expandECarbSimulation)
@@ -1333,8 +1367,8 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             point.smbUnits?.takeIf { it > 0.0 && explicitSmbTimes.none { time -> kotlin.math.abs(time - point.measuredAtEpochMs) < 1_000L } }
                 ?.let { TherapyEvent("legacy-smb:${point.measuredAtEpochMs}:$it", TherapyEventKind.SMB, point.measuredAtEpochMs, it) }
         }
-        val zeroY = mapLinearY(0.0, iobRange.minimum, iobRange.maximum, iobData)
-        val cobZeroY = mapLinearY(0.0, cobRange.minimum, cobRange.maximum, cobData)
+        val zeroY = mapAxisY(0.0, iobRange, iobData)
+        val cobZeroY = mapAxisY(0.0, cobRange, cobData)
         (visible + legacySmb).forEach { event ->
             val side = treatmentMarkerSide(event.kind, event.amount).dp
             val half = side / 2f
@@ -1388,12 +1422,12 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         )
     }
 
-    private fun drawCurveMarker(canvas: Canvas, event: TherapyEvent, plot: RectF, history: List<TherapyHistorySample>, start: Long, end: Long, range: ToolkitMetabolicRange, iob: Boolean, side: Float, unit: String?, labelGapDp: Float = 3f) {
+    private fun drawCurveMarker(canvas: Canvas, event: TherapyEvent, plot: RectF, history: List<TherapyHistorySample>, start: Long, end: Long, range: GraphAxisScale, iob: Boolean, side: Float, unit: String?, labelGapDp: Float = 3f) {
         val value = interpolateTherapyValue(history, event.timestampEpochMs, iob) ?: 0.0
         val half = side / 2f
         val height = side * (sqrt(3.0).toFloat() / 2f)
         val x = mapX(event.timestampEpochMs, start, end, plot)
-        val y = mapLinearY(value, range.minimum, range.maximum, plot)
+        val y = mapAxisY(value, range, plot)
         fillPaint.color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
         canvas.drawPath(roundedDownTriangle(x, y, half, height, 2.4f.dp), fillPaint)
         unit?.let {
@@ -1434,73 +1468,49 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
     private val Float.dp get() = this * density
 }
 
-internal data class ToolkitMetabolicRange(val minimum: Double, val maximum: Double) {
-    val zeroRatio: Double get() = ((0.0 - minimum) / (maximum - minimum).coerceAtLeast(0.000001)).coerceIn(0.01, 0.95)
-}
+internal data class MobileMetabolicScales(
+    val iob: GraphAxisScale,
+    val cob: GraphAxisScale,
+    val activity: GraphAxisScale,
+)
 
-internal fun toolkitMetabolicRange(
-    values: List<Double>,
-    @Suppress("UNUSED_PARAMETER") sharedZeroRatio: Double? = null,
-    maxTickCount: Int = 5,
-): ToolkitMetabolicRange {
-    val finite = values.filter { it.isFinite() }
-    if (finite.isEmpty()) return ToolkitMetabolicRange(0.0, 1.0)
-    val scale = aapsZeroFloorNiceRange(
-        dataMin = finite.minOrNull() ?: 0.0,
-        dataMax = (finite.maxOrNull() ?: 0.0).coerceAtLeast(0.1),
-        maxTickCount = maxTickCount,
-    )
-    return ToolkitMetabolicRange(scale.minimum, scale.maximum)
-}
-
-internal data class AapsNiceScale(val minimum: Double, val maximum: Double, val step: Double)
-
-private fun aapsNiceNumber(range: Double, round: Boolean): Double {
-    val safeRange = range.coerceAtLeast(0.000001)
-    val exponent = floor(log10(safeRange))
-    val fraction = safeRange / 10.0.pow(exponent)
-    val niceFraction = if (round) {
-        when {
-            fraction < 1.5 -> 1.0
-            fraction < 3.0 -> 2.0
-            fraction < 7.0 -> 5.0
-            else -> 10.0
-        }
-    } else {
-        when {
-            fraction <= 1.0 -> 1.0
-            fraction <= 2.0 -> 2.0
-            fraction <= 2.5 -> 2.5
-            fraction <= 5.0 -> 5.0
-            else -> 10.0
-        }
-    }
-    return niceFraction * 10.0.pow(exponent)
-}
-
-private fun aapsNiceScale(minimum: Double, maximum: Double, maxTickCount: Int): AapsNiceScale {
-    val safeMaximum = if (maximum > minimum) maximum else minimum + 1.0
-    val range = aapsNiceNumber(safeMaximum - minimum, round = false)
-    val step = aapsNiceNumber(range / (maxTickCount.coerceAtLeast(2) - 1), round = true)
-    return AapsNiceScale(
-        minimum = floor(minimum / step) * step,
-        maximum = ceil(safeMaximum / step) * step,
-        step = step,
-    )
-}
-
-private fun aapsZeroFloorNiceRange(dataMin: Double, dataMax: Double, maxTickCount: Int): AapsNiceScale {
-    if (dataMin >= 0.0) return aapsNiceScale(0.0, dataMax, maxTickCount)
-    val negativeMagnitude = -dataMin
-    return if (dataMax / negativeMagnitude >= 10.0) {
-        val niceMaximum = aapsNiceNumber(dataMax.coerceAtLeast(0.000001), round = false)
-        val niceMinimum = -aapsNiceNumber(negativeMagnitude, round = false)
-        val step = aapsNiceNumber(niceMaximum / (maxTickCount.coerceAtLeast(2) - 1), round = true)
-        AapsNiceScale(niceMinimum, niceMaximum, step)
-    } else {
-        aapsNiceScale(dataMin, dataMax, maxTickCount)
-    }
-}
+/** Resolves every secondary axis through the same active mode without mixing their units. */
+internal fun resolveMetabolicScales(
+    session: GraphScaleSession,
+    mode: CgmGraphScaleMode,
+    allPoints: List<TherapyHistorySample>,
+    visiblePoints: List<TherapyHistorySample>,
+    iobProjection: List<Pair<Long, Double>>,
+    cobProjection: List<Pair<Long, Double>>,
+): MobileMetabolicScales = MobileMetabolicScales(
+    iob = session.resolve(
+        axis = GraphAxis.IOB,
+        mode = mode,
+        seedValues = allPoints.mapNotNull { it.totalIob } + iobProjection.map { it.second },
+        visibleValues = visiblePoints.mapNotNull { it.totalIob } + iobProjection.map { it.second },
+        fallbackBounds = GraphBounds(0.0, 1.0),
+        minimumSpan = 0.1,
+        maxTickCount = 3,
+    ),
+    cob = session.resolve(
+        axis = GraphAxis.COB,
+        mode = mode,
+        seedValues = allPoints.mapNotNull { it.cobGrams } + cobProjection.map { it.second },
+        visibleValues = visiblePoints.mapNotNull { it.cobGrams } + cobProjection.map { it.second },
+        fallbackBounds = GraphBounds(0.0, 10.0),
+        minimumSpan = 1.0,
+        maxTickCount = 5,
+    ),
+    activity = session.resolve(
+        axis = GraphAxis.INSULIN_ACTIVITY,
+        mode = mode,
+        seedValues = allPoints.mapNotNull { it.insulinActivityUnitsPerMinute },
+        visibleValues = visiblePoints.mapNotNull { it.insulinActivityUnitsPerMinute },
+        fallbackBounds = GraphBounds(0.0, 0.01),
+        minimumSpan = 0.001,
+        maxTickCount = 5,
+    ),
+)
 
 internal fun buildIobProjection(points: List<TherapyHistorySample>, now: Long, end: Long, diaHours: Double = 3.0): List<Pair<Long, Double>> {
     if (end <= now) return emptyList()
@@ -1782,6 +1792,9 @@ private fun mapLinearY(value: Double, minValue: Double, maxValue: Double, plot: 
     val ratio = ((value - minValue) / (maxValue - minValue).coerceAtLeast(0.000001)).coerceIn(0.0, 1.0)
     return plot.bottom - ratio.toFloat() * plot.height()
 }
+
+private fun mapAxisY(value: Double, scale: GraphAxisScale, plot: RectF): Float =
+    plot.bottom - scale.ratio(value).toFloat() * plot.height()
 
 private fun smoothSeries(values: List<Pair<Long, Double>>, radius: Int = 2): List<Pair<Long, Double>> {
     if (values.size < 3 || radius <= 0) return values

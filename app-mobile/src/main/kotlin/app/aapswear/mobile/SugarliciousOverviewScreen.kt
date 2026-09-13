@@ -719,6 +719,7 @@ private fun MetabolicGraphSurface(
                     !preferences.showCgmActivity &&
                     !preferences.anyCgmPredictionEnabled,
                 showTimeAxis = !preferences.showCgmGraph,
+                graphScaleMode = preferences.graphScaleMode,
                 clockEpochMs = now,
             )
         },

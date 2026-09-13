@@ -1,7 +1,9 @@
 package app.aapswear.model
 
-import kotlin.math.ln
-
+/**
+ * STATIC = fixed linear bounds; DYNAMIC = visible-window linear bounds;
+ * LOGARITHMIC = fixed logarithmic bounds; LOGARITHMIC_DYNAMIC = visible-window log bounds.
+ */
 enum class CgmGraphScaleMode { STATIC, DYNAMIC, LOGARITHMIC, LOGARITHMIC_DYNAMIC }
 
 /** One canonical CGM value-to-screen transform shared by every layer in a graph render. */
@@ -16,14 +18,16 @@ data class CgmGraphYScale(
     }
 
     fun ratio(valueMgDl: Double): Double {
-        val value = valueMgDl.coerceIn(minimumMgDl, maximumMgDl)
-        return when (mode) {
-            CgmGraphScaleMode.STATIC, CgmGraphScaleMode.DYNAMIC ->
-                (value - minimumMgDl) / (maximumMgDl - minimumMgDl)
-            CgmGraphScaleMode.LOGARITHMIC, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC ->
-                ln(value / minimumMgDl) / ln(maximumMgDl / minimumMgDl)
-        }.coerceIn(0.0, 1.0)
+        return asAxisScale().ratio(valueMgDl)
     }
+
+    fun inverseRatio(ratio: Double): Double = asAxisScale().inverseRatio(ratio)
+
+    private fun asAxisScale() = GraphAxisScale(
+        mode = mode,
+        bounds = GraphBounds(minimumMgDl, maximumMgDl),
+        logarithmicDomain = LogarithmicDomain.POSITIVE,
+    )
 
     companion object {
         const val DEFAULT_MINIMUM_MG_DL = 40.0
