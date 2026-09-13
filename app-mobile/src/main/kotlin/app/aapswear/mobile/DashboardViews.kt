@@ -19,6 +19,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousTheme
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.TherapyDisplayState
 import java.util.Locale
 
@@ -66,6 +67,8 @@ data class DashboardUiPreferences(
     val predictionDotOutlineWidthDp: Float = 0.70f,
     val compact: Boolean = true,
     val graphHours: Int = 3,
+    val graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+    val graphMinimumMgDl: Double = 40.0,
     val graphMaximumMgDl: Double = 400.0,
     val liveNotification: Boolean = false,
     val notificationGraphEnabled: Boolean = true,
@@ -124,6 +127,10 @@ data class DashboardUiPreferences(
                 predictionDotOutlineWidthDp = readMobilePredictionDotOutlineWidth(preferences),
                 compact = preferences.getBoolean("compact", true),
                 graphHours = preferences.getInt("graphHours", 3).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3,
+                graphScaleMode = runCatching {
+                    CgmGraphScaleMode.valueOf(preferences.getString(GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC.name)!!)
+                }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC),
+                graphMinimumMgDl = preferences.getFloat(GRAPH_MINIMUM_KEY, 40f).toDouble().coerceIn(20.0, 300.0),
                 graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
@@ -145,6 +152,8 @@ data class DashboardUiPreferences(
         const val GLUCOSE_TILE_DETAIL_MODE_KEY = "overview.glucoseTileDetailMode"
         const val IOB_PROGRESS_MAXIMUM_KEY = "overview.iobProgressMaximumUnits"
         const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
+        const val GRAPH_MINIMUM_KEY = "graph.minimumMgDl"
+        const val GRAPH_SCALE_MODE_KEY = "graph.scaleMode"
     }
 }
 
@@ -503,19 +512,58 @@ class DashboardViewFactory(
                     if (preferences.showCgmGraph) {
                         addView(divider())
                         addView(
-                            sugarliciousSliderRow(
-                                title = "Graphhöhe",
-                                value = thresholdForUi(preferences.graphMaximumMgDl, graphUnit),
-                                minimum = thresholdForUi(180.0, graphUnit),
-                                maximum = thresholdForUi(600.0, graphUnit),
-                                valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
-                            ) { entered ->
-                                dashboardPreferences.edit().putFloat(
-                                    DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
-                                    thresholdFromUi(entered, graphUnit).toFloat(),
-                                ).apply()
-                            },
+                            choiceRow(
+                                "Skalierung",
+                                CgmGraphScaleMode.entries.map { mode ->
+                                    Triple(
+                                        when (mode) {
+                                            CgmGraphScaleMode.STATIC -> "Statisch"
+                                            CgmGraphScaleMode.DYNAMIC -> "Dynamisch"
+                                            CgmGraphScaleMode.LOGARITHMIC -> "Logarithmisch"
+                                            CgmGraphScaleMode.LOGARITHMIC_DYNAMIC -> "Logarithmisch-dynamisch"
+                                        },
+                                        preferences.graphScaleMode == mode,
+                                    ) {
+                                        dashboardPreferences.edit().putString(DashboardUiPreferences.GRAPH_SCALE_MODE_KEY, mode.name).apply()
+                                    }
+                                },
+                            ),
                         )
+                        if (
+                            preferences.graphScaleMode == CgmGraphScaleMode.STATIC ||
+                            preferences.graphScaleMode == CgmGraphScaleMode.LOGARITHMIC
+                        ) {
+                            addView(divider())
+                            addView(
+                                sugarliciousSliderRow(
+                                    title = "Graphminimum",
+                                    value = thresholdForUi(preferences.graphMinimumMgDl, graphUnit),
+                                    minimum = thresholdForUi(20.0, graphUnit),
+                                    maximum = thresholdForUi(300.0, graphUnit),
+                                    valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
+                                ) { entered ->
+                                    dashboardPreferences.edit().putFloat(
+                                        DashboardUiPreferences.GRAPH_MINIMUM_KEY,
+                                        thresholdFromUi(entered, graphUnit).toFloat(),
+                                    ).apply()
+                                },
+                            )
+                            addView(divider())
+                            addView(
+                                sugarliciousSliderRow(
+                                    title = "Graphmaximum",
+                                    value = thresholdForUi(preferences.graphMaximumMgDl, graphUnit),
+                                    minimum = thresholdForUi(180.0, graphUnit),
+                                    maximum = thresholdForUi(600.0, graphUnit),
+                                    valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
+                                ) { entered ->
+                                    dashboardPreferences.edit().putFloat(
+                                        DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
+                                        thresholdFromUi(entered, graphUnit).toFloat(),
+                                    ).apply()
+                                },
+                            )
+                        }
                         addView(divider())
                         addView(settingsGroupLabel("DATENSTRÖME"))
                         addView(switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) { callbacks.setCgmStream("cgm.targetValue", it) })

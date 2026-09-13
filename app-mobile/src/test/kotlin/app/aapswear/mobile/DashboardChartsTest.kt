@@ -181,7 +181,7 @@ class DashboardChartsTest {
         SugarliciousColors.apply(SugarliciousPalette.defaults())
     }
 
-    @Test fun `glucose chart keeps cached predictions visible right of now divider`() {
+    @Test fun `glucose chart keeps future predictions at their real timestamps right of boundary`() {
         val now = System.currentTimeMillis()
         val state =
             TherapyDisplayState(
@@ -202,8 +202,9 @@ class DashboardChartsTest {
                         GlucosePrediction(
                             PredictionKind.IOB,
                             listOf(
-                                GlucoseSample(124.0, now - 8 * 60_000L),
-                                GlucoseSample(127.0, now - 3 * 60_000L),
+                                GlucoseSample(121.0, now),
+                                GlucoseSample(124.0, now + 5 * 60_000L),
+                                GlucoseSample(127.0, now + 10 * 60_000L),
                             ),
                         ),
                     ),
@@ -453,6 +454,17 @@ class DashboardChartsTest {
         assertEquals(10.0, cob[2].second, 0.0001)
     }
 
+    @Test fun `insulin activity history and prediction share one smoothed boundary point`() {
+        val boundary = 10_000L
+        val (actual, prediction) = continuousActivitySeries(
+            actual = listOf(0L to 0.01, 5_000L to 0.02, boundary to 0.03),
+            future = listOf(boundary to 0.03, 15_000L to 0.02, 20_000L to 0.01),
+            boundaryTime = boundary,
+        )
+        assertEquals(boundary, actual.last().first)
+        assertEquals(actual.last(), prediction.first())
+    }
+
     @Test fun `glucose dots use alert color outside display range`() {
         val now = System.currentTimeMillis()
         val state = TherapyDisplayState(
@@ -482,6 +494,12 @@ class DashboardChartsTest {
         assertEquals(1.0, glucoseLogRatio(300.0, 300.0), 0.0001)
         assertTrue(glucoseLogRatio(200.0, 300.0) < 1.0)
         assertEquals(1.0, glucoseLogRatio(600.0, 300.0), 0.0001)
+    }
+
+    @Test fun `dynamic scale expands immediately but resists minor jitter`() {
+        val previous = app.aapswear.model.CgmGraphYScale(app.aapswear.model.CgmGraphScaleMode.DYNAMIC, 60.0, 220.0)
+        assertEquals(previous, stableCgmScale(previous, previous.copy(minimumMgDl = 65.0, maximumMgDl = 215.0)))
+        assertEquals(260.0, stableCgmScale(previous, previous.copy(maximumMgDl = 260.0)).maximumMgDl, 0.0)
     }
 
     @Test fun `viewport cannot pan beyond configured future edge`() {
@@ -526,10 +544,10 @@ class DashboardChartsTest {
         assertEquals("24h", formatVisibleGraphHours(120f))
     }
 
-    @Test fun `target dash phase stays anchored to plot while path moves`() {
-        assertEquals(0f, screenAnchoredDashPhase(100f, 100f, 6f), 0.0001f)
-        assertEquals(2f, screenAnchoredDashPhase(108f, 100f, 6f), 0.0001f)
-        assertEquals(4f, screenAnchoredDashPhase(98f, 100f, 6f), 0.0001f)
+    @Test fun `target dash phase stays anchored to graph content while path moves`() {
+        assertEquals(0f, contentAnchoredDashPhase(100f, 6f), 0.0001f)
+        assertEquals(0f, contentAnchoredDashPhase(108f, 6f), 0.0001f)
+        assertEquals(0f, contentAnchoredDashPhase(98f, 6f), 0.0001f)
     }
 
     @Test

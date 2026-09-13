@@ -681,6 +681,8 @@ internal fun GlucoseDashboardChart.bindOverview(
         cgmDotOutlineEnabled = preferences.cgmDotOutlineEnabled,
         cgmDotOutlineWidthDp = preferences.cgmDotOutlineWidthDp,
         graphMaximumMgDl = preferences.graphMaximumMgDl,
+        graphMinimumMgDl = preferences.graphMinimumMgDl,
+        graphScaleMode = preferences.graphScaleMode,
         clockEpochMs = nowEpochMs,
     )
 }

@@ -3,9 +3,10 @@ package app.aapswear.model
 /**
  * Canonical time window for every Sugarlicious time-based graph renderer.
  *
- * The selected duration always describes real history. Optional future space is appended after
- * the live edge. Every render derives every X coordinate again from its event timestamp; no
- * renderer may retain a previous pixel position or distribute points by list index.
+ * The live edge is an immutable data-space timestamp for a render. A manually panned viewport may
+ * move it outside [startEpochMs, endEpochMs]. Every renderer derives every X coordinate again from
+ * its event timestamp; no renderer may retain a previous pixel position or distribute points by
+ * list index.
  */
 data class GraphTimeWindow(
     val startEpochMs: Long,
@@ -13,8 +14,7 @@ data class GraphTimeWindow(
     val endEpochMs: Long,
 ) {
     init {
-        require(startEpochMs < liveEdgeEpochMs)
-        require(liveEdgeEpochMs <= endEpochMs)
+        require(startEpochMs < endEpochMs)
     }
 
     val durationMs: Long get() = endEpochMs - startEpochMs

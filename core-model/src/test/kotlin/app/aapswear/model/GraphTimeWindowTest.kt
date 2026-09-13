@@ -5,6 +5,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class GraphTimeWindowTest {
+    @Test
+    fun `prediction boundary may leave a manually panned viewport`() {
+        val window = GraphTimeWindow(startEpochMs = 0L, liveEdgeEpochMs = 20_000L, endEpochMs = 10_000L)
+        assertTrue(window.xFraction(window.liveEdgeEpochMs) > 1f)
+    }
     private val minute = 60_000L
     private val history = 3L * 60L * minute
 
