@@ -53,6 +53,11 @@ internal fun shouldAcceptPhoneState(
     return incomingGlucoseAt > previousGlucoseAt
 }
 
+internal fun hasMeaningfulPhoneStateChange(
+    previous: TherapyDisplayState?,
+    incoming: TherapyDisplayState,
+): Boolean = previous?.copy(receivedAtEpochMs = incoming.receivedAtEpochMs) != incoming
+
 class StateDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stateSyncMutex = Mutex()
@@ -114,7 +119,6 @@ class StateDataLayerService : WearableListenerService() {
                         mapOf("error" to error.javaClass.simpleName),
                     )
                 }
-            runCatching { G7BackfillSync.sendPending(this@StateDataLayerService) }
         }
     }
 
@@ -135,24 +139,6 @@ class StateDataLayerService : WearableListenerService() {
                         "SYNC",
                         "SYNC-PHONE-504",
                         "Canonical snapshot request after reconnect failed",
-                        DiagnosticSeverity.WARNING,
-                        mapOf("error" to error.javaClass.simpleName),
-                    )
-                }
-            runCatching { G7BackfillSync.sendPending(this@StateDataLayerService, peer.id) }
-                .onSuccess { dispatch ->
-                    applicationContext.recordWatchDiagnostic(
-                        "G7-SYNC",
-                        if (dispatch == null) "G7-SYNC-204" else "G7-SYNC-101",
-                        if (dispatch == null) "Mobile connected with no pending G7 history" else "Pending G7 history sent after Mobile reconnect",
-                        metadata = mapOf("batchId" to dispatch?.batchId, "readingCount" to dispatch?.readingIds?.size),
-                    )
-                }
-                .onFailure { error ->
-                    applicationContext.recordWatchDiagnostic(
-                        "G7-SYNC",
-                        "G7-SYNC-503",
-                        "Pending G7 history could not be sent after Mobile reconnect",
                         DiagnosticSeverity.WARNING,
                         mapOf("error" to error.javaClass.simpleName),
                     )
@@ -210,30 +196,6 @@ class StateDataLayerService : WearableListenerService() {
                     )
                 }
             WearProtocol.G7_SETUP_PATH -> configureG7Collector(event)
-            WearProtocol.G7_SYNC_REQUEST_PATH ->
-                scope.launch {
-                    runCatching { G7BackfillSync.sendPending(this@StateDataLayerService, event.sourceNodeId) }
-                }
-            WearProtocol.G7_READING_ACK_PATH ->
-                scope.launch {
-                    val ack = runCatching { WearProtocol.decodeG7ReadingAck(event.data) }.getOrNull()
-                    if (ack == null) {
-                        applicationContext.recordWatchDiagnostic(
-                            "G7-SYNC",
-                            "G7-SYNC-401",
-                            "Invalid Mobile acknowledgement rejected",
-                            DiagnosticSeverity.WARNING,
-                        )
-                        return@launch
-                    }
-                    val count = G7BackfillSync.acknowledge(this@StateDataLayerService, ack)
-                    applicationContext.recordWatchDiagnostic(
-                        "G7-SYNC",
-                        "G7-SYNC-200",
-                        "Mobile acknowledgement forwarded to G7 database",
-                        metadata = mapOf("batchId" to ack.batchId, "acknowledged" to count),
-                    )
-                }
             WearProtocol.DIAGNOSTICS_REQUEST_PATH ->
                 scope.launch {
                     runCatching { sendWatchDiagnostics(applicationContext, event.sourceNodeId) }
@@ -560,6 +522,8 @@ class StateDataLayerService : WearableListenerService() {
                         incoming = incoming.copy(glucoseHistory = history),
                         nowEpochMs = now,
                     )
+                if (!hasMeaningfulPhoneStateChange(old, merged)) return@withLock
+
                 val selectedSource = WearDisplayPreferences.read(this@StateDataLayerService).dataSource
                 val canonicalForAlerts =
                     G7LocalReadingResolver.resolve(
@@ -580,10 +544,6 @@ class StateDataLayerService : WearableListenerService() {
                         "transport" to transport,
                     ),
                 )
-                val meaningfulState =
-                    old?.copy(receivedAtEpochMs = merged.receivedAtEpochMs)
-                if (meaningfulState == merged) return@withLock
-
                 store.save(merged)
                 getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
                     .edit()
