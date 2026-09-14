@@ -3,6 +3,18 @@ on:
   push:
   pull_request:
 jobs:
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject newly introduced vulnerable dependencies
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: moderate
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -73,11 +85,17 @@ jobs:
           path: app-mobile/build/reports/widget-visual-qa/*.png
           if-no-files-found: error
           retention-days: 14
-      - name: Lint Mobile and Wear frontend
-        run: ./gradlew :app-mobile:lintDebug :app-wear:lintDebug
+      - name: Lint all Android modules
+        run: ./gradlew lint
       - name: Validate Watch Face Format XML
         shell: pwsh
         run: ./tools/wff-validator/validate.ps1
       - name: Verify code-free watchface APKs
         shell: pwsh
         run: ./tools/verify-codefree-watchfaces.ps1
+      - name: Generate SPDX software bill of materials
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: sugarlicious-sbom.spdx.json
