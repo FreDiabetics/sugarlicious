@@ -547,6 +547,9 @@ class WearSettingsActivity : Activity() {
         }
     }
 
+    // This listener only arbitrates parent scrolling and returns false, so the
+    // native SeekBar retains its own click and accessibility semantics.
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun sliderCard(
         title: String,
         min: Int,

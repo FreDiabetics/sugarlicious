@@ -263,6 +263,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
         input.requestFocus()
     }
 
+    // This listener only arbitrates parent scrolling and returns false, so the
+    // native SeekBar retains its own click and accessibility semantics.
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun slider(title: String, min: Int, max: Int, initial: Int, p: G7AppearancePalette, format: (Int) -> String, save: (Int) -> Unit) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(10.dp, 8.dp, 10.dp, 8.dp); background = card(p)
         val value = label(format(initial), 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true); addView(value)

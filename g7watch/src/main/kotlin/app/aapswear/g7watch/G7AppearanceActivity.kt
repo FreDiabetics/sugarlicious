@@ -166,6 +166,9 @@ class G7AppearanceActivity : Activity() {
             setOnClickListener { openColorEditor(role) }
         }
 
+    // This listener only arbitrates parent scrolling and returns false, so the
+    // native SeekBar retains its own click and accessibility semantics.
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun scaleRow(
         title: String,
         initial: Int,
