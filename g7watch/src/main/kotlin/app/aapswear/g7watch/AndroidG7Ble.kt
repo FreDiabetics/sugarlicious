@@ -16,6 +16,8 @@ import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.SystemClock
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.G7AuthenticationSession
@@ -192,6 +194,38 @@ internal fun classifyG7WriteCallback(
 
 internal fun shouldFailCurrentG7Write(disposition: G7WriteCallbackDisposition): Boolean =
     disposition == G7WriteCallbackDisposition.EXPECTED_FAILURE
+
+internal fun copyG7NotificationValue(value: ByteArray): ByteArray = value.copyOf()
+
+@Suppress("DEPRECATION")
+private fun BluetoothGattCharacteristic.copyLegacyG7NotificationValue(): ByteArray =
+    copyG7NotificationValue(value ?: ByteArray(0))
+
+private object G7GattCallbackDispatcher {
+    val handler: Handler by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        val thread = HandlerThread("G7-Gatt-Callbacks").apply { start() }
+        Handler(thread.looper)
+    }
+}
+
+// API 36 deprecates every public connectGatt overload without exposing a
+// replacement. Keep the unavoidable call isolated and use the fullest overload
+// so callbacks stay on the collector-owned background thread.
+@Suppress("DEPRECATION")
+@SuppressLint("MissingPermission")
+private fun connectG7Gatt(
+    device: BluetoothDevice,
+    context: Context,
+    callback: BluetoothGattCallback,
+): BluetoothGatt =
+    device.connectGatt(
+        context,
+        false,
+        callback,
+        BluetoothDevice.TRANSPORT_LE,
+        BluetoothDevice.PHY_LE_1M_MASK,
+        G7GattCallbackDispatcher.handler,
+    )
 
 internal fun interface G7DeviceMatcher {
     fun matches(device: BluetoothDevice, advertisedName: String?, knownSensor: G7Sensor?): Boolean
@@ -608,12 +642,12 @@ private class G7GattConnection(
         @Deprecated("Deprecated in Android 13")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             if (!acceptCallback(gatt, "CHARACTERISTIC_CHANGED_LEGACY")) return
-            notifications.trySend(characteristic.uuid to characteristic.value.copyOf())
+            notifications.trySend(characteristic.uuid to characteristic.copyLegacyG7NotificationValue())
         }
 
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
             if (!acceptCallback(gatt, "CHARACTERISTIC_CHANGED")) return
-            notifications.trySend(characteristic.uuid to value.copyOf())
+            notifications.trySend(characteristic.uuid to copyG7NotificationValue(value))
         }
     }
 
@@ -648,7 +682,7 @@ private class G7GattConnection(
             ),
         )
         gatt = try {
-            device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+            connectG7Gatt(device, context, callback)
         } catch (security: SecurityException) {
             recordDirectResult(DirectConnectResult.SECURITY_ERROR)
             throw security

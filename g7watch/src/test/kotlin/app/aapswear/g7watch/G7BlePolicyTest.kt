@@ -15,6 +15,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7BlePolicyTest {
+    @Test fun `notification payload is copied before asynchronous delivery`() {
+        val platformBuffer = byteArrayOf(1, 2, 3)
+
+        val delivered = copyG7NotificationValue(platformBuffer)
+        platformBuffer[0] = 9
+
+        assertTrue(delivered.contentEquals(byteArrayOf(1, 2, 3)))
+    }
+
     @Test fun `registry permits exactly one active GATT generation`() {
         G7GattGenerationRegistry.resetForTest()
         val first = G7GattGenerationRegistry.acquire(1)
