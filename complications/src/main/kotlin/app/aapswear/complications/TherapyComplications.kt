@@ -594,7 +594,11 @@ abstract class TherapyComplicationService(
             widthPx = width,
             heightPx = height,
             density = density,
-            scaledDensity = resources.displayMetrics.scaledDensity,
+            scaledDensity = android.util.TypedValue.applyDimension(
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                1f,
+                resources.displayMetrics,
+            ),
             input = SharedWearCgmGraphInput(
                 history = samples,
                 timeWindow = timeWindow,

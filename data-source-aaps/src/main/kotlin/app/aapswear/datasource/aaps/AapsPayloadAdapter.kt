@@ -86,7 +86,7 @@ object AapsPayloadAdapter {
    glucose=GlucoseState(value,unit,trend,measured,delta,averageDelta,source=DataSourceId.ANDROID_APS,receivedAtEpochMs=receivedAtEpochMs),
    targetHistory=targetValue?.let { target ->
     val observedAt=targetStart?:suggestedAt?:enactedAt?:measured
-    listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget?.temporary==true||targetStart!=null))
+    listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget.temporary||targetStart!=null))
    }.orEmpty(),
    glucosePredictions=predictions,
    therapyHistory=if(iob!=null||cob!=null||baseBasal!=null||tempAbsolute!=null||insulinActivity!=null) listOf(

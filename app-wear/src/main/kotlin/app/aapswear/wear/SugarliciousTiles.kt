@@ -151,8 +151,8 @@ internal fun wearTherapyTilePresentation(state: TherapyDisplayState?, now: Long)
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         footer = if (displayable) {
             buildList {
-                add(TherapyDisplayFormatter.sourceName(state?.source))
-                state?.loop?.status?.takeIf { it.isNotBlank() }?.let(::add)
+                add(TherapyDisplayFormatter.sourceName(state.source))
+                state.loop?.status?.takeIf { it.isNotBlank() }?.let(::add)
                 if (freshness != Freshness.CURRENT) add("letzter Stand")
             }.joinToString("  ·  ")
         } else {

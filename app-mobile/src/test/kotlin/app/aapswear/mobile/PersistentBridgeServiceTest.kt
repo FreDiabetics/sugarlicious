@@ -124,6 +124,9 @@ class PersistentBridgeServiceTest {
         controller.destroy()
     }
 
+    // Custom notification RemoteViews only expose compatibility fields for
+    // inspection, so this API use is intentionally isolated to this test.
+    @Suppress("DEPRECATION")
     @Test
     @Config(sdk = [36])
     fun `live preference requests promoted status with current glucose delta and graph`() {

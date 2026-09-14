@@ -11,7 +11,6 @@ android {
         versionName="0.6.4"
     }
     buildTypes {
-        debug { isMinifyEnabled = true }
         release {
             isMinifyEnabled=true
             isShrinkResources=false

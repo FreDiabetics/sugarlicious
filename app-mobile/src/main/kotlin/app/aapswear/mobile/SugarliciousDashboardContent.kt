@@ -96,7 +96,13 @@ class SugarliciousDashboardContent @JvmOverloads constructor(
         if (view.isClickable && view.background != null) {
             view.minHeight = maxOf(view.minHeight, 38.dp)
             view.setPadding(14.dp, view.paddingTop, 14.dp, view.paddingBottom)
-            if (view.textSize / resources.displayMetrics.scaledDensity < 12f) view.textSize = 12f
+            val minimumTextSizePx =
+                android.util.TypedValue.applyDimension(
+                    android.util.TypedValue.COMPLEX_UNIT_SP,
+                    12f,
+                    resources.displayMetrics,
+                )
+            if (view.textSize < minimumTextSizePx) view.textSize = 12f
             view.typeface = Typeface.create("sans", Typeface.BOLD)
         }
     }

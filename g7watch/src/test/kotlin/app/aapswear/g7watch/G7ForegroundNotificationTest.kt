@@ -15,6 +15,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7ForegroundNotificationTest {
+    @Suppress("DEPRECATION") // Notification sound has no replacement inspection API.
     @Test fun `collector foreground notification is ongoing silent and not auto cancel`() {
         val service = Robolectric.buildService(G7CollectorService::class.java).get()
         val notification = service.notification()

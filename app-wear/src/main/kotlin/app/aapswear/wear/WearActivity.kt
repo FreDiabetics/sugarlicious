@@ -279,10 +279,11 @@ class WearActivity : Activity() {
             firstRender || refreshClock || previousState?.glucose != glucoseState ||
                 previousState?.target != state?.target ||
                 previousState?.source != state?.source ||
-                previousPreferences?.glucoseUnit != preferences.glucoseUnit ||
-                previousPreferences?.glucoseScalePercent != preferences.glucoseScalePercent ||
-                previousPreferences?.trendScalePercent != preferences.trendScalePercent ||
-                previousPreferences?.uiColors != preferences.uiColors
+                previousPreferences == null ||
+                previousPreferences.glucoseUnit != preferences.glucoseUnit ||
+                previousPreferences.glucoseScalePercent != preferences.glucoseScalePercent ||
+                previousPreferences.trendScalePercent != preferences.trendScalePercent ||
+                previousPreferences.uiColors != preferences.uiColors
 
         if (glucoseSectionChanged) {
             val presentation = glucosePresentation
