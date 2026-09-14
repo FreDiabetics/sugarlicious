@@ -190,6 +190,9 @@ internal fun classifyG7WriteCallback(
     else -> G7WriteCallbackDisposition.STALE_FAILURE
 }
 
+internal fun shouldFailCurrentG7Write(disposition: G7WriteCallbackDisposition): Boolean =
+    disposition == G7WriteCallbackDisposition.EXPECTED_FAILURE
+
 internal fun interface G7DeviceMatcher {
     fun matches(device: BluetoothDevice, advertisedName: String?, knownSensor: G7Sensor?): Boolean
 }
@@ -566,11 +569,11 @@ private class G7GattConnection(
     private val ownership: G7GattOwnership,
 ) {
     private val manager = context.getSystemService(BluetoothManager::class.java)
-    private val connectionEvents = Channel<Pair<Int, Int>>(Channel.UNLIMITED)
-    private val serviceEvents = Channel<Int>(Channel.UNLIMITED)
-    private val descriptorEvents = Channel<Pair<UUID, Int>>(Channel.UNLIMITED)
-    private val writeEvents = Channel<Pair<UUID, Int>>(Channel.UNLIMITED)
-    private val notifications = Channel<Pair<UUID, ByteArray>>(Channel.UNLIMITED)
+    private val connectionEvents = Channel<Pair<Int, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val serviceEvents = Channel<Int>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val descriptorEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val writeEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val notifications = Channel<Pair<UUID, ByteArray>>(NOTIFICATION_BUFFER_CAPACITY)
     @Volatile private var connected = false
     private var gatt: BluetoothGatt? = null
     private var connectStartedAtEpochMs: Long? = null
@@ -903,13 +906,12 @@ private class G7GattConnection(
             withTimeout(OPERATION_TIMEOUT_MS) {
                 while (true) {
                     val (uuid, status) = writeEvents.receive()
-                    when (classifyG7WriteCallback(characteristic.uuid, uuid, status)) {
+                    val disposition = classifyG7WriteCallback(characteristic.uuid, uuid, status)
+                    when (disposition) {
                         G7WriteCallbackDisposition.EXPECTED_SUCCESS -> return@withTimeout
-                        G7WriteCallbackDisposition.EXPECTED_FAILURE ->
+                        else -> if (shouldFailCurrentG7Write(disposition)) {
                             throw G7BleException("G7-GATT-213", "G7-Daten wurden abgelehnt ($status)", true)
-                        G7WriteCallbackDisposition.STALE_SUCCESS -> Unit
-                        G7WriteCallbackDisposition.STALE_FAILURE ->
-                            throw G7BleException("G7-GATT-214", "Vorheriger G7-Datentransfer ist fehlgeschlagen ($status)", true)
+                        }
                     }
                 }
             }
@@ -1004,6 +1006,8 @@ private class G7GattConnection(
         const val BACKFILL_IDLE_TIMEOUT_MS = 10_000L
         const val BACKFILL_TOTAL_TIMEOUT_MS = 45_000L
         const val MAX_BACKFILL_RECORDS = 300
+        const val CONTROL_EVENT_BUFFER_CAPACITY = 16
+        const val NOTIFICATION_BUFFER_CAPACITY = 512
         const val GATT_ERROR_133 = 133
         const val OPERATION_TIMEOUT_MS = 15_000L
         const val BOND_TIMEOUT_MS = 35_000L

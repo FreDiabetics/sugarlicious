@@ -238,4 +238,20 @@ class G7BlePolicyTest {
             classifyG7WriteCallback(expected, expected, BluetoothGatt.GATT_FAILURE),
         )
     }
+
+    @Test fun `failed callback for stale characteristic cannot fail current write`() {
+        val expected = UUID.fromString("f8083535-849e-531c-c594-30f1f86a4ea5")
+        val stale = UUID.fromString("f8083534-849e-531c-c594-30f1f86a4ea5")
+
+        assertFalse(
+            shouldFailCurrentG7Write(
+                classifyG7WriteCallback(expected, stale, BluetoothGatt.GATT_FAILURE),
+            ),
+        )
+        assertTrue(
+            shouldFailCurrentG7Write(
+                classifyG7WriteCallback(expected, expected, BluetoothGatt.GATT_FAILURE),
+            ),
+        )
+    }
 }
