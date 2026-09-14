@@ -61,6 +61,9 @@ object SharedColorEditor {
             if (!updating) { updating = true; hex.setText(ArgbColor.format(value)); hex.setSelection(hex.length()); updating = false }
             if (persist) { remember(value); onChange(value) }
         }
+        // The listener returns false and only arbitrates parent scrolling;
+        // SeekBar remains responsible for click and accessibility semantics.
+        @android.annotation.SuppressLint("ClickableViewAccessibility")
         fun slider(label: String, max: Int, progress: Int, update: (Int) -> Unit) {
             val valueInput = EditText(activity).apply {
                 setText(progress.toString())

@@ -596,7 +596,7 @@ private fun ComplicationAppearanceDialog(
                         )
                     }
                     if (resolvedTrend.outlineEnabled) {
-                        Text("KONTURDICKE · ${String.format("%.2f", resolvedTrend.outlineThicknessDp)} dp", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+                        Text("KONTURDICKE · ${String.format(Locale.GERMANY, "%.2f", resolvedTrend.outlineThicknessDp)} dp", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
                         Slider(value = resolvedTrend.outlineThicknessDp, onValueChange = { update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it))) }, valueRange = 0.25f..4f)
                     }
                     Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)

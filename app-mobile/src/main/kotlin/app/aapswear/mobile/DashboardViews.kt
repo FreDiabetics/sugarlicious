@@ -894,6 +894,9 @@ class DashboardViewFactory(
         )
     }
 
+    // This listener only arbitrates parent interception and returns false so
+    // SeekBar retains its own click and accessibility handling.
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun sugarliciousSliderRow(
         title: String,
         description: String? = null,

@@ -247,7 +247,7 @@ class WearSettingsActivity : Activity() {
                     min = 15,
                     max = 60,
                     progress = (current.graphStyle.cgmDotRadiusDp * 10f).roundToInt(),
-                    value = { String.format("%.1f dp", it / 10f) },
+                    value = { String.format(java.util.Locale.GERMANY, "%.1f dp", it / 10f) },
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotRadiusDp = progress / 10f)), rebuild = false) },
                 cardParams(),
             )
@@ -263,7 +263,7 @@ class WearSettingsActivity : Activity() {
                     min = 25,
                     max = 300,
                     progress = (current.graphStyle.cgmDotOutlineWidthDp * 100f).roundToInt(),
-                    value = { String.format("%.2f dp", it / 100f) },
+                    value = { String.format(java.util.Locale.GERMANY, "%.2f dp", it / 100f) },
                 ) { progress -> save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)), rebuild = false) },
                 cardParams(),
             )
