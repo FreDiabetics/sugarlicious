@@ -163,7 +163,6 @@ internal object G7ErrorNotifier {
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_ERROR)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setPriority(Notification.PRIORITY_MAX)
             .setWhen(occurredAtEpochMs)
             .setShowWhen(true)
             .setOngoing(true)

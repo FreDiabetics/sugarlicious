@@ -402,8 +402,8 @@ private fun GalaxyWatchUltraFrame() {
 internal fun FaceDial(
     index: Int,
     state: TherapyDisplayState?,
-    activeComplicationIds: List<Int> = emptyList(),
     modifier: Modifier = Modifier,
+    activeComplicationIds: List<Int> = emptyList(),
 ) {
     when (index) {
         0 -> SugarliciousAnalogFacePreview(state = state, modifier = modifier)
