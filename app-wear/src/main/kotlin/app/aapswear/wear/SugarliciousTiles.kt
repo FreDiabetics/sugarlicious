@@ -49,12 +49,15 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
-import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.SettableFuture
 import java.io.ByteArrayOutputStream
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
 private const val TILE_RESOURCES_VERSION = "sugarlicious-8-shared-card-type"
@@ -201,14 +204,24 @@ internal fun wearTileGraphPoints(
 }
 
 abstract class SugarliciousTileService : TileService() {
+    private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     protected abstract val tileKind: WearTileKind
     protected abstract fun tileContent(state: TherapyDisplayState?, colors: WatchUiColors, now: Long): LayoutElementBuilders.LayoutElement
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): com.google.common.util.concurrent.ListenableFuture<Tile> {
-        val state = runBlocking(Dispatchers.IO) {
-            val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
-            G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
+        val future = SettableFuture.create<Tile>()
+        tileScope.launch {
+            runCatching { buildTile() }
+                .onSuccess(future::set)
+                .onFailure(future::setException)
         }
+        return future
+    }
+
+    private suspend fun buildTile(): Tile {
+        val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
+        val state = G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
         val colors = WearTileAppearanceStore.read(this, tileKind)
         val content = WearTileContentStore.read(this, tileKind)
         val preferences = WearDisplayPreferences.read(this)
@@ -218,33 +231,39 @@ abstract class SugarliciousTileService : TileService() {
         } else {
             TILE_RESOURCES_VERSION
         }
-        return Futures.immediateFuture(
-            Tile.Builder()
-                .setResourcesVersion(resourcesVersion)
-                .setFreshnessIntervalMillis(60_000L)
-                .setTileTimeline(
-                    Timeline.fromLayoutElement(
-                        when (content) {
-                            WearTileContent.GLUCOSE -> glucoseTileContent(state, colors, now, preferences)
-                            WearTileContent.GRAPH -> graphTileContent(state, colors, now, preferences)
-                            WearTileContent.IOB -> metricTileContent("IOB", state?.insulin?.totalIob, "U", colors.iob, colors, state, now)
-                            WearTileContent.COB -> metricTileContent("COB", state?.carbs?.cobGrams, "g", colors.cob, colors, state, now)
-                            WearTileContent.BASAL -> metricTileContent("BASAL", state?.basal?.currentUnitsPerHour, "U/h", colors.basal, colors, state, now, 2)
-                            WearTileContent.PUMP -> pumpTileContent(state, colors, now)
-                        },
-                    ),
-                )
-                .build(),
-        )
+        return Tile.Builder()
+            .setResourcesVersion(resourcesVersion)
+            .setFreshnessIntervalMillis(60_000L)
+            .setTileTimeline(
+                Timeline.fromLayoutElement(
+                    when (content) {
+                        WearTileContent.GLUCOSE -> glucoseTileContent(state, colors, now, preferences)
+                        WearTileContent.GRAPH -> graphTileContent(state, colors, now, preferences)
+                        WearTileContent.IOB -> metricTileContent("IOB", state?.insulin?.totalIob, "U", colors.iob, colors, state, now)
+                        WearTileContent.COB -> metricTileContent("COB", state?.carbs?.cobGrams, "g", colors.cob, colors, state, now)
+                        WearTileContent.BASAL -> metricTileContent("BASAL", state?.basal?.currentUnitsPerHour, "U/h", colors.basal, colors, state, now, 2)
+                        WearTileContent.PUMP -> pumpTileContent(state, colors, now)
+                    },
+                ),
+            )
+            .build()
     }
 
     override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): com.google.common.util.concurrent.ListenableFuture<Resources> {
+        val future = SettableFuture.create<Resources>()
+        tileScope.launch {
+            runCatching { buildResources(requestParams) }
+                .onSuccess(future::set)
+                .onFailure(future::setException)
+        }
+        return future
+    }
+
+    private suspend fun buildResources(requestParams: RequestBuilders.ResourcesRequest): Resources {
         val content = WearTileContentStore.read(this, tileKind)
         val graphResource = if (content == WearTileContent.GRAPH) {
-            val state = runBlocking(Dispatchers.IO) {
-                val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
-                G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
-            }
+            val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
+            val state = G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
             val bitmap = renderWearTileGraph(state, WearDisplayPreferences.read(this), System.currentTimeMillis())
             ByteArrayOutputStream().use { output ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
@@ -253,8 +272,7 @@ abstract class SugarliciousTileService : TileService() {
         } else {
             null
         }
-        return Futures.immediateFuture(
-            Resources.Builder()
+        return Resources.Builder()
                 .setVersion(requestParams.version)
                 .apply {
                     TrendVisualAsset.entries.forEach { asset ->
@@ -278,8 +296,12 @@ abstract class SugarliciousTileService : TileService() {
                         )
                     }
                 }
-                .build(),
-        )
+                .build()
+    }
+
+    override fun onDestroy() {
+        tileScope.cancel()
+        super.onDestroy()
     }
 }
 
