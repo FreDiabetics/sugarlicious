@@ -99,6 +99,27 @@ class CanonicalCgmHistoryTest {
         assertEquals(listOf(previous, current), CanonicalCgmHistory.merge(listOf(previous, current), now))
     }
 
+    @Test
+    fun `delivery order cannot change canonical live backfill result`() {
+        val older = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 10L, 110.0, now - 5 * 60_000L)
+        val backfillCopy = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 11L, 120.0, now - 60_000L)
+        val liveCopy = backfillCopy.copy(sequenceNumber = 12L, receivedAtEpochMs = now)
+        val replacementSession = liveCopy.copy(
+            sensorId = "sensor-2",
+            sessionId = "session-2",
+            sequenceNumber = 1L,
+            valueMgDl = 130.0,
+        )
+
+        listOf(older, backfillCopy, liveCopy, replacementSession).permutations().forEach { deliveryOrder ->
+            val merged = CanonicalCgmHistory.merge(deliveryOrder, now)
+
+            assertEquals(listOf(now - 5 * 60_000L, now - 60_000L, now - 60_000L).sorted(), merged.map { it.measuredAtEpochMs })
+            assertEquals(listOf("session", "session", "session-2"), merged.mapNotNull { it.sessionId })
+            assertEquals(12L, merged.single { it.sessionId == "session" && it.measuredAtEpochMs == now - 60_000L }.sequenceNumber)
+        }
+    }
+
     private fun sample(
         source: DataSourceId,
         sensor: String,
@@ -115,4 +136,10 @@ class CanonicalCgmHistoryTest {
         sequenceNumber = sequence,
         receivedAtEpochMs = timestamp + 1_000L,
     )
+
+    private fun <T> List<T>.permutations(): List<List<T>> =
+        if (size <= 1) listOf(this) else indices.flatMap { index ->
+            val selected = this[index]
+            (take(index) + drop(index + 1)).permutations().map { listOf(selected) + it }
+        }
 }

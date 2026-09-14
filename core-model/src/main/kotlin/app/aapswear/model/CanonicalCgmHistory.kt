@@ -34,7 +34,7 @@ object CanonicalCgmHistory {
                         (it.receivedAtEpochMs >= it.measuredAtEpochMs - futureToleranceMs &&
                             it.receivedAtEpochMs <= nowEpochMs + futureToleranceMs))
             }
-            .sortedBy(GlucoseSample::measuredAtEpochMs)
+            .sortedWith(CANONICAL_ORDER)
             .forEach { candidate ->
                 val duplicateIndex = result.indexOfFirst { existing -> existing.sameMeasurement(candidate) }
                 if (duplicateIndex < 0) {
@@ -44,7 +44,7 @@ object CanonicalCgmHistory {
                 }
             }
 
-        return result.sortedBy(GlucoseSample::measuredAtEpochMs).takeLast(maxPoints)
+        return result.sortedWith(CANONICAL_ORDER).takeLast(maxPoints)
     }
 
     private fun prefer(
@@ -66,6 +66,17 @@ object CanonicalCgmHistory {
     }
 
     private fun DataSourceId.isPhoneHistorySource(): Boolean = this != DataSourceId.DEXCOM_G7_WATCH
+
+    private val CANONICAL_ORDER =
+        compareBy<GlucoseSample>(
+            GlucoseSample::measuredAtEpochMs,
+            { it.sensorId.orEmpty() },
+            { it.sessionId.orEmpty() },
+            { it.source.name },
+            { it.sequenceNumber ?: Long.MIN_VALUE },
+            { it.receivedAtEpochMs ?: Long.MIN_VALUE },
+            GlucoseSample::valueMgDl,
+        )
 
     private fun GlucoseSample.sameMeasurement(other: GlucoseSample): Boolean {
         val timeDifference = abs(measuredAtEpochMs - other.measuredAtEpochMs)
