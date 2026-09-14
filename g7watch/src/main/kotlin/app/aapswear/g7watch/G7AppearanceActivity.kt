@@ -46,8 +46,7 @@ class G7AppearanceActivity : Activity() {
 
     private fun render() {
         val palette = store.load(selectedMode)
-        window.statusBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.navigationBarColor = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        applyG7SystemChrome(window, palette.argb(G7AppearanceRole.MENU_BACKGROUND))
 
         val restoreScrollY = scrollView.scrollY
         val content = pageRoot.apply {

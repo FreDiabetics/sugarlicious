@@ -39,8 +39,7 @@ class G7SettingsActivity : Activity() {
     private fun render() {
         val palette = G7AppearanceStore(this).load()
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
         val state = G7SensorStateStore(this).read()
 
         val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0

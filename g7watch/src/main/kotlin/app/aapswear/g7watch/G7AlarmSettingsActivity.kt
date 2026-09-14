@@ -49,8 +49,7 @@ class G7AlarmSettingsActivity : Activity() {
         val restoreScrollY = scrollView.scrollY
         val palette = G7AppearanceStore(this).load()
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
         val settings = G7AlarmSettingsStore.read(this)
 
         root.apply {

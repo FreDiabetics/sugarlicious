@@ -76,8 +76,7 @@ class G7SystemStatusActivity : Activity() {
         val oldScrollY = scrollView?.scrollY ?: 0
         val palette = G7AppearanceStore(this).load()
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
 
         val state = G7SensorStateStore(this).read()
         val credentials = G7CredentialStore(this).read()

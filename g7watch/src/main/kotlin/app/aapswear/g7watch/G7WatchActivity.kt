@@ -248,8 +248,7 @@ class G7WatchActivity : Activity() {
         screenBuilt = false
         activePalette = palette
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -447,8 +446,7 @@ class G7WatchActivity : Activity() {
         val previousScrollY = if (screenBuilt) scrollView.scrollY else 0
         activePalette = palette
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
 
         val state = G7SensorStateStore(this).read()
         val credentials = G7CredentialStore(this).read()
