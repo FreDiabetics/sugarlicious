@@ -22,7 +22,6 @@ import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.InlineImageResource
-import androidx.wear.protolayout.ResourceBuilders.Resources
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
@@ -67,35 +66,7 @@ class G7GraphTileService : TileService() {
                 Tile.Builder()
                     .setResourcesVersion(snapshot.resourceVersion)
                     .setFreshnessIntervalMillis(G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS)
-                    .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams)))
-                    .build()
-            }.onSuccess(future::set).onFailure(future::setException)
-        }
-        return future
-    }
-
-    public override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): SettableFuture<Resources> {
-        val future = SettableFuture.create<Resources>()
-        tileScope.launch {
-            runCatching {
-                val snapshot = snapshot()
-                val device = requestParams.deviceConfiguration
-                val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
-                val density = device.screenDensity.takeIf { it > 0f } ?: resources.displayMetrics.density
-                val graphWidthDp = square.sideDp - square.innerPaddingDp * 2f
-                val graphHeightDp = square.sideDp - square.innerPaddingDp * 2f - TILE_HEADER_LANE_DP
-                Resources.Builder()
-                    .setVersion(snapshot.resourceVersion)
-                    .addIdToImageMapping(
-                        GRAPH_RESOURCE_ID,
-                        ImageResource.Builder()
-                            .setInlineResource(
-                                InlineImageResource.Builder()
-                                    .setData(renderGraph(snapshot, graphWidthDp, graphHeightDp, density))
-                                    .build(),
-                            )
-                            .build(),
-                    )
+                    .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams, snapshot)))
                     .build()
             }.onSuccess(future::set).onFailure(future::setException)
         }
@@ -107,13 +78,14 @@ class G7GraphTileService : TileService() {
         super.onDestroy()
     }
 
-    private fun layout(requestParams: RequestBuilders.TileRequest): LayoutElementBuilders.LayoutElement {
+    private fun layout(
+        requestParams: RequestBuilders.TileRequest,
+        snapshot: G7GraphTileSnapshot,
+    ): LayoutElementBuilders.LayoutElement {
         val device = requestParams.deviceConfiguration
         val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
-        val palette = G7AppearanceStore(this).load()
-        val state = G7SensorStateStore(this).read()
-        val pillState = deriveG7StatusPillState(state, G7CredentialStore(this).read() != null)
-        val titleColor = when (pillState) {
+        val palette = snapshot.palette
+        val titleColor = when (snapshot.pillState) {
             G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
             G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
             G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
@@ -122,8 +94,16 @@ class G7GraphTileService : TileService() {
         val graphWidth = square.sideDp - square.innerPaddingDp * 2f
         val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
         val graphHeight = cardHeight - square.innerPaddingDp * 2f
-        val graphImage = Image.Builder()
-            .setResourceId(GRAPH_RESOURCE_ID)
+        val density = device.screenDensity.takeIf { it > 0f } ?: resources.displayMetrics.density
+        val graphResource = ImageResource.Builder()
+            .setInlineResource(
+                InlineImageResource.Builder()
+                    .setData(renderGraph(snapshot, graphWidth, graphHeight, density))
+                    .build(),
+            )
+            .build()
+        val graphImage = Image.Builder(requestParams.scope)
+            .setImageResource(graphResource, GRAPH_RESOURCE_ID)
             .setWidth(dp(graphWidth))
             .setHeight(dp(graphHeight))
             .build()

@@ -22,9 +22,9 @@ import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
+import androidx.wear.protolayout.ProtoLayoutScope
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
-import androidx.wear.protolayout.ResourceBuilders.Resources
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
@@ -47,7 +47,6 @@ import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
-import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.SettableFuture
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -172,37 +171,6 @@ class G7CollectorTileService : TileService() {
         super.onDestroy()
     }
 
-    override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest) =
-        Futures.immediateFuture(
-            Resources.Builder()
-                .setVersion(RESOURCES_VERSION)
-                .apply {
-                    TrendVisualAsset.entries.forEach { asset ->
-                        addIdToImageMapping(
-                            trendResourceId(asset),
-                            ImageResource.Builder()
-                                .setAndroidResourceByResId(
-                                    AndroidImageResourceByResId.Builder()
-                                        .setResourceId(TrendDrawableResources.forAsset(asset))
-                                        .build(),
-                                )
-                                .build(),
-                        )
-                    }
-                }
-                .addIdToImageMapping(
-                    HEADER_RESOURCE_ID,
-                    ImageResource.Builder()
-                        .setAndroidResourceByResId(
-                            AndroidImageResourceByResId.Builder()
-                                .setResourceId(R.drawable.ic_sensor_outline)
-                                .build(),
-                        )
-                        .build(),
-                )
-                .build(),
-        )
-
     private suspend fun layout(requestParams: RequestBuilders.TileRequest): LayoutElementBuilders.LayoutElement {
         val reading =
             G7ReadingDatabase(this@G7CollectorTileService).let { database ->
@@ -243,7 +211,7 @@ class G7CollectorTileService : TileService() {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
                         addContent(Spacer.Builder().setWidth(dp(8f)).build())
-                        addContent(trendImage(spec, trendStyle.fillColor, trendHeight))
+                        addContent(trendImage(requestParams.scope, spec, trendStyle.fillColor, trendHeight))
                     }
                 }
                 .build()
@@ -370,9 +338,23 @@ class G7CollectorTileService : TileService() {
             .addContent(text("●  ${presentation.label}", if (presentation.label.length > 18) 7.5f else 9.5f, presentation.color, bold = true))
             .build()
 
-    private fun trendImage(spec: app.aapswear.model.TrendVisualSpec, color: Int, height: Float): Image =
-        Image.Builder()
-            .setResourceId(trendResourceId(spec.asset))
+    private fun trendImage(
+        scope: ProtoLayoutScope,
+        spec: app.aapswear.model.TrendVisualSpec,
+        color: Int,
+        height: Float,
+    ): Image =
+        Image.Builder(scope)
+            .setImageResource(
+                ImageResource.Builder()
+                    .setAndroidResourceByResId(
+                        AndroidImageResourceByResId.Builder()
+                            .setResourceId(TrendDrawableResources.forAsset(spec.asset))
+                            .build(),
+                    )
+                    .build(),
+                trendResourceId(spec.asset),
+            )
             .setWidth(dp(height * spec.aspectRatio))
             .setHeight(dp(height))
             .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
@@ -394,7 +376,6 @@ class G7CollectorTileService : TileService() {
 
     companion object {
         private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
-        private const val HEADER_RESOURCE_ID = "ic_sensor_outline"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

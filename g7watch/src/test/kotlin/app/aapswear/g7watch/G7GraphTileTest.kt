@@ -82,14 +82,12 @@ class G7GraphTileTest {
             .setScreenDensity(2f)
             .build()
         val service = Robolectric.buildService(G7GraphTileService::class.java).create().get()
-        val tile = service.onTileRequest(
-            RequestBuilders.TileRequest.Builder().setDeviceConfiguration(device).build(),
-        ).get()
-        val resources = service.onTileResourcesRequest(
-            RequestBuilders.ResourcesRequest.Builder().setDeviceConfiguration(device).build(),
-        ).get()
+        val request = RequestBuilders.TileRequest.Builder().setDeviceConfiguration(device).build()
+        val tile = service.onTileRequest(request).get()
+        val resources = request.scope.collectResources()
 
         assertTrue(tile.resourcesVersion.startsWith("g7-graph-3-"))
+        assertTrue(request.scope.hasResources())
         assertTrue(resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!.data.isNotEmpty())
         service.onDestroy()
     }
