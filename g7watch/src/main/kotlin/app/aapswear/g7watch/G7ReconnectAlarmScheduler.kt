@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.BatteryManager
-import android.os.Build
 import android.os.PowerManager
 import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorCycleTiming
@@ -131,7 +130,7 @@ internal object G7ReconnectAlarmScheduler {
         val triggerAt = maxOf(strategyRequest, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
         val pending = reconnectPendingIntent(app)
         val alarmManager = app.getSystemService(AlarmManager::class.java)
-        val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        val exactAllowed = alarmManager.canScheduleExactAlarms()
         val exactScheduled =
             if (exactAllowed) {
                 runCatching {

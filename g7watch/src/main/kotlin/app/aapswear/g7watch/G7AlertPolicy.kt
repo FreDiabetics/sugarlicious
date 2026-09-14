@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7SessionState
@@ -100,7 +99,7 @@ internal object G7SignalLossMonitor {
         val alarmManager = app.getSystemService(AlarmManager::class.java)
         val triggerAt = maxOf(requestedAtEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
         val pending = pendingIntent(app)
-        val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()
+        val exactAllowed = alarmManager.canScheduleExactAlarms()
         if (exactAllowed) {
             runCatching {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)

@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.model.DiagnosticSeverity
@@ -59,7 +58,7 @@ internal object G7SensorWindowWatchdog {
         val app = context.applicationContext
         val pending = pendingIntent(app, windowId, expectedAt)
         val alarms = app.getSystemService(AlarmManager::class.java)
-        val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        val exactAllowed = alarms.canScheduleExactAlarms()
         if (exactAllowed) {
             runCatching { alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending) }
                 .getOrElse { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending) }

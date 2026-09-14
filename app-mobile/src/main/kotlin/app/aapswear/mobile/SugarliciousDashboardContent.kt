@@ -6,7 +6,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
-import android.os.Build
 import android.util.AttributeSet
 import android.view.View
 import android.view.ViewGroup
@@ -75,13 +74,11 @@ class SugarliciousDashboardContent @JvmOverloads constructor(
         if (view is ViewGroup && view !is ComposeView) {
             if (view.isClickable) {
                 view.minimumHeight = maxOf(view.minimumHeight, 54.dp)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    view.foreground = RippleDrawable(
-                        ColorStateList.valueOf(withAlpha(SugarliciousColors.argb(SugarliciousColorRole.PRIMARY), 0x2A)),
-                        null,
-                        null,
-                    )
-                }
+                view.foreground = RippleDrawable(
+                    ColorStateList.valueOf(withAlpha(SugarliciousColors.argb(SugarliciousColorRole.PRIMARY), 0x2A)),
+                    null,
+                    null,
+                )
             }
             for (index in 0 until view.childCount) styleTree(view.getChildAt(index))
         } else {

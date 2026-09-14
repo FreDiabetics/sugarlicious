@@ -9,7 +9,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
-import android.os.Build
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.GoalProgressComplicationData
@@ -267,7 +266,7 @@ abstract class TherapyComplicationService(
                 .build()
         }
 
-        if (kind == ProviderKind.TIR && Build.VERSION.SDK_INT >= 33) {
+        if (kind == ProviderKind.TIR) {
             val stats = tirStats(state, now, thresholds)
             if (type == ComplicationType.GOAL_PROGRESS) {
                 return GoalProgressComplicationData.Builder(

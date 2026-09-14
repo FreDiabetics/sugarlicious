@@ -9,7 +9,6 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -358,7 +357,7 @@ class G7SystemStatusActivity : Activity() {
             checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
     private fun hasNotificationPermission(): Boolean =
-        Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
     private fun pairingEditor(palette: G7AppearancePalette) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -445,7 +444,7 @@ class G7SystemStatusActivity : Activity() {
         val missing = buildList {
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_SCAN)
             if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_CONNECT)
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.POST_NOTIFICATIONS)
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST)
     }
@@ -456,7 +455,7 @@ class G7SystemStatusActivity : Activity() {
     }
 
     private fun canScheduleExactReconnects(): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
     private fun requestBatteryExemption() {
         if (G7BackgroundAccess.isBatteryUnrestricted(this)) return
@@ -468,7 +467,6 @@ class G7SystemStatusActivity : Activity() {
     }
 
     private fun requestExactAlarmAccess() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
         runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData(Uri.parse("package:$packageName"))) }
             .onFailure { runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) } }
     }

@@ -4,18 +4,13 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 
 internal object G7BackgroundAccess {
     fun isBatteryUnrestricted(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            true
-        } else {
-            context.getSystemService(PowerManager::class.java)
-                .isIgnoringBatteryOptimizations(context.packageName)
-        }
+        context.getSystemService(PowerManager::class.java)
+            .isIgnoringBatteryOptimizations(context.packageName)
 
     internal fun batterySettingsIntents(packageName: String): List<Intent> {
         val packageUri = Uri.parse("package:$packageName")
