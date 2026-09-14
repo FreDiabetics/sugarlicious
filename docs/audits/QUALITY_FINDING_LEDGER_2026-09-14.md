@@ -63,3 +63,25 @@ inspection (notably the repeated BouncyCastle finding) produces the stderr.
 3. manifest backup/recents policy and ordinary application resources;
 4. dependency upgrades and mechanical KTX/style findings;
 5. WFF warnings only with WFF-aware reachability and code-free validation.
+
+## Kotlin static-analysis gate
+
+Detekt 1.23.8 and ktlint 1.5.0 (via Gradle plugin 14.2.0) now run across every
+Kotlin-bearing module on Java 21. No baseline was introduced. The initial Detekt
+inventory contained 574 findings after excluding numeric-literal and line-length
+style noise; the enforced, project-specific gate is now clean. Complexity metrics
+that are dominated by Compose rendering, protocol parsing, or formatter-dependent
+line counts remain inventory concerns rather than build failures. Dead private
+members, empty branches, performance traps, malformed naming and correctness rules
+remain enforced.
+
+Ktlint initially failed 69 source-set checks and reformatted 336 Kotlin and Gradle
+Kotlin files. The repository-wide `ktlintCheck` now passes. Compose naming, stable
+subsystem filenames, PascalCase Compose tokens, wildcard-import policy, and maximum
+line length are explicitly configured instead of hidden behind a baseline. The
+format-only change was followed by a successful 1,505-task `test assembleDebug`
+matrix.
+
+During static cleanup, obsolete complication previews, graph helpers, unused graph
+constants, stale pairing locals, and unused UI helpers were removed only after a
+repository-wide reference check.

@@ -3,28 +3,27 @@ package app.aapswear.wear
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.DataSourceId
-import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchUiColors
-import androidx.wear.protolayout.LayoutElementBuilders
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SugarliciousTilesTest {
     private val now = 50_000_000L
-    private val colors = WatchUiColors(
-        glucoseLow = 0xFFAA0000.toInt(),
-        glucoseInRange = 0xFF00AA00.toInt(),
-        glucoseHigh = 0xFFAAAA00.toInt(),
-    )
+    private val colors =
+        WatchUiColors(
+            glucoseLow = 0xFFAA0000.toInt(),
+            glucoseInRange = 0xFF00AA00.toInt(),
+            glucoseHigh = 0xFFAAAA00.toInt(),
+        )
 
     @Test
     fun `tile emphasis is calibrated to the Wear app system font`() {
@@ -86,16 +85,20 @@ class SugarliciousTilesTest {
         assertTrue(oldInitial.xDp < currentInitial.xDp)
     }
 
-    private fun state(value: Double, measuredAt: Long) = TherapyDisplayState(
+    private fun state(
+        value: Double,
+        measuredAt: Long,
+    ) = TherapyDisplayState(
         source = DataSourceId.ANDROID_APS,
         receivedAtEpochMs = now,
-        glucose = GlucoseState(
-            valueMgDl = value,
-            displayUnit = GlucoseUnit.MG_DL,
-            trend = Trend.FORTY_FIVE_UP,
-            measuredAtEpochMs = measuredAt,
-            deltaMgDl = 5.0,
-        ),
+        glucose =
+            GlucoseState(
+                valueMgDl = value,
+                displayUnit = GlucoseUnit.MG_DL,
+                trend = Trend.FORTY_FIVE_UP,
+                measuredAtEpochMs = measuredAt,
+                deltaMgDl = 5.0,
+            ),
         insulin = InsulinState(totalIob = 1.2),
         carbs = CarbState(cobGrams = 18.0),
         basal = BasalState(currentUnitsPerHour = 0.70),

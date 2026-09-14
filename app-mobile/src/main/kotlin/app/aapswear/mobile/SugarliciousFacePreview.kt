@@ -47,38 +47,42 @@ private const val PHONE_BATTERY_PREVIEW_ID = -2
 /** Mirrors the DefaultProviderPolicy order in each packaged Sugarlicious WFF. */
 internal fun defaultSugarliciousPreviewIds(faceIndex: Int): List<Int> =
     when (faceIndex.coerceIn(sugarliciousWatchFaceCards.indices)) {
-        0 -> listOf(
-            SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
-            SugarliciousComplicationIds.GLUCOSE_AGE,
-            PROFILE_PREVIEW_ID,
-            SugarliciousComplicationIds.IOB,
-            SugarliciousComplicationIds.COB,
-            SugarliciousComplicationIds.BASAL,
-            SugarliciousComplicationIds.LOOP,
-            SugarliciousComplicationIds.GRAPH,
-        )
-        1, 2 -> listOf(
-            SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
-            SugarliciousComplicationIds.IOB,
-            SugarliciousComplicationIds.COB,
-            SugarliciousComplicationIds.GRAPH,
-        )
-        3 -> listOf(
-            SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
-            SugarliciousComplicationIds.GRAPH,
-            SugarliciousComplicationIds.IOB,
-            SugarliciousComplicationIds.COB,
-        )
-        4 -> listOf(
-            SugarliciousComplicationIds.GLUCOSE_TREND_DELTA,
-            SugarliciousComplicationIds.GLUCOSE_AGE,
-            SugarliciousComplicationIds.GRAPH,
-            SugarliciousComplicationIds.IOB,
-            SugarliciousComplicationIds.COB,
-            SugarliciousComplicationIds.BASAL,
-            SugarliciousComplicationIds.LOOP,
-            PHONE_BATTERY_PREVIEW_ID,
-        )
+        0 ->
+            listOf(
+                SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
+                SugarliciousComplicationIds.GLUCOSE_AGE,
+                PROFILE_PREVIEW_ID,
+                SugarliciousComplicationIds.IOB,
+                SugarliciousComplicationIds.COB,
+                SugarliciousComplicationIds.BASAL,
+                SugarliciousComplicationIds.LOOP,
+                SugarliciousComplicationIds.GRAPH,
+            )
+        1, 2 ->
+            listOf(
+                SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
+                SugarliciousComplicationIds.IOB,
+                SugarliciousComplicationIds.COB,
+                SugarliciousComplicationIds.GRAPH,
+            )
+        3 ->
+            listOf(
+                SugarliciousComplicationIds.GLUCOSE_TREND_RANGED,
+                SugarliciousComplicationIds.GRAPH,
+                SugarliciousComplicationIds.IOB,
+                SugarliciousComplicationIds.COB,
+            )
+        4 ->
+            listOf(
+                SugarliciousComplicationIds.GLUCOSE_TREND_DELTA,
+                SugarliciousComplicationIds.GLUCOSE_AGE,
+                SugarliciousComplicationIds.GRAPH,
+                SugarliciousComplicationIds.IOB,
+                SugarliciousComplicationIds.COB,
+                SugarliciousComplicationIds.BASAL,
+                SugarliciousComplicationIds.LOOP,
+                PHONE_BATTERY_PREVIEW_ID,
+            )
         else -> emptyList()
     }
 
@@ -185,7 +189,9 @@ internal fun SugarliciousFacePreview(
                         Color(0xFF151515),
                         topLeft = Offset(size.width * (47f / 450f), size.height * (53f / 450f)),
                         size = Size(size.width * (356f / 450f), size.height * (106f / 450f)),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * (28f / 450f)),
+                        cornerRadius =
+                            androidx.compose.ui.geometry
+                                .CornerRadius(size.minDimension * (28f / 450f)),
                     )
                 }
                 else -> {
@@ -194,13 +200,17 @@ internal fun SugarliciousFacePreview(
                         Color(0xFF091117),
                         topLeft = Offset(size.width * (62f / 450f), size.height * (108f / 450f)),
                         size = Size(size.width * (326f / 450f), size.height * (116f / 450f)),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * (30f / 450f)),
+                        cornerRadius =
+                            androidx.compose.ui.geometry
+                                .CornerRadius(size.minDimension * (30f / 450f)),
                     )
                     drawRoundRect(
                         Color(0xFF091117),
                         topLeft = Offset(size.width * (45f / 450f), size.height * (238f / 450f)),
                         size = Size(size.width * (360f / 450f), size.height * (91f / 450f)),
-                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * (22f / 450f)),
+                        cornerRadius =
+                            androidx.compose.ui.geometry
+                                .CornerRadius(size.minDimension * (22f / 450f)),
                     )
                 }
             }
@@ -246,48 +256,54 @@ internal fun SugarliciousFacePreview(
             )
         }
 
-        if (faceIndex < 4) Canvas(Modifier.fillMaxSize()) {
-            val scale = size.minDimension / 512f
-            fun sx(value: Float): Float = (center.x - 256f * scale) + value * scale
-            fun sy(value: Float): Float = (center.y - 256f * scale) + value * scale
-            val handAngles = fixedWatchPreviewHandAngles
+        if (faceIndex < 4) {
+            Canvas(Modifier.fillMaxSize()) {
+                val scale = size.minDimension / 512f
 
-            withTransform({ rotate(handAngles.hour, center) }) {
-                drawRoundRect(
-                    Color.White,
-                    Offset(sx(243f), sy(113.57f)),
-                    Size(26f * scale, 114f * scale),
-                    androidx.compose.ui.geometry.CornerRadius(13f * scale),
-                )
-                drawRect(
-                    Color.White,
-                    Offset(sx(252.75f), sy(224.44f)),
-                    Size(6.5f * scale, 29.56f * scale),
-                )
+                fun sx(value: Float): Float = (center.x - 256f * scale) + value * scale
+
+                fun sy(value: Float): Float = (center.y - 256f * scale) + value * scale
+                val handAngles = fixedWatchPreviewHandAngles
+
+                withTransform({ rotate(handAngles.hour, center) }) {
+                    drawRoundRect(
+                        Color.White,
+                        Offset(sx(243f), sy(113.57f)),
+                        Size(26f * scale, 114f * scale),
+                        androidx.compose.ui.geometry
+                            .CornerRadius(13f * scale),
+                    )
+                    drawRect(
+                        Color.White,
+                        Offset(sx(252.75f), sy(224.44f)),
+                        Size(6.5f * scale, 29.56f * scale),
+                    )
+                }
+                withTransform({ rotate(handAngles.minute, center) }) {
+                    drawRoundRect(
+                        Color.White,
+                        Offset(sx(243f), sy(34.47f)),
+                        Size(26f * scale, 193.1f * scale),
+                        androidx.compose.ui.geometry
+                            .CornerRadius(13f * scale),
+                    )
+                    drawRect(
+                        Color.White,
+                        Offset(sx(252.75f), sy(224.44f)),
+                        Size(6.5f * scale, 29.56f * scale),
+                    )
+                    drawCircle(Color(0xFFBCBCBC), 12f * scale, center)
+                }
+                withTransform({ rotate(handAngles.second, center) }) {
+                    drawRect(
+                        Color.Red,
+                        Offset(sx(254f), sy(6f)),
+                        Size(4f * scale, 290f * scale),
+                    )
+                    drawCircle(Color.Red, 8.5f * scale, center)
+                }
+                drawCircle(Color.Black, 4f * scale, center)
             }
-            withTransform({ rotate(handAngles.minute, center) }) {
-                drawRoundRect(
-                    Color.White,
-                    Offset(sx(243f), sy(34.47f)),
-                    Size(26f * scale, 193.1f * scale),
-                    androidx.compose.ui.geometry.CornerRadius(13f * scale),
-                )
-                drawRect(
-                    Color.White,
-                    Offset(sx(252.75f), sy(224.44f)),
-                    Size(6.5f * scale, 29.56f * scale),
-                )
-                drawCircle(Color(0xFFBCBCBC), 12f * scale, center)
-            }
-            withTransform({ rotate(handAngles.second, center) }) {
-                drawRect(
-                    Color.Red,
-                    Offset(sx(254f), sy(6f)),
-                    Size(4f * scale, 290f * scale),
-                )
-                drawCircle(Color.Red, 8.5f * scale, center)
-            }
-            drawCircle(Color.Black, 4f * scale, center)
         }
     }
 }
@@ -304,54 +320,63 @@ private fun previewSlots(
     width: Dp,
     height: Dp,
 ): List<PreviewSlot> {
-    fun slot(x: Float, y: Float, w: Float, h: Float) =
-        PreviewSlot(
-            x = width * (x / 450f),
-            y = height * (y / 450f),
-            width = width * (w / 450f),
-            height = height * (h / 450f),
-        )
+    fun slot(
+        x: Float,
+        y: Float,
+        w: Float,
+        h: Float,
+    ) = PreviewSlot(
+        x = width * (x / 450f),
+        y = height * (y / 450f),
+        width = width * (w / 450f),
+        height = height * (h / 450f),
+    )
 
     return when (index) {
         // Exact ComplicationSlot bounds from the five WFF watchface.xml files.
-        0 -> listOf(
-            slot(127f, 49f, 196f, 73f),
-            slot(330f, 54f, 58f, 38f),
-            slot(58f, 60f, 78f, 46f),
-            slot(46f, 170f, 91f, 56f),
-            slot(313f, 170f, 91f, 56f),
-            slot(55f, 288f, 99f, 52f),
-            slot(296f, 288f, 99f, 52f),
-            slot(155f, 365f, 140f, 50f),
-        )
-        1 -> listOf(
-            slot(112f, 110f, 226f, 226f),
-            slot(32f, 165f, 90f, 58f),
-            slot(328f, 165f, 90f, 58f),
-            slot(75f, 322f, 300f, 92f),
-        )
-        2 -> listOf(
-            slot(145f, 260f, 160f, 160f),
-            slot(43f, 105f, 125f, 72f),
-            slot(282f, 105f, 125f, 72f),
-            slot(70f, 188f, 310f, 74f),
-        )
-        3 -> listOf(
-            slot(62f, 62f, 326f, 88f),
-            slot(30f, 238f, 390f, 150f),
-            slot(44f, 170f, 112f, 60f),
-            slot(294f, 170f, 112f, 60f),
-        )
-        4 -> listOf(
-            slot(84f, 121f, 282f, 96f),
-            slot(333f, 117f, 65f, 45f),
-            slot(55f, 247f, 340f, 72f),
-            slot(48f, 348f, 72f, 54f),
-            slot(142f, 348f, 72f, 54f),
-            slot(236f, 348f, 72f, 54f),
-            slot(330f, 348f, 72f, 54f),
-            slot(304f, 52f, 82f, 38f),
-        )
+        0 ->
+            listOf(
+                slot(127f, 49f, 196f, 73f),
+                slot(330f, 54f, 58f, 38f),
+                slot(58f, 60f, 78f, 46f),
+                slot(46f, 170f, 91f, 56f),
+                slot(313f, 170f, 91f, 56f),
+                slot(55f, 288f, 99f, 52f),
+                slot(296f, 288f, 99f, 52f),
+                slot(155f, 365f, 140f, 50f),
+            )
+        1 ->
+            listOf(
+                slot(112f, 110f, 226f, 226f),
+                slot(32f, 165f, 90f, 58f),
+                slot(328f, 165f, 90f, 58f),
+                slot(75f, 322f, 300f, 92f),
+            )
+        2 ->
+            listOf(
+                slot(145f, 260f, 160f, 160f),
+                slot(43f, 105f, 125f, 72f),
+                slot(282f, 105f, 125f, 72f),
+                slot(70f, 188f, 310f, 74f),
+            )
+        3 ->
+            listOf(
+                slot(62f, 62f, 326f, 88f),
+                slot(30f, 238f, 390f, 150f),
+                slot(44f, 170f, 112f, 60f),
+                slot(294f, 170f, 112f, 60f),
+            )
+        4 ->
+            listOf(
+                slot(84f, 121f, 282f, 96f),
+                slot(333f, 117f, 65f, 45f),
+                slot(55f, 247f, 340f, 72f),
+                slot(48f, 348f, 72f, 54f),
+                slot(142f, 348f, 72f, 54f),
+                slot(236f, 348f, 72f, 54f),
+                slot(330f, 348f, 72f, 54f),
+                slot(304f, 52f, 82f, 38f),
+            )
         else -> emptyList()
     }
 }
@@ -427,29 +452,34 @@ private fun MiniPreviewGraph(
     val cutoff = timeWindow.startEpochMs
     val effectiveState = state ?: previewFaceState(now)
     val points =
-        (effectiveState.glucoseHistory +
-            listOfNotNull(effectiveState.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs) }))
-            .filter { it.measuredAtEpochMs in cutoff..now + 5 * 60_000L }
+        (
+            effectiveState.glucoseHistory +
+                listOfNotNull(effectiveState.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs) })
+        ).filter { it.measuredAtEpochMs in cutoff..now + 5 * 60_000L }
             .sortedBy { it.measuredAtEpochMs }
 
     Canvas(modifier) {
         if (points.isEmpty()) return@Canvas
         val low = 70.0
         val high = 180.0
+
         fun x(ts: Long): Float = timeWindow.plotX(ts, 0f, size.width)
-        fun y(value: Double): Float =
-            size.height - (GlucoseGraphScale.ratio(value).toFloat() * size.height)
+
+        fun y(value: Double): Float = size.height - (GlucoseGraphScale.ratio(value).toFloat() * size.height)
         drawRoundRect(
             Color(0x2219D7E8),
             size = size,
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx()),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(3.dp.toPx()),
         )
         points.forEach { point ->
-            val color = when {
-                point.valueMgDl < low -> Color(0xFFFF6464)
-                point.valueMgDl > high -> Color(0xFFFFA24B)
-                else -> Color(0xFF54DF30)
-            }
+            val color =
+                when {
+                    point.valueMgDl < low -> Color(0xFFFF6464)
+                    point.valueMgDl > high -> Color(0xFFFFA24B)
+                    else -> Color(0xFF54DF30)
+                }
             drawCircle(
                 color,
                 radius = 1.2.dp.toPx(),
@@ -469,27 +499,31 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPreviewCard(
         color = Color(0xFF091117),
         topLeft = Offset(size.width * x, size.height * y),
         size = Size(size.width * width, size.height * height),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.minDimension * 0.035f),
+        cornerRadius =
+            androidx.compose.ui.geometry
+                .CornerRadius(size.minDimension * 0.035f),
     )
 }
 
 private fun previewFaceState(now: Long): TherapyDisplayState {
-    val history = (0..18).map { index ->
-        GlucoseSample(
-            valueMgDl = 108.0 + ((index % 8) * 3.0),
-            measuredAtEpochMs = now - (18 - index) * 5L * 60_000L,
-        )
-    }
+    val history =
+        (0..18).map { index ->
+            GlucoseSample(
+                valueMgDl = 108.0 + ((index % 8) * 3.0),
+                measuredAtEpochMs = now - (18 - index) * 5L * 60_000L,
+            )
+        }
     return TherapyDisplayState(
         receivedAtEpochMs = now,
         sourceVersion = "AndroidAPS",
-        glucose = app.aapswear.model.GlucoseState(
-            valueMgDl = 123.0,
-            displayUnit = app.aapswear.model.GlucoseUnit.MG_DL,
-            trend = app.aapswear.model.Trend.FORTY_FIVE_UP,
-            measuredAtEpochMs = now - 2 * 60_000L,
-            deltaMgDl = 5.0,
-        ),
+        glucose =
+            app.aapswear.model.GlucoseState(
+                valueMgDl = 123.0,
+                displayUnit = app.aapswear.model.GlucoseUnit.MG_DL,
+                trend = app.aapswear.model.Trend.FORTY_FIVE_UP,
+                measuredAtEpochMs = now - 2 * 60_000L,
+                deltaMgDl = 5.0,
+            ),
         glucoseHistory = history,
         insulin = app.aapswear.model.InsulinState(totalIob = 1.2, bolusIob = 0.8, basalIob = 0.4),
         carbs = app.aapswear.model.CarbState(cobGrams = 15.0),

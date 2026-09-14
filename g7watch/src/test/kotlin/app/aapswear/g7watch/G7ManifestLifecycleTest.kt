@@ -31,10 +31,11 @@ class G7ManifestLifecycleTest {
 
     @Test fun `connected device foreground service permissions and type are declared`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val info = context.packageManager.getPackageInfo(
-            context.packageName,
-            PackageManager.GET_PERMISSIONS,
-        )
+        val info =
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_PERMISSIONS,
+            )
         val permissions = info.requestedPermissions.orEmpty().toSet()
 
         assertTrue("android.permission.POST_NOTIFICATIONS" in permissions)
@@ -43,10 +44,11 @@ class G7ManifestLifecycleTest {
         assertTrue("android.permission.RECEIVE_BOOT_COMPLETED" in permissions)
         assertTrue("android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in permissions)
 
-        val service = context.packageManager.getServiceInfo(
-            ComponentName(context, G7CollectorService::class.java),
-            0,
-        )
+        val service =
+            context.packageManager.getServiceInfo(
+                ComponentName(context, G7CollectorService::class.java),
+                0,
+            )
         assertTrue(
             service.foregroundServiceType and ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE != 0,
         )
@@ -54,16 +56,18 @@ class G7ManifestLifecycleTest {
 
     @Test fun `collector UI uses a single task and signal loss receiver is registered`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val activity = context.packageManager.getActivityInfo(
-            ComponentName(context, G7WatchActivity::class.java),
-            0,
-        )
+        val activity =
+            context.packageManager.getActivityInfo(
+                ComponentName(context, G7WatchActivity::class.java),
+                0,
+            )
         assertEquals(ActivityInfo.LAUNCH_SINGLE_TASK, activity.launchMode)
 
-        val receiver = context.packageManager.getReceiverInfo(
-            ComponentName(context, G7SignalLossReceiver::class.java),
-            0,
-        )
+        val receiver =
+            context.packageManager.getReceiverInfo(
+                ComponentName(context, G7SignalLossReceiver::class.java),
+                0,
+            )
         assertTrue(receiver.enabled)
         assertTrue(!receiver.exported)
     }

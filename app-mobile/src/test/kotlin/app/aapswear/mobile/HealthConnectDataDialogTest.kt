@@ -17,15 +17,17 @@ class HealthConnectDataDialogTest {
 
     @Test
     fun `details menu formats snapshot values`() {
-        val items = HealthConnectDataDialog.metricItems(
-            HealthConnectSnapshot(
-                syncedAtEpochMs = 1L,
-                steps = 12_345,
-                bloodGlucoseMgDl = 123.0,
-                systolicMmHg = 120.0,
-                diastolicMmHg = 80.0,
-            ),
-        ).associateBy { it.label }
+        val items =
+            HealthConnectDataDialog
+                .metricItems(
+                    HealthConnectSnapshot(
+                        syncedAtEpochMs = 1L,
+                        steps = 12_345,
+                        bloodGlucoseMgDl = 123.0,
+                        systolicMmHg = 120.0,
+                        diastolicMmHg = 80.0,
+                    ),
+                ).associateBy { it.label }
 
         assertEquals("12.345", items.getValue("Schritte").value)
         assertEquals("123 mg/dL", items.getValue("Blutzucker").value)

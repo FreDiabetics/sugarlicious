@@ -15,6 +15,28 @@ plugins {
     kotlin("android") version "2.4.10" apply false
     kotlin("jvm") version "2.4.10" apply false
     kotlin("plugin.serialization") version "2.4.10" apply false
+    id("io.gitlab.arturbosch.detekt") version "1.23.8" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
+}
+
+subprojects {
+    fun enableKotlinQualityGates() {
+        pluginManager.apply("io.gitlab.arturbosch.detekt")
+        pluginManager.apply("org.jlleitschuh.gradle.ktlint")
+    }
+
+    pluginManager.withPlugin("org.jetbrains.kotlin.android") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("com.android.application") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("com.android.library") { enableKotlinQualityGates() }
+
+    tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+        // Detekt analysis follows the Android/JVM 17 source contract. This affects
+        // analysis only; production compilation keeps each module's configured target.
+        jvmTarget = "17"
+        buildUponDefaultConfig = true
+        config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    }
 }
 
 // Mobile and Wear deliberately share app.aapswear because they are companion variants on
@@ -179,7 +201,7 @@ abstract class InstallSugarliciousDebugTask
         }
     }
 
-val watchFaceValidatorCli by configurations.creating
+val watchFaceValidatorCli = configurations.create("watchFaceValidatorCli")
 
 dependencies {
     watchFaceValidatorCli(

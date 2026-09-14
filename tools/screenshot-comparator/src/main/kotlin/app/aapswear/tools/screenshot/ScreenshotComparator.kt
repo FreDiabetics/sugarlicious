@@ -16,7 +16,12 @@ data class ScreenshotMetrics(
 )
 
 class ScreenshotComparator {
-    fun compare(reference: File, actual: File, diff: File? = null, threshold: Int = 0): ScreenshotMetrics {
+    fun compare(
+        reference: File,
+        actual: File,
+        diff: File? = null,
+        threshold: Int = 0,
+    ): ScreenshotMetrics {
         require(threshold in 0..255) { "Threshold must be between 0 and 255" }
         val expected = read(reference)
         val observed = read(actual)
@@ -34,12 +39,13 @@ class ScreenshotComparator {
             for (x in 0 until expected.width) {
                 val expectedColor = Color(expected.getRGB(x, y), true)
                 val observedColor = Color(observed.getRGB(x, y), true)
-                val deltas = intArrayOf(
-                    kotlin.math.abs(expectedColor.red - observedColor.red),
-                    kotlin.math.abs(expectedColor.green - observedColor.green),
-                    kotlin.math.abs(expectedColor.blue - observedColor.blue),
-                    kotlin.math.abs(expectedColor.alpha - observedColor.alpha),
-                )
+                val deltas =
+                    intArrayOf(
+                        kotlin.math.abs(expectedColor.red - observedColor.red),
+                        kotlin.math.abs(expectedColor.green - observedColor.green),
+                        kotlin.math.abs(expectedColor.blue - observedColor.blue),
+                        kotlin.math.abs(expectedColor.alpha - observedColor.alpha),
+                    )
                 val pixelMaximum = deltas.max()
                 maximumDelta = maxOf(maximumDelta, pixelMaximum)
                 deltas.forEach {
@@ -68,6 +74,5 @@ class ScreenshotComparator {
         )
     }
 
-    private fun read(file: File): BufferedImage =
-        requireNotNull(ImageIO.read(file)) { "Not a readable image: ${file.absolutePath}" }
+    private fun read(file: File): BufferedImage = requireNotNull(ImageIO.read(file)) { "Not a readable image: ${file.absolutePath}" }
 }

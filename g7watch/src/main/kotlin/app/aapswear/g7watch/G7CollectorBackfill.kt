@@ -13,29 +13,37 @@ internal object G7CollectorBackfillProtocol {
     const val EXPECTED_INTERVAL_SECONDS = 5L * 60L
     const val REQUEST_OPCODE: Byte = 0x59
 
-    fun request(startSensorClock: Long, endSensorClock: Long): ByteArray {
+    fun request(
+        startSensorClock: Long,
+        endSensorClock: Long,
+    ): ByteArray {
         require(startSensorClock >= 1L && startSensorClock <= endSensorClock)
         require(endSensorClock - startSensorClock <= MAX_WINDOW_SECONDS)
-        return ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
+        return ByteBuffer
+            .allocate(9)
+            .order(ByteOrder.LITTLE_ENDIAN)
             .put(REQUEST_OPCODE)
             .putInt(startSensorClock.toInt())
             .putInt(endSensorClock.toInt())
             .array()
     }
 
-    fun requestedStart(lastStoredSensorClock: Long?, liveSensorClock: Long): Long? {
+    fun requestedStart(
+        lastStoredSensorClock: Long?,
+        liveSensorClock: Long,
+    ): Long? {
         if (liveSensorClock <= 0) return null
         // The sensor stores at most 24 hours and its history is addressed on five-minute
         // cadence slots. Real firmware rejects a bootstrap range starting at second 1.
         val oldestAllowed =
             (liveSensorClock - MAX_WINDOW_SECONDS).coerceAtLeast(EXPECTED_INTERVAL_SECONDS)
         val start = lastStoredSensorClock?.plus(EXPECTED_INTERVAL_SECONDS) ?: oldestAllowed
-        return start.coerceAtLeast(oldestAllowed)
+        return start
+            .coerceAtLeast(oldestAllowed)
             .takeIf { liveSensorClock - it >= EXPECTED_INTERVAL_SECONDS }
     }
 
-    fun requestedEnd(liveSensorClock: Long): Long? =
-        (liveSensorClock - EXPECTED_INTERVAL_SECONDS).takeIf { it > 0L }
+    fun requestedEnd(liveSensorClock: Long): Long? = (liveSensorClock - EXPECTED_INTERVAL_SECONDS).takeIf { it > 0L }
 
     fun parseRecord(
         packet: ByteArray,
@@ -81,13 +89,14 @@ internal object G7CollectorBackfillProtocol {
         )
     }
 
-    private fun Int.toSensorState(): G7SensorState = when (this) {
-        0x02, 0xc1 -> G7SensorState.WARMUP
-        0x06, 0x07 -> G7SensorState.ACTIVE
-        0x0f, 0x18, 0x1a, 0xc2 -> G7SensorState.ENDED
-        in 0x0b..0x17, 0x19, in 0x1b..0x1e -> G7SensorState.ERROR
-        else -> G7SensorState.UNKNOWN
-    }
+    private fun Int.toSensorState(): G7SensorState =
+        when (this) {
+            0x02, 0xc1 -> G7SensorState.WARMUP
+            0x06, 0x07 -> G7SensorState.ACTIVE
+            0x0f, 0x18, 0x1a, 0xc2 -> G7SensorState.ENDED
+            in 0x0b..0x17, 0x19, in 0x1b..0x1e -> G7SensorState.ERROR
+            else -> G7SensorState.UNKNOWN
+        }
 
     const val RECORD_BYTES = 9
 }

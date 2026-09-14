@@ -18,7 +18,8 @@ object PredictionDisplayTimeline {
         nowEpochMs: Long,
     ): List<GlucosePrediction> =
         predictions.mapNotNull { series ->
-            val valid = series.samples
+            val valid =
+                series.samples
                     .asSequence()
                     .filter { it.valueMgDl.isFinite() && it.valueMgDl in 20.0..1000.0 }
                     .distinctBy { it.measuredAtEpochMs }
@@ -28,22 +29,27 @@ object PredictionDisplayTimeline {
             val before = valid.lastOrNull { it.measuredAtEpochMs < nowEpochMs }
             val after = valid.firstOrNull { it.measuredAtEpochMs > nowEpochMs }
             if (after == null) return@mapNotNull null
-            val boundary = exact ?: if (before != null) {
-                val fraction = (nowEpochMs - before.measuredAtEpochMs).toDouble() /
-                    (after.measuredAtEpochMs - before.measuredAtEpochMs).toDouble()
-                GlucoseSample(
-                    valueMgDl = before.valueMgDl + (after.valueMgDl - before.valueMgDl) * fraction,
-                    measuredAtEpochMs = nowEpochMs,
-                    source = after.source,
-                    sensorId = after.sensorId ?: before.sensorId,
-                    sessionId = after.sessionId ?: before.sessionId,
-                    receivedAtEpochMs = listOfNotNull(before.receivedAtEpochMs, after.receivedAtEpochMs).maxOrNull(),
-                )
-            } else null
-            val samples = buildList {
-                boundary?.let(::add)
-                addAll(valid.filter { it.measuredAtEpochMs > nowEpochMs })
-            }.distinctBy { it.measuredAtEpochMs }
+            val boundary =
+                exact ?: if (before != null) {
+                    val fraction =
+                        (nowEpochMs - before.measuredAtEpochMs).toDouble() /
+                            (after.measuredAtEpochMs - before.measuredAtEpochMs).toDouble()
+                    GlucoseSample(
+                        valueMgDl = before.valueMgDl + (after.valueMgDl - before.valueMgDl) * fraction,
+                        measuredAtEpochMs = nowEpochMs,
+                        source = after.source,
+                        sensorId = after.sensorId ?: before.sensorId,
+                        sessionId = after.sessionId ?: before.sessionId,
+                        receivedAtEpochMs = listOfNotNull(before.receivedAtEpochMs, after.receivedAtEpochMs).maxOrNull(),
+                    )
+                } else {
+                    null
+                }
+            val samples =
+                buildList {
+                    boundary?.let(::add)
+                    addAll(valid.filter { it.measuredAtEpochMs > nowEpochMs })
+                }.distinctBy { it.measuredAtEpochMs }
             if (samples.isEmpty()) null else series.copy(samples = samples)
         }
 

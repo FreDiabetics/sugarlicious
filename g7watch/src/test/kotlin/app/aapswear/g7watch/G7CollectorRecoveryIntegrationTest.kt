@@ -22,33 +22,47 @@ class G7CollectorRecoveryIntegrationTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Before fun clear() {
-        context.getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("sensor", "session"), collectorEnabled = true))
     }
 
     @Test fun `real hardware failure sequence self heals and closes every available gap`() {
         val ledger = G7ExpectedWindowLedger(context)
-        val gaps = listOf(300_000L, 600_000L, 900_000L).map { expected ->
-            ledger.create(expected, expected - 10_000L).also {
-                ledger.markFinal(it.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val gaps =
+            listOf(300_000L, 600_000L, 900_000L).map { expected ->
+                ledger.create(expected, expected - 10_000L).also {
+                    ledger.markFinal(it.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+                }
             }
-        }
         var health = G7CollectorHealth()
         health = G7CollectorReliability.failed(health, G7FailureClass.DIRECT_GATT_133, false, false, 310_000L)
         health = G7CollectorReliability.failed(health, G7FailureClass.DIRECT_NO_CALLBACK, false, false, 610_000L)
-        repeat(6) { health = G7CollectorReliability.failed(health, G7FailureClass.DIRECT_NO_CALLBACK, false, true, 910_000L + it * 300_000L) }
+        repeat(
+            6,
+        ) { health = G7CollectorReliability.failed(health, G7FailureClass.DIRECT_NO_CALLBACK, false, true, 910_000L + it * 300_000L) }
         assertEquals(G7SensorAvailability.POSSIBLY_OWNED_BY_OTHER_COLLECTOR, health.sensorAvailability)
         assertEquals(G7RecoveryStage.RECOVERY_ESCALATED, health.recoveryStage)
 
-        val rehydrated = G7CollectorReliability.rehydrate(
-            G7PersistedState(sensor = G7Sensor("sensor", "session"), collectorEnabled = true, health = health),
-            3_000_000L,
-        )
+        val rehydrated =
+            G7CollectorReliability.rehydrate(
+                G7PersistedState(sensor = G7Sensor("sensor", "session"), collectorEnabled = true, health = health),
+                3_000_000L,
+            )
         health = G7CollectorReliability.succeeded(rehydrated.health, 3_000_000L, 3_001_000L)
         ledger.markRecoveryRequestStarted("sensor", "session", 3_000_000L, 3_001_100L)
         ledger.markNextLiveAndBackfill(
-            "sensor", "session", 3_000_000L, 3_001_000L, 3_002_000L,
-            3_001_100L, 3_001_500L, gaps.map { it.expectedAt },
+            "sensor",
+            "session",
+            3_000_000L,
+            3_001_000L,
+            3_002_000L,
+            3_001_100L,
+            3_001_500L,
+            gaps.map { it.expectedAt },
         )
 
         assertEquals(G7RecoveryStage.NORMAL, health.recoveryStage)
@@ -62,16 +76,18 @@ class G7CollectorRecoveryIntegrationTest {
             var state = G7PersistedState(sensor = G7Sensor("sensor", "session"), collectorEnabled = true)
             repeat(hours * 12) { slot ->
                 val now = slot * 300_000L
-                state = if (slot % 29 == 28) {
-                    state.copy(health = G7CollectorReliability.succeeded(state.health, now, now + 1_000L))
-                } else {
-                    val failure = when (slot % 5) {
-                        0 -> G7FailureClass.DIRECT_GATT_133
-                        1 -> G7FailureClass.PROCESS_INTERRUPTED
-                        else -> G7FailureClass.DIRECT_NO_CALLBACK
+                state =
+                    if (slot % 29 == 28) {
+                        state.copy(health = G7CollectorReliability.succeeded(state.health, now, now + 1_000L))
+                    } else {
+                        val failure =
+                            when (slot % 5) {
+                                0 -> G7FailureClass.DIRECT_GATT_133
+                                1 -> G7FailureClass.PROCESS_INTERRUPTED
+                                else -> G7FailureClass.DIRECT_NO_CALLBACK
+                            }
+                        state.copy(health = G7CollectorReliability.failed(state.health, failure, false, slot % 3 != 0, now))
                     }
-                    state.copy(health = G7CollectorReliability.failed(state.health, failure, false, slot % 3 != 0, now))
-                }
                 if (slot % 53 == 0) state = G7CollectorReliability.rehydrate(state, now)
                 if (slot % 29 == 28) {
                     assertEquals(G7RecoveryStage.NORMAL, state.health.recoveryStage)

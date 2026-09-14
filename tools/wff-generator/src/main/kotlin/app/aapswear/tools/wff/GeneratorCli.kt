@@ -16,4 +16,3 @@ fun main(args: Array<String>) {
     result.warnings.forEach { println("WARNING $it") }
     result.omittedElements.forEach { println("OMITTED $it") }
 }
-

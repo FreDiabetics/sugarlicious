@@ -16,7 +16,8 @@ class OverviewGraphDefaultsTest {
     @Test
     fun `previous automatic twenty four hour migration returns overview to three hours`() {
         val preferences = context.getSharedPreferences("overview_graph_default_migration", android.content.Context.MODE_PRIVATE)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putBoolean("graphHoursDefault24MigratedV4", true)
             .putInt("graphHours", 24)
@@ -29,7 +30,9 @@ class OverviewGraphDefaultsTest {
     @Test
     fun `mobile graph scale mode and static bounds persist`() {
         val storage = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
-        storage.edit().clear()
+        storage
+            .edit()
+            .clear()
             .putString(DashboardUiPreferences.GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC.name)
             .putFloat(DashboardUiPreferences.GRAPH_MINIMUM_KEY, 55f)
             .putFloat(DashboardUiPreferences.GRAPH_MAXIMUM_KEY, 350f)
@@ -44,7 +47,8 @@ class OverviewGraphDefaultsTest {
     @Test
     fun `explicit non legacy overview duration is preserved`() {
         val preferences = context.getSharedPreferences("overview_graph_explicit_duration", android.content.Context.MODE_PRIVATE)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putInt("graphHours", 12)
             .commit()

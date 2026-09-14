@@ -8,13 +8,20 @@ internal object G7ReconnectStrategyStore {
     private const val KEY_STRATEGY = "strategy"
 
     fun read(context: Context): G7ReconnectStrategy =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_STRATEGY, null)
             ?.let { runCatching { G7ReconnectStrategy.valueOf(it) }.getOrNull() }
             ?: G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT
 
-    fun write(context: Context, strategy: G7ReconnectStrategy) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_STRATEGY, strategy.name).apply()
+    fun write(
+        context: Context,
+        strategy: G7ReconnectStrategy,
+    ) {
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_STRATEGY, strategy.name)
+            .apply()
     }
 }

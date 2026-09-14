@@ -1,15 +1,19 @@
 package app.aapswear.wear
 
 import android.content.Context
-import app.aapswear.protocol.WatchUiColors
 import app.aapswear.model.AppearanceMode
+import app.aapswear.protocol.WatchUiColors
 
-enum class WearTileKind(internal val preferenceName: String) {
+enum class WearTileKind(
+    internal val preferenceName: String,
+) {
     GLUCOSE("wear_tile_glucose_appearance"),
     THERAPY("wear_tile_therapy_appearance"),
 }
 
-enum class WearTileContent(val label: String) {
+enum class WearTileContent(
+    val label: String,
+) {
     GLUCOSE("Glukose"),
     GRAPH("Graph"),
     IOB("IOB"),
@@ -22,15 +26,25 @@ enum class WearTileContent(val label: String) {
 internal object WearTileContentStore {
     private const val PREFERENCES = "wear_tile_content"
 
-    fun read(context: Context, kind: WearTileKind): WearTileContent {
+    fun read(
+        context: Context,
+        kind: WearTileKind,
+    ): WearTileContent {
         val fallback = if (kind == WearTileKind.GLUCOSE) WearTileContent.GLUCOSE else WearTileContent.IOB
-        val raw = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .getString(kind.name, fallback.name)
+        val raw =
+            context
+                .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+                .getString(kind.name, fallback.name)
         return WearTileContent.entries.firstOrNull { it.name == raw } ?: fallback
     }
 
-    fun write(context: Context, kind: WearTileKind, content: WearTileContent) {
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    fun write(
+        context: Context,
+        kind: WearTileKind,
+        content: WearTileContent,
+    ) {
+        context
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .putString(kind.name, content.name)
             .apply()
@@ -41,10 +55,16 @@ internal object WearTileContentStore {
 internal object WearTileAppearanceStore {
     private const val PREFIX = "color."
 
-    fun read(context: Context, kind: WearTileKind): WatchUiColors =
-        read(context, kind, WearDisplayPreferences.activeAppearanceMode(context))
+    fun read(
+        context: Context,
+        kind: WearTileKind,
+    ): WatchUiColors = read(context, kind, WearDisplayPreferences.activeAppearanceMode(context))
 
-    fun read(context: Context, kind: WearTileKind, mode: AppearanceMode): WatchUiColors {
+    fun read(
+        context: Context,
+        kind: WearTileKind,
+        mode: AppearanceMode,
+    ): WatchUiColors {
         val defaults = WatchUiColors()
         val preferences = context.getSharedPreferences(kind.preferenceName, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
@@ -68,14 +88,23 @@ internal object WearTileAppearanceStore {
         )
     }
 
-    fun write(context: Context, kind: WearTileKind, colors: WatchUiColors) =
-        write(context, kind, WearDisplayPreferences.activeAppearanceMode(context), colors)
+    fun write(
+        context: Context,
+        kind: WearTileKind,
+        colors: WatchUiColors,
+    ) = write(context, kind, WearDisplayPreferences.activeAppearanceMode(context), colors)
 
-    fun write(context: Context, kind: WearTileKind, mode: AppearanceMode, colors: WatchUiColors) {
+    fun write(
+        context: Context,
+        kind: WearTileKind,
+        mode: AppearanceMode,
+        colors: WatchUiColors,
+    ) {
         val preferences = context.getSharedPreferences(kind.preferenceName, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
         val prefix = "$PREFIX${mode.storageKey}."
-        preferences.edit()
+        preferences
+            .edit()
             .putInt(prefix + "background", colors.background)
             .putInt(prefix + "tile_background", colors.tileBackground)
             .putInt(prefix + "tile_border", colors.tileBorder)
@@ -96,16 +125,24 @@ internal object WearTileAppearanceStore {
 
     private fun migrateLegacy(preferences: android.content.SharedPreferences) {
         if (preferences.getBoolean("appearance_profiles_v1", false)) return
-        preferences.edit().apply {
-            preferences.all.forEach { (key, raw) ->
-                if (!key.startsWith(PREFIX) || raw !is Int || key.startsWith("${PREFIX}light.") || key.startsWith("${PREFIX}dark.")) return@forEach
-                val suffix = key.removePrefix(PREFIX)
-                AppearanceMode.entries.forEach { mode ->
-                    val target = "$PREFIX${mode.storageKey}.$suffix"
-                    if (!preferences.contains(target)) putInt(target, raw)
+        preferences
+            .edit()
+            .apply {
+                preferences.all.forEach { (key, raw) ->
+                    if (!key.startsWith(PREFIX) ||
+                        raw !is Int ||
+                        key.startsWith("${PREFIX}light.") ||
+                        key.startsWith("${PREFIX}dark.")
+                    ) {
+                        return@forEach
+                    }
+                    val suffix = key.removePrefix(PREFIX)
+                    AppearanceMode.entries.forEach { mode ->
+                        val target = "$PREFIX${mode.storageKey}.$suffix"
+                        if (!preferences.contains(target)) putInt(target, raw)
+                    }
                 }
-            }
-            putBoolean("appearance_profiles_v1", true)
-        }.apply()
+                putBoolean("appearance_profiles_v1", true)
+            }.apply()
     }
 }

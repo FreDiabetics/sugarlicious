@@ -1,8 +1,11 @@
-plugins { id("com.android.library"); kotlin("plugin.serialization") }
+plugins {
+    id("com.android.library")
+    kotlin("plugin.serialization")
+}
 android {
-    namespace="app.aapswear.storage"
-    compileSdk=36
-    defaultConfig { minSdk=26 }
+    namespace = "app.aapswear.storage"
+    compileSdk = 36
+    defaultConfig { minSdk = 26 }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 dependencies {

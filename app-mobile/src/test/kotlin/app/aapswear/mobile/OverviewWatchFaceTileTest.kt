@@ -1,10 +1,10 @@
 package app.aapswear.mobile
 
-import java.util.Calendar
-import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Calendar
+import java.util.TimeZone
 
 class OverviewWatchFaceTileTest {
     @Test
@@ -31,10 +31,11 @@ class OverviewWatchFaceTileTest {
     @Test
     fun `wall clock helper still calculates physical clock angles`() {
         val utc = TimeZone.getTimeZone("UTC")
-        val calendar = Calendar.getInstance(utc).apply {
-            set(2026, Calendar.AUGUST, 14, 10, 10, 30)
-            set(Calendar.MILLISECOND, 0)
-        }
+        val calendar =
+            Calendar.getInstance(utc).apply {
+                set(2026, Calendar.AUGUST, 14, 10, 10, 30)
+                set(Calendar.MILLISECOND, 0)
+            }
 
         val angles = watchPreviewHandAngles(calendar.timeInMillis, utc)
 
@@ -46,7 +47,15 @@ class OverviewWatchFaceTileTest {
     @Test
     fun `analog hand rotations stay correct at cardinal and mixed times`() {
         val utc = TimeZone.getTimeZone("UTC")
-        data class Case(val hour: Int, val minute: Int, val second: Int, val hourAngle: Float, val minuteAngle: Float, val secondAngle: Float)
+
+        data class Case(
+            val hour: Int,
+            val minute: Int,
+            val second: Int,
+            val hourAngle: Float,
+            val minuteAngle: Float,
+            val secondAngle: Float,
+        )
         listOf(
             Case(0, 0, 0, 0f, 0f, 0f),
             Case(3, 0, 0, 90f, 0f, 0f),
@@ -55,10 +64,11 @@ class OverviewWatchFaceTileTest {
             Case(12, 30, 0, 15f, 180f, 0f),
             Case(18, 45, 0, 202.5f, 270f, 0f),
         ).forEach { case ->
-            val calendar = Calendar.getInstance(utc).apply {
-                set(2026, Calendar.JANUARY, 1, case.hour, case.minute, case.second)
-                set(Calendar.MILLISECOND, 0)
-            }
+            val calendar =
+                Calendar.getInstance(utc).apply {
+                    set(2026, Calendar.JANUARY, 1, case.hour, case.minute, case.second)
+                    set(Calendar.MILLISECOND, 0)
+                }
             val angles = watchPreviewHandAngles(calendar.timeInMillis, utc)
             assertEquals(case.hourAngle, angles.hour, 0.001f)
             assertEquals(case.minuteAngle, angles.minute, 0.001f)

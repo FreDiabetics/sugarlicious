@@ -2,17 +2,21 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.model.AppearanceMode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
-import app.aapswear.model.AppearanceMode
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7AppearanceStoreTest {
     @Test fun `fresh installation defaults to dark mode`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
 
         assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).activeMode())
         assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).load().mode)
@@ -20,7 +24,11 @@ class G7AppearanceStoreTest {
 
     @Test fun `colors persist alpha and reset to defaults`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val store = G7AppearanceStore(context)
         val custom = 0x12345678
 
@@ -28,12 +36,19 @@ class G7AppearanceStoreTest {
         assertEquals(custom, G7AppearanceStore(context).load().argb(G7AppearanceRole.GRAPH_TARGET_AREA))
 
         store.reset(G7AppearanceRole.GRAPH_TARGET_AREA)
-        assertEquals(G7AppearanceRole.GRAPH_TARGET_AREA.defaultArgb, G7AppearanceStore(context).load().argb(G7AppearanceRole.GRAPH_TARGET_AREA))
+        assertEquals(
+            G7AppearanceRole.GRAPH_TARGET_AREA.defaultArgb,
+            G7AppearanceStore(context).load().argb(G7AppearanceRole.GRAPH_TARGET_AREA),
+        )
     }
 
     @Test fun `graph period cycles and survives new store instance`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val store = G7AppearanceStore(context)
 
         assertEquals(3, store.graphHours())
@@ -48,7 +63,11 @@ class G7AppearanceStoreTest {
 
     @Test fun `light and dark profiles are independent`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val store = G7AppearanceStore(context)
         store.save(AppearanceMode.LIGHT, G7AppearanceRole.MENU_BACKGROUND, 0xFFEEDDCC.toInt())
         store.save(AppearanceMode.DARK, G7AppearanceRole.MENU_BACKGROUND, 0xFF112233.toInt())
@@ -58,7 +77,11 @@ class G7AppearanceStoreTest {
 
     @Test fun `delta and unit color is independent between SugarWear light and dark`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val store = G7AppearanceStore(context)
         store.save(AppearanceMode.LIGHT, G7AppearanceRole.GLUCOSE_DELTA, 0xAA102030.toInt())
         store.save(AppearanceMode.DARK, G7AppearanceRole.GLUCOSE_DELTA, 0xCC405060.toInt())
@@ -69,7 +92,11 @@ class G7AppearanceStoreTest {
 
     @Test fun `explicit dark mode survives activity and store recreation`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         G7AppearanceStore(context).setActiveMode(AppearanceMode.DARK)
         assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).activeMode())
         assertEquals(AppearanceMode.DARK, G7AppearanceStore(context).load().mode)
@@ -77,7 +104,11 @@ class G7AppearanceStoreTest {
 
     @Test fun `glucose and trend scales persist independently through 200 percent`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences("g7_appearance", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         G7AppearanceStore(context).apply {
             setGlucoseScalePercent(200)
             setTrendScalePercent(125)

@@ -61,18 +61,20 @@ internal object G7AdvertisementWakeScheduler {
 
         val pending = scanPendingIntent(app)
         runCatching { scanner.stopScan(pending) }
-        val status = runCatching {
-            scanner.startScan(
-                listOf(ScanFilter.Builder().setDeviceAddress(address).build()),
-                ScanSettings.Builder()
-                    .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
-                    .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                    .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
-                    .setReportDelay(0L)
-                    .build(),
-                pending,
-            )
-        }.getOrElse { REGISTRATION_START_FAILED }
+        val status =
+            runCatching {
+                scanner.startScan(
+                    listOf(ScanFilter.Builder().setDeviceAddress(address).build()),
+                    ScanSettings
+                        .Builder()
+                        .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                        .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+                        .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                        .setReportDelay(0L)
+                        .build(),
+                    pending,
+                )
+            }.getOrElse { REGISTRATION_START_FAILED }
         rememberRegistration(app, address, status)
         return status
     }
@@ -80,12 +82,14 @@ internal object G7AdvertisementWakeScheduler {
     fun disarm(context: Context) {
         val app = context.applicationContext
         if (app.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
-            val scanner = runCatching {
-                app.getSystemService(BluetoothManager::class.java).adapter?.bluetoothLeScanner
-            }.getOrNull()
+            val scanner =
+                runCatching {
+                    app.getSystemService(BluetoothManager::class.java).adapter?.bluetoothLeScanner
+                }.getOrNull()
             scanner?.let { runCatching { it.stopScan(scanPendingIntent(app)) } }
         }
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        app
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .remove(KEY_REGISTERED_ADDRESS)
             .remove(KEY_REGISTRATION_STATUS)
@@ -94,41 +98,63 @@ internal object G7AdvertisementWakeScheduler {
     }
 
     fun lastForwardedAt(context: Context): Long? =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getLong(KEY_LAST_FORWARDED_AT, 0L)
             .takeIf { it > 0L }
 
-    fun markForwarded(context: Context, nowEpochMs: Long) {
+    fun markForwarded(
+        context: Context,
+        nowEpochMs: Long,
+    ) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit()
+        prefs
+            .edit()
             .putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
             .putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
             .apply()
     }
 
     fun lastForwardedSlot(context: Context): Long? =
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getLong(KEY_LAST_FORWARDED_SLOT, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getLong(KEY_LAST_FORWARDED_SLOT, Long.MIN_VALUE)
+            .takeIf { it != Long.MIN_VALUE }
 
-    fun markForwardedSlot(context: Context, slotEpochMs: Long, nowEpochMs: Long) {
+    fun markForwardedSlot(
+        context: Context,
+        slotEpochMs: Long,
+        nowEpochMs: Long,
+    ) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs.edit()
+        prefs
+            .edit()
             .putLong(KEY_LAST_FORWARDED_SLOT, slotEpochMs)
             .putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
             .putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
             .apply()
     }
 
-    fun markCallbackError(context: Context, errorCode: Int, nowEpochMs: Long) {
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun markCallbackError(
+        context: Context,
+        errorCode: Int,
+        nowEpochMs: Long,
+    ) {
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putInt(KEY_LAST_CALLBACK_ERROR, errorCode)
             .putLong(KEY_LAST_CALLBACK_ERROR_AT, nowEpochMs)
             .apply()
     }
 
-    private fun rememberRegistration(context: Context, address: String, status: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun rememberRegistration(
+        context: Context,
+        address: String,
+        status: Int,
+    ) {
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_REGISTERED_ADDRESS, address)
             .putInt(KEY_REGISTRATION_STATUS, status)
@@ -182,7 +208,10 @@ internal const val G7_ADVERTISEMENT_WAKE_THROTTLE_MS = 45_000L
 internal const val G7_ADVERTISEMENT_SLOT_WINDOW_MS = 90_000L
 
 class G7AdvertisementWakeReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != G7AdvertisementWakeScheduler.ACTION_SENSOR_ADVERTISEMENT) return
         val app = context.applicationContext
         val state = G7SensorStateStore(app).read()
@@ -206,13 +235,17 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         }
 
         val knownAddress = state.sensor?.deviceAddress
-        val results = intent.getParcelableArrayListExtra(
-            BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
-            ScanResult::class.java,
-        ).orEmpty()
-        val hasMatchingResult = knownAddress != null && results.any { result ->
-            runCatching { result.device.address.equals(knownAddress, ignoreCase = true) }.getOrDefault(false)
-        }
+        val results =
+            intent
+                .getParcelableArrayListExtra(
+                    BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
+                    ScanResult::class.java,
+                ).orEmpty()
+        val hasMatchingResult =
+            knownAddress != null &&
+                results.any { result ->
+                    runCatching { result.device.address.equals(knownAddress, ignoreCase = true) }.getOrDefault(false)
+                }
         val diagnostics = G7CollectorDiagnosticStore(app)
         val expectedSlot = diagnostics.pendingScheduledCycle()?.expectedReadingEpoch
         if (!shouldForwardG7AdvertisementForSlot(
@@ -234,11 +267,12 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
             .onFailure { error ->
                 G7WakeHandoff.release()
                 G7ReconnectAlarmScheduler.scheduleRecovery(app, state, now)
-                val attempt = diagnostics.begin(
-                    manual = false,
-                    restart = false,
-                    nowEpochMs = now,
-                )
+                val attempt =
+                    diagnostics.begin(
+                        manual = false,
+                        restart = false,
+                        nowEpochMs = now,
+                    )
                 diagnostics.setClassification(
                     attempt.attemptId,
                     CollectorCycleClassification.SERVICE_START_FAILED,

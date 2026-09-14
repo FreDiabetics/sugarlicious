@@ -4,20 +4,27 @@ import android.content.Context
 import android.os.Build
 import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.SettingsSchemaVersions
-import java.io.File
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 internal object DiagnosticBundleExporter {
-    private val json = Json { prettyPrint = true; explicitNulls = false }
+    private val json =
+        Json {
+            prettyPrint = true
+            explicitNulls = false
+        }
     private val sensitiveParts = setOf("secret", "token", "password", "sharedkey", "gkey", "auth", "credential", "pin", "url")
     private val preferenceFiles = listOf("dashboard_ui", "diagnostics", "mobile_canonical_cgm_resolver")
 
-    fun create(context: Context, events: List<DiagnosticEvent>): File {
+    fun create(
+        context: Context,
+        events: List<DiagnosticEvent>,
+    ): File {
         val outputDir = File(context.cacheDir, "diagnostics").apply { mkdirs() }
         outputDir.listFiles()?.filter { it.name.startsWith("sugarlicious-diagnostics-") }?.forEach { it.delete() }
         val output = File(outputDir, "sugarlicious-diagnostics-${System.currentTimeMillis()}.zip")
@@ -64,8 +71,7 @@ internal object DiagnosticBundleExporter {
     internal fun isSensitive(key: String): Boolean = sensitiveParts.any { key.contains(it, ignoreCase = true) }
 
     @Suppress("DEPRECATION")
-    private fun packageVersionCode(packageInfo: android.content.pm.PackageInfo): Long =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) packageInfo.longVersionCode else packageInfo.versionCode.toLong()
+    private fun packageVersionCode(packageInfo: android.content.pm.PackageInfo): Long = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) packageInfo.longVersionCode else packageInfo.versionCode.toLong()
 
     private fun schemaVersionsJson(): String =
         json.encodeToString(
@@ -81,22 +87,27 @@ internal object DiagnosticBundleExporter {
         )
 
     private fun redactedSettings(context: Context): String {
-        val files = preferenceFiles.associateWith { name ->
-            val safe = context.getSharedPreferences(name, Context.MODE_PRIVATE).all
-                .filterKeys { !isSensitive(it) }
-                .mapValues { (_, value) -> JsonPrimitive(value.toString().take(200)) }
-            JsonObject(safe)
-        }
+        val files =
+            preferenceFiles.associateWith { name ->
+                val safe =
+                    context
+                        .getSharedPreferences(name, Context.MODE_PRIVATE)
+                        .all
+                        .filterKeys { !isSensitive(it) }
+                        .mapValues { (_, value) -> JsonPrimitive(value.toString().take(200)) }
+                JsonObject(safe)
+            }
         return json.encodeToString(JsonObject.serializer(), JsonObject(files))
     }
 
-    private fun List<DiagnosticEvent>.filterModules(vararg terms: String): List<DiagnosticEvent> =
-        filter { event -> terms.any { term -> event.module.contains(term, true) || event.code.contains(term, true) } }
+    private fun List<DiagnosticEvent>.filterModules(vararg terms: String): List<DiagnosticEvent> = filter { event -> terms.any { term -> event.module.contains(term, true) || event.code.contains(term, true) } }
 
-    private fun List<DiagnosticEvent>.toJsonLines(): String =
-        sortedBy(DiagnosticEvent::occurredAtEpochMs).joinToString("\n") { json.encodeToString(it) }
+    private fun List<DiagnosticEvent>.toJsonLines(): String = sortedBy(DiagnosticEvent::occurredAtEpochMs).joinToString("\n") { json.encodeToString(it) }
 
-    private fun ZipOutputStream.textEntry(name: String, content: String) {
+    private fun ZipOutputStream.textEntry(
+        name: String,
+        content: String,
+    ) {
         putNextEntry(ZipEntry(name))
         write(content.toByteArray(Charsets.UTF_8))
         closeEntry()

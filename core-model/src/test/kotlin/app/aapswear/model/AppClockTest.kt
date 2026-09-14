@@ -4,7 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class AppClockTest {
-    private class FakeAppClock(var now: Long) : AppClock {
+    private class FakeAppClock(
+        var now: Long,
+    ) : AppClock {
         override fun nowEpochMs(): Long = now
     }
 

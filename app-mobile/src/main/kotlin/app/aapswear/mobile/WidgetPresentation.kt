@@ -4,10 +4,11 @@ import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.RangeExcursion
-import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyDisplayFormatter
+import app.aapswear.model.TherapyDisplayState
 
 internal enum class WidgetWidthClass { VERY_NARROW, NARROW, REGULAR, WIDE, VERY_WIDE }
+
 internal enum class WidgetHeightClass { LOW, REGULAR, HIGH }
 
 internal data class ResponsiveWidgetLayout(
@@ -22,19 +23,24 @@ internal data class ResponsiveWidgetLayout(
     val graphLineDp: Float,
 )
 
-internal fun responsiveWidgetLayout(widthDp: Float, heightDp: Float): ResponsiveWidgetLayout {
-    val widthClass = when {
-        widthDp < 120f -> WidgetWidthClass.VERY_NARROW
-        widthDp < 180f -> WidgetWidthClass.NARROW
-        widthDp < 300f -> WidgetWidthClass.REGULAR
-        widthDp < 480f -> WidgetWidthClass.WIDE
-        else -> WidgetWidthClass.VERY_WIDE
-    }
-    val heightClass = when {
-        heightDp < 90f -> WidgetHeightClass.LOW
-        heightDp < 190f -> WidgetHeightClass.REGULAR
-        else -> WidgetHeightClass.HIGH
-    }
+internal fun responsiveWidgetLayout(
+    widthDp: Float,
+    heightDp: Float,
+): ResponsiveWidgetLayout {
+    val widthClass =
+        when {
+            widthDp < 120f -> WidgetWidthClass.VERY_NARROW
+            widthDp < 180f -> WidgetWidthClass.NARROW
+            widthDp < 300f -> WidgetWidthClass.REGULAR
+            widthDp < 480f -> WidgetWidthClass.WIDE
+            else -> WidgetWidthClass.VERY_WIDE
+        }
+    val heightClass =
+        when {
+            heightDp < 90f -> WidgetHeightClass.LOW
+            heightDp < 190f -> WidgetHeightClass.REGULAR
+            else -> WidgetHeightClass.HIGH
+        }
     val limiting = minOf(widthDp / 3.25f, heightDp * 0.62f)
     return ResponsiveWidgetLayout(
         widthClass = widthClass,
@@ -66,10 +72,11 @@ internal fun widgetRangePresentation(
         return WidgetRangePresentation(null, WidgetColorRole.TEXT)
     }
     val excursion = CgmGraphPolicy.rangeExcursion(samples, thresholds)
-    val role = when (excursion) {
-        RangeExcursion.HIGH -> WidgetColorRole.HIGH
-        RangeExcursion.LOW -> WidgetColorRole.LOW
-        null -> WidgetColorRole.IN_RANGE
-    }
+    val role =
+        when (excursion) {
+            RangeExcursion.HIGH -> WidgetColorRole.HIGH
+            RangeExcursion.LOW -> WidgetColorRole.LOW
+            null -> WidgetColorRole.IN_RANGE
+        }
     return WidgetRangePresentation(excursion, role)
 }

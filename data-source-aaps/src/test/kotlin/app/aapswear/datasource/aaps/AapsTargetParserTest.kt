@@ -27,7 +27,7 @@ class AapsTargetParserTest {
             false,
             requireNotNull(AapsTargetParser.parseTarget("{\"targetBG\":140,\"reason\":\"active temp target\"}")).temporary,
         )
-        assertEquals(false, requireNotNull(AapsTargetParser.parseTarget("{\"targetBG\":100}" )).temporary)
+        assertEquals(false, requireNotNull(AapsTargetParser.parseTarget("{\"targetBG\":100}")).temporary)
     }
 
     @Test

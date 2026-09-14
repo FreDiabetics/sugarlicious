@@ -1,4 +1,7 @@
-plugins { kotlin("jvm"); kotlin("plugin.serialization") }
+plugins {
+    kotlin("jvm")
+    kotlin("plugin.serialization")
+}
 
 dependencies {
     api(project(":core-model"))

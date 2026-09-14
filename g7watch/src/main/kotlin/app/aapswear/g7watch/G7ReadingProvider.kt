@@ -22,7 +22,15 @@ class G7ReadingProvider : ContentProvider() {
         if (uri.lastPathSegment == "state") {
             val state = G7SensorStateStore(requireNotNull(context)).read()
             return MatrixCursor(arrayOf("sensor_state", "session_state", "collector_enabled", "sensor_id", "session_id")).apply {
-                addRow(arrayOf<Any?>(state.sensor?.state?.name ?: "NOT_ACTIVE", state.sessionState.name, if (state.collectorEnabled) 1 else 0, state.sensor?.sensorId, state.sensor?.sessionId))
+                addRow(
+                    arrayOf<Any?>(
+                        state.sensor?.state?.name ?: "NOT_ACTIVE",
+                        state.sessionState.name,
+                        if (state.collectorEnabled) 1 else 0,
+                        state.sensor?.sensorId,
+                        state.sensor?.sessionId,
+                    ),
+                )
             }
         }
         if (uri.lastPathSegment == "diagnostics") {
@@ -85,23 +93,31 @@ class G7ReadingProvider : ContentProvider() {
                 "origin",
             )
         val cursor = MatrixCursor(columns)
-        val limit = if (uri.lastPathSegment == "latest") 1 else if (uri.lastPathSegment == "unsynced") 100 else 300
-        val readings = G7ReadingDatabase(requireNotNull(context)).let { database ->
-            try {
-                if (uri.lastPathSegment == "unsynced") {
-                    database.query(
-                        selection = "synced=0 AND status=?",
-                        args = arrayOf("VALID"),
-                        limit = limit,
-                        ascending = true,
-                    )
-                } else {
-                    database.query(limit = limit)
-                }
-            } finally {
-                database.close()
+        val limit =
+            if (uri.lastPathSegment == "latest") {
+                1
+            } else if (uri.lastPathSegment == "unsynced") {
+                100
+            } else {
+                300
             }
-        }
+        val readings =
+            G7ReadingDatabase(requireNotNull(context)).let { database ->
+                try {
+                    if (uri.lastPathSegment == "unsynced") {
+                        database.query(
+                            selection = "synced=0 AND status=?",
+                            args = arrayOf("VALID"),
+                            limit = limit,
+                            ascending = true,
+                        )
+                    } else {
+                        database.query(limit = limit)
+                    }
+                } finally {
+                    database.close()
+                }
+            }
         readings.forEach { reading ->
             cursor.addRow(
                 arrayOf<Any?>(
@@ -143,8 +159,10 @@ class G7ReadingProvider : ContentProvider() {
             else -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
         }
 
-    override fun insert(uri: Uri, values: ContentValues?): Uri? =
-        throw UnsupportedOperationException("Read-only provider")
+    override fun insert(
+        uri: Uri,
+        values: ContentValues?,
+    ): Uri? = throw UnsupportedOperationException("Read-only provider")
 
     override fun delete(
         uri: Uri,

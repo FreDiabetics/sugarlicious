@@ -17,15 +17,15 @@ internal object WatchFacePresetStore {
     ): List<Int> {
         val normalized = normalizeFaceIndex(faceIndex)
         val stored =
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(key(normalized), null)
                 ?.let(::decode)
 
         return stored.orEmpty()
     }
 
-    fun readAll(context: Context): List<List<Int>> =
-        supportedFaceIndices.map { faceIndex -> read(context, faceIndex) }
+    fun readAll(context: Context): List<List<Int>> = supportedFaceIndices.map { faceIndex -> read(context, faceIndex) }
 
     fun save(
         context: Context,
@@ -34,7 +34,8 @@ internal object WatchFacePresetStore {
     ) {
         val normalized = normalizeFaceIndex(faceIndex)
         val ids = complicationIds.validPresetIds()
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(key(normalized), ids.joinToString(","))
             .apply()
@@ -49,7 +50,8 @@ internal object WatchFacePresetStore {
         faceIndex: Int,
     ): List<Int> {
         val ids = read(context, faceIndex)
-        context.getSharedPreferences(GLOBAL_PRESET_PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(GLOBAL_PRESET_PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(GLOBAL_PRESET_KEY, ids.joinToString(","))
             .apply()
@@ -58,11 +60,11 @@ internal object WatchFacePresetStore {
 
     private fun key(faceIndex: Int): String = "face_${faceIndex}_complications"
 
-    private fun normalizeFaceIndex(faceIndex: Int): Int =
-        faceIndex.coerceIn(supportedFaceIndices.first, supportedFaceIndices.last)
+    private fun normalizeFaceIndex(faceIndex: Int): Int = faceIndex.coerceIn(supportedFaceIndices.first, supportedFaceIndices.last)
 
     private fun decode(value: String): List<Int> =
-        value.split(',')
+        value
+            .split(',')
             .mapNotNull(String::toIntOrNull)
             .validPresetIds()
 

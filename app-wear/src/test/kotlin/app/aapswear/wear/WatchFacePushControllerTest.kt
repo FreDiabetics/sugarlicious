@@ -18,7 +18,8 @@ class WatchFacePushControllerTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -69,7 +70,8 @@ class WatchFacePushControllerTest {
     fun `successful updates do not imply that the one-shot activation was consumed`() {
         assertFalse(SugarliciousWatchFacePush.directActivationWasAttempted(context))
 
-        context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
             .edit()
             .putLong("last_applied_at", 1L)
             .commit()
@@ -103,13 +105,24 @@ class WatchFacePushControllerTest {
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(2, active.size)
         assertEquals(23, legacy.size)
-        assertTrue(active.map { it.packageName }.toSet().intersect(legacy.map { it.packageName }.toSet()).isEmpty())
+        assertTrue(
+            active
+                .map { it.packageName }
+                .toSet()
+                .intersect(legacy.map { it.packageName }.toSet())
+                .isEmpty(),
+        )
         active.forEach { spec ->
             context.assets.open(spec.apkAsset).use { apk ->
                 assertEquals('P'.code, apk.read())
                 assertEquals('K'.code, apk.read())
             }
-            assertTrue(context.assets.open(spec.tokenAsset).bufferedReader().use { it.readText().isNotBlank() })
+            assertTrue(
+                context.assets
+                    .open(spec.tokenAsset)
+                    .bufferedReader()
+                    .use { it.readText().isNotBlank() },
+            )
         }
     }
 }

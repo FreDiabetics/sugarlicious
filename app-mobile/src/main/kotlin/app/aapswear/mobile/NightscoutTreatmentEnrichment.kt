@@ -11,19 +11,8 @@ import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyEventSource
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
-import java.net.HttpURLConnection
-import java.net.URI
-import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
-import java.security.KeyStore
-import java.security.MessageDigest
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -34,6 +23,16 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import java.net.HttpURLConnection
+import java.net.URI
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.security.KeyStore
+import java.security.MessageDigest
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 
 internal enum class NightscoutAuthMode { API_SECRET, ACCESS_TOKEN }
 
@@ -43,10 +42,12 @@ internal data class NightscoutConfiguration(
     val authMode: NightscoutAuthMode,
 ) {
     val normalizedBaseUrl: String get() = baseUrl.trim().trimEnd('/')
-    fun isValid(): Boolean = runCatching {
-        val uri = URI(normalizedBaseUrl)
-        uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null
-    }.getOrDefault(false)
+
+    fun isValid(): Boolean =
+        runCatching {
+            val uri = URI(normalizedBaseUrl)
+            uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null
+        }.getOrDefault(false)
 }
 
 internal object NightscoutConfigurationStore {
@@ -60,11 +61,18 @@ internal object NightscoutConfigurationStore {
         return NightscoutConfiguration(
             enabled = preferences.getBoolean(ENABLED, false),
             baseUrl = preferences.getString(URL, "").orEmpty(),
-            authMode = runCatching { NightscoutAuthMode.valueOf(preferences.getString(AUTH_MODE, NightscoutAuthMode.API_SECRET.name)!!) }.getOrDefault(NightscoutAuthMode.API_SECRET),
+            authMode =
+                runCatching {
+                    NightscoutAuthMode.valueOf(preferences.getString(AUTH_MODE, NightscoutAuthMode.API_SECRET.name)!!)
+                }.getOrDefault(NightscoutAuthMode.API_SECRET),
         )
     }
 
-    fun save(context: Context, configuration: NightscoutConfiguration, secret: String?) {
+    fun save(
+        context: Context,
+        configuration: NightscoutConfiguration,
+        secret: String?,
+    ) {
         require(!configuration.enabled || configuration.isValid()) { "Nightscout-URL muss eine gültige HTTPS-Adresse sein" }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
             putBoolean(ENABLED, configuration.enabled)
@@ -82,7 +90,10 @@ internal object NightscoutSecretStore {
     private const val VALUE = "value"
     private const val IV = "iv"
 
-    fun save(context: Context, value: String) {
+    fun save(
+        context: Context,
+        value: String,
+    ) {
         if (value.isBlank()) {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { clear() }
             return
@@ -90,26 +101,38 @@ internal object NightscoutSecretStore {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, key())
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putString(VALUE, android.util.Base64.encodeToString(cipher.doFinal(value.toByteArray(StandardCharsets.UTF_8)), android.util.Base64.NO_WRAP))
+            putString(
+                VALUE,
+                android.util.Base64.encodeToString(cipher.doFinal(value.toByteArray(StandardCharsets.UTF_8)), android.util.Base64.NO_WRAP),
+            )
             putString(IV, android.util.Base64.encodeToString(cipher.iv, android.util.Base64.NO_WRAP))
         }
     }
 
-    fun read(context: Context): String? = runCatching {
-        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val encrypted = android.util.Base64.decode(preferences.getString(VALUE, null) ?: return null, android.util.Base64.NO_WRAP)
-        val iv = android.util.Base64.decode(preferences.getString(IV, null) ?: return null, android.util.Base64.NO_WRAP)
-        Cipher.getInstance("AES/GCM/NoPadding").run {
-            init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
-            String(doFinal(encrypted), StandardCharsets.UTF_8)
-        }
-    }.getOrNull()
+    fun read(context: Context): String? =
+        runCatching {
+            val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val encrypted = android.util.Base64.decode(preferences.getString(VALUE, null) ?: return null, android.util.Base64.NO_WRAP)
+            val iv = android.util.Base64.decode(preferences.getString(IV, null) ?: return null, android.util.Base64.NO_WRAP)
+            Cipher.getInstance("AES/GCM/NoPadding").run {
+                init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+                String(doFinal(encrypted), StandardCharsets.UTF_8)
+            }
+        }.getOrNull()
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
-            init(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build())
+            init(
+                KeyGenParameterSpec
+                    .Builder(
+                        ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                    ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .build(),
+            )
             generateKey()
         }
     }
@@ -120,7 +143,8 @@ internal object NightscoutTreatmentParser {
 
     fun parse(payload: String): List<TherapyEvent> {
         val array = runCatching { json.parseToJsonElement(payload).jsonArray }.getOrElse { return emptyList() }
-        return array.flatMap { element -> parseObject(runCatching { element.jsonObject }.getOrNull() ?: return@flatMap emptyList()) }
+        return array
+            .flatMap { element -> parseObject(runCatching { element.jsonObject }.getOrNull() ?: return@flatMap emptyList()) }
             .distinctBy(TherapyEvent::id)
             .sortedBy(TherapyEvent::timestampEpochMs)
     }
@@ -139,13 +163,14 @@ internal object NightscoutTreatmentParser {
         val baseId = sourceId ?: sha256("$timestamp|$eventType|$insulin|$carbs|$duration|$enteredBy")
         return buildList {
             insulin?.let {
-                val kind = when {
-                    explicitSmb -> TherapyEventKind.SMB
-                    eventType.contains("meal", true) || carbs != null -> TherapyEventKind.MEAL_BOLUS
-                    eventType.contains("correction", true) -> TherapyEventKind.SMB
-                    eventType.contains("bolus", true) -> TherapyEventKind.MANUAL_CORRECTION
-                    else -> null
-                }
+                val kind =
+                    when {
+                        explicitSmb -> TherapyEventKind.SMB
+                        eventType.contains("meal", true) || carbs != null -> TherapyEventKind.MEAL_BOLUS
+                        eventType.contains("correction", true) -> TherapyEventKind.SMB
+                        eventType.contains("bolus", true) -> TherapyEventKind.MANUAL_CORRECTION
+                        else -> null
+                    }
                 if (kind != null) add(event("$baseId:insulin", baseId, kind, timestamp, it, insulin, carbs, duration, enteredBy, eventType))
             }
             carbs?.let {
@@ -155,23 +180,74 @@ internal object NightscoutTreatmentParser {
         }
     }
 
-    private fun event(id: String, sourceId: String, kind: TherapyEventKind, timestamp: Long, amount: Double, insulin: Double?, carbs: Double?, duration: Int?, enteredBy: String?, eventType: String) =
-        TherapyEvent(id, kind, timestamp, amount, TherapyEventSource.NIGHTSCOUT_ONLY, sourceId, insulin, carbs, duration, enteredBy, eventType, validated = true)
+    private fun event(
+        id: String,
+        sourceId: String,
+        kind: TherapyEventKind,
+        timestamp: Long,
+        amount: Double,
+        insulin: Double?,
+        carbs: Double?,
+        duration: Int?,
+        enteredBy: String?,
+        eventType: String,
+    ) = TherapyEvent(
+        id,
+        kind,
+        timestamp,
+        amount,
+        TherapyEventSource.NIGHTSCOUT_ONLY,
+        sourceId,
+        insulin,
+        carbs,
+        duration,
+        enteredBy,
+        eventType,
+        validated = true,
+    )
 
     private fun timestamp(item: JsonObject): Long? {
         val direct = listOf("date", "timestamp").firstNotNullOfOrNull { key -> item[key]?.jsonPrimitive?.longOrNull }?.let(::normalizeEpoch)
         if (direct != null) return direct
-        return listOf("created_at", "dateString").firstNotNullOfOrNull { key -> text(item, key)?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } }
+        return listOf("created_at", "dateString").firstNotNullOfOrNull { key ->
+            text(item, key)?.let {
+                runCatching {
+                    java.time.Instant
+                        .parse(it)
+                        .toEpochMilli()
+                }.getOrNull()
+            }
+        }
     }
+
     private fun normalizeEpoch(value: Long) = if (value in 1..9_999_999_999L) value * 1_000L else value
-    private fun text(item: JsonObject, key: String) = item[key]?.jsonPrimitive?.contentOrNull
-    private fun number(item: JsonObject, key: String) = item[key]?.jsonPrimitive?.doubleOrNull
-    private fun integer(item: JsonObject, key: String) = item[key]?.jsonPrimitive?.intOrNull
-    private fun boolean(item: JsonObject, key: String) = item[key]?.jsonPrimitive?.booleanOrNull
+
+    private fun text(
+        item: JsonObject,
+        key: String,
+    ) = item[key]?.jsonPrimitive?.contentOrNull
+
+    private fun number(
+        item: JsonObject,
+        key: String,
+    ) = item[key]?.jsonPrimitive?.doubleOrNull
+
+    private fun integer(
+        item: JsonObject,
+        key: String,
+    ) = item[key]?.jsonPrimitive?.intOrNull
+
+    private fun boolean(
+        item: JsonObject,
+        key: String,
+    ) = item[key]?.jsonPrimitive?.booleanOrNull
+
     private fun sha256(value: String) = MessageDigest.getInstance("SHA-256").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
-@Serializable private data class StoredTreatments(val values: List<TherapyEvent> = emptyList())
+@Serializable private data class StoredTreatments(
+    val values: List<TherapyEvent> = emptyList(),
+)
 
 internal object NightscoutTreatmentStore {
     private const val PREFS = "nightscout_treatment_history"
@@ -179,16 +255,32 @@ internal object NightscoutTreatmentStore {
     private const val RETENTION_MS = 7L * 24 * 60 * 60_000L
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun read(context: Context, now: Long = System.currentTimeMillis()): List<TherapyEvent> {
+    fun read(
+        context: Context,
+        now: Long = System.currentTimeMillis(),
+    ): List<TherapyEvent> {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(DATA, null) ?: return emptyList()
-        return runCatching { json.decodeFromString(StoredTreatments.serializer(), raw).values }.getOrDefault(emptyList())
+        return runCatching { json.decodeFromString(StoredTreatments.serializer(), raw).values }
+            .getOrDefault(emptyList())
             .filter { it.timestampEpochMs >= now - RETENTION_MS }
             .map(::normalizeNightscoutKind)
     }
 
-    fun merge(context: Context, incoming: List<TherapyEvent>, now: Long): List<TherapyEvent> {
-        val values = (read(context, now) + incoming).filter { it.timestampEpochMs in (now - RETENTION_MS)..(now + 5 * 60_000L) }.associateBy(TherapyEvent::id).values.sortedBy(TherapyEvent::timestampEpochMs)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString(DATA, json.encodeToString(StoredTreatments.serializer(), StoredTreatments(values))) }
+    fun merge(
+        context: Context,
+        incoming: List<TherapyEvent>,
+        now: Long,
+    ): List<TherapyEvent> {
+        val values =
+            (read(context, now) + incoming)
+                .filter {
+                    it.timestampEpochMs in (now - RETENTION_MS)..(now + 5 * 60_000L)
+                }.associateBy(TherapyEvent::id)
+                .values
+                .sortedBy(TherapyEvent::timestampEpochMs)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(DATA, json.encodeToString(StoredTreatments.serializer(), StoredTreatments(values)))
+        }
         return values
     }
 
@@ -200,14 +292,21 @@ internal object NightscoutTreatmentStore {
         }
 }
 
-internal data class NightscoutSyncResult(val success: Boolean, val count: Int, val message: String)
+internal data class NightscoutSyncResult(
+    val success: Boolean,
+    val count: Int,
+    val message: String,
+)
 
 internal object NightscoutTreatmentSync {
     private const val DIAGNOSTICS = "diagnostics"
     private const val WINDOW_MS = 24L * 60 * 60_000L
     private const val MIN_SYNC_INTERVAL_MS = 15L * 60_000L
 
-    suspend fun syncIfDue(context: Context, now: Long = System.currentTimeMillis()): NightscoutSyncResult? {
+    suspend fun syncIfDue(
+        context: Context,
+        now: Long = System.currentTimeMillis(),
+    ): NightscoutSyncResult? {
         val configuration = NightscoutConfigurationStore.read(context)
         if (!configuration.enabled) return null
         val diagnostics = context.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE)
@@ -216,7 +315,10 @@ internal object NightscoutTreatmentSync {
         return sync(context, now)
     }
 
-    suspend fun sync(context: Context, now: Long = System.currentTimeMillis()): NightscoutSyncResult {
+    suspend fun sync(
+        context: Context,
+        now: Long = System.currentTimeMillis(),
+    ): NightscoutSyncResult {
         val app = context.applicationContext
         val configuration = NightscoutConfigurationStore.read(app)
         if (!configuration.enabled) return NightscoutSyncResult(true, 0, "Deaktiviert")
@@ -224,9 +326,14 @@ internal object NightscoutTreatmentSync {
         val secret = NightscoutSecretStore.read(app)?.takeIf(String::isNotBlank) ?: return failure(app, "Authentifizierung fehlt")
         app.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit { putLong("nightscoutTreatmentLastAttempt", now) }
         return runCatching {
-            val since = java.time.Instant.ofEpochMilli(now - WINDOW_MS).toString()
+            val since =
+                java.time.Instant
+                    .ofEpochMilli(now - WINDOW_MS)
+                    .toString()
             val tokenSuffix = if (configuration.authMode == NightscoutAuthMode.ACCESS_TOKEN) "&token=${encode(secret)}" else ""
-            val url = "${configuration.normalizedBaseUrl}/api/v1/treatments.json?find%5Bcreated_at%5D%5B%24gte%5D=${encode(since)}&count=1000$tokenSuffix"
+            val url = "${configuration.normalizedBaseUrl}/api/v1/treatments.json?find%5Bcreated_at%5D%5B%24gte%5D=${encode(
+                since,
+            )}&count=1000$tokenSuffix"
             val connection = URI(url).toURL().openConnection() as HttpURLConnection
             connection.connectTimeout = 10_000
             connection.readTimeout = 15_000
@@ -234,7 +341,7 @@ internal object NightscoutTreatmentSync {
             connection.setRequestProperty("Accept", "application/json")
             if (configuration.authMode == NightscoutAuthMode.API_SECRET) connection.setRequestProperty("api-secret", sha1(secret))
             val code = connection.responseCode
-            if (code !in 200..299) throw IllegalStateException("HTTP $code")
+            check(code in 200..299) { "HTTP $code" }
             val payload = connection.inputStream.bufferedReader().use { it.readText() }
             val fetched = NightscoutTreatmentParser.parse(payload)
             val persisted = NightscoutTreatmentStore.merge(app, fetched, now)
@@ -255,19 +362,26 @@ internal object NightscoutTreatmentSync {
         val phoneStore = PhoneTherapyStateStore(app)
         val displayStore = TherapyStateStore(app)
         val current = phoneStore.state.first() ?: displayStore.state.first() ?: return
-        val aapsOnly = current.copy(therapyEvents = current.therapyEvents.mapNotNull { event ->
-            when (event.source) {
-                TherapyEventSource.NIGHTSCOUT_ONLY -> null
-                TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = TherapyEventSource.AAPS_ONLY)
-                TherapyEventSource.AAPS_ONLY -> event
-            }
-        })
+        val aapsOnly =
+            current.copy(
+                therapyEvents =
+                    current.therapyEvents.mapNotNull { event ->
+                        when (event.source) {
+                            TherapyEventSource.NIGHTSCOUT_ONLY -> null
+                            TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = TherapyEventSource.AAPS_ONLY)
+                            TherapyEventSource.AAPS_ONLY -> event
+                        }
+                    },
+            )
         phoneStore.save(aapsOnly)
         displayStore.save(aapsOnly)
         dispatchCanonicalDataChanged(app, aapsOnly)
     }
 
-    private suspend fun enrichPersistedState(context: Context, nightscout: List<TherapyEvent>) {
+    private suspend fun enrichPersistedState(
+        context: Context,
+        nightscout: List<TherapyEvent>,
+    ) {
         val phoneStore = PhoneTherapyStateStore(context)
         val displayStore = TherapyStateStore(context)
         val current = phoneStore.state.first() ?: displayStore.state.first() ?: return
@@ -278,7 +392,10 @@ internal object NightscoutTreatmentSync {
         dispatchCanonicalDataChanged(context, enriched)
     }
 
-    private fun failure(context: Context, error: String): NightscoutSyncResult {
+    private fun failure(
+        context: Context,
+        error: String,
+    ): NightscoutSyncResult {
         context.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit {
             putString("nightscoutTreatmentStatus", "unavailable")
             putString("nightscoutTreatmentError", error)
@@ -287,18 +404,22 @@ internal object NightscoutTreatmentSync {
     }
 
     private fun encode(value: String) = URLEncoder.encode(value, StandardCharsets.UTF_8.name())
+
     private fun sha1(value: String) = MessageDigest.getInstance("SHA-1").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
 internal fun TherapyDisplayState.withNightscoutTreatments(context: Context): TherapyDisplayState {
     if (!NightscoutConfigurationStore.read(context).enabled) {
-        return copy(therapyEvents = therapyEvents.mapNotNull { event ->
-            when (event.source) {
-                TherapyEventSource.NIGHTSCOUT_ONLY -> null
-                TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = TherapyEventSource.AAPS_ONLY)
-                TherapyEventSource.AAPS_ONLY -> event
-            }
-        })
+        return copy(
+            therapyEvents =
+                therapyEvents.mapNotNull { event ->
+                    when (event.source) {
+                        TherapyEventSource.NIGHTSCOUT_ONLY -> null
+                        TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = TherapyEventSource.AAPS_ONLY)
+                        TherapyEventSource.AAPS_ONLY -> event
+                    }
+                },
+        )
     }
     val enrichment = NightscoutTreatmentStore.read(context, receivedAtEpochMs)
     if (enrichment.isEmpty()) return this

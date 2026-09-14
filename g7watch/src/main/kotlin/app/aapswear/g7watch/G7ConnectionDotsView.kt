@@ -10,10 +10,16 @@ import kotlin.math.PI
 import kotlin.math.cos
 
 /** Seven calm travelling dots. This is intentionally not a pairing progress indicator. */
-internal class G7ConnectionDotsView(context: Context) : View(context) {
+internal class G7ConnectionDotsView(
+    context: Context,
+) : View(context) {
     internal val dotCountForTest: Int get() = DOT_COUNT
     var color: Int = 0xffffffff.toInt()
-        set(value) { field = value; paint.color = value; invalidate() }
+        set(value) {
+            field = value
+            paint.color = value
+            invalidate()
+        }
     var isAnimating: Boolean = true
         set(value) {
             field = value
@@ -23,12 +29,16 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
 
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private var phase = 0f
-    private val animator = ValueAnimator.ofFloat(0f, DOT_COUNT.toFloat()).apply {
-        duration = 2_100L
-        repeatCount = ValueAnimator.INFINITE
-        interpolator = LinearInterpolator()
-        addUpdateListener { phase = it.animatedValue as Float; postInvalidateOnAnimation() }
-    }
+    private val animator =
+        ValueAnimator.ofFloat(0f, DOT_COUNT.toFloat()).apply {
+            duration = 2_100L
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                phase = it.animatedValue as Float
+                postInvalidateOnAnimation()
+            }
+        }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -44,7 +54,9 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
         super.onWindowVisibilityChanged(visibility)
         if (isAnimating && visibility == VISIBLE && isAttachedToWindow) {
             if (!animator.isStarted) animator.start()
-        } else animator.cancel()
+        } else {
+            animator.cancel()
+        }
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -60,5 +72,7 @@ internal class G7ConnectionDotsView(context: Context) : View(context) {
         }
     }
 
-    private companion object { const val DOT_COUNT = 7 }
+    private companion object {
+        const val DOT_COUNT = 7
+    }
 }

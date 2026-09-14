@@ -11,14 +11,16 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class G7GraphTileTest {
-    private val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+    private val context =
+        androidx.test.core.app.ApplicationProvider
+            .getApplicationContext<android.content.Context>()
     private val now = 20_000_000L
 
     @Test fun `rounded square sizing is responsive and safe on round watches`() {
@@ -35,13 +37,14 @@ class G7GraphTileTest {
         val oldSession = reading("sensor-old", "session-old", 1, now - 40 * 60_000L, CgmReadingOrigin.LIVE)
         val backfill = reading("sensor-new", "session-new", 2, now - 20 * 60_000L, CgmReadingOrigin.BACKFILL)
         val live = reading("sensor-new", "session-new", 3, now - 2 * 60_000L, CgmReadingOrigin.LIVE)
-        val input = g7SharedGraphInput(
-            readings = listOf(oldSession, live, backfill),
-            palette = G7AppearanceStore(context).load(),
-            settings = G7DirectToWatchSettingsStore(context),
-            graphHours = 3,
-            nowEpochMs = now,
-        )
+        val input =
+            g7SharedGraphInput(
+                readings = listOf(oldSession, live, backfill),
+                palette = G7AppearanceStore(context).load(),
+                settings = G7DirectToWatchSettingsStore(context),
+                graphHours = 3,
+                nowEpochMs = now,
+            )
 
         assertEquals(listOf(backfill.timestampEpochMs, live.timestampEpochMs), input.history.map { it.measuredAtEpochMs })
         assertTrue(input.timeWindow.plotX(backfill.timestampEpochMs, 0f, 100f) < input.timeWindow.plotX(live.timestampEpochMs, 0f, 100f))
@@ -66,29 +69,44 @@ class G7GraphTileTest {
     }
 
     @Test fun `both SugarWear tile providers are registered`() {
-        val services = context.packageManager.queryIntentServices(
-            Intent("androidx.wear.tiles.action.BIND_TILE_PROVIDER").setPackage(context.packageName),
-            0,
-        ).map { it.serviceInfo.name }.toSet()
+        val services =
+            context.packageManager
+                .queryIntentServices(
+                    Intent("androidx.wear.tiles.action.BIND_TILE_PROVIDER").setPackage(context.packageName),
+                    0,
+                ).map { it.serviceInfo.name }
+                .toSet()
 
         assertTrue(services.any { it.endsWith("G7CollectorTileService") })
         assertTrue(services.any { it.endsWith("G7GraphTileService") })
     }
 
     @Test fun `graph tile returns a square layout and an inline graph resource`() {
-        val device = DeviceParameters.Builder()
-            .setScreenWidthDp(192)
-            .setScreenHeightDp(192)
-            .setScreenDensity(2f)
-            .build()
+        val device =
+            DeviceParameters
+                .Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
         val service = Robolectric.buildService(G7GraphTileService::class.java).create().get()
-        val request = RequestBuilders.TileRequest.Builder().setDeviceConfiguration(device).build()
+        val request =
+            RequestBuilders.TileRequest
+                .Builder()
+                .setDeviceConfiguration(device)
+                .build()
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
         assertTrue(tile.resourcesVersion.startsWith("g7-graph-3-"))
         assertTrue(request.scope.hasResources())
-        assertTrue(resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!.data.isNotEmpty())
+        assertTrue(
+            resources.idToImageMapping
+                .getValue("sugarwear_graph")
+                .inlineResource!!
+                .data
+                .isNotEmpty(),
+        )
         service.onDestroy()
     }
 

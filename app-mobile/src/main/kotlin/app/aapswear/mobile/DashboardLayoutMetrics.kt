@@ -26,38 +26,44 @@ internal data class DashboardLayoutMetrics(
     }
 
     companion object {
-        fun forScreenHeight(screenHeightDp: Int): DashboardLayoutMetrics = when {
-            screenHeightDp >= 960 -> DashboardLayoutMetrics(
-                summaryTileHeight = 94,
-                glucoseChartHeight = 190,
-                metabolicChartHeight = 170,
-                statTileHeight = 76,
-            )
-            screenHeightDp >= 880 -> DashboardLayoutMetrics(
-                summaryTileHeight = 92,
-                glucoseChartHeight = 174,
-                metabolicChartHeight = 156,
-                statTileHeight = 74,
-            )
-            screenHeightDp >= 820 -> DashboardLayoutMetrics(
-                summaryTileHeight = 88,
-                glucoseChartHeight = 142,
-                metabolicChartHeight = 130,
-                statTileHeight = 72,
-            )
-            screenHeightDp >= 760 -> DashboardLayoutMetrics(
-                summaryTileHeight = 82,
-                glucoseChartHeight = 120,
-                metabolicChartHeight = 110,
-                statTileHeight = 68,
-            )
-            else -> DashboardLayoutMetrics(
-                summaryTileHeight = 78,
-                glucoseChartHeight = 108,
-                metabolicChartHeight = 98,
-                statTileHeight = 64,
-            )
-        }
+        fun forScreenHeight(screenHeightDp: Int): DashboardLayoutMetrics =
+            when {
+                screenHeightDp >= 960 ->
+                    DashboardLayoutMetrics(
+                        summaryTileHeight = 94,
+                        glucoseChartHeight = 190,
+                        metabolicChartHeight = 170,
+                        statTileHeight = 76,
+                    )
+                screenHeightDp >= 880 ->
+                    DashboardLayoutMetrics(
+                        summaryTileHeight = 92,
+                        glucoseChartHeight = 174,
+                        metabolicChartHeight = 156,
+                        statTileHeight = 74,
+                    )
+                screenHeightDp >= 820 ->
+                    DashboardLayoutMetrics(
+                        summaryTileHeight = 88,
+                        glucoseChartHeight = 142,
+                        metabolicChartHeight = 130,
+                        statTileHeight = 72,
+                    )
+                screenHeightDp >= 760 ->
+                    DashboardLayoutMetrics(
+                        summaryTileHeight = 82,
+                        glucoseChartHeight = 120,
+                        metabolicChartHeight = 110,
+                        statTileHeight = 68,
+                    )
+                else ->
+                    DashboardLayoutMetrics(
+                        summaryTileHeight = 78,
+                        glucoseChartHeight = 108,
+                        metabolicChartHeight = 98,
+                        statTileHeight = 64,
+                    )
+            }
     }
 }
 

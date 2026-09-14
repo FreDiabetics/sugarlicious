@@ -7,8 +7,8 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
-import app.aapswear.model.Trend
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.Trend
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.flow.first
@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.first
  */
 private val Context.mobileG7HistoryDataStore by preferencesDataStore("mobile_g7_backfill")
 
-internal class MobileG7BackfillStore(private val context: Context) {
+internal class MobileG7BackfillStore(
+    private val context: Context,
+) {
     suspend fun snapshot(): List<CgmReading> = emptyList()
 
     suspend fun merge(
@@ -48,7 +50,8 @@ internal object MobileWatchCgmMigration {
         if (prefs.getInt(KEY_VERSION, 0) >= VERSION) return false
 
         MobileG7BackfillStore(app).clear()
-        app.getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE)
+        app
+            .getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .apply()
@@ -59,11 +62,12 @@ internal object MobileWatchCgmMigration {
 
         val displayStore = TherapyStateStore(app)
         val current = displayStore.state.first()
-        val replacement = when {
-            phone != null -> phone
-            current != null -> current.withoutDirectWatchCgm()
-            else -> null
-        }
+        val replacement =
+            when {
+                phone != null -> phone
+                current != null -> current.withoutDirectWatchCgm()
+                else -> null
+            }
         replacement?.let { displayStore.save(it) }
 
         prefs.edit().putInt(KEY_VERSION, VERSION).apply()
@@ -105,9 +109,11 @@ internal object MobileCanonicalStateCoordinator {
             phoneStore.state.first()
                 ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
 
-        var mergedPhone = DisplayHistoryAccumulator.merge(priorPhone, incoming, nowEpochMs)
-            .withNightscoutTreatments(context)
-            .withoutDirectWatchCgm()
+        var mergedPhone =
+            DisplayHistoryAccumulator
+                .merge(priorPhone, incoming, nowEpochMs)
+                .withNightscoutTreatments(context)
+                .withoutDirectWatchCgm()
         val glucose = mergedPhone.glucose
         if (glucose != null && glucose.trend == Trend.UNKNOWN) {
             mergedPhone =
@@ -152,18 +158,20 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
     val currentIsWatch =
         source == DataSourceId.DEXCOM_G7_WATCH ||
             glucose?.source == DataSourceId.DEXCOM_G7_WATCH
-    val safeGlucose = glucose?.takeUnless {
-        it.source == DataSourceId.DEXCOM_G7_WATCH || source == DataSourceId.DEXCOM_G7_WATCH
-    }
+    val safeGlucose =
+        glucose?.takeUnless {
+            it.source == DataSourceId.DEXCOM_G7_WATCH || source == DataSourceId.DEXCOM_G7_WATCH
+        }
     val safeSource = if (source == DataSourceId.DEXCOM_G7_WATCH) DataSourceId.ANDROID_APS else source
     val safeCapabilities =
         if (safeGlucose == null && currentIsWatch) {
-            capabilities - setOf(
-                DataCapability.GLUCOSE,
-                DataCapability.TREND,
-                DataCapability.DELTA,
-                DataCapability.AVERAGE_DELTA,
-            )
+            capabilities -
+                setOf(
+                    DataCapability.GLUCOSE,
+                    DataCapability.TREND,
+                    DataCapability.DELTA,
+                    DataCapability.AVERAGE_DELTA,
+                )
         } else {
             capabilities
         }
@@ -181,8 +189,11 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
 internal fun TherapyDisplayState.mobileAndroidApsOnly(): TherapyDisplayState =
     withoutDirectWatchCgm().copy(
         sourceContract = "MOBILE_ANDROIDAPS_ONLY",
-        glucoseHistory = glucoseHistory
-            .filter { it.source == DataSourceId.ANDROID_APS }
-            .distinctBy { sample -> sample.sequenceNumber?.let { "${sample.sensorId}:${sample.sessionId}:$it" } ?: "${sample.measuredAtEpochMs}:${sample.valueMgDl}" }
-            .sortedBy(GlucoseSample::measuredAtEpochMs),
+        glucoseHistory =
+            glucoseHistory
+                .filter { it.source == DataSourceId.ANDROID_APS }
+                .distinctBy { sample ->
+                    sample.sequenceNumber?.let { "${sample.sensorId}:${sample.sessionId}:$it" }
+                        ?: "${sample.measuredAtEpochMs}:${sample.valueMgDl}"
+                }.sortedBy(GlucoseSample::measuredAtEpochMs),
     )

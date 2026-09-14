@@ -25,16 +25,16 @@ object CgmGraphPolicy {
         // The graph state is derived from canonical sensor event time, not arrival order. This is
         // important after reconnect/backfill: two already persisted consecutive readings must tint
         // the graph immediately instead of waiting for two additional LIVE callbacks.
-        val chronological = samples
-            .asSequence()
-            .filter {
-                it.quality == CgmQuality.VALID &&
-                    it.valueMgDl.isFinite() &&
-                    it.valueMgDl in 20.0..1_000.0
-            }
-            .sortedBy(GlucoseSample::measuredAtEpochMs)
-            .distinctBy { listOf(it.sensorId, it.sessionId, it.measuredAtEpochMs, it.source) }
-            .toList()
+        val chronological =
+            samples
+                .asSequence()
+                .filter {
+                    it.quality == CgmQuality.VALID &&
+                        it.valueMgDl.isFinite() &&
+                        it.valueMgDl in 20.0..1_000.0
+                }.sortedBy(GlucoseSample::measuredAtEpochMs)
+                .distinctBy { listOf(it.sensorId, it.sessionId, it.measuredAtEpochMs, it.source) }
+                .toList()
 
         val recent = mutableListOf<GlucoseSample>()
         chronological.forEach { sample ->

@@ -12,8 +12,10 @@ import app.aapswear.model.ArgbContrast
 import app.aapswear.model.TrendArrowStyle
 import kotlin.math.ceil
 
-internal fun shouldOutlineWearIcon(backgroundArgb: Int, colored: Boolean): Boolean =
-    colored && ArgbContrast.isLight(backgroundArgb)
+internal fun shouldOutlineWearIcon(
+    backgroundArgb: Int,
+    colored: Boolean,
+): Boolean = colored && ArgbContrast.isLight(backgroundArgb)
 
 /** Shared classic-View icon renderer for the Wear app's user-configurable light surfaces. */
 internal fun ImageView.renderSugarliciousWearIcon(
@@ -27,18 +29,20 @@ internal fun ImageView.renderSugarliciousWearIcon(
     val outlined = renderSpec?.outlineThicknessDp?.let { it > 0f } ?: shouldOutlineWearIcon(backgroundArgb, colored)
     if (outlined) {
         imageTintList = null
-        val foreground = requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
-            setTint(renderSpec?.fillColor ?: tintArgb ?: 0xFFFFFFFF.toInt())
-        }
-        val outline = requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
-            setTint(renderSpec?.outlineColor ?: 0xB2000000.toInt())
-        }
+        val foreground =
+            requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
+                setTint(renderSpec?.fillColor ?: tintArgb ?: 0xFFFFFFFF.toInt())
+            }
+        val outline =
+            requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
+                setTint(renderSpec?.outlineColor ?: 0xB2000000.toInt())
+            }
         setImageDrawable(
             SilhouetteOutlineDrawable(
                 foreground = foreground,
                 outline = outline,
                 widthPx = context.resources.displayMetrics.density * (renderSpec?.outlineThicknessDp ?: 0.70f),
-            )
+            ),
         )
     } else {
         setImageResource(drawableRes)

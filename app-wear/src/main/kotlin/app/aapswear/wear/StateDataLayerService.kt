@@ -4,8 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ComponentName
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -16,9 +16,9 @@ import app.aapswear.complications.ActiveComplicationRegistry
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.complications.G7LocalReadingResolver
 import app.aapswear.model.CanonicalCgmHistory
-import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WatchRuntimeStatus
 import app.aapswear.protocol.WearProtocol
@@ -61,11 +61,15 @@ internal fun hasMeaningfulPhoneStateChange(
 class StateDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stateSyncMutex = Mutex()
-    private val wallClockReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action in WALL_CLOCK_ACTIONS) requestTimeSensitiveComplicationUpdates()
+    private val wallClockReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                if (intent?.action in WALL_CLOCK_ACTIONS) requestTimeSensitiveComplicationUpdates()
+            }
         }
-    }
 
     override fun onCreate() {
         super.onCreate()
@@ -83,13 +87,13 @@ class StateDataLayerService : WearableListenerService() {
                         "STARTUP",
                         "STATE-REHYDRATE-200",
                         "Persisted canonical Watch state restored and consumers refreshed",
-                        metadata = mapOf(
-                            "stateAvailable" to (state != null),
-                            "eventTimestamp" to state?.glucose?.measuredAtEpochMs,
-                        ),
+                        metadata =
+                            mapOf(
+                                "stateAvailable" to (state != null),
+                                "eventTimestamp" to state?.glucose?.measuredAtEpochMs,
+                            ),
                     )
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     applicationContext.recordWatchDiagnostic(
                         "STARTUP",
                         "STATE-REHYDRATE-503",
@@ -108,8 +112,7 @@ class StateDataLayerService : WearableListenerService() {
             }
             runCatching {
                 requestLatestState(this@StateDataLayerService)
-            }
-                .onSuccess { applicationContext.recordWatchDiagnostic("SYNC", "SYNC-PHONE-100", "Requested latest state from phone") }
+            }.onSuccess { applicationContext.recordWatchDiagnostic("SYNC", "SYNC-PHONE-100", "Requested latest state from phone") }
                 .onFailure { error ->
                     applicationContext.recordWatchDiagnostic(
                         "SYNC",
@@ -133,8 +136,7 @@ class StateDataLayerService : WearableListenerService() {
                         "Requested canonical snapshot after phone reconnect",
                         metadata = mapOf("nodeId" to peer.id),
                     )
-                }
-                .onFailure { error ->
+                }.onFailure { error ->
                     applicationContext.recordWatchDiagnostic(
                         "SYNC",
                         "SYNC-PHONE-504",
@@ -146,7 +148,11 @@ class StateDataLayerService : WearableListenerService() {
         }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         startForegroundRuntime()
         return START_STICKY
     }
@@ -216,26 +222,37 @@ class StateDataLayerService : WearableListenerService() {
     private fun configureG7Collector(event: MessageEvent) {
         val command = runCatching { WearProtocol.decodeG7Setup(event.data) }.getOrNull()
         if (command == null) {
-            scope.launch { applicationContext.recordWatchDiagnostic("G7", "G7-SETUP-401", "Invalid G7 setup command", DiagnosticSeverity.WARNING) }
+            scope.launch {
+                applicationContext.recordWatchDiagnostic(
+                    "G7",
+                    "G7-SETUP-401",
+                    "Invalid G7 setup command",
+                    DiagnosticSeverity.WARNING,
+                )
+            }
             return
         }
-        val intent = Intent("app.aapswear.g7watch.CONFIGURE")
-            .setComponent(
-                ComponentName(
-                    "app.aapswear.g7watch",
-                    "app.aapswear.g7watch.G7SetupReceiver",
-                ),
-            )
-            .putExtra("pairing_code", command.pairingCode)
-            .putExtra("sensor_serial", command.sensorSerial)
-            .putExtra("gtin", command.gtin)
+        val intent =
+            Intent("app.aapswear.g7watch.CONFIGURE")
+                .setComponent(
+                    ComponentName(
+                        "app.aapswear.g7watch",
+                        "app.aapswear.g7watch.G7SetupReceiver",
+                    ),
+                ).putExtra("pairing_code", command.pairingCode)
+                .putExtra("sensor_serial", command.sensorSerial)
+                .putExtra("gtin", command.gtin)
         sendBroadcast(intent, "app.aapswear.g7watch.permission.CONFIGURE_G7")
         scope.launch {
             applicationContext.recordWatchDiagnostic(
                 "G7",
                 "G7-SETUP-200",
                 "G7 setup forwarded to collector",
-                metadata = mapOf("serialAvailable" to !command.sensorSerial.isNullOrBlank(), "gtinAvailable" to !command.gtin.isNullOrBlank()),
+                metadata =
+                    mapOf(
+                        "serialAvailable" to !command.sensorSerial.isNullOrBlank(),
+                        "gtinAvailable" to !command.gtin.isNullOrBlank(),
+                    ),
             )
         }
     }
@@ -275,8 +292,7 @@ class StateDataLayerService : WearableListenerService() {
                             sourceNodeId,
                             WearProtocol.WATCH_FACE_STATUS_PATH,
                             status.encodeToByteArray(),
-                        )
-                        .await()
+                        ).await()
                 }
 
                 runCatching {
@@ -310,28 +326,23 @@ class StateDataLayerService : WearableListenerService() {
         getSharedPreferences(
             COMPLICATION_SETUP_PREFS,
             Context.MODE_PRIVATE,
-        )
-            .edit()
+        ).edit()
             .putString(
                 COMPLICATION_PRESET_KEY,
                 ids.joinToString(","),
-            )
-            .putInt(
+            ).putInt(
                 COMPLICATION_GRAPH_HOURS_KEY,
                 graphHours,
-            )
-            .apply()
+            ).apply()
 
         getSharedPreferences(
             WearDisplayPreferences.PREFS,
             Context.MODE_PRIVATE,
-        )
-            .edit()
+        ).edit()
             .putInt(
                 "complication_graph_hours",
                 graphHours,
-            )
-            .apply()
+            ).apply()
 
         requestAllComplicationUpdates()
         scope.launch {
@@ -350,21 +361,47 @@ class StateDataLayerService : WearableListenerService() {
         if (rawCatalogId !in SugarliciousComplicationIds.all) return
         val catalogId = SugarliciousComplicationIds.baseId(rawCatalogId)
         val scale = dataMap.getInt("trendScale", 0)
-        getSharedPreferences("complication_appearance", Context.MODE_PRIVATE).edit()
+        getSharedPreferences("complication_appearance", Context.MODE_PRIVATE)
+            .edit()
             .apply {
-                if (scale == 0) remove("$catalogId.trendScale")
-                else putInt("$catalogId.trendScale", scale.coerceIn(70, 200))
+                if (scale == 0) {
+                    remove("$catalogId.trendScale")
+                } else {
+                    putInt("$catalogId.trendScale", scale.coerceIn(70, 200))
+                }
                 putInt("$catalogId.trendX", dataMap.getInt("trendX", 0).coerceIn(-50, 50))
                 putInt("$catalogId.trendY", dataMap.getInt("trendY", 0).coerceIn(-50, 50))
-                fun putIntOrRemove(key: String, value: Int) { if (value == Int.MIN_VALUE) remove(key) else putInt(key, value) }
-                fun putFloatOrRemove(key: String, value: Float) { if (value.isNaN()) remove(key) else putFloat(key, value) }
+
+                fun putIntOrRemove(
+                    key: String,
+                    value: Int,
+                ) {
+                    if (value == Int.MIN_VALUE) remove(key) else putInt(key, value)
+                }
+
+                fun putFloatOrRemove(
+                    key: String,
+                    value: Float,
+                ) {
+                    if (value.isNaN()) remove(key) else putFloat(key, value)
+                }
                 putIntOrRemove("$catalogId.trendFill", dataMap.getInt("trendFill", Int.MIN_VALUE))
-                if (dataMap.getBoolean("trendOutlinePresent", false)) putBoolean("$catalogId.trendOutlineEnabled", dataMap.getBoolean("trendOutlineEnabled", false)) else remove("$catalogId.trendOutlineEnabled")
+                if (dataMap.getBoolean(
+                        "trendOutlinePresent",
+                        false,
+                    )
+                ) {
+                    putBoolean(
+                        "$catalogId.trendOutlineEnabled",
+                        dataMap.getBoolean("trendOutlineEnabled", false),
+                    )
+                } else {
+                    remove("$catalogId.trendOutlineEnabled")
+                }
                 putIntOrRemove("$catalogId.trendOutlineColor", dataMap.getInt("trendOutlineColor", Int.MIN_VALUE))
                 putFloatOrRemove("$catalogId.trendOutlineThickness", dataMap.getFloat("trendOutlineThickness", Float.NaN))
                 putFloatOrRemove("$catalogId.trendAlpha", dataMap.getFloat("trendAlpha", Float.NaN))
-            }
-            .apply()
+            }.apply()
         requestAllComplicationUpdates()
     }
 
@@ -376,7 +413,14 @@ class StateDataLayerService : WearableListenerService() {
                 )
             }.getOrNull()
         if (config == null) {
-            scope.launch { applicationContext.recordWatchDiagnostic("CONFIG", "CONFIG-401", "Invalid Watch configuration", DiagnosticSeverity.WARNING) }
+            scope.launch {
+                applicationContext.recordWatchDiagnostic(
+                    "CONFIG",
+                    "CONFIG-401",
+                    "Invalid Watch configuration",
+                    DiagnosticSeverity.WARNING,
+                )
+            }
             return
         }
 
@@ -389,7 +433,12 @@ class StateDataLayerService : WearableListenerService() {
                 "CONFIG",
                 "CONFIG-200",
                 "Watch configuration saved",
-                metadata = mapOf("graphHours" to config.graphHours, "showPredictions" to config.showPredictions, "dataSource" to config.dataSource),
+                metadata =
+                    mapOf(
+                        "graphHours" to config.graphHours,
+                        "showPredictions" to config.showPredictions,
+                        "dataSource" to config.dataSource,
+                    ),
             )
         }
     }
@@ -418,8 +467,7 @@ class StateDataLayerService : WearableListenerService() {
                         "app.aapswear.g7watch",
                         "app.aapswear.g7watch.G7ColorSyncReceiver",
                     ),
-                )
-                .putExtra("color_payload", payload),
+                ).putExtra("color_payload", payload),
             "app.aapswear.g7watch.permission.CONFIGURE_G7",
         )
         scope.launch {
@@ -436,7 +484,10 @@ class StateDataLayerService : WearableListenerService() {
         persistTherapyState(event.dataItem.data, "data_item")
     }
 
-    private fun persistTherapyState(payload: ByteArray?, transport: String) {
+    private fun persistTherapyState(
+        payload: ByteArray?,
+        transport: String,
+    ) {
         val receivedAt = System.currentTimeMillis()
         getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
             .edit()
@@ -477,11 +528,12 @@ class StateDataLayerService : WearableListenerService() {
                         "SYNC",
                         "SYNC-PHONE-202",
                         "Older phone state ignored on Watch",
-                        metadata = mapOf(
-                            "transport" to transport,
-                            "incomingReceivedAt" to incoming.receivedAtEpochMs,
-                            "storedReceivedAt" to (old?.receivedAtEpochMs ?: 0L),
-                        ),
+                        metadata =
+                            mapOf(
+                                "transport" to transport,
+                                "incomingReceivedAt" to incoming.receivedAtEpochMs,
+                                "storedReceivedAt" to (old?.receivedAtEpochMs ?: 0L),
+                            ),
                     )
                     return@withLock
                 }
@@ -535,14 +587,27 @@ class StateDataLayerService : WearableListenerService() {
                 publishG7AlertMode(this@StateDataLayerService, selectedSource, canonicalForAlerts)
                 applicationContext.recordWatchDiagnostic(
                     "PREDICTION",
-                    if (incoming.glucosePredictions.isEmpty() && merged.glucosePredictions.isNotEmpty()) "PRED-CACHE-203" else "PRED-DATA-200",
-                    if (incoming.glucosePredictions.isEmpty() && merged.glucosePredictions.isNotEmpty()) "Cached predictions retained on Watch" else "Phone state merged on Watch",
-                    metadata = mapOf(
-                        "incomingPredictions" to incoming.glucosePredictions.size,
-                        "displayPredictions" to merged.glucosePredictions.size,
-                        "historyCount" to history.size,
-                        "transport" to transport,
-                    ),
+                    if (incoming.glucosePredictions.isEmpty() &&
+                        merged.glucosePredictions.isNotEmpty()
+                    ) {
+                        "PRED-CACHE-203"
+                    } else {
+                        "PRED-DATA-200"
+                    },
+                    if (incoming.glucosePredictions.isEmpty() &&
+                        merged.glucosePredictions.isNotEmpty()
+                    ) {
+                        "Cached predictions retained on Watch"
+                    } else {
+                        "Phone state merged on Watch"
+                    },
+                    metadata =
+                        mapOf(
+                            "incomingPredictions" to incoming.glucosePredictions.size,
+                            "displayPredictions" to merged.glucosePredictions.size,
+                            "historyCount" to history.size,
+                            "transport" to transport,
+                        ),
                 )
                 store.save(merged)
                 getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
@@ -588,16 +653,14 @@ class StateDataLayerService : WearableListenerService() {
                 nodeId,
                 WearProtocol.WATCH_RUNTIME_STATUS_PATH,
                 WearProtocol.encodeRuntimeStatus(status),
-            )
-            .await()
+            ).await()
     }
 
     private fun requestAllComplicationUpdates() {
         requestComplicationUpdates(ComplicationUpdatePlanner.allManagedProviders)
     }
 
-    private fun requestTimeSensitiveComplicationUpdates() =
-        requestComplicationUpdates(ComplicationUpdatePlanner.timeSensitiveProviders)
+    private fun requestTimeSensitiveComplicationUpdates() = requestComplicationUpdates(ComplicationUpdatePlanner.timeSensitiveProviders)
 
     private fun requestComplicationUpdates(providers: List<Class<*>>) {
         providers.forEach { provider ->
@@ -605,8 +668,7 @@ class StateDataLayerService : WearableListenerService() {
                 .create(
                     this,
                     ComponentName(this, provider),
-                )
-                .requestUpdateAll()
+                ).requestUpdateAll()
         }
         if (providers.isNotEmpty()) {
             getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
@@ -617,16 +679,17 @@ class StateDataLayerService : WearableListenerService() {
     }
 
     private fun ensureRuntimeChannel() {
-        val channel = NotificationChannel(
-            RUNTIME_CHANNEL,
-            "Sugarlicious Wear Dauerbetrieb",
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = "Permanenter Sugarlicious Wear Datenempfang"
-            setSound(null, null)
-            enableVibration(false)
-            setShowBadge(false)
-        }
+        val channel =
+            NotificationChannel(
+                RUNTIME_CHANNEL,
+                "Sugarlicious Wear Dauerbetrieb",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Permanenter Sugarlicious Wear Datenempfang"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+            }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
@@ -644,14 +707,16 @@ class StateDataLayerService : WearableListenerService() {
     }
 
     internal fun runtimeNotification(): Notification {
-        val openApp = PendingIntent.getActivity(
-            this,
-            0,
-            Intent(this, WearActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val openApp =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, WearActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
         val batteryUnrestricted = WearBackgroundAccess.isBatteryUnrestricted(this)
-        return Notification.Builder(this, RUNTIME_CHANNEL)
+        return Notification
+            .Builder(this, RUNTIME_CHANNEL)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Sugarlicious Wear")
             .setContentText(
@@ -660,8 +725,7 @@ class StateDataLayerService : WearableListenerService() {
                 } else {
                     "Akkuoptimierung aktiv – Dauerbetrieb freigeben"
                 },
-            )
-            .setContentIntent(openApp)
+            ).setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setOnlyAlertOnce(true)
             .setSilent(true)
@@ -706,9 +770,7 @@ class StateDataLayerService : WearableListenerService() {
     }
 }
 
-suspend fun requestLatestState(
-    context: Context,
-): Int {
+suspend fun requestLatestState(context: Context): Int {
     val nodes =
         Wearable
             .getNodeClient(context)
@@ -720,12 +782,17 @@ suspend fun requestLatestState(
     return nodes.size
 }
 
-internal suspend fun requestLatestState(context: Context, nodeId: String) {
-    Wearable.getMessageClient(context)
+internal suspend fun requestLatestState(
+    context: Context,
+    nodeId: String,
+) {
+    Wearable
+        .getMessageClient(context)
         .sendMessage(nodeId, WearProtocol.REQUEST_PATH, byteArrayOf())
         .await()
     runCatching {
-        Wearable.getMessageClient(context)
+        Wearable
+            .getMessageClient(context)
             .sendMessage(nodeId, WearProtocol.WATCH_CONFIG_REQUEST_PATH, byteArrayOf())
             .await()
     }

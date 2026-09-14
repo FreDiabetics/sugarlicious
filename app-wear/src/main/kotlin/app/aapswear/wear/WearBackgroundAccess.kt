@@ -9,7 +9,8 @@ import android.provider.Settings
 
 internal object WearBackgroundAccess {
     fun isBatteryUnrestricted(context: Context): Boolean =
-        context.getSystemService(PowerManager::class.java)
+        context
+            .getSystemService(PowerManager::class.java)
             .isIgnoringBatteryOptimizations(context.packageName)
 
     internal fun batterySettingsIntents(packageName: String): List<Intent> {
@@ -23,10 +24,11 @@ internal object WearBackgroundAccess {
 
     fun openBatterySettings(activity: Activity): Boolean {
         for (intent in batterySettingsIntents(activity.packageName)) {
-            val opened = runCatching {
-                activity.startActivity(intent)
-                true
-            }.getOrDefault(false)
+            val opened =
+                runCatching {
+                    activity.startActivity(intent)
+                    true
+                }.getOrDefault(false)
             if (opened) return true
         }
         return false

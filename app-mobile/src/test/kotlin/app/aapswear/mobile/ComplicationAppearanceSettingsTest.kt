@@ -15,7 +15,14 @@ class ComplicationAppearanceSettingsTest {
 
     @Test fun `provider override persists independently and reset restores system default`() {
         val id = SugarliciousComplicationIds.GLUCOSE_TREND
-        val override = TrendArrowStyleOverride(outlineEnabled = false, outlineColor = 0xFF123456.toInt(), outlineThicknessDp = 1.25f, sizePercent = 200, alpha = 0.7f)
+        val override =
+            TrendArrowStyleOverride(
+                outlineEnabled = false,
+                outlineColor = 0xFF123456.toInt(),
+                outlineThicknessDp = 1.25f,
+                sizePercent = 200,
+                alpha = 0.7f,
+            )
         val configured = ComplicationAppearanceSettings(200, 12, -8, override)
         ComplicationAppearanceSettingsStore.save(context, id, configured)
         assertEquals(configured, ComplicationAppearanceSettingsStore.load(context, id))

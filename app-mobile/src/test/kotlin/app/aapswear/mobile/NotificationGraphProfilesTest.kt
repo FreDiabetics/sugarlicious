@@ -9,9 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
-import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TargetState
-import kotlin.math.abs
+import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -20,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -50,12 +50,16 @@ class NotificationGraphProfilesTest {
 
     @Test
     fun `remote views preserve bitmap aspect ratio instead of stretching`() {
-        val collapsed = LayoutInflater.from(context)
-            .inflate(R.layout.notification_sugarlicious_collapsed, null)
-            .findViewById<ImageView>(R.id.notification_graph)
-        val expanded = LayoutInflater.from(context)
-            .inflate(R.layout.notification_sugarlicious_expanded, null)
-            .findViewById<ImageView>(R.id.notification_graph)
+        val collapsed =
+            LayoutInflater
+                .from(context)
+                .inflate(R.layout.notification_sugarlicious_collapsed, null)
+                .findViewById<ImageView>(R.id.notification_graph)
+        val expanded =
+            LayoutInflater
+                .from(context)
+                .inflate(R.layout.notification_sugarlicious_expanded, null)
+                .findViewById<ImageView>(R.id.notification_graph)
 
         assertEquals(ImageView.ScaleType.FIT_CENTER, collapsed.scaleType)
         assertEquals(ImageView.ScaleType.FIT_CENTER, expanded.scaleType)
@@ -77,7 +81,9 @@ class NotificationGraphProfilesTest {
 
     @Test
     fun `migration snapshots previous collapsed notification look and separates expanded defaults`() {
-        preferences.edit().clear()
+        preferences
+            .edit()
+            .clear()
             .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS, 2.7f)
             .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED, false)
             .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH, 1.2f)
@@ -97,7 +103,8 @@ class NotificationGraphProfilesTest {
         assertEquals(1.2f, expanded.cgmOutlineWidthDp, 0.0001f)
         assertTrue(preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, false))
 
-        preferences.edit()
+        preferences
+            .edit()
             .putFloat("cgm.dotRadiusDp", 1.5f)
             .putBoolean("cgm.dotOutlineEnabled", true)
             .putFloat("cgm.dotOutlineWidthDp", 0.25f)
@@ -157,16 +164,19 @@ class NotificationGraphProfilesTest {
     fun `configured graph background continues underneath translucent right scale lane`() {
         val now = System.currentTimeMillis()
         val background = Color.rgb(63, 21, 117)
-        preferences.edit().clear()
+        preferences
+            .edit()
+            .clear()
             .putString("themeMode", "DARK")
             .putInt("notification.color.override.${SugarliciousColorRole.GRAPH_BACKGROUND.preferenceKey}", background)
             .putInt("notification.graph.scale_lane_opacity_percent", 30)
             .commit()
-        val state = TherapyDisplayState(
-            receivedAtEpochMs = now,
-            glucoseHistory = listOf(GlucoseSample(120.0, now - 30 * 60_000L)),
-            target = TargetState(80.0, 160.0),
-        )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucoseHistory = listOf(GlucoseSample(120.0, now - 30 * 60_000L)),
+                target = TargetState(80.0, 160.0),
+            )
 
         listOf(
             NotificationGraphRenderer.renderCollapsed(context, state, preferences),
@@ -183,16 +193,19 @@ class NotificationGraphProfilesTest {
     fun `collapsed and expanded rendered dots stay circular and concentric in light and dark mode`() {
         val outlineColor = Color.rgb(29, 211, 231)
         val now = System.currentTimeMillis()
-        val state = TherapyDisplayState(
-            receivedAtEpochMs = now,
-            glucoseHistory = listOf(GlucoseSample(120.0, now - 60 * 60_000L)),
-            target = TargetState(80.0, 160.0),
-        )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucoseHistory = listOf(GlucoseSample(120.0, now - 60 * 60_000L)),
+                target = TargetState(80.0, 160.0),
+            )
 
         listOf("LIGHT", "DARK").forEach { mode ->
             val dotColor = if (mode == "LIGHT") Color.BLACK else Color.rgb(231, 37, 191)
             val modePrefix = "notification.color.${mode.lowercase()}."
-            preferences.edit().clear()
+            preferences
+                .edit()
+                .clear()
                 .putString("themeMode", mode)
                 .putInt("$modePrefix${SugarliciousColorRole.CGM_DOT_IN_RANGE.preferenceKey}", dotColor)
                 .putInt("$modePrefix${SugarliciousColorRole.GRAPH_CURRENT_OUTLINE.preferenceKey}", outlineColor)
@@ -239,7 +252,10 @@ class NotificationGraphProfilesTest {
         val centerY: Float get() = (top + bottom) / 2f
     }
 
-    private fun boundsForColor(bitmap: Bitmap, color: Int): PixelBounds? {
+    private fun boundsForColor(
+        bitmap: Bitmap,
+        color: Int,
+    ): PixelBounds? {
         var left = bitmap.width
         var top = bitmap.height
         var right = -1

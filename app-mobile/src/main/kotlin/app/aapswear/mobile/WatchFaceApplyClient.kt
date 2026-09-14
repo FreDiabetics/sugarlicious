@@ -28,8 +28,7 @@ internal suspend fun requestWatchFaceApply(
                 node.id,
                 WearProtocol.WATCH_FACE_APPLY_PATH,
                 payload,
-            )
-            .await()
+            ).await()
     }
 
     return nodes.size

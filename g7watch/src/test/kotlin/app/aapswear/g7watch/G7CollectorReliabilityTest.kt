@@ -14,12 +14,14 @@ class G7CollectorReliabilityTest {
     @Test fun `repeated no callback with working radio escalates to possible other collector`() {
         var health = G7CollectorHealth()
         repeat(3) { index ->
-            health = G7CollectorReliability.failed(
-                health, G7FailureClass.DIRECT_NO_CALLBACK,
-                sensorAdvertisementSeen = false,
-                foreignAdvertisementsSeen = true,
-                now = index * 300_000L,
-            )
+            health =
+                G7CollectorReliability.failed(
+                    health,
+                    G7FailureClass.DIRECT_NO_CALLBACK,
+                    sensorAdvertisementSeen = false,
+                    foreignAdvertisementsSeen = true,
+                    now = index * 300_000L,
+                )
         }
         assertEquals(G7SensorAvailability.POSSIBLY_OWNED_BY_OTHER_COLLECTOR, health.sensorAvailability)
         assertEquals(G7RecoveryStage.WAIT_NEXT_SENSOR_WINDOW, health.recoveryStage)
@@ -29,12 +31,14 @@ class G7CollectorReliabilityTest {
         var health = G7CollectorHealth()
         val scanDecisions = mutableListOf<Boolean>()
         repeat(48 * 12) { slot ->
-            health = G7CollectorReliability.failed(
-                health, G7FailureClass.DIRECT_NO_CALLBACK,
-                sensorAdvertisementSeen = false,
-                foreignAdvertisementsSeen = true,
-                now = slot * 300_000L,
-            )
+            health =
+                G7CollectorReliability.failed(
+                    health,
+                    G7FailureClass.DIRECT_NO_CALLBACK,
+                    sensorAdvertisementSeen = false,
+                    foreignAdvertisementsSeen = true,
+                    now = slot * 300_000L,
+                )
             scanDecisions += G7CollectorReliability.shouldRunPresenceScan(health)
         }
         assertEquals(G7CollectorRuntimeState.DEGRADED, health.runtime)

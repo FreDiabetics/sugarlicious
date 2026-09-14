@@ -248,7 +248,10 @@ object CanonicalCgmSourceResolver {
             reason = reason,
         )
 
-    private fun noSource(previous: CgmResolverMemory, reason: String): CgmSourceResolution =
+    private fun noSource(
+        previous: CgmResolverMemory,
+        reason: String,
+    ): CgmSourceResolution =
         CgmSourceResolution(
             state = CgmSourceState.NO_SOURCE,
             canonicalSource = CgmCanonicalSource.NONE,
@@ -257,15 +260,17 @@ object CanonicalCgmSourceResolver {
             reason = reason,
         )
 
-    private fun CgmSourceCandidate.isValid(nowEpochMs: Long, futureToleranceMs: Long): Boolean =
+    private fun CgmSourceCandidate.isValid(
+        nowEpochMs: Long,
+        futureToleranceMs: Long,
+    ): Boolean =
         glucoseMgDl.isFinite() &&
             glucoseMgDl in 20.0..1000.0 &&
             measuredAtEpochMs <= nowEpochMs + futureToleranceMs &&
             receivedAtEpochMs >= measuredAtEpochMs - futureToleranceMs &&
             receivedAtEpochMs <= nowEpochMs + futureToleranceMs
 
-    private fun CgmSourceCandidate.ageAt(nowEpochMs: Long): Long =
-        (nowEpochMs - measuredAtEpochMs).coerceAtLeast(0L)
+    private fun CgmSourceCandidate.ageAt(nowEpochMs: Long): Long = (nowEpochMs - measuredAtEpochMs).coerceAtLeast(0L)
 
     private fun sameMeasurement(
         mobile: CgmSourceCandidate?,

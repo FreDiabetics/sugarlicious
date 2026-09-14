@@ -16,7 +16,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
@@ -48,23 +47,27 @@ internal fun therapyIndicatorPresentations(
 ): List<TherapyIndicatorPresentation> {
     val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
     val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
-    val historicalBasal = state?.therapyHistory.orEmpty()
+    val historicalBasal =
+        state
+            ?.therapyHistory
+            .orEmpty()
             .asSequence()
             .filter { it.measuredAtEpochMs <= nowEpochMs }
             .sortedByDescending { it.measuredAtEpochMs }
             .mapNotNull { sample ->
                 val rate = sample.tempBasalUnitsPerHour ?: sample.basalUnitsPerHour ?: sample.baseBasalUnitsPerHour
                 rate?.takeIf { it.isFinite() && it >= 0.0 }?.let {
-                    val percent = sample.baseBasalUnitsPerHour
-                        ?.takeIf { base -> base.isFinite() && base > 0.0 }
-                        ?.let { base -> (it / base * 100.0).toInt().coerceIn(0, 500) }
+                    val percent =
+                        sample.baseBasalUnitsPerHour
+                            ?.takeIf { base -> base.isFinite() && base > 0.0 }
+                            ?.let { base -> (it / base * 100.0).toInt().coerceIn(0, 500) }
                     EffectiveBasalPresentation(it, percent)
                 }
-            }
-            .firstOrNull()
-    val basal = effectiveBasalPresentation(state?.basal, nowEpochMs)?.let { current ->
-        current.copy(percent = current.percent ?: historicalBasal?.percent)
-    } ?: historicalBasal
+            }.firstOrNull()
+    val basal =
+        effectiveBasalPresentation(state?.basal, nowEpochMs)?.let { current ->
+            current.copy(percent = current.percent ?: historicalBasal?.percent)
+        } ?: historicalBasal
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
@@ -93,11 +96,12 @@ internal fun therapyIndicatorPresentations(
     )
 }
 
-internal fun basalIconResource(percent: Int?): Int = when {
-    percent == null || percent == 100 -> R.drawable.ic_basal
-    percent < 100 -> R.drawable.ic_basalless
-    else -> R.drawable.ic_basalmore
-}
+internal fun basalIconResource(percent: Int?): Int =
+    when {
+        percent == null || percent == 100 -> R.drawable.ic_basal
+        percent < 100 -> R.drawable.ic_basalless
+        else -> R.drawable.ic_basalmore
+    }
 
 internal fun basalProgress(percent: Int): Float =
     if (percent <= 100) {
@@ -106,30 +110,42 @@ internal fun basalProgress(percent: Int): Float =
         0.5f + (percent.coerceAtMost(500) - 100) / 800f
     }
 
-internal data class EffectiveBasalPresentation(val unitsPerHour: Double, val percent: Int?)
+internal data class EffectiveBasalPresentation(
+    val unitsPerHour: Double,
+    val percent: Int?,
+)
 
-internal fun effectiveBasalPresentation(basal: BasalState?, nowEpochMs: Long): EffectiveBasalPresentation? {
+internal fun effectiveBasalPresentation(
+    basal: BasalState?,
+    nowEpochMs: Long,
+): EffectiveBasalPresentation? {
     basal ?: return null
-    val explicitEnd = basal.tempEndsAtEpochMs
-        ?: basal.tempStartedAtEpochMs?.let { start -> basal.tempDurationMinutes?.let { start + it * 60_000L } }
-    val tempActive = (basal.tempAbsoluteUnitsPerHour != null || basal.tempPercent != null) &&
-        (explicitEnd == null || explicitEnd > nowEpochMs)
-    val units = (if (tempActive) basal.tempAbsoluteUnitsPerHour else null)
-        ?: basal.currentUnitsPerHour
-        ?: return null
+    val explicitEnd =
+        basal.tempEndsAtEpochMs
+            ?: basal.tempStartedAtEpochMs?.let { start -> basal.tempDurationMinutes?.let { start + it * 60_000L } }
+    val tempActive =
+        (basal.tempAbsoluteUnitsPerHour != null || basal.tempPercent != null) &&
+            (explicitEnd == null || explicitEnd > nowEpochMs)
+    val units =
+        (if (tempActive) basal.tempAbsoluteUnitsPerHour else null)
+            ?: basal.currentUnitsPerHour
+            ?: return null
     if (!units.isFinite() || units < 0.0) return null
     val percent = if (tempActive) basal.tempPercent?.takeIf { it in 0..500 } else 100
     return EffectiveBasalPresentation(units, percent)
 }
 
-private fun compactValue(value: Double, decimals: Int): String =
-    String.format(Locale.US, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
+private fun compactValue(
+    value: Double,
+    decimals: Int,
+): String = String.format(Locale.US, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
 
-internal fun therapyIndicatorFontSizeSp(value: String): Int = when {
-    value.length >= 8 -> 11
-    value.length >= 7 -> 13
-    else -> 15
-}
+internal fun therapyIndicatorFontSizeSp(value: String): Int =
+    when {
+        value.length >= 8 -> 11
+        value.length >= 7 -> 13
+        else -> 15
+    }
 
 @Composable
 internal fun TherapyIndicatorRow(
@@ -148,17 +164,22 @@ internal fun TherapyIndicatorRow(
 }
 
 @Composable
-private fun TherapyCircularIndicator(indicator: TherapyIndicatorPresentation, modifier: Modifier) {
+private fun TherapyCircularIndicator(
+    indicator: TherapyIndicatorPresentation,
+    modifier: Modifier,
+) {
     val accent = SugarliciousColors.color(indicator.colorRole)
     Box(
-        modifier = modifier.semantics {
-            contentDescription = buildString {
-                append(indicator.label)
-                append(' ')
-                append(indicator.value)
-                indicator.secondary?.let { append(", ").append(it) }
-            }
-        },
+        modifier =
+            modifier.semantics {
+                contentDescription =
+                    buildString {
+                        append(indicator.label)
+                        append(' ')
+                        append(indicator.value)
+                        indicator.secondary?.let { append(", ").append(it) }
+                    }
+            },
         contentAlignment = Alignment.Center,
     ) {
         Box(Modifier.size(66.dp), contentAlignment = Alignment.Center) {

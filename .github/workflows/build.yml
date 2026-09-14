@@ -44,6 +44,8 @@ jobs:
       - name: Prepare Watch Face Push marketplace assets
         shell: pwsh
         run: ./tools/watchface-push/Prepare-WatchFacePushAssets.ps1
+      - name: Enforce Kotlin static analysis and formatting
+        run: ./gradlew detekt ktlintCheck
       - name: Test and build all applications and watchfaces
         run: >-
           ./gradlew test assembleDebug

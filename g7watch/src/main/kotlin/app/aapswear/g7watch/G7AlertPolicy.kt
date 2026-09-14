@@ -20,20 +20,30 @@ internal object G7AlertPolicyStore {
     private const val KEY_ALARMS_ENABLED = "alarms_enabled"
     private const val KEY_AUTOMATIC_ENABLE_AT = "automatic_enable_at"
 
-    fun alarmsEnabled(context: Context, nowEpochMs: Long = System.currentTimeMillis()): Boolean {
+    fun alarmsEnabled(
+        context: Context,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): Boolean {
         val preferences =
             context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return preferences.getBoolean(KEY_ALARMS_ENABLED, false) ||
             preferences.getLong(KEY_AUTOMATIC_ENABLE_AT, 0L).let { it > 0L && nowEpochMs >= it }
     }
 
-    fun nextAutomaticEnableAt(context: Context, nowEpochMs: Long = System.currentTimeMillis()): Long? =
+    fun nextAutomaticEnableAt(
+        context: Context,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ): Long? =
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getLong(KEY_AUTOMATIC_ENABLE_AT, 0L)
             .takeIf { it > nowEpochMs }
 
-    fun setPolicy(context: Context, enabled: Boolean, automaticEnableAtEpochMs: Long? = null) {
+    fun setPolicy(
+        context: Context,
+        enabled: Boolean,
+        automaticEnableAtEpochMs: Long? = null,
+    ) {
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
@@ -68,15 +78,19 @@ internal object G7SignalLossMonitor {
     private const val REQUEST_CODE = 7011
     private const val MIN_TRIGGER_LEAD_MS = 1_000L
 
-    fun scheduleFromState(context: Context, state: G7PersistedState) {
+    fun scheduleFromState(
+        context: Context,
+        state: G7PersistedState,
+    ) {
         if (!state.collectorEnabled) {
             cancel(context)
             return
         }
-        val lastReading = state.lastReading?.timestampEpochMs ?: run {
-            cancel(context)
-            return
-        }
+        val lastReading =
+            state.lastReading?.timestampEpochMs ?: run {
+                cancel(context)
+                return
+            }
         schedule(context, lastReading + G7_SIGNAL_LOSS_AFTER_MS)
     }
 
@@ -86,15 +100,24 @@ internal object G7SignalLossMonitor {
         pending.cancel()
     }
 
-    fun schedulePolicyRecheck(context: Context, atEpochMs: Long) {
+    fun schedulePolicyRecheck(
+        context: Context,
+        atEpochMs: Long,
+    ) {
         schedule(context, atEpochMs)
     }
 
-    fun scheduleRecoveryHealthCheck(context: Context, atEpochMs: Long) {
+    fun scheduleRecoveryHealthCheck(
+        context: Context,
+        atEpochMs: Long,
+    ) {
         schedule(context, atEpochMs)
     }
 
-    private fun schedule(context: Context, requestedAtEpochMs: Long) {
+    private fun schedule(
+        context: Context,
+        requestedAtEpochMs: Long,
+    ) {
         val app = context.applicationContext
         val alarmManager = app.getSystemService(AlarmManager::class.java)
         val triggerAt = maxOf(requestedAtEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
@@ -121,7 +144,10 @@ internal object G7SignalLossMonitor {
 }
 
 class G7SignalLossReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         // State deserialization, alarm-channel creation and notification delivery may all touch
         // disk or system services. A BroadcastReceiver only has a few seconds on its main thread;
         // keeping the complete signal-loss path behind goAsync avoids ANRs that would kill the

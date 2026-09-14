@@ -59,13 +59,30 @@ internal object G7AlarmSettingsStore {
         )
     }
 
-    fun write(context: Context, settings: CgmAlarmSettings) {
-        require(app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold).isValid)
+    fun write(
+        context: Context,
+        settings: CgmAlarmSettings,
+    ) {
+        require(
+            app.aapswear.model
+                .CgmThresholds(
+                    settings.veryHighThreshold,
+                    settings.highThreshold,
+                    settings.lowThreshold,
+                    settings.veryLowThreshold,
+                ).isValid,
+        )
         require(settings.signalLossMinutes == 16)
         G7GraphColorStore(context).saveThresholds(
-            app.aapswear.model.CgmThresholds(settings.veryHighThreshold, settings.highThreshold, settings.lowThreshold, settings.veryLowThreshold),
+            app.aapswear.model.CgmThresholds(
+                settings.veryHighThreshold,
+                settings.highThreshold,
+                settings.lowThreshold,
+                settings.veryLowThreshold,
+            ),
         )
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_high", settings.veryHighThreshold.toFloat())
             .putFloat("high", settings.highThreshold.toFloat())
@@ -91,9 +108,17 @@ internal object G7AlarmSettingsStore {
 internal object G7CgmAlarmCoordinator {
     private const val PREFERENCES = "g7_cgm_alarm_state"
     private const val KEY_STATE = "state_v1"
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
 
-    fun onReading(context: Context, reading: CgmReading, nowEpochMs: Long = System.currentTimeMillis()) {
+    fun onReading(
+        context: Context,
+        reading: CgmReading,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
             return
@@ -104,7 +129,11 @@ internal object G7CgmAlarmCoordinator {
         evaluate(context, reading, nowEpochMs)
     }
 
-    fun onSignalLoss(context: Context, reading: CgmReading?, nowEpochMs: Long = System.currentTimeMillis()) {
+    fun onSignalLoss(
+        context: Context,
+        reading: CgmReading?,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
             return
@@ -112,21 +141,30 @@ internal object G7CgmAlarmCoordinator {
         evaluate(context, reading, nowEpochMs)
     }
 
-    fun acknowledge(context: Context, type: CgmAlarmType, nowEpochMs: Long = System.currentTimeMillis()) {
+    fun acknowledge(
+        context: Context,
+        type: CgmAlarmType,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ) {
         val snapshot = read(context)
-        val next = snapshot.alarms.map { alarm ->
-            if (alarm.type == type && alarm.state == CgmAlarmState.ACTIVE) {
-                CgmAlarmEngine.acknowledge(alarm, nowEpochMs)
-            } else {
-                alarm
+        val next =
+            snapshot.alarms.map { alarm ->
+                if (alarm.type == type && alarm.state == CgmAlarmState.ACTIVE) {
+                    CgmAlarmEngine.acknowledge(alarm, nowEpochMs)
+                } else {
+                    alarm
+                }
             }
-        }
         save(context, snapshot.copy(alarms = next))
         G7CgmAlarmNotifier.cancel(context, type)
         G7AlarmRepeatScheduler.cancel(context, type)
     }
 
-    fun repeatActive(context: Context, type: CgmAlarmType, nowEpochMs: Long = System.currentTimeMillis()) {
+    fun repeatActive(
+        context: Context,
+        type: CgmAlarmType,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
             return
@@ -136,9 +174,10 @@ internal object G7CgmAlarmCoordinator {
         val alarm = snapshot.alarms.firstOrNull { it.type == type } ?: return
         if (!CgmAlarmEngine.shouldRepeat(alarm, settings, nowEpochMs)) return
         G7CgmAlarmNotifier.show(context, alarm, settings, onlyAlertOnce = false)
-        val updated = snapshot.alarms.map {
-            if (it.type == type) CgmAlarmEngine.markNotified(it, nowEpochMs) else it
-        }
+        val updated =
+            snapshot.alarms.map {
+                if (it.type == type) CgmAlarmEngine.markNotified(it, nowEpochMs) else it
+            }
         save(context, snapshot.copy(alarms = updated))
         G7AlarmRepeatScheduler.schedule(context, type, settings.repeatIntervalMinutes)
     }
@@ -150,7 +189,10 @@ internal object G7CgmAlarmCoordinator {
     }
 
     /** Restores persistent alarm visibility and repeat scheduling after reboot/process restart. */
-    fun restore(context: Context, nowEpochMs: Long = System.currentTimeMillis()) {
+    fun restore(
+        context: Context,
+        nowEpochMs: Long = System.currentTimeMillis(),
+    ) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
             return
@@ -177,7 +219,11 @@ internal object G7CgmAlarmCoordinator {
         }
     }
 
-    private fun evaluate(context: Context, reading: CgmReading?, nowEpochMs: Long) {
+    private fun evaluate(
+        context: Context,
+        reading: CgmReading?,
+        nowEpochMs: Long,
+    ) {
         val settings = G7AlarmSettingsStore.read(context)
         val previous = read(context)
         val sameSession =
@@ -189,9 +235,10 @@ internal object G7CgmAlarmCoordinator {
             G7AlarmRepeatScheduler.cancelAll(context)
         }
         val oldMap = if (sameSession) previous.alarms.associateBy(CgmAlarm::type) else emptyMap()
-        val normalizedReading = reading?.takeIf {
-            it.status == CgmReadingStatus.VALID || it.status == CgmReadingStatus.SENSOR_ERROR
-        }
+        val normalizedReading =
+            reading?.takeIf {
+                it.status == CgmReadingStatus.VALID || it.status == CgmReadingStatus.SENSOR_ERROR
+            }
         val evaluated = CgmAlarmEngine.evaluate(normalizedReading, oldMap, settings, nowEpochMs)
         val withNotifications = evaluated.toMutableMap()
 
@@ -223,13 +270,18 @@ internal object G7CgmAlarmCoordinator {
     }
 
     private fun read(context: Context): G7AlarmSnapshot =
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .getString(KEY_STATE, null)
             ?.let { runCatching { json.decodeFromString<G7AlarmSnapshot>(it) }.getOrNull() }
             ?: G7AlarmSnapshot()
 
-    private fun save(context: Context, snapshot: G7AlarmSnapshot) {
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private fun save(
+        context: Context,
+        snapshot: G7AlarmSnapshot,
+    ) {
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_STATE, json.encodeToString(G7AlarmSnapshot.serializer(), snapshot))
             .apply()
@@ -241,32 +293,40 @@ internal object G7CgmAlarmNotifier {
     private const val CHANNEL_FAMILY_PREFIX = "g7_cgm_alarm_"
     private const val NOTIFICATION_BASE = 7_100
 
-    fun show(context: Context, alarm: CgmAlarm, settings: CgmAlarmSettings, onlyAlertOnce: Boolean) {
+    fun show(
+        context: Context,
+        alarm: CgmAlarm,
+        settings: CgmAlarmSettings,
+        onlyAlertOnce: Boolean,
+    ) {
         // Channel sound/vibration are immutable after creation. Route a changed app setting to a
         // distinct channel while preserving any system-level customization of an existing one.
         val channelId = channelId(context, alarm.type, settings)
         ensureAllChannels(context, settings)
         if (!onlyAlertOnce && settings.soundEnabled) G7AlarmSoundPlayer.play(context, alarm.type)
-        val open = PendingIntent.getActivity(
-            context,
-            NOTIFICATION_BASE + alarm.type.ordinal,
-            Intent(context, G7WatchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            },
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val acknowledge = PendingIntent.getBroadcast(
-            context,
-            NOTIFICATION_BASE + alarm.type.ordinal,
-            Intent(context, G7CgmAlarmAcknowledgeReceiver::class.java)
-                .setAction(G7CgmAlarmAcknowledgeReceiver.ACTION_ACKNOWLEDGE)
-                .putExtra(G7CgmAlarmAcknowledgeReceiver.EXTRA_TYPE, alarm.type.name),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val open =
+            PendingIntent.getActivity(
+                context,
+                NOTIFICATION_BASE + alarm.type.ordinal,
+                Intent(context, G7WatchActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                },
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val acknowledge =
+            PendingIntent.getBroadcast(
+                context,
+                NOTIFICATION_BASE + alarm.type.ordinal,
+                Intent(context, G7CgmAlarmAcknowledgeReceiver::class.java)
+                    .setAction(G7CgmAlarmAcknowledgeReceiver.ACTION_ACKNOWLEDGE)
+                    .putExtra(G7CgmAlarmAcknowledgeReceiver.EXTRA_TYPE, alarm.type.name),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
         val icon = Icon.createWithResource(context, R.drawable.ic_g7_notification)
         context.getSystemService(NotificationManager::class.java).notify(
             notificationId(alarm.type),
-            Notification.Builder(context, channelId)
+            Notification
+                .Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_g7_notification)
                 .setColor(color(alarm.type))
                 .setContentTitle(title(alarm.type))
@@ -283,20 +343,28 @@ internal object G7CgmAlarmNotifier {
         )
     }
 
-    fun cancel(context: Context, type: CgmAlarmType) {
+    fun cancel(
+        context: Context,
+        type: CgmAlarmType,
+    ) {
         G7AlarmSoundPlayer.stop(type)
         context.getSystemService(NotificationManager::class.java).cancel(notificationId(type))
     }
 
     fun cancelAll(context: Context) = CgmAlarmType.entries.forEach { cancel(context, it) }
 
-    fun showTest(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings) {
+    fun showTest(
+        context: Context,
+        type: CgmAlarmType,
+        settings: CgmAlarmSettings,
+    ) {
         val channelId = channelId(context, type, settings)
         ensureAllChannels(context, settings)
         if (settings.soundEnabled) G7AlarmSoundPlayer.play(context, type)
         context.getSystemService(NotificationManager::class.java).notify(
             testNotificationId(type),
-            Notification.Builder(context, channelId)
+            Notification
+                .Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_g7_notification)
                 .setColor(color(type))
                 .setContentTitle("Test · ${title(type)}")
@@ -310,7 +378,10 @@ internal object G7CgmAlarmNotifier {
         )
     }
 
-    fun ensureAllChannels(context: Context, settings: CgmAlarmSettings) {
+    fun ensureAllChannels(
+        context: Context,
+        settings: CgmAlarmSettings,
+    ) {
         val manager = context.getSystemService(NotificationManager::class.java)
         val desiredIds = CgmAlarmType.entries.associateWith { channelId(context, it, settings) }
         desiredIds.forEach { (type, id) -> ensureChannel(context, id, type, settings) }
@@ -338,22 +409,24 @@ internal object G7CgmAlarmNotifier {
         )
     }
 
-    private fun title(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.VERY_HIGH -> "Glukose sehr hoch"
-        CgmAlarmType.HIGH -> "Glukose hoch"
-        CgmAlarmType.LOW -> "Glukose tief"
-        CgmAlarmType.VERY_LOW -> "Glukose sehr tief"
-        CgmAlarmType.RAPID_RISE -> "Glukose steigt schnell"
-        CgmAlarmType.RAPID_FALL -> "Glukose fällt schnell"
-        CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
-        CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
-    }
+    private fun title(type: CgmAlarmType): String =
+        when (type) {
+            CgmAlarmType.VERY_HIGH -> "Glukose sehr hoch"
+            CgmAlarmType.HIGH -> "Glukose hoch"
+            CgmAlarmType.LOW -> "Glukose tief"
+            CgmAlarmType.VERY_LOW -> "Glukose sehr tief"
+            CgmAlarmType.RAPID_RISE -> "Glukose steigt schnell"
+            CgmAlarmType.RAPID_FALL -> "Glukose fällt schnell"
+            CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
+            CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
+        }
 
-    private fun body(type: CgmAlarmType): String = when (type) {
-        CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider direkter Watch-Wert."
-        CgmAlarmType.VERY_LOW -> "Glukosewert liegt bei oder unter 40 mg/dL."
-        else -> "SugarWear hat den Alarmzustand ${title(type)} erkannt."
-    }
+    private fun body(type: CgmAlarmType): String =
+        when (type) {
+            CgmAlarmType.SIGNAL_LOSS -> "Seit mindestens 16 Minuten kein valider direkter Watch-Wert."
+            CgmAlarmType.VERY_LOW -> "Glukosewert liegt bei oder unter 40 mg/dL."
+            else -> "SugarWear hat den Alarmzustand ${title(type)} erkannt."
+        }
 
     private fun color(type: CgmAlarmType): Int =
         if (type in setOf(CgmAlarmType.VERY_LOW, CgmAlarmType.LOW, CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR)) {
@@ -364,16 +437,21 @@ internal object G7CgmAlarmNotifier {
 
     private fun notificationId(type: CgmAlarmType): Int = NOTIFICATION_BASE + type.ordinal
 
-    internal fun channelId(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings): String = buildString {
-        append(CHANNEL_PREFIX)
-        append(type.name.lowercase())
-        append("_s")
-        append(if (settings.soundEnabled) '1' else '0')
-        append("_v")
-        append(if (settings.vibrationEnabled) '1' else '0')
-        append("_d")
-        append(if (G7AlarmNotificationPolicy.isAccessGranted(context)) '1' else '0')
-    }
+    internal fun channelId(
+        context: Context,
+        type: CgmAlarmType,
+        settings: CgmAlarmSettings,
+    ): String =
+        buildString {
+            append(CHANNEL_PREFIX)
+            append(type.name.lowercase())
+            append("_s")
+            append(if (settings.soundEnabled) '1' else '0')
+            append("_v")
+            append(if (settings.vibrationEnabled) '1' else '0')
+            append("_d")
+            append(if (G7AlarmNotificationPolicy.isAccessGranted(context)) '1' else '0')
+        }
 
     private const val TEST_NOTIFICATION_BASE = 7_300
 
@@ -385,23 +463,29 @@ internal object G7AlarmSoundPlayer {
     private var playingType: CgmAlarmType? = null
 
     @Synchronized
-    fun play(context: Context, type: CgmAlarmType) {
+    fun play(
+        context: Context,
+        type: CgmAlarmType,
+    ) {
         release()
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        player = runCatching {
-            MediaPlayer.create(context.applicationContext, g7AlarmSoundResource(type), attributes, 0)?.also { mediaPlayer ->
-                playingType = type
-                mediaPlayer.setOnCompletionListener { synchronized(this) { if (player === it) release() } }
-                mediaPlayer.setOnErrorListener { failed, _, _ ->
-                    synchronized(this) { if (player === failed) release() }
-                    true
+        val attributes =
+            AudioAttributes
+                .Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+        player =
+            runCatching {
+                MediaPlayer.create(context.applicationContext, g7AlarmSoundResource(type), attributes, 0)?.also { mediaPlayer ->
+                    playingType = type
+                    mediaPlayer.setOnCompletionListener { synchronized(this) { if (player === it) release() } }
+                    mediaPlayer.setOnErrorListener { failed, _, _ ->
+                        synchronized(this) { if (player === failed) release() }
+                        true
+                    }
+                    mediaPlayer.start()
                 }
-                mediaPlayer.start()
-            }
-        }.getOrNull()
+            }.getOrNull()
     }
 
     @Synchronized
@@ -411,65 +495,82 @@ internal object G7AlarmSoundPlayer {
 
     @Synchronized
     private fun release() {
-        player?.let { runCatching { if (it.isPlaying) it.stop() }; runCatching { it.release() } }
+        player?.let {
+            runCatching { if (it.isPlaying) it.stop() }
+            runCatching { it.release() }
+        }
         player = null
         playingType = null
     }
 }
 
 internal object G7AlarmNotificationPolicy {
-    fun isAccessGranted(context: Context): Boolean =
-        context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
+    fun isAccessGranted(context: Context): Boolean = context.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted
 
     fun settingsIntent(context: Context): Intent {
-        val detail = Intent("android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS").apply {
-            data = Uri.parse("package:${context.packageName}")
+        val detail =
+            Intent("android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS").apply {
+                data = Uri.parse("package:${context.packageName}")
+            }
+        return if (detail.resolveActivity(context.packageManager) != null) {
+            detail
+        } else {
+            Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
         }
-        return if (detail.resolveActivity(context.packageManager) != null) detail
-        else Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
     }
 }
 
-internal fun g7AlarmSoundResource(type: CgmAlarmType): Int = when (type) {
-    CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
-    CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
-    CgmAlarmType.LOW -> R.raw.alerts_sounds_low
-    CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
-    CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
-    CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
-    CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
-    CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
-}
+internal fun g7AlarmSoundResource(type: CgmAlarmType): Int =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
+        CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
+        CgmAlarmType.LOW -> R.raw.alerts_sounds_low
+        CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
+        CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
+        CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
+        CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
+        CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
+    }
 
-internal fun g7AlarmTitle(type: CgmAlarmType): String = when (type) {
-    CgmAlarmType.VERY_HIGH -> "Sehr hoch"
-    CgmAlarmType.HIGH -> "Hoch"
-    CgmAlarmType.LOW -> "Tief"
-    CgmAlarmType.VERY_LOW -> "Sehr tief"
-    CgmAlarmType.RAPID_RISE -> "Schnell steigend"
-    CgmAlarmType.RAPID_FALL -> "Schnell fallend"
-    CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
-    CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
-}
+internal fun g7AlarmTitle(type: CgmAlarmType): String =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> "Sehr hoch"
+        CgmAlarmType.HIGH -> "Hoch"
+        CgmAlarmType.LOW -> "Tief"
+        CgmAlarmType.VERY_LOW -> "Sehr tief"
+        CgmAlarmType.RAPID_RISE -> "Schnell steigend"
+        CgmAlarmType.RAPID_FALL -> "Schnell fallend"
+        CgmAlarmType.SIGNAL_LOSS -> "Signalverlust"
+        CgmAlarmType.SENSOR_ERROR -> "Sensorfehler"
+    }
 
-internal fun g7AlarmSoundName(type: CgmAlarmType): String = when (type) {
-    CgmAlarmType.VERY_HIGH -> "High Alert"
-    CgmAlarmType.HIGH -> "High"
-    CgmAlarmType.LOW -> "Low"
-    CgmAlarmType.VERY_LOW -> "Urgent Low"
-    CgmAlarmType.RAPID_RISE -> "Rise Rate"
-    CgmAlarmType.RAPID_FALL -> "Fall Rate"
-    CgmAlarmType.SIGNAL_LOSS -> "Signal Loss"
-    CgmAlarmType.SENSOR_ERROR -> "Sensorfehler-Beep"
-}
+internal fun g7AlarmSoundName(type: CgmAlarmType): String =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> "High Alert"
+        CgmAlarmType.HIGH -> "High"
+        CgmAlarmType.LOW -> "Low"
+        CgmAlarmType.VERY_LOW -> "Urgent Low"
+        CgmAlarmType.RAPID_RISE -> "Rise Rate"
+        CgmAlarmType.RAPID_FALL -> "Fall Rate"
+        CgmAlarmType.SIGNAL_LOSS -> "Signal Loss"
+        CgmAlarmType.SENSOR_ERROR -> "Sensorfehler-Beep"
+    }
 
 internal object G7AlarmRepeatScheduler {
-    fun schedule(context: Context, type: CgmAlarmType, minutes: Int) {
+    fun schedule(
+        context: Context,
+        type: CgmAlarmType,
+        minutes: Int,
+    ) {
         val triggerAt = System.currentTimeMillis() + minutes.coerceIn(5, 120) * 60_000L
         scheduleAt(context, type, triggerAt)
     }
 
-    fun scheduleAt(context: Context, type: CgmAlarmType, triggerAtEpochMs: Long) {
+    fun scheduleAt(
+        context: Context,
+        type: CgmAlarmType,
+        triggerAtEpochMs: Long,
+    ) {
         context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
             maxOf(triggerAtEpochMs, System.currentTimeMillis() + 1_000L),
@@ -477,7 +578,10 @@ internal object G7AlarmRepeatScheduler {
         )
     }
 
-    fun cancel(context: Context, type: CgmAlarmType) {
+    fun cancel(
+        context: Context,
+        type: CgmAlarmType,
+    ) {
         val pending = pendingIntent(context, type)
         context.getSystemService(AlarmManager::class.java).cancel(pending)
         pending.cancel()
@@ -485,7 +589,10 @@ internal object G7AlarmRepeatScheduler {
 
     fun cancelAll(context: Context) = CgmAlarmType.entries.forEach { cancel(context, it) }
 
-    private fun pendingIntent(context: Context, type: CgmAlarmType): PendingIntent =
+    private fun pendingIntent(
+        context: Context,
+        type: CgmAlarmType,
+    ): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             7_200 + type.ordinal,
@@ -497,7 +604,10 @@ internal object G7AlarmRepeatScheduler {
 }
 
 class G7CgmAlarmAcknowledgeReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_ACKNOWLEDGE) return
         val type = intent.getStringExtra(EXTRA_TYPE)?.let { runCatching { CgmAlarmType.valueOf(it) }.getOrNull() } ?: return
         G7CgmAlarmCoordinator.acknowledge(context, type)
@@ -510,7 +620,10 @@ class G7CgmAlarmAcknowledgeReceiver : BroadcastReceiver() {
 }
 
 class G7CgmAlarmRepeatReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_REPEAT) return
         val type = intent.getStringExtra(EXTRA_TYPE)?.let { runCatching { CgmAlarmType.valueOf(it) }.getOrNull() } ?: return
         G7CgmAlarmCoordinator.repeatActive(context, type)

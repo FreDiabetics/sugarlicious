@@ -1,8 +1,8 @@
 package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchGraphStyle
+import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Before
@@ -21,13 +21,15 @@ class WearTileAppearanceStoreTest {
         assertEquals(WearTileContent.GRAPH, WearTileContentStore.read(context, WearTileKind.GLUCOSE))
         assertEquals(WearTileContent.PUMP, WearTileContentStore.read(context, WearTileKind.THERAPY))
     }
+
     private val context
         get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Before
     fun clearPreferences() {
         WearTileKind.entries.forEach { kind ->
-            context.getSharedPreferences(kind.preferenceName, android.content.Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences(kind.preferenceName, android.content.Context.MODE_PRIVATE)
                 .edit()
                 .clear()
                 .commit()

@@ -28,7 +28,10 @@ internal object WearCanonicalStateEvents {
  * after the database transaction commits, including after a backfill batch.
  */
 class G7ReadingUpdateReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_G7_READING_UPDATED) return
         DirectToWatchPreferences.requestUpdates(g7ReadingUpdateApplicationContext(context))
     }

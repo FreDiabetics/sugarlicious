@@ -18,8 +18,18 @@ data class LoopPresentation(
 
 /** Shared loop-state semantics for the Mobile overview and Wear complications. */
 fun loopPresentation(state: TherapyDisplayState?): LoopPresentation {
-    val pump = state?.pump?.status.orEmpty().lowercase(Locale.ROOT)
-    val loop = state?.loop?.status.orEmpty().lowercase(Locale.ROOT)
+    val pump =
+        state
+            ?.pump
+            ?.status
+            .orEmpty()
+            .lowercase(Locale.ROOT)
+    val loop =
+        state
+            ?.loop
+            ?.status
+            .orEmpty()
+            .lowercase(Locale.ROOT)
     return when {
         listOf("suspend", "paused", "disconnect", "stopped").any(pump::contains) ->
             LoopPresentation(LoopVisualState.PUMP_SUSPENDED, "Pumpe pausiert", "Pumpe")

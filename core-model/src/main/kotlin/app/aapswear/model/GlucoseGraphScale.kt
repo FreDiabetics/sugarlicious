@@ -8,7 +8,10 @@ object GlucoseGraphScale {
     private const val DISPLAY_MIN = 40.0
     private const val DISPLAY_MAX = 400.0
 
-    fun ratio(valueMgDl: Double, maximumMgDl: Double = DISPLAY_MAX): Double {
+    fun ratio(
+        valueMgDl: Double,
+        maximumMgDl: Double = DISPLAY_MAX,
+    ): Double {
         val maximum = maximumMgDl.coerceAtLeast(180.0)
         val value = valueMgDl.coerceIn(DISPLAY_MIN, maximum)
         return when {

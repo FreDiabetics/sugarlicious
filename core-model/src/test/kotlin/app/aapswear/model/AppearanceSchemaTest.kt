@@ -14,6 +14,7 @@ class AppearanceSchemaTest {
         assertEquals(AppearanceScopeLevel.COMPONENT, resolution.sourceLevel)
         assertEquals(1f, resolution.defaultValue)
     }
+
     @Test fun `argb conversion accepts rgb and argb`() {
         assertEquals(0xFF12AB34.toInt(), ArgbColor.parse("#12AB34"))
         assertEquals(0x8012AB34.toInt(), ArgbColor.parse("8012ab34"))

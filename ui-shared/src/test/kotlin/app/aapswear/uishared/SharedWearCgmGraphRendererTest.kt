@@ -1,8 +1,8 @@
 package app.aapswear.uishared
 
 import app.aapswear.model.CgmThresholds
-import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TrendVisualAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,6 +20,7 @@ class SharedWearCgmGraphRendererTest {
             assertEquals(GlucoseGraphScale.ratio(value), WearCgmGraphScale.ratio(value), 0.000001)
         }
     }
+
     @Test
     fun `shared scale preserves canonical lower padding and four hundred ceiling`() {
         assertEquals(GlucoseGraphScale.ratio(0.0), WearCgmGraphScale.ratio(0.0), 0.0)
@@ -27,6 +28,7 @@ class SharedWearCgmGraphRendererTest {
         assertEquals(1.0, WearCgmGraphScale.ratio(400.0), 0.0)
         assertEquals(1.0, WearCgmGraphScale.ratio(401.0), 0.0)
     }
+
     @Test
     fun `wear and collector adapters receive identical full bleed geometry`() {
         listOf(192 to 112, 320 to 170, 454 to 220).forEach { (width, height) ->

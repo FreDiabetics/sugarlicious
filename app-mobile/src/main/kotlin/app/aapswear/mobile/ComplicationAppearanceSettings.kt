@@ -19,37 +19,73 @@ internal data class ComplicationAppearanceSettings(
 internal object ComplicationAppearanceSettingsStore {
     private const val PREFS = "complication_appearance"
 
-    fun load(context: Context, catalogId: Int): ComplicationAppearanceSettings {
+    fun load(
+        context: Context,
+        catalogId: Int,
+    ): ComplicationAppearanceSettings {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val scaleKey = "$catalogId.trendScale"
         return ComplicationAppearanceSettings(
-            trendScalePercent = if (prefs.contains(scaleKey)) {
-                prefs.getInt(scaleKey, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
-                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
-            } else null,
+            trendScalePercent =
+                if (prefs.contains(scaleKey)) {
+                    prefs
+                        .getInt(scaleKey, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                        .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+                } else {
+                    null
+                },
             trendOffsetXPercent = prefs.getInt("$catalogId.trendX", 0).coerceIn(-50, 50),
             trendOffsetYPercent = prefs.getInt("$catalogId.trendY", 0).coerceIn(-50, 50),
-            trendStyleOverride = TrendArrowStyleOverride(
-                fillColor = prefs.getInt("$catalogId.trendFill", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
-                outlineEnabled = if (prefs.contains("$catalogId.trendOutlineEnabled")) prefs.getBoolean("$catalogId.trendOutlineEnabled", false) else null,
-                outlineColor = prefs.getInt("$catalogId.trendOutlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
-                outlineThicknessDp = prefs.getFloat("$catalogId.trendOutlineThickness", Float.NaN).takeUnless(Float::isNaN),
-                sizePercent = if (prefs.contains(scaleKey)) prefs.getInt(scaleKey, 100) else null,
-                alpha = prefs.getFloat("$catalogId.trendAlpha", Float.NaN).takeUnless(Float::isNaN),
-            ),
+            trendStyleOverride =
+                TrendArrowStyleOverride(
+                    fillColor = prefs.getInt("$catalogId.trendFill", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                    outlineEnabled =
+                        if (prefs.contains(
+                                "$catalogId.trendOutlineEnabled",
+                            )
+                        ) {
+                            prefs.getBoolean("$catalogId.trendOutlineEnabled", false)
+                        } else {
+                            null
+                        },
+                    outlineColor = prefs.getInt("$catalogId.trendOutlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                    outlineThicknessDp = prefs.getFloat("$catalogId.trendOutlineThickness", Float.NaN).takeUnless(Float::isNaN),
+                    sizePercent = if (prefs.contains(scaleKey)) prefs.getInt(scaleKey, 100) else null,
+                    alpha = prefs.getFloat("$catalogId.trendAlpha", Float.NaN).takeUnless(Float::isNaN),
+                ),
         )
     }
 
-    fun save(context: Context, catalogId: Int, value: ComplicationAppearanceSettings) {
+    fun save(
+        context: Context,
+        catalogId: Int,
+        value: ComplicationAppearanceSettings,
+    ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            if (value.trendScalePercent == null) remove("$catalogId.trendScale")
-            else putInt("$catalogId.trendScale", value.trendScalePercent)
+            if (value.trendScalePercent == null) {
+                remove("$catalogId.trendScale")
+            } else {
+                putInt("$catalogId.trendScale", value.trendScalePercent)
+            }
             putInt("$catalogId.trendX", value.trendOffsetXPercent)
             putInt("$catalogId.trendY", value.trendOffsetYPercent)
-            fun putIntOrRemove(key: String, raw: Int?) { if (raw == null) remove(key) else putInt(key, raw) }
-            fun putFloatOrRemove(key: String, raw: Float?) { if (raw == null) remove(key) else putFloat(key, raw) }
+
+            fun putIntOrRemove(
+                key: String,
+                raw: Int?,
+            ) {
+                if (raw == null) remove(key) else putInt(key, raw)
+            }
+
+            fun putFloatOrRemove(
+                key: String,
+                raw: Float?,
+            ) {
+                if (raw == null) remove(key) else putFloat(key, raw)
+            }
             putIntOrRemove("$catalogId.trendFill", value.trendStyleOverride.fillColor)
-            value.trendStyleOverride.outlineEnabled?.let { putBoolean("$catalogId.trendOutlineEnabled", it) } ?: remove("$catalogId.trendOutlineEnabled")
+            value.trendStyleOverride.outlineEnabled?.let { putBoolean("$catalogId.trendOutlineEnabled", it) }
+                ?: remove("$catalogId.trendOutlineEnabled")
             putIntOrRemove("$catalogId.trendOutlineColor", value.trendStyleOverride.outlineColor)
             putFloatOrRemove("$catalogId.trendOutlineThickness", value.trendStyleOverride.outlineThicknessDp)
             putFloatOrRemove("$catalogId.trendAlpha", value.trendStyleOverride.alpha)
@@ -62,18 +98,22 @@ internal suspend fun syncComplicationAppearance(
     catalogId: Int,
     value: ComplicationAppearanceSettings,
 ) {
-    val request = PutDataMapRequest.create(WearProtocol.COMPLICATION_APPEARANCE_PATH).apply {
-        dataMap.putInt("catalogId", catalogId)
-        dataMap.putInt("trendScale", value.trendScalePercent ?: 0)
-        dataMap.putInt("trendX", value.trendOffsetXPercent)
-        dataMap.putInt("trendY", value.trendOffsetYPercent)
-        dataMap.putInt("trendFill", value.trendStyleOverride.fillColor ?: Int.MIN_VALUE)
-        dataMap.putBoolean("trendOutlinePresent", value.trendStyleOverride.outlineEnabled != null)
-        dataMap.putBoolean("trendOutlineEnabled", value.trendStyleOverride.outlineEnabled ?: false)
-        dataMap.putInt("trendOutlineColor", value.trendStyleOverride.outlineColor ?: Int.MIN_VALUE)
-        dataMap.putFloat("trendOutlineThickness", value.trendStyleOverride.outlineThicknessDp ?: Float.NaN)
-        dataMap.putFloat("trendAlpha", value.trendStyleOverride.alpha ?: Float.NaN)
-        dataMap.putLong("updatedAt", System.currentTimeMillis())
-    }.asPutDataRequest().setUrgent()
+    val request =
+        PutDataMapRequest
+            .create(WearProtocol.COMPLICATION_APPEARANCE_PATH)
+            .apply {
+                dataMap.putInt("catalogId", catalogId)
+                dataMap.putInt("trendScale", value.trendScalePercent ?: 0)
+                dataMap.putInt("trendX", value.trendOffsetXPercent)
+                dataMap.putInt("trendY", value.trendOffsetYPercent)
+                dataMap.putInt("trendFill", value.trendStyleOverride.fillColor ?: Int.MIN_VALUE)
+                dataMap.putBoolean("trendOutlinePresent", value.trendStyleOverride.outlineEnabled != null)
+                dataMap.putBoolean("trendOutlineEnabled", value.trendStyleOverride.outlineEnabled ?: false)
+                dataMap.putInt("trendOutlineColor", value.trendStyleOverride.outlineColor ?: Int.MIN_VALUE)
+                dataMap.putFloat("trendOutlineThickness", value.trendStyleOverride.outlineThicknessDp ?: Float.NaN)
+                dataMap.putFloat("trendAlpha", value.trendStyleOverride.alpha ?: Float.NaN)
+                dataMap.putLong("updatedAt", System.currentTimeMillis())
+            }.asPutDataRequest()
+            .setUrgent()
     Wearable.getDataClient(context).putDataItem(request).await()
 }

@@ -1,8 +1,8 @@
 package app.aapswear.mobile
 
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Bitmap
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Region
@@ -33,15 +33,18 @@ import kotlin.math.roundToInt
 class WidgetPresentationTest {
     private val now = 20_000_000L
     private val thresholds = app.aapswear.model.CgmThresholds.DEFAULT
-    private val palette = WidgetPalette(WidgetColorRole.entries.associateWith { role ->
-        when (role) {
-            WidgetColorRole.GRAPH_BACKGROUND, WidgetColorRole.BACKGROUND -> Color.BLACK
-            WidgetColorRole.IN_RANGE, WidgetColorRole.TEXT, WidgetColorRole.AXIS -> Color.WHITE
-            WidgetColorRole.HIGH, WidgetColorRole.RANGE_HIGH, WidgetColorRole.HIGH_LINE -> Color.YELLOW
-            WidgetColorRole.LOW, WidgetColorRole.RANGE_LOW, WidgetColorRole.LOW_LINE -> Color.RED
-            else -> Color.GRAY
-        }
-    })
+    private val palette =
+        WidgetPalette(
+            WidgetColorRole.entries.associateWith { role ->
+                when (role) {
+                    WidgetColorRole.GRAPH_BACKGROUND, WidgetColorRole.BACKGROUND -> Color.BLACK
+                    WidgetColorRole.IN_RANGE, WidgetColorRole.TEXT, WidgetColorRole.AXIS -> Color.WHITE
+                    WidgetColorRole.HIGH, WidgetColorRole.RANGE_HIGH, WidgetColorRole.HIGH_LINE -> Color.YELLOW
+                    WidgetColorRole.LOW, WidgetColorRole.RANGE_LOW, WidgetColorRole.LOW_LINE -> Color.RED
+                    else -> Color.GRAY
+                }
+            },
+        )
 
     @Test
     fun `responsive layout covers narrow wide low and high surfaces`() {
@@ -120,8 +123,9 @@ class WidgetPresentationTest {
     @Test
     fun `trend arrow keeps the same vector scale in every direction`() {
         val targetHeight = 48f
-        val scales = app.aapswear.model.TrendVisualAsset.entries
-            .map { asset -> trendArrowGeometry(targetHeight, app.aapswear.model.TrendVisualSpec(asset)).scalePx }
+        val scales =
+            app.aapswear.model.TrendVisualAsset.entries
+                .map { asset -> trendArrowGeometry(targetHeight, app.aapswear.model.TrendVisualSpec(asset)).scalePx }
         scales.forEach { scale -> assertEquals(scales.first(), scale, 0.0001f) }
         assertEquals(targetHeight, 60f * scales.first(), 0.05f)
     }
@@ -129,15 +133,16 @@ class WidgetPresentationTest {
     @Test
     fun `notification renderer preserves every supplied trend canvas and double arrow aspect`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val expected = mapOf(
-            Trend.DOUBLE_UP to 125f / 60f,
-            Trend.SINGLE_UP to 1f,
-            Trend.FORTY_FIVE_UP to 1f,
-            Trend.FLAT to 1f,
-            Trend.FORTY_FIVE_DOWN to 1f,
-            Trend.SINGLE_DOWN to 1f,
-            Trend.DOUBLE_DOWN to 125f / 60f,
-        )
+        val expected =
+            mapOf(
+                Trend.DOUBLE_UP to 125f / 60f,
+                Trend.SINGLE_UP to 1f,
+                Trend.FORTY_FIVE_UP to 1f,
+                Trend.FLAT to 1f,
+                Trend.FORTY_FIVE_DOWN to 1f,
+                Trend.SINGLE_DOWN to 1f,
+                Trend.DOUBLE_DOWN to 125f / 60f,
+            )
         expected.forEach { (trend, aspect) ->
             val bitmap = NotificationTrendRenderer.render(context, trend, 60)!!
             assertEquals(60, bitmap.height)
@@ -163,11 +168,18 @@ class WidgetPresentationTest {
 
     @Test
     fun `combined two by two widget renders left glucose block and larger graph`() {
-        val bitmap = renderGlucoseGraphWidget(
-            state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0), palette,
-            440, 440, now, thresholds, responsiveWidgetLayout(220f, 220f), 2f,
-            WidgetInstanceConfiguration(showTimeAxis = true),
-        )
+        val bitmap =
+            renderGlucoseGraphWidget(
+                state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0),
+                palette,
+                440,
+                440,
+                now,
+                thresholds,
+                responsiveWidgetLayout(220f, 220f),
+                2f,
+                WidgetInstanceConfiguration(showTimeAxis = true),
+            )
         assertEquals(440, bitmap.width)
         assertEquals(440, bitmap.height)
         assertFalse(bitmap.isRecycled)
@@ -180,19 +192,20 @@ class WidgetPresentationTest {
 
     @Test
     fun `two by two widget renders 200 percent value and widest double arrow without failure`() {
-        val bitmap = renderGlucoseGraphWidget(
-            state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).copy(
-                glucose = state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).glucose?.copy(trend = Trend.DOUBLE_UP),
-            ),
-            palette,
-            440,
-            440,
-            now,
-            thresholds,
-            responsiveWidgetLayout(220f, 220f),
-            2f,
-            WidgetInstanceConfiguration(glucoseScalePercent = 200, trendScalePercent = 200),
-        )
+        val bitmap =
+            renderGlucoseGraphWidget(
+                state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).copy(
+                    glucose = state(listOf(sample(245.0, -10), sample(250.0, -5)), 250.0).glucose?.copy(trend = Trend.DOUBLE_UP),
+                ),
+                palette,
+                440,
+                440,
+                now,
+                thresholds,
+                responsiveWidgetLayout(220f, 220f),
+                2f,
+                WidgetInstanceConfiguration(glucoseScalePercent = 200, trendScalePercent = 200),
+            )
         assertEquals(440, bitmap.width)
         assertEquals(440, bitmap.height)
         assertFalse(bitmap.isRecycled)
@@ -203,47 +216,51 @@ class WidgetPresentationTest {
         val high = state(listOf(sample(190.0, -10), sample(195.0, -5)), 195.0)
         val low = state(listOf(sample(65.0, -10), sample(60.0, -5)), 60.0)
         val inRange = state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0)
-        val configuration = WidgetInstanceConfiguration(
-            showTimeAxis = false,
-            backgroundEnabled = false,
-            graphCornerRadiusDp = 24,
-        )
+        val configuration =
+            WidgetInstanceConfiguration(
+                showTimeAxis = false,
+                backgroundEnabled = false,
+                graphCornerRadiusDp = 24,
+            )
 
         listOf(high, low, inRange).forEach { current ->
             val width = 320
             val height = 180
             val layout = responsiveWidgetLayout(width.toFloat(), height.toFloat())
-            val metrics = widgetGraphMetrics(
-                width,
-                height,
-                1f,
-                layout,
-                Paint(),
-                showTimeAxis = false,
-                graphCornerRadiusDp = configuration.graphCornerRadiusDp.toFloat(),
-            )
-            val bitmap = renderWidgetGraph(
-                current,
-                palette,
-                width,
-                height,
-                now,
-                thresholds,
-                layout,
-                1f,
-                configuration,
-                clipToWidgetShape = false,
-            )
+            val metrics =
+                widgetGraphMetrics(
+                    width,
+                    height,
+                    1f,
+                    layout,
+                    Paint(),
+                    showTimeAxis = false,
+                    graphCornerRadiusDp = configuration.graphCornerRadiusDp.toFloat(),
+                )
+            val bitmap =
+                renderWidgetGraph(
+                    current,
+                    palette,
+                    width,
+                    height,
+                    now,
+                    thresholds,
+                    layout,
+                    1f,
+                    configuration,
+                    clipToWidgetShape = false,
+                )
             val left = metrics.graphBounds.left.toInt()
             val top = metrics.graphBounds.top.toInt()
             val right = metrics.graphBounds.right.toInt() - 1
             val bottom = metrics.graphBounds.bottom.toInt() - 1
-            val clipRegion = Region().apply {
-                setPath(
-                    widgetGraphClipPath(metrics),
-                    Region(Rect(left, top, right + 1, bottom + 1)),
-                )
-            }
+            val clipRegion =
+                Region().apply {
+                    setPath(
+                        widgetGraphClipPath(metrics),
+                        Region(Rect(left, top, right + 1, bottom + 1)),
+                    )
+                }
             assertTrue(clipRegion.contains(metrics.graphBounds.centerX().toInt(), metrics.graphBounds.centerY().toInt()))
             listOf(left to top, right to top, left to bottom, right to bottom).forEach { (x, y) ->
                 assertFalse("rounded graph corner at $x,$y must stay outside the plot clip", clipRegion.contains(x, y))
@@ -254,21 +271,23 @@ class WidgetPresentationTest {
 
     @Test
     fun `only combined widget aligns graph inset with glucose value`() {
-        val standalone = widgetGraphMetrics(
-            440,
-            260,
-            2f,
-            responsiveWidgetLayout(220f, 130f),
-            Paint(),
-        )
-        val combined = widgetGraphMetrics(
-            440,
-            260,
-            2f,
-            responsiveWidgetLayout(220f, 130f),
-            Paint(),
-            graphLeftInsetDp = 12f,
-        )
+        val standalone =
+            widgetGraphMetrics(
+                440,
+                260,
+                2f,
+                responsiveWidgetLayout(220f, 130f),
+                Paint(),
+            )
+        val combined =
+            widgetGraphMetrics(
+                440,
+                260,
+                2f,
+                responsiveWidgetLayout(220f, 130f),
+                Paint(),
+                graphLeftInsetDp = 12f,
+            )
 
         assertEquals(0f, standalone.graphBounds.left, 0.01f)
         assertEquals(0f, combined.graphBounds.left, 0.01f)
@@ -279,15 +298,16 @@ class WidgetPresentationTest {
     fun `combined widget graph applies equal visual margins without moving standalone graph`() {
         val layout = responsiveWidgetLayout(220f, 130f)
         val standalone = widgetGraphMetrics(440, 260, 2f, layout, Paint())
-        val combined = widgetGraphMetrics(
-            440,
-            260,
-            2f,
-            layout,
-            Paint(),
-            graphLeftInsetDp = 12f,
-            graphHorizontalInsetDp = 5f,
-        )
+        val combined =
+            widgetGraphMetrics(
+                440,
+                260,
+                2f,
+                layout,
+                Paint(),
+                graphLeftInsetDp = 12f,
+                graphHorizontalInsetDp = 5f,
+            )
 
         assertEquals(0f, standalone.graphBounds.left, 0.01f)
         assertEquals(440f, standalone.graphBounds.right, 0.01f)
@@ -299,14 +319,15 @@ class WidgetPresentationTest {
     @Test
     fun `graph corner radius is responsive and remains bounded by graph geometry`() {
         listOf(96 to 72, 320 to 180, 640 to 520).forEach { (width, height) ->
-            val metrics = widgetGraphMetrics(
-                width,
-                height,
-                1f,
-                responsiveWidgetLayout(width.toFloat(), height.toFloat()),
-                Paint(),
-                graphCornerRadiusDp = MAX_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
-            )
+            val metrics =
+                widgetGraphMetrics(
+                    width,
+                    height,
+                    1f,
+                    responsiveWidgetLayout(width.toFloat(), height.toFloat()),
+                    Paint(),
+                    graphCornerRadiusDp = MAX_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
+                )
             assertTrue(metrics.graphCornerRadiusPx <= metrics.graphBounds.width() / 2f)
             assertTrue(metrics.graphCornerRadiusPx <= metrics.graphBounds.height() / 2f)
             assertTrue(metrics.graphCornerRadiusPx >= 0f)
@@ -339,11 +360,12 @@ class WidgetPresentationTest {
     fun `render hardware resize regression matrix when requested`() {
         val output = System.getenv("WIDGET_MATRIX_DIR")?.let(::File) ?: return
         output.mkdirs()
-        val state = state(
-            history = (0..36).map { index -> sample(105.0 + index * 3.8, -180 + index * 5) },
-            current = 242.0,
-            currentMinutes = 0,
-        )
+        val state =
+            state(
+                history = (0..36).map { index -> sample(105.0 + index * 3.8, -180 + index * 5) },
+                current = 242.0,
+                currentMinutes = 0,
+            )
         val density = 2f
         listOf(
             "very-small" to (192 to 144),
@@ -353,37 +375,48 @@ class WidgetPresentationTest {
             "extra-wide" to (1280 to 520),
         ).forEach { (name, dimensions) ->
             val (width, height) = dimensions
-            val bitmap = renderWidgetGraph(
-                state = state,
-                palette = palette,
-                width = width,
-                height = height,
-                now = now,
-                thresholds = thresholds,
-                layout = responsiveWidgetLayout(width / density, height / density),
-                pixelDensity = density,
-            )
+            val bitmap =
+                renderWidgetGraph(
+                    state = state,
+                    palette = palette,
+                    width = width,
+                    height = height,
+                    now = now,
+                    thresholds = thresholds,
+                    layout = responsiveWidgetLayout(width / density, height / density),
+                    pixelDensity = density,
+                )
             FileOutputStream(File(output, "$name.png")).use { stream ->
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
             }
         }
         listOf("combined-2x2" to (440 to 440), "combined-1x2" to (440 to 220)).forEach { (name, dimensions) ->
             val (width, height) = dimensions
-            val bitmap = renderGlucoseGraphWidget(
-                state, palette, width, height, now, thresholds,
-                responsiveWidgetLayout(width / density, height / density), density,
-                WidgetInstanceConfiguration(showTimeAxis = true),
-            )
+            val bitmap =
+                renderGlucoseGraphWidget(
+                    state,
+                    palette,
+                    width,
+                    height,
+                    now,
+                    thresholds,
+                    responsiveWidgetLayout(width / density, height / density),
+                    density,
+                    WidgetInstanceConfiguration(showTimeAxis = true),
+                )
             FileOutputStream(File(output, "$name.png")).use { stream ->
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream))
             }
         }
     }
 
-    private fun presentation(state: TherapyDisplayState) =
-        widgetRangePresentation(state, canonicalWidgetSamples(state, now), thresholds, now)
+    private fun presentation(state: TherapyDisplayState) = widgetRangePresentation(state, canonicalWidgetSamples(state, now), thresholds, now)
 
-    private fun sample(value: Double, minutes: Int, sequence: Long? = null) = GlucoseSample(
+    private fun sample(
+        value: Double,
+        minutes: Int,
+        sequence: Long? = null,
+    ) = GlucoseSample(
         valueMgDl = value,
         measuredAtEpochMs = now + minutes * 60_000L,
         source = DataSourceId.ANDROID_APS,

@@ -32,10 +32,15 @@ data class CgmReading(
 )
 
 @Serializable enum class CgmReadingStatus { VALID, SENSOR_ERROR, INVALID }
+
 @Serializable enum class CgmReadingOrigin { LIVE, BACKFILL }
+
 @Serializable enum class G7Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
+
 @Serializable enum class G7SensorState { UNKNOWN, WARMUP, ACTIVE, GRACE_PERIOD, ENDED, ERROR }
+
 @Serializable enum class G7ConnectionState { DISCONNECTED, SCANNING, CONNECTING, DISCOVERING, CONNECTED }
+
 @Serializable
 enum class G7ProtocolState {
     UNINITIALIZED,
@@ -64,6 +69,7 @@ enum class G7ProtocolState {
     RECOVERING,
     ERROR,
 }
+
 @Serializable enum class G7AuthenticationState { UNKNOWN, REQUIRED, AUTHENTICATING, AUTHENTICATED, FAILED }
 
 @Serializable
@@ -83,7 +89,9 @@ enum class G7SessionState {
 }
 
 @Serializable enum class G7CollectorState { DISABLED, STARTING, SCANNING, CONNECTING, AUTHENTICATING, CONNECTED, RECEIVING, WAITING, RECOVERING, ERROR, USER_ACTION_REQUIRED }
+
 @Serializable enum class CollectorOwner { PHONE, WATCH, TRANSITION_TO_PHONE, TRANSITION_TO_WATCH, UNKNOWN }
+
 @Serializable enum class G7RecoveryStep { NORMAL_RECONNECT, AUTH_RETRY, SHORT_RETRY, BLE_RESCAN, DEVICE_ADDRESS_REFRESH, SESSION_REAUTH, SESSION_RESET, REBOND, FULL_HANDSHAKE, USER_INTERVENTION_REQUIRED }
 
 @Serializable
@@ -170,11 +178,17 @@ enum class DirectConnectResult {
 
 /** Orthogonal, persisted collector truth. None of these values implies another dimension. */
 @Serializable enum class G7SensorIdentityState { NO_SENSOR, SENSOR_KNOWN, SENSOR_ACTIVE, SENSOR_EXPIRED, SENSOR_REPLACED }
+
 @Serializable enum class G7SensorAvailability { UNKNOWN, AVAILABLE, TEMPORARILY_UNREACHABLE, POSSIBLY_OWNED_BY_OTHER_COLLECTOR, RELEASE_PENDING, UNAVAILABLE }
+
 @Serializable enum class G7BleLinkState { DISCONNECTED, CONNECTING, CONNECTED, AUTHENTICATING, READY, CLOSING }
+
 @Serializable enum class G7CollectorRuntimeState { DISABLED, IDLE, WAITING_FOR_WINDOW, COLLECTING, RECOVERING, BACKFILLING, DEGRADED }
+
 @Serializable enum class G7DataHealth { FRESH, LATE, STALE, NO_DATA }
+
 @Serializable enum class G7RecoveryStage { NORMAL, DIRECT_RETRY, STACK_COOLDOWN, SCAN_RECOVERY, WAIT_NEXT_SENSOR_WINDOW, RECOVERY_ESCALATED }
+
 @Serializable enum class G7FailureClass {
     NONE,
     SCHEDULING_MISSED,
@@ -240,6 +254,7 @@ enum class CollectorWindowTerminalState {
 }
 
 @Serializable enum class G7GapRecoveryState { OPEN, RECOVERY_REQUIRED, RECOVERY_IN_FLIGHT, RECOVERED, UNRECOVERABLE, SESSION_ENDED }
+
 @Serializable enum class G7BackfillOutcome { REQUEST_STARTED, REQUEST_FAILED, RESPONSE_RECEIVED, PARTIAL_RECOVERY, RESPONSE_DID_NOT_CONTAIN_GAP, GAP_RECOVERED, ALREADY_PRESENT }
 
 @Serializable

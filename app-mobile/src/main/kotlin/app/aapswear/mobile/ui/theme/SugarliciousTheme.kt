@@ -6,9 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 
 @Composable
-fun SugarliciousTheme(
-    content: @Composable () -> Unit,
-) {
+fun SugarliciousTheme(content: @Composable () -> Unit) {
     val palette = SugarliciousColors.palette
 
     val colorScheme =

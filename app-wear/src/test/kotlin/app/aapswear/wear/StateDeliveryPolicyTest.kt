@@ -54,13 +54,16 @@ class StateDeliveryPolicyTest {
         assertTrue(hasMeaningfulPhoneStateChange(previous, updated))
     }
 
-    private fun state(receivedAt: Long, glucoseAt: Long) =
-        TherapyDisplayState(
-            receivedAtEpochMs = receivedAt,
-            glucose = GlucoseState(
+    private fun state(
+        receivedAt: Long,
+        glucoseAt: Long,
+    ) = TherapyDisplayState(
+        receivedAtEpochMs = receivedAt,
+        glucose =
+            GlucoseState(
                 valueMgDl = 123.0,
                 displayUnit = GlucoseUnit.MG_DL,
                 measuredAtEpochMs = glucoseAt,
             ),
-        )
+    )
 }

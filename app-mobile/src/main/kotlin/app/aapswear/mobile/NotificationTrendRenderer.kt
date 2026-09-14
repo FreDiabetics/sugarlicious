@@ -10,7 +10,12 @@ import app.aapswear.uishared.TrendDrawableResources
 import kotlin.math.roundToInt
 
 internal object NotificationTrendRenderer {
-    fun render(context: Context, trend: Trend, sizePx: Int = 64, tint: Int = Color.WHITE): Bitmap? {
+    fun render(
+        context: Context,
+        trend: Trend,
+        sizePx: Int = 64,
+        tint: Int = Color.WHITE,
+    ): Bitmap? {
         val spec = TrendVisuals.spec(trend) ?: return null
         val drawable = context.getDrawable(TrendDrawableResources.forAsset(spec.asset))?.mutate() ?: return null
         drawable.setTint(tint)

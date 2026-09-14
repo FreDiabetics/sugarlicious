@@ -57,7 +57,11 @@ internal object G7CollectorRuntimeRegistry {
     private var cancelAction: (() -> Unit)? = null
 
     @Synchronized
-    fun register(owner: Any, activeCheck: () -> Boolean, cancelAction: () -> Unit) {
+    fun register(
+        owner: Any,
+        activeCheck: () -> Boolean,
+        cancelAction: () -> Unit,
+    ) {
         this.owner = owner
         this.activeCheck = activeCheck
         this.cancelAction = cancelAction
@@ -83,34 +87,36 @@ internal object G7CollectorRuntimeRegistry {
     }
 }
 
-private val persistedBusyConnectionStates = setOf(
-    G7ConnectionState.SCANNING,
-    G7ConnectionState.CONNECTING,
-    G7ConnectionState.DISCOVERING,
-    G7ConnectionState.CONNECTED,
-)
+private val persistedBusyConnectionStates =
+    setOf(
+        G7ConnectionState.SCANNING,
+        G7ConnectionState.CONNECTING,
+        G7ConnectionState.DISCOVERING,
+        G7ConnectionState.CONNECTED,
+    )
 
-private val persistedBusyProtocolStates = setOf(
-    G7ProtocolState.SCANNING,
-    G7ProtocolState.SENSOR_FOUND,
-    G7ProtocolState.CONNECTING,
-    G7ProtocolState.DISCOVERING,
-    G7ProtocolState.DISCOVERING_SERVICES,
-    G7ProtocolState.ENABLING_NOTIFICATIONS,
-    G7ProtocolState.AUTHENTICATION_START,
-    G7ProtocolState.AUTHENTICATION_ROUND_1,
-    G7ProtocolState.AUTHENTICATION_ROUND_2,
-    G7ProtocolState.AUTHENTICATION_ROUND_3,
-    G7ProtocolState.CHALLENGE,
-    G7ProtocolState.CERTIFICATE_EXCHANGE,
-    G7ProtocolState.KEY_EXCHANGE,
-    G7ProtocolState.BONDING,
-    G7ProtocolState.AUTHENTICATING,
-    G7ProtocolState.AUTHENTICATED,
-    G7ProtocolState.REQUESTING_GLUCOSE,
-    G7ProtocolState.RECEIVING_GLUCOSE,
-    G7ProtocolState.BACKFILL,
-)
+private val persistedBusyProtocolStates =
+    setOf(
+        G7ProtocolState.SCANNING,
+        G7ProtocolState.SENSOR_FOUND,
+        G7ProtocolState.CONNECTING,
+        G7ProtocolState.DISCOVERING,
+        G7ProtocolState.DISCOVERING_SERVICES,
+        G7ProtocolState.ENABLING_NOTIFICATIONS,
+        G7ProtocolState.AUTHENTICATION_START,
+        G7ProtocolState.AUTHENTICATION_ROUND_1,
+        G7ProtocolState.AUTHENTICATION_ROUND_2,
+        G7ProtocolState.AUTHENTICATION_ROUND_3,
+        G7ProtocolState.CHALLENGE,
+        G7ProtocolState.CERTIFICATE_EXCHANGE,
+        G7ProtocolState.KEY_EXCHANGE,
+        G7ProtocolState.BONDING,
+        G7ProtocolState.AUTHENTICATING,
+        G7ProtocolState.AUTHENTICATED,
+        G7ProtocolState.REQUESTING_GLUCOSE,
+        G7ProtocolState.RECEIVING_GLUCOSE,
+        G7ProtocolState.BACKFILL,
+    )
 
 internal fun assessG7Runtime(
     state: G7PersistedState,
@@ -126,16 +132,18 @@ internal fun assessG7Runtime(
 
     val attemptAge = activeAttempt?.let { (nowEpochMs - it.startedAtEpochMs).coerceAtLeast(0L) }
     val progressAge = activeAttempt?.let { (nowEpochMs - it.lastProgressAtEpochMs).coerceAtLeast(0L) }
-    val attemptStale = activeAttempt?.let {
-        it.deadlineEpochMs?.let { deadline -> nowEpochMs >= deadline } == true ||
-            progressAge?.let { age -> age >= maxProgressInactivityMs } == true
-    } == true
+    val attemptStale =
+        activeAttempt?.let {
+            it.deadlineEpochMs?.let { deadline -> nowEpochMs >= deadline } == true ||
+                progressAge?.let { age -> age >= maxProgressInactivityMs } == true
+        } == true
     // nextReconnectEpochMs is only the desired time. A pending diagnostic envelope is written
     // after AlarmManager accepted the request and is the durable evidence that the wake path was
     // actually armed. Persisted future intent without that envelope must be repaired.
     val futureReconnect = pendingReconnectEpochMs?.takeIf { it > nowEpochMs + reconnectToleranceMs }
-    val missedReconnect = listOfNotNull(pendingReconnectEpochMs, state.nextReconnectEpochMs)
-        .any { it < nowEpochMs - reconnectToleranceMs }
+    val missedReconnect =
+        listOfNotNull(pendingReconnectEpochMs, state.nextReconnectEpochMs)
+            .any { it < nowEpochMs - reconnectToleranceMs }
 
     if (attemptStale) {
         return G7RuntimeAssessment(
@@ -195,18 +203,22 @@ internal object G7RuntimeReconciler {
         val pendingReconnect = pendingCycle?.requestedReconnectEpoch
         val configured = state.sensor != null && G7CredentialStore(app).read() != null
         val effectiveLiveCycle = liveCycle ?: G7CollectorRuntimeRegistry.hasLiveCycle()
-        val assessment = assessG7Runtime(
-            state = state,
-            activeAttempt = activeAttempt,
-            pendingReconnectEpochMs = pendingReconnect,
-            liveCycle = effectiveLiveCycle,
-            sensorConfigured = configured,
-            nowEpochMs = nowEpochMs,
-        )
+        val assessment =
+            assessG7Runtime(
+                state = state,
+                activeAttempt = activeAttempt,
+                pendingReconnectEpochMs = pendingReconnect,
+                liveCycle = effectiveLiveCycle,
+                sensorConfigured = configured,
+                nowEpochMs = nowEpochMs,
+            )
         recordRuntimeEvent(app, "RUNTIME_RECONCILE_START", entryPoint, assessment, state.nextReconnectEpochMs, null)
         if (
-            state.collectorEnabled && configured && !G7CollectorRuntimeRegistry.hasRuntimeService() &&
-            entryPoint in setOf(
+            state.collectorEnabled &&
+            configured &&
+            !G7CollectorRuntimeRegistry.hasRuntimeService() &&
+            entryPoint in
+            setOf(
                 G7RuntimeEntryPoint.BOOT,
                 G7RuntimeEntryPoint.PACKAGE_REPLACED,
                 G7RuntimeEntryPoint.SIGNAL_LOSS,
@@ -222,15 +234,17 @@ internal object G7RuntimeReconciler {
         val shouldReassertDurableAlarm =
             allowRepair &&
                 assessment.health == G7RuntimeHealth.HEALTHY_ARMED &&
-                entryPoint in setOf(
+                entryPoint in
+                setOf(
                     G7RuntimeEntryPoint.BOOT,
                     G7RuntimeEntryPoint.PACKAGE_REPLACED,
                     G7RuntimeEntryPoint.SIGNAL_LOSS,
                 )
         if (shouldReassertDurableAlarm && pendingCycle != null) {
-            val rearmed = runCatching {
-                G7ReconnectAlarmScheduler.rearmScheduledCycle(app, pendingCycle, state)
-            }.getOrNull()
+            val rearmed =
+                runCatching {
+                    G7ReconnectAlarmScheduler.rearmScheduledCycle(app, pendingCycle, state)
+                }.getOrNull()
             val rearmedAt = rearmed?.requestedReconnectEpoch
             if (rearmedAt != null) stateStore.save(state.copy(nextReconnectEpochMs = rearmedAt))
             recordRuntimeEvent(
@@ -248,13 +262,16 @@ internal object G7RuntimeReconciler {
             )
         }
 
-        if (!allowRepair || assessment.health in setOf(G7RuntimeHealth.INACTIVE, G7RuntimeHealth.HEALTHY_ACTIVE, G7RuntimeHealth.HEALTHY_ARMED)) {
-            val healthyEvent = when (assessment.health) {
-                G7RuntimeHealth.HEALTHY_ACTIVE -> "RUNTIME_HEALTHY_ACTIVE"
-                G7RuntimeHealth.HEALTHY_ARMED -> "RUNTIME_HEALTHY_ARMED"
-                G7RuntimeHealth.INACTIVE -> "RUNTIME_INACTIVE"
-                else -> "RUNTIME_RECONCILE_OBSERVED"
-            }
+        if (!allowRepair ||
+            assessment.health in setOf(G7RuntimeHealth.INACTIVE, G7RuntimeHealth.HEALTHY_ACTIVE, G7RuntimeHealth.HEALTHY_ARMED)
+        ) {
+            val healthyEvent =
+                when (assessment.health) {
+                    G7RuntimeHealth.HEALTHY_ACTIVE -> "RUNTIME_HEALTHY_ACTIVE"
+                    G7RuntimeHealth.HEALTHY_ARMED -> "RUNTIME_HEALTHY_ARMED"
+                    G7RuntimeHealth.INACTIVE -> "RUNTIME_INACTIVE"
+                    else -> "RUNTIME_RECONCILE_OBSERVED"
+                }
             recordRuntimeEvent(
                 app,
                 healthyEvent,
@@ -276,61 +293,74 @@ internal object G7RuntimeReconciler {
             diagnosticStore.expireStaleAttempts(nowEpochMs, 0L, interruptedByProcessRestart = !effectiveLiveCycle)
         }
         val sensor = state.sensor
-        val reconstructedWindows = if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
-            val ledger = G7ExpectedWindowLedger(app)
-            val latestExpected = ledger.snapshot()
-                .asSequence()
-                .filter { it.sensorId == sensor.sensorId && it.sessionId == (sensor.sessionId ?: sensor.sensorId) }
-                .maxOfOrNull { it.expectedAt }
-            val firstMissing = latestExpected?.plus(G7_SLOT_INTERVAL_MS)
-                ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)
-            if (firstMissing != null && firstMissing < nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS) {
-                ledger.reconstructMissed(
-                    sensorId = sensor.sensorId,
-                    sessionId = sensor.sessionId ?: sensor.sensorId,
-                    fromExpectedAt = firstMissing,
-                    untilExclusive = nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS,
-                    sensorStartAt = sensor.sensorStartEpochMs,
-                    sensorEndAt = sensor.sensorEndEpochMs,
-                    nowEpochMs = nowEpochMs,
-                )
-            } else 0
-        } else 0
-        val cleaned = stateStore.read().copy(
-            connectionState = G7ConnectionState.DISCONNECTED,
-            protocolState = G7ProtocolState.RECOVERING,
-            sessionState = G7SessionState.RECOVERING,
-            activeAttemptId = null,
-            scanStartedAtEpochMs = null,
-            scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
-            lastError = G7CollectorError(
-                code = "G7-RUNTIME-276",
-                recoverable = true,
-                occurredAtEpochMs = nowEpochMs,
-                safeMessage = "Collector-Laufzeit wurde automatisch wiederhergestellt",
-            ),
-        )
+        val reconstructedWindows =
+            if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
+                val ledger = G7ExpectedWindowLedger(app)
+                val latestExpected =
+                    ledger
+                        .snapshot()
+                        .asSequence()
+                        .filter { it.sensorId == sensor.sensorId && it.sessionId == (sensor.sessionId ?: sensor.sensorId) }
+                        .maxOfOrNull { it.expectedAt }
+                val firstMissing =
+                    latestExpected?.plus(G7_SLOT_INTERVAL_MS)
+                        ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)
+                if (firstMissing != null && firstMissing < nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS) {
+                    ledger.reconstructMissed(
+                        sensorId = sensor.sensorId,
+                        sessionId = sensor.sessionId ?: sensor.sensorId,
+                        fromExpectedAt = firstMissing,
+                        untilExclusive = nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS,
+                        sensorStartAt = sensor.sensorStartEpochMs,
+                        sensorEndAt = sensor.sensorEndEpochMs,
+                        nowEpochMs = nowEpochMs,
+                    )
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        val cleaned =
+            stateStore.read().copy(
+                connectionState = G7ConnectionState.DISCONNECTED,
+                protocolState = G7ProtocolState.RECOVERING,
+                sessionState = G7SessionState.RECOVERING,
+                activeAttemptId = null,
+                scanStartedAtEpochMs = null,
+                scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
+                lastError =
+                    G7CollectorError(
+                        code = "G7-RUNTIME-276",
+                        recoverable = true,
+                        occurredAtEpochMs = nowEpochMs,
+                        safeMessage = "Collector-Laufzeit wurde automatisch wiederhergestellt",
+                    ),
+            )
         stateStore.save(cleaned)
 
-        val recovery = runCatching {
-            G7ReconnectAlarmScheduler.scheduleRecovery(app, cleaned, nowEpochMs)
-        }.getOrNull()
+        val recovery =
+            runCatching {
+                G7ReconnectAlarmScheduler.scheduleRecovery(app, cleaned, nowEpochMs)
+            }.getOrNull()
         val recoveryAt = recovery?.requestedReconnectEpoch
         if (recoveryAt != null) {
             recordRuntimeEvent(app, "RECOVERY_SLOT_CALCULATED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
         }
-        val restored = if (recoveryAt != null && recoveryAt > nowEpochMs) {
-            stateStore.save(cleaned.copy(nextReconnectEpochMs = recoveryAt))
-            G7RuntimeHealth.HEALTHY_ARMED
-        } else {
-            G7RuntimeHealth.RECOVERY_REQUIRED
-        }
-        val event = when (assessment.health) {
-            G7RuntimeHealth.STALE_ATTEMPT -> "STALE_ATTEMPT_CLEANED"
-            G7RuntimeHealth.ORPHANED_STATE -> "ORPHANED_CONNECTION_STATE"
-            G7RuntimeHealth.MISSED_RECONNECT -> "MISSED_RECONNECT_DETECTED"
-            else -> if (restored == G7RuntimeHealth.HEALTHY_ARMED) "RECOVERY_INVARIANT_RESTORED" else "RECOVERY_ALARM_REARM_FAILED"
-        }
+        val restored =
+            if (recoveryAt != null && recoveryAt > nowEpochMs) {
+                stateStore.save(cleaned.copy(nextReconnectEpochMs = recoveryAt))
+                G7RuntimeHealth.HEALTHY_ARMED
+            } else {
+                G7RuntimeHealth.RECOVERY_REQUIRED
+            }
+        val event =
+            when (assessment.health) {
+                G7RuntimeHealth.STALE_ATTEMPT -> "STALE_ATTEMPT_CLEANED"
+                G7RuntimeHealth.ORPHANED_STATE -> "ORPHANED_CONNECTION_STATE"
+                G7RuntimeHealth.MISSED_RECONNECT -> "MISSED_RECONNECT_DETECTED"
+                else -> if (restored == G7RuntimeHealth.HEALTHY_ARMED) "RECOVERY_INVARIANT_RESTORED" else "RECOVERY_ALARM_REARM_FAILED"
+            }
         recordRuntimeEvent(app, event, entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
         if (reconstructedWindows > 0) {
             CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
@@ -338,10 +368,11 @@ internal object G7RuntimeReconciler {
                     code = "MISSED_WINDOWS_RECONSTRUCTED",
                     message = "MISSED_WINDOWS_RECONSTRUCTED · $reconstructedWindows lifecycle gaps",
                     severity = DiagnosticSeverity.WARNING,
-                    metadata = mapOf(
-                        "processInstanceId" to G7ProcessInstance.id,
-                        "reconstructedWindowCount" to reconstructedWindows,
-                    ),
+                    metadata =
+                        mapOf(
+                            "processInstanceId" to G7ProcessInstance.id,
+                            "reconstructedWindowCount" to reconstructedWindows,
+                        ),
                 )
             }
         }
@@ -364,28 +395,31 @@ internal object G7RuntimeReconciler {
             context.recordG7Diagnostic(
                 code = event,
                 message = "$event · ${entryPoint.name}",
-                severity = if (event.endsWith("FAILED") || assessment.health == G7RuntimeHealth.RECOVERY_INVARIANT_BROKEN) {
-                    DiagnosticSeverity.WARNING
-                } else {
-                    DiagnosticSeverity.INFO
-                },
-                metadata = mapOf(
-                    "processInstanceId" to G7ProcessInstance.id,
-                    "pid" to android.os.Process.myPid(),
-                    "processStartedAtEpochMs" to G7ProcessInstance.startedAtEpochMs,
-                    "processUptimeMs" to android.os.SystemClock.elapsedRealtime(),
-                    "appVersion" to runCatching {
-                        context.packageManager.getPackageInfo(context.packageName, 0).versionName
-                    }.getOrNull(),
-                    "collectorEnabled" to G7SensorStateStore(context).read().collectorEnabled,
-                    "sensorId" to G7SensorStateStore(context).read().sensor?.sensorId,
-                    "sessionId" to G7SensorStateStore(context).read().sensor?.sessionId,
-                    "runtimeHealth" to assessment.health.name,
-                    "attemptAgeMs" to assessment.attemptAgeMs,
-                    "lastProgressAgeMs" to assessment.lastProgressAgeMs,
-                    "oldReconnectEpochMs" to oldReconnectEpochMs,
-                    "newReconnectEpochMs" to newReconnectEpochMs,
-                ),
+                severity =
+                    if (event.endsWith("FAILED") || assessment.health == G7RuntimeHealth.RECOVERY_INVARIANT_BROKEN) {
+                        DiagnosticSeverity.WARNING
+                    } else {
+                        DiagnosticSeverity.INFO
+                    },
+                metadata =
+                    mapOf(
+                        "processInstanceId" to G7ProcessInstance.id,
+                        "pid" to android.os.Process.myPid(),
+                        "processStartedAtEpochMs" to G7ProcessInstance.startedAtEpochMs,
+                        "processUptimeMs" to android.os.SystemClock.elapsedRealtime(),
+                        "appVersion" to
+                            runCatching {
+                                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                            }.getOrNull(),
+                        "collectorEnabled" to G7SensorStateStore(context).read().collectorEnabled,
+                        "sensorId" to G7SensorStateStore(context).read().sensor?.sensorId,
+                        "sessionId" to G7SensorStateStore(context).read().sensor?.sessionId,
+                        "runtimeHealth" to assessment.health.name,
+                        "attemptAgeMs" to assessment.attemptAgeMs,
+                        "lastProgressAgeMs" to assessment.lastProgressAgeMs,
+                        "oldReconnectEpochMs" to oldReconnectEpochMs,
+                        "newReconnectEpochMs" to newReconnectEpochMs,
+                    ),
             )
         }
     }

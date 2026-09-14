@@ -10,6 +10,7 @@ class GraphTimeWindowTest {
         val window = GraphTimeWindow(startEpochMs = 0L, liveEdgeEpochMs = 20_000L, endEpochMs = 10_000L)
         assertTrue(window.xFraction(window.liveEdgeEpochMs) > 1f)
     }
+
     private val minute = 60_000L
     private val history = 3L * 60L * minute
 
@@ -17,11 +18,12 @@ class GraphTimeWindowTest {
     fun `fake clock moves every existing point left before next reading arrives`() {
         val at1445 = time(14, 45)
         val at1450 = time(14, 50)
-        val positions = (0L..5L).map { elapsed ->
-            GraphTimeWindow.live(at1450 + elapsed * minute, history).let { window ->
-                window.xFraction(at1445) to window.xFraction(at1450)
+        val positions =
+            (0L..5L).map { elapsed ->
+                GraphTimeWindow.live(at1450 + elapsed * minute, history).let { window ->
+                    window.xFraction(at1445) to window.xFraction(at1450)
+                }
             }
-        }
 
         positions.zipWithNext().forEach { (before, after) ->
             assertTrue(after.first < before.first)
@@ -80,6 +82,8 @@ class GraphTimeWindowTest {
         assertEquals(mobile, combinedWidget, 0f)
     }
 
-    private fun time(hour: Int, minuteOfHour: Int): Long =
-        (hour * 60L + minuteOfHour) * minute
+    private fun time(
+        hour: Int,
+        minuteOfHour: Int,
+    ): Long = (hour * 60L + minuteOfHour) * minute
 }

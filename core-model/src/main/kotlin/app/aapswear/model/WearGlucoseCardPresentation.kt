@@ -40,30 +40,33 @@ fun wearGlucoseCardPresentation(
     nowEpochMs: Long,
 ): WearGlucoseCardPresentation {
     val value = input.valueMgDl
-    val freshness = when {
-        input.quality == CgmQuality.SENSOR_ERROR -> Freshness.ERROR
-        input.quality != CgmQuality.VALID || value == null || !value.isFinite() || value !in 20.0..1_000.0 -> Freshness.NO_DATA
-        else -> FreshnessPolicy.classify(input.measuredAtEpochMs, nowEpochMs)
-    }
+    val freshness =
+        when {
+            input.quality == CgmQuality.SENSOR_ERROR -> Freshness.ERROR
+            input.quality != CgmQuality.VALID || value == null || !value.isFinite() || value !in 20.0..1_000.0 -> Freshness.NO_DATA
+            else -> FreshnessPolicy.classify(input.measuredAtEpochMs, nowEpochMs)
+        }
     val displayable = input.quality == CgmQuality.VALID && value != null && value.isFinite() && value in 20.0..1_000.0
     val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
     val unit = if (input.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
-    val formattedValue = if (!displayable) {
-        "—"
-    } else if (input.displayUnit == GlucoseUnit.MMOL_L) {
-        String.format(java.util.Locale.US, "%.1f", value / 18.0)
-    } else {
-        value.roundToInt().toString()
-    }
+    val formattedValue =
+        if (!displayable) {
+            "—"
+        } else if (input.displayUnit == GlucoseUnit.MMOL_L) {
+            String.format(java.util.Locale.US, "%.1f", value / 18.0)
+        } else {
+            value.roundToInt().toString()
+        }
     val delta = TherapyDisplayFormatter.signedDelta(input.deltaMgDl, input.displayUnit).ifBlank { "—" }
     val age = TherapyDisplayFormatter.ageMinutesValue(input.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" }.orEmpty()
-    val stateText = when (freshness) {
-        Freshness.CURRENT -> age
-        Freshness.DELAYED -> age
-        Freshness.STALE -> "Keine aktuellen CGM-Daten"
-        Freshness.ERROR -> "Sensorfehler"
-        Freshness.NO_DATA -> "Keine CGM-Daten"
-    }
+    val stateText =
+        when (freshness) {
+            Freshness.CURRENT -> age
+            Freshness.DELAYED -> age
+            Freshness.STALE -> "Keine aktuellen CGM-Daten"
+            Freshness.ERROR -> "Sensorfehler"
+            Freshness.NO_DATA -> "Keine CGM-Daten"
+        }
     return WearGlucoseCardPresentation(
         value = formattedValue,
         primaryMeta = if (displayable) listOf("$delta $unit", stateText).filter(String::isNotBlank).joinToString(" · ") else stateText,

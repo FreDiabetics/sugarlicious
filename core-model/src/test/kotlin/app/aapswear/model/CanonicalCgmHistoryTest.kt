@@ -12,11 +12,12 @@ class CanonicalCgmHistoryTest {
         val phone = watch.copy(source = DataSourceId.ANDROID_APS, receivedAtEpochMs = now)
         val newSession = watch.copy(sensorId = "sensor-b", sessionId = "session-b", receivedAtEpochMs = now)
 
-        val merged = CanonicalCgmHistory.merge(
-            listOf(watch, newSession, phone),
-            now,
-            preferredSource = DataSourceId.ANDROID_APS,
-        )
+        val merged =
+            CanonicalCgmHistory.merge(
+                listOf(watch, newSession, phone),
+                now,
+                preferredSource = DataSourceId.ANDROID_APS,
+            )
 
         assertEquals(2, merged.size)
         assertEquals(DataSourceId.ANDROID_APS, merged.single { it.sessionId == "session-a" }.source)
@@ -51,11 +52,12 @@ class CanonicalCgmHistoryTest {
         val watch = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 8L, 121.0, now - 60_000L)
         val phone = watch.copy(source = DataSourceId.ANDROID_APS, receivedAtEpochMs = now - 10_000L)
 
-        val merged = CanonicalCgmHistory.merge(
-            listOf(phone, watch.copy(receivedAtEpochMs = now)),
-            now,
-            preferredSource = DataSourceId.DEXCOM_G7_WATCH,
-        )
+        val merged =
+            CanonicalCgmHistory.merge(
+                listOf(phone, watch.copy(receivedAtEpochMs = now)),
+                now,
+                preferredSource = DataSourceId.DEXCOM_G7_WATCH,
+            )
 
         assertEquals(listOf(phone), merged)
     }
@@ -63,12 +65,13 @@ class CanonicalCgmHistoryTest {
     @Test
     fun `timestamp tolerant phone duplicate wins and distinct watch gap is retained`() {
         val watchDuplicate = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", null, 120.0, now - 61_000L)
-        val phone = watchDuplicate.copy(
-            source = DataSourceId.ANDROID_APS,
-            valueMgDl = 122.0,
-            measuredAtEpochMs = now - 60_000L,
-            receivedAtEpochMs = now - 20_000L,
-        )
+        val phone =
+            watchDuplicate.copy(
+                source = DataSourceId.ANDROID_APS,
+                valueMgDl = 122.0,
+                measuredAtEpochMs = now - 60_000L,
+                receivedAtEpochMs = now - 20_000L,
+            )
         val watchGap = watchDuplicate.copy(valueMgDl = 114.0, measuredAtEpochMs = now - 6 * 60_000L)
 
         val merged = CanonicalCgmHistory.merge(listOf(watchDuplicate, watchGap, phone), now)
@@ -81,12 +84,13 @@ class CanonicalCgmHistoryTest {
     @Test
     fun `same session readings seconds apart collapse despite differing sequence metadata`() {
         val historyCopy = sample(DataSourceId.ANDROID_APS, "sensor", "session", 40L, 121.0, now - 61_000L)
-        val liveCopy = historyCopy.copy(
-            sequenceNumber = 41L,
-            valueMgDl = 122.0,
-            measuredAtEpochMs = now - 45_000L,
-            receivedAtEpochMs = now,
-        )
+        val liveCopy =
+            historyCopy.copy(
+                sequenceNumber = 41L,
+                valueMgDl = 122.0,
+                measuredAtEpochMs = now - 45_000L,
+                receivedAtEpochMs = now,
+            )
 
         assertEquals(listOf(liveCopy), CanonicalCgmHistory.merge(listOf(historyCopy, liveCopy), now))
     }
@@ -104,12 +108,13 @@ class CanonicalCgmHistoryTest {
         val older = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 10L, 110.0, now - 5 * 60_000L)
         val backfillCopy = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 11L, 120.0, now - 60_000L)
         val liveCopy = backfillCopy.copy(sequenceNumber = 12L, receivedAtEpochMs = now)
-        val replacementSession = liveCopy.copy(
-            sensorId = "sensor-2",
-            sessionId = "session-2",
-            sequenceNumber = 1L,
-            valueMgDl = 130.0,
-        )
+        val replacementSession =
+            liveCopy.copy(
+                sensorId = "sensor-2",
+                sessionId = "session-2",
+                sequenceNumber = 1L,
+                valueMgDl = 130.0,
+            )
 
         listOf(older, backfillCopy, liveCopy, replacementSession).permutations().forEach { deliveryOrder ->
             val merged = CanonicalCgmHistory.merge(deliveryOrder, now)
@@ -138,8 +143,12 @@ class CanonicalCgmHistoryTest {
     )
 
     private fun <T> List<T>.permutations(): List<List<T>> =
-        if (size <= 1) listOf(this) else indices.flatMap { index ->
-            val selected = this[index]
-            (take(index) + drop(index + 1)).permutations().map { listOf(selected) + it }
+        if (size <= 1) {
+            listOf(this)
+        } else {
+            indices.flatMap { index ->
+                val selected = this[index]
+                (take(index) + drop(index + 1)).permutations().map { listOf(selected) + it }
+            }
         }
 }

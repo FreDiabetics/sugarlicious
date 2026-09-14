@@ -119,8 +119,10 @@ class ChartViewportRegressionTest {
         assertEquals(ChartViewport.Mode.LIVE_FOLLOW, viewport.mode)
     }
 
-    private fun GraphViewportSnapshot.xFor(timestamp: Long, width: Float): Float =
-        (timestamp - startEpochMs).toFloat() / durationMs.toFloat() * width
+    private fun GraphViewportSnapshot.xFor(
+        timestamp: Long,
+        width: Float,
+    ): Float = (timestamp - startEpochMs).toFloat() / durationMs.toFloat() * width
 
     @Test
     fun `new data keeps a historical viewport stable`() {
@@ -136,15 +138,17 @@ class ChartViewportRegressionTest {
 
     @Test
     fun `semantic restore preserves historical time window and clamps duration`() {
-        val original = ChartViewport(8).apply {
-            setAvailablePastWindow(24L * hour, now)
-            pan(150f, 600f, now)
-        }
+        val original =
+            ChartViewport(8).apply {
+                setAvailablePastWindow(24L * hour, now)
+                pan(150f, 600f, now)
+            }
         val saved = original.savedState(now)
-        val restored = ChartViewport(3).apply {
-            setAvailablePastWindow(24L * hour, now)
-            restore(saved, now)
-        }
+        val restored =
+            ChartViewport(3).apply {
+                setAvailablePastWindow(24L * hour, now)
+                restore(saved, now)
+            }
 
         assertEquals(original.snapshot(now).startEpochMs, restored.snapshot(now).startEpochMs)
         assertEquals(original.snapshot(now).endEpochMs, restored.snapshot(now).endEpochMs)
@@ -157,14 +161,16 @@ class ChartViewportRegressionTest {
 
     @Test
     fun `saved state retains requested duration while history is temporarily short`() {
-        val viewport = ChartViewport(6).apply {
-            setAvailablePastWindow(1L * hour, now)
-        }
+        val viewport =
+            ChartViewport(6).apply {
+                setAvailablePastWindow(1L * hour, now)
+            }
 
-        val restored = ChartViewport(1).apply {
-            restore(viewport.savedState(now), now)
-            setAvailablePastWindow(8L * hour, now)
-        }
+        val restored =
+            ChartViewport(1).apply {
+                restore(viewport.savedState(now), now)
+                setAvailablePastWindow(8L * hour, now)
+            }
 
         assertEquals(6f, restored.hours, 0.0001f)
     }

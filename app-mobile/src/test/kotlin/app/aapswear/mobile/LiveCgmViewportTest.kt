@@ -1,9 +1,9 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.GraphTimeWindow
-import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Test
 
 class LiveCgmViewportTest {
     @Test fun `visible live graph advances on minute ticks without a new reading`() {
@@ -11,10 +11,11 @@ class LiveCgmViewportTest {
         val at1445 = 14L * 60L * minute + 45L * minute
         val at1450 = at1445 + 5L * minute
         val history = 3L * 60L * minute
-        val positions = (0L..4L).map { elapsedMinutes ->
-            val window = GraphTimeWindow.live(at1450 + elapsedMinutes * minute, history)
-            window.xFraction(at1445) to window.xFraction(at1450)
-        }
+        val positions =
+            (0L..4L).map { elapsedMinutes ->
+                val window = GraphTimeWindow.live(at1450 + elapsedMinutes * minute, history)
+                window.xFraction(at1445) to window.xFraction(at1450)
+            }
 
         positions.zipWithNext().forEach { (before, after) ->
             assertTrue(after.first < before.first)
@@ -56,14 +57,15 @@ class LiveCgmViewportTest {
         val second = 1_000L
         val end = 12L * 60L * minute + 20L * second
         val window = GraphTimeWindow.live(end, 3L * 60L * minute)
-        val unordered = listOf(
-            12L * 60L * minute + 5L * minute + 19L * second,
-            11L * 60L * minute + 50L * minute + 8L * second,
-            12L * 60L * minute + 4L * second,
-            11L * 60L * minute + 55L * minute + 11L * second,
-            12L * 60L * minute + 4L * second,
-            11L * 60L * minute + 40L * minute + 8L * second,
-        )
+        val unordered =
+            listOf(
+                12L * 60L * minute + 5L * minute + 19L * second,
+                11L * 60L * minute + 50L * minute + 8L * second,
+                12L * 60L * minute + 4L * second,
+                11L * 60L * minute + 55L * minute + 11L * second,
+                12L * 60L * minute + 4L * second,
+                11L * 60L * minute + 40L * minute + 8L * second,
+            )
         val ordered = unordered.distinct().sorted()
         val positions = ordered.map(window::xFraction)
 

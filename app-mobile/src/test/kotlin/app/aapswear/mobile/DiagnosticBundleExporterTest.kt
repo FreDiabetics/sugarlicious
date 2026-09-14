@@ -4,12 +4,12 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.DiagnosticSeverity
-import java.util.zip.ZipFile
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.zip.ZipFile
 
 @RunWith(RobolectricTestRunner::class)
 class DiagnosticBundleExporterTest {
@@ -17,17 +17,20 @@ class DiagnosticBundleExporterTest {
 
     @Test
     fun `bundle contains structured ledgers and excludes secrets`() {
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+            .edit()
             .putString("nightscoutToken", "do-not-export")
             .putBoolean("graphEnabled", true)
             .commit()
-        val file = DiagnosticBundleExporter.create(
-            context,
-            listOf(
-                DiagnosticEvent("1", 1000L, "MOBILE", "RESOLVER", "RESOLVER-200", DiagnosticSeverity.INFO, "accepted"),
-                DiagnosticEvent("2", 2000L, "WATCH", "G7", "G7-BLE-133", DiagnosticSeverity.WARNING, "retry"),
-            ),
-        )
+        val file =
+            DiagnosticBundleExporter.create(
+                context,
+                listOf(
+                    DiagnosticEvent("1", 1000L, "MOBILE", "RESOLVER", "RESOLVER-200", DiagnosticSeverity.INFO, "accepted"),
+                    DiagnosticEvent("2", 2000L, "WATCH", "G7", "G7-BLE-133", DiagnosticSeverity.WARNING, "retry"),
+                ),
+            )
 
         ZipFile(file).use { zip ->
             assertTrue(zip.getEntry("resolver_events.jsonl") != null)

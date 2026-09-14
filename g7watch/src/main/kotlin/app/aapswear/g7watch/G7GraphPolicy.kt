@@ -35,27 +35,29 @@ internal object G7GraphPolicy {
     ): G7RangeExcursion {
         if (!lowMgDl.isFinite() || !highMgDl.isFinite() || lowMgDl >= highMgDl) return G7RangeExcursion.NONE
 
-        val thresholds = CgmThresholds(
-            veryHighMgDl = maxOf(CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
-            highMgDl = highMgDl,
-            lowMgDl = lowMgDl,
-            veryLowMgDl = minOf(CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
-        )
-        val excursion = CgmGraphPolicy.rangeExcursion(
-            readings.map { reading ->
-                GlucoseSample(
-                    valueMgDl = reading.glucoseMgDl,
-                    measuredAtEpochMs = reading.timestampEpochMs,
-                    source = reading.source,
-                    sensorId = reading.sensorId,
-                    sessionId = reading.sessionId,
-                    sequenceNumber = reading.sequenceNumber,
-                    receivedAtEpochMs = reading.receivedAtEpochMs,
-                    quality = if (isValidReading(reading)) CgmQuality.VALID else CgmQuality.INVALID,
-                )
-            },
-            thresholds,
-        )
+        val thresholds =
+            CgmThresholds(
+                veryHighMgDl = maxOf(CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
+                highMgDl = highMgDl,
+                lowMgDl = lowMgDl,
+                veryLowMgDl = minOf(CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
+            )
+        val excursion =
+            CgmGraphPolicy.rangeExcursion(
+                readings.map { reading ->
+                    GlucoseSample(
+                        valueMgDl = reading.glucoseMgDl,
+                        measuredAtEpochMs = reading.timestampEpochMs,
+                        source = reading.source,
+                        sensorId = reading.sensorId,
+                        sessionId = reading.sessionId,
+                        sequenceNumber = reading.sequenceNumber,
+                        receivedAtEpochMs = reading.receivedAtEpochMs,
+                        quality = if (isValidReading(reading)) CgmQuality.VALID else CgmQuality.INVALID,
+                    )
+                },
+                thresholds,
+            )
         return when (excursion) {
             RangeExcursion.HIGH -> G7RangeExcursion.HIGH
             RangeExcursion.LOW -> G7RangeExcursion.LOW

@@ -45,15 +45,15 @@ import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.storage.TherapyStateStore
+import kotlinx.coroutines.flow.first
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import java.text.DateFormat
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Date
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.flow.first
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 
 private suspend inline fun <reified T : Record> readHealthRecords(
     client: HealthConnectClient,
@@ -144,34 +144,39 @@ internal object HealthConnectIntegration {
     private const val MAX_GLUCOSE_RECORDS_PER_EXPORT = 300
     private const val GLUCOSE_BACKFILL_MS = 24L * 60L * 60_000L
     private const val FUTURE_TOLERANCE_MS = 5L * 60_000L
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
 
-    internal val readableRecordTypes = setOf(
-        HeartRateRecord::class,
-        RestingHeartRateRecord::class,
-        HeartRateVariabilityRmssdRecord::class,
-        StepsRecord::class,
-        ActiveCaloriesBurnedRecord::class,
-        TotalCaloriesBurnedRecord::class,
-        DistanceRecord::class,
-        ElevationGainedRecord::class,
-        FloorsClimbedRecord::class,
-        ExerciseSessionRecord::class,
-        SleepSessionRecord::class,
-        HydrationRecord::class,
-        NutritionRecord::class,
-        WeightRecord::class,
-        HeightRecord::class,
-        BodyFatRecord::class,
-        BodyWaterMassRecord::class,
-        LeanBodyMassRecord::class,
-        BasalMetabolicRateRecord::class,
-        BloodPressureRecord::class,
-        BloodGlucoseRecord::class,
-        OxygenSaturationRecord::class,
-        RespiratoryRateRecord::class,
-        Vo2MaxRecord::class,
-    )
+    internal val readableRecordTypes =
+        setOf(
+            HeartRateRecord::class,
+            RestingHeartRateRecord::class,
+            HeartRateVariabilityRmssdRecord::class,
+            StepsRecord::class,
+            ActiveCaloriesBurnedRecord::class,
+            TotalCaloriesBurnedRecord::class,
+            DistanceRecord::class,
+            ElevationGainedRecord::class,
+            FloorsClimbedRecord::class,
+            ExerciseSessionRecord::class,
+            SleepSessionRecord::class,
+            HydrationRecord::class,
+            NutritionRecord::class,
+            WeightRecord::class,
+            HeightRecord::class,
+            BodyFatRecord::class,
+            BodyWaterMassRecord::class,
+            LeanBodyMassRecord::class,
+            BasalMetabolicRateRecord::class,
+            BloodPressureRecord::class,
+            BloodGlucoseRecord::class,
+            OxygenSaturationRecord::class,
+            RespiratoryRateRecord::class,
+            Vo2MaxRecord::class,
+        )
     val glucoseWritePermission: String = HealthPermission.getWritePermission(BloodGlucoseRecord::class)
     val recordPermissions: Set<String> =
         readableRecordTypes.map(HealthPermission::getReadPermission).toSet() + glucoseWritePermission
@@ -195,42 +200,146 @@ internal object HealthConnectIntegration {
             val glucoseExport = exportGlucoseState(context, TherapyStateStore(context).state.first(), client, granted)
             val end = Instant.now()
             val start = end.minus(Duration.ofHours(24))
-            val heartRates = readHealthRecords<HeartRateRecord>(client, granted, start, end).flatMap(HeartRateRecord::samples).sortedBy(HeartRateRecord.Sample::time)
+            val heartRates =
+                readHealthRecords<HeartRateRecord>(
+                    client,
+                    granted,
+                    start,
+                    end,
+                ).flatMap(HeartRateRecord::samples).sortedBy(HeartRateRecord.Sample::time)
             val exercises = readHealthRecords<ExerciseSessionRecord>(client, granted, start, end)
             val sleep = readHealthRecords<SleepSessionRecord>(client, granted, start, end)
             val nutrition = readHealthRecords<NutritionRecord>(client, granted, start, end)
             val latestPressure = readHealthRecords<BloodPressureRecord>(client, granted, start, end).maxByOrNull(BloodPressureRecord::time)
-            val snapshot = HealthConnectSnapshot(
-                syncedAtEpochMs = System.currentTimeMillis(),
-                steps = readHealthRecords<StepsRecord>(client, granted, start, end).sumOf(StepsRecord::count),
-                latestHeartRate = heartRates.lastOrNull()?.beatsPerMinute,
-                averageHeartRate = heartRates.map(HeartRateRecord.Sample::beatsPerMinute).average().takeUnless(Double::isNaN),
-                restingHeartRate = readHealthRecords<RestingHeartRateRecord>(client, granted, start, end).maxByOrNull(RestingHeartRateRecord::time)?.beatsPerMinute,
-                heartRateVariabilityMs = readHealthRecords<HeartRateVariabilityRmssdRecord>(client, granted, start, end).maxByOrNull(HeartRateVariabilityRmssdRecord::time)?.heartRateVariabilityMillis,
-                activeCaloriesKcal = readHealthRecords<ActiveCaloriesBurnedRecord>(client, granted, start, end).sumOf { it.energy.inKilocalories },
-                totalCaloriesKcal = readHealthRecords<TotalCaloriesBurnedRecord>(client, granted, start, end).sumOf { it.energy.inKilocalories },
-                distanceMeters = readHealthRecords<DistanceRecord>(client, granted, start, end).sumOf { it.distance.inMeters },
-                elevationMeters = readHealthRecords<ElevationGainedRecord>(client, granted, start, end).sumOf { it.elevation.inMeters },
-                floorsClimbed = readHealthRecords<FloorsClimbedRecord>(client, granted, start, end).sumOf(FloorsClimbedRecord::floors),
-                activeMinutes = exercises.sumOf { Duration.between(it.startTime, it.endTime).toMinutes().coerceAtLeast(0) },
-                sleepMinutes = sleep.sumOf { Duration.between(it.startTime, it.endTime).toMinutes().coerceAtLeast(0) },
-                hydrationLiters = readHealthRecords<HydrationRecord>(client, granted, start, end).sumOf { it.volume.inLiters },
-                nutritionCarbohydratesGrams = nutrition.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 },
-                nutritionEnergyKcal = nutrition.sumOf { it.energy?.inKilocalories ?: 0.0 },
-                weightKg = readHealthRecords<WeightRecord>(client, granted, start, end).maxByOrNull(WeightRecord::time)?.weight?.inKilograms,
-                heightMeters = readHealthRecords<HeightRecord>(client, granted, start, end).maxByOrNull(HeightRecord::time)?.height?.inMeters,
-                bodyFatPercent = readHealthRecords<BodyFatRecord>(client, granted, start, end).maxByOrNull(BodyFatRecord::time)?.percentage?.value,
-                bodyWaterKg = readHealthRecords<BodyWaterMassRecord>(client, granted, start, end).maxByOrNull(BodyWaterMassRecord::time)?.mass?.inKilograms,
-                leanBodyMassKg = readHealthRecords<LeanBodyMassRecord>(client, granted, start, end).maxByOrNull(LeanBodyMassRecord::time)?.mass?.inKilograms,
-                basalMetabolicRateKcalPerDay = readHealthRecords<BasalMetabolicRateRecord>(client, granted, start, end).maxByOrNull(BasalMetabolicRateRecord::time)?.basalMetabolicRate?.inKilocaloriesPerDay,
-                systolicMmHg = latestPressure?.systolic?.inMillimetersOfMercury,
-                diastolicMmHg = latestPressure?.diastolic?.inMillimetersOfMercury,
-                bloodGlucoseMgDl = readHealthRecords<BloodGlucoseRecord>(client, granted, start, end).maxByOrNull(BloodGlucoseRecord::time)?.level?.inMilligramsPerDeciliter,
-                oxygenSaturationPercent = readHealthRecords<OxygenSaturationRecord>(client, granted, start, end).maxByOrNull(OxygenSaturationRecord::time)?.percentage?.value,
-                respiratoryRate = readHealthRecords<RespiratoryRateRecord>(client, granted, start, end).maxByOrNull(RespiratoryRateRecord::time)?.rate,
-                vo2Max = readHealthRecords<Vo2MaxRecord>(client, granted, start, end).maxByOrNull(Vo2MaxRecord::time)?.vo2MillilitersPerMinuteKilogram,
-            )
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val snapshot =
+                HealthConnectSnapshot(
+                    syncedAtEpochMs = System.currentTimeMillis(),
+                    steps = readHealthRecords<StepsRecord>(client, granted, start, end).sumOf(StepsRecord::count),
+                    latestHeartRate = heartRates.lastOrNull()?.beatsPerMinute,
+                    averageHeartRate = heartRates.map(HeartRateRecord.Sample::beatsPerMinute).average().takeUnless(Double::isNaN),
+                    restingHeartRate =
+                        readHealthRecords<RestingHeartRateRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(RestingHeartRateRecord::time)?.beatsPerMinute,
+                    heartRateVariabilityMs =
+                        readHealthRecords<HeartRateVariabilityRmssdRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(HeartRateVariabilityRmssdRecord::time)?.heartRateVariabilityMillis,
+                    activeCaloriesKcal =
+                        readHealthRecords<ActiveCaloriesBurnedRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).sumOf { it.energy.inKilocalories },
+                    totalCaloriesKcal =
+                        readHealthRecords<TotalCaloriesBurnedRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).sumOf { it.energy.inKilocalories },
+                    distanceMeters =
+                        readHealthRecords<DistanceRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).sumOf { it.distance.inMeters },
+                    elevationMeters =
+                        readHealthRecords<ElevationGainedRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).sumOf { it.elevation.inMeters },
+                    floorsClimbed = readHealthRecords<FloorsClimbedRecord>(client, granted, start, end).sumOf(FloorsClimbedRecord::floors),
+                    activeMinutes = exercises.sumOf { Duration.between(it.startTime, it.endTime).toMinutes().coerceAtLeast(0) },
+                    sleepMinutes = sleep.sumOf { Duration.between(it.startTime, it.endTime).toMinutes().coerceAtLeast(0) },
+                    hydrationLiters = readHealthRecords<HydrationRecord>(client, granted, start, end).sumOf { it.volume.inLiters },
+                    nutritionCarbohydratesGrams = nutrition.sumOf { it.totalCarbohydrate?.inGrams ?: 0.0 },
+                    nutritionEnergyKcal = nutrition.sumOf { it.energy?.inKilocalories ?: 0.0 },
+                    weightKg =
+                        readHealthRecords<WeightRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(WeightRecord::time)?.weight?.inKilograms,
+                    heightMeters =
+                        readHealthRecords<HeightRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(HeightRecord::time)?.height?.inMeters,
+                    bodyFatPercent =
+                        readHealthRecords<BodyFatRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(BodyFatRecord::time)?.percentage?.value,
+                    bodyWaterKg =
+                        readHealthRecords<BodyWaterMassRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(BodyWaterMassRecord::time)?.mass?.inKilograms,
+                    leanBodyMassKg =
+                        readHealthRecords<LeanBodyMassRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(LeanBodyMassRecord::time)?.mass?.inKilograms,
+                    basalMetabolicRateKcalPerDay =
+                        readHealthRecords<BasalMetabolicRateRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(BasalMetabolicRateRecord::time)?.basalMetabolicRate?.inKilocaloriesPerDay,
+                    systolicMmHg = latestPressure?.systolic?.inMillimetersOfMercury,
+                    diastolicMmHg = latestPressure?.diastolic?.inMillimetersOfMercury,
+                    bloodGlucoseMgDl =
+                        readHealthRecords<BloodGlucoseRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(BloodGlucoseRecord::time)?.level?.inMilligramsPerDeciliter,
+                    oxygenSaturationPercent =
+                        readHealthRecords<OxygenSaturationRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(OxygenSaturationRecord::time)?.percentage?.value,
+                    respiratoryRate =
+                        readHealthRecords<RespiratoryRateRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(RespiratoryRateRecord::time)?.rate,
+                    vo2Max =
+                        readHealthRecords<Vo2MaxRecord>(
+                            client,
+                            granted,
+                            start,
+                            end,
+                        ).maxByOrNull(Vo2MaxRecord::time)?.vo2MillilitersPerMinuteKilogram,
+                )
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .edit()
                 .putString(SNAPSHOT, json.encodeToString(HealthConnectSnapshot.serializer(), snapshot))
                 .apply()
@@ -238,11 +347,12 @@ internal object HealthConnectIntegration {
                 module = "HEALTH-CONNECT",
                 code = "HC-SYNC-200",
                 message = "Health Connect data synchronized",
-                metadata = mapOf(
-                    "readPermissions" to granted.count { it.startsWith("android.permission.health.READ_") },
-                    "steps" to snapshot.steps,
-                    "glucoseExport" to glucoseExport.state,
-                ),
+                metadata =
+                    mapOf(
+                        "readPermissions" to granted.count { it.startsWith("android.permission.health.READ_") },
+                        "steps" to snapshot.steps,
+                        "glucoseExport" to glucoseExport.state,
+                    ),
             )
             HealthConnectSyncResult(snapshot, glucoseExport)
         } catch (error: Exception) {
@@ -275,7 +385,10 @@ internal object HealthConnectIntegration {
         }
     }
 
-    suspend fun exportCgmReading(context: Context, state: TherapyDisplayState): HealthConnectExportResult {
+    suspend fun exportCgmReading(
+        context: Context,
+        state: TherapyDisplayState,
+    ): HealthConnectExportResult {
         if (availability(context) != HealthConnectClient.SDK_AVAILABLE) {
             return HealthConnectExportResult(HealthConnectExportState.UNAVAILABLE, errorCode = "HC-UNAVAILABLE")
         }
@@ -427,8 +540,7 @@ internal object HealthConnectIntegration {
                     sample.valueMgDl in 20.0..1000.0 &&
                     sample.measuredAtEpochMs in (nowEpochMs - GLUCOSE_BACKFILL_MS)..(nowEpochMs + FUTURE_TOLERANCE_MS) &&
                     sample.measuredAtEpochMs >= lastExportedAtEpochMs
-            }
-            .distinctBy { it.source to it.measuredAtEpochMs }
+            }.distinctBy { it.source to it.measuredAtEpochMs }
             .sortedBy(GlucoseSample::measuredAtEpochMs)
             .toList()
             .takeLast(MAX_GLUCOSE_RECORDS_PER_EXPORT)
@@ -440,15 +552,17 @@ internal object HealthConnectIntegration {
         return BloodGlucoseRecord(
             time = time,
             zoneOffset = ZoneId.systemDefault().rules.getOffset(time),
-            metadata = Metadata.autoRecorded(
-                device = Device(
-                    type = if (sample.source == DataSourceId.DEXCOM_G7_WATCH) Device.TYPE_WATCH else Device.TYPE_PHONE,
-                    manufacturer = android.os.Build.MANUFACTURER,
-                    model = android.os.Build.MODEL,
+            metadata =
+                Metadata.autoRecorded(
+                    device =
+                        Device(
+                            type = if (sample.source == DataSourceId.DEXCOM_G7_WATCH) Device.TYPE_WATCH else Device.TYPE_PHONE,
+                            manufacturer = android.os.Build.MANUFACTURER,
+                            model = android.os.Build.MODEL,
+                        ),
+                    clientRecordId = "sugarlicious:cgm:${sample.source.name}:${sample.measuredAtEpochMs}",
+                    clientRecordVersion = sample.measuredAtEpochMs.coerceAtLeast(1L),
                 ),
-                clientRecordId = "sugarlicious:cgm:${sample.source.name}:${sample.measuredAtEpochMs}",
-                clientRecordVersion = sample.measuredAtEpochMs.coerceAtLeast(1L),
-            ),
             level = BloodGlucose.milligramsPerDeciliter(sample.valueMgDl),
             specimenSource = BloodGlucoseRecord.SPECIMEN_SOURCE_INTERSTITIAL_FLUID,
             mealType = MealType.MEAL_TYPE_UNKNOWN,
@@ -457,40 +571,51 @@ internal object HealthConnectIntegration {
     }
 
     fun snapshot(context: Context): HealthConnectSnapshot? =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(SNAPSHOT, null)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(SNAPSHOT, null)
             ?.let { runCatching { json.decodeFromString<HealthConnectSnapshot>(it) }.getOrNull() }
 
     fun status(context: Context): HealthConnectStatus =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(STATUS, null)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(STATUS, null)
             ?.let { runCatching { json.decodeFromString<HealthConnectStatus>(it) }.getOrNull() }
             ?: HealthConnectStatus()
 
-    fun statusLabel(context: Context): String = when (availability(context)) {
-        HealthConnectClient.SDK_AVAILABLE -> {
-            val status = status(context)
-            when {
-                status.lastAttemptAtEpochMs == 0L -> "Berechtigungen einrichten"
-                !status.glucoseWriteGranted -> "BZ-Schreibrecht fehlt"
-                status.lastErrorCode != null -> "Prüfen · ${status.lastErrorCode}"
-                status.glucoseWriteGranted && status.lastSuccessAtEpochMs > 0L -> "BZ-Export aktiv"
-                status.glucoseWriteGranted -> "BZ-Schreibrecht aktiv"
-                else -> "Berechtigungen einrichten"
+    fun statusLabel(context: Context): String =
+        when (availability(context)) {
+            HealthConnectClient.SDK_AVAILABLE -> {
+                val status = status(context)
+                when {
+                    status.lastAttemptAtEpochMs == 0L -> "Berechtigungen einrichten"
+                    !status.glucoseWriteGranted -> "BZ-Schreibrecht fehlt"
+                    status.lastErrorCode != null -> "Prüfen · ${status.lastErrorCode}"
+                    status.glucoseWriteGranted && status.lastSuccessAtEpochMs > 0L -> "BZ-Export aktiv"
+                    status.glucoseWriteGranted -> "BZ-Schreibrecht aktiv"
+                    else -> "Berechtigungen einrichten"
+                }
             }
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "Health Connect aktualisieren"
+            else -> "Nicht verfügbar"
         }
-        HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> "Health Connect aktualisieren"
-        else -> "Nicht verfügbar"
-    }
 
     fun detailLabel(context: Context): String {
         val status = status(context)
-        val export = status.lastExportedGlucoseAtEpochMs.takeIf { it > 0L }
-            ?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) }
-            ?: "noch kein bestätigter BZ-Export"
+        val export =
+            status.lastExportedGlucoseAtEpochMs
+                .takeIf { it > 0L }
+                ?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) }
+                ?: "noch kein bestätigter BZ-Export"
         return "Blutzucker schreiben: ${if (status.glucoseWriteGranted) "erlaubt" else "nicht erlaubt"} · Leserechte: ${status.grantedReadPermissionCount}/${readableRecordTypes.size} · Letzter BZ: $export"
     }
 
-    private fun persistStatus(context: Context, status: HealthConnectStatus) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private fun persistStatus(
+        context: Context,
+        status: HealthConnectStatus,
+    ) {
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putString(STATUS, json.encodeToString(HealthConnectStatus.serializer(), status))
             .apply()
@@ -502,9 +627,13 @@ internal object HealthConnectIntegration {
     }
 }
 
-class HealthConnectSyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = runCatching {
-        HealthConnectIntegration.syncInBackground(applicationContext)
-        SugarliciousWidgets.update(applicationContext)
-    }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
+class HealthConnectSyncWorker(
+    context: Context,
+    params: WorkerParameters,
+) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result =
+        runCatching {
+            HealthConnectIntegration.syncInBackground(applicationContext)
+            SugarliciousWidgets.update(applicationContext)
+        }.fold(onSuccess = { Result.success() }, onFailure = { Result.retry() })
 }

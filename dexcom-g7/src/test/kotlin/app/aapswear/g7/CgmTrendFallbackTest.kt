@@ -75,15 +75,17 @@ class CgmTrendFallbackTest {
         assertEquals(Trend.UNKNOWN, switched.trend)
     }
 
-    private fun previousReading(value: Double, at: Long) =
-        CgmReading(
-            id = "previous-$at",
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = "sensor",
-            sessionId = "session",
-            glucoseMgDl = value,
-            timestampEpochMs = at,
-            receivedAtEpochMs = at,
-            status = CgmReadingStatus.VALID,
-        )
+    private fun previousReading(
+        value: Double,
+        at: Long,
+    ) = CgmReading(
+        id = "previous-$at",
+        source = DataSourceId.DEXCOM_G7_WATCH,
+        sensorId = "sensor",
+        sessionId = "session",
+        glucoseMgDl = value,
+        timestampEpochMs = at,
+        receivedAtEpochMs = at,
+        status = CgmReadingStatus.VALID,
+    )
 }

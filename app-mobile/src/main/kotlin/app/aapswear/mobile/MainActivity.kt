@@ -1,6 +1,5 @@
 package app.aapswear.mobile
 
-import android.graphics.drawable.GradientDrawable
 import android.Manifest
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
@@ -9,6 +8,7 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -24,14 +24,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.health.connect.client.HealthConnectClient
 import androidx.core.content.edit
+import androidx.health.connect.client.HealthConnectClient
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.SettingsSchemaVersions
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.storage.ensureSettingsSchema
-import app.aapswear.model.SettingsSchemaVersions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,25 +66,27 @@ class MainActivity : ComponentActivity() {
     private var settingsSwipeStartX = 0f
     private var settingsSwipeStartY = 0f
     private var settingsSwipeTracking = false
-    private val healthPermissionsLauncher = registerForActivityResult(HealthConnectIntegration.permissionContract) { granted ->
-        scope.launch {
-            if (granted.any { it in HealthConnectIntegration.recordPermissions }) {
-                HealthConnectIntegration.schedule(applicationContext)
-                val result = runCatching { HealthConnectIntegration.sync(applicationContext) }.getOrNull()
-                SugarliciousWidgets.update(applicationContext)
-                val message = when {
-                    HealthConnectIntegration.glucoseWritePermission !in granted -> "Verbunden · BZ-Schreibrecht fehlt"
-                    result?.glucoseExport?.state == HealthConnectExportState.SUCCESS -> "Verbunden · ${result.glucoseExport.acceptedCount} BZ-Werte übertragen"
-                    result?.glucoseExport?.state == HealthConnectExportState.FAILED -> "Verbunden · BZ-Export ${result.glucoseExport.errorCode}"
-                    else -> "Health Connect verbunden"
+    private val healthPermissionsLauncher =
+        registerForActivityResult(HealthConnectIntegration.permissionContract) { granted ->
+            scope.launch {
+                if (granted.any { it in HealthConnectIntegration.recordPermissions }) {
+                    HealthConnectIntegration.schedule(applicationContext)
+                    val result = runCatching { HealthConnectIntegration.sync(applicationContext) }.getOrNull()
+                    SugarliciousWidgets.update(applicationContext)
+                    val message =
+                        when {
+                            HealthConnectIntegration.glucoseWritePermission !in granted -> "Verbunden · BZ-Schreibrecht fehlt"
+                            result?.glucoseExport?.state == HealthConnectExportState.SUCCESS -> "Verbunden · ${result.glucoseExport.acceptedCount} BZ-Werte übertragen"
+                            result?.glucoseExport?.state == HealthConnectExportState.FAILED -> "Verbunden · BZ-Export ${result.glucoseExport.errorCode}"
+                            else -> "Health Connect verbunden"
+                        }
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@MainActivity, "Keine Health-Connect-Berechtigung erteilt", Toast.LENGTH_LONG).show()
                 }
-                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this@MainActivity, "Keine Health-Connect-Berechtigung erteilt", Toast.LENGTH_LONG).show()
+                refresh(forceSettingsRender = true)
             }
-            refresh(forceSettingsRender = true)
         }
-    }
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             PersistentBridgeService.refresh(this)
@@ -94,20 +96,22 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@registerForActivityResult
             scope.launch(Dispatchers.IO) {
-                val result = runCatching {
-                    contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                        SettingsBackup.write(applicationContext, output)
-                    } ?: error("Die Datei konnte nicht geöffnet werden")
-                }
+                val result =
+                    runCatching {
+                        contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                            SettingsBackup.write(applicationContext, output)
+                        } ?: error("Die Datei konnte nicht geöffnet werden")
+                    }
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        result.fold(
-                            onSuccess = { "Einstellungen wurden gesichert" },
-                            onFailure = { "Sicherung fehlgeschlagen: ${it.message ?: "Dateifehler"}" },
-                        ),
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    Toast
+                        .makeText(
+                            this@MainActivity,
+                            result.fold(
+                                onSuccess = { "Einstellungen wurden gesichert" },
+                                onFailure = { "Sicherung fehlgeschlagen: ${it.message ?: "Dateifehler"}" },
+                            ),
+                            Toast.LENGTH_LONG,
+                        ).show()
                 }
             }
         }
@@ -115,34 +119,38 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@registerForActivityResult
             scope.launch(Dispatchers.IO) {
-                val result = runCatching {
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        SettingsBackup.restore(applicationContext, input)
-                    } ?: error("Die Datei konnte nicht geöffnet werden")
-                }
+                val result =
+                    runCatching {
+                        contentResolver.openInputStream(uri)?.use { input ->
+                            SettingsBackup.restore(applicationContext, input)
+                        } ?: error("Die Datei konnte nicht geöffnet werden")
+                    }
                 result.onSuccess {
                     runCatching { publishWatchConfig(applicationContext) }
                     runCatching { syncComplicationPreset(applicationContext, loadComplicationPreset(applicationContext)) }
                 }
                 withContext(Dispatchers.Main) {
-                    result.onSuccess { restored ->
-                        SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
-                        MobileTrendArrowAppearance.apply(uiPreferences)
-                        PersistentBridgeService.refresh(this@MainActivity)
-                        SugarliciousWidgets.update(applicationContext)
-                        refresh(forceSettingsRender = true)
-                        Toast.makeText(
-                            this@MainActivity,
-                            "${restored.valueCount} Einstellungen wurden wiederhergestellt",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    }.onFailure { error ->
-                        Toast.makeText(
-                            this@MainActivity,
-                            "Import fehlgeschlagen: ${error.message ?: "ungültige Datei"}",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    }
+                    result
+                        .onSuccess { restored ->
+                            SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
+                            MobileTrendArrowAppearance.apply(uiPreferences)
+                            PersistentBridgeService.refresh(this@MainActivity)
+                            SugarliciousWidgets.update(applicationContext)
+                            refresh(forceSettingsRender = true)
+                            Toast
+                                .makeText(
+                                    this@MainActivity,
+                                    "${restored.valueCount} Einstellungen wurden wiederhergestellt",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                        }.onFailure { error ->
+                            Toast
+                                .makeText(
+                                    this@MainActivity,
+                                    "Import fehlgeschlagen: ${error.message ?: "ungültige Datei"}",
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                        }
                 }
             }
         }
@@ -169,16 +177,16 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    internal fun uiPreferenceRequiresDashboardRefresh(key: String?): Boolean =
-        key != "watchFaceIndex"
+    internal fun uiPreferenceRequiresDashboardRefresh(key: String?): Boolean = key != "watchFaceIndex"
 
     internal fun isInteractiveAppearancePreference(key: String?): Boolean =
-        key != null && (
-            key.startsWith("color.") ||
-                key.startsWith("notification.color.") ||
-                key.startsWith("widget.color.") ||
-                key.startsWith("cgm.dot") ||
-                key.startsWith("notification.cgm.dot")
+        key != null &&
+            (
+                key.startsWith("color.") ||
+                    key.startsWith("notification.color.") ||
+                    key.startsWith("widget.color.") ||
+                    key.startsWith("cgm.dot") ||
+                    key.startsWith("notification.cgm.dot")
             )
 
     internal fun uiPreferenceRequiresWidgetUpdate(key: String?): Boolean =
@@ -195,7 +203,10 @@ class MainActivity : ComponentActivity() {
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
-            uiPreferences.edit { putInt("graphHours", 3); putBoolean("graphHoursDefault3Migrated", true) }
+            uiPreferences.edit {
+                putInt("graphHours", 3)
+                putBoolean("graphHoursDefault3Migrated", true)
+            }
         }
         if (!uiPreferences.getBoolean("cgmDotsOnlyDefaultMigratedV1", false)) {
             uiPreferences.edit {
@@ -237,65 +248,80 @@ class MainActivity : ComponentActivity() {
         }
         content = findViewById(R.id.dashboard_content)
         scroll = findViewById(R.id.dashboard_scroll)
-        screen = savedInstanceState?.getString("screen")?.let { runCatching { DashboardScreen.valueOf(it) }.getOrNull() } ?: DashboardScreen.OVERVIEW
+        screen =
+            savedInstanceState?.getString("screen")?.let { runCatching { DashboardScreen.valueOf(it) }.getOrNull() }
+                ?: DashboardScreen.OVERVIEW
         styleTitle()
-        factory = DashboardViewFactory(this, DashboardCallbacks(
-            navigate = ::navigate,
-            setUnit = { uiPreferences.edit { putString("unit", it.name) } },
-            setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
-            openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
-            openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
-            setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
-            setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
-            setGlucoseTileDetailMode = { uiPreferences.edit { putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, it.name) } },
-            setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
-            setGraphHours = { hours -> uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) } },
-            setCgmStream = { key, enabled ->
-                uiPreferences.edit {
-                    putBoolean(
-                        key,
-                        enabled,
-                    )
-                }
-            },
-            setShowMetabolicGraph = { uiPreferences.edit { putBoolean("showMetabolicGraph", it) } },
-            setCompact = { uiPreferences.edit { putBoolean("compact", it) } },
-            setLiveNotification = ::setLiveNotification,
-            setNotificationGraphEnabled = { enabled ->
-                uiPreferences.edit {
-                    putBoolean(
-                        PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED,
-                        enabled,
-                    )
-                }
-            },
-            setNotificationGraphHours = { hours ->
-                uiPreferences.edit {
-                    putInt(
-                        PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS,
-                        hours.coerceIn(1, 3),
-                    )
-                }
-            },
-            setWatchFaceIndex = {
-                uiPreferences.edit {
-                    putInt(
-                        "watchFaceIndex",
-                        it.coerceIn(sugarliciousWatchFaceCards.indices),
-                    )
-                }
-            },
-            syncNow = ::syncNow,
-            connectHealthConnect = ::connectHealthConnect,
-            syncHealthConnect = ::syncHealthConnect,
-            manageHealthConnect = ::manageHealthConnect,
-            requestNotificationAccess = ::requestNotificationAccess,
-            requestUnrestrictedBattery = ::requestUnrestrictedBattery,
-            exportSettings = ::exportSettings,
-            importSettings = ::importSettings,
-            openProjectGitHub = ::openProjectGitHub,
-            openContactEmail = ::openContactEmail,
-        ))
+        factory =
+            DashboardViewFactory(
+                this,
+                DashboardCallbacks(
+                    navigate = ::navigate,
+                    setUnit = { uiPreferences.edit { putString("unit", it.name) } },
+                    setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
+                    openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
+                    openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
+                    setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
+                    setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
+                    setGlucoseTileDetailMode = {
+                        uiPreferences.edit {
+                            putString(
+                                DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY,
+                                it.name,
+                            )
+                        }
+                    },
+                    setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
+                    setGraphHours = { hours ->
+                        uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) }
+                    },
+                    setCgmStream = { key, enabled ->
+                        uiPreferences.edit {
+                            putBoolean(
+                                key,
+                                enabled,
+                            )
+                        }
+                    },
+                    setShowMetabolicGraph = { uiPreferences.edit { putBoolean("showMetabolicGraph", it) } },
+                    setCompact = { uiPreferences.edit { putBoolean("compact", it) } },
+                    setLiveNotification = ::setLiveNotification,
+                    setNotificationGraphEnabled = { enabled ->
+                        uiPreferences.edit {
+                            putBoolean(
+                                PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED,
+                                enabled,
+                            )
+                        }
+                    },
+                    setNotificationGraphHours = { hours ->
+                        uiPreferences.edit {
+                            putInt(
+                                PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS,
+                                hours.coerceIn(1, 3),
+                            )
+                        }
+                    },
+                    setWatchFaceIndex = {
+                        uiPreferences.edit {
+                            putInt(
+                                "watchFaceIndex",
+                                it.coerceIn(sugarliciousWatchFaceCards.indices),
+                            )
+                        }
+                    },
+                    syncNow = ::syncNow,
+                    connectHealthConnect = ::connectHealthConnect,
+                    syncHealthConnect = ::syncHealthConnect,
+                    manageHealthConnect = ::manageHealthConnect,
+                    requestNotificationAccess = ::requestNotificationAccess,
+                    requestUnrestrictedBattery = ::requestUnrestrictedBattery,
+                    exportSettings = ::exportSettings,
+                    importSettings = ::importSettings,
+                    openProjectGitHub = ::openProjectGitHub,
+                    openContactEmail = ::openContactEmail,
+                ),
+            )
         bindTopNavigation()
         PersistentBridgeService.start(this)
         scope.launch(Dispatchers.IO) {
@@ -318,7 +344,10 @@ class MainActivity : ComponentActivity() {
     private fun connectHealthConnect() {
         when (HealthConnectIntegration.availability(this)) {
             HealthConnectClient.SDK_AVAILABLE -> healthPermissionsLauncher.launch(HealthConnectIntegration.permissions)
-            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> openExternal(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${HealthConnectIntegration.PROVIDER_PACKAGE}")))
+            HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
+                openExternal(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${HealthConnectIntegration.PROVIDER_PACKAGE}")),
+                )
             else -> Toast.makeText(this, "Health Connect ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_SHORT).show()
         }
     }
@@ -328,13 +357,14 @@ class MainActivity : ComponentActivity() {
             val synced = runCatching { HealthConnectIntegration.sync(applicationContext) }.getOrNull()
             if (synced != null) {
                 SugarliciousWidgets.update(applicationContext)
-                val message = when (synced.glucoseExport.state) {
-                    HealthConnectExportState.SUCCESS -> "Aktualisiert · ${synced.glucoseExport.acceptedCount} BZ-Werte übertragen"
-                    HealthConnectExportState.NO_DATA -> "Aktualisiert · kein neuer BZ-Wert"
-                    HealthConnectExportState.PERMISSION_MISSING -> "Aktualisiert · BZ-Schreibrecht fehlt"
-                    HealthConnectExportState.FAILED -> "BZ-Export fehlgeschlagen · ${synced.glucoseExport.errorCode}"
-                    HealthConnectExportState.UNAVAILABLE -> "Health Connect nicht verfügbar"
-                }
+                val message =
+                    when (synced.glucoseExport.state) {
+                        HealthConnectExportState.SUCCESS -> "Aktualisiert · ${synced.glucoseExport.acceptedCount} BZ-Werte übertragen"
+                        HealthConnectExportState.NO_DATA -> "Aktualisiert · kein neuer BZ-Wert"
+                        HealthConnectExportState.PERMISSION_MISSING -> "Aktualisiert · BZ-Schreibrecht fehlt"
+                        HealthConnectExportState.FAILED -> "BZ-Export fehlgeschlagen · ${synced.glucoseExport.errorCode}"
+                        HealthConnectExportState.UNAVAILABLE -> "Health Connect nicht verfügbar"
+                    }
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
             } else {
                 Toast.makeText(this@MainActivity, "Health-Connect-Zugriff fehlt", Toast.LENGTH_SHORT).show()
@@ -346,7 +376,9 @@ class MainActivity : ComponentActivity() {
     private fun manageHealthConnect() {
         if (HealthConnectIntegration.availability(this) == HealthConnectClient.SDK_AVAILABLE) {
             openExternal(HealthConnectClient.getHealthConnectManageDataIntent(this, HealthConnectIntegration.PROVIDER_PACKAGE))
-        } else connectHealthConnect()
+        } else {
+            connectHealthConnect()
+        }
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
@@ -367,12 +399,13 @@ class MainActivity : ComponentActivity() {
 
                 MotionEvent.ACTION_UP -> {
                     if (settingsSwipeTracking) {
-                        swipeTarget = menuSwipeTarget(
-                            screen = screen,
-                            deltaX = event.rawX - settingsSwipeStartX,
-                            deltaY = event.rawY - settingsSwipeStartY,
-                            minimumDistancePx = 72.dp.toFloat(),
-                        )
+                        swipeTarget =
+                            menuSwipeTarget(
+                                screen = screen,
+                                deltaX = event.rawX - settingsSwipeStartX,
+                                deltaY = event.rawY - settingsSwipeStartY,
+                                minimumDistancePx = 72.dp.toFloat(),
+                            )
                     }
                     settingsSwipeTracking = false
                 }
@@ -394,12 +427,13 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         diagnostics.registerOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.registerOnSharedPreferenceChangeListener(uiListener)
-        clockJob = scope.launch {
-            while (true) {
-                delay(delayUntilNextGraphMinute(System.currentTimeMillis()))
-                if (::factory.isInitialized) factory.tickOverviewClock(System.currentTimeMillis())
+        clockJob =
+            scope.launch {
+                while (true) {
+                    delay(delayUntilNextGraphMinute(System.currentTimeMillis()))
+                    if (::factory.isInitialized) factory.tickOverviewClock(System.currentTimeMillis())
+                }
             }
-        }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
         scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
         refresh()
@@ -411,7 +445,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
-        clockJob?.cancel(); clockJob = null
+        clockJob?.cancel()
+        clockJob = null
         diagnostics.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.unregisterOnSharedPreferenceChangeListener(uiListener)
         super.onStop()
@@ -441,20 +476,11 @@ class MainActivity : ComponentActivity() {
         updateTopBar()
     }
 
-
     @Suppress("DEPRECATION")
     private fun applyRuntimeColors() {
         val backgroundColor =
             SugarliciousColors.argb(
                 SugarliciousColorRole.BACKGROUND,
-            )
-        val surface =
-            SugarliciousColors.argb(
-                SugarliciousColorRole.SURFACE,
-            )
-        val border =
-            SugarliciousColors.argb(
-                SugarliciousColorRole.BORDER,
             )
         val text =
             SugarliciousColors.argb(
@@ -463,21 +489,24 @@ class MainActivity : ComponentActivity() {
 
         findViewById<View>(R.id.root)
             .setBackgroundColor(backgroundColor)
-        findViewById<View>(R.id.scroll_fade).background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(Color.TRANSPARENT, backgroundColor),
-        )
+        findViewById<View>(R.id.scroll_fade).background =
+            GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(Color.TRANSPARENT, backgroundColor),
+            )
         window.statusBarColor = backgroundColor
         window.navigationBarColor = backgroundColor
         val light = SugarliciousColors.palette.isLight
         if (Build.VERSION.SDK_INT >= 30) {
-            val mask = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
-                android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+            val mask =
+                android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
             window.insetsController?.setSystemBarsAppearance(if (light) mask else 0, mask)
         } else {
             @Suppress("DEPRECATION")
-            val flags = (if (light) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0) or
-                (if (light) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
+            val flags =
+                (if (light) View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR else 0) or
+                    (if (light) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
             @Suppress("DEPRECATION")
             window.decorView.systemUiVisibility = flags
         }
@@ -490,6 +519,7 @@ class MainActivity : ComponentActivity() {
         findViewById<ImageView>(R.id.top_settings).imageTintList = ColorStateList.valueOf(text)
         updateTopBar()
     }
+
     private fun bindTopNavigation() {
         findViewById<View>(R.id.top_settings).setOnClickListener { navigate(DashboardScreen.SETTINGS) }
         findViewById<View>(R.id.top_back).setOnClickListener { navigate(DashboardScreen.OVERVIEW) }
@@ -557,19 +587,20 @@ class MainActivity : ComponentActivity() {
         }
         container.visibility = View.VISIBLE
         if (container.childCount > 0) return
-        val composeView = androidx.compose.ui.platform.ComposeView(this).apply {
-            setViewCompositionStrategy(
-                androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow,
-            )
-            setContent {
-                app.aapswear.mobile.ui.theme.SugarliciousTheme {
-                    WatchMenuHeader(
-                        onBack = { navigate(DashboardScreen.OVERVIEW) },
-                        onSettings = { navigate(DashboardScreen.SETTINGS) },
-                    )
+        val composeView =
+            androidx.compose.ui.platform.ComposeView(this).apply {
+                setViewCompositionStrategy(
+                    androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow,
+                )
+                setContent {
+                    app.aapswear.mobile.ui.theme.SugarliciousTheme {
+                        WatchMenuHeader(
+                            onBack = { navigate(DashboardScreen.OVERVIEW) },
+                            onSettings = { navigate(DashboardScreen.SETTINGS) },
+                        )
+                    }
                 }
             }
-        }
         container.addView(
             composeView,
             android.widget.FrameLayout.LayoutParams(
@@ -581,7 +612,12 @@ class MainActivity : ComponentActivity() {
 
     private fun styleTitle() {
         val value = SpannableString(getString(R.string.app_name))
-        value.setSpan(ForegroundColorSpan(SugarliciousColors.argb(SugarliciousColorRole.PRIMARY)), 5, value.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        value.setSpan(
+            ForegroundColorSpan(SugarliciousColors.argb(SugarliciousColorRole.PRIMARY)),
+            5,
+            value.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+        )
         findViewById<TextView>(R.id.app_title).text = value
     }
 
@@ -595,11 +631,17 @@ class MainActivity : ComponentActivity() {
         scope.launch {
             runCatching { withTimeout(4.seconds) { publishState(applicationContext, latest) } }
                 .onSuccess {
-                    diagnostics.edit { putLong("lastSyncAt", System.currentTimeMillis()); putString("lastSyncStatus", "ok"); remove("lastSyncError") }
+                    diagnostics.edit {
+                        putLong("lastSyncAt", System.currentTimeMillis())
+                        putString("lastSyncStatus", "ok")
+                        remove("lastSyncError")
+                    }
                     Toast.makeText(this@MainActivity, "An Watch übertragen", Toast.LENGTH_SHORT).show()
-                }
-                .onFailure { error ->
-                    diagnostics.edit { putString("lastSyncStatus", "unavailable"); putString("lastSyncError", error.javaClass.simpleName) }
+                }.onFailure { error ->
+                    diagnostics.edit {
+                        putString("lastSyncStatus", "unavailable")
+                        putString("lastSyncError", error.javaClass.simpleName)
+                    }
                     Toast.makeText(this@MainActivity, "Keine Watch erreichbar", Toast.LENGTH_SHORT).show()
                 }
         }
@@ -620,7 +662,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
@@ -662,8 +706,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openContactEmail() {
-        val intent = Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", getString(R.string.contact_email), null))
-            .putExtra(Intent.EXTRA_SUBJECT, "Sugarlicious")
+        val intent =
+            Intent(Intent.ACTION_SENDTO, Uri.fromParts("mailto", getString(R.string.contact_email), null))
+                .putExtra(Intent.EXTRA_SUBJECT, "Sugarlicious")
         openExternal(intent)
     }
 
@@ -685,5 +730,4 @@ class MainActivity : ComponentActivity() {
     }
 
     private val Int.dp get() = (this * resources.displayMetrics.density).toInt()
-
 }

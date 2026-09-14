@@ -1,7 +1,6 @@
 package app.aapswear.mobile
 
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,15 +19,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -80,33 +78,37 @@ internal val sugarliciousWatchFaceCards =
         ),
     )
 
-internal data class LegacyWatchFaceCard(val name: String, val previewRes: Int)
-
-internal val legacyWatchFaceCards = listOf(
-    LegacyWatchFaceCard("AAPS BigChart", R.drawable.legacy_aaps_big_chart),
-    LegacyWatchFaceCard("AAPS Circle", R.drawable.legacy_aaps_circle),
-    LegacyWatchFaceCard("AAPS Cockpit", R.drawable.legacy_aaps_cockpit),
-    LegacyWatchFaceCard("AAPS Community", R.drawable.legacy_aaps_community),
-    LegacyWatchFaceCard("AAPS Digital Style", R.drawable.legacy_aaps_digital_style),
-    LegacyWatchFaceCard("AAPS Large", R.drawable.legacy_aaps_large),
-    LegacyWatchFaceCard("AAPS NoChart", R.drawable.legacy_aaps_no_chart),
-    LegacyWatchFaceCard("AAPS Standard", R.drawable.legacy_aaps_standard),
-    LegacyWatchFaceCard("AAPS V2", R.drawable.legacy_aaps_v2),
-    LegacyWatchFaceCard("AAPS V2 TT DarkOnly", R.drawable.legacy_aaps_v2_tt_dark),
-    LegacyWatchFaceCard("AAPS V4", R.drawable.legacy_aaps_v4),
-    LegacyWatchFaceCard("AIMICO", R.drawable.legacy_aimico),
-    LegacyWatchFaceCard("Analog G-Watch", R.drawable.legacy_analog_g_watch),
-    LegacyWatchFaceCard("Blue Ring", R.drawable.legacy_blue_ring),
-    LegacyWatchFaceCard("Digital Big Graph", R.drawable.legacy_digital_big_graph),
-    LegacyWatchFaceCard("Digital G-Watch", R.drawable.legacy_digital_g_watch),
-    LegacyWatchFaceCard("Gears", R.drawable.legacy_gears),
-    LegacyWatchFaceCard("Gota", R.drawable.legacy_gota),
-    LegacyWatchFaceCard("LuckyLoopKoeln", R.drawable.legacy_lucky_loop_koeln),
-    LegacyWatchFaceCard("P-Zero", R.drawable.legacy_p_zero),
-    LegacyWatchFaceCard("Robby", R.drawable.legacy_robby),
-    LegacyWatchFaceCard("Simple Digital", R.drawable.legacy_simple_digital),
-    LegacyWatchFaceCard("AAPS SteamPunk", R.drawable.legacy_steam_punk),
+internal data class LegacyWatchFaceCard(
+    val name: String,
+    val previewRes: Int,
 )
+
+internal val legacyWatchFaceCards =
+    listOf(
+        LegacyWatchFaceCard("AAPS BigChart", R.drawable.legacy_aaps_big_chart),
+        LegacyWatchFaceCard("AAPS Circle", R.drawable.legacy_aaps_circle),
+        LegacyWatchFaceCard("AAPS Cockpit", R.drawable.legacy_aaps_cockpit),
+        LegacyWatchFaceCard("AAPS Community", R.drawable.legacy_aaps_community),
+        LegacyWatchFaceCard("AAPS Digital Style", R.drawable.legacy_aaps_digital_style),
+        LegacyWatchFaceCard("AAPS Large", R.drawable.legacy_aaps_large),
+        LegacyWatchFaceCard("AAPS NoChart", R.drawable.legacy_aaps_no_chart),
+        LegacyWatchFaceCard("AAPS Standard", R.drawable.legacy_aaps_standard),
+        LegacyWatchFaceCard("AAPS V2", R.drawable.legacy_aaps_v2),
+        LegacyWatchFaceCard("AAPS V2 TT DarkOnly", R.drawable.legacy_aaps_v2_tt_dark),
+        LegacyWatchFaceCard("AAPS V4", R.drawable.legacy_aaps_v4),
+        LegacyWatchFaceCard("AIMICO", R.drawable.legacy_aimico),
+        LegacyWatchFaceCard("Analog G-Watch", R.drawable.legacy_analog_g_watch),
+        LegacyWatchFaceCard("Blue Ring", R.drawable.legacy_blue_ring),
+        LegacyWatchFaceCard("Digital Big Graph", R.drawable.legacy_digital_big_graph),
+        LegacyWatchFaceCard("Digital G-Watch", R.drawable.legacy_digital_g_watch),
+        LegacyWatchFaceCard("Gears", R.drawable.legacy_gears),
+        LegacyWatchFaceCard("Gota", R.drawable.legacy_gota),
+        LegacyWatchFaceCard("LuckyLoopKoeln", R.drawable.legacy_lucky_loop_koeln),
+        LegacyWatchFaceCard("P-Zero", R.drawable.legacy_p_zero),
+        LegacyWatchFaceCard("Robby", R.drawable.legacy_robby),
+        LegacyWatchFaceCard("Simple Digital", R.drawable.legacy_simple_digital),
+        LegacyWatchFaceCard("AAPS SteamPunk", R.drawable.legacy_steam_punk),
+    )
 
 @Composable
 internal fun SugarliciousWatchScreen(
@@ -210,16 +212,16 @@ internal fun SugarliciousWatchScreen(
                         state = state,
                         onPresetChanged = { updated ->
                             WatchFacePresetStore.save(appContext, editingFaceIndex, updated)
-                            facePresets = facePresets.toMutableList().also { presets ->
-                                presets[editingFaceIndex] = updated
-                            }
+                            facePresets =
+                                facePresets.toMutableList().also { presets ->
+                                    presets[editingFaceIndex] = updated
+                                }
                         },
                     )
                 }
             }
         }
     }
-
 }
 
 @Composable
@@ -250,8 +252,7 @@ private fun WatchFaceTile(
                             SugarliciousColors.Border.copy(alpha = if (enabled) 0.58f else 0.32f)
                         },
                     shape = shape,
-                )
-                .clickable(enabled = enabled) {
+                ).clickable(enabled = enabled) {
                     onSelected()
                     scope.launch {
                         val appContext = context.applicationContext

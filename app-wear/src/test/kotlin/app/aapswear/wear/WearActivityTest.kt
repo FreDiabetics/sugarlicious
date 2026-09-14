@@ -8,15 +8,14 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.complications.R as ComplicationR
-import app.aapswear.model.BasalState
-import app.aapswear.protocol.WatchConfig
-import app.aapswear.protocol.WatchColorSync
-import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.BasalState
 import app.aapswear.model.CgmThresholds
-import app.aapswear.protocol.WatchGlucoseUnit
+import app.aapswear.protocol.WatchAppearanceProfile
+import app.aapswear.protocol.WatchColorSync
+import app.aapswear.protocol.WatchConfig
 import app.aapswear.protocol.WatchDataSource
+import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
@@ -26,13 +25,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import app.aapswear.complications.R as ComplicationR
 
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
     fun `wear appearance is dark by default and explicit selection remains active`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
 
         assertEquals(AppearanceMode.DARK, WearDisplayPreferences.activeAppearanceMode(context))
         WearDisplayPreferences.setActiveAppearanceMode(context, AppearanceMode.LIGHT)
@@ -45,7 +49,11 @@ class WearActivityTest {
     fun `legacy Wear source selection cannot override AndroidAPS phone policy`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)
-        prefs.edit().clear().putString("data_source", WatchDataSource.DEXCOM_G7_WATCH.name).commit()
+        prefs
+            .edit()
+            .clear()
+            .putString("data_source", WatchDataSource.DEXCOM_G7_WATCH.name)
+            .commit()
 
         assertEquals(WatchDataSource.PHONE, WearDisplayPreferences.read(context).dataSource)
     }
@@ -221,8 +229,7 @@ class WearActivityTest {
             activity
                 .findViewById<TextView>(
                     R.id.wear_glucose,
-                )
-                .text
+                ).text
                 .toString(),
         )
         assertNotNull(
@@ -247,7 +254,13 @@ class WearActivityTest {
 
     @Test
     fun `graph scale age control is pill free and changes persisted viewport`() {
-        val activity = Robolectric.buildActivity(WearActivity::class.java).create().start().resume().get()
+        val activity =
+            Robolectric
+                .buildActivity(WearActivity::class.java)
+                .create()
+                .start()
+                .resume()
+                .get()
         WearDisplayPreferences.saveLocal(activity, WearDisplayPreferences.read(activity).copy(graphHours = 3))
         val control = activity.findViewById<TextView>(R.id.wear_graph_period)
 
@@ -263,7 +276,7 @@ class WearActivityTest {
     fun `watch config does not overwrite independent local display preferences`() {
         val context =
             ApplicationProvider.getApplicationContext<
-                android.content.Context
+                android.content.Context,
             >()
 
         WearDisplayPreferences.saveLocal(
@@ -309,14 +322,15 @@ class WearActivityTest {
     @Test
     fun `explicit color sync updates every semantic graph role`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val colors = WatchGraphColors(
-            highLine = 0xFF110001.toInt(),
-            lowLine = 0xFF220002.toInt(),
-            axisLabel = 0xFF330003.toInt(),
-            axisTick = 0xFF440004.toInt(),
-            nowLine = 0xFF550005.toInt(),
-            divider = 0xFF660006.toInt(),
-        )
+        val colors =
+            WatchGraphColors(
+                highLine = 0xFF110001.toInt(),
+                lowLine = 0xFF220002.toInt(),
+                axisLabel = 0xFF330003.toInt(),
+                axisTick = 0xFF440004.toInt(),
+                nowLine = 0xFF550005.toInt(),
+                divider = 0xFF660006.toInt(),
+            )
 
         WearDisplayPreferences.applySyncedColors(
             context,
@@ -348,7 +362,11 @@ class WearActivityTest {
     @Test
     fun `explicit color sync keeps light and dark profiles independent`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val light = WatchGraphColors(graphBackground = 0xFFF4F4F4.toInt())
         val dark = WatchGraphColors(graphBackground = 0xFF090909.toInt())
         WearDisplayPreferences.applySyncedColors(

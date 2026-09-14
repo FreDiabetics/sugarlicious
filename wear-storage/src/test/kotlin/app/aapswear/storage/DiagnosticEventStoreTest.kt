@@ -2,9 +2,9 @@ package app.aapswear.storage
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.model.DiagnosticSeverity
-import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.AppClock
+import app.aapswear.model.DiagnosticEvent
+import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -25,67 +25,70 @@ class DiagnosticEventStoreTest {
     fun clear() = runBlocking { store.clear() }
 
     @Test
-    fun `records structured event and removes secret metadata`() = runBlocking {
-        store.record(
-            origin = "MOBILE",
-            module = "SOURCE",
-            code = "SRC-AAPS-001",
-            severity = DiagnosticSeverity.WARNING,
-            message = "Payload fehlt",
-            metadata = mapOf("predictionCount" to 3, "sharedKey" to "do-not-store"),
-            occurredAtEpochMs = clock.nowEpochMs(),
-        )
+    fun `records structured event and removes secret metadata`() =
+        runBlocking {
+            store.record(
+                origin = "MOBILE",
+                module = "SOURCE",
+                code = "SRC-AAPS-001",
+                severity = DiagnosticSeverity.WARNING,
+                message = "Payload fehlt",
+                metadata = mapOf("predictionCount" to 3, "sharedKey" to "do-not-store"),
+                occurredAtEpochMs = clock.nowEpochMs(),
+            )
 
-        val event = store.events.first().single()
-        assertEquals("SRC-AAPS-001", event.code)
-        assertEquals("3", event.metadata["predictionCount"])
-        assertFalse(event.metadata.containsKey("sharedKey"))
-    }
-
-    @Test
-    fun `retains only bounded recent events`() = runBlocking {
-        val now = clock.nowEpochMs() - 2_000L
-        store.append(
-            List(1_020) { index ->
-                DiagnosticEvent(
-                    id = "event-$index",
-                    occurredAtEpochMs = now + index,
-                    origin = "WATCH",
-                    module = "RENDER",
-                    code = "RENDER-$index",
-                    severity = DiagnosticSeverity.INFO,
-                    message = "event",
-                )
-            },
-            nowEpochMs = now + 1_020,
-        )
-
-        val events = store.events.first()
-        assertEquals(1_000, events.size)
-        assertTrue(events.none { it.code == "RENDER-0" })
-    }
+            val event = store.events.first().single()
+            assertEquals("SRC-AAPS-001", event.code)
+            assertEquals("3", event.metadata["predictionCount"])
+            assertFalse(event.metadata.containsKey("sharedKey"))
+        }
 
     @Test
-    fun `sanitizes diagnostics received from another app process`() = runBlocking {
-        store.append(
-            listOf(
-                DiagnosticEvent(
-                    id = "remote",
-                    occurredAtEpochMs = clock.nowEpochMs(),
-                    origin = "WATCH\nINJECTED",
-                    module = "G7",
-                    code = "G7-DATA-200",
-                    severity = DiagnosticSeverity.INFO,
-                    message = "ok\nsecond line",
-                    metadata = mapOf("sharedKey" to "do-not-store", "sequence" to "14"),
+    fun `retains only bounded recent events`() =
+        runBlocking {
+            val now = clock.nowEpochMs() - 2_000L
+            store.append(
+                List(1_020) { index ->
+                    DiagnosticEvent(
+                        id = "event-$index",
+                        occurredAtEpochMs = now + index,
+                        origin = "WATCH",
+                        module = "RENDER",
+                        code = "RENDER-$index",
+                        severity = DiagnosticSeverity.INFO,
+                        message = "event",
+                    )
+                },
+                nowEpochMs = now + 1_020,
+            )
+
+            val events = store.events.first()
+            assertEquals(1_000, events.size)
+            assertTrue(events.none { it.code == "RENDER-0" })
+        }
+
+    @Test
+    fun `sanitizes diagnostics received from another app process`() =
+        runBlocking {
+            store.append(
+                listOf(
+                    DiagnosticEvent(
+                        id = "remote",
+                        occurredAtEpochMs = clock.nowEpochMs(),
+                        origin = "WATCH\nINJECTED",
+                        module = "G7",
+                        code = "G7-DATA-200",
+                        severity = DiagnosticSeverity.INFO,
+                        message = "ok\nsecond line",
+                        metadata = mapOf("sharedKey" to "do-not-store", "sequence" to "14"),
+                    ),
                 ),
-            ),
-        )
+            )
 
-        val event = store.events.first().single()
-        assertEquals("WATCH INJECTED", event.origin)
-        assertEquals("ok second line", event.message)
-        assertFalse(event.metadata.containsKey("sharedKey"))
-        assertEquals("14", event.metadata["sequence"])
-    }
+            val event = store.events.first().single()
+            assertEquals("WATCH INJECTED", event.origin)
+            assertEquals("ok second line", event.message)
+            assertFalse(event.metadata.containsKey("sharedKey"))
+            assertEquals("14", event.metadata["sequence"])
+        }
 }

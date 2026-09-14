@@ -2,6 +2,8 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.g7.CgmReading
+import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
@@ -9,8 +11,6 @@ import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
 import app.aapswear.g7.CollectorSlotStrategy
 import app.aapswear.g7.DirectConnectResult
-import app.aapswear.g7.CgmReading
-import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
 import org.junit.Assert.assertEquals
@@ -35,7 +35,11 @@ class G7CollectorDiagnosticsTest {
             "g7_collector_attempt_active",
             "g7_collector_slot_history",
         ).forEach { name ->
-            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
+            context
+                .getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
         }
     }
 
@@ -43,18 +47,20 @@ class G7CollectorDiagnosticsTest {
     fun `slot summaries retain more than a full day independently from raw event attempts`() {
         assertTrue(g7SlotRetentionDurationMs() >= 24L * 60L * 60_000L)
         val store = G7CollectorDiagnosticStore(context)
-        val attempt = store.begin(
-            manual = false,
-            restart = false,
-            cycle = CollectorCycleTiming(
-                expectedReadingEpoch = 1_300_000L,
-                directConnectResult = DirectConnectResult.SUCCESS,
-                directConnectAttempts = 1,
-                slotStrategy = CollectorSlotStrategy.DIRECT_ONLY_SUCCESS,
-                sensorAgeSeconds = 3,
-            ),
-            nowEpochMs = 1_290_000L,
-        )
+        val attempt =
+            store.begin(
+                manual = false,
+                restart = false,
+                cycle =
+                    CollectorCycleTiming(
+                        expectedReadingEpoch = 1_300_000L,
+                        directConnectResult = DirectConnectResult.SUCCESS,
+                        directConnectAttempts = 1,
+                        slotStrategy = CollectorSlotStrategy.DIRECT_ONLY_SUCCESS,
+                        sensorAgeSeconds = 3,
+                    ),
+                nowEpochMs = 1_290_000L,
+            )
         store.setClassification(attempt.attemptId, CollectorCycleClassification.SUCCESS_FRESH)
         store.record(
             attempt.attemptId,
@@ -110,19 +116,21 @@ class G7CollectorDiagnosticsTest {
     @Test
     fun `starting a new cycle compacts an expired predecessor as hung`() {
         val store = G7CollectorDiagnosticStore(context)
-        val stale = store.begin(
-            manual = false,
-            restart = false,
-            nowEpochMs = 1_000L,
-            deadlineEpochMs = 10_000L,
-        )
+        val stale =
+            store.begin(
+                manual = false,
+                restart = false,
+                nowEpochMs = 1_000L,
+                deadlineEpochMs = 10_000L,
+            )
 
-        val current = store.begin(
-            manual = false,
-            restart = false,
-            nowEpochMs = 11_000L,
-            deadlineEpochMs = 20_000L,
-        )
+        val current =
+            store.begin(
+                manual = false,
+                restart = false,
+                nowEpochMs = 11_000L,
+                deadlineEpochMs = 20_000L,
+            )
 
         assertFalse(store.hasActiveAttempt(stale.attemptId))
         assertTrue(store.hasActiveAttempt(current.attemptId))
@@ -147,11 +155,13 @@ class G7CollectorDiagnosticsTest {
         assertNull(restored.completedAtEpochMs)
         assertTrue(restored.events.any { it.stage == CollectorDiagnosticStage.SCANNING })
         assertNull(
-            context.getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
                 .getString("attempts_v2", null),
         )
         assertTrue(
-            context.getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
                 .getString("active_attempts_v1", null)
                 ?.isNotBlank() == true,
         )
@@ -202,11 +212,13 @@ class G7CollectorDiagnosticsTest {
         )
 
         assertNull(
-            context.getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences("g7_collector_attempt_active", Context.MODE_PRIVATE)
                 .getString("active_attempts_v1", null),
         )
         assertTrue(
-            context.getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences("g7_collector_attempt_history", Context.MODE_PRIVATE)
                 .getString("attempts_v2", null)
                 ?.isNotBlank() == true,
         )
@@ -216,16 +228,17 @@ class G7CollectorDiagnosticsTest {
     @Test
     fun `scheduled cycle timing survives alarm receiver service handoff and derives lateness`() {
         val store = G7CollectorDiagnosticStore(context)
-        val scheduled = CollectorCycleTiming(
-            expectedReadingEpoch = 1_300_000L,
-            requestedReconnectEpoch = 1_000_000L,
-            alarmKind = CollectorAlarmKind.EXACT,
-            canScheduleExactAlarms = true,
-            batteryUnrestricted = true,
-            deviceIdleMode = true,
-            isInteractive = false,
-            charging = false,
-        )
+        val scheduled =
+            CollectorCycleTiming(
+                expectedReadingEpoch = 1_300_000L,
+                requestedReconnectEpoch = 1_000_000L,
+                alarmKind = CollectorAlarmKind.EXACT,
+                canScheduleExactAlarms = true,
+                batteryUnrestricted = true,
+                deviceIdleMode = true,
+                isInteractive = false,
+                charging = false,
+            )
         store.stageScheduledCycle(scheduled)
 
         store.markScheduledAlarmReceived(1_012_000L)
@@ -373,16 +386,17 @@ class G7CollectorDiagnosticsTest {
         assertEquals(listOf(active), filtered)
     }
 
-    private fun reading(minutes: Long) = CgmReading(
-        id = "reading-$minutes",
-        source = DataSourceId.DEXCOM_G7_WATCH,
-        sensorId = "sensor",
-        sessionId = "session",
-        glucoseMgDl = 120.0,
-        timestampEpochMs = minutes * 60_000L,
-        receivedAtEpochMs = minutes * 60_000L,
-        sequenceNumber = minutes,
-    )
+    private fun reading(minutes: Long) =
+        CgmReading(
+            id = "reading-$minutes",
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = "sensor",
+            sessionId = "session",
+            glucoseMgDl = 120.0,
+            timestampEpochMs = minutes * 60_000L,
+            receivedAtEpochMs = minutes * 60_000L,
+            sequenceNumber = minutes,
+        )
 
     private fun readingAt(
         measuredAt: Long,

@@ -6,8 +6,8 @@ import android.content.Intent
 import androidx.core.content.edit
 import app.aapswear.datasource.aaps.AapsCapabilityDetector
 import app.aapswear.datasource.aaps.AapsPayloadAdapter
-import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.DiagnosticSeverity
+import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.TherapyStateStore
 import com.google.android.gms.wearable.PutDataRequest
@@ -30,7 +30,10 @@ internal fun migrateLegacyForcedG7Source(
 ): DataSourcePreference = DataSourcePreference.ANDROID_APS
 
 class AapsStatusReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != AapsPayloadAdapter.ACTION) return
         val pending = goAsync()
         val app = context.applicationContext
@@ -42,11 +45,12 @@ class AapsStatusReceiver : BroadcastReceiver() {
             try {
                 val now = System.currentTimeMillis()
                 val sourcePreferences = app.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
-                val configuredSource = runCatching {
-                    DataSourcePreference.valueOf(
-                        sourcePreferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                    )
-                }.getOrDefault(DataSourcePreference.AUTOMATIC)
+                val configuredSource =
+                    runCatching {
+                        DataSourcePreference.valueOf(
+                            sourcePreferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
+                        )
+                    }.getOrDefault(DataSourcePreference.AUTOMATIC)
                 val migrationDone = sourcePreferences.getBoolean(G7_SOURCE_FALLBACK_MIGRATION_KEY, false)
                 val sourcePreference = migrateLegacyForcedG7Source(configuredSource, migrationDone)
                 if (!migrationDone) {
@@ -80,13 +84,26 @@ class AapsStatusReceiver : BroadcastReceiver() {
                 val (_, displayState) = MobileCanonicalStateCoordinator.savePhoneInput(app, state, now)
                 app.recordMobileDiagnostic(
                     "PREDICTION",
-                    if (state.glucosePredictions.isEmpty() && displayState.glucosePredictions.isNotEmpty()) "PRED-CACHE-201" else "PRED-DATA-200",
-                    if (state.glucosePredictions.isEmpty() && displayState.glucosePredictions.isNotEmpty()) "Cached predictions retained after an empty AAPS update" else "AAPS state merged",
-                    metadata = mapOf(
-                        "incomingPredictions" to state.glucosePredictions.size,
-                        "displayPredictions" to displayState.glucosePredictions.size,
-                        "historyCount" to displayState.glucoseHistory.size,
-                    ),
+                    if (state.glucosePredictions.isEmpty() &&
+                        displayState.glucosePredictions.isNotEmpty()
+                    ) {
+                        "PRED-CACHE-201"
+                    } else {
+                        "PRED-DATA-200"
+                    },
+                    if (state.glucosePredictions.isEmpty() &&
+                        displayState.glucosePredictions.isNotEmpty()
+                    ) {
+                        "Cached predictions retained after an empty AAPS update"
+                    } else {
+                        "AAPS state merged"
+                    },
+                    metadata =
+                        mapOf(
+                            "incomingPredictions" to state.glucosePredictions.size,
+                            "displayPredictions" to displayState.glucosePredictions.size,
+                            "historyCount" to displayState.glucoseHistory.size,
+                        ),
                 )
 
                 val stateChanged = previous?.copy(receivedAtEpochMs = displayState.receivedAtEpochMs) != displayState
@@ -115,35 +132,43 @@ class AapsStatusReceiver : BroadcastReceiver() {
     }
 }
 
-suspend fun publishState(context: Context, state: TherapyDisplayState) {
+suspend fun publishState(
+    context: Context,
+    state: TherapyDisplayState,
+) {
     val payload = WearProtocol.encodeStateForTransport(state)
-    val request = PutDataRequest.create(WearProtocol.STATE_PATH)
-        .setData(payload)
-        .setUrgent()
+    val request =
+        PutDataRequest
+            .create(WearProtocol.STATE_PATH)
+            .setData(payload)
+            .setUrgent()
 
     // Keep the DataItem as the durable source of truth. It survives a temporarily disconnected
     // Watch and will synchronize when the Wear network becomes available again.
-    val immediatePushes = supervisorScope {
-        // DataClient durability and MessageClient latency are independent guarantees. Waiting for
-        // Play services to persist/synchronize the DataItem before even starting the message path
-        // created an avoidable head-of-line delay.
-        val durable = async { Wearable.getDataClient(context).putDataItem(request).await() }
-        val immediate = async {
-            withTimeoutOrNull(IMMEDIATE_WATCH_PUSH_TIMEOUT_MS) {
-                val nodeIds = runCatching { refreshReachableWatchNodeIds(context) }.getOrDefault(emptyList())
-                nodeIds.count { nodeId ->
-                    runCatching {
-                        Wearable.getMessageClient(context)
-                            .sendMessage(nodeId, WearProtocol.STATE_PATH, payload)
-                            .await()
-                    }.isSuccess
+    val immediatePushes =
+        supervisorScope {
+            // DataClient durability and MessageClient latency are independent guarantees. Waiting for
+            // Play services to persist/synchronize the DataItem before even starting the message path
+            // created an avoidable head-of-line delay.
+            val durable = async { Wearable.getDataClient(context).putDataItem(request).await() }
+            val immediate =
+                async {
+                    withTimeoutOrNull(IMMEDIATE_WATCH_PUSH_TIMEOUT_MS) {
+                        val nodeIds = runCatching { refreshReachableWatchNodeIds(context) }.getOrDefault(emptyList())
+                        nodeIds.count { nodeId ->
+                            runCatching {
+                                Wearable
+                                    .getMessageClient(context)
+                                    .sendMessage(nodeId, WearProtocol.STATE_PATH, payload)
+                                    .await()
+                            }.isSuccess
+                        }
+                    } ?: 0
                 }
-            } ?: 0
+            val count = immediate.await()
+            durable.await()
+            count
         }
-        val count = immediate.await()
-        durable.await()
-        count
-    }
 
     context.recordMobileDiagnostic(
         "SYNC",

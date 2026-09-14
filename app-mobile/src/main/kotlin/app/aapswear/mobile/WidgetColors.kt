@@ -3,8 +3,8 @@ package app.aapswear.mobile
 import android.content.Context
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
-import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.AppearanceTerminology
 
 internal enum class WidgetColorRole(
     val preferenceKey: String,
@@ -38,9 +38,16 @@ internal enum class WidgetColorRole(
     TREND_LOW("trend_low", "Trend Tief"),
 }
 
-internal data class WidgetPalette(private val values: Map<WidgetColorRole, Int>) {
+internal data class WidgetPalette(
+    private val values: Map<WidgetColorRole, Int>,
+) {
     fun argb(role: WidgetColorRole): Int = values.getValue(role)
-    fun with(role: WidgetColorRole, argb: Int): WidgetPalette = WidgetPalette(values + (role to argb))
+
+    fun with(
+        role: WidgetColorRole,
+        argb: Int,
+    ): WidgetPalette = WidgetPalette(values + (role to argb))
+
     fun with(overrides: Map<WidgetColorRole, Int>): WidgetPalette = WidgetPalette(values + overrides)
 }
 
@@ -48,12 +55,16 @@ internal object WidgetColorStore {
     private const val PREFERENCES = "dashboard_ui"
     private const val PREFIX = "widget.color.override."
 
-    fun load(context: Context): WidgetPalette = load(
-        context,
-        SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
-    )
+    fun load(context: Context): WidgetPalette =
+        load(
+            context,
+            SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
+        )
 
-    fun load(context: Context, mode: AppearanceMode): WidgetPalette {
+    fun load(
+        context: Context,
+        mode: AppearanceMode,
+    ): WidgetPalette {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
         val mobile = SugarliciousColorStore.load(preferences, mode)
@@ -64,55 +75,78 @@ internal object WidgetColorStore {
         )
     }
 
-    fun save(context: Context, role: WidgetColorRole, argb: Int) = save(
+    fun save(
+        context: Context,
+        role: WidgetColorRole,
+        argb: Int,
+    ) = save(
         context,
         SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
         role,
         argb,
     )
 
-    fun save(context: Context, mode: AppearanceMode, role: WidgetColorRole, argb: Int) {
+    fun save(
+        context: Context,
+        mode: AppearanceMode,
+        role: WidgetColorRole,
+        argb: Int,
+    ) {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
-        preferences.edit()
+        preferences
+            .edit()
             .putInt(key(mode, role), argb)
             .apply()
     }
 
-    fun reset(context: Context, role: WidgetColorRole) = reset(
+    fun reset(
+        context: Context,
+        role: WidgetColorRole,
+    ) = reset(
         context,
         SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
         role,
     )
 
-    fun reset(context: Context, mode: AppearanceMode, role: WidgetColorRole) {
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    fun reset(
+        context: Context,
+        mode: AppearanceMode,
+        role: WidgetColorRole,
+    ) {
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .remove(key(mode, role))
             .apply()
     }
 
     fun resetAll(context: Context) {
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
             .edit()
             .apply {
                 WidgetColorRole.entries.forEach { remove(key(it)) }
                 AppearanceMode.entries.forEach { mode -> WidgetColorRole.entries.forEach { remove(key(mode, it)) } }
-            }
-            .apply()
+            }.apply()
     }
 
     /** Takes a point-in-time copy. Later Mobile graph changes no longer mutate widget colors. */
-    fun copyFromMobileGraph(context: Context) = copyFromMobileGraph(
-        context,
-        SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
-    )
+    fun copyFromMobileGraph(context: Context) =
+        copyFromMobileGraph(
+            context,
+            SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
+        )
 
-    fun copyFromMobileGraph(context: Context, mode: AppearanceMode) {
+    fun copyFromMobileGraph(
+        context: Context,
+        mode: AppearanceMode,
+    ) {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
         val mobile = SugarliciousColorStore.load(preferences, mode)
-        preferences.edit()
+        preferences
+            .edit()
             .apply {
                 WidgetColorRole.entries.forEach { role ->
                     val sourceRole =
@@ -146,40 +180,54 @@ internal object WidgetColorStore {
                         }
                     putInt(key(mode, role), mobile.argb(sourceRole))
                 }
-            }
-            .apply()
+            }.apply()
     }
 
-    fun hasOverride(context: Context, role: WidgetColorRole): Boolean = hasOverride(
-        context,
-        SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
-        role,
-    )
+    fun hasOverride(
+        context: Context,
+        role: WidgetColorRole,
+    ): Boolean =
+        hasOverride(
+            context,
+            SugarliciousColorStore.activeMode(context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)),
+            role,
+        )
 
-    fun hasOverride(context: Context, mode: AppearanceMode, role: WidgetColorRole): Boolean =
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).contains(key(mode, role))
+    fun hasOverride(
+        context: Context,
+        mode: AppearanceMode,
+        role: WidgetColorRole,
+    ): Boolean = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).contains(key(mode, role))
 
     internal fun key(role: WidgetColorRole): String = PREFIX + role.preferenceKey
-    internal fun key(mode: AppearanceMode, role: WidgetColorRole): String =
-        "$PREFIX${mode.storageKey}.${role.preferenceKey}"
+
+    internal fun key(
+        mode: AppearanceMode,
+        role: WidgetColorRole,
+    ): String = "$PREFIX${mode.storageKey}.${role.preferenceKey}"
 
     private fun migrateLegacy(preferences: android.content.SharedPreferences) {
         if (preferences.getBoolean("widget.appearance.profiles.v1", false)) return
         if (WidgetColorRole.entries.none { preferences.contains(key(it)) }) return
-        preferences.edit().apply {
-            WidgetColorRole.entries.forEach { role ->
-                if (preferences.contains(key(role))) {
-                    val value = preferences.getInt(key(role), 0)
-                    AppearanceMode.entries.forEach { mode ->
-                        if (!preferences.contains(key(mode, role))) putInt(key(mode, role), value)
+        preferences
+            .edit()
+            .apply {
+                WidgetColorRole.entries.forEach { role ->
+                    if (preferences.contains(key(role))) {
+                        val value = preferences.getInt(key(role), 0)
+                        AppearanceMode.entries.forEach { mode ->
+                            if (!preferences.contains(key(mode, role))) putInt(key(mode, role), value)
+                        }
                     }
                 }
-            }
-            putBoolean("widget.appearance.profiles.v1", true)
-        }.apply()
+                putBoolean("widget.appearance.profiles.v1", true)
+            }.apply()
     }
 
-    private fun mobileDefault(role: WidgetColorRole, color: (SugarliciousColorRole) -> Int): Int =
+    private fun mobileDefault(
+        role: WidgetColorRole,
+        color: (SugarliciousColorRole) -> Int,
+    ): Int =
         color(
             when (role) {
                 WidgetColorRole.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
@@ -217,14 +265,20 @@ internal fun widgetGlucoseColorRole(
     lowMgDl: Double,
     highMgDl: Double,
 ): WidgetColorRole =
-    widgetGlucoseColorRole(valueMgDl, app.aapswear.model.CgmThresholds(
-        veryHighMgDl = maxOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
-        highMgDl = highMgDl,
-        lowMgDl = lowMgDl,
-        veryLowMgDl = minOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
-    ))
+    widgetGlucoseColorRole(
+        valueMgDl,
+        app.aapswear.model.CgmThresholds(
+            veryHighMgDl = maxOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_HIGH_MG_DL, highMgDl + 1.0),
+            highMgDl = highMgDl,
+            lowMgDl = lowMgDl,
+            veryLowMgDl = minOf(app.aapswear.model.CgmThresholds.DEFAULT_VERY_LOW_MG_DL, lowMgDl - 1.0),
+        ),
+    )
 
-internal fun widgetGlucoseColorRole(valueMgDl: Double, thresholds: app.aapswear.model.CgmThresholds): WidgetColorRole =
+internal fun widgetGlucoseColorRole(
+    valueMgDl: Double,
+    thresholds: app.aapswear.model.CgmThresholds,
+): WidgetColorRole =
     when (thresholds.classify(valueMgDl)) {
         app.aapswear.model.CgmRangeClass.VERY_LOW -> WidgetColorRole.URGENT_LOW
         app.aapswear.model.CgmRangeClass.LOW -> WidgetColorRole.LOW

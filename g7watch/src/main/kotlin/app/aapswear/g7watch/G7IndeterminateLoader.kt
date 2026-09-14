@@ -9,7 +9,9 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 
 /** A quiet, continuous Wear-safe indeterminate arc; animation stops with the UI surface. */
-internal class G7IndeterminateLoader(context: Context) : View(context) {
+internal class G7IndeterminateLoader(
+    context: Context,
+) : View(context) {
     var color: Int = 0xffffffff.toInt()
         set(value) {
             field = value
@@ -17,22 +19,24 @@ internal class G7IndeterminateLoader(context: Context) : View(context) {
             invalidate()
         }
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.STROKE
-        strokeCap = Paint.Cap.ROUND
-        strokeWidth = 5f * resources.displayMetrics.density
-    }
+    private val paint =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = 5f * resources.displayMetrics.density
+        }
     private val bounds = RectF()
     private var rotation = 0f
-    private val animator = ValueAnimator.ofFloat(0f, 360f).apply {
-        duration = 1_150L
-        repeatCount = ValueAnimator.INFINITE
-        interpolator = LinearInterpolator()
-        addUpdateListener {
-            rotation = it.animatedValue as Float
-            postInvalidateOnAnimation()
+    private val animator =
+        ValueAnimator.ofFloat(0f, 360f).apply {
+            duration = 1_150L
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = LinearInterpolator()
+            addUpdateListener {
+                rotation = it.animatedValue as Float
+                postInvalidateOnAnimation()
+            }
         }
-    }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
@@ -53,7 +57,12 @@ internal class G7IndeterminateLoader(context: Context) : View(context) {
         }
     }
 
-    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+    override fun onSizeChanged(
+        width: Int,
+        height: Int,
+        oldWidth: Int,
+        oldHeight: Int,
+    ) {
         super.onSizeChanged(width, height, oldWidth, oldHeight)
         val inset = paint.strokeWidth / 2f + resources.displayMetrics.density
         bounds.set(inset, inset, width - inset, height - inset)

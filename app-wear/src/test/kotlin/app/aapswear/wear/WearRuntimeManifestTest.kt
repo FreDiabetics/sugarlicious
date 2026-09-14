@@ -16,10 +16,11 @@ import org.robolectric.annotation.Config
 class WearRuntimeManifestTest {
     @Test fun `persistent runtime permissions and connected device type are declared`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val packageInfo = context.packageManager.getPackageInfo(
-            context.packageName,
-            PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES,
-        )
+        val packageInfo =
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES,
+            )
         val permissions = packageInfo.requestedPermissions.orEmpty().toSet()
 
         assertTrue("android.permission.POST_NOTIFICATIONS" in permissions)
@@ -29,10 +30,11 @@ class WearRuntimeManifestTest {
         assertTrue("android.permission.RECEIVE_BOOT_COMPLETED" in permissions)
         assertTrue("android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in permissions)
 
-        val service = context.packageManager.getServiceInfo(
-            ComponentName(context, StateDataLayerService::class.java),
-            0,
-        )
+        val service =
+            context.packageManager.getServiceInfo(
+                ComponentName(context, StateDataLayerService::class.java),
+                0,
+            )
         assertTrue(
             service.foregroundServiceType and ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE != 0,
         )
@@ -42,10 +44,11 @@ class WearRuntimeManifestTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
         listOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED).forEach { action ->
-            val matches = context.packageManager.queryBroadcastReceivers(
-                Intent(action).setPackage(context.packageName),
-                0,
-            )
+            val matches =
+                context.packageManager.queryBroadcastReceivers(
+                    Intent(action).setPackage(context.packageName),
+                    0,
+                )
             assertTrue(
                 matches.any { it.activityInfo.name == "app.aapswear.wear.WearRuntimeBootReceiver" },
             )

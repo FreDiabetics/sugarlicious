@@ -40,12 +40,13 @@ class G7ReliabilityPolicyTest {
 
     @Test
     fun `callback timeout phases remain diagnosable`() {
-        val codes = listOf(
-            G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
-            G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE,
-            G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE,
-            G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE,
-        )
+        val codes =
+            listOf(
+                G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
+                G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE,
+                G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE,
+                G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE,
+            )
         assertEquals(codes.size, codes.distinct().size)
         codes.forEach { code ->
             assertEquals(

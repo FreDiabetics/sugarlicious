@@ -41,7 +41,10 @@ internal fun releaseG7CollectorOwnership(context: Context) {
  * Prepares this watch to take over the receiver slot. The previous watch still has to release its
  * own bond locally; watches paired to different phones cannot modify each other's Bluetooth store.
  */
-internal fun moveG7SensorToThisWatch(context: Context, pairingCode: String): G7Sensor {
+internal fun moveG7SensorToThisWatch(
+    context: Context,
+    pairingCode: String,
+): G7Sensor {
     val payload = G7SetupPayload(pairingCode)
     unlinkG7Sensor(context)
     G7CredentialStore(context.applicationContext).saveSetup(payload)
@@ -84,7 +87,10 @@ internal fun unlinkG7Sensor(context: Context): G7UnlinkResult {
 }
 
 @SuppressLint("MissingPermission", "DiscouragedPrivateApi")
-private fun removeG7Bond(context: Context, address: String?): Boolean? {
+private fun removeG7Bond(
+    context: Context,
+    address: String?,
+): Boolean? {
     if (address.isNullOrBlank()) return null
     if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return false
     return runCatching {

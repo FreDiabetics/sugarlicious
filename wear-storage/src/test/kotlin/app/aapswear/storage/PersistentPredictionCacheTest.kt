@@ -17,9 +17,10 @@ class PersistentPredictionCacheTest {
 
     @Test
     fun `empty transient update retains persisted predictions`() {
-        val previous = state(
-            predictions = listOf(prediction(PredictionKind.IOB, now - minute, now + 90 * minute)),
-        )
+        val previous =
+            state(
+                predictions = listOf(prediction(PredictionKind.IOB, now - minute, now + 90 * minute)),
+            )
 
         val merged = PersistentPredictionCache.merge(previous, state(), now)
 
@@ -29,12 +30,14 @@ class PersistentPredictionCacheTest {
 
     @Test
     fun `new series replaces the same kind and keeps other cached kinds`() {
-        val previous = state(
-            predictions = listOf(
-                prediction(PredictionKind.IOB, now, now + 60 * minute),
-                prediction(PredictionKind.UAM, now, now + 45 * minute),
-            ),
-        )
+        val previous =
+            state(
+                predictions =
+                    listOf(
+                        prediction(PredictionKind.IOB, now, now + 60 * minute),
+                        prediction(PredictionKind.UAM, now, now + 45 * minute),
+                    ),
+            )
         val replacement = prediction(PredictionKind.IOB, now, now + 120 * minute)
 
         val merged =
@@ -51,9 +54,10 @@ class PersistentPredictionCacheTest {
     @Test
     fun `expired predictions are removed from persistent display state`() {
         val expiredEnd = now - PersistentPredictionCache.RETENTION_AFTER_LAST_SAMPLE_MS - 1L
-        val previous = state(
-            predictions = listOf(prediction(PredictionKind.IOB, expiredEnd - minute, expiredEnd)),
-        )
+        val previous =
+            state(
+                predictions = listOf(prediction(PredictionKind.IOB, expiredEnd - minute, expiredEnd)),
+            )
 
         val merged = PersistentPredictionCache.merge(previous, state(), now)
 
@@ -63,9 +67,10 @@ class PersistentPredictionCacheTest {
 
     @Test
     fun `valid source-attributed predictions survive a temporary glucose source change`() {
-        val previous = state(
-            predictions = listOf(prediction(PredictionKind.IOB, now, now + 60 * minute)),
-        )
+        val previous =
+            state(
+                predictions = listOf(prediction(PredictionKind.IOB, now, now + 60 * minute)),
+            )
         val xdrip = state(source = DataSourceId.XDRIP_PLUS)
 
         val merged = PersistentPredictionCache.merge(previous, xdrip, now)
@@ -77,29 +82,27 @@ class PersistentPredictionCacheTest {
     private fun state(
         source: DataSourceId = DataSourceId.ANDROID_APS,
         predictions: List<GlucosePrediction> = emptyList(),
-    ) =
-        TherapyDisplayState(
-            source = source,
-            receivedAtEpochMs = now,
-            glucosePredictions = predictions,
-            capabilities =
-                if (predictions.isEmpty()) {
-                    emptySet()
-                } else {
-                    setOf(DataCapability.PREDICTIONS)
-                },
-        )
+    ) = TherapyDisplayState(
+        source = source,
+        receivedAtEpochMs = now,
+        glucosePredictions = predictions,
+        capabilities =
+            if (predictions.isEmpty()) {
+                emptySet()
+            } else {
+                setOf(DataCapability.PREDICTIONS)
+            },
+    )
 
     private fun prediction(
         kind: PredictionKind,
         first: Long,
         last: Long,
-    ) =
-        GlucosePrediction(
-            kind,
-            listOf(
-                GlucoseSample(120.0, first),
-                GlucoseSample(130.0, last),
-            ),
-        )
+    ) = GlucosePrediction(
+        kind,
+        listOf(
+            GlucoseSample(120.0, first),
+            GlucoseSample(130.0, last),
+        ),
+    )
 }

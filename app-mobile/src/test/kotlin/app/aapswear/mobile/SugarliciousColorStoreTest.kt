@@ -27,12 +27,13 @@ class SugarliciousColorStoreTest {
         listOf("DARK", "LIGHT").forEachIndexed { modeIndex, mode ->
             preferences.edit().putString("themeMode", mode).commit()
             SugarliciousColorRole.entries.filter { it.configurable }.forEachIndexed { index, role ->
-                val argb = Color.argb(
-                    40 + (index * 13 + modeIndex * 7) % 216,
-                    20 + (index * 31) % 220,
-                    25 + (index * 47) % 215,
-                    30 + (index * 61) % 210,
-                )
+                val argb =
+                    Color.argb(
+                        40 + (index * 13 + modeIndex * 7) % 216,
+                        20 + (index * 31) % 220,
+                        25 + (index * 47) % 215,
+                        30 + (index * 61) % 210,
+                    )
                 SugarliciousColorStore.save(preferences, role, argb)
                 assertEquals("$mode ${role.name}", argb, SugarliciousColorStore.load(preferences).argb(role))
             }
@@ -43,7 +44,8 @@ class SugarliciousColorStoreTest {
     fun `target value picker is exposed without inheriting legacy target band preference`() {
         val preferences = context.getSharedPreferences("target_value_legacy_isolation", Context.MODE_PRIVATE)
         val legacyTargetBand = Color.rgb(6, 48, 18)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putString("themeMode", "DARK")
             .putInt("color.dark.target_band", legacyTargetBand)
@@ -61,7 +63,11 @@ class SugarliciousColorStoreTest {
     fun `default target follows an overridden in range hue and stays brighter`() {
         val preferences = context.getSharedPreferences("target_value_derived_hue", Context.MODE_PRIVATE)
         val inRange = Color.rgb(42, 92, 160)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_IN_RANGE, inRange)
 
         val target = SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.TARGET_VALUE)
@@ -76,7 +82,11 @@ class SugarliciousColorStoreTest {
     fun `explicit user colors are isolated between light and dark themes`() {
         val preferences = context.getSharedPreferences("theme_specific_user_override", Context.MODE_PRIVATE)
         val chosen = Color.argb(144, 7, 91, 203)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, chosen)
 
         assertEquals(chosen, SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.RANGE_HIGH))
@@ -111,7 +121,9 @@ class SugarliciousColorStoreTest {
     @Test
     fun `light graph and in range dots remain independently configurable`() {
         val preferences = context.getSharedPreferences("light_graph_contrast", Context.MODE_PRIVATE)
-        preferences.edit().clear()
+        preferences
+            .edit()
+            .clear()
             .putString("themeMode", "LIGHT")
             .putInt("color.light.graph_background", Color.rgb(32, 32, 32))
             .putInt("color.light.cgm_dot_in_range", Color.WHITE)
@@ -127,7 +139,11 @@ class SugarliciousColorStoreTest {
     @Test
     fun `explicit mode API edits preview profile without mutating runtime profile`() {
         val preferences = context.getSharedPreferences("explicit_preview_profile", Context.MODE_PRIVATE)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val light = Color.rgb(240, 230, 220)
         val dark = Color.rgb(12, 23, 34)
         SugarliciousColorStore.save(preferences, AppearanceMode.LIGHT, SugarliciousColorRole.BACKGROUND, light)
@@ -143,7 +159,8 @@ class SugarliciousColorStoreTest {
         val high = Color.rgb(181, 92, 7)
         val low = Color.rgb(182, 8, 63)
         val divider = Color.rgb(72, 81, 90)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putString("themeMode", "DARK")
             .putInt("color.dark.range_high", high)

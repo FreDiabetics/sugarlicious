@@ -10,16 +10,17 @@ import kotlin.test.assertTrue
 class CgmAlarmEngineTest {
     private val minute = 60_000L
     private val now = 2_000_000L
-    private val settings = CgmAlarmSettings(
-        veryHighThreshold = 250.0,
-        highThreshold = 180.0,
-        lowThreshold = 70.0,
-        veryLowThreshold = 40.0,
-        rapidRiseThreshold = 2.0,
-        rapidFallThreshold = 2.0,
-        signalLossMinutes = 16,
-        repeatIntervalMinutes = 15,
-    )
+    private val settings =
+        CgmAlarmSettings(
+            veryHighThreshold = 250.0,
+            highThreshold = 180.0,
+            lowThreshold = 70.0,
+            veryLowThreshold = 40.0,
+            rapidRiseThreshold = 2.0,
+            rapidFallThreshold = 2.0,
+            signalLossMinutes = 16,
+            repeatIntervalMinutes = 15,
+        )
 
     @Test
     fun `signal loss starts at sixteen minutes and not before or without a reference reading`() {
@@ -41,24 +42,26 @@ class CgmAlarmEngineTest {
 
     @Test
     fun `stale glucose activates only signal loss and not glucose or rate alarms`() {
-        val alarms = CgmAlarmEngine.evaluate(
-            reading(300.0, now - 16 * minute, rate = 3.0),
-            emptyMap(),
-            settings,
-            now,
-        )
+        val alarms =
+            CgmAlarmEngine.evaluate(
+                reading(300.0, now - 16 * minute, rate = 3.0),
+                emptyMap(),
+                settings,
+                now,
+            )
 
         assertEquals(CgmAlarmState.ACTIVE, state(alarms, CgmAlarmType.SIGNAL_LOSS))
         assertNull(state(alarms, CgmAlarmType.VERY_HIGH))
         assertNull(state(alarms, CgmAlarmType.HIGH))
         assertNull(state(alarms, CgmAlarmType.RAPID_RISE))
 
-        val staleSensorError = CgmAlarmEngine.evaluate(
-            reading(0.0, now - 16 * minute, status = CgmReadingStatus.SENSOR_ERROR),
-            emptyMap(),
-            settings,
-            now,
-        )
+        val staleSensorError =
+            CgmAlarmEngine.evaluate(
+                reading(0.0, now - 16 * minute, status = CgmReadingStatus.SENSOR_ERROR),
+                emptyMap(),
+                settings,
+                now,
+            )
         assertEquals(CgmAlarmState.ACTIVE, state(staleSensorError, CgmAlarmType.SIGNAL_LOSS))
         assertNull(state(staleSensorError, CgmAlarmType.SENSOR_ERROR))
     }
@@ -66,12 +69,13 @@ class CgmAlarmEngineTest {
     @Test
     fun `signal loss never resolves an already active high alarm`() {
         val activeHigh = CgmAlarmEngine.evaluate(reading(190.0), emptyMap(), settings, now)
-        val stale = CgmAlarmEngine.evaluate(
-            reading(190.0, now - 16 * minute),
-            activeHigh,
-            settings,
-            now,
-        )
+        val stale =
+            CgmAlarmEngine.evaluate(
+                reading(190.0, now - 16 * minute),
+                activeHigh,
+                settings,
+                now,
+            )
 
         assertEquals(CgmAlarmState.ACTIVE, state(stale, CgmAlarmType.HIGH))
         assertEquals(CgmAlarmState.ACTIVE, state(stale, CgmAlarmType.SIGNAL_LOSS))
@@ -108,12 +112,13 @@ class CgmAlarmEngineTest {
         assertEquals(CgmAlarmState.RESOLVED, state(falling, CgmAlarmType.RAPID_RISE))
         assertEquals(CgmAlarmState.ACTIVE, state(falling, CgmAlarmType.RAPID_FALL))
 
-        val sensorError = CgmAlarmEngine.evaluate(
-            reading(300.0, rate = 3.0, status = CgmReadingStatus.SENSOR_ERROR),
-            falling,
-            settings,
-            now,
-        )
+        val sensorError =
+            CgmAlarmEngine.evaluate(
+                reading(300.0, rate = 3.0, status = CgmReadingStatus.SENSOR_ERROR),
+                falling,
+                settings,
+                now,
+            )
         assertEquals(CgmAlarmState.ACTIVE, state(sensorError, CgmAlarmType.SENSOR_ERROR))
         assertNull(state(sensorError, CgmAlarmType.VERY_HIGH))
         assertEquals(CgmAlarmState.RESOLVED, state(sensorError, CgmAlarmType.RAPID_RISE))
@@ -122,28 +127,36 @@ class CgmAlarmEngineTest {
 
     @Test
     fun `acknowledge prevents duplicate activation until recovery and repeat honors interval`() {
-        val active = CgmAlarmEngine.evaluate(reading(65.0), emptyMap(), settings, now)
-            .getValue(CgmAlarmType.LOW)
+        val active =
+            CgmAlarmEngine
+                .evaluate(reading(65.0), emptyMap(), settings, now)
+                .getValue(CgmAlarmType.LOW)
         val acknowledged = CgmAlarmEngine.acknowledge(active, now + minute)
-        val stillLow = CgmAlarmEngine.evaluate(
-            reading(64.0, now + 5 * minute),
-            mapOf(CgmAlarmType.LOW to acknowledged),
-            settings,
-            now + 5 * minute,
-        )
+        val stillLow =
+            CgmAlarmEngine.evaluate(
+                reading(64.0, now + 5 * minute),
+                mapOf(CgmAlarmType.LOW to acknowledged),
+                settings,
+                now + 5 * minute,
+            )
         assertEquals(CgmAlarmState.ACKNOWLEDGED, state(stillLow, CgmAlarmType.LOW))
         assertFalse(CgmAlarmEngine.shouldRepeat(acknowledged, settings, now + 30 * minute))
 
         val recovered = CgmAlarmEngine.evaluate(reading(100.0), stillLow, settings, now + 10 * minute)
         assertEquals(CgmAlarmState.RESOLVED, state(recovered, CgmAlarmType.LOW))
-        val retriggered = CgmAlarmEngine.evaluate(reading(60.0), recovered, settings, now + 15 * minute)
-            .getValue(CgmAlarmType.LOW)
+        val retriggered =
+            CgmAlarmEngine
+                .evaluate(reading(60.0), recovered, settings, now + 15 * minute)
+                .getValue(CgmAlarmType.LOW)
         assertEquals(CgmAlarmState.ACTIVE, retriggered.state)
         assertFalse(CgmAlarmEngine.shouldRepeat(retriggered, settings, now + 29 * minute))
         assertTrue(CgmAlarmEngine.shouldRepeat(retriggered, settings, now + 30 * minute))
     }
 
-    private fun state(alarms: Map<CgmAlarmType, CgmAlarm>, type: CgmAlarmType) = alarms[type]?.state
+    private fun state(
+        alarms: Map<CgmAlarmType, CgmAlarm>,
+        type: CgmAlarmType,
+    ) = alarms[type]?.state
 
     private fun reading(
         glucose: Double,

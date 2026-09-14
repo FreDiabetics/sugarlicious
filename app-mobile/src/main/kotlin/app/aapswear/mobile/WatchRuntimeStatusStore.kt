@@ -10,14 +10,21 @@ internal object WatchRuntimeStatusStore {
     private const val IDS = "active_complications"
     private const val SENT = "sent_at"
 
-    fun save(context: Context, status: WatchRuntimeStatus) {
+    fun save(
+        context: Context,
+        status: WatchRuntimeStatus,
+    ) {
         val activeFaceIndex = status.activeSugarliciousFaceIndex
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
             .apply {
-                if (activeFaceIndex == null) remove(FACE)
-                else putInt(FACE, activeFaceIndex)
-            }
-            .putString(IDS, status.activeComplicationIds.joinToString(","))
+                if (activeFaceIndex == null) {
+                    remove(FACE)
+                } else {
+                    putInt(FACE, activeFaceIndex)
+                }
+            }.putString(IDS, status.activeComplicationIds.joinToString(","))
             .putLong(SENT, status.sentAtEpochMs)
             .apply()
     }
@@ -30,7 +37,13 @@ internal object WatchRuntimeStatusStore {
             } else {
                 null
             }
-        val ids = prefs.getString(IDS, "").orEmpty().split(',').mapNotNull(String::toIntOrNull).distinct()
+        val ids =
+            prefs
+                .getString(IDS, "")
+                .orEmpty()
+                .split(',')
+                .mapNotNull(String::toIntOrNull)
+                .distinct()
         return WatchRuntimeStatus(face, ids, prefs.getLong(SENT, 0L))
     }
 
@@ -38,7 +51,8 @@ internal object WatchRuntimeStatusStore {
         context: Context,
         listener: SharedPreferences.OnSharedPreferenceChangeListener,
     ) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .registerOnSharedPreferenceChangeListener(listener)
     }
 
@@ -46,7 +60,8 @@ internal object WatchRuntimeStatusStore {
         context: Context,
         listener: SharedPreferences.OnSharedPreferenceChangeListener,
     ) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .unregisterOnSharedPreferenceChangeListener(listener)
     }
 }

@@ -12,27 +12,30 @@ import org.junit.Test
 
 class G7RuntimeReconcilerTest {
     private val now = 23L * 60L * 60_000L + 41L * 60_000L
-    private val configuredState = G7PersistedState(
-        sensor = G7Sensor("sensor", "session", deviceAddress = "AA:BB:CC:DD:EE:FF"),
-        collectorEnabled = true,
-    )
+    private val configuredState =
+        G7PersistedState(
+            sensor = G7Sensor("sensor", "session", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+            collectorEnabled = true,
+        )
 
     @Test fun `276 minute outage state is stale and must be cleaned`() {
         val scanStarted = 18L * 60L * 60_000L + 20L * 60_000L
-        val state = configuredState.copy(
-            connectionState = G7ConnectionState.CONNECTING,
-            protocolState = G7ProtocolState.SCANNING,
-            activeAttemptId = 1_214L,
-            scanStartedAtEpochMs = scanStarted,
-            nextReconnectEpochMs = 19L * 60L * 60_000L + 15L * 60_000L,
-        )
-        val attempt = CollectorDiagnosticAttempt(
-            attemptId = 1_214L,
-            startedAtEpochMs = scanStarted,
-            lastProgressAtEpochMs = scanStarted,
-            currentStage = CollectorDiagnosticStage.SCANNING,
-            deadlineEpochMs = scanStarted + 3L * 60_000L,
-        )
+        val state =
+            configuredState.copy(
+                connectionState = G7ConnectionState.CONNECTING,
+                protocolState = G7ProtocolState.SCANNING,
+                activeAttemptId = 1_214L,
+                scanStartedAtEpochMs = scanStarted,
+                nextReconnectEpochMs = 19L * 60L * 60_000L + 15L * 60_000L,
+            )
+        val attempt =
+            CollectorDiagnosticAttempt(
+                attemptId = 1_214L,
+                startedAtEpochMs = scanStarted,
+                lastProgressAtEpochMs = scanStarted,
+                currentStage = CollectorDiagnosticStage.SCANNING,
+                deadlineEpochMs = scanStarted + 3L * 60_000L,
+            )
 
         val result = assessG7Runtime(state, attempt, null, false, true, now)
 
@@ -43,18 +46,20 @@ class G7RuntimeReconcilerTest {
 
     @Test fun `process death never treats persisted scan as live`() {
         val started = now - 30_000L
-        val attempt = CollectorDiagnosticAttempt(
-            attemptId = 4L,
-            startedAtEpochMs = started,
-            lastProgressAtEpochMs = started,
-            currentStage = CollectorDiagnosticStage.SCANNING,
-            deadlineEpochMs = now + 120_000L,
-        )
-        val state = configuredState.copy(
-            connectionState = G7ConnectionState.SCANNING,
-            protocolState = G7ProtocolState.SCANNING,
-            activeAttemptId = 4L,
-        )
+        val attempt =
+            CollectorDiagnosticAttempt(
+                attemptId = 4L,
+                startedAtEpochMs = started,
+                lastProgressAtEpochMs = started,
+                currentStage = CollectorDiagnosticStage.SCANNING,
+                deadlineEpochMs = now + 120_000L,
+            )
+        val state =
+            configuredState.copy(
+                connectionState = G7ConnectionState.SCANNING,
+                protocolState = G7ProtocolState.SCANNING,
+                activeAttemptId = 4L,
+            )
 
         val result = assessG7Runtime(state, attempt, now + 290_000L, false, true, now)
 
@@ -98,12 +103,13 @@ class G7RuntimeReconcilerTest {
     }
 
     @Test fun `valid live cycle still requires a future safety alarm`() {
-        val attempt = CollectorDiagnosticAttempt(
-            attemptId = 8L,
-            startedAtEpochMs = now - 10_000L,
-            lastProgressAtEpochMs = now - 1_000L,
-            deadlineEpochMs = now + 120_000L,
-        )
+        val attempt =
+            CollectorDiagnosticAttempt(
+                attemptId = 8L,
+                startedAtEpochMs = now - 10_000L,
+                lastProgressAtEpochMs = now - 1_000L,
+                deadlineEpochMs = now + 120_000L,
+            )
         assertEquals(
             G7RuntimeHealth.RECOVERY_INVARIANT_BROKEN,
             assessG7Runtime(configuredState.copy(activeAttemptId = 8L), attempt, null, true, true, now).health,

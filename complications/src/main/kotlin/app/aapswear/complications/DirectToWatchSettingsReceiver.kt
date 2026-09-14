@@ -12,11 +12,19 @@ class DirectToWatchSettingsReceiver : BroadcastReceiver() {
         if (intent?.action != DirectToWatchSettingsContract.ACTION_APPLY) return
         val values = intent.getBundleExtra(DirectToWatchSettingsContract.EXTRA_VALUES) ?: Bundle.EMPTY
         val preferences = context.getSharedPreferences(DirectToWatchPreferences.NAME, Context.MODE_PRIVATE)
-        preferences.edit().clear().apply {
-            values.keySet().forEach { key -> when (val value = values.get(key)) {
-                is Int -> putInt(key, value); is Float -> putFloat(key, value); is Boolean -> putBoolean(key, value); is String -> putString(key, value)
-            } }
-        }.commit()
+        preferences
+            .edit()
+            .clear()
+            .apply {
+                values.keySet().forEach { key ->
+                    when (val value = values.get(key)) {
+                        is Int -> putInt(key, value)
+                        is Float -> putFloat(key, value)
+                        is Boolean -> putBoolean(key, value)
+                        is String -> putString(key, value)
+                    }
+                }
+            }.commit()
         DirectToWatchPreferences.requestUpdates(context)
     }
 }

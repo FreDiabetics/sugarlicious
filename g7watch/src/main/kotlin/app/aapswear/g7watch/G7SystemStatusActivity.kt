@@ -16,13 +16,12 @@ import android.provider.Settings
 import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.EditText
 import android.widget.FrameLayout
-import android.widget.LinearLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -37,7 +36,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
-import java.util.Locale
 
 class G7SystemStatusActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -58,11 +56,12 @@ class G7SystemStatusActivity : Activity() {
         if (batteryRequestPending) {
             batteryRequestPending = false
             val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
-            Toast.makeText(
-                this,
-                if (unrestricted) "Dauerbetrieb ist uneingeschränkt" else "Akkuoptimierung ist weiterhin aktiv",
-                Toast.LENGTH_LONG,
-            ).show()
+            Toast
+                .makeText(
+                    this,
+                    if (unrestricted) "Dauerbetrieb ist uneingeschränkt" else "Akkuoptimierung ist weiterhin aktiv",
+                    Toast.LENGTH_LONG,
+                ).show()
             recordBackgroundDiagnostic(
                 if (unrestricted) "G7-BG-200" else "G7-BG-403",
                 if (unrestricted) "Battery optimization exemption granted" else "Battery optimization exemption not granted",
@@ -86,121 +85,213 @@ class G7SystemStatusActivity : Activity() {
         val cycle = attempt?.cycle ?: diagnostics.pendingScheduledCycle()
         val hardwareMetrics = G7ExpectedWindowLedger(this).metrics()
 
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 8.dp, 18.dp, 30.dp)
-            setBackgroundColor(background)
-            addView(g7SettingsHeader("Systemstatus", palette), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val content =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(18.dp, 8.dp, 18.dp, 30.dp)
+                setBackgroundColor(background)
+                addView(
+                    g7SettingsHeader("Systemstatus", palette),
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
 
-            addView(group("LIVE COLLECTOR STATUS", palette).apply {
-                val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
-                val livePhase = lastEvent?.stage?.name ?: userStatus.phase
-                addView(row("Collector", if (state.collectorEnabled) "Aktiv" else "Inaktiv", palette))
-                addView(row("Aktueller Zustand", livePhase, palette))
-                addView(row("Letzter gültiger Wert", state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${formatTimestamp(it.timestampEpochMs)}" } ?: "—", palette))
-                addView(row("Alter", state.lastReading?.let { formatDurationMs(System.currentTimeMillis() - it.timestampEpochMs) } ?: "—", palette))
-                addView(row("Nächster Sensorzyklus", formatTimestamp(cycle?.expectedReadingEpoch), palette))
-                addView(row("Nächster Wakeup", formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch), palette))
-                addView(row("Aktueller Attempt", state.activeAttemptId?.toString() ?: "—", palette))
-                addView(row("Verbindungsweg", liveCollectorPath(cycle, livePhase), palette))
-                addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
-                addView(row("Letzte Verbindung", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
-                addView(row("FGS", if (G7CollectorService.isServiceRunning()) "Aktiv" else "Nicht aktiv", palette))
-            }, cardParams())
+                addView(
+                    group("LIVE COLLECTOR STATUS", palette).apply {
+                        val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
+                        val livePhase = lastEvent?.stage?.name ?: userStatus.phase
+                        addView(row("Collector", if (state.collectorEnabled) "Aktiv" else "Inaktiv", palette))
+                        addView(row("Aktueller Zustand", livePhase, palette))
+                        addView(
+                            row(
+                                "Letzter gültiger Wert",
+                                state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${formatTimestamp(it.timestampEpochMs)}" } ?: "—",
+                                palette,
+                            ),
+                        )
+                        addView(
+                            row(
+                                "Alter",
+                                state.lastReading?.let { formatDurationMs(System.currentTimeMillis() - it.timestampEpochMs) } ?: "—",
+                                palette,
+                            ),
+                        )
+                        addView(row("Nächster Sensorzyklus", formatTimestamp(cycle?.expectedReadingEpoch), palette))
+                        addView(
+                            row("Nächster Wakeup", formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch), palette),
+                        )
+                        addView(row("Aktueller Attempt", state.activeAttemptId?.toString() ?: "—", palette))
+                        addView(row("Verbindungsweg", liveCollectorPath(cycle, livePhase), palette))
+                        addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
+                        addView(row("Letzte Verbindung", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
+                        addView(row("FGS", if (G7CollectorService.isServiceRunning()) "Aktiv" else "Nicht aktiv", palette))
+                    },
+                    cardParams(),
+                )
 
-            addView(group("SYSTEMSTATUS", palette).apply {
-                addView(label("SENSOR", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-                addView(row("Sensorstatus", state.sensor?.state?.name ?: "—", palette))
-                addView(row("Session", state.sensor?.sessionId ?: state.lastReading?.sessionId ?: "—", palette))
-                addView(row("Sensorcode", credentials?.pairingCode ?: "—", palette))
-                addView(row("GTIN", credentials?.gtin ?: "—", palette))
-                addView(row("Seriennummer", credentials?.sensorSerial ?: "—", palette))
-                addView(row("Letzter Wert", state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${formatTimestamp(it.timestampEpochMs)}" } ?: "—", palette))
-                addView(row("Sensoralter", state.lastReading?.sensorAgeSeconds?.let(::formatDurationSeconds) ?: "—", palette))
-                addView(row("Trendrate", state.lastReading?.trendRateMgDlPerMinute?.let { "%.1f mg/dL/min".format(it) } ?: "—", palette))
-                addView(row("Sensor-ID", state.sensor?.sensorId ?: state.lastReading?.sensorId ?: "—", palette))
-                addView(row("Sequenz", state.lastReading?.sequenceNumber?.toString() ?: "—", palette))
-                addView(row("BLE-Name", state.sensor?.deviceName ?: "—", palette))
-                addView(row("Sensorstart", formatTimestamp(state.sensor?.sensorStartEpochMs ?: state.lastReading?.sensorStartEpochMs), palette))
-                addView(row("Sensorende", formatTimestamp(state.sensor?.sensorEndEpochMs ?: state.lastReading?.sensorEndEpochMs), palette))
-                addView(row("Kulanzende", formatTimestamp(state.sensor?.graceEndEpochMs ?: state.lastReading?.graceEndEpochMs), palette))
-                addView(label("VERBINDUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-                addView(row("Zustand", userStatus.title, palette))
-                addView(row("Status", userStatus.status, palette))
-                addView(row("Verbindung", state.connectionState.name, palette))
-                addView(row("Collector", if (state.collectorEnabled) "Aktiviert" else "Gestoppt", palette))
-                addView(row("Phase", userStatus.phase, palette))
-                addView(row("Protokoll", state.protocolState.name, palette))
-                addView(row("Letzter Connect", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
-                addView(row("Bekannte Adresse", state.sensor?.deviceAddress ?: "Nicht vorhanden", palette))
-                addView(row("Reconnect-Strategie", G7ReconnectStrategyStore.read(this@G7SystemStatusActivity).name, palette))
-                addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
-                addView(row("Hinweis", userStatus.description, palette))
-                addView(row("Empfohlene Aktion", userStatus.action, palette))
-                addView(label("ZEITPLANUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-                addView(row("Nächster Wert", formatTimestamp(cycle?.expectedReadingEpoch), palette))
-                addView(row("Nächster Reconnect", formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch), palette))
-                addView(row("Alarm", cycle?.alarmKind?.name ?: "—", palette))
-                addView(row("Exact Alarm", if (canScheduleExactReconnects()) "Erlaubt" else "Nicht erlaubt", palette))
-                addView(row("Akkuoptimierung", if (G7BackgroundAccess.isBatteryUnrestricted(this@G7SystemStatusActivity)) "Uneingeschränkt" else "Optimiert", palette))
-                addView(row("Geräte in der Nähe", if (hasNearbyPermission()) "Erlaubt" else "Nicht erlaubt", palette))
-                addView(row("Benachrichtigungen", if (hasNotificationPermission()) "Erlaubt" else "Nicht erlaubt", palette))
-                addView(row("Retry", state.retryCount.toString(), palette))
-                addView(expandableHeader("HARDWARETEST", hardwareExpanded, palette) {
-                    hardwareExpanded = !hardwareExpanded
-                    render()
-                })
-                if (hardwareExpanded) {
-                    addCycleRows(this, cycle, palette)
-                    addView(row("Erwartete Fenster", hardwareMetrics.expectedWindows.toString(), palette))
-                    addView(row("Versuchte Fenster", hardwareMetrics.attemptedWindows.toString(), palette))
-                    addView(row("Erfolgreiche Fenster", hardwareMetrics.successfulWindows.toString(), palette))
-                    addView(row("Verpasste Fenster", hardwareMetrics.missedWindows.toString(), palette))
-                    addView(row("First Attempt", hardwareMetrics.firstAttemptSuccess.toString(), palette))
-                    addView(row("Retry-Erfolg", hardwareMetrics.retrySuccess.toString(), palette))
-                    addView(row("GATT 133", hardwareMetrics.gatt133Count.toString(), palette))
-                    addView(row("No Callback", hardwareMetrics.noCallbackCount.toString(), palette))
-                    addView(row("Fallback Scans", hardwareMetrics.fallbackScanCount.toString(), palette))
-                    addView(row("Verfügbarkeit", "%.1f %%".format(hardwareMetrics.availabilityPercent), palette))
-                    addView(row("Längste Wertelücke", hardwareMetrics.longestReadingGapMs?.let(::formatDurationMs) ?: "—", palette))
-                    addView(row("Median Empfang", hardwareMetrics.medianReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
-                    addView(row("p95 Empfang", hardwareMetrics.p95ReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
-                }
+                addView(
+                    group("SYSTEMSTATUS", palette).apply {
+                        addView(label("SENSOR", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                        addView(row("Sensorstatus", state.sensor?.state?.name ?: "—", palette))
+                        addView(row("Session", state.sensor?.sessionId ?: state.lastReading?.sessionId ?: "—", palette))
+                        addView(row("Sensorcode", credentials?.pairingCode ?: "—", palette))
+                        addView(row("GTIN", credentials?.gtin ?: "—", palette))
+                        addView(row("Seriennummer", credentials?.sensorSerial ?: "—", palette))
+                        addView(
+                            row(
+                                "Letzter Wert",
+                                state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${formatTimestamp(it.timestampEpochMs)}" } ?: "—",
+                                palette,
+                            ),
+                        )
+                        addView(row("Sensoralter", state.lastReading?.sensorAgeSeconds?.let(::formatDurationSeconds) ?: "—", palette))
+                        addView(
+                            row(
+                                "Trendrate",
+                                state.lastReading?.trendRateMgDlPerMinute?.let { "%.1f mg/dL/min".format(it) } ?: "—",
+                                palette,
+                            ),
+                        )
+                        addView(row("Sensor-ID", state.sensor?.sensorId ?: state.lastReading?.sensorId ?: "—", palette))
+                        addView(row("Sequenz", state.lastReading?.sequenceNumber?.toString() ?: "—", palette))
+                        addView(row("BLE-Name", state.sensor?.deviceName ?: "—", palette))
+                        addView(
+                            row(
+                                "Sensorstart",
+                                formatTimestamp(state.sensor?.sensorStartEpochMs ?: state.lastReading?.sensorStartEpochMs),
+                                palette,
+                            ),
+                        )
+                        addView(
+                            row(
+                                "Sensorende",
+                                formatTimestamp(state.sensor?.sensorEndEpochMs ?: state.lastReading?.sensorEndEpochMs),
+                                palette,
+                            ),
+                        )
+                        addView(
+                            row(
+                                "Kulanzende",
+                                formatTimestamp(state.sensor?.graceEndEpochMs ?: state.lastReading?.graceEndEpochMs),
+                                palette,
+                            ),
+                        )
+                        addView(label("VERBINDUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                        addView(row("Zustand", userStatus.title, palette))
+                        addView(row("Status", userStatus.status, palette))
+                        addView(row("Verbindung", state.connectionState.name, palette))
+                        addView(row("Collector", if (state.collectorEnabled) "Aktiviert" else "Gestoppt", palette))
+                        addView(row("Phase", userStatus.phase, palette))
+                        addView(row("Protokoll", state.protocolState.name, palette))
+                        addView(row("Letzter Connect", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
+                        addView(row("Bekannte Adresse", state.sensor?.deviceAddress ?: "Nicht vorhanden", palette))
+                        addView(row("Reconnect-Strategie", G7ReconnectStrategyStore.read(this@G7SystemStatusActivity).name, palette))
+                        addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
+                        addView(row("Hinweis", userStatus.description, palette))
+                        addView(row("Empfohlene Aktion", userStatus.action, palette))
+                        addView(label("ZEITPLANUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                        addView(row("Nächster Wert", formatTimestamp(cycle?.expectedReadingEpoch), palette))
+                        addView(
+                            row(
+                                "Nächster Reconnect",
+                                formatTimestamp(state.nextReconnectEpochMs ?: cycle?.requestedReconnectEpoch),
+                                palette,
+                            ),
+                        )
+                        addView(row("Alarm", cycle?.alarmKind?.name ?: "—", palette))
+                        addView(row("Exact Alarm", if (canScheduleExactReconnects()) "Erlaubt" else "Nicht erlaubt", palette))
+                        addView(
+                            row(
+                                "Akkuoptimierung",
+                                if (G7BackgroundAccess.isBatteryUnrestricted(
+                                        this@G7SystemStatusActivity,
+                                    )
+                                ) {
+                                    "Uneingeschränkt"
+                                } else {
+                                    "Optimiert"
+                                },
+                                palette,
+                            ),
+                        )
+                        addView(row("Geräte in der Nähe", if (hasNearbyPermission()) "Erlaubt" else "Nicht erlaubt", palette))
+                        addView(row("Benachrichtigungen", if (hasNotificationPermission()) "Erlaubt" else "Nicht erlaubt", palette))
+                        addView(row("Retry", state.retryCount.toString(), palette))
+                        addView(
+                            expandableHeader("HARDWARETEST", hardwareExpanded, palette) {
+                                hardwareExpanded = !hardwareExpanded
+                                render()
+                            },
+                        )
+                        if (hardwareExpanded) {
+                            addCycleRows(this, cycle, palette)
+                            addView(row("Erwartete Fenster", hardwareMetrics.expectedWindows.toString(), palette))
+                            addView(row("Versuchte Fenster", hardwareMetrics.attemptedWindows.toString(), palette))
+                            addView(row("Erfolgreiche Fenster", hardwareMetrics.successfulWindows.toString(), palette))
+                            addView(row("Verpasste Fenster", hardwareMetrics.missedWindows.toString(), palette))
+                            addView(row("First Attempt", hardwareMetrics.firstAttemptSuccess.toString(), palette))
+                            addView(row("Retry-Erfolg", hardwareMetrics.retrySuccess.toString(), palette))
+                            addView(row("GATT 133", hardwareMetrics.gatt133Count.toString(), palette))
+                            addView(row("No Callback", hardwareMetrics.noCallbackCount.toString(), palette))
+                            addView(row("Fallback Scans", hardwareMetrics.fallbackScanCount.toString(), palette))
+                            addView(row("Verfügbarkeit", "%.1f %%".format(hardwareMetrics.availabilityPercent), palette))
+                            addView(row("Längste Wertelücke", hardwareMetrics.longestReadingGapMs?.let(::formatDurationMs) ?: "—", palette))
+                            addView(row("Median Empfang", hardwareMetrics.medianReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                            addView(row("p95 Empfang", hardwareMetrics.p95ReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
+                        }
 
-                addView(expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
-                    diagnosticsExpanded = !diagnosticsExpanded
-                    render()
-                })
-                if (diagnosticsExpanded) {
-                    val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
-                    addView(row("Aktiver Attempt", state.activeAttemptId?.toString() ?: "—", palette))
-                    addView(row("Attempt-Alter", attempt?.takeIf { it.completedAtEpochMs == null }?.let { formatDurationMs(System.currentTimeMillis() - it.startedAtEpochMs) } ?: "—", palette))
-                    addView(row("Letztes Ergebnis", attempt?.result?.name ?: "—", palette))
-                    addView(row("Klassifikation", attempt?.classification?.name ?: "—", palette))
-                    addView(row("Letzte Stufe", lastEvent?.stage?.name ?: "—", palette))
-                    addView(row("Fehlercode", lastEvent?.errorCode ?: state.lastError?.code ?: "—", palette))
-                    addView(row("Letzte Meldung", lastEvent?.message ?: userStatus.description, palette))
-                    addView(row("Slot-Strategie", cycle?.slotStrategy?.name ?: "—", palette))
-                    addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
-                    addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
-                }
+                        addView(
+                            expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
+                                diagnosticsExpanded = !diagnosticsExpanded
+                                render()
+                            },
+                        )
+                        if (diagnosticsExpanded) {
+                            val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
+                            addView(row("Aktiver Attempt", state.activeAttemptId?.toString() ?: "—", palette))
+                            addView(
+                                row(
+                                    "Attempt-Alter",
+                                    attempt?.takeIf { it.completedAtEpochMs == null }?.let {
+                                        formatDurationMs(
+                                            System.currentTimeMillis() - it.startedAtEpochMs,
+                                        )
+                                    }
+                                        ?: "—",
+                                    palette,
+                                ),
+                            )
+                            addView(row("Letztes Ergebnis", attempt?.result?.name ?: "—", palette))
+                            addView(row("Klassifikation", attempt?.classification?.name ?: "—", palette))
+                            addView(row("Letzte Stufe", lastEvent?.stage?.name ?: "—", palette))
+                            addView(row("Fehlercode", lastEvent?.errorCode ?: state.lastError?.code ?: "—", palette))
+                            addView(row("Letzte Meldung", lastEvent?.message ?: userStatus.description, palette))
+                            addView(row("Slot-Strategie", cycle?.slotStrategy?.name ?: "—", palette))
+                            addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
+                            addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
+                        }
 
-                addView(label("AKTIONEN", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-                addActionRows(this, state, palette)
-            }, cardParams())
+                        addView(label("AKTIONEN", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                        addActionRows(this, state, palette)
+                    },
+                    cardParams(),
+                )
 
-            addView(label(
-                "Nur einen direkten Sensor-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
-                9f,
-                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-            ).apply { setPadding(8.dp, 12.dp, 8.dp, 0) })
-            addView(label(
-                "Der Collector verbindet sich nur im erwarteten Sensorfenster und beendet die Verbindung danach wieder.",
-                9f,
-                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-            ).apply { setPadding(8.dp, 6.dp, 8.dp, 0) })
-        }
+                addView(
+                    label(
+                        "Nur einen direkten Sensor-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
+                        9f,
+                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    ).apply { setPadding(8.dp, 12.dp, 8.dp, 0) },
+                )
+                addView(
+                    label(
+                        "Der Collector verbindet sich nur im erwarteten Sensorfenster und beendet die Verbindung danach wieder.",
+                        9f,
+                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    ).apply { setPadding(8.dp, 6.dp, 8.dp, 0) },
+                )
+            }
 
         val currentScroll = scrollView
         if (currentScroll == null) {
@@ -212,36 +303,50 @@ class G7SystemStatusActivity : Activity() {
         scrollView?.apply {
             setBackgroundColor(background)
             addView(content)
-            viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    viewTreeObserver.removeOnPreDrawListener(this)
-                    val maxScroll = (content.measuredHeight - height).coerceAtLeast(0)
-                    scrollTo(0, oldScrollY.coerceAtMost(maxScroll))
-                    return true
-                }
-            })
+            viewTreeObserver.addOnPreDrawListener(
+                object : ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        viewTreeObserver.removeOnPreDrawListener(this)
+                        val maxScroll = (content.measuredHeight - height).coerceAtLeast(0)
+                        scrollTo(0, oldScrollY.coerceAtMost(maxScroll))
+                        return true
+                    }
+                },
+            )
         }
     }
 
-    private fun liveCollectorPath(cycle: CollectorCycleTiming?, phase: String): String = when {
-        cycle?.authStartedAt != null && cycle.authSucceededAt == null -> "Auth"
-        cycle?.gattConnectedAt != null -> "GATT"
-        cycle?.scanEndedAt == null && cycle?.directConnectResult?.name?.contains("FAILED") == true -> "Scan"
-        cycle?.directConnectAttempts?.let { it > 1 } == true -> "Retry"
-        cycle?.connectGattStartedAt != null -> "Direct Connect"
-        phase.isNotBlank() -> phase
-        else -> "Waiting"
-    }
-
-    private fun expandableHeader(title: String, expanded: Boolean, palette: G7AppearancePalette, action: () -> Unit) =
-        label("${if (expanded) "▾" else "▸"}  $title", 10.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-            gravity = Gravity.START or Gravity.CENTER_VERTICAL
-            minHeight = 44.dp
-            setOnClickListener { action() }
-            contentDescription = "$title ${if (expanded) "einklappen" else "ausklappen"}"
+    private fun liveCollectorPath(
+        cycle: CollectorCycleTiming?,
+        phase: String,
+    ): String =
+        when {
+            cycle?.authStartedAt != null && cycle.authSucceededAt == null -> "Auth"
+            cycle?.gattConnectedAt != null -> "GATT"
+            cycle?.scanEndedAt == null && cycle?.directConnectResult?.name?.contains("FAILED") == true -> "Scan"
+            cycle?.directConnectAttempts?.let { it > 1 } == true -> "Retry"
+            cycle?.connectGattStartedAt != null -> "Direct Connect"
+            phase.isNotBlank() -> phase
+            else -> "Waiting"
         }
 
-    private fun addCycleRows(target: LinearLayout, cycle: CollectorCycleTiming?, palette: G7AppearancePalette) {
+    private fun expandableHeader(
+        title: String,
+        expanded: Boolean,
+        palette: G7AppearancePalette,
+        action: () -> Unit,
+    ) = label("${if (expanded) "▾" else "▸"}  $title", 10.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+        gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        minHeight = 44.dp
+        setOnClickListener { action() }
+        contentDescription = "$title ${if (expanded) "einklappen" else "ausklappen"}"
+    }
+
+    private fun addCycleRows(
+        target: LinearLayout,
+        cycle: CollectorCycleTiming?,
+        palette: G7AppearancePalette,
+    ) {
         target.addView(row("Letzter Versuch", formatTimestamp(cycle?.receiverReceivedAt ?: cycle?.serviceOnStartCommandAt), palette))
         target.addView(row("Advertisement", formatTimestamp(cycle?.advertisementFoundAt), palette))
         target.addView(row("RSSI", cycle?.advertisementRssi?.let { "$it dBm" } ?: "—", palette))
@@ -253,7 +358,9 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Direct-Status", cycle?.directConnectStatus?.toString() ?: "—", palette))
         target.addView(row("Scan beendet", formatTimestamp(cycle?.scanEndedAt), palette))
         target.addView(row("Scan-Ergebnisse", cycle?.scanTotalResults?.toString() ?: "—", palette))
-        target.addView(row("G7 / bekannte Adresse", "${cycle?.scanNamedG7Results ?: "—"} / ${cycle?.scanExactAddressResults ?: "—"}", palette))
+        target.addView(
+            row("G7 / bekannte Adresse", "${cycle?.scanNamedG7Results ?: "—"} / ${cycle?.scanExactAddressResults ?: "—"}", palette),
+        )
         target.addView(row("Scan-RSSI", cycle?.scanMinRssi?.let { "$it..${cycle.scanMaxRssi ?: it} dBm" } ?: "—", palette))
         target.addView(row("GATT verbunden", formatTimestamp(cycle?.gattConnectedAt), palette))
         target.addView(row("Auth Start", formatTimestamp(cycle?.authStartedAt), palette))
@@ -262,89 +369,157 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Zyklusende", formatTimestamp(cycle?.cycleEndedAt), palette))
     }
 
-    private fun addActionRows(target: LinearLayout, state: G7PersistedState, palette: G7AppearancePalette) {
+    private fun addActionRows(
+        target: LinearLayout,
+        state: G7PersistedState,
+        palette: G7AppearancePalette,
+    ) {
         val nearbyAllowed = hasNearbyPermission()
         val notificationsAllowed = hasNotificationPermission()
-        if (!nearbyAllowed || !notificationsAllowed) target.addView(pill("Berechtigungen freigeben", palette) { requestMissingPermissions() }, buttonParams())
-        if (!G7BackgroundAccess.isBatteryUnrestricted(this)) target.addView(pill("Dauerbetrieb freigeben", palette) { requestBatteryExemption() }, buttonParams())
-        if (!canScheduleExactReconnects()) target.addView(pill("Präzise Sensor-Abfragen freigeben", palette) { requestExactAlarmAccess() }, buttonParams())
-        target.addView(pill(if (state.sensor == null) "Sensor einrichten" else "Sensor neu koppeln", palette) {
-            showPairingEditor = !showPairingEditor
-            render()
-        }, buttonParams())
+        if (!nearbyAllowed ||
+            !notificationsAllowed
+        ) {
+            target.addView(pill("Berechtigungen freigeben", palette) { requestMissingPermissions() }, buttonParams())
+        }
+        if (!G7BackgroundAccess.isBatteryUnrestricted(this)) {
+            target.addView(
+                pill("Dauerbetrieb freigeben", palette) {
+                    requestBatteryExemption()
+                },
+                buttonParams(),
+            )
+        }
+        if (!canScheduleExactReconnects()) {
+            target.addView(
+                pill("Präzise Sensor-Abfragen freigeben", palette) {
+                    requestExactAlarmAccess()
+                },
+                buttonParams(),
+            )
+        }
+        target.addView(
+            pill(if (state.sensor == null) "Sensor einrichten" else "Sensor neu koppeln", palette) {
+                showPairingEditor = !showPairingEditor
+                render()
+            },
+            buttonParams(),
+        )
         if (showPairingEditor || state.sensor == null) target.addView(pairingEditor(palette), buttonParams())
-        target.addView(pill(if (state.collectorEnabled) "Collector stoppen" else "Collector starten", palette, danger = state.collectorEnabled) {
-            if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
-            Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
-        }, buttonParams())
+        target.addView(
+            pill(if (state.collectorEnabled) "Collector stoppen" else "Collector starten", palette, danger = state.collectorEnabled) {
+                if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
+                Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
+            },
+            buttonParams(),
+        )
         if (state.sensor != null) {
-            target.addView(pill("Sensor für andere Uhr freigeben", palette, danger = true) {
-                showReleaseSensorDialog(palette)
-            }, buttonParams())
+            target.addView(
+                pill("Sensor für andere Uhr freigeben", palette, danger = true) {
+                    showReleaseSensorDialog(palette)
+                },
+                buttonParams(),
+            )
         }
     }
 
     private fun showReleaseSensorDialog(palette: G7AppearancePalette) {
         val dialog = android.app.Dialog(this)
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(22.dp, 12.dp, 22.dp, 28.dp)
-            setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
-            addView(LinearLayout(this@G7SystemStatusActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = 52.dp
-                addView(label("‹", 30f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply {
-                    contentDescription = "Zurück"
-                    setOnClickListener { dialog.dismiss() }
-                }, LinearLayout.LayoutParams(48.dp, 48.dp))
-                addView(label("Sensor freigeben", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(8.dp, 0, 0, 0)
-                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(LinearLayout(this@G7SystemStatusActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER
-                addView(ImageView(this@G7SystemStatusActivity).apply {
-                    setImageResource(R.drawable.ic_sensor_outline)
-                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                    contentDescription = "Sensor"
-                }, LinearLayout.LayoutParams(52.dp, 52.dp))
-                addView(label("→", 24f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true), LinearLayout.LayoutParams(54.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
-                addView(ImageView(this@G7SystemStatusActivity).apply {
-                    setImageResource(R.drawable.ic_watch_device)
-                    setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                    contentDescription = "Andere Smartwatch"
-                }, LinearLayout.LayoutParams(52.dp, 52.dp))
-            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 16.dp })
-            addView(label("Sensor auf eine andere Uhr umziehen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                gravity = Gravity.CENTER
-                setPadding(4.dp, 18.dp, 4.dp, 6.dp)
-            })
-            addView(label(
-                "SugarWear beendet auf dieser Uhr die direkte Verbindung und entfernt den lokalen Sensor-Bond. Messhistorie und Einstellungen bleiben erhalten.",
-                11f,
-                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-            ).apply { gravity = Gravity.CENTER })
-            addView(pill("Für andere Uhr freigeben", palette, danger = true) {
-                val result = unlinkG7Sensor(this@G7SystemStatusActivity)
-                dialog.dismiss()
-                Toast.makeText(
-                    this@G7SystemStatusActivity,
-                    if (result.bondRemovalRequested) "Sensor ist für eine andere Uhr freigegeben" else "Lokale Verbindung entfernt – Bluetooth-Bond bitte prüfen",
-                    Toast.LENGTH_LONG,
-                ).show()
-                render()
-            }, buttonParams().apply { topMargin = 18.dp })
-            addView(pill("Abbrechen", palette) { dialog.dismiss() }, buttonParams())
-        }
-        dialog.setContentView(G7EdgeFadeScrollView(this).apply {
-            isFillViewport = true
-            setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
-            addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        }.applyG7EdgeFade())
+        val content =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(22.dp, 12.dp, 22.dp, 28.dp)
+                setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+                addView(
+                    LinearLayout(this@G7SystemStatusActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        minimumHeight = 52.dp
+                        addView(
+                            label("‹", 30f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply {
+                                contentDescription = "Zurück"
+                                setOnClickListener { dialog.dismiss() }
+                            },
+                            LinearLayout.LayoutParams(48.dp, 48.dp),
+                        )
+                        addView(
+                            label("Sensor freigeben", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                                gravity = Gravity.CENTER_VERTICAL
+                                setPadding(8.dp, 0, 0, 0)
+                            },
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                        )
+                    },
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                )
+                addView(
+                    LinearLayout(this@G7SystemStatusActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER
+                        addView(
+                            ImageView(this@G7SystemStatusActivity).apply {
+                                setImageResource(R.drawable.ic_sensor_outline)
+                                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                                contentDescription = "Sensor"
+                            },
+                            LinearLayout.LayoutParams(52.dp, 52.dp),
+                        )
+                        addView(
+                            label("→", 24f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true),
+                            LinearLayout.LayoutParams(54.dp, ViewGroup.LayoutParams.WRAP_CONTENT),
+                        )
+                        addView(
+                            ImageView(this@G7SystemStatusActivity).apply {
+                                setImageResource(R.drawable.ic_watch_device)
+                                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                                contentDescription = "Andere Smartwatch"
+                            },
+                            LinearLayout.LayoutParams(52.dp, 52.dp),
+                        )
+                    },
+                    LinearLayout
+                        .LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = 16.dp },
+                )
+                addView(
+                    label("Sensor auf eine andere Uhr umziehen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                        gravity = Gravity.CENTER
+                        setPadding(4.dp, 18.dp, 4.dp, 6.dp)
+                    },
+                )
+                addView(
+                    label(
+                        "SugarWear beendet auf dieser Uhr die direkte Verbindung und entfernt den lokalen Sensor-Bond. Messhistorie und Einstellungen bleiben erhalten.",
+                        11f,
+                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    ).apply { gravity = Gravity.CENTER },
+                )
+                addView(
+                    pill("Für andere Uhr freigeben", palette, danger = true) {
+                        val result = unlinkG7Sensor(this@G7SystemStatusActivity)
+                        dialog.dismiss()
+                        Toast
+                            .makeText(
+                                this@G7SystemStatusActivity,
+                                if (result.bondRemovalRequested) "Sensor ist für eine andere Uhr freigegeben" else "Lokale Verbindung entfernt – Bluetooth-Bond bitte prüfen",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        render()
+                    },
+                    buttonParams().apply { topMargin = 18.dp },
+                )
+                addView(pill("Abbrechen", palette) { dialog.dismiss() }, buttonParams())
+            }
+        dialog.setContentView(
+            G7EdgeFadeScrollView(this)
+                .apply {
+                    isFillViewport = true
+                    setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+                    addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                }.applyG7EdgeFade(),
+        )
         dialog.setCancelable(true)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
@@ -355,58 +530,84 @@ class G7SystemStatusActivity : Activity() {
         checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
-    private fun hasNotificationPermission(): Boolean =
-        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    private fun hasNotificationPermission(): Boolean = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private fun pairingEditor(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(9.dp, 9.dp, 9.dp, 9.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_BACKGROUND), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
-        val input = EditText(this@G7SystemStatusActivity).apply {
-            hint = "0000"
-            inputType = InputType.TYPE_CLASS_NUMBER
-            filters = arrayOf(InputFilter.LengthFilter(4))
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-            setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
-            textSize = 19f
-            gravity = Gravity.CENTER
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
+    private fun pairingEditor(palette: G7AppearancePalette) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(9.dp, 9.dp, 9.dp, 9.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_BACKGROUND), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
+            val input =
+                EditText(this@G7SystemStatusActivity).apply {
+                    hint = "0000"
+                    inputType = InputType.TYPE_CLASS_NUMBER
+                    filters = arrayOf(InputFilter.LengthFilter(4))
+                    setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                    setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+                    textSize = 19f
+                    gravity = Gravity.CENTER
+                    background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
+                }
+            addView(label("Vierstelliger Code vom Sensor-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+            addView(input, buttonParams())
+            addView(
+                pill("Sensorcode speichern", palette) {
+                    val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()
+                    if (payload == null) {
+                        input.error = "4 Ziffern erforderlich"
+                        return@pill
+                    }
+                    moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode)
+                    showPairingEditor = false
+                    render()
+                },
+                buttonParams(),
+            )
         }
-        addView(label("Vierstelliger Code vom Sensor-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
-        addView(input, buttonParams())
-        addView(pill("Sensorcode speichern", palette) {
-            val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()
-            if (payload == null) {
-                input.error = "4 Ziffern erforderlich"
-                return@pill
-            }
-            moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode)
-            showPairingEditor = false
-            render()
-        }, buttonParams())
-    }
 
-    private fun group(title: String, palette: G7AppearancePalette) = LinearLayout(this).apply {
+    private fun group(
+        title: String,
+        palette: G7AppearancePalette,
+    ) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(14.dp, 12.dp, 14.dp, 12.dp)
         background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 22f)
-        addView(label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-            gravity = Gravity.START
-            letterSpacing = 0.10f
-        })
+        addView(
+            label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+                gravity = Gravity.START
+                letterSpacing = 0.10f
+            },
+        )
     }
 
-    private fun row(title: String, value: String, palette: G7AppearancePalette) = LinearLayout(this).apply {
+    private fun row(
+        title: String,
+        value: String,
+        palette: G7AppearancePalette,
+    ) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        addView(label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { gravity = Gravity.START }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-        addView(label(value, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-            gravity = Gravity.END
-            maxLines = 4
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.25f))
+        addView(
+            label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
+                gravity = Gravity.START
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
+        addView(
+            label(value, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                gravity = Gravity.END
+                maxLines = 4
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.25f),
+        )
     }
 
-    private fun pill(text: String, palette: G7AppearancePalette, danger: Boolean = false, action: () -> Unit) = TextView(this).apply {
+    private fun pill(
+        text: String,
+        palette: G7AppearancePalette,
+        danger: Boolean = false,
+        action: () -> Unit,
+    ) = TextView(this).apply {
         this.text = text
         textSize = 11f
         gravity = Gravity.CENTER
@@ -415,15 +616,21 @@ class G7SystemStatusActivity : Activity() {
         setTypeface(typeface, Typeface.BOLD)
         val color = if (danger) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
         setTextColor(color)
-        background = rounded(
-            if (danger) withAlpha(color, 36) else palette.argb(G7AppearanceRole.MENU_SURFACE),
-            if (danger) color else palette.argb(G7AppearanceRole.MENU_BORDER),
-            999f,
-        )
+        background =
+            rounded(
+                if (danger) withAlpha(color, 36) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                if (danger) color else palette.argb(G7AppearanceRole.MENU_BORDER),
+                999f,
+            )
         setOnClickListener { action() }
     }
 
-    private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+    private fun label(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false,
+    ) = TextView(this).apply {
         text = value
         textSize = size
         setTextColor(color)
@@ -432,7 +639,11 @@ class G7SystemStatusActivity : Activity() {
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun rounded(fill: Int, stroke: Int, radiusDp: Float) = GradientDrawable().apply {
+    private fun rounded(
+        fill: Int,
+        stroke: Int,
+        radiusDp: Float,
+    ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
         setStroke(1.dp, stroke)
@@ -440,21 +651,37 @@ class G7SystemStatusActivity : Activity() {
     }
 
     private fun requestMissingPermissions() {
-        val missing = buildList {
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_SCAN)
-            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.BLUETOOTH_CONNECT)
-            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.POST_NOTIFICATIONS)
-        }
+        val missing =
+            buildList {
+                if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    add(Manifest.permission.BLUETOOTH_SCAN)
+                }
+                if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    add(Manifest.permission.BLUETOOTH_CONNECT)
+                }
+                if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            }
         if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST)
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == PERMISSION_REQUEST) render()
     }
 
-    private fun canScheduleExactReconnects(): Boolean =
-        getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    private fun canScheduleExactReconnects(): Boolean = getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
     private fun requestBatteryExemption() {
         if (G7BackgroundAccess.isBatteryUnrestricted(this)) return
@@ -470,7 +697,11 @@ class G7SystemStatusActivity : Activity() {
             .onFailure { runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) } }
     }
 
-    private fun recordBackgroundDiagnostic(code: String, message: String, severity: DiagnosticSeverity) {
+    private fun recordBackgroundDiagnostic(
+        code: String,
+        message: String,
+        severity: DiagnosticSeverity,
+    ) {
         diagnosticScope.launch { applicationContext.recordG7Diagnostic(code, message, severity) }
     }
 
@@ -479,8 +710,7 @@ class G7SystemStatusActivity : Activity() {
         super.onDestroy()
     }
 
-    private fun formatTimestamp(value: Long?): String =
-        value?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) } ?: "—"
+    private fun formatTimestamp(value: Long?): String = value?.let { DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it)) } ?: "—"
 
     private fun formatDurationSeconds(value: Long): String = formatDurationMs(value * 1_000L)
 
@@ -489,9 +719,23 @@ class G7SystemStatusActivity : Activity() {
         return if (seconds < 120L) "$seconds s" else "${seconds / 60L} min"
     }
 
-    private fun withAlpha(color: Int, alpha: Int): Int = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
-    private fun cardParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 7.dp }
-    private fun buttonParams() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 7.dp }
+    private fun withAlpha(
+        color: Int,
+        alpha: Int,
+    ): Int = Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
+
+    private fun cardParams() =
+        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin =
+                7.dp
+        }
+
+    private fun buttonParams() =
+        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin =
+                7.dp
+        }
+
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     companion object {

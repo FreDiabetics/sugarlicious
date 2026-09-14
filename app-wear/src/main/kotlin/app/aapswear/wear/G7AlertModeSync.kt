@@ -20,7 +20,7 @@ internal fun shouldEnableG7Alerts(
         (
             selectedSource == WatchDataSource.AUTOMATIC &&
                 (canonicalSource == DataSourceId.DEXCOM_G7_WATCH || resolverState == CgmSourceState.NO_SOURCE)
-            )
+        )
 
 internal fun publishG7AlertMode(
     context: Context,

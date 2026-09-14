@@ -13,7 +13,10 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 
-internal enum class G7SettingsSection(val title: String, val summary: String) {
+internal enum class G7SettingsSection(
+    val title: String,
+    val summary: String,
+) {
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     SUGARWEAR("Systemstatus", "Sensor, Collector und Diagnose"),
@@ -43,116 +46,134 @@ class G7SettingsActivity : Activity() {
         val state = G7SensorStateStore(this).read()
 
         val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0
-        pageRoot = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 8.dp, 18.dp, 30.dp)
-            setBackgroundColor(background)
-            addView(topBar(palette), fullWidth())
-            addView(
-                infoCard(
-                    "LIVE COLLECTOR STATUS",
-                    if (state.collectorEnabled) "Aktiv" else "Inaktiv",
-                    state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${relativeAge(it.timestampEpochMs)}" }
-                        ?: state.lastError?.safeMessage
-                        ?: "Noch kein gültiger Sensorwert",
-                    palette,
-                ),
-                cardParams(top = 5),
-            )
-        }
+        pageRoot =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(18.dp, 8.dp, 18.dp, 30.dp)
+                setBackgroundColor(background)
+                addView(topBar(palette), fullWidth())
+                addView(
+                    infoCard(
+                        "LIVE COLLECTOR STATUS",
+                        if (state.collectorEnabled) "Aktiv" else "Inaktiv",
+                        state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${relativeAge(it.timestampEpochMs)}" }
+                            ?: state.lastError?.safeMessage
+                            ?: "Noch kein gültiger Sensorwert",
+                        palette,
+                    ),
+                    cardParams(top = 5),
+                )
+            }
 
         G7SettingsSection.entries.forEach { section -> addSection(section, palette) }
 
         if (!::scrollView.isInitialized) {
-            scrollView = G7EdgeFadeScrollView(this).apply {
-                isFillViewport = true
-            }.applyG7EdgeFade()
+            scrollView =
+                G7EdgeFadeScrollView(this)
+                    .apply {
+                        isFillViewport = true
+                    }.applyG7EdgeFade()
             setContentView(scrollView)
         } else {
             scrollView.removeAllViews()
         }
         scrollView.setBackgroundColor(background)
         scrollView.addView(pageRoot)
-        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
-                val maxScroll = (pageRoot.measuredHeight - scrollView.height).coerceAtLeast(0)
-                scrollView.scrollTo(0, restoreScrollY.coerceAtMost(maxScroll))
-                return true
-            }
-        })
+        scrollView.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                    val maxScroll = (pageRoot.measuredHeight - scrollView.height).coerceAtLeast(0)
+                    scrollView.scrollTo(0, restoreScrollY.coerceAtMost(maxScroll))
+                    return true
+                }
+            },
+        )
     }
 
-    private fun addSection(section: G7SettingsSection, palette: G7AppearancePalette) {
+    private fun addSection(
+        section: G7SettingsSection,
+        palette: G7AppearancePalette,
+    ) {
         val isAbout = section == G7SettingsSection.ABOUT
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            visibility = if (isAbout && aboutExpanded) View.VISIBLE else View.GONE
-            if (isAbout) {
-                val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
-            }
-        }
-        val chevron = text(if (isAbout && aboutExpanded) "⌄" else "›", 20f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
-            gravity = Gravity.CENTER
-        }
-        val header = LinearLayout(this).apply {
-            tag = "settings-category-${section.name.lowercase()}"
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            minimumHeight = 58.dp
-            setPadding(13.dp, 8.dp, 8.dp, 8.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 20f)
-            isClickable = true
-            isFocusable = true
-            addView(LinearLayout(this@G7SettingsActivity).apply {
+        val content =
+            LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                addView(text(section.title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-                addView(text(section.summary, 8f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { maxLines = 2 })
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
-            setOnClickListener {
+                visibility = if (isAbout && aboutExpanded) View.VISIBLE else View.GONE
                 if (isAbout) {
-                    aboutExpanded = !aboutExpanded
-                    content.visibility = if (aboutExpanded) View.VISIBLE else View.GONE
-                    chevron.text = if (aboutExpanded) "⌄" else "›"
-                } else {
-                    openSection(section)
+                    val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+                    addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
                 }
             }
-        }
+        val chevron =
+            text(
+                if (isAbout &&
+                    aboutExpanded
+                ) {
+                    "⌄"
+                } else {
+                    "›"
+                },
+                20f,
+                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                true,
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+        val header =
+            LinearLayout(this).apply {
+                tag = "settings-category-${section.name.lowercase()}"
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                minimumHeight = 58.dp
+                setPadding(13.dp, 8.dp, 8.dp, 8.dp)
+                background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 20f)
+                isClickable = true
+                isFocusable = true
+                addView(
+                    LinearLayout(this@G7SettingsActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        addView(text(section.title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+                        addView(text(section.summary, 8f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { maxLines = 2 })
+                    },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                )
+                addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
+                setOnClickListener {
+                    if (isAbout) {
+                        aboutExpanded = !aboutExpanded
+                        content.visibility = if (aboutExpanded) View.VISIBLE else View.GONE
+                        chevron.text = if (aboutExpanded) "⌄" else "›"
+                    } else {
+                        openSection(section)
+                    }
+                }
+            }
         pageRoot.addView(header, cardParams(top = 6))
         pageRoot.addView(content, fullWidth())
     }
 
     private fun openSection(section: G7SettingsSection) {
-        val intent = when (section) {
-            G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
-            G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
-            G7SettingsSection.SUGARWEAR -> Intent(this, G7SystemStatusActivity::class.java)
-            G7SettingsSection.VIGIL -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
-            G7SettingsSection.ABOUT -> return
-        }
+        val intent =
+            when (section) {
+                G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
+                G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
+                G7SettingsSection.SUGARWEAR -> Intent(this, G7SystemStatusActivity::class.java)
+                G7SettingsSection.VIGIL -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
+                G7SettingsSection.ABOUT -> return
+            }
         startActivity(intent)
     }
 
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Einstellungen", palette)
 
-    private fun actionCard(title: String, value: String, palette: G7AppearancePalette, action: () -> Unit): View =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(13.dp, 10.dp, 13.dp, 10.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
-            isClickable = true
-            isFocusable = true
-            setOnClickListener { action() }
-            addView(text(title, 10f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(text(value, 9f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-        }
-
-    private fun infoCard(title: String, value: String, detail: String, palette: G7AppearancePalette): View =
+    private fun infoCard(
+        title: String,
+        value: String,
+        detail: String,
+        palette: G7AppearancePalette,
+    ): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(13.dp, 10.dp, 13.dp, 10.dp)
@@ -164,17 +185,26 @@ class G7SettingsActivity : Activity() {
 
     private fun relativeAge(timestamp: Long): String {
         val minutes = ((System.currentTimeMillis() - timestamp).coerceAtLeast(0L) / 60_000L)
-        return if (minutes == 0L) "jetzt" else "vor ${minutes} min"
+        return if (minutes == 0L) "jetzt" else "vor $minutes min"
     }
 
-    private fun text(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+    private fun text(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false,
+    ) = TextView(this).apply {
         text = value
         textSize = size
         setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun rounded(fill: Int, stroke: Int, radiusDp: Float) = GradientDrawable().apply {
+    private fun rounded(
+        fill: Int,
+        stroke: Int,
+        radiusDp: Float,
+    ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
         setStroke(1.dp, stroke)
@@ -182,6 +212,12 @@ class G7SettingsActivity : Activity() {
     }
 
     private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    private fun cardParams(top: Int = 3) = fullWidth().apply { topMargin = top.dp; bottomMargin = 3.dp }
+
+    private fun cardParams(top: Int = 3) =
+        fullWidth().apply {
+            topMargin = top.dp
+            bottomMargin = 3.dp
+        }
+
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }

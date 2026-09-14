@@ -17,17 +17,16 @@ data class CgmGraphYScale(
         require(maximumMgDl > minimumMgDl)
     }
 
-    fun ratio(valueMgDl: Double): Double {
-        return asAxisScale().ratio(valueMgDl)
-    }
+    fun ratio(valueMgDl: Double): Double = asAxisScale().ratio(valueMgDl)
 
     fun inverseRatio(ratio: Double): Double = asAxisScale().inverseRatio(ratio)
 
-    private fun asAxisScale() = GraphAxisScale(
-        mode = mode,
-        bounds = GraphBounds(minimumMgDl, maximumMgDl),
-        logarithmicDomain = LogarithmicDomain.POSITIVE,
-    )
+    private fun asAxisScale() =
+        GraphAxisScale(
+            mode = mode,
+            bounds = GraphBounds(minimumMgDl, maximumMgDl),
+            logarithmicDomain = LogarithmicDomain.POSITIVE,
+        )
 
     companion object {
         const val DEFAULT_MINIMUM_MG_DL = 40.0
@@ -45,8 +44,9 @@ data class CgmGraphYScale(
             if (mode == CgmGraphScaleMode.STATIC || mode == CgmGraphScaleMode.LOGARITHMIC) {
                 return CgmGraphYScale(mode, staticMin, staticMax)
             }
-            val values = (visibleValuesMgDl + requiredValuesMgDl)
-                .filter { it.isFinite() && it > 0.0 }
+            val values =
+                (visibleValuesMgDl + requiredValuesMgDl)
+                    .filter { it.isFinite() && it > 0.0 }
             if (values.isEmpty()) return CgmGraphYScale(mode, staticMin, staticMax)
             val rawMin = values.minOrNull()!!.coerceAtLeast(20.0)
             val rawMax = values.maxOrNull()!!.coerceAtLeast(rawMin + 1.0)

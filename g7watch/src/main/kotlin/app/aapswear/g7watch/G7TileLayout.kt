@@ -9,7 +9,10 @@ internal data class G7SquareTileSpec(
 )
 
 /** A rounded square this size stays inside a circular display without device-specific constants. */
-internal fun g7SquareTileSpec(screenWidthDp: Int, screenHeightDp: Int): G7SquareTileSpec {
+internal fun g7SquareTileSpec(
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+): G7SquareTileSpec {
     val shortest = min(screenWidthDp.takeIf { it > 0 } ?: 192, screenHeightDp.takeIf { it > 0 } ?: 192).toFloat()
     val side = shortest * 0.76f
     return G7SquareTileSpec(

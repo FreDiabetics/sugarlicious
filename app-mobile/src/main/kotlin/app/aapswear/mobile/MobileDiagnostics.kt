@@ -27,7 +27,8 @@ internal suspend fun Context.recordMobileDiagnostic(
 internal suspend fun requestWatchDiagnostics(context: Context): Int {
     val nodes = refreshReachableWatchNodeIds(context)
     nodes.forEach { nodeId ->
-        Wearable.getMessageClient(context)
+        Wearable
+            .getMessageClient(context)
             .sendMessage(nodeId, WearProtocol.DIAGNOSTICS_REQUEST_PATH, byteArrayOf())
             .await()
     }

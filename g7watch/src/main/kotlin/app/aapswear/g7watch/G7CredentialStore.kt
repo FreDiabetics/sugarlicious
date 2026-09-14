@@ -23,7 +23,9 @@ internal data class StoredG7Credentials(
 ) : G7CredentialStore.StoredCredentials
 
 /** Keeps pairing and session secrets encrypted by a non-exportable Android Keystore key. */
-internal class G7CredentialStore(context: Context) {
+internal class G7CredentialStore(
+    context: Context,
+) {
     internal interface StoredCredentials {
         val pairingCode: String
         val sensorSerial: String?
@@ -32,9 +34,13 @@ internal class G7CredentialStore(context: Context) {
 
     private val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun saveSetup(payload: G7SetupPayload, gKey: G7GKeyParts = G7DefaultGKey.parts) {
+    fun saveSetup(
+        payload: G7SetupPayload,
+        gKey: G7GKeyParts = G7DefaultGKey.parts,
+    ) {
         require(gKey.isComplete())
-        preferences.edit()
+        preferences
+            .edit()
             .putString(KEY_PAIRING_CODE, encrypt(payload.pairingCode.encodeToByteArray()))
             .putString(KEY_SENSOR_SERIAL, payload.sensorSerial)
             .putString(KEY_GTIN, payload.gtin)
@@ -48,11 +54,12 @@ internal class G7CredentialStore(context: Context) {
 
     fun read(): StoredG7Credentials? {
         val pairingCode = preferences.getString(KEY_PAIRING_CODE, null)?.let(::decrypt)?.decodeToString() ?: return null
-        val gKey = G7GKeyParts(
-            preferences.getString(KEY_GKEY_1, null)?.let(::decrypt) ?: G7DefaultGKey.parts.certificateAuthority,
-            preferences.getString(KEY_GKEY_2, null)?.let(::decrypt) ?: G7DefaultGKey.parts.certificate,
-            preferences.getString(KEY_GKEY_3, null)?.let(::decrypt) ?: G7DefaultGKey.parts.privateKey,
-        )
+        val gKey =
+            G7GKeyParts(
+                preferences.getString(KEY_GKEY_1, null)?.let(::decrypt) ?: G7DefaultGKey.parts.certificateAuthority,
+                preferences.getString(KEY_GKEY_2, null)?.let(::decrypt) ?: G7DefaultGKey.parts.certificate,
+                preferences.getString(KEY_GKEY_3, null)?.let(::decrypt) ?: G7DefaultGKey.parts.privateKey,
+            )
         if (!gKey.isComplete()) return null
         return StoredG7Credentials(
             pairingCode = pairingCode,
@@ -64,16 +71,24 @@ internal class G7CredentialStore(context: Context) {
         )
     }
 
-    fun saveSharedKey(address: String, key: ByteArray) {
+    fun saveSharedKey(
+        address: String,
+        key: ByteArray,
+    ) {
         require(key.size == 16)
-        preferences.edit()
+        preferences
+            .edit()
             .putString(KEY_SHARED_KEY, encrypt(key))
             .putString(KEY_SHARED_ADDRESS, address)
             .apply()
     }
 
     fun clearSessionKey() {
-        preferences.edit().remove(KEY_SHARED_KEY).remove(KEY_SHARED_ADDRESS).apply()
+        preferences
+            .edit()
+            .remove(KEY_SHARED_KEY)
+            .remove(KEY_SHARED_ADDRESS)
+            .apply()
     }
 
     fun clearAll() {
@@ -87,20 +102,22 @@ internal class G7CredentialStore(context: Context) {
         return Base64.getEncoder().encodeToString(encoded)
     }
 
-    private fun decrypt(value: String): ByteArray? = runCatching {
-        val encoded = Base64.getDecoder().decode(value)
-        require(encoded.size > IV_BYTES)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, encoded.copyOfRange(0, IV_BYTES)))
-        cipher.doFinal(encoded.copyOfRange(IV_BYTES, encoded.size))
-    }.getOrNull()
+    private fun decrypt(value: String): ByteArray? =
+        runCatching {
+            val encoded = Base64.getDecoder().decode(value)
+            require(encoded.size > IV_BYTES)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, encoded.copyOfRange(0, IV_BYTES)))
+            cipher.doFinal(encoded.copyOfRange(IV_BYTES, encoded.size))
+        }.getOrNull()
 
     private fun key(): SecretKey {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
         (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
             init(
-                KeyGenParameterSpec.Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                KeyGenParameterSpec
+                    .Builder(KEY_ALIAS, KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
                     .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                     .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                     .setRandomizedEncryptionRequired(true)

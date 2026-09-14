@@ -25,11 +25,12 @@ class OverviewStatePersistenceTest {
 
     @Test
     fun `explicit pump suspension still takes precedence`() {
-        val state = TherapyDisplayState(
-            receivedAtEpochMs = 1_000L,
-            loop = LoopState(status = "enacted"),
-            pump = PumpState(status = "suspended"),
-        )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = 1_000L,
+                loop = LoopState(status = "enacted"),
+                pump = PumpState(status = "suspended"),
+            )
 
         assertEquals("Pumpe pausiert", overviewLoopTileState(state).label)
     }

@@ -2,8 +2,8 @@ package app.aapswear.g7watch
 
 import android.app.Notification
 import app.aapswear.g7.CollectorCycleClassification
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,7 +16,8 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class G7ForegroundNotificationTest {
     @Suppress("DEPRECATION") // Notification sound has no replacement inspection API.
-    @Test fun `collector foreground notification is ongoing silent and not auto cancel`() {
+    @Test
+    fun `collector foreground notification is ongoing silent and not auto cancel`() {
         val service = Robolectric.buildService(G7CollectorService::class.java).get()
         val notification = service.notification()
 

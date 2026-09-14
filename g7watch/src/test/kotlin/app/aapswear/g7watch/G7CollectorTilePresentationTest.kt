@@ -5,7 +5,6 @@ import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchGraphColors
-import androidx.wear.protolayout.LayoutElementBuilders
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -14,13 +13,14 @@ import org.junit.Test
 
 class G7CollectorTilePresentationTest {
     private val now = 2_000_000L
-    private val colors = WatchGraphColors(
-        graphBackground = 0xFF111111.toInt(),
-        rangeLow = 0xFFAA0000.toInt(),
-        rangeHigh = 0xFFCCAA00.toInt(),
-        cgmLow = 0xFFFF0000.toInt(),
-        cgmHigh = 0xFFFFCC00.toInt(),
-    )
+    private val colors =
+        WatchGraphColors(
+            graphBackground = 0xFF111111.toInt(),
+            rangeLow = 0xFFAA0000.toInt(),
+            rangeHigh = 0xFFCCAA00.toInt(),
+            cgmLow = 0xFFFF0000.toInt(),
+            cgmHigh = 0xFFFFCC00.toInt(),
+        )
 
     @Test
     fun `tile emphasis is calibrated to match the in app system font`() {
@@ -67,11 +67,12 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `tile shows vector trend delta unit and compact age without source`() {
-        val presentation = g7TilePresentation(
-            reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
-            colors,
-            now,
-        )
+        val presentation =
+            g7TilePresentation(
+                reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
+                colors,
+                now,
+            )
 
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
@@ -85,16 +86,18 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `collector app value shows the same validated trend beside glucose`() {
-        val up = g7TilePresentation(
-            reading(123.0, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
-            colors,
-            now,
-        )
-        val doubleDown = g7TilePresentation(
-            reading(98.0, delta = -9.0, trend = Trend.DOUBLE_DOWN),
-            colors,
-            now,
-        )
+        val up =
+            g7TilePresentation(
+                reading(123.0, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
+                colors,
+                now,
+            )
+        val doubleDown =
+            g7TilePresentation(
+                reading(98.0, delta = -9.0, trend = Trend.DOUBLE_DOWN),
+                colors,
+                now,
+            )
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)

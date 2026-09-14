@@ -1,8 +1,8 @@
 plugins { id("com.android.library") }
 android {
-    namespace="app.aapswear.complications"
-    compileSdk=36
-    defaultConfig { minSdk=33 }
+    namespace = "app.aapswear.complications"
+    compileSdk = 36
+    defaultConfig { minSdk = 33 }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 dependencies {

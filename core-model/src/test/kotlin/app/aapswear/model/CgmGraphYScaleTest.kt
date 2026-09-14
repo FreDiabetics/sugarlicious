@@ -8,11 +8,12 @@ class CgmGraphYScaleTest {
     @Test
     fun `all modes map equal boundary values to equal pixels`() {
         CgmGraphScaleMode.entries.forEach { mode ->
-            val scale = CgmGraphYScale.resolve(
-                mode,
-                visibleValuesMgDl = listOf(80.0, 120.0, 240.0),
-                requiredValuesMgDl = listOf(80.0, 160.0),
-            )
+            val scale =
+                CgmGraphYScale.resolve(
+                    mode,
+                    visibleValuesMgDl = listOf(80.0, 120.0, 240.0),
+                    requiredValuesMgDl = listOf(80.0, 160.0),
+                )
             val historyPixelY = 320.0 - scale.ratio(120.0) * 280.0
             val predictionPixelY = 320.0 - scale.ratio(120.0) * 280.0
             assertEquals(historyPixelY, predictionPixelY, 0.0, mode.name)

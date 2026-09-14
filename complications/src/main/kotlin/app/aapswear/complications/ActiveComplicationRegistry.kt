@@ -11,23 +11,33 @@ object ActiveComplicationRegistry {
     private const val PREFS = "active_sugarlicious_complications"
     private const val PREFIX = "instance."
 
-    fun activate(context: Context, instanceId: Int, catalogId: Int?) {
+    fun activate(
+        context: Context,
+        instanceId: Int,
+        catalogId: Int?,
+    ) {
         if (catalogId == null) return
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putInt(PREFIX + instanceId, catalogId)
             .apply()
     }
 
-    fun deactivate(context: Context, instanceId: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    fun deactivate(
+        context: Context,
+        instanceId: Int,
+    ) {
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .remove(PREFIX + instanceId)
             .apply()
     }
 
     fun activeCatalogIds(context: Context): List<Int> =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .all
             .asSequence()
             .filter { (key, value) -> key.startsWith(PREFIX) && value is Int }

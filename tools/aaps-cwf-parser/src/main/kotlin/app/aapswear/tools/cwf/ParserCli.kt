@@ -9,4 +9,3 @@ fun main(args: Array<String>) {
     println("Canvas ${document.canvasWidth}x${document.canvasHeight}; ${document.elements.size} layout elements")
     document.warnings.forEach { println("WARNING $it") }
 }
-

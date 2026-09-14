@@ -32,11 +32,17 @@ class G7SensorDetachPolicyTest {
         val stateStore = G7SensorStateStore(context)
         stateStore.save(G7PersistedState(sensor = G7Sensor("sensor-a", "session-a"), collectorEnabled = true))
         val now = System.currentTimeMillis()
-        val reading = CgmReading(
-            id = "retained", source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = "sensor-a", sessionId = "session-a", glucoseMgDl = 123.0,
-            timestampEpochMs = now - 60_000L, receivedAtEpochMs = now, status = CgmReadingStatus.VALID,
-        )
+        val reading =
+            CgmReading(
+                id = "retained",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                glucoseMgDl = 123.0,
+                timestampEpochMs = now - 60_000L,
+                receivedAtEpochMs = now,
+                status = CgmReadingStatus.VALID,
+            )
         G7ReadingDatabase(context).use { database -> assertTrue(runBlocking { database.insert(reading) }) }
 
         unlinkG7Sensor(context)

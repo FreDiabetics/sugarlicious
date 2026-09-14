@@ -15,7 +15,8 @@ class WatchFacePresetStoreTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("sugarlicious_watchface_presets", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("sugarlicious_watchface_presets", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()

@@ -23,17 +23,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
-import app.aapswear.model.CgmQuality
-import app.aapswear.model.GlucoseSample
-import app.aapswear.model.GlucoseGraphScale
-import app.aapswear.model.GraphTimeWindow
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.CgmQuality
+import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
 
 internal data class AnalogRectGeometry(
     val x: Float,
@@ -42,7 +40,10 @@ internal data class AnalogRectGeometry(
     val height: Float,
 )
 
-internal data class AnalogPointGeometry(val x: Float, val y: Float)
+internal data class AnalogPointGeometry(
+    val x: Float,
+    val y: Float,
+)
 
 internal data class AnalogArcGeometry(
     val startAngle: Float,
@@ -90,28 +91,34 @@ internal object SugarliciousAnalogGeometry {
 
     private fun fromWfsValue(value: Float): Float = (value * WFS_TO_WFF_SCALE).roundToInt().toFloat()
 
-    private fun fromWfsRect(x: Float, y: Float, width: Float, height: Float) =
-        AnalogRectGeometry(
-            x = fromWfsValue(x),
-            y = fromWfsValue(y),
-            width = fromWfsValue(width),
-            height = fromWfsValue(height),
-        )
+    private fun fromWfsRect(
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+    ) = AnalogRectGeometry(
+        x = fromWfsValue(x),
+        y = fromWfsValue(y),
+        width = fromWfsValue(width),
+        height = fromWfsValue(height),
+    )
 
-    private fun within(parent: AnalogRectGeometry, x: Float, y: Float, width: Float, height: Float) =
-        AnalogRectGeometry(
-            x = parent.x + fromWfsValue(x),
-            y = parent.y + fromWfsValue(y),
-            width = fromWfsValue(width),
-            height = fromWfsValue(height),
-        )
+    private fun within(
+        parent: AnalogRectGeometry,
+        x: Float,
+        y: Float,
+        width: Float,
+        height: Float,
+    ) = AnalogRectGeometry(
+        x = parent.x + fromWfsValue(x),
+        y = parent.y + fromWfsValue(y),
+        width = fromWfsValue(width),
+        height = fromWfsValue(height),
+    )
 
-    fun mirrorHorizontally(rect: AnalogRectGeometry): AnalogRectGeometry =
-        rect.copy(x = CANVAS - rect.x - rect.width)
+    fun mirrorHorizontally(rect: AnalogRectGeometry): AnalogRectGeometry = rect.copy(x = CANVAS - rect.x - rect.width)
 
-    fun centerOf(rect: AnalogRectGeometry): AnalogPointGeometry =
-        AnalogPointGeometry(rect.x + rect.width / 2f, rect.y + rect.height / 2f)
-
+    fun centerOf(rect: AnalogRectGeometry): AnalogPointGeometry = AnalogPointGeometry(rect.x + rect.width / 2f, rect.y + rect.height / 2f)
 }
 
 @Composable
@@ -137,60 +144,75 @@ internal fun SugarliciousAnalogFacePreview(
             val scale = size.minDimension / SugarliciousAnalogGeometry.CANVAS
             val originX = (size.width - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
             val originY = (size.height - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
+
             fun x(v: Float) = originX + v * scale
+
             fun y(v: Float) = originY + v * scale
             val graph = SugarliciousAnalogGeometry.graphContent
 
             drawRect(
                 color = Color(0xFF111416),
-                topLeft = androidx.compose.ui.geometry.Offset(x(graph.x), y(graph.y)),
-                size = androidx.compose.ui.geometry.Size(graph.width * scale, graph.height * scale),
+                topLeft =
+                    androidx.compose.ui.geometry
+                        .Offset(x(graph.x), y(graph.y)),
+                size =
+                    androidx.compose.ui.geometry
+                        .Size(graph.width * scale, graph.height * scale),
             )
             drawRect(
                 color = Color(0x2219D7E8),
-                topLeft = androidx.compose.ui.geometry.Offset(x(graph.x), y(graph.y + 33f)),
-                size = androidx.compose.ui.geometry.Size(graph.width * scale, 38f * scale),
+                topLeft =
+                    androidx.compose.ui.geometry
+                        .Offset(x(graph.x), y(graph.y + 33f)),
+                size =
+                    androidx.compose.ui.geometry
+                        .Size(graph.width * scale, 38f * scale),
             )
             val graphWindow = GraphTimeWindow.live(now, 2L * 60L * 60_000L)
-            val history = buildList {
-                addAll(state?.glucoseHistory.orEmpty())
-                state?.glucose?.let { current ->
-                    add(
-                        GlucoseSample(
-                            valueMgDl = current.valueMgDl,
-                            measuredAtEpochMs = current.measuredAtEpochMs,
-                            source = current.source,
-                            sensorId = current.sensorId,
-                            sessionId = current.sessionId,
-                            sequenceNumber = current.sequenceNumber,
-                            receivedAtEpochMs = current.receivedAtEpochMs,
-                            quality = current.quality,
-                        ),
-                    )
-                }
-            }.filter { it.quality == CgmQuality.VALID && it.measuredAtEpochMs in graphWindow.startEpochMs..graphWindow.endEpochMs }
-                .distinctBy { listOf(it.sensorId, it.sessionId, it.sequenceNumber, it.measuredAtEpochMs, it.source) }
-                .sortedBy(GlucoseSample::measuredAtEpochMs)
-            val samples = if (history.size >= 2) {
-                history
-            } else {
-                listOf(105.0, 112.0, 118.0, 114.0, 121.0, 128.0, 124.0, 132.0, 123.0)
-                    .mapIndexed { index, value ->
-                        GlucoseSample(valueMgDl = value, measuredAtEpochMs = now - (8 - index) * 5L * 60_000L)
+            val history =
+                buildList {
+                    addAll(state?.glucoseHistory.orEmpty())
+                    state?.glucose?.let { current ->
+                        add(
+                            GlucoseSample(
+                                valueMgDl = current.valueMgDl,
+                                measuredAtEpochMs = current.measuredAtEpochMs,
+                                source = current.source,
+                                sensorId = current.sensorId,
+                                sessionId = current.sessionId,
+                                sequenceNumber = current.sequenceNumber,
+                                receivedAtEpochMs = current.receivedAtEpochMs,
+                                quality = current.quality,
+                            ),
+                        )
                     }
-            }
+                }.filter { it.quality == CgmQuality.VALID && it.measuredAtEpochMs in graphWindow.startEpochMs..graphWindow.endEpochMs }
+                    .distinctBy { listOf(it.sensorId, it.sessionId, it.sequenceNumber, it.measuredAtEpochMs, it.source) }
+                    .sortedBy(GlucoseSample::measuredAtEpochMs)
+            val samples =
+                if (history.size >= 2) {
+                    history
+                } else {
+                    listOf(105.0, 112.0, 118.0, 114.0, 121.0, 128.0, 124.0, 132.0, 123.0)
+                        .mapIndexed { index, value ->
+                            GlucoseSample(valueMgDl = value, measuredAtEpochMs = now - (8 - index) * 5L * 60_000L)
+                        }
+                }
             samples.forEach { sample ->
                 val fraction = graphWindow.xFraction(sample.measuredAtEpochMs).coerceIn(0f, 1f)
                 val px = x(graph.x + 12f + fraction * (graph.width - 26f))
                 val normalized = GlucoseGraphScale.ratio(sample.valueMgDl).toFloat()
                 val py = y(graph.y + graph.height - 12f - normalized * (graph.height - 24f))
-                val center = androidx.compose.ui.geometry.Offset(px, py)
+                val center =
+                    androidx.compose.ui.geometry
+                        .Offset(px, py)
                 drawCircle(SugarliciousColors.color(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE), 3.35f * scale, center)
-                val dotColor = when {
-                    sample.valueMgDl < 70.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_LOW)
-                    sample.valueMgDl > 180.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_HIGH)
-                    else -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_IN_RANGE)
-                }
+                val dotColor =
+                    when {
+                        sample.valueMgDl < 70.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_LOW)
+                        sample.valueMgDl > 180.0 -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_HIGH)
+                        else -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_IN_RANGE)
+                    }
                 drawCircle(dotColor, 2.4f * scale, center)
             }
         }
@@ -205,15 +227,22 @@ internal fun SugarliciousAnalogFacePreview(
             val scale = size.minDimension / SugarliciousAnalogGeometry.CANVAS
             val originX = (size.width - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
             val originY = (size.height - SugarliciousAnalogGeometry.CANVAS * scale) / 2f
+
             fun x(v: Float) = originX + v * scale
+
             fun y(v: Float) = originY + v * scale
+
             fun sweep(arc: AnalogArcGeometry): Float =
                 if (arc.clockwise) {
                     (arc.endAngle - arc.startAngle + 360f) % 360f
                 } else {
                     -((arc.startAngle - arc.endAngle + 360f) % 360f)
                 }
-            fun outerArc(arc: AnalogArcGeometry, progress: Float) {
+
+            fun outerArc(
+                arc: AnalogArcGeometry,
+                progress: Float,
+            ) {
                 val diameter = SugarliciousAnalogGeometry.outerProgressDiameter * scale
                 val left = x(SugarliciousAnalogGeometry.outerCenter) - diameter / 2f
                 val top = y(SugarliciousAnalogGeometry.outerCenter) - diameter / 2f
@@ -222,8 +251,12 @@ internal fun SugarliciousAnalogFacePreview(
                     startAngle = arc.startAngle,
                     sweepAngle = sweep(arc),
                     useCenter = false,
-                    topLeft = androidx.compose.ui.geometry.Offset(left, top),
-                    size = androidx.compose.ui.geometry.Size(diameter, diameter),
+                    topLeft =
+                        androidx.compose.ui.geometry
+                            .Offset(left, top),
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(diameter, diameter),
                     style = Stroke(SugarliciousAnalogGeometry.outerStroke * scale, cap = StrokeCap.Round),
                 )
                 drawArc(
@@ -231,8 +264,12 @@ internal fun SugarliciousAnalogFacePreview(
                     startAngle = arc.startAngle,
                     sweepAngle = sweep(arc) * progress.coerceIn(0f, 1f),
                     useCenter = false,
-                    topLeft = androidx.compose.ui.geometry.Offset(left, top),
-                    size = androidx.compose.ui.geometry.Size(diameter, diameter),
+                    topLeft =
+                        androidx.compose.ui.geometry
+                            .Offset(left, top),
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(diameter, diameter),
                     style = Stroke(SugarliciousAnalogGeometry.outerStroke * scale, cap = StrokeCap.Round),
                 )
             }
@@ -242,7 +279,14 @@ internal fun SugarliciousAnalogFacePreview(
             outerArc(SugarliciousAnalogGeometry.outerLowerRight, 0.48f)
             outerArc(SugarliciousAnalogGeometry.outerLowerLeft, 0.69f)
 
-            fun roundSlot(rect: AnalogRectGeometry, diameter: Float, start: Float, sweep: Float, stroke: Float, progress: Float) {
+            fun roundSlot(
+                rect: AnalogRectGeometry,
+                diameter: Float,
+                start: Float,
+                sweep: Float,
+                stroke: Float,
+                progress: Float,
+            ) {
                 val cx = x(rect.x + rect.width / 2f)
                 val cy = y(rect.y + rect.height / 2f)
                 val d = diameter * scale
@@ -253,8 +297,10 @@ internal fun SugarliciousAnalogFacePreview(
                     start,
                     sweep,
                     false,
-                    androidx.compose.ui.geometry.Offset(left, top),
-                    androidx.compose.ui.geometry.Size(d, d),
+                    androidx.compose.ui.geometry
+                        .Offset(left, top),
+                    androidx.compose.ui.geometry
+                        .Size(d, d),
                     style = Stroke(stroke * scale, cap = StrokeCap.Round),
                 )
                 drawArc(
@@ -262,8 +308,10 @@ internal fun SugarliciousAnalogFacePreview(
                     start,
                     sweep * progress.coerceIn(0f, 1f),
                     false,
-                    androidx.compose.ui.geometry.Offset(left, top),
-                    androidx.compose.ui.geometry.Size(d, d),
+                    androidx.compose.ui.geometry
+                        .Offset(left, top),
+                    androidx.compose.ui.geometry
+                        .Size(d, d),
                     style = Stroke(stroke * scale, cap = StrokeCap.Round),
                 )
             }
@@ -277,11 +325,18 @@ internal fun SugarliciousAnalogFacePreview(
                 if (displayable) 0.54f else 0f,
             )
 
-            val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                textAlign = Paint.Align.CENTER
-                typeface = android.graphics.Typeface.create("sans", android.graphics.Typeface.BOLD)
-            }
-            fun textCenteredInRect(value: String, rect: AnalogRectGeometry, textSize: Float, color: Int) {
+            val textPaint =
+                Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    textAlign = Paint.Align.CENTER
+                    typeface = android.graphics.Typeface.create("sans", android.graphics.Typeface.BOLD)
+                }
+
+            fun textCenteredInRect(
+                value: String,
+                rect: AnalogRectGeometry,
+                textSize: Float,
+                color: Int,
+            ) {
                 textPaint.textSize = textSize * scale
                 textPaint.color = color
                 textPaint.textAlign = Paint.Align.CENTER
@@ -291,20 +346,27 @@ internal fun SugarliciousAnalogFacePreview(
                     it.nativeCanvas.drawText(value, x(rect.x + rect.width / 2f), baseline, textPaint)
                 }
             }
-            fun curvedOuterText(value: String, arc: AnalogArcGeometry, textSize: Float, color: Int) {
+
+            fun curvedOuterText(
+                value: String,
+                arc: AnalogArcGeometry,
+                textSize: Float,
+                color: Int,
+            ) {
                 textPaint.textSize = textSize * scale
                 textPaint.color = color
                 textPaint.textAlign = Paint.Align.LEFT
                 val radius = (SugarliciousAnalogGeometry.outerTextDiameter / 2f) * scale
                 val cx = x(SugarliciousAnalogGeometry.outerCenter)
                 val cy = y(SugarliciousAnalogGeometry.outerCenter)
-                val path = Path().apply {
-                    addArc(
-                        RectF(cx - radius, cy - radius, cx + radius, cy + radius),
-                        arc.startAngle,
-                        sweep(arc),
-                    )
-                }
+                val path =
+                    Path().apply {
+                        addArc(
+                            RectF(cx - radius, cy - radius, cx + radius, cy + radius),
+                            arc.startAngle,
+                            sweep(arc),
+                        )
+                    }
                 val pathLength = PathMeasure(path, false).length
                 val textWidth = textPaint.measureText(value)
                 drawIntoCanvas {
@@ -331,7 +393,6 @@ internal fun SugarliciousAnalogFacePreview(
                 40f,
                 0xFFFFB146.toInt(),
             )
-
         }
 
         AnalogPreviewHand(
@@ -362,7 +423,10 @@ internal fun SugarliciousAnalogFacePreview(
 }
 
 @Composable
-private fun AnalogPreviewHand(drawable: Int, rotation: Float) {
+private fun AnalogPreviewHand(
+    drawable: Int,
+    rotation: Float,
+) {
     Image(
         painter = painterResource(drawable),
         contentDescription = null,

@@ -10,13 +10,19 @@ import kotlinx.coroutines.launch
 
 /** Applies end-to-end Mobile acknowledgements without exposing a writable reading provider. */
 class G7SyncControlReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_ACKNOWLEDGE) return
-        val ids = intent.getStringArrayListExtra(EXTRA_READING_IDS).orEmpty()
-            .filter { it.isNotBlank() }
-            .distinct()
-            .take(MAX_ACK_IDS)
-            .toSet()
+        val ids =
+            intent
+                .getStringArrayListExtra(EXTRA_READING_IDS)
+                .orEmpty()
+                .filter { it.isNotBlank() }
+                .distinct()
+                .take(MAX_ACK_IDS)
+                .toSet()
         if (ids.isEmpty()) return
 
         val pending = goAsync()
@@ -32,10 +38,11 @@ class G7SyncControlReceiver : BroadcastReceiver() {
                 context.applicationContext.recordG7Diagnostic(
                     code = "G7-SYNC-200",
                     message = "Mobile acknowledged persisted G7 history",
-                    metadata = mapOf(
-                        "batchId" to intent.getStringExtra(EXTRA_BATCH_ID),
-                        "acknowledged" to ids.size,
-                    ),
+                    metadata =
+                        mapOf(
+                            "batchId" to intent.getStringExtra(EXTRA_BATCH_ID),
+                            "acknowledged" to ids.size,
+                        ),
                 )
             } finally {
                 pending.finish()

@@ -19,7 +19,9 @@ class G7GraphPolicyTest {
             G7RangeExcursion.HIGH,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("1", 166.0, now - 5 * 60_000L), reading("2", 171.0, now)),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -33,7 +35,9 @@ class G7GraphPolicyTest {
                     reading("2", 171.0, now - 5 * 60_000L),
                     reading("3", 158.0, now),
                 ),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -43,7 +47,9 @@ class G7GraphPolicyTest {
             G7RangeExcursion.LOW,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("1", 77.0, now - 5 * 60_000L), reading("2", 73.0, now)),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -57,7 +63,9 @@ class G7GraphPolicyTest {
                     reading("2", 73.0, now - 5 * 60_000L),
                     reading("3", 84.0, now),
                 ),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -78,7 +86,9 @@ class G7GraphPolicyTest {
             G7RangeExcursion.HIGH,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("3", 170.0, now - 5 * 60_000L), reading("4", 175.0, now)),
-                80.0, 160.0, oldNow,
+                80.0,
+                160.0,
+                oldNow,
             ),
         )
     }

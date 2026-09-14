@@ -1,7 +1,5 @@
 package app.aapswear.mobile
 
-import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,8 +10,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,8 +23,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -35,26 +33,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
-import app.aapswear.model.GlucoseUnit
-import app.aapswear.model.CgmRangeClass
-import app.aapswear.model.TherapyDisplayState
-import app.aapswear.model.LoopVisualState
-import app.aapswear.model.loopPresentation
-import app.aapswear.model.Trend
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
+import app.aapswear.model.LoopVisualState
+import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.Trend
+import app.aapswear.model.loopPresentation
 import app.aapswear.storage.PredictionDisplayTimeline
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -70,44 +69,53 @@ internal fun SugarliciousOverviewScreen(
     val unit = preferences.unitFor(state)
     val glucose = state?.glucose
     val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-    val knownGlucose = app.aapswear.model.TherapyDisplayFormatter.isGlucoseKnown(state)
+    val knownGlucose =
+        app.aapswear.model.TherapyDisplayFormatter
+            .isGlucoseKnown(state)
     val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
     val density = LocalDensity.current
-    val screenHeightDp = with(density) {
-        LocalWindowInfo.current.containerSize.height.toDp().value.roundToInt()
-    }
+    val screenHeightDp =
+        with(density) {
+            LocalWindowInfo.current.containerSize.height
+                .toDp()
+                .value
+                .roundToInt()
+        }
     val metrics = DashboardLayoutMetrics.forScreenHeight(screenHeightDp)
     val gap = if (preferences.compact || preferences.showMetabolicGraph) 5.dp else 8.dp
     val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
-    val visibility = DashboardVisibilityState(
-        showTherapyDetails = preferences.effectiveShowDetails,
-        showMetabolicGraph = preferences.showMetabolicGraph,
-    )
+    val visibility =
+        DashboardVisibilityState(
+            showTherapyDetails = preferences.effectiveShowDetails,
+            showMetabolicGraph = preferences.showMetabolicGraph,
+        )
     val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
     val metabolicGraphHeightDp = maxOf(metrics.metabolicChartHeight - 10, 104)
     val overviewHeightCompensationDp = if (preferences.showMetabolicGraph) 8 else 0
 
-    val cgmChartViewport = rememberSaveable(
-        saver = listSaver(
-            save = { viewport ->
-                val state = viewport.savedState()
-                listOf(
-                    state.historyHours.toRawBits().toLong(),
-                    state.navigationEndEpochMs ?: Long.MIN_VALUE,
-                )
-            },
-            restore = { values ->
-                ChartViewport(preferences.graphHours).apply {
-                    restore(
-                        GraphViewportSavedState(
-                            historyHours = Float.fromBits(values[0].toInt()),
-                            navigationEndEpochMs = values[1].takeUnless { it == Long.MIN_VALUE },
-                        ),
-                    )
-                }
-            },
-        ),
-    ) { ChartViewport(preferences.graphHours) }
+    val cgmChartViewport =
+        rememberSaveable(
+            saver =
+                listSaver(
+                    save = { viewport ->
+                        val state = viewport.savedState()
+                        listOf(
+                            state.historyHours.toRawBits().toLong(),
+                            state.navigationEndEpochMs ?: Long.MIN_VALUE,
+                        )
+                    },
+                    restore = { values ->
+                        ChartViewport(preferences.graphHours).apply {
+                            restore(
+                                GraphViewportSavedState(
+                                    historyHours = Float.fromBits(values[0].toInt()),
+                                    navigationEndEpochMs = values[1].takeUnless { it == Long.MIN_VALUE },
+                                ),
+                            )
+                        }
+                    },
+                ),
+        ) { ChartViewport(preferences.graphHours) }
     val metabolicChartViewport = cgmChartViewport
     var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
 
@@ -116,27 +124,29 @@ internal fun SugarliciousOverviewScreen(
             preferences.showCgmGraph &&
             preferences.anyCgmPredictionEnabled
         ) {
-            val enabledPredictions = state?.glucosePredictions
-                .orEmpty()
-                .filter { series ->
-                    when (
-                        series.kind
-                    ) {
-                        app.aapswear.model.PredictionKind.IOB ->
-                            preferences.showCgmPredictionIob
+            val enabledPredictions =
+                state
+                    ?.glucosePredictions
+                    .orEmpty()
+                    .filter { series ->
+                        when (
+                            series.kind
+                        ) {
+                            app.aapswear.model.PredictionKind.IOB ->
+                                preferences.showCgmPredictionIob
 
-                        app.aapswear.model.PredictionKind.COB,
-                        app.aapswear.model.PredictionKind.ACOB,
-                        ->
-                            preferences.showCgmPredictionCob
+                            app.aapswear.model.PredictionKind.COB,
+                            app.aapswear.model.PredictionKind.ACOB,
+                            ->
+                                preferences.showCgmPredictionCob
 
-                        app.aapswear.model.PredictionKind.UAM ->
-                            preferences.showCgmPredictionUam
+                            app.aapswear.model.PredictionKind.UAM ->
+                                preferences.showCgmPredictionUam
 
-                        app.aapswear.model.PredictionKind.ZERO_TEMP ->
-                            preferences.showCgmPredictionZeroTemp
+                            app.aapswear.model.PredictionKind.ZERO_TEMP ->
+                                preferences.showCgmPredictionZeroTemp
+                        }
                     }
-                }
             maxOf(PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now), 60L * 60_000L)
         } else {
             0L
@@ -178,18 +188,20 @@ internal fun SugarliciousOverviewScreen(
     }
 
     val glucoseText = if (knownGlucose && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
-    val rangePresentation = widgetRangePresentation(
-        state = state,
-        samples = canonicalWidgetSamples(state, now, 24L * 60L * 60_000L),
-        thresholds = preferences.cgmThresholds,
-        now = now,
-    )
-    val glucoseColor = when (rangePresentation.visibleRole) {
-        WidgetColorRole.HIGH -> SugarliciousColors.GlucoseHigh
-        WidgetColorRole.LOW -> SugarliciousColors.GlucoseLow
-        WidgetColorRole.IN_RANGE -> SugarliciousColors.GlucoseInRange
-        else -> SugarliciousColors.TextPrimary
-    }.let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
+    val rangePresentation =
+        widgetRangePresentation(
+            state = state,
+            samples = canonicalWidgetSamples(state, now, 24L * 60L * 60_000L),
+            thresholds = preferences.cgmThresholds,
+            now = now,
+        )
+    val glucoseColor =
+        when (rangePresentation.visibleRole) {
+            WidgetColorRole.HIGH -> SugarliciousColors.GlucoseHigh
+            WidgetColorRole.LOW -> SugarliciousColors.GlucoseLow
+            WidgetColorRole.IN_RANGE -> SugarliciousColors.GlucoseInRange
+            else -> SugarliciousColors.TextPrimary
+        }.let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = glucose?.measuredAtEpochMs?.let { "${((now - it).coerceAtLeast(0L) / 60_000L)} min" } ?: "—"
     val tirStats = calculateTirStats(state, now)
@@ -221,10 +233,11 @@ internal fun SugarliciousOverviewScreen(
             tirStats = tirStats,
             detailMode = preferences.glucoseTileDetailMode,
             therapyIndicators = therapyIndicatorPresentations(state.takeIf { displayable }, preferences.iobProgressMaximumUnits, now),
-            visualSpec = GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
-                preferences.glucoseScalePercent,
-                preferences.trendScalePercent,
-            ),
+            visualSpec =
+                GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
+                    preferences.glucoseScalePercent,
+                    preferences.trendScalePercent,
+                ),
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
 
@@ -275,20 +288,20 @@ private fun GlucoseHeroCard(
     val shape = RoundedCornerShape(28.dp)
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(heightDp.dp)
-            .background(SugarliciousColors.Surface, shape)
-            .border(
-                1.dp,
-                SugarliciousColors.Border.copy(alpha = 0.85f),
-                shape,
-            )
-            .clip(shape)
-            .padding(
-                horizontal = 18.dp,
-                vertical = 2.dp,
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(heightDp.dp)
+                .background(SugarliciousColors.Surface, shape)
+                .border(
+                    1.dp,
+                    SugarliciousColors.Border.copy(alpha = 0.85f),
+                    shape,
+                ).clip(shape)
+                .padding(
+                    horizontal = 18.dp,
+                    vertical = 2.dp,
+                ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -297,9 +310,10 @@ private fun GlucoseHeroCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier
-                    .weight(132f)
-                    .fillMaxHeight(),
+                modifier =
+                    Modifier
+                        .weight(132f)
+                        .fillMaxHeight(),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -313,7 +327,11 @@ private fun GlucoseHeroCard(
                             text = glucoseText,
                             color = glucoseColor,
                             fontSize = visualSpec.glucoseTextSize.sp,
-                            lineHeight = (visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP / GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP).sp,
+                            lineHeight =
+                                (
+                                    visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP /
+                                        GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP
+                                ).sp,
                             fontWeight = FontWeight.SemiBold,
                             letterSpacing = (-0.8).sp,
                         )
@@ -330,13 +348,14 @@ private fun GlucoseHeroCard(
                     Spacer(Modifier.height(3.dp))
 
                     Text(
-                        text = buildAnnotatedString {
-                            append("Δ ")
-                            withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) {
-                                append("$delta $unitLabel")
-                            }
-                            append(" · $age")
-                        },
+                        text =
+                            buildAnnotatedString {
+                                append("Δ ")
+                                withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) {
+                                    append("$delta $unitLabel")
+                                }
+                                append(" · $age")
+                            },
                         color = SugarliciousColors.TextSecondary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
@@ -353,6 +372,7 @@ private fun GlucoseHeroCard(
         }
     }
 }
+
 private data class TirStats(
     val inRange: Int?,
     val below: Int?,
@@ -366,23 +386,22 @@ private fun calculateTirStats(
     val start = now - 24L * 60L * 60_000L
     val targetLow = state?.target?.lowMgDl ?: 80.0
     val targetHigh = state?.target?.highMgDl ?: 160.0
-    val samples = buildList {
-        addAll(state?.glucoseHistory.orEmpty())
-        state?.glucose?.let {
-            add(
-                app.aapswear.model.GlucoseSample(
-                    valueMgDl = it.valueMgDl,
-                    measuredAtEpochMs = it.measuredAtEpochMs,
-                ),
-            )
-        }
-    }
-        .filter {
+    val samples =
+        buildList {
+            addAll(state?.glucoseHistory.orEmpty())
+            state?.glucose?.let {
+                add(
+                    app.aapswear.model.GlucoseSample(
+                        valueMgDl = it.valueMgDl,
+                        measuredAtEpochMs = it.measuredAtEpochMs,
+                    ),
+                )
+            }
+        }.filter {
             it.measuredAtEpochMs in start..(now + 5 * 60_000L) &&
                 it.valueMgDl in 20.0..1000.0
-        }
-        .associateBy { it.measuredAtEpochMs }
-        .values
+        }.associateBy { it.measuredAtEpochMs }
+            .values
 
     if (samples.isEmpty()) {
         return TirStats(null, null, null)
@@ -443,14 +462,15 @@ private fun TirProgress(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BoxWithConstraints(
-            modifier = Modifier
-                .weight(1f)
-                .height(12.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(
-                    SugarliciousColors.SurfaceRaised,
-                    RoundedCornerShape(999.dp),
-                ),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .height(12.dp)
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(
+                        SugarliciousColors.SurfaceRaised,
+                        RoundedCornerShape(999.dp),
+                    ),
         ) {
             if (progress > 0f) {
                 val fillWidth =
@@ -459,14 +479,15 @@ private fun TirProgress(
                         .coerceAtMost(maxWidth)
 
                 Box(
-                    modifier = Modifier
-                        .width(fillWidth)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(
-                            accent,
-                            RoundedCornerShape(999.dp),
-                        ),
+                    modifier =
+                        Modifier
+                            .width(fillWidth)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                accent,
+                                RoundedCornerShape(999.dp),
+                            ),
                 )
             }
         }
@@ -485,6 +506,7 @@ private fun TirProgress(
         )
     }
 }
+
 @Composable
 private fun QuickStatsRow(
     state: TherapyDisplayState?,
@@ -493,49 +515,84 @@ private fun QuickStatsRow(
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         LoopStateCard(Modifier.weight(1f), overviewLoopTileState(state), heightDp)
         CombinedIobCobCard(Modifier.weight(1f), state, heightDp)
-        QuickStatCard(Modifier.weight(1f), R.drawable.ic_basal, "BASAL", formatNumber(state?.basal?.currentUnitsPerHour, 2), "IE/h", SugarliciousColors.Secondary, heightDp)
+        QuickStatCard(
+            Modifier.weight(1f),
+            R.drawable.ic_basal,
+            "BASAL",
+            formatNumber(state?.basal?.currentUnitsPerHour, 2),
+            "IE/h",
+            SugarliciousColors.Secondary,
+            heightDp,
+        )
     }
 }
 
-internal data class OverviewLoopTileState(val iconRes: Int, val label: String, val accent: Color)
+internal data class OverviewLoopTileState(
+    val iconRes: Int,
+    val label: String,
+    val accent: Color,
+)
 
 internal fun overviewLoopTileState(state: TherapyDisplayState?): OverviewLoopTileState {
     val presentation = loopPresentation(state)
-    val (icon, color) = when (presentation.visualState) {
-        LoopVisualState.PUMP_SUSPENDED -> R.drawable.ic_pump_suspended to SugarliciousColors.Red
-        LoopVisualState.SUSPENDED -> R.drawable.ic_loop_suspended to SugarliciousColors.Orange
-        LoopVisualState.DEACTIVATED,
-        LoopVisualState.UNKNOWN -> R.drawable.ic_loop_deactivated to SugarliciousColors.TextSecondary
-        LoopVisualState.CLOSED -> R.drawable.ic_loop_closed to SugarliciousColors.Green
-    }
+    val (icon, color) =
+        when (presentation.visualState) {
+            LoopVisualState.PUMP_SUSPENDED -> R.drawable.ic_pump_suspended to SugarliciousColors.Red
+            LoopVisualState.SUSPENDED -> R.drawable.ic_loop_suspended to SugarliciousColors.Orange
+            LoopVisualState.DEACTIVATED,
+            LoopVisualState.UNKNOWN,
+            -> R.drawable.ic_loop_deactivated to SugarliciousColors.TextSecondary
+            LoopVisualState.CLOSED -> R.drawable.ic_loop_closed to SugarliciousColors.Green
+        }
     return OverviewLoopTileState(icon, presentation.label, color)
 }
 
 @Composable
-private fun LoopStateCard(modifier: Modifier, state: OverviewLoopTileState, heightDp: Int) {
+private fun LoopStateCard(
+    modifier: Modifier,
+    state: OverviewLoopTileState,
+    heightDp: Int,
+) {
     val shape = RoundedCornerShape(20.dp)
     Column(
-        modifier = modifier.height(heightDp.dp).background(SugarliciousColors.Surface, shape)
-            .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-            .padding(horizontal = 11.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .height(heightDp.dp)
+                .background(SugarliciousColors.Surface, shape)
+                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
+                .padding(horizontal = 11.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Text("LOOP", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         Row(verticalAlignment = Alignment.Bottom) {
             SugarliciousIcon(state.iconRes, state.label, Modifier.size(28.dp), state.accent)
             Spacer(Modifier.width(6.dp))
-            Text(state.label, color = SugarliciousColors.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                state.label,
+                color = SugarliciousColors.TextPrimary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
 
 @Composable
-private fun CombinedIobCobCard(modifier: Modifier, state: TherapyDisplayState?, heightDp: Int) {
+private fun CombinedIobCobCard(
+    modifier: Modifier,
+    state: TherapyDisplayState?,
+    heightDp: Int,
+) {
     val shape = RoundedCornerShape(20.dp)
     Column(
-        modifier = modifier.height(heightDp.dp).background(SugarliciousColors.Surface, shape)
-            .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-            .padding(horizontal = 9.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .height(heightDp.dp)
+                .background(SugarliciousColors.Surface, shape)
+                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
+                .padding(horizontal = 9.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -550,7 +607,11 @@ private fun CombinedIobCobCard(modifier: Modifier, state: TherapyDisplayState?, 
 }
 
 @Composable
-private fun QuickMetricHeader(iconRes: Int, label: String, accent: Color) {
+private fun QuickMetricHeader(
+    iconRes: Int,
+    label: String,
+    accent: Color,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         SugarliciousIcon(iconRes, null, Modifier.size(13.dp), accent)
         Spacer(Modifier.width(3.dp))
@@ -559,9 +620,19 @@ private fun QuickMetricHeader(iconRes: Int, label: String, accent: Color) {
 }
 
 @Composable
-private fun InlineMetricValue(value: String, suffix: String) {
+private fun InlineMetricValue(
+    value: String,
+    suffix: String,
+) {
     Row {
-        Text(value, modifier = Modifier.alignByBaseline(), color = SugarliciousColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(
+            value,
+            modifier = Modifier.alignByBaseline(),
+            color = SugarliciousColors.TextPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
         Spacer(Modifier.width(3.dp))
         Text(suffix, modifier = Modifier.alignByBaseline(), color = SugarliciousColors.TextSecondary, fontSize = 9.sp, maxLines = 1)
     }
@@ -579,11 +650,12 @@ private fun QuickStatCard(
 ) {
     val shape = RoundedCornerShape(20.dp)
     Column(
-        modifier = modifier
-            .height(heightDp.dp)
-            .background(SugarliciousColors.Surface, shape)
-            .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-            .padding(horizontal = 11.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .height(heightDp.dp)
+                .background(SugarliciousColors.Surface, shape)
+                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
+                .padding(horizontal = 11.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -640,14 +712,14 @@ private fun GlucoseGraphSurface(
             color = Color.Transparent,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .clickable(indication = null, interactionSource = scaleTapInteraction) {
-                    val currentIndex = OVERVIEW_GRAPH_HOUR_OPTIONS.indexOf(preferences.graphHours).coerceAtLeast(0)
-                    val next = OVERVIEW_GRAPH_HOUR_OPTIONS[(currentIndex + 1) % OVERVIEW_GRAPH_HOUR_OPTIONS.size]
-                    onGraphHours(next)
-                }
-                .padding(start = 9.dp, top = 7.dp, end = 8.dp, bottom = 7.dp),
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .clickable(indication = null, interactionSource = scaleTapInteraction) {
+                        val currentIndex = OVERVIEW_GRAPH_HOUR_OPTIONS.indexOf(preferences.graphHours).coerceAtLeast(0)
+                        val next = OVERVIEW_GRAPH_HOUR_OPTIONS[(currentIndex + 1) % OVERVIEW_GRAPH_HOUR_OPTIONS.size]
+                        onGraphHours(next)
+                    }.padding(start = 9.dp, top = 7.dp, end = 8.dp, bottom = 7.dp),
         )
     }
 }
@@ -655,8 +727,11 @@ private fun GlucoseGraphSurface(
 internal fun formatVisibleGraphHours(hours: Float): String {
     val bounded = hours.coerceIn(1f, 24f)
     val rounded = bounded.roundToInt()
-    return if (kotlin.math.abs(bounded - rounded) < 0.05f) "${rounded}h"
-    else String.format(Locale.getDefault(), "%.1fh", bounded)
+    return if (kotlin.math.abs(bounded - rounded) < 0.05f) {
+        "${rounded}h"
+    } else {
+        String.format(Locale.getDefault(), "%.1fh", bounded)
+    }
 }
 
 internal fun GlucoseDashboardChart.bindOverview(
@@ -714,10 +789,11 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                scaleOnRight = !preferences.showCgmTargetValue &&
-                    !preferences.showCgmBasal &&
-                    !preferences.showCgmActivity &&
-                    !preferences.anyCgmPredictionEnabled,
+                scaleOnRight =
+                    !preferences.showCgmTargetValue &&
+                        !preferences.showCgmBasal &&
+                        !preferences.showCgmActivity &&
+                        !preferences.anyCgmPredictionEnabled,
                 showTimeAxis = !preferences.showCgmGraph,
                 graphScaleMode = preferences.graphScaleMode,
                 clockEpochMs = now,
@@ -726,21 +802,35 @@ private fun MetabolicGraphSurface(
     )
 }
 
-private fun formatGlucose(valueMgDl: Double, unit: GlucoseUnit): String =
-    if (unit == GlucoseUnit.MMOL_L) String.format(Locale.getDefault(), "%.1f", valueMgDl / 18.0)
-    else valueMgDl.roundToInt().toString()
+private fun formatGlucose(
+    valueMgDl: Double,
+    unit: GlucoseUnit,
+): String =
+    if (unit == GlucoseUnit.MMOL_L) {
+        String.format(Locale.getDefault(), "%.1f", valueMgDl / 18.0)
+    } else {
+        valueMgDl.roundToInt().toString()
+    }
 
-private fun formatDelta(valueMgDl: Double?, unit: GlucoseUnit): String {
+private fun formatDelta(
+    valueMgDl: Double?,
+    unit: GlucoseUnit,
+): String {
     if (valueMgDl == null) return "—"
     val converted = if (unit == GlucoseUnit.MMOL_L) valueMgDl / 18.0 else valueMgDl
     val prefix = if (converted >= 0.0) "+" else ""
-    val body = if (unit == GlucoseUnit.MMOL_L) String.format(Locale.getDefault(), "%.1f", converted)
-    else converted.roundToInt().toString()
+    val body =
+        if (unit == GlucoseUnit.MMOL_L) {
+            String.format(Locale.getDefault(), "%.1f", converted)
+        } else {
+            converted.roundToInt().toString()
+        }
     return prefix + body
 }
 
-private fun formatNumber(value: Double?, digits: Int): String =
-    value?.let { String.format(Locale.getDefault(), "%.${digits}f", it) } ?: "—"
+private fun formatNumber(
+    value: Double?,
+    digits: Int,
+): String = value?.let { String.format(Locale.getDefault(), "%.${digits}f", it) } ?: "—"
 
-private fun unitLabel(unit: GlucoseUnit): String =
-    if (unit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+private fun unitLabel(unit: GlucoseUnit): String = if (unit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"

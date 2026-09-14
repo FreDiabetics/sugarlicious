@@ -1,10 +1,10 @@
 package app.aapswear.mobile
 
-import java.io.File
-import javax.imageio.ImageIO
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import javax.imageio.ImageIO
 
 class SugarliciousAnalogPreviewGeometryTest {
     @Test
@@ -93,9 +93,10 @@ class SugarliciousAnalogPreviewGeometryTest {
             "graph_mask.png",
             "sugarlicious_analog_template.png",
         ).forEach { name ->
-            val image = requireNotNull(
-                ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
-            ) { "$name must be a readable PNG" }
+            val image =
+                requireNotNull(
+                    ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
+                ) { "$name must be a readable PNG" }
             assertTrue("$name must be 450 px wide", image.width == 450)
             assertTrue("$name must be 450 px high", image.height == 450)
         }
@@ -103,22 +104,25 @@ class SugarliciousAnalogPreviewGeometryTest {
 
     @Test
     fun `dial uses the exact WFS luminance and outline colors`() {
-        val template = requireNotNull(
-            ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png")),
-        )
+        val template =
+            requireNotNull(
+                ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png")),
+            )
         assertTrue(template.getRGB(291, 26) and 0xFFFFFF == 0x4C4C4C)
         assertTrue(template.getRGB(73, 225) and 0xFFFFFF == 0x888888)
         assertTrue("graph cutout must stay transparent", template.getRGB(225, 100) ushr 24 == 0)
         assertTrue("dial background outside graph must stay opaque", template.getRGB(225, 225) ushr 24 == 0xFF)
     }
 
-    private fun watchfaceFile(): File = repoFile(
-        "watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml",
-    )
+    private fun watchfaceFile(): File =
+        repoFile(
+            "watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml",
+        )
 
-    private fun previewFile(): File = repoFile(
-        "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/preview.xml",
-    )
+    private fun previewFile(): File =
+        repoFile(
+            "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/preview.xml",
+        )
 
     private fun repoFile(path: String): File {
         val cwd = File(requireNotNull(System.getProperty("user.dir")))

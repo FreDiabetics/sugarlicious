@@ -6,8 +6,9 @@ import kotlin.test.assertEquals
 
 class AapsTherapyEventParserTest {
     @Test fun `parses classified treatments and deduplicates stable ids`() {
-        val events = AapsTherapyEventParser.parse(
-            """[
+        val events =
+            AapsTherapyEventParser.parse(
+                """[
               {"id":"b1","type":"MEAL_BOLUS","timestamp":1000,"amount":7.6},
               {"id":"b1","type":"MEAL_BOLUS","timestamp":1000,"amount":7.6},
               {"id":"s1","type":"SMB","timestamp":2000,"amount":0.2},
@@ -15,13 +16,27 @@ class AapsTherapyEventParserTest {
               {"id":"m1","type":"MEAL_CARBS","timestamp":4000,"amount":60},
               {"id":"e1","type":"ECARBS","timestamp":5000,"amount":2}
             ]""",
-        )
+            )
         assertEquals(5, events.size)
-        assertEquals(listOf(TherapyEventKind.MEAL_BOLUS, TherapyEventKind.SMB, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.MEAL_CARBS, TherapyEventKind.ECARBS), events.map { it.kind })
+        assertEquals(
+            listOf(
+                TherapyEventKind.MEAL_BOLUS,
+                TherapyEventKind.SMB,
+                TherapyEventKind.MANUAL_CORRECTION,
+                TherapyEventKind.MEAL_CARBS,
+                TherapyEventKind.ECARBS,
+            ),
+            events.map {
+                it.kind
+            },
+        )
         assertEquals(1_000_000L, events.first().timestampEpochMs)
     }
 
     @Test fun `rejects zero invalid and unknown events`() {
-        assertEquals(emptyList(), AapsTherapyEventParser.parse("""[{"type":"SMB","timestamp":1,"amount":0},{"type":"UNKNOWN","timestamp":2,"amount":1}]"""))
+        assertEquals(
+            emptyList(),
+            AapsTherapyEventParser.parse("""[{"type":"SMB","timestamp":1,"amount":0},{"type":"UNKNOWN","timestamp":2,"amount":1}]"""),
+        )
     }
 }

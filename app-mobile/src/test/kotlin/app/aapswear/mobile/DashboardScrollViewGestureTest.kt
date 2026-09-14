@@ -26,18 +26,39 @@ class DashboardScrollViewGestureTest {
     }
 
     @Test fun `multi pointer chart gesture is never intercepted`() {
-        val properties = arrayOf(
-            MotionEvent.PointerProperties().apply { id = 0 },
-            MotionEvent.PointerProperties().apply { id = 1 },
-        )
-        val coordinates = arrayOf(
-            MotionEvent.PointerCoords().apply { x = 40f; y = 50f },
-            MotionEvent.PointerCoords().apply { x = 100f; y = 50f },
-        )
-        val event = MotionEvent.obtain(
-            0L, 16L, MotionEvent.ACTION_MOVE, 2, properties, coordinates,
-            0, 0, 1f, 1f, 0, 0, 0, 0,
-        )
+        val properties =
+            arrayOf(
+                MotionEvent.PointerProperties().apply { id = 0 },
+                MotionEvent.PointerProperties().apply { id = 1 },
+            )
+        val coordinates =
+            arrayOf(
+                MotionEvent.PointerCoords().apply {
+                    x = 40f
+                    y = 50f
+                },
+                MotionEvent.PointerCoords().apply {
+                    x = 100f
+                    y = 50f
+                },
+            )
+        val event =
+            MotionEvent.obtain(
+                0L,
+                16L,
+                MotionEvent.ACTION_MOVE,
+                2,
+                properties,
+                coordinates,
+                0,
+                0,
+                1f,
+                1f,
+                0,
+                0,
+                0,
+                0,
+            )
 
         assertFalse(DashboardScrollView(context).onInterceptTouchEvent(event))
         event.recycle()

@@ -3,13 +3,13 @@ package app.aapswear.g7watch
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.G7GapRecoveryState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import app.aapswear.g7.G7GapRecoveryState
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -20,8 +20,16 @@ class G7BackfillOrchestratorTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Before fun clear() {
-        context.getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("g7_collector_state", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        context
+            .getSharedPreferences("g7_collector_state", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("sensor-a", "session-a")))
     }
 
@@ -82,7 +90,13 @@ class G7BackfillOrchestratorTest {
         ledger.markNextLiveAndBackfill(sensorId, sessionId, 900_000L, 901_000L, 902_000L, 901_500L, 901_700L, listOf(300_000L, 600_000L))
 
         assertNull(ledger.oldestOpenGap(first.sensorId, first.sessionId))
-        assertTrue(ledger.snapshot().filter { it.expectedWindowId in setOf(first.expectedWindowId, second.expectedWindowId) }.all { !it.recoveryRequired })
+        assertTrue(
+            ledger
+                .snapshot()
+                .filter {
+                    it.expectedWindowId in setOf(first.expectedWindowId, second.expectedWindowId)
+                }.all { !it.recoveryRequired },
+        )
     }
 
     @Test fun `near-identical lifecycle windows canonicalize to one record`() {

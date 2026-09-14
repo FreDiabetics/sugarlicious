@@ -2,7 +2,11 @@ package app.aapswear.g7
 
 import kotlin.math.min
 
-data class G7ReconnectPlan(val nextReconnectEpochMs: Long, val retryCount: Int, val delayMs: Long)
+data class G7ReconnectPlan(
+    val nextReconnectEpochMs: Long,
+    val retryCount: Int,
+    val delayMs: Long,
+)
 
 object G7ReconnectScheduler {
     const val EXPECTED_READING_INTERVAL_MS = 5 * 60_000L
@@ -12,9 +16,16 @@ object G7ReconnectScheduler {
     private const val MIN_WINDOW_LEAD_MS = 1_000L
 
     fun afterReading(readingEpochMs: Long): G7ReconnectPlan =
-        G7ReconnectPlan(readingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS, 0, EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS)
+        G7ReconnectPlan(
+            readingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS,
+            0,
+            EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS,
+        )
 
-    fun afterFailure(nowEpochMs: Long, retryCount: Int): G7ReconnectPlan {
+    fun afterFailure(
+        nowEpochMs: Long,
+        retryCount: Int,
+    ): G7ReconnectPlan {
         val count = (retryCount + 1).coerceAtMost(10)
         val delay = min(15_000L * (1L shl count.coerceAtMost(6)), MAX_BACKOFF_MS)
         return G7ReconnectPlan(nowEpochMs + delay, count, delay)
@@ -26,32 +37,41 @@ object G7ReconnectScheduler {
      * expected Dexcom advertising window instead of spinning generic exponential retries between
      * the sensor's five-minute transmit opportunities.
      */
-    fun afterExpectedWindowMiss(nowEpochMs: Long, lastReadingEpochMs: Long?): G7ReconnectPlan {
+    fun afterExpectedWindowMiss(
+        nowEpochMs: Long,
+        lastReadingEpochMs: Long?,
+    ): G7ReconnectPlan {
         if (lastReadingEpochMs == null) {
             return G7ReconnectPlan(nowEpochMs + GATT_133_INITIAL_RETRY_MS, 0, GATT_133_INITIAL_RETRY_MS)
         }
         val firstWindow = lastReadingEpochMs + EXPECTED_READING_INTERVAL_MS - PRECONNECT_LEAD_MS
         val minimumTrigger = nowEpochMs + MIN_WINDOW_LEAD_MS
-        val trigger = if (firstWindow > minimumTrigger) {
-            firstWindow
-        } else {
-            val elapsed = minimumTrigger - firstWindow
-            val cycles = elapsed / EXPECTED_READING_INTERVAL_MS + 1L
-            firstWindow + cycles * EXPECTED_READING_INTERVAL_MS
-        }
+        val trigger =
+            if (firstWindow > minimumTrigger) {
+                firstWindow
+            } else {
+                val elapsed = minimumTrigger - firstWindow
+                val cycles = elapsed / EXPECTED_READING_INTERVAL_MS + 1L
+                firstWindow + cycles * EXPECTED_READING_INTERVAL_MS
+            }
         return G7ReconnectPlan(trigger, 0, trigger - nowEpochMs)
     }
 
-    fun afterGatt133(nowEpochMs: Long, lastReadingEpochMs: Long?): G7ReconnectPlan =
-        afterExpectedWindowMiss(nowEpochMs, lastReadingEpochMs)
+    fun afterGatt133(
+        nowEpochMs: Long,
+        lastReadingEpochMs: Long?,
+    ): G7ReconnectPlan = afterExpectedWindowMiss(nowEpochMs, lastReadingEpochMs)
 }
 
 object G7RecoveryChain {
     val steps = G7RecoveryStep.entries
+
     fun stepForFailure(failureCount: Int): G7RecoveryStep = steps[failureCount.coerceIn(0, steps.lastIndex)]
 }
 
-class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
+class G7SessionManager(
+    initial: G7PersistedState = G7PersistedState(),
+) {
     var state: G7PersistedState = initial
         private set
 
@@ -60,23 +80,25 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
      * activation are deliberately separate user actions so merely entering/syncing a code never
      * starts an active scan.
      */
-    fun prepareInitialSetup(sensor: G7Sensor): G7PersistedState = transition(
-        resetForSensor(sensor).copy(
-            collectorEnabled = false,
-            connectionState = G7ConnectionState.DISCONNECTED,
-            protocolState = G7ProtocolState.IDLE,
-            sessionState = G7SessionState.UNINITIALIZED,
-        ),
-    )
+    fun prepareInitialSetup(sensor: G7Sensor): G7PersistedState =
+        transition(
+            resetForSensor(sensor).copy(
+                collectorEnabled = false,
+                connectionState = G7ConnectionState.DISCONNECTED,
+                protocolState = G7ProtocolState.IDLE,
+                sessionState = G7SessionState.UNINITIALIZED,
+            ),
+        )
 
-    fun beginInitialSetup(sensor: G7Sensor): G7PersistedState = transition(
-        resetForSensor(sensor).copy(
-            collectorEnabled = true,
-            connectionState = G7ConnectionState.SCANNING,
-            protocolState = G7ProtocolState.SCANNING,
-            sessionState = G7SessionState.INITIAL_SETUP,
-        ),
-    )
+    fun beginInitialSetup(sensor: G7Sensor): G7PersistedState =
+        transition(
+            resetForSensor(sensor).copy(
+                collectorEnabled = true,
+                connectionState = G7ConnectionState.SCANNING,
+                protocolState = G7ProtocolState.SCANNING,
+                sessionState = G7SessionState.INITIAL_SETUP,
+            ),
+        )
 
     /** Enables an already configured collector only after an explicit user/source-selection start. */
     fun startCollector(): G7PersistedState {
@@ -96,13 +118,19 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
         )
     }
 
-    fun authenticationStarted(reconnect: Boolean): G7PersistedState = transition(
-        state.copy(sessionState = if (reconnect) G7SessionState.REAUTHENTICATING else G7SessionState.AUTHENTICATING, authenticationState = G7AuthenticationState.AUTHENTICATING, protocolState = G7ProtocolState.AUTHENTICATING),
-    )
+    fun authenticationStarted(reconnect: Boolean): G7PersistedState =
+        transition(
+            state.copy(
+                sessionState = if (reconnect) G7SessionState.REAUTHENTICATING else G7SessionState.AUTHENTICATING,
+                authenticationState = G7AuthenticationState.AUTHENTICATING,
+                protocolState = G7ProtocolState.AUTHENTICATING,
+            ),
+        )
 
-    fun authenticationSucceeded(): G7PersistedState = transition(
-        state.copy(sessionState = G7SessionState.AUTHENTICATED, authenticationState = G7AuthenticationState.AUTHENTICATED),
-    )
+    fun authenticationSucceeded(): G7PersistedState =
+        transition(
+            state.copy(sessionState = G7SessionState.AUTHENTICATED, authenticationState = G7AuthenticationState.AUTHENTICATED),
+        )
 
     /**
      * A packet may arrive now while describing an older sensor measurement. Only a fresh valid
@@ -159,27 +187,37 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
         }
         val step = G7RecoveryChain.stepForFailure(state.retryCount)
         val plan = G7ReconnectScheduler.afterFailure(error.occurredAtEpochMs, state.retryCount)
-        val session = when (step) {
-            G7RecoveryStep.SESSION_REAUTH -> G7SessionState.REAUTHENTICATING
-            G7RecoveryStep.SESSION_RESET -> G7SessionState.REQUIRES_FULL_HANDSHAKE
-            G7RecoveryStep.REBOND -> G7SessionState.REQUIRES_REBOND
-            G7RecoveryStep.FULL_HANDSHAKE -> G7SessionState.REQUIRES_FULL_HANDSHAKE
-            G7RecoveryStep.USER_INTERVENTION_REQUIRED -> G7SessionState.USER_INTERVENTION_REQUIRED
-            else -> G7SessionState.RECOVERING
-        }
-        return transition(state.copy(sessionState = session, authenticationState = if (error.code.startsWith("AUTH")) G7AuthenticationState.FAILED else state.authenticationState, retryCount = plan.retryCount, nextReconnectEpochMs = plan.nextReconnectEpochMs, lastError = error))
+        val session =
+            when (step) {
+                G7RecoveryStep.SESSION_REAUTH -> G7SessionState.REAUTHENTICATING
+                G7RecoveryStep.SESSION_RESET -> G7SessionState.REQUIRES_FULL_HANDSHAKE
+                G7RecoveryStep.REBOND -> G7SessionState.REQUIRES_REBOND
+                G7RecoveryStep.FULL_HANDSHAKE -> G7SessionState.REQUIRES_FULL_HANDSHAKE
+                G7RecoveryStep.USER_INTERVENTION_REQUIRED -> G7SessionState.USER_INTERVENTION_REQUIRED
+                else -> G7SessionState.RECOVERING
+            }
+        return transition(
+            state.copy(
+                sessionState = session,
+                authenticationState = if (error.code.startsWith("AUTH")) G7AuthenticationState.FAILED else state.authenticationState,
+                retryCount = plan.retryCount,
+                nextReconnectEpochMs = plan.nextReconnectEpochMs,
+                lastError = error,
+            ),
+        )
     }
 
-    fun stop(): G7PersistedState = transition(
-        state.copy(
-            collectorEnabled = false,
-            sessionState = G7SessionState.UNINITIALIZED,
-            connectionState = G7ConnectionState.DISCONNECTED,
-            protocolState = G7ProtocolState.IDLE,
-            nextReconnectEpochMs = null,
-            retryCount = 0,
-        ),
-    )
+    fun stop(): G7PersistedState =
+        transition(
+            state.copy(
+                collectorEnabled = false,
+                sessionState = G7SessionState.UNINITIALIZED,
+                connectionState = G7ConnectionState.DISCONNECTED,
+                protocolState = G7ProtocolState.IDLE,
+                nextReconnectEpochMs = null,
+                retryCount = 0,
+            ),
+        )
 
     private fun resetForSensor(sensor: G7Sensor): G7PersistedState =
         state.copy(
@@ -196,22 +234,30 @@ class G7SessionManager(initial: G7PersistedState = G7PersistedState()) {
     private fun transition(next: G7PersistedState): G7PersistedState = next.also { state = it }
 
     private companion object {
-        val EXPECTED_WINDOW_ERROR_CODES = setOf(
-            "G7-GATT-133",
-            "G7-GATT-215",
-            "G7-BLE-107",
-            "G7-BLE-111",
-            "G7-BLE-FALLBACK-107",
-        )
+        val EXPECTED_WINDOW_ERROR_CODES =
+            setOf(
+                "G7-GATT-133",
+                "G7-GATT-215",
+                "G7-BLE-107",
+                "G7-BLE-111",
+                "G7-BLE-FALLBACK-107",
+            )
     }
 }
 
-class CollectorOwnershipManager(initial: CollectorOwner = CollectorOwner.UNKNOWN) {
+class CollectorOwnershipManager(
+    initial: CollectorOwner = CollectorOwner.UNKNOWN,
+) {
     var owner: CollectorOwner = initial
         private set
+
     fun requestWatch(): CollectorOwner = CollectorOwner.TRANSITION_TO_WATCH.also { owner = it }
+
     fun confirmWatchAfterValidReading(): CollectorOwner = CollectorOwner.WATCH.also { owner = it }
+
     fun requestPhone(): CollectorOwner = CollectorOwner.TRANSITION_TO_PHONE.also { owner = it }
+
     fun confirmPhone(): CollectorOwner = CollectorOwner.PHONE.also { owner = it }
+
     fun phoneDisconnected(): CollectorOwner = owner
 }

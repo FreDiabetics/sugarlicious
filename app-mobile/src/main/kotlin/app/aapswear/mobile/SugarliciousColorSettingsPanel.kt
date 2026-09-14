@@ -1,7 +1,6 @@
 package app.aapswear.mobile
 
 import android.content.Context
-import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,8 +32,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -58,8 +57,9 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.TrendArrowStyle
-import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+import android.graphics.Color as AndroidColor
 
 @Composable
 internal fun SugarliciousColorSettingsPanel(
@@ -86,13 +86,30 @@ internal fun SugarliciousColorSettingsPanel(
     var trendStyle by remember(selectedMode) { mutableStateOf(MobileTrendArrowAppearance.load(preferences, selectedMode)) }
     var watchSyncStatus by remember { mutableStateOf<String?>(null) }
     var cgmDotRadiusDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(preferences.getFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), preferences.getFloat("cgm.dotRadiusDp", 2.4f)).coerceIn(1.5f, 6.0f))
+        mutableFloatStateOf(
+            preferences
+                .getFloat(
+                    graphAppearanceKey(selectedMode, "dotRadiusDp"),
+                    preferences.getFloat("cgm.dotRadiusDp", 2.4f),
+                ).coerceIn(1.5f, 6.0f),
+        )
     }
     var cgmDotOutlineEnabled by remember(showCgmGraph, selectedMode) {
-        mutableStateOf(preferences.getBoolean(graphAppearanceKey(selectedMode, "dotOutlineEnabled"), preferences.getBoolean("cgm.dotOutlineEnabled", true)))
+        mutableStateOf(
+            preferences.getBoolean(
+                graphAppearanceKey(selectedMode, "dotOutlineEnabled"),
+                preferences.getBoolean("cgm.dotOutlineEnabled", true),
+            ),
+        )
     }
     var cgmDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(preferences.getFloat(graphAppearanceKey(selectedMode, "dotOutlineWidthDp"), preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f)).coerceIn(0.25f, 3.0f))
+        mutableFloatStateOf(
+            preferences
+                .getFloat(
+                    graphAppearanceKey(selectedMode, "dotOutlineWidthDp"),
+                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                ).coerceIn(0.25f, 3.0f),
+        )
     }
     var predictionDotRadiusDp by remember(showCgmGraph, selectedMode) {
         mutableFloatStateOf(readMobilePredictionDotRadius(preferences, selectedMode))
@@ -110,18 +127,17 @@ internal fun SugarliciousColorSettingsPanel(
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                SugarliciousColors.Surface,
-                RoundedCornerShape(24.dp),
-            )
-            .border(
-                1.dp,
-                SugarliciousColors.Border,
-                RoundedCornerShape(24.dp),
-            )
-            .padding(14.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(
+                    SugarliciousColors.Surface,
+                    RoundedCornerShape(24.dp),
+                ).border(
+                    1.dp,
+                    SugarliciousColors.Border,
+                    RoundedCornerShape(24.dp),
+                ).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(
@@ -180,9 +196,21 @@ internal fun SugarliciousColorSettingsPanel(
                 trendStyle = trendStyle.copy(outlineColor = TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor)
                 MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
             }
-            SugarliciousSettingSlider("Konturdicke", "Trendpfeil-Kontur", trendStyle.outlineThicknessDp, 0.25f..4f, "${String.format(locale, "%.2f", trendStyle.outlineThicknessDp)} dp", {
-                trendStyle = trendStyle.copy(outlineThicknessDp = it)
-            }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
+            SugarliciousSettingSlider(
+                "Konturdicke",
+                "Trendpfeil-Kontur",
+                trendStyle.outlineThicknessDp,
+                0.25f..4f,
+                "${String.format(
+                    locale,
+                    "%.2f",
+                    trendStyle.outlineThicknessDp,
+                )} dp",
+                {
+                    trendStyle = trendStyle.copy(outlineThicknessDp = it)
+                },
+                { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) },
+            )
         }
         SugarliciousSettingSlider("Deckkraft", "Trendpfeil", trendStyle.alpha * 100f, 0f..100f, "${(trendStyle.alpha * 100).roundToInt()} %", {
             trendStyle = trendStyle.copy(alpha = it / 100f)
@@ -201,10 +229,11 @@ internal fun SugarliciousColorSettingsPanel(
                 }
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SugarliciousColors.Primary,
-                contentColor = SugarliciousColors.OnPrimary,
-            ),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = SugarliciousColors.Primary,
+                    contentColor = SugarliciousColors.OnPrimary,
+                ),
         ) {
             Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
         }
@@ -265,10 +294,12 @@ internal fun SugarliciousColorSettingsPanel(
                 valueText = "${String.format(locale, "%.1f", predictionDotRadiusDp)} dp",
                 onValueChange = { predictionDotRadiusDp = it },
                 onValueChangeFinished = {
-                    preferences.edit().putFloat(
-                        graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
-                        predictionDotRadiusDp,
-                    ).apply()
+                    preferences
+                        .edit()
+                        .putFloat(
+                            graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
+                            predictionDotRadiusDp,
+                        ).apply()
                 },
             )
 
@@ -280,10 +311,12 @@ internal fun SugarliciousColorSettingsPanel(
                 valueText = "${String.format(locale, "%.2f", predictionDotOutlineWidthDp)} dp",
                 onValueChange = { predictionDotOutlineWidthDp = it },
                 onValueChangeFinished = {
-                    preferences.edit().putFloat(
-                        graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
-                        predictionDotOutlineWidthDp,
-                    ).apply()
+                    preferences
+                        .edit()
+                        .putFloat(
+                            graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
+                            predictionDotOutlineWidthDp,
+                        ).apply()
                 },
             )
         }
@@ -366,11 +399,12 @@ internal fun WidgetColorSettingsPanel() {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
-            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
-            .padding(14.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
+                .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
+                .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text("WIDGET-STANDARDFARBEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -387,10 +421,11 @@ internal fun WidgetColorSettingsPanel() {
                 refreshWidgets()
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SugarliciousColors.Primary,
-                contentColor = SugarliciousColors.OnPrimary,
-            ),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = SugarliciousColors.Primary,
+                    contentColor = SugarliciousColors.OnPrimary,
+                ),
         ) {
             Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
@@ -429,7 +464,6 @@ internal fun WidgetColorSettingsPanel() {
             },
         )
     }
-
 }
 
 @Composable
@@ -441,18 +475,20 @@ private fun WidgetColorSettingRow(
     onReset: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-            .clickable(onClick = onEdit)
-            .padding(horizontal = 11.dp, vertical = 9.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .clickable(onClick = onEdit)
+                .padding(horizontal = 11.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(28.dp)
-                .background(Color(argb), CircleShape)
-                .border(1.dp, SugarliciousColors.Border, CircleShape),
+            modifier =
+                Modifier
+                    .size(28.dp)
+                    .background(Color(argb), CircleShape)
+                    .border(1.dp, SugarliciousColors.Border, CircleShape),
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
@@ -500,44 +536,50 @@ internal fun colorRoleVisible(
     return true
 }
 
-internal fun graphAppearanceKey(mode: AppearanceMode, suffix: String): String =
-    "cgm.${mode.storageKey}.$suffix"
+internal fun graphAppearanceKey(
+    mode: AppearanceMode,
+    suffix: String,
+): String = "cgm.${mode.storageKey}.$suffix"
 
 internal fun migrateGraphAppearance(preferences: android.content.SharedPreferences) {
     if (preferences.getBoolean("cgm.appearance.profiles.v1", false)) return
-    val legacy = listOf(
-        "dotRadiusDp" to "cgm.dotRadiusDp",
-        "dotOutlineEnabled" to "cgm.dotOutlineEnabled",
-        "dotOutlineWidthDp" to "cgm.dotOutlineWidthDp",
-        "prediction.dotRadiusDp" to "cgm.prediction.dotRadiusDp",
-        "prediction.dotOutlineWidthDp" to "cgm.prediction.dotOutlineWidthDp",
-    )
+    val legacy =
+        listOf(
+            "dotRadiusDp" to "cgm.dotRadiusDp",
+            "dotOutlineEnabled" to "cgm.dotOutlineEnabled",
+            "dotOutlineWidthDp" to "cgm.dotOutlineWidthDp",
+            "prediction.dotRadiusDp" to "cgm.prediction.dotRadiusDp",
+            "prediction.dotOutlineWidthDp" to "cgm.prediction.dotOutlineWidthDp",
+        )
     if (legacy.none { (_, oldKey) -> preferences.contains(oldKey) }) return
-    preferences.edit().apply {
-        legacy.forEach { (suffix, oldKey) ->
-            if (!preferences.contains(oldKey)) return@forEach
-            AppearanceMode.entries.forEach { mode ->
-                val target = graphAppearanceKey(mode, suffix)
-                if (preferences.contains(target)) return@forEach
-                when (suffix) {
-                    "dotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
-                    else -> putFloat(
-                        target,
-                        preferences.getFloat(
-                            oldKey,
-                            when (suffix) {
-                                "dotRadiusDp" -> 2.4f
-                                "prediction.dotRadiusDp" -> 1.75f
-                                "prediction.dotOutlineWidthDp" -> 0.70f
-                                else -> 0.95f
-                            },
-                        ),
-                    )
+    preferences
+        .edit()
+        .apply {
+            legacy.forEach { (suffix, oldKey) ->
+                if (!preferences.contains(oldKey)) return@forEach
+                AppearanceMode.entries.forEach { mode ->
+                    val target = graphAppearanceKey(mode, suffix)
+                    if (preferences.contains(target)) return@forEach
+                    when (suffix) {
+                        "dotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
+                        else ->
+                            putFloat(
+                                target,
+                                preferences.getFloat(
+                                    oldKey,
+                                    when (suffix) {
+                                        "dotRadiusDp" -> 2.4f
+                                        "prediction.dotRadiusDp" -> 1.75f
+                                        "prediction.dotOutlineWidthDp" -> 0.70f
+                                        else -> 0.95f
+                                    },
+                                ),
+                            )
+                    }
                 }
             }
-        }
-        putBoolean("cgm.appearance.profiles.v1", true)
-    }.apply()
+            putBoolean("cgm.appearance.profiles.v1", true)
+        }.apply()
 }
 
 @Composable
@@ -553,13 +595,14 @@ internal fun AppearanceModeSelector(
                 color = if (active) SugarliciousColors.OnPrimary else SugarliciousColors.TextPrimary,
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-                    .background(
-                        if (active) SugarliciousColors.Primary else SugarliciousColors.SurfaceHigh,
-                        RoundedCornerShape(14.dp),
-                    )
-                    .clickable { onSelected(mode) }
-                    .padding(vertical = 11.dp),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .background(
+                            if (active) SugarliciousColors.Primary else SugarliciousColors.SurfaceHigh,
+                            RoundedCornerShape(14.dp),
+                        ).clickable { onSelected(mode) }
+                        .padding(vertical = 11.dp),
             )
         }
     }
@@ -568,7 +611,8 @@ internal fun AppearanceModeSelector(
 @Composable
 private fun AppearanceThemePreview(palette: app.aapswear.mobile.ui.theme.SugarliciousPalette) {
     Row(
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
             .background(Color(palette.argb(SugarliciousColorRole.BACKGROUND)), RoundedCornerShape(18.dp))
             .border(1.dp, Color(palette.argb(SugarliciousColorRole.BORDER)), RoundedCornerShape(18.dp))
             .padding(12.dp),
@@ -578,7 +622,9 @@ private fun AppearanceThemePreview(palette: app.aapswear.mobile.ui.theme.Sugarli
         Text("123", color = Color(palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE)), fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text("→", color = Color(palette.argb(SugarliciousColorRole.PRIMARY)), fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Box(
-            Modifier.weight(1f).height(34.dp)
+            Modifier
+                .weight(1f)
+                .height(34.dp)
                 .background(Color(palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND)), RoundedCornerShape(10.dp)),
         )
     }
@@ -592,10 +638,11 @@ private fun GraphSettingSwitch(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
@@ -606,13 +653,14 @@ private fun GraphSettingSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             modifier = Modifier.size(width = 50.dp, height = 30.dp),
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = SugarliciousColors.Primary,
-                uncheckedThumbColor = SugarliciousColors.TextSecondary,
-                uncheckedTrackColor = SugarliciousColors.SurfaceRaised,
-                uncheckedBorderColor = SugarliciousColors.Border,
-            ),
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = SugarliciousColors.Primary,
+                    uncheckedThumbColor = SugarliciousColors.TextSecondary,
+                    uncheckedTrackColor = SugarliciousColors.SurfaceRaised,
+                    uncheckedBorderColor = SugarliciousColors.Border,
+                ),
         )
     }
 }
@@ -630,10 +678,11 @@ internal fun SugarliciousSettingSlider(
     var editingValue by remember { mutableStateOf(false) }
     var enteredValue by remember(value, editingValue) { mutableStateOf(value.toString().trimEnd('0').trimEnd('.')) }
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -646,10 +695,11 @@ internal fun SugarliciousSettingSlider(
                 color = SugarliciousColors.Primary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(10.dp))
-                    .clickable { editingValue = true }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier =
+                    Modifier
+                        .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(10.dp))
+                        .clickable { editingValue = true }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
         Slider(
@@ -658,13 +708,14 @@ internal fun SugarliciousSettingSlider(
             onValueChangeFinished = onValueChangeFinished,
             valueRange = valueRange,
             modifier = Modifier.height(32.dp),
-            colors = SliderDefaults.colors(
-                thumbColor = SugarliciousColors.Primary,
-                activeTrackColor = SugarliciousColors.Primary,
-                inactiveTrackColor = SugarliciousColors.SurfaceRaised,
-                activeTickColor = Color.Transparent,
-                inactiveTickColor = Color.Transparent,
-            ),
+            colors =
+                SliderDefaults.colors(
+                    thumbColor = SugarliciousColors.Primary,
+                    activeTrackColor = SugarliciousColors.Primary,
+                    inactiveTrackColor = SugarliciousColors.SurfaceRaised,
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent,
+                ),
         )
     }
     if (editingValue) {
@@ -681,9 +732,15 @@ internal fun SugarliciousSettingSlider(
             },
             confirmButton = {
                 TextButton(onClick = {
-                    enteredValue.replace(',', '.').toFloatOrNull()
+                    enteredValue
+                        .replace(',', '.')
+                        .toFloatOrNull()
                         ?.takeIf { it in valueRange }
-                        ?.let { onValueChange(it); onValueChangeFinished(); editingValue = false }
+                        ?.let {
+                            onValueChange(it)
+                            onValueChangeFinished()
+                            editingValue = false
+                        }
                 }) { Text("ÜBERNEHMEN") }
             },
             dismissButton = { TextButton(onClick = { editingValue = false }) { Text("ABBRECHEN") } },
@@ -701,18 +758,20 @@ private fun ColorSettingRow(
     onReset: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-            .clickable(onClick = onEdit)
-            .padding(horizontal = 11.dp, vertical = 9.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .clickable(onClick = onEdit)
+                .padding(horizontal = 11.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
-                .size(24.dp)
-                .background(Color(argb), CircleShape)
-                .border(1.dp, SugarliciousColors.Border, CircleShape),
+            modifier =
+                Modifier
+                    .size(24.dp)
+                    .background(Color(argb), CircleShape)
+                    .border(1.dp, SugarliciousColors.Border, CircleShape),
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
@@ -741,10 +800,11 @@ private fun ColorRoleExample(
     val shape = RoundedCornerShape(12.dp)
 
     Box(
-        modifier = modifier
-            .background(SugarliciousColors.Surface, shape)
-            .border(1.dp, SugarliciousColors.Border, shape)
-            .padding(5.dp),
+        modifier =
+            modifier
+                .background(SugarliciousColors.Surface, shape)
+                .border(1.dp, SugarliciousColors.Border, shape)
+                .padding(5.dp),
         contentAlignment = Alignment.Center,
     ) {
         when (role) {
@@ -754,7 +814,9 @@ private fun ColorRoleExample(
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(
-                        Modifier.width(46.dp).height(20.dp)
+                        Modifier
+                            .width(46.dp)
+                            .height(20.dp)
                             .background(SugarliciousColors.Surface, RoundedCornerShape(6.dp)),
                     )
                 }
@@ -763,9 +825,12 @@ private fun ColorRoleExample(
             SugarliciousColorRole.SURFACE,
             SugarliciousColorRole.SURFACE_HIGH,
             SugarliciousColorRole.SURFACE_RAISED,
-            SugarliciousColorRole.SURFACE_SELECTED -> {
+            SugarliciousColorRole.SURFACE_SELECTED,
+            -> {
                 Box(
-                    Modifier.width(60.dp).height(27.dp)
+                    Modifier
+                        .width(60.dp)
+                        .height(27.dp)
                         .background(selectedColor, RoundedCornerShape(8.dp))
                         .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(8.dp)),
                 )
@@ -776,7 +841,8 @@ private fun ColorRoleExample(
             }
 
             SugarliciousColorRole.TEXT_PRIMARY,
-            SugarliciousColorRole.TEXT_SECONDARY -> {
+            SugarliciousColorRole.TEXT_SECONDARY,
+            -> {
                 Text("Aa", color = selectedColor, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
@@ -806,20 +872,26 @@ private fun ColorRoleExample(
             SugarliciousColorRole.RANGE_HIGH,
             SugarliciousColorRole.CGM_DOT_LOW,
             SugarliciousColorRole.CGM_DOT_IN_RANGE,
-            SugarliciousColorRole.CGM_DOT_HIGH -> {
+            SugarliciousColorRole.CGM_DOT_HIGH,
+            -> {
                 Text("123", color = selectedColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
 
             SugarliciousColorRole.PROGRESS_BELOW,
             SugarliciousColorRole.PROGRESS_IN_RANGE,
-            SugarliciousColorRole.PROGRESS_ABOVE -> {
+            SugarliciousColorRole.PROGRESS_ABOVE,
+            -> {
                 Box(
-                    Modifier.fillMaxWidth().height(12.dp)
+                    Modifier
+                        .fillMaxWidth()
+                        .height(12.dp)
                         .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(999.dp)),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Box(
-                        Modifier.fillMaxWidth(0.68f).height(12.dp)
+                        Modifier
+                            .fillMaxWidth(0.68f)
+                            .height(12.dp)
                             .background(selectedColor, RoundedCornerShape(999.dp)),
                     )
                 }
@@ -832,30 +904,34 @@ private fun ColorRoleExample(
             SugarliciousColorRole.PREDICTION_IOB,
             SugarliciousColorRole.PREDICTION_COB,
             SugarliciousColorRole.PREDICTION_UAM,
-            SugarliciousColorRole.PREDICTION_ZERO_TEMP -> {
+            SugarliciousColorRole.PREDICTION_ZERO_TEMP,
+            -> {
                 Canvas(Modifier.fillMaxSize()) {
                     repeat(5) { index ->
                         drawCircle(
                             color = selectedColor,
                             radius = 3.3.dp.toPx(),
-                            center = Offset(
-                                x = 9.dp.toPx() + index * 14.dp.toPx(),
-                                y = size.height - 8.dp.toPx() - index * 4.dp.toPx(),
-                            ),
+                            center =
+                                Offset(
+                                    x = 9.dp.toPx() + index * 14.dp.toPx(),
+                                    y = size.height - 8.dp.toPx() - index * 4.dp.toPx(),
+                                ),
                         )
                     }
                 }
             }
 
             SugarliciousColorRole.GRAPH_IOB,
-            SugarliciousColorRole.GRAPH_COB -> {
+            SugarliciousColorRole.GRAPH_COB,
+            -> {
                 Canvas(Modifier.fillMaxSize()) {
-                    val points = listOf(
-                        Offset(4.dp.toPx(), size.height - 5.dp.toPx()),
-                        Offset(22.dp.toPx(), size.height - 15.dp.toPx()),
-                        Offset(40.dp.toPx(), size.height - 11.dp.toPx()),
-                        Offset(58.dp.toPx(), 7.dp.toPx()),
-                    )
+                    val points =
+                        listOf(
+                            Offset(4.dp.toPx(), size.height - 5.dp.toPx()),
+                            Offset(22.dp.toPx(), size.height - 15.dp.toPx()),
+                            Offset(40.dp.toPx(), size.height - 11.dp.toPx()),
+                            Offset(58.dp.toPx(), 7.dp.toPx()),
+                        )
                     points.zipWithNext().forEach { (start, end) ->
                         drawLine(color = selectedColor, start = start, end = end, strokeWidth = 3.dp.toPx())
                     }
@@ -881,7 +957,8 @@ private fun ColorRoleExample(
 
             SugarliciousColorRole.GRAPH_MUTED,
             SugarliciousColorRole.GRAPH_DIVIDER,
-            SugarliciousColorRole.GRAPH_SIGNAL_LOSS -> {
+            SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
+            -> {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -902,23 +979,25 @@ private fun ColorRoleExample(
             }
 
             else -> {
-                val label = when (role) {
-                    SugarliciousColorRole.BLUE -> "IOB"
-                    SugarliciousColorRole.ORANGE -> "COB"
-                    SugarliciousColorRole.YELLOW -> "!"
-                    SugarliciousColorRole.RED -> "!"
-                    SugarliciousColorRole.PURPLE -> "●"
-                    SugarliciousColorRole.GREEN -> "●"
-                    SugarliciousColorRole.BRAND_GREEN -> "S"
-                    SugarliciousColorRole.PRIMARY -> "AKTIV"
-                    SugarliciousColorRole.SECONDARY -> "INFO"
-                    else -> "●"
-                }
+                val label =
+                    when (role) {
+                        SugarliciousColorRole.BLUE -> "IOB"
+                        SugarliciousColorRole.ORANGE -> "COB"
+                        SugarliciousColorRole.YELLOW -> "!"
+                        SugarliciousColorRole.RED -> "!"
+                        SugarliciousColorRole.PURPLE -> "●"
+                        SugarliciousColorRole.GREEN -> "●"
+                        SugarliciousColorRole.BRAND_GREEN -> "S"
+                        SugarliciousColorRole.PRIMARY -> "AKTIV"
+                        SugarliciousColorRole.SECONDARY -> "INFO"
+                        else -> "●"
+                    }
                 Box(
-                    modifier = Modifier
-                        .background(selectedColor.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
-                        .border(1.dp, selectedColor, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 9.dp, vertical = 4.dp),
+                    modifier =
+                        Modifier
+                            .background(selectedColor.copy(alpha = 0.18f), RoundedCornerShape(999.dp))
+                            .border(1.dp, selectedColor, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 9.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(label, color = selectedColor, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -936,9 +1015,10 @@ internal fun ColorEditorDialog(
     onDismiss: () -> Unit,
     onChange: (Int) -> Unit,
 ) {
-    val initialHsv = remember(role, label) {
-        FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
-    }
+    val initialHsv =
+        remember(role, label) {
+            FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
+        }
     var hue by remember(role, label) { mutableFloatStateOf(initialHsv[0]) }
     var saturation by remember(role, label) { mutableFloatStateOf(initialHsv[1]) }
     var brightness by remember(role, label) { mutableFloatStateOf(initialHsv[2]) }
@@ -947,16 +1027,22 @@ internal fun ColorEditorDialog(
     }
     var hex by remember(role, label) { mutableStateOf(toHex(initialArgb)) }
 
-    fun currentArgb(): Int = AndroidColor.HSVToColor(
-        (alpha * 255f).roundToInt().coerceIn(0, 255),
-        floatArrayOf(hue, saturation, brightness),
-    )
+    fun currentArgb(): Int =
+        AndroidColor.HSVToColor(
+            (alpha * 255f).roundToInt().coerceIn(0, 255),
+            floatArrayOf(hue, saturation, brightness),
+        )
 
     fun syncHex() {
         hex = toHex(currentArgb())
     }
 
-    fun persist(h: Float = hue, s: Float = saturation, v: Float = brightness, a: Float = alpha) {
+    fun persist(
+        h: Float = hue,
+        s: Float = saturation,
+        v: Float = brightness,
+        a: Float = alpha,
+    ) {
         onChange(
             AndroidColor.HSVToColor(
                 (a * 255f).roundToInt().coerceIn(0, 255),
@@ -978,18 +1064,25 @@ internal fun ColorEditorDialog(
                     )
                 } else {
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(62.dp)
-                            .background(Color(currentArgb()), RoundedCornerShape(12.dp))
-                            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(12.dp)),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(62.dp)
+                                .background(Color(currentArgb()), RoundedCornerShape(12.dp))
+                                .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(12.dp)),
                     )
                 }
 
                 OutlinedTextField(
                     value = hex,
                     onValueChange = { value ->
-                        val normalized = value.trim().uppercase().let {
-                            if (it.startsWith("#")) it else "#$it"
-                        }.take(9)
+                        val normalized =
+                            value
+                                .trim()
+                                .uppercase()
+                                .let {
+                                    if (it.startsWith("#")) it else "#$it"
+                                }.take(9)
                         hex = normalized
                         parseHex(normalized)?.let { parsed ->
                             val hsv = FloatArray(3).also { AndroidColor.colorToHSV(parsed, it) }
@@ -1057,16 +1150,19 @@ private fun SaturationBrightnessPicker(
 ) {
     val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
-        modifier = Modifier.fillMaxWidth().height(180.dp)
-            .pointerInput(Unit) {
-                fun update(offset: Offset) {
-                    currentOnChange(
-                        (offset.x / size.width).coerceIn(0f, 1f),
-                        (1f - offset.y / size.height).coerceIn(0f, 1f),
-                    )
-                }
-                detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
-            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .pointerInput(Unit) {
+                    fun update(offset: Offset) {
+                        currentOnChange(
+                            (offset.x / size.width).coerceIn(0f, 1f),
+                            (1f - offset.y / size.height).coerceIn(0f, 1f),
+                        )
+                    }
+                    detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
+                },
     ) {
         drawRect(Brush.horizontalGradient(listOf(Color.White, Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f))))))
         drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
@@ -1077,20 +1173,29 @@ private fun SaturationBrightnessPicker(
 }
 
 @Composable
-private fun HuePicker(hue: Float, onChange: (Float) -> Unit) {
+private fun HuePicker(
+    hue: Float,
+    onChange: (Float) -> Unit,
+) {
     val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
-        modifier = Modifier.fillMaxWidth().height(28.dp)
-            .pointerInput(Unit) {
-                fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
-                detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
-            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .pointerInput(Unit) {
+                    fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
+                    detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
+                },
     ) {
         drawRoundRect(
-            brush = Brush.horizontalGradient(
-                listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red),
-            ),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
+            brush =
+                Brush.horizontalGradient(
+                    listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red),
+                ),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(size.height / 2f),
         )
         val x = hue / 360f * size.width
         drawCircle(Color.White, 7.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(2.dp.toPx()))
@@ -1099,14 +1204,21 @@ private fun HuePicker(hue: Float, onChange: (Float) -> Unit) {
 }
 
 @Composable
-private fun AlphaPicker(color: Color, alpha: Float, onChange: (Float) -> Unit) {
+private fun AlphaPicker(
+    color: Color,
+    alpha: Float,
+    onChange: (Float) -> Unit,
+) {
     val currentOnChange by rememberUpdatedState(onChange)
     Canvas(
-        modifier = Modifier.fillMaxWidth().height(28.dp)
-            .pointerInput(Unit) {
-                fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f))
-                detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
-            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .pointerInput(Unit) {
+                    fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f))
+                    detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
+                },
     ) {
         val cell = 7.dp.toPx()
         var row = 0
@@ -1118,7 +1230,9 @@ private fun AlphaPicker(color: Color, alpha: Float, onChange: (Float) -> Unit) {
                 drawRect(
                     color = if ((row + column) % 2 == 0) Color(0xFFBEBEBE) else Color(0xFF707070),
                     topLeft = Offset(x, y),
-                    size = androidx.compose.ui.geometry.Size(cell, cell),
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(cell, cell),
                 )
                 x += cell
                 column++
@@ -1128,7 +1242,9 @@ private fun AlphaPicker(color: Color, alpha: Float, onChange: (Float) -> Unit) {
         }
         drawRoundRect(
             brush = Brush.horizontalGradient(listOf(color.copy(alpha = 0f), color.copy(alpha = 1f))),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height / 2f),
+            cornerRadius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(size.height / 2f),
         )
         val x = alpha * size.width
         drawCircle(Color.White, 7.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(2.dp.toPx()))
@@ -1146,27 +1262,35 @@ internal fun NotificationGraphSettingsPanel() {
     var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
     val palette = SugarliciousColorStore.load(preferences, selectedMode)
     val modePrefix = "notification.color.${selectedMode.storageKey}."
-    fun key(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
-    fun legacyOverrideKey(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
-    fun resolved(role: SugarliciousColorRole): Int = when {
-        preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
-        role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-        else -> palette.argb(role)
-    }
 
-    val collapsedInitial = remember(revision, selectedMode) {
-        NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
-    }
-    val expandedInitial = remember(revision, selectedMode) {
-        NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.EXPANDED)
-    }
+    fun key(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
+
+    fun legacyOverrideKey(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
+
+    fun resolved(role: SugarliciousColorRole): Int =
+        when {
+            preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
+            role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
+            else -> palette.argb(role)
+        }
+
+    val collapsedInitial =
+        remember(revision, selectedMode) {
+            NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
+        }
+    val expandedInitial =
+        remember(revision, selectedMode) {
+            NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.EXPANDED)
+        }
     var collapsedRadius by remember(revision) { mutableFloatStateOf(collapsedInitial.cgmRadiusDp) }
     var collapsedOutlineEnabled by remember(revision) { mutableStateOf(collapsedInitial.cgmOutlineEnabled) }
     var collapsedOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.cgmOutlineWidthDp) }
     var expandedRadius by remember(revision) { mutableFloatStateOf(expandedInitial.cgmRadiusDp) }
     var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.cgmOutlineEnabled) }
     var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.cgmOutlineWidthDp) }
-    var scaleLaneOpacity by remember(revision) { mutableFloatStateOf(preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).toFloat()) }
+    var scaleLaneOpacity by remember(revision) {
+        mutableFloatStateOf(preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).toFloat())
+    }
     var collapsedLayout by remember(revision) {
         mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.COLLAPSED))
     }
@@ -1174,7 +1298,10 @@ internal fun NotificationGraphSettingsPanel() {
         mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.EXPANDED))
     }
 
-    fun saveLayout(profile: NotificationGraphProfile, value: NotificationLayoutSettings) {
+    fun saveLayout(
+        profile: NotificationGraphProfile,
+        value: NotificationLayoutSettings,
+    ) {
         NotificationLayoutSettingsStore.save(preferences, profile, value)
         PersistentBridgeService.refresh(context)
     }
@@ -1197,22 +1324,24 @@ internal fun NotificationGraphSettingsPanel() {
         )
     }
 
-    val roles = listOf(
-        SugarliciousColorRole.CGM_DOT_LOW,
-        SugarliciousColorRole.CGM_DOT_IN_RANGE,
-        SugarliciousColorRole.CGM_DOT_HIGH,
-        SugarliciousColorRole.GRAPH_CURRENT_OUTLINE,
-        SugarliciousColorRole.GRAPH_BACKGROUND,
-        SugarliciousColorRole.GRAPH_DIVIDER,
-        SugarliciousColorRole.RANGE_LOW,
-        SugarliciousColorRole.RANGE_IN_RANGE,
-        SugarliciousColorRole.RANGE_HIGH,
-        SugarliciousColorRole.TARGET_VALUE,
-        SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
-    )
+    val roles =
+        listOf(
+            SugarliciousColorRole.CGM_DOT_LOW,
+            SugarliciousColorRole.CGM_DOT_IN_RANGE,
+            SugarliciousColorRole.CGM_DOT_HIGH,
+            SugarliciousColorRole.GRAPH_CURRENT_OUTLINE,
+            SugarliciousColorRole.GRAPH_BACKGROUND,
+            SugarliciousColorRole.GRAPH_DIVIDER,
+            SugarliciousColorRole.RANGE_LOW,
+            SugarliciousColorRole.RANGE_IN_RANGE,
+            SugarliciousColorRole.RANGE_HIGH,
+            SugarliciousColorRole.TARGET_VALUE,
+            SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
+        )
 
     Column(
-        Modifier.fillMaxWidth()
+        Modifier
+            .fillMaxWidth()
             .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
             .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
             .padding(14.dp),
@@ -1231,12 +1360,14 @@ internal fun NotificationGraphSettingsPanel() {
             TextButton(
                 onClick = {
                     NotificationGraphDotStyleStore.resetProfiles(preferences)
-                    preferences.edit().apply {
-                        roles.forEach {
-                            remove(key(it))
-                            remove(legacyOverrideKey(it))
-                        }
-                    }.apply()
+                    preferences
+                        .edit()
+                        .apply {
+                            roles.forEach {
+                                remove(key(it))
+                                remove(legacyOverrideKey(it))
+                            }
+                        }.apply()
                     revision++
                 },
             ) {
@@ -1270,16 +1401,19 @@ internal fun NotificationGraphSettingsPanel() {
 
         Button(
             onClick = {
-                preferences.edit().apply {
-                    roles.forEach { role -> putInt(key(role), palette.argb(role)) }
-                }.apply()
+                preferences
+                    .edit()
+                    .apply {
+                        roles.forEach { role -> putInt(key(role), palette.argb(role)) }
+                    }.apply()
                 revision++
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SugarliciousColors.Primary,
-                contentColor = SugarliciousColors.OnPrimary,
-            ),
+            colors =
+                ButtonDefaults.buttonColors(
+                    containerColor = SugarliciousColors.Primary,
+                    contentColor = SugarliciousColors.OnPrimary,
+                ),
         ) {
             Text("FARBEN AUS MOBILE ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
@@ -1395,13 +1529,17 @@ internal fun NotificationGraphSettingsPanel() {
             ColorSettingRow(
                 role = role,
                 argb = resolved(role),
-                isDefault = !preferences.contains(key(role)) &&
-                    !preferences.contains(legacyOverrideKey(role)),
+                isDefault =
+                    !preferences.contains(key(role)) &&
+                        !preferences.contains(legacyOverrideKey(role)),
                 onEdit = { editingRole = role },
                 onReset = {
-                    preferences.edit().remove(key(role)).apply {
-                        remove(legacyOverrideKey(role))
-                    }.apply()
+                    preferences
+                        .edit()
+                        .remove(key(role))
+                        .apply {
+                            remove(legacyOverrideKey(role))
+                        }.apply()
                     revision++
                 },
             )
@@ -1428,9 +1566,15 @@ private fun NotificationLayoutControls(
     onChange: (NotificationLayoutSettings) -> Unit,
 ) {
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    SugarliciousSettingSlider("CGM-Größe", "Nur der Glukosewert", value.glucoseScalePercent.toFloat(), 70f..200f, "${value.glucoseScalePercent} %", { onChange(value.copy(glucoseScalePercent = it.toInt())) }, {})
-    SugarliciousSettingSlider("CGM X", "Relative horizontale Position", value.glucoseXPercent.toFloat(), -40f..40f, "${value.glucoseXPercent} %", { onChange(value.copy(glucoseXPercent = it.toInt())) }, {})
-    SugarliciousSettingSlider("CGM Y", "Relative vertikale Position", value.glucoseYPercent.toFloat(), -40f..40f, "${value.glucoseYPercent} %", { onChange(value.copy(glucoseYPercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("CGM-Größe", "Nur der Glukosewert", value.glucoseScalePercent.toFloat(), 70f..200f, "${value.glucoseScalePercent} %", {
+        onChange(value.copy(glucoseScalePercent = it.toInt()))
+    }, {})
+    SugarliciousSettingSlider("CGM X", "Relative horizontale Position", value.glucoseXPercent.toFloat(), -40f..40f, "${value.glucoseXPercent} %", {
+        onChange(value.copy(glucoseXPercent = it.toInt()))
+    }, {})
+    SugarliciousSettingSlider("CGM Y", "Relative vertikale Position", value.glucoseYPercent.toFloat(), -40f..40f, "${value.glucoseYPercent} %", {
+        onChange(value.copy(glucoseYPercent = it.toInt()))
+    }, {})
     SugarliciousSettingSlider(
         "Trendpfeilgröße",
         if (value.trendScalePercent == null) "Systemstandard" else "Notification-Override",
@@ -1443,9 +1587,27 @@ private fun NotificationLayoutControls(
     TextButton(onClick = { onChange(value.copy(trendScalePercent = null)) }) {
         Text("SYSTEMSTANDARD VERWENDEN", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
-    SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", { onChange(value.copy(trendXPercent = it.toInt())) }, {})
-    SugarliciousSettingSlider("Trend Y", "Relative vertikale Position", value.trendYPercent.toFloat(), -40f..40f, "${value.trendYPercent} %", { onChange(value.copy(trendYPercent = it.toInt())) }, {})
-    SugarliciousSettingSlider("Delta/Age-Größe", "Sekundärzeile", value.metaScalePercent.toFloat(), 70f..160f, String.format(locale, "%d %%", value.metaScalePercent), { onChange(value.copy(metaScalePercent = it.toInt())) }, {})
+    SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", {
+        onChange(value.copy(trendXPercent = it.toInt()))
+    }, {})
+    SugarliciousSettingSlider("Trend Y", "Relative vertikale Position", value.trendYPercent.toFloat(), -40f..40f, "${value.trendYPercent} %", {
+        onChange(value.copy(trendYPercent = it.toInt()))
+    }, {})
+    SugarliciousSettingSlider(
+        "Delta/Age-Größe",
+        "Sekundärzeile",
+        value.metaScalePercent.toFloat(),
+        70f..160f,
+        String.format(
+            locale,
+            "%d %%",
+            value.metaScalePercent,
+        ),
+        {
+            onChange(value.copy(metaScalePercent = it.toInt()))
+        },
+        {},
+    )
 }
 
 internal fun toHex(argb: Int): String = ArgbColor.format(argb)

@@ -10,30 +10,33 @@ import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DeviceState
-import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucosePrediction
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.LoopState
-import app.aapswear.model.ProfileState
 import app.aapswear.model.PredictionKind
+import app.aapswear.model.ProfileState
 import app.aapswear.model.PumpState
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
-import app.aapswear.storage.TherapyStateStore
 import app.aapswear.storage.PersistentPredictionCache
+import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlin.math.sin
 
 /** Debug-build-only synthetic state injection. This class is absent from release APKs. */
 class DebugStateReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
@@ -59,13 +62,14 @@ class DebugStateReceiver : BroadcastReceiver() {
     private fun syntheticState(mode: String): TherapyDisplayState {
         val now = System.currentTimeMillis()
         val measuredAt = if (mode == "stale") now - 25 * 60_000L else now - 2 * 60_000L
-        val history = (0 until 30).map { index ->
-            val minutesAgo = (29 - index) * 5L
-            GlucoseSample(
-                valueMgDl = 118.0 + sin(index / 3.0) * 20.0 + index * 0.3,
-                measuredAtEpochMs = now - minutesAgo * 60_000L,
-            )
-        }
+        val history =
+            (0 until 30).map { index ->
+                val minutesAgo = (29 - index) * 5L
+                GlucoseSample(
+                    valueMgDl = 118.0 + sin(index / 3.0) * 20.0 + index * 0.3,
+                    measuredAtEpochMs = now - minutesAgo * 60_000L,
+                )
+            }
         val predictions =
             if (mode == "predictions") {
                 listOf(

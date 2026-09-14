@@ -14,17 +14,19 @@ class WearStartupStateCoordinatorTest {
     @Test fun `rehydration preserves measurement identity and recalculates stale from event time`() {
         val eventAt = 1_000_000L
         val receivedAt = eventAt + 30_000L
-        val persisted = TherapyDisplayState(
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            receivedAtEpochMs = receivedAt,
-            glucose = GlucoseState(
-                valueMgDl = 176.0,
-                displayUnit = GlucoseUnit.MG_DL,
-                trend = Trend.SINGLE_UP,
-                measuredAtEpochMs = eventAt,
+        val persisted =
+            TherapyDisplayState(
+                source = DataSourceId.DEXCOM_G7_WATCH,
                 receivedAtEpochMs = receivedAt,
-            ),
-        )
+                glucose =
+                    GlucoseState(
+                        valueMgDl = 176.0,
+                        displayUnit = GlucoseUnit.MG_DL,
+                        trend = Trend.SINGLE_UP,
+                        measuredAtEpochMs = eventAt,
+                        receivedAtEpochMs = receivedAt,
+                    ),
+            )
 
         val restored = prepareStartupSnapshot(persisted, eventAt + 20 * 60_000L)
 
@@ -44,25 +46,28 @@ class WearStartupStateCoordinatorTest {
 
     @Test fun `legacy direct snapshot is removed without mutating configured phone source to other`() {
         val measuredAt = 1_000_000L
-        val persisted = TherapyDisplayState(
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sourceVersion = "SugarWear",
-            sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:test",
-            receivedAtEpochMs = measuredAt + 5_000L,
-            glucose = GlucoseState(
-                valueMgDl = 123.0,
-                displayUnit = GlucoseUnit.MG_DL,
-                measuredAtEpochMs = measuredAt,
+        val persisted =
+            TherapyDisplayState(
                 source = DataSourceId.DEXCOM_G7_WATCH,
-            ),
-            glucoseHistory = listOf(
-                app.aapswear.model.GlucoseSample(
-                    valueMgDl = 123.0,
-                    measuredAtEpochMs = measuredAt,
-                    source = DataSourceId.DEXCOM_G7_WATCH,
-                ),
-            ),
-        )
+                sourceVersion = "SugarWear",
+                sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:test",
+                receivedAtEpochMs = measuredAt + 5_000L,
+                glucose =
+                    GlucoseState(
+                        valueMgDl = 123.0,
+                        displayUnit = GlucoseUnit.MG_DL,
+                        measuredAtEpochMs = measuredAt,
+                        source = DataSourceId.DEXCOM_G7_WATCH,
+                    ),
+                glucoseHistory =
+                    listOf(
+                        app.aapswear.model.GlucoseSample(
+                            valueMgDl = 123.0,
+                            measuredAtEpochMs = measuredAt,
+                            source = DataSourceId.DEXCOM_G7_WATCH,
+                        ),
+                    ),
+            )
 
         val sanitized = persisted.withoutDirectToWatchInput()
 

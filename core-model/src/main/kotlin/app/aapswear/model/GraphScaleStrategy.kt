@@ -11,7 +11,10 @@ import kotlin.math.sign
 /** The independent numerical axes currently rendered by the Sugarlicious graphs. */
 enum class GraphAxis { CGM, IOB, COB, INSULIN_ACTIVITY }
 
-data class GraphBounds(val minimum: Double, val maximum: Double) {
+data class GraphBounds(
+    val minimum: Double,
+    val maximum: Double,
+) {
     init {
         require(minimum.isFinite() && maximum.isFinite() && maximum > minimum)
     }
@@ -45,17 +48,19 @@ data class GraphAxisScale(
         return inverseTransform(transformed).coerceIn(bounds.minimum, bounds.maximum)
     }
 
-    private fun transform(value: Double): Double = when {
-        !mode.isLogarithmic -> value
-        logarithmicDomain == LogarithmicDomain.POSITIVE -> ln(value.coerceAtLeast(bounds.minimum.coerceAtLeast(0.000001)))
-        else -> sign(value) * ln(1.0 + abs(value) / linearThreshold)
-    }
+    private fun transform(value: Double): Double =
+        when {
+            !mode.isLogarithmic -> value
+            logarithmicDomain == LogarithmicDomain.POSITIVE -> ln(value.coerceAtLeast(bounds.minimum.coerceAtLeast(0.000001)))
+            else -> sign(value) * ln(1.0 + abs(value) / linearThreshold)
+        }
 
-    private fun inverseTransform(value: Double): Double = when {
-        !mode.isLogarithmic -> value
-        logarithmicDomain == LogarithmicDomain.POSITIVE -> kotlin.math.exp(value)
-        else -> sign(value) * linearThreshold * (kotlin.math.exp(abs(value)) - 1.0)
-    }
+    private fun inverseTransform(value: Double): Double =
+        when {
+            !mode.isLogarithmic -> value
+            logarithmicDomain == LogarithmicDomain.POSITIVE -> kotlin.math.exp(value)
+            else -> sign(value) * linearThreshold * (kotlin.math.exp(abs(value)) - 1.0)
+        }
 }
 
 val CgmGraphScaleMode.isDynamic: Boolean
@@ -83,15 +88,19 @@ class GraphScaleSession {
         logarithmicDomain: LogarithmicDomain = LogarithmicDomain.SIGNED,
     ): GraphAxisScale {
         val values = if (mode.isDynamic) visibleValues + requiredValues else seedValues + requiredValues
-        val resolved = if (mode.isDynamic) {
-            niceBounds(values, fallbackBounds, minimumSpan, maxTickCount)
-        } else {
-            fixedBounds.getOrPut(axis) { niceBounds(values, fallbackBounds, minimumSpan, maxTickCount) }
-        }
+        val resolved =
+            if (mode.isDynamic) {
+                niceBounds(values, fallbackBounds, minimumSpan, maxTickCount)
+            } else {
+                fixedBounds.getOrPut(axis) { niceBounds(values, fallbackBounds, minimumSpan, maxTickCount) }
+            }
         return GraphAxisScale(mode, resolved, logarithmicDomain)
     }
 
-    fun useConfiguredBounds(axis: GraphAxis, bounds: GraphBounds) {
+    fun useConfiguredBounds(
+        axis: GraphAxis,
+        bounds: GraphBounds,
+    ) {
         fixedBounds[axis] = bounds
     }
 
@@ -102,7 +111,12 @@ class GraphScaleSession {
     fun fixedBounds(axis: GraphAxis): GraphBounds? = fixedBounds[axis]
 }
 
-private fun niceBounds(values: Iterable<Double>, fallback: GraphBounds, minimumSpan: Double, maxTickCount: Int): GraphBounds {
+private fun niceBounds(
+    values: Iterable<Double>,
+    fallback: GraphBounds,
+    minimumSpan: Double,
+    maxTickCount: Int,
+): GraphBounds {
     val finite = values.filter(Double::isFinite)
     if (finite.isEmpty()) return fallback
     val dataMinimum = finite.minOrNull() ?: return fallback
@@ -113,13 +127,14 @@ private fun niceBounds(values: Iterable<Double>, fallback: GraphBounds, minimumS
     val rawSpan = max(rawMaximum - rawMinimum, minimumSpan)
     val magnitude = 10.0.pow(floor(log10(rawSpan.coerceAtLeast(0.000001))))
     val fraction = rawSpan / magnitude
-    val niceSpan = when {
-        fraction <= 1.0 -> 1.0
-        fraction <= 2.0 -> 2.0
-        fraction <= 2.5 -> 2.5
-        fraction <= 5.0 -> 5.0
-        else -> 10.0
-    } * magnitude
+    val niceSpan =
+        when {
+            fraction <= 1.0 -> 1.0
+            fraction <= 2.0 -> 2.0
+            fraction <= 2.5 -> 2.5
+            fraction <= 5.0 -> 5.0
+            else -> 10.0
+        } * magnitude
     val step = niceSpan / (maxTickCount.coerceAtLeast(2) - 1)
     val minimum = if (zeroFloor) 0.0 else kotlin.math.floor(rawMinimum / step) * step
     val maximum = kotlin.math.ceil(rawMaximum / step) * step

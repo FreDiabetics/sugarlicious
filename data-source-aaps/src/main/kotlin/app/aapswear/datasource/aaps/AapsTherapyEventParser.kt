@@ -18,36 +18,50 @@ object AapsTherapyEventParser {
     fun parse(payload: String?): List<TherapyEvent> {
         if (payload.isNullOrBlank()) return emptyList()
         val array = runCatching { json.parseToJsonElement(payload).jsonArray }.getOrNull() ?: return emptyList()
-        return array.mapNotNull { element ->
-            val item = runCatching { element.jsonObject }.getOrNull() ?: return@mapNotNull null
-            val kind = item["type"]?.jsonPrimitive?.contentOrNull?.let(::parseKind) ?: return@mapNotNull null
-            val timestamp = item["timestamp"]?.jsonPrimitive?.longOrNull?.let(::normalizeEpoch)?.takeIf { it > 0L }
-                ?: return@mapNotNull null
-            val amount = item["amount"]?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() && it > 0.0 }
-                ?: return@mapNotNull null
-            val suppliedId = item["id"]?.jsonPrimitive?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
-            TherapyEvent(
-                id = suppliedId ?: "${kind.name}:$timestamp:$amount",
-                kind = kind,
-                timestampEpochMs = timestamp,
-                amount = amount,
-                source = TherapyEventSource.AAPS_ONLY,
-                originalSourceId = suppliedId,
-                insulinUnits = amount.takeIf { kind in insulinKinds },
-                carbsGrams = amount.takeIf { kind in carbKinds },
-                eventType = item["type"]?.jsonPrimitive?.contentOrNull,
-            )
-        }.distinctBy(TherapyEvent::id).sortedBy(TherapyEvent::timestampEpochMs)
+        return array
+            .mapNotNull { element ->
+                val item = runCatching { element.jsonObject }.getOrNull() ?: return@mapNotNull null
+                val kind = item["type"]?.jsonPrimitive?.contentOrNull?.let(::parseKind) ?: return@mapNotNull null
+                val timestamp =
+                    item["timestamp"]
+                        ?.jsonPrimitive
+                        ?.longOrNull
+                        ?.let(::normalizeEpoch)
+                        ?.takeIf { it > 0L }
+                        ?: return@mapNotNull null
+                val amount =
+                    item["amount"]?.jsonPrimitive?.doubleOrNull?.takeIf { it.isFinite() && it > 0.0 }
+                        ?: return@mapNotNull null
+                val suppliedId =
+                    item["id"]
+                        ?.jsonPrimitive
+                        ?.contentOrNull
+                        ?.trim()
+                        ?.takeIf { it.isNotEmpty() }
+                TherapyEvent(
+                    id = suppliedId ?: "${kind.name}:$timestamp:$amount",
+                    kind = kind,
+                    timestampEpochMs = timestamp,
+                    amount = amount,
+                    source = TherapyEventSource.AAPS_ONLY,
+                    originalSourceId = suppliedId,
+                    insulinUnits = amount.takeIf { kind in insulinKinds },
+                    carbsGrams = amount.takeIf { kind in carbKinds },
+                    eventType = item["type"]?.jsonPrimitive?.contentOrNull,
+                )
+            }.distinctBy(TherapyEvent::id)
+            .sortedBy(TherapyEvent::timestampEpochMs)
     }
 
-    private fun parseKind(value: String): TherapyEventKind? = when (value.trim().uppercase()) {
-        "SMB" -> TherapyEventKind.SMB
-        "CORRECTION", "MANUAL_CORRECTION" -> TherapyEventKind.MANUAL_CORRECTION
-        "MEAL_BOLUS" -> TherapyEventKind.MEAL_BOLUS
-        "CARBS", "MEAL_CARBS" -> TherapyEventKind.MEAL_CARBS
-        "ECARBS", "ECARB" -> TherapyEventKind.ECARBS
-        else -> null
-    }
+    private fun parseKind(value: String): TherapyEventKind? =
+        when (value.trim().uppercase()) {
+            "SMB" -> TherapyEventKind.SMB
+            "CORRECTION", "MANUAL_CORRECTION" -> TherapyEventKind.MANUAL_CORRECTION
+            "MEAL_BOLUS" -> TherapyEventKind.MEAL_BOLUS
+            "CARBS", "MEAL_CARBS" -> TherapyEventKind.MEAL_CARBS
+            "ECARBS", "ECARB" -> TherapyEventKind.ECARBS
+            else -> null
+        }
 
     private fun normalizeEpoch(value: Long): Long = if (value in 1..9_999_999_999L) value * 1_000L else value
 

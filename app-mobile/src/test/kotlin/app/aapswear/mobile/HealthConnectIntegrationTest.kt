@@ -16,16 +16,18 @@ class HealthConnectIntegrationTest {
 
     @Test
     fun `builds stable interstitial records from history and current glucose`() {
-        val state = TherapyDisplayState(
-            source = DataSourceId.ANDROID_APS,
-            receivedAtEpochMs = now,
-            glucose = GlucoseState(126.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-            glucoseHistory = listOf(
-                GlucoseSample(120.0, now - 5 * 60_000L, DataSourceId.ANDROID_APS),
-                GlucoseSample(120.0, now - 5 * 60_000L, DataSourceId.ANDROID_APS),
-                GlucoseSample(Double.NaN, now - 10 * 60_000L, DataSourceId.ANDROID_APS),
-            ),
-        )
+        val state =
+            TherapyDisplayState(
+                source = DataSourceId.ANDROID_APS,
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(126.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(120.0, now - 5 * 60_000L, DataSourceId.ANDROID_APS),
+                        GlucoseSample(120.0, now - 5 * 60_000L, DataSourceId.ANDROID_APS),
+                        GlucoseSample(Double.NaN, now - 10 * 60_000L, DataSourceId.ANDROID_APS),
+                    ),
+            )
 
         val records = HealthConnectIntegration.buildGlucoseRecords(state, now)
 
@@ -39,15 +41,17 @@ class HealthConnectIntegrationTest {
     @Test
     fun `resumes from last confirmed timestamp and marks direct collector as watch`() {
         val previous = now - 5 * 60_000L
-        val state = TherapyDisplayState(
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            receivedAtEpochMs = now,
-            glucose = GlucoseState(130.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-            glucoseHistory = listOf(
-                GlucoseSample(120.0, previous - 5 * 60_000L, DataSourceId.DEXCOM_G7_WATCH),
-                GlucoseSample(125.0, previous, DataSourceId.DEXCOM_G7_WATCH),
-            ),
-        )
+        val state =
+            TherapyDisplayState(
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(130.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(120.0, previous - 5 * 60_000L, DataSourceId.DEXCOM_G7_WATCH),
+                        GlucoseSample(125.0, previous, DataSourceId.DEXCOM_G7_WATCH),
+                    ),
+            )
 
         val records = HealthConnectIntegration.buildGlucoseRecords(state, now, previous)
 
@@ -58,15 +62,17 @@ class HealthConnectIntegrationTest {
 
     @Test
     fun `rejects stale future and physiologically invalid values`() {
-        val state = TherapyDisplayState(
-            source = DataSourceId.ANDROID_APS,
-            receivedAtEpochMs = now,
-            glucoseHistory = listOf(
-                GlucoseSample(100.0, now - 25L * 60L * 60_000L),
-                GlucoseSample(10.0, now),
-                GlucoseSample(110.0, now + 6 * 60_000L),
-            ),
-        )
+        val state =
+            TherapyDisplayState(
+                source = DataSourceId.ANDROID_APS,
+                receivedAtEpochMs = now,
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(100.0, now - 25L * 60L * 60_000L),
+                        GlucoseSample(10.0, now),
+                        GlucoseSample(110.0, now + 6 * 60_000L),
+                    ),
+            )
 
         assertTrue(HealthConnectIntegration.buildGlucoseRecords(state, now).isEmpty())
     }

@@ -46,14 +46,18 @@ internal fun TherapyDisplayState.withoutDirectToWatchInput(): TherapyDisplayStat
     val currentIsDirect =
         source == DataSourceId.DEXCOM_G7_WATCH || glucose?.source == DataSourceId.DEXCOM_G7_WATCH
     val safeGlucose = glucose?.takeUnless { currentIsDirect || it.source == DataSourceId.DEXCOM_G7_WATCH }
-    val safeCapabilities = if (currentIsDirect && safeGlucose == null) {
-        capabilities - setOf(
-            DataCapability.GLUCOSE,
-            DataCapability.TREND,
-            DataCapability.DELTA,
-            DataCapability.AVERAGE_DELTA,
-        )
-    } else capabilities
+    val safeCapabilities =
+        if (currentIsDirect && safeGlucose == null) {
+            capabilities -
+                setOf(
+                    DataCapability.GLUCOSE,
+                    DataCapability.TREND,
+                    DataCapability.DELTA,
+                    DataCapability.AVERAGE_DELTA,
+                )
+        } else {
+            capabilities
+        }
 
     return copy(
         // Sugarlicious Wear is phone-fed. Removing a legacy SugarWear snapshot must not turn

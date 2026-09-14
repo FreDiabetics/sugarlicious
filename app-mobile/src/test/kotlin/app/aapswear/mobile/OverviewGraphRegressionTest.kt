@@ -20,7 +20,8 @@ class OverviewGraphRegressionTest {
     @Test
     fun `legacy auto forced twenty four hour overview restores once to three hours`() {
         val preferences = context.getSharedPreferences("overview_graph_migration", Context.MODE_PRIVATE)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putBoolean("graphHoursDefault24MigratedV4", true)
             .putInt("graphHours", 24)
@@ -36,7 +37,8 @@ class OverviewGraphRegressionTest {
     @Test
     fun `explicit three hour choice survives migration`() {
         val preferences = context.getSharedPreferences("overview_graph_explicit", Context.MODE_PRIVATE)
-        preferences.edit()
+        preferences
+            .edit()
             .clear()
             .putBoolean("graphHoursDefault24MigratedV4", true)
             .putInt("graphHours", 3)

@@ -78,25 +78,27 @@ class WearGlucoseChartTest {
             TherapyDisplayState(
                 receivedAtEpochMs = now,
                 target = TargetState(lowMgDl = 80.0, highMgDl = 160.0, valueMgDl = 100.0),
-                targetHistory = listOf(
-                    TargetSample(
-                        valueMgDl = 100.0,
-                        startedAtEpochMs = now - 60L * 60_000L,
-                        endsAtEpochMs = now,
+                targetHistory =
+                    listOf(
+                        TargetSample(
+                            valueMgDl = 100.0,
+                            startedAtEpochMs = now - 60L * 60_000L,
+                            endsAtEpochMs = now,
+                        ),
                     ),
-                ),
             )
         val targetOnlyChanged =
             first.copy(
                 target = first.target?.copy(valueMgDl = 130.0, temporary = true),
-                targetHistory = listOf(
-                    TargetSample(
-                        valueMgDl = 130.0,
-                        startedAtEpochMs = now - 30L * 60_000L,
-                        endsAtEpochMs = now + 30L * 60_000L,
-                        temporary = true,
+                targetHistory =
+                    listOf(
+                        TargetSample(
+                            valueMgDl = 130.0,
+                            startedAtEpochMs = now - 30L * 60_000L,
+                            endsAtEpochMs = now + 30L * 60_000L,
+                            temporary = true,
+                        ),
                     ),
-                ),
             )
         val rangeChanged =
             targetOnlyChanged.copy(

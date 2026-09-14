@@ -11,8 +11,10 @@ import org.robolectric.RobolectricTestRunner
 class SettingsSchemaStoreTest {
     @Test
     fun `migration is monotonic and runs once`() {
-        val preferences = ApplicationProvider.getApplicationContext<Context>()
-            .getSharedPreferences("schema-test", Context.MODE_PRIVATE)
+        val preferences =
+            ApplicationProvider
+                .getApplicationContext<Context>()
+                .getSharedPreferences("schema-test", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
         var calls = 0
         preferences.ensureSettingsSchema(4) { from, to ->
