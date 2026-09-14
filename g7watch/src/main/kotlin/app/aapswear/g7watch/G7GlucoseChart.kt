@@ -35,9 +35,13 @@ internal class G7GlucoseChart @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val bounds = RectF()
+    private val colorStore = G7GraphColorStore(context)
     private var readings: List<CgmReading> = emptyList()
+    private var samples: List<GlucoseSample> = emptyList()
     private var nowEpochMs: Long = System.currentTimeMillis()
-    private var colors = G7GraphColorStore(context).read()
+    private var colors = colorStore.read()
+    private var thresholds = colorStore.readThresholds()
 
     fun update(values: List<CgmReading>, nowEpochMs: Long = System.currentTimeMillis()) {
         readings = values
@@ -50,19 +54,7 @@ internal class G7GlucoseChart @JvmOverloads constructor(
                     it.receivedAtEpochMs <= nowEpochMs + FUTURE_TOLERANCE_MS
             }
             .sortedBy(CgmReading::timestampEpochMs)
-        this.nowEpochMs = nowEpochMs
-        colors = G7GraphColorStore(context).read()
-        invalidate()
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val bounds = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        paint.style = Paint.Style.FILL
-        paint.color = colors.graphBackground
-        canvas.drawRoundRect(bounds, 18f * density, 18f * density, paint)
-
-        val samples = readings.map { reading ->
+        samples = readings.map { reading ->
             GlucoseSample(
                 valueMgDl = reading.glucoseMgDl,
                 measuredAtEpochMs = reading.timestampEpochMs,
@@ -71,10 +63,26 @@ internal class G7GlucoseChart @JvmOverloads constructor(
                 sessionId = reading.sessionId,
                 sequenceNumber = reading.sequenceNumber,
                 receivedAtEpochMs = reading.receivedAtEpochMs,
-                quality = if (reading.status == app.aapswear.g7.CgmReadingStatus.VALID) CgmQuality.VALID else CgmQuality.INVALID,
+                quality = CgmQuality.VALID,
             )
         }
-        val thresholds = G7GraphColorStore(context).readThresholds()
+        this.nowEpochMs = nowEpochMs
+        colors = colorStore.read()
+        thresholds = colorStore.readThresholds()
+        invalidate()
+    }
+
+    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight)
+        bounds.set(0f, 0f, width.toFloat(), height.toFloat())
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        paint.style = Paint.Style.FILL
+        paint.color = colors.graphBackground
+        canvas.drawRoundRect(bounds, 18f * density, 18f * density, paint)
+
         val excursion = CgmGraphPolicy.rangeExcursion(samples, thresholds)
         if (excursion != null) {
             paint.color = when (excursion) {

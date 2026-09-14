@@ -22,6 +22,7 @@ internal class G7IndeterminateLoader(context: Context) : View(context) {
         strokeCap = Paint.Cap.ROUND
         strokeWidth = 5f * resources.displayMetrics.density
     }
+    private val bounds = RectF()
     private var rotation = 0f
     private val animator = ValueAnimator.ofFloat(0f, 360f).apply {
         duration = 1_150L
@@ -52,10 +53,14 @@ internal class G7IndeterminateLoader(context: Context) : View(context) {
         }
     }
 
+    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight)
+        val inset = paint.strokeWidth / 2f + resources.displayMetrics.density
+        bounds.set(inset, inset, width - inset, height - inset)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val inset = paint.strokeWidth / 2f + resources.displayMetrics.density
-        val bounds = RectF(inset, inset, width - inset, height - inset)
         canvas.drawArc(bounds, rotation, 252f, false, paint)
     }
 }
