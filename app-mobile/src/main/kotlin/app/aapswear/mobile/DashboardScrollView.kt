@@ -3,6 +3,7 @@ package app.aapswear.mobile
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.widget.ScrollView
 
 /** Retains normal vertical scrolling while child charts handle horizontal pan and pinch zoom. */
@@ -33,6 +34,25 @@ class DashboardScrollView @JvmOverloads constructor(
         return super.onInterceptTouchEvent(event)
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean =
-        isUserScrollEnabled && super.onTouchEvent(event)
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (!isUserScrollEnabled) return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                downX = event.x
+                downY = event.y
+            }
+            MotionEvent.ACTION_UP -> {
+                val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+                if (
+                    kotlin.math.abs(event.x - downX) <= touchSlop &&
+                    kotlin.math.abs(event.y - downY) <= touchSlop
+                ) {
+                    performClick()
+                }
+            }
+        }
+        return super.onTouchEvent(event)
+    }
+
+    override fun performClick(): Boolean = super.performClick()
 }

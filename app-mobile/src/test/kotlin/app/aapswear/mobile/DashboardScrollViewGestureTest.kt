@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -40,5 +41,20 @@ class DashboardScrollViewGestureTest {
 
         assertFalse(DashboardScrollView(context).onInterceptTouchEvent(event))
         event.recycle()
+    }
+
+    @Test fun `completed touch delegates accessibility click`() {
+        val view = DashboardScrollView(context)
+        var clicked = false
+        view.setOnClickListener { clicked = true }
+        val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 50f, 50f, 0)
+        val up = MotionEvent.obtain(0L, 16L, MotionEvent.ACTION_UP, 50f, 50f, 0)
+
+        view.onTouchEvent(down)
+        view.onTouchEvent(up)
+
+        assertTrue(clicked)
+        down.recycle()
+        up.recycle()
     }
 }
