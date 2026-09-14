@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -353,7 +354,7 @@ internal fun SugarliciousColorSettingsPanel(
 internal fun WidgetColorSettingsPanel() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var revision by remember { mutableStateOf(0) }
+    var revision by remember { mutableIntStateOf(0) }
     var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
     var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
@@ -1140,7 +1141,7 @@ internal fun NotificationGraphSettingsPanel() {
     val context = LocalContext.current
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
-    var revision by remember { mutableStateOf(0) }
+    var revision by remember { mutableIntStateOf(0) }
     var editingRole by remember { mutableStateOf<SugarliciousColorRole?>(null) }
     var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
     val palette = SugarliciousColorStore.load(preferences, selectedMode)

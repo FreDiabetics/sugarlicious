@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -118,8 +119,8 @@ internal fun SugarliciousWatchScreen(
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
     val directToWatchRelevant =
         SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state, preferences)
-    var activeFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
-    var editingFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
+    var activeFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
+    var editingFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
 
     LaunchedEffect(appContext) {

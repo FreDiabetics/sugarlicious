@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -195,7 +196,7 @@ internal fun ComplicationStudio(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf(loadComplicationPreset(context)) }
-    var graphHours by remember { mutableStateOf(loadComplicationGraphHours(context)) }
+    var graphHours by remember { mutableIntStateOf(loadComplicationGraphHours(context)) }
     var previewTrend by remember { mutableStateOf(Trend.FORTY_FIVE_UP) }
     var variantDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
     var settingsDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
