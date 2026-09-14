@@ -31,7 +31,6 @@ internal object DisplayHistoryAccumulator {
         val profile = current.profile?.let { incoming ->
             incoming.copy(diaHours = incoming.diaHours ?: previous?.profile?.diaHours)
         } ?: previous?.profile
-        val diaHours = profile?.diaHours?.takeIf { it.isFinite() && it in 1.0..24.0 } ?: DEFAULT_DIA_HOURS
         val glucose = mergeGlucose(
             buildList {
                 addAll(previous?.glucoseHistory.orEmpty())
@@ -47,6 +46,7 @@ internal object DisplayHistoryAccumulator {
         val latest = nowEpochMs + 5 * 60_000L
         val therapy = buildList {
             addAll(previous?.therapyHistory.orEmpty())
+            addAll(current.therapyHistory)
             val timestamp = current.glucose?.measuredAtEpochMs ?: current.receivedAtEpochMs
             val sample = TherapyHistorySample(
                 measuredAtEpochMs = timestamp,
@@ -74,7 +74,6 @@ internal object DisplayHistoryAccumulator {
             .map { (timestamp, samples) -> samples.reduce { first, second -> first.merge(second, timestamp) } }
             .sortedBy { it.measuredAtEpochMs }
             .takeLast(MAX_POINTS)
-            .withEstimatedInsulinActivity(diaHours)
         val therapyEvents = (previous?.therapyEvents.orEmpty() + current.therapyEvents)
             .asSequence()
             .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() && it.amount > 0.0 }
@@ -213,28 +212,4 @@ internal object DisplayHistoryAccumulator {
             smbUnits = other.smbUnits ?: smbUnits,
         )
 
-    private fun List<TherapyHistorySample>.withEstimatedInsulinActivity(diaHours: Double): List<TherapyHistorySample> {
-        var previousIobSample: TherapyHistorySample? = null
-        return map { sample ->
-            if (sample.totalIob == null) return@map sample
-            if (sample.insulinActivityUnitsPerMinute != null) {
-                previousIobSample = sample
-                return@map sample
-            }
-            val previous = previousIobSample.also { previousIobSample = sample }
-            val minutes = previous?.let { (sample.measuredAtEpochMs - it.measuredAtEpochMs) / 60_000.0 } ?: Double.NaN
-            val priorIob = previous?.totalIob
-            val currentIob = sample.totalIob
-            val measuredDecay = if (priorIob != null && currentIob != null && minutes in 2.0..15.0) {
-                (priorIob - currentIob).coerceIn(0.0, 1.5) / minutes
-            } else {
-                null
-            }
-            val diaDecay = currentIob?.coerceAtLeast(0.0)?.div(diaHours * 60.0)
-            val decay = measuredDecay?.takeIf { it > 0.0001 } ?: diaDecay
-            sample.copy(insulinActivityUnitsPerMinute = decay?.takeIf { it > 0.0001 })
-        }
-    }
-
-    private const val DEFAULT_DIA_HOURS = 3.0
 }

@@ -76,7 +76,7 @@ class XdripStatusReceiver : BroadcastReceiver() {
                     targetHistory = previousPhone?.targetHistory.orEmpty(),
                     capabilities = parsed.capabilities + previousPhone?.capabilities.orEmpty(),
                 )
-                val (phoneState, state) = MobileCanonicalStateCoordinator.savePhoneInput(app, preserved, now)
+                val (_, state) = MobileCanonicalStateCoordinator.savePhoneInput(app, preserved, now)
                 app.recordMobileDiagnostic(
                     "PREDICTION",
                     if (state.glucosePredictions.isNotEmpty()) "PRED-CACHE-202" else "PRED-CACHE-204",
@@ -91,18 +91,6 @@ class XdripStatusReceiver : BroadcastReceiver() {
                     return@launch
                 }
                 runCatching { HealthConnectIntegration.exportCgmReading(app, state) }
-                SugarliciousWidgets.update(app)
-                runCatching { publishState(app, phoneState) }
-                    .onSuccess { app.recordMobileDiagnostic("SYNC", "SYNC-WATCH-200", "xDrip fallback state published to Watch") }
-                    .onFailure { error ->
-                        app.recordMobileDiagnostic(
-                            "SYNC",
-                            "SYNC-WATCH-503",
-                            "xDrip fallback state could not be published",
-                            DiagnosticSeverity.WARNING,
-                            mapOf("error" to error.javaClass.simpleName),
-                        )
-                    }
                 app.getSharedPreferences("diagnostics", Context.MODE_PRIVATE).edit {
                     putLong("received", now)
                     putLong("measurement", state.glucose?.measuredAtEpochMs ?: 0L)

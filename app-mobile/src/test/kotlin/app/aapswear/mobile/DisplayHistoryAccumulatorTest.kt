@@ -22,6 +22,14 @@ import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
     @Test
+    fun `does not invent insulin activity from IOB and DIA`() {
+        val now = 20_000_000L
+        val first = TherapyDisplayState(receivedAtEpochMs = now - 5 * 60_000L, glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now - 5 * 60_000L), insulin = InsulinState(2.0), profile = app.aapswear.model.ProfileState("Default", 5.0))
+        val second = TherapyDisplayState(receivedAtEpochMs = now, glucose = GlucoseState(125.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now), insulin = InsulinState(1.8), profile = app.aapswear.model.ProfileState("Default", 5.0))
+        val merged = DisplayHistoryAccumulator.merge(DisplayHistoryAccumulator.merge(null, first, now), second, now)
+        assertTrue(merged.therapyHistory.all { it.insulinActivityUnitsPerMinute == null })
+    }
+    @Test
     fun `partial transport update retains last validated therapy and loop state`() {
         val now = 20_000_000L
         val previous = TherapyDisplayState(

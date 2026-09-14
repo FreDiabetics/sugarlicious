@@ -83,7 +83,6 @@ class PersistentBridgeService : Service(), SharedPreferences.OnSharedPreferenceC
                 latestState = it
                 if (foregroundStarted) {
                     notifyUpdated()
-                    runCatching { SugarliciousWidgets.update(applicationContext) }
                 }
             }
         }

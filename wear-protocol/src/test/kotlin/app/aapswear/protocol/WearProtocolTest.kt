@@ -14,6 +14,19 @@ class WearProtocolTest {
  }
  @Test fun roundTrip() { val s=TherapyDisplayState(receivedAtEpochMs=2,glucose=GlucoseState(100.0,GlucoseUnit.MG_DL,measuredAtEpochMs=1)); assertEquals(s,WearProtocol.decode(WearProtocol.encode(s))) }
 
+ @Test fun `state envelope identifies the measurement and transport generation`() {
+  val state=TherapyDisplayState(
+   receivedAtEpochMs=2,
+   glucose=GlucoseState(100.0,GlucoseUnit.MG_DL,measuredAtEpochMs=1,sensorId="s",sessionId="x"),
+  )
+  val envelope=WearProtocol.decodeEnvelope(WearProtocol.encode(state,generatedAtEpochMs=3))
+  assertEquals(3,envelope.generatedAtEpochMs)
+  assertEquals(DataSourceId.ANDROID_APS,envelope.source)
+  assertEquals("s",envelope.sensorId)
+  assertEquals("x",envelope.sessionId)
+  assertTrue(envelope.eventId.contains(":1:2"))
+ }
+
  @Test fun `transport payload is bounded and retains newest state`() {
   val now = 2_000_000_000L
   val state = TherapyDisplayState(

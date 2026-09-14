@@ -23,6 +23,8 @@ object AapsPayloadAdapter {
   val iob=values.number("iob")
   val bolusIob=values.number("bolusIob")
   val basalIob=values.number("basalIob")
+  val insulinActivity=sequenceOf("insulinActivity","iobActivity","activity")
+   .mapNotNull { key -> values.number(key) }.firstOrNull()?.takeIf { it>=0.0 }
   val cob=values.number("cob")?.takeIf { it>=0 }
   val futureCarbs=values.number("futureCarbs")
   val profile=values["profile"] as? String
@@ -87,6 +89,17 @@ object AapsPayloadAdapter {
     listOf(TargetSample(target,observedAt,targetEnd?:observedAt,parsedTarget?.temporary==true||targetStart!=null))
    }.orEmpty(),
    glucosePredictions=predictions,
+   therapyHistory=if(iob!=null||cob!=null||baseBasal!=null||tempAbsolute!=null||insulinActivity!=null) listOf(
+    TherapyHistorySample(
+     measuredAtEpochMs=measured,
+     totalIob=iob,
+     cobGrams=cob,
+     basalUnitsPerHour=tempAbsolute?:baseBasal,
+     baseBasalUnitsPerHour=baseBasal,
+     tempBasalUnitsPerHour=tempAbsolute,
+     insulinActivityUnitsPerMinute=insulinActivity,
+    )
+   ) else emptyList(),
    therapyEvents=therapyEvents,
    insulin=if(iob!=null||bolusIob!=null||basalIob!=null) InsulinState(iob,bolusIob,basalIob) else null,
    carbs=if(cob!=null||futureCarbs!=null) CarbState(cob,futureCarbs) else null,

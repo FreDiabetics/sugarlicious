@@ -396,8 +396,8 @@ class DashboardChartsTest {
             TherapyHistorySample(now - 3 * 60 * 60_000L, totalIob = 2.0, cobGrams = 80.0, insulinActivityUnitsPerMinute = 0.05),
             TherapyHistorySample(now, totalIob = 1.0, cobGrams = 30.0, insulinActivityUnitsPerMinute = 0.02),
         )
-        val first = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.STATIC, all, all.take(2), emptyList(), emptyList())
-        val second = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.STATIC, all, all.drop(1), emptyList(), emptyList())
+        val first = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.STATIC, all, all.take(2))
+        val second = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.STATIC, all, all.drop(1))
 
         assertEquals(first.iob.ratio(1.0), second.iob.ratio(1.0), 0.0)
         assertEquals(first.cob.ratio(30.0), second.cob.ratio(30.0), 0.0)
@@ -416,8 +416,8 @@ class DashboardChartsTest {
             TherapyHistorySample(now, totalIob = 4.0, cobGrams = 100.0, insulinActivityUnitsPerMinute = 0.10),
         )
         val all = low + high
-        val first = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.DYNAMIC, all, low, emptyList(), emptyList())
-        val second = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.DYNAMIC, all, high, emptyList(), emptyList())
+        val first = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.DYNAMIC, all, low)
+        val second = resolveMetabolicScales(session, app.aapswear.model.CgmGraphScaleMode.DYNAMIC, all, high)
 
         assertTrue(first.cob.bounds != second.cob.bounds)
         assertTrue(first.activity.bounds != second.activity.bounds)
@@ -529,25 +529,7 @@ class DashboardChartsTest {
         assertTrue(drawable.all { it.amount >= 1.0 })
     }
 
-    @Test fun `metabolic future projections follow recent observed decay`() {
-        val now = 10_000_000L
-        val history = listOf(
-            TherapyHistorySample(now - 10 * 60_000L, totalIob = 1.0, cobGrams = 30.0),
-            TherapyHistorySample(now, totalIob = 0.8, cobGrams = 20.0),
-        )
-        val iob = buildIobProjection(history, now, now + 10 * 60_000L)
-        val cob = buildCobProjection(history, now, now + 10 * 60_000L)
-        assertEquals(3, iob.size)
-        assertEquals(0.8, iob[0].second, 0.0001)
-        assertEquals(0.7, iob[1].second, 0.0001)
-        assertEquals(0.6, iob[2].second, 0.0001)
-        assertEquals(3, cob.size)
-        assertEquals(20.0, cob[0].second, 0.0001)
-        assertEquals(15.0, cob[1].second, 0.0001)
-        assertEquals(10.0, cob[2].second, 0.0001)
-    }
-
-    @Test fun `insulin activity history and prediction share one smoothed boundary point`() {
+    @Test fun `insulin activity history and supplied prediction share one real boundary point`() {
         val boundary = 10_000L
         val (actual, prediction) = continuousActivitySeries(
             actual = listOf(0L to 0.01, 5_000L to 0.02, boundary to 0.03),

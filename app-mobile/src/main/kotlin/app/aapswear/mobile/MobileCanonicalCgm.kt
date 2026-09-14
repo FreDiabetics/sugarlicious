@@ -126,6 +126,7 @@ internal object MobileCanonicalStateCoordinator {
 
         phoneStore.save(mergedPhone)
         TherapyStateStore(context).save(mergedPhone)
+        dispatchCanonicalDataChanged(context, mergedPhone)
         return mergedPhone to mergedPhone
     }
 
@@ -141,6 +142,7 @@ internal object MobileCanonicalStateCoordinator {
                 ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
         val sanitized = phone?.withoutDirectWatchCgm() ?: return null
         TherapyStateStore(context).save(sanitized)
+        dispatchCanonicalDataChanged(context, sanitized)
         return sanitized
     }
 }

@@ -781,7 +781,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
                     end,
                     now,
                     state?.therapyHistory.orEmpty(),
-                    state?.profile?.diaHours ?: 3.0,
                     graphScaleMode,
                 )
             }
@@ -969,7 +968,6 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         end: Long,
         now: Long,
         points: List<TherapyHistorySample>,
-        diaHours: Double,
         scaleMode: CgmGraphScaleMode,
     ) {
         val allActual = points.mapNotNull { point ->
@@ -977,18 +975,11 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         }.sortedBy { it.first }
         val actual = allActual.filter { it.first in start..min(end, now) }
         if (actual.size < 2) return
-        val boundaryTime = max(now, actual.last().first)
-        val future = buildActivityProjection(actual.last(), boundaryTime, end, diaHours)
-        // Smooth once across the canonical boundary, then split with one shared anchor point.
-        // Independent smoothing changed the Y value on either side of the divider.
-        val (smoothedActual, smoothedFuture) = continuousActivitySeries(actual, future, boundaryTime)
-        // Scale the curve actually drawn, so smoothing cannot shrink the intended AAPS-style
-        // 80 percent graph-height envelope.
         val activityScale = axisScaleSession.resolve(
             axis = GraphAxis.INSULIN_ACTIVITY,
             mode = scaleMode,
             seedValues = allActual.map { it.second },
-            visibleValues = smoothedActual.map { it.second } + smoothedFuture.map { it.second },
+            visibleValues = actual.map { it.second },
             fallbackBounds = GraphBounds(0.0, 0.01),
             minimumSpan = 0.001,
         )
@@ -998,12 +989,7 @@ internal class GlucoseDashboardChart @JvmOverloads constructor(
         linePaint.color = yellow
         linePaint.strokeWidth = 1.35f.dp
         linePaint.pathEffect = null
-        canvas.drawPath(smoothValuePath(smoothedActual, start, end, band, ::activityY), linePaint)
-        if (smoothedFuture.size >= 2) {
-            linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
-            canvas.drawPath(smoothValuePath(smoothedFuture, start, end, band, ::activityY), linePaint)
-            linePaint.pathEffect = null
-        }
+        canvas.drawPath(valuePath(actual, start, end, band, ::activityY), linePaint)
     }
 
     private fun predictionEnabled(kind: PredictionKind): Boolean = when (kind) {
@@ -1145,14 +1131,9 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
             val markerHeadroom = min(32f.dp, half * 0.4f)
             val iobDataPlot = RectF(iobPlot.left, iobPlot.top + markerHeadroom, iobPlot.right, iobPlot.bottom)
             val cobPlot = RectF(cobLanePlot.left, cobLanePlot.top + markerHeadroom, cobLanePlot.right, cobLanePlot.bottom)
-            // The live/prediction split is the viewport live edge for every stream. A stale
-            // glucose timestamp must not move IOB/COB predictions into the history side.
-            val projectionNow = chartNow
-            val iobProjection = buildIobProjection(allPoints, projectionNow, end, state?.profile?.diaHours ?: 3.0)
-            val cobProjection = buildCobProjection(allPoints, projectionNow, end)
-            // AndroidAPS derives each secondary axis from the values visible in that graph,
-            // including its projected continuation, and rounds to a linear nice-number range.
-            val scales = resolveMetabolicScales(axisScaleSession, graphScaleMode, allPoints, points, iobProjection, cobProjection)
+            // AndroidAPS calculates IOB/COB samples at five-minute timestamps and draws those
+            // actual samples. Sugarlicious must not fabricate a future decay from two observations.
+            val scales = resolveMetabolicScales(axisScaleSession, graphScaleMode, allPoints, points)
             staticScaleStore.persist(GraphAxis.IOB, scales.iob)
             staticScaleStore.persist(GraphAxis.COB, scales.cob)
             staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, scales.activity)
@@ -1178,8 +1159,6 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
                 linePaint.pathEffect = null
             }
 
-            drawFutureLane(canvas, iobDataPlot, iobProjection, start, end, iobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB), iob = true)
-            drawFutureLane(canvas, cobPlot, cobProjection, start, end, cobRange, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB), iob = false)
             drawTreatmentMarkers(canvas, iobDataPlot, cobPlot, iobPlot.top, allPoints, state?.therapyEvents.orEmpty(), points, start, end, iobRange, cobRange)
             if (points.none { it.totalIob != null || it.cobGrams != null }) {
                 drawText(canvas, "Noch kein IOB/COB-Verlauf", (left + right) / 2f, (top + bottom) / 2f, 10f, SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED), Paint.Align.CENTER)
@@ -1249,8 +1228,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         fun y(value: Double) = mapAxisY(value, range, plot)
         val zeroY = y(0.0)
         val color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
-        val area = if (iob) stepPath(actual, start, end, plot, ::y, closeAt = zeroY)
-            else adaptiveStepPath(actual, start, end, plot, ::y, closeAt = zeroY)
+        val area = valuePathClosedAt(actual, start, end, plot, ::y, zeroY)
         fillPaint.shader = LinearGradient(0f, plot.top, 0f, plot.bottom, withAlpha(color, 112), withAlpha(color, 7), Shader.TileMode.CLAMP)
         canvas.drawPath(area, fillPaint)
         fillPaint.shader = null
@@ -1258,8 +1236,7 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         linePaint.strokeWidth = 2.35f.dp
         linePaint.pathEffect = null
         canvas.drawPath(
-            if (iob) stepPath(actual, start, end, plot, ::y)
-            else adaptiveStepPath(actual, start, end, plot, ::y),
+            valuePath(actual, start, end, plot, ::y),
             linePaint,
         )
         if (drawScale) drawMetabolicScale(canvas, plot, range, scaleOnRight)
@@ -1315,34 +1292,10 @@ internal class MetabolicDashboardChart @JvmOverloads constructor(
         }.sortedBy { it.first }
         if (actual.size < 2) return
         fun y(value: Double) = plot.bottom - activityScale.ratio(value).toFloat() * plot.height() * ACTIVITY_HEIGHT_FRACTION
-        val smoothed = smoothSeries(actual)
         linePaint.color = Color.rgb(242, 201, 76)
         linePaint.strokeWidth = 1.6f.dp
         linePaint.pathEffect = null
-        canvas.drawPath(smoothValuePath(smoothed, start, end, plot, ::y), linePaint)
-    }
-
-    private fun drawFutureLane(
-        canvas: Canvas,
-        plot: RectF,
-        values: List<Pair<Long, Double>>,
-        start: Long,
-        end: Long,
-        range: GraphAxisScale,
-        color: Int,
-        iob: Boolean,
-    ) {
-        if (values.size < 2) return
-        fun y(value: Double) = mapAxisY(value, range, plot)
-        linePaint.color = withAlpha(color, 210)
-        linePaint.strokeWidth = 1.8f.dp
-        linePaint.pathEffect = DashPathEffect(floatArrayOf(5f.dp, 4f.dp), 0f)
-        canvas.drawPath(
-            if (iob) stepPath(values, start, end, plot, ::y)
-            else adaptiveStepPath(values, start, end, plot, ::y),
-            linePaint,
-        )
-        linePaint.pathEffect = null
+        canvas.drawPath(valuePath(actual, start, end, plot, ::y), linePaint)
     }
 
     private fun drawTreatmentMarkers(
@@ -1480,14 +1433,12 @@ internal fun resolveMetabolicScales(
     mode: CgmGraphScaleMode,
     allPoints: List<TherapyHistorySample>,
     visiblePoints: List<TherapyHistorySample>,
-    iobProjection: List<Pair<Long, Double>>,
-    cobProjection: List<Pair<Long, Double>>,
 ): MobileMetabolicScales = MobileMetabolicScales(
     iob = session.resolve(
         axis = GraphAxis.IOB,
         mode = mode,
-        seedValues = allPoints.mapNotNull { it.totalIob } + iobProjection.map { it.second },
-        visibleValues = visiblePoints.mapNotNull { it.totalIob } + iobProjection.map { it.second },
+        seedValues = allPoints.mapNotNull { it.totalIob },
+        visibleValues = visiblePoints.mapNotNull { it.totalIob },
         fallbackBounds = GraphBounds(0.0, 1.0),
         minimumSpan = 0.1,
         maxTickCount = 3,
@@ -1495,8 +1446,8 @@ internal fun resolveMetabolicScales(
     cob = session.resolve(
         axis = GraphAxis.COB,
         mode = mode,
-        seedValues = allPoints.mapNotNull { it.cobGrams } + cobProjection.map { it.second },
-        visibleValues = visiblePoints.mapNotNull { it.cobGrams } + cobProjection.map { it.second },
+        seedValues = allPoints.mapNotNull { it.cobGrams },
+        visibleValues = visiblePoints.mapNotNull { it.cobGrams },
         fallbackBounds = GraphBounds(0.0, 10.0),
         minimumSpan = 1.0,
         maxTickCount = 5,
@@ -1512,48 +1463,6 @@ internal fun resolveMetabolicScales(
     ),
 )
 
-internal fun buildIobProjection(points: List<TherapyHistorySample>, now: Long, end: Long, diaHours: Double = 3.0): List<Pair<Long, Double>> {
-    if (end <= now) return emptyList()
-    val actual = points.mapNotNull { point -> point.totalIob?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it } }
-    val latest = actual.filter { it.first <= now }.maxByOrNull { it.first } ?: return emptyList()
-    val duration = (diaHours.takeIf { it.isFinite() } ?: 3.0).coerceIn(1.0, 24.0) * HOUR_MS
-    val diaSlope = -latest.second.coerceAtLeast(0.0) / (duration / 60_000.0)
-    val decaySlope = min(recentNegativeSlope(actual, now) ?: diaSlope, diaSlope)
-    return buildList {
-        var time = now
-        while (time <= min(end, now + duration.toLong())) {
-            val minutes = (time - now) / 60_000.0
-            add(time to max(0.0, latest.second + decaySlope * minutes))
-            time += 5 * 60_000L
-        }
-    }
-}
-
-internal fun buildCobProjection(points: List<TherapyHistorySample>, now: Long, end: Long): List<Pair<Long, Double>> {
-    if (end <= now) return emptyList()
-    val actual = points.mapNotNull { point -> point.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it } }
-    val latest = actual.filter { it.first <= now }.maxByOrNull { it.first } ?: return emptyList()
-    val negativeSlope = recentNegativeSlope(actual, now) ?: return emptyList()
-    return buildList {
-        var time = now
-        while (time <= end) {
-            val minutes = (time - now) / 60_000.0
-            add(time to max(0.0, latest.second + negativeSlope * minutes))
-            time += 5 * 60_000L
-        }
-    }
-}
-
-private fun recentNegativeSlope(values: List<Pair<Long, Double>>, now: Long): Double? {
-    val slopes = values.filter { it.first in (now - 60L * 60_000L)..now }.sortedBy { it.first }.zipWithNext().mapNotNull { (first, second) ->
-        val minutes = (second.first - first.first) / 60_000.0
-        if (minutes !in 2.0..20.0) return@mapNotNull null
-        ((second.second - first.second) / minutes).takeIf { it.isFinite() && it < 0.0 }
-    }
-    if (slopes.isEmpty()) return null
-    val sorted = slopes.sorted()
-    return sorted[sorted.size / 2]
-}
 
 internal fun toolkitSmbMarkerSide(units: Double): Float = bolusMarkerSide(units)
 
@@ -1713,43 +1622,6 @@ private fun stepPath(
  * Mirrors AndroidAPS' AdaptiveStep connector: shallow changes stay diagonal while steep
  * changes become a horizontal section followed by a vertical transition.
  */
-private fun adaptiveStepPath(
-    values: List<Pair<Long, Double>>,
-    start: Long,
-    end: Long,
-    plot: RectF,
-    mapValue: (Double) -> Float,
-    closeAt: Float? = null,
-): Path = Path().apply {
-    if (values.isEmpty()) return@apply
-    val firstX = mapX(values.first().first, start, end, plot)
-    val firstY = mapValue(values.first().second)
-    if (closeAt != null) {
-        moveTo(firstX, closeAt)
-        lineTo(firstX, firstY)
-    } else {
-        moveTo(firstX, firstY)
-    }
-    var previousX = firstX
-    var previousY = firstY
-    values.drop(1).forEach { (time, value) ->
-        val x = mapX(time, start, end, plot)
-        val y = mapValue(value)
-        val dx = abs(x - previousX)
-        val dy = abs(y - previousY)
-        if (dx <= 0.001f || dy / dx > 1f) {
-            lineTo(x, previousY)
-        }
-        lineTo(x, y)
-        previousX = x
-        previousY = y
-    }
-    if (closeAt != null) {
-        lineTo(previousX, closeAt)
-        close()
-    }
-}
-
 /**
  * Builds AAPS-style step points: every target change contributes two points at the same time,
  * producing the vertical transition between the two horizontal target sections. Real gaps stay
@@ -1793,70 +1665,30 @@ private fun mapLinearY(value: Double, minValue: Double, maxValue: Double, plot: 
     return plot.bottom - ratio.toFloat() * plot.height()
 }
 
+private fun valuePathClosedAt(values: List<Pair<Long, Double>>, start: Long, end: Long, plot: RectF, mapValue: (Double) -> Float, baseline: Float): Path = Path().apply {
+    if (values.isEmpty()) return@apply
+    moveTo(mapX(values.first().first, start, end, plot), baseline)
+    values.forEach { (time, value) -> lineTo(mapX(time, start, end, plot), mapValue(value)) }
+    lineTo(mapX(values.last().first, start, end, plot), baseline)
+    close()
+}
+
 private fun mapAxisY(value: Double, scale: GraphAxisScale, plot: RectF): Float =
     plot.bottom - scale.ratio(value).toFloat() * plot.height()
-
-private fun smoothSeries(values: List<Pair<Long, Double>>, radius: Int = 2): List<Pair<Long, Double>> {
-    if (values.size < 3 || radius <= 0) return values
-    return values.mapIndexed { index, point ->
-        val from = max(0, index - radius)
-        val to = min(values.lastIndex, index + radius)
-        var weightedSum = 0.0
-        var weightSum = 0.0
-        for (sampleIndex in from..to) {
-            val distance = abs(sampleIndex - index)
-            val weight = (radius + 1 - distance).toDouble()
-            weightedSum += values[sampleIndex].second * weight
-            weightSum += weight
-        }
-        point.first to (weightedSum / weightSum)
-    }
-}
 
 internal fun continuousActivitySeries(
     actual: List<Pair<Long, Double>>,
     future: List<Pair<Long, Double>>,
     boundaryTime: Long,
 ): Pair<List<Pair<Long, Double>>, List<Pair<Long, Double>>> {
-    val smoothed = smoothSeries((actual.filter { it.first < boundaryTime } + future).distinctBy { it.first })
-    return smoothed.filter { it.first <= boundaryTime } to smoothed.filter { it.first >= boundaryTime }
-}
-
-private fun smoothValuePath(values: List<Pair<Long, Double>>, start: Long, end: Long, plot: RectF, mapValue: (Double) -> Float): Path = Path().apply {
-    if (values.isEmpty()) return@apply
-    val mapped = values.map { (time, value) -> mapX(time, start, end, plot) to mapValue(value) }
-    moveTo(mapped.first().first, mapped.first().second)
-    if (mapped.size == 2) {
-        lineTo(mapped.last().first, mapped.last().second)
-        return@apply
-    }
-    for (index in 1 until mapped.lastIndex) {
-        val current = mapped[index]
-        val next = mapped[index + 1]
-        val midX = (current.first + next.first) / 2f
-        val midY = (current.second + next.second) / 2f
-        quadTo(current.first, current.second, midX, midY)
-    }
-    lineTo(mapped.last().first, mapped.last().second)
+    val samples = (actual.filter { it.first < boundaryTime } + future).distinctBy { it.first }.sortedBy { it.first }
+    return samples.filter { it.first <= boundaryTime } to samples.filter { it.first >= boundaryTime }
 }
 
 private fun formatMetabolicScale(value: Double): String = when {
     abs(value) >= 10.0 -> String.format(Locale.getDefault(), "%.0f", value)
     abs(value) >= 1.0 -> String.format(Locale.getDefault(), "%.1f", value)
     else -> String.format(Locale.getDefault(), "%.2f", value)
-}
-
-private fun buildActivityProjection(last: Pair<Long, Double>, projectionStart: Long, end: Long, diaHours: Double): List<Pair<Long, Double>> {
-    if (end <= projectionStart || last.second <= 0.0) return emptyList()
-    val duration = ((diaHours.takeIf { it.isFinite() } ?: 3.0).coerceIn(1.0, 24.0) * HOUR_MS).toLong()
-    return buildList {
-        var time = projectionStart
-        while (time <= min(end, projectionStart + duration)) {
-            val elapsed = (time - projectionStart).toDouble() / duration
-            add(time to last.second * (1.0 - elapsed).coerceAtLeast(0.0).pow(2.0))
-            time += 5 * 60_000L
-        }
-    }
 }
 
 private fun roundedUpTriangle(cx: Float, baseY: Float, halfWidth: Float, height: Float, radius: Float): Path = Path().apply {

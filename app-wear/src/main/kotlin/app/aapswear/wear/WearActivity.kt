@@ -115,6 +115,10 @@ class WearActivity : Activity() {
         scope.launch {
             TherapyStateStore(this@WearActivity).state.collectLatest {
                 latest = it
+                getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("wearUiObservedAt", System.currentTimeMillis())
+                    .apply()
                 render()
             }
         }

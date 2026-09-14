@@ -264,6 +264,7 @@ internal object NightscoutTreatmentSync {
         })
         phoneStore.save(aapsOnly)
         displayStore.save(aapsOnly)
+        dispatchCanonicalDataChanged(app, aapsOnly)
     }
 
     private suspend fun enrichPersistedState(context: Context, nightscout: List<TherapyEvent>) {
@@ -274,6 +275,7 @@ internal object NightscoutTreatmentSync {
         val enriched = current.copy(therapyEvents = CanonicalTreatments.merge(aaps, nightscout))
         phoneStore.save(enriched)
         displayStore.save(enriched)
+        dispatchCanonicalDataChanged(context, enriched)
     }
 
     private fun failure(context: Context, error: String): NightscoutSyncResult {

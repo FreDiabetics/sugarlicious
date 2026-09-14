@@ -61,7 +61,7 @@ import kotlinx.serialization.Serializable
     val basalUnitsPerHour: Double? = null,
     val baseBasalUnitsPerHour: Double? = null,
     val tempBasalUnitsPerHour: Double? = null,
-    /** Display-only estimate derived from the recent IOB decay when AAPS exposes no activity. */
+    /** Insulin activity supplied by the source; never synthesized from sparse IOB observations. */
     val insulinActivityUnitsPerMinute: Double? = null,
     /** Read-only SMB marker normalized from the public AAPS enacted payload. */
     val smbUnits: Double? = null,

@@ -475,11 +475,16 @@ class StateDataLayerService : WearableListenerService() {
     }
 
     private fun persistTherapyState(payload: ByteArray?, transport: String) {
-        val incoming =
+        val receivedAt = System.currentTimeMillis()
+        getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+            .edit()
+            .putLong("wearReceivedAt", receivedAt)
+            .apply()
+        val envelope =
             runCatching {
-                WearProtocol.decode(payload ?: return)
+                WearProtocol.decodeEnvelope(payload ?: return)
             }.getOrNull()
-        if (incoming == null) {
+        if (envelope == null) {
             scope.launch {
                 applicationContext.recordWatchDiagnostic(
                     "SOURCE",
@@ -491,6 +496,7 @@ class StateDataLayerService : WearableListenerService() {
             }
             return
         }
+        val incoming = envelope.state
 
         scope.launch {
             stateSyncMutex.withLock {
@@ -579,6 +585,13 @@ class StateDataLayerService : WearableListenerService() {
                 if (meaningfulState == merged) return@withLock
 
                 store.save(merged)
+                getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("wearCommittedAt", System.currentTimeMillis())
+                    .putString("wearEventId", envelope.eventId)
+                    .putLong("wearGeneratedAt", envelope.generatedAtEpochMs)
+                    .apply()
+                WearCanonicalStateEvents.publishLocalReadingUpdate()
                 requestComplicationUpdates(
                     ComplicationUpdatePlanner.affectedProviders(old, merged),
                 )
@@ -634,6 +647,12 @@ class StateDataLayerService : WearableListenerService() {
                     ComponentName(this, provider),
                 )
                 .requestUpdateAll()
+        }
+        if (providers.isNotEmpty()) {
+            getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+                .edit()
+                .putLong("complicationUpdatedAt", System.currentTimeMillis())
+                .apply()
         }
     }
 

@@ -12,9 +12,23 @@ import kotlinx.serialization.json.Json
 data class WearEnvelope(
     val protocolVersion: Int = CURRENT,
     val state: TherapyDisplayState,
+    val generatedAtEpochMs: Long = state.receivedAtEpochMs,
+    val eventId: String = eventIdFor(state),
+    val source: DataSourceId = state.source,
+    val sensorId: String? = state.glucose?.sensorId,
+    val sessionId: String? = state.glucose?.sessionId,
 ) {
     companion object {
-        const val CURRENT = 7
+        const val CURRENT = 8
+
+        fun eventIdFor(state: TherapyDisplayState): String =
+            listOf(
+                state.source.name,
+                state.glucose?.sensorId.orEmpty(),
+                state.glucose?.sessionId.orEmpty(),
+                state.glucose?.measuredAtEpochMs ?: 0L,
+                state.receivedAtEpochMs,
+            ).joinToString(":")
     }
 }
 
@@ -207,8 +221,13 @@ object WearProtocol {
         explicitNulls = false
     }
 
-    fun encode(state: TherapyDisplayState): ByteArray =
-        json.encodeToString(WearEnvelope(state = state)).encodeToByteArray()
+    fun encode(
+        state: TherapyDisplayState,
+        generatedAtEpochMs: Long = System.currentTimeMillis(),
+    ): ByteArray =
+        json.encodeToString(
+            WearEnvelope(state = state, generatedAtEpochMs = generatedAtEpochMs),
+        ).encodeToByteArray()
 
     /**
      * Builds a Wear Data Layer safe state without changing the locally persisted Mobile model.
@@ -253,9 +272,14 @@ object WearProtocol {
         (size / 4).coerceAtLeast(1).coerceAtMost(size - minimum)
 
     fun decode(bytes: ByteArray): TherapyDisplayState {
+        val envelope = decodeEnvelope(bytes)
+        return migrate(envelope.state)
+    }
+
+    fun decodeEnvelope(bytes: ByteArray): WearEnvelope {
         val envelope = json.decodeFromString<WearEnvelope>(bytes.decodeToString())
         require(envelope.protocolVersion in 1..WearEnvelope.CURRENT)
-        return migrate(envelope.state)
+        return envelope.copy(state = migrate(envelope.state))
     }
 
     fun encodeConfig(config: WatchConfig): ByteArray =
