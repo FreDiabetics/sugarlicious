@@ -1,5 +1,6 @@
 package app.aapswear.complications
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.os.Bundle
 import app.aapswear.protocol.DirectToWatchSettingsContract
 
 class DirectToWatchSettingsReceiver : BroadcastReceiver() {
+    @SuppressLint("ApplySharedPref") // Updates must be durable before providers are invalidated below.
     @Suppress("DEPRECATION") // Bundle is a typed SharedPreferences compatibility envelope.
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != DirectToWatchSettingsContract.ACTION_APPLY) return

@@ -1,5 +1,6 @@
 package app.aapswear.g7watch
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import app.aapswear.model.AppearanceMode
@@ -126,6 +127,7 @@ class G7AppearanceStore(
             ?.let { stored -> AppearanceMode.entries.firstOrNull { it.storageKey == stored } }
             ?: AppearanceMode.DARK
 
+    @SuppressLint("ApplySharedPref") // The immediately resumed activity must observe this mode synchronously.
     fun setActiveMode(mode: AppearanceMode) {
         // The next activity draw must see the selection immediately, even when Android pauses us.
         preferences.edit().putString(KEY_ACTIVE_MODE, mode.storageKey).commit()

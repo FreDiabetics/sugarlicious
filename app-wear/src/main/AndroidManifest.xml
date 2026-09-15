@@ -10,7 +10,7 @@
     <uses-permission android:name="com.google.wear.permission.SET_PUSHED_WATCH_FACE_AS_ACTIVE" />
     <uses-permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" />
     <uses-permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" />
-    <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:theme="@style/WearTheme" android:usesCleartextTraffic="false">
+    <application android:allowBackup="false" android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="false" android:theme="@style/WearTheme" android:usesCleartextTraffic="false">
         <meta-data android:name="com.google.android.wearable.standalone" android:value="false" />
         <meta-data android:name="com.google.android.wearable.marketplace.DEFAULT_WATCHFACE_VALIDATION_TOKEN" android:value="@string/default_wf_token" />
         <activity android:name=".WearSettingsActivity" android:exported="false" android:taskAffinity="" />
