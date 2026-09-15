@@ -21,10 +21,10 @@ import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
+import androidx.wear.protolayout.ProtoLayoutScope
 import androidx.wear.protolayout.ResourceBuilders.AndroidImageResourceByResId
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.InlineImageResource
-import androidx.wear.protolayout.ResourceBuilders.Resources
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
@@ -221,23 +221,17 @@ abstract class SugarliciousTileService : TileService() {
 
     protected abstract val tileKind: WearTileKind
 
-    protected abstract fun tileContent(
-        state: TherapyDisplayState?,
-        colors: WatchUiColors,
-        now: Long,
-    ): LayoutElementBuilders.LayoutElement
-
-    override fun onTileRequest(requestParams: RequestBuilders.TileRequest): com.google.common.util.concurrent.ListenableFuture<Tile> {
+    public override fun onTileRequest(requestParams: RequestBuilders.TileRequest): com.google.common.util.concurrent.ListenableFuture<Tile> {
         val future = SettableFuture.create<Tile>()
         tileScope.launch {
-            runCatching { buildTile() }
+            runCatching { buildTile(requestParams) }
                 .onSuccess(future::set)
                 .onFailure(future::setException)
         }
         return future
     }
 
-    private suspend fun buildTile(): Tile {
+    private suspend fun buildTile(requestParams: RequestBuilders.TileRequest): Tile {
         val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
         val state = G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
         val colors = WearTileAppearanceStore.read(this, tileKind)
@@ -257,8 +251,8 @@ abstract class SugarliciousTileService : TileService() {
             .setTileTimeline(
                 Timeline.fromLayoutElement(
                     when (content) {
-                        WearTileContent.GLUCOSE -> glucoseTileContent(state, colors, now, preferences)
-                        WearTileContent.GRAPH -> graphTileContent(state, colors, now, preferences)
+                        WearTileContent.GLUCOSE -> glucoseTileContent(requestParams.scope, state, colors, now, preferences)
+                        WearTileContent.GRAPH -> graphTileContent(requestParams.scope, state, colors, now, preferences)
                         WearTileContent.IOB -> metricTileContent("IOB", state?.insulin?.totalIob, "U", colors.iob, colors, state, now)
                         WearTileContent.COB -> metricTileContent("COB", state?.carbs?.cobGrams, "g", colors.cob, colors, state, now)
                         WearTileContent.BASAL ->
@@ -278,61 +272,6 @@ abstract class SugarliciousTileService : TileService() {
             ).build()
     }
 
-    override fun onTileResourcesRequest(
-        requestParams: RequestBuilders.ResourcesRequest,
-    ): com.google.common.util.concurrent.ListenableFuture<Resources> {
-        val future = SettableFuture.create<Resources>()
-        tileScope.launch {
-            runCatching { buildResources(requestParams) }
-                .onSuccess(future::set)
-                .onFailure(future::setException)
-        }
-        return future
-    }
-
-    private suspend fun buildResources(requestParams: RequestBuilders.ResourcesRequest): Resources {
-        val content = WearTileContentStore.read(this, tileKind)
-        val graphResource =
-            if (content == WearTileContent.GRAPH) {
-                val phoneState = TherapyStateStore(this@SugarliciousTileService).state.first()
-                val state = G7LocalReadingResolver.resolve(this@SugarliciousTileService, phoneState)
-                val bitmap = renderWearTileGraph(state, WearDisplayPreferences.read(this), System.currentTimeMillis())
-                ByteArrayOutputStream().use { output ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-                    output.toByteArray()
-                }
-            } else {
-                null
-            }
-        return Resources
-            .Builder()
-            .setVersion(requestParams.version)
-            .apply {
-                TrendVisualAsset.entries.forEach { asset ->
-                    addIdToImageMapping(
-                        trendResourceId(asset),
-                        ImageResource
-                            .Builder()
-                            .setAndroidResourceByResId(
-                                AndroidImageResourceByResId
-                                    .Builder()
-                                    .setResourceId(TrendDrawableResources.forAsset(asset))
-                                    .build(),
-                            ).build(),
-                    )
-                }
-                graphResource?.let { png ->
-                    addIdToImageMapping(
-                        TILE_GRAPH_RESOURCE_ID,
-                        ImageResource
-                            .Builder()
-                            .setInlineResource(InlineImageResource.Builder().setData(png).build())
-                            .build(),
-                    )
-                }
-            }.build()
-    }
-
     override fun onDestroy() {
         tileScope.cancel()
         super.onDestroy()
@@ -341,15 +280,10 @@ abstract class SugarliciousTileService : TileService() {
 
 class GlucoseTileService : SugarliciousTileService() {
     override val tileKind: WearTileKind = WearTileKind.GLUCOSE
-
-    override fun tileContent(
-        state: TherapyDisplayState?,
-        colors: WatchUiColors,
-        now: Long,
-    ): LayoutElementBuilders.LayoutElement = glucoseTileContent(state, colors, now, WearDisplayPreferences.read(this))
 }
 
 private fun glucoseTileContent(
+    scope: ProtoLayoutScope,
     state: TherapyDisplayState?,
     colors: WatchUiColors,
     now: Long,
@@ -371,7 +305,7 @@ private fun glucoseTileContent(
                 val spec = presentation.trend?.let(TrendVisuals::spec)
                 if (spec != null) {
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
-                    addContent(tileTrendImage(spec, preferences.trendArrowStyle.renderSpec()))
+                    addContent(tileTrendImage(scope, spec, preferences.trendArrowStyle.renderSpec()))
                 }
             }.build()
     val card = roundedTileCard(colors, 14f, primary)
@@ -401,39 +335,6 @@ private fun glucoseTileContent(
 
 class TherapyTileService : SugarliciousTileService() {
     override val tileKind: WearTileKind = WearTileKind.THERAPY
-
-    override fun tileContent(
-        state: TherapyDisplayState?,
-        colors: WatchUiColors,
-        now: Long,
-    ): LayoutElementBuilders.LayoutElement {
-        val presentation = wearTherapyTilePresentation(state, now)
-        val metrics =
-            Row
-                .Builder()
-                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(metricCard("IOB", presentation.iob, colors.iob, colors))
-                .addContent(Spacer.Builder().setWidth(dp(4f)).build())
-                .addContent(metricCard("COB", presentation.cob, colors.cob, colors))
-                .addContent(Spacer.Builder().setWidth(dp(4f)).build())
-                .addContent(metricCard("BASAL", presentation.basal, colors.basal, colors))
-                .build()
-        val statusColor = if (presentation.displayable) colors.accent else colors.glucoseLow
-        val column =
-            Column
-                .Builder()
-                .setWidth(expand())
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                .addContent(tileText("SUGARLICIOUS  ·  THERAPIE", 11f, colors.accent, bold = true))
-                .addContent(Spacer.Builder().setHeight(dp(9f)).build())
-                .addContent(metrics)
-                .addContent(Spacer.Builder().setHeight(dp(9f)).build())
-                .addContent(tileText(presentation.status, 12f, statusColor, bold = true))
-                .addContent(Spacer.Builder().setHeight(dp(4f)).build())
-                .addContent(tileText(presentation.footer, 10f, colors.textSecondary, bold = false))
-                .build()
-        return tileRoot(colors.background, column)
-    }
 }
 
 private fun metricTileContent(
@@ -487,11 +388,25 @@ private fun pumpTileContent(
 }
 
 private fun graphTileContent(
+    scope: ProtoLayoutScope,
     state: TherapyDisplayState?,
     colors: WatchUiColors,
     now: Long,
     preferences: WearDisplayPreferences,
 ): LayoutElementBuilders.LayoutElement {
+    val graphResource =
+        ImageResource
+            .Builder()
+            .setInlineResource(
+                InlineImageResource
+                    .Builder()
+                    .setData(
+                        ByteArrayOutputStream().use { output ->
+                            renderWearTileGraph(state, preferences, now).compress(Bitmap.CompressFormat.PNG, 100, output)
+                            output.toByteArray()
+                        },
+                    ).build(),
+            ).build()
     val column =
         Column
             .Builder()
@@ -500,8 +415,8 @@ private fun graphTileContent(
             .addContent(Spacer.Builder().setHeight(dp(5f)).build())
             .addContent(
                 Image
-                    .Builder()
-                    .setResourceId(TILE_GRAPH_RESOURCE_ID)
+                    .Builder(scope)
+                    .setImageResource(graphResource, TILE_GRAPH_RESOURCE_ID)
                     .setWidth(dp(148f))
                     .setHeight(dp(60f))
                     .build(),
@@ -567,45 +482,6 @@ internal fun renderWearTileGraph(
     return bitmap
 }
 
-private fun metricCard(
-    label: String,
-    value: String,
-    accent: Int,
-    colors: WatchUiColors,
-): Box {
-    val content =
-        Column
-            .Builder()
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(tileText(label, 9f, accent, bold = true))
-            .addContent(tileText(value, 14f, colors.textPrimary, bold = true))
-            .build()
-    return Box
-        .Builder()
-        .setWidth(dp(54f))
-        .setHeight(dp(55f))
-        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-        .setModifiers(
-            Modifiers
-                .Builder()
-                .setBackground(
-                    Background
-                        .Builder()
-                        .setColor(argb(colors.tileBackground))
-                        .setCorner(Corner.Builder().setRadius(dp(18f)).build())
-                        .build(),
-                ).setBorder(
-                    Border
-                        .Builder()
-                        .setWidth(dp(1f))
-                        .setColor(argb(colors.tileBorder))
-                        .build(),
-                ).build(),
-        ).addContent(content)
-        .build()
-}
-
 private fun roundedTileCard(
     colors: WatchUiColors,
     padding: Float,
@@ -655,13 +531,23 @@ private fun tileRoot(
         .build()
 
 private fun tileTrendImage(
+    scope: ProtoLayoutScope,
     spec: app.aapswear.model.TrendVisualSpec,
     style: app.aapswear.model.TrendArrowRenderSpec,
 ): Image =
     Image
-        .Builder()
-        .setResourceId(trendResourceId(spec.asset))
-        .setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale * spec.aspectRatio))
+        .Builder(scope)
+        .setImageResource(
+            ImageResource
+                .Builder()
+                .setAndroidResourceByResId(
+                    AndroidImageResourceByResId
+                        .Builder()
+                        .setResourceId(TrendDrawableResources.forAsset(spec.asset))
+                        .build(),
+                ).build(),
+            trendResourceId(spec.asset),
+        ).setWidth(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale * spec.aspectRatio))
         .setHeight(dp(GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * style.scale))
         .setColorFilter(ColorFilter.Builder().setTint(argb(style.fillColor)).build())
         .build()

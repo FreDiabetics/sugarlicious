@@ -1,5 +1,8 @@
 package app.aapswear.wear
 
+import androidx.test.core.app.ApplicationProvider
+import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
+import androidx.wear.tiles.RequestBuilders
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.DataSourceId
@@ -15,8 +18,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class SugarliciousTilesTest {
+    private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val now = 50_000_000L
     private val colors =
         WatchUiColors(
@@ -83,6 +93,37 @@ class SugarliciousTilesTest {
         assertEquals(180f, currentInitial.xDp, 0.001f)
         assertTrue(oldLater.xDp < oldInitial.xDp)
         assertTrue(oldInitial.xDp < currentInitial.xDp)
+    }
+
+    @Test
+    fun `graph tile registers its inline image on the tile request scope`() {
+        WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GRAPH)
+        val device =
+            DeviceParameters
+                .Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
+        val service = Robolectric.buildService(GlucoseTileService::class.java).create().get()
+        val request =
+            RequestBuilders.TileRequest
+                .Builder()
+                .setDeviceConfiguration(device)
+                .build()
+
+        service.onTileRequest(request).get()
+        val resources = request.scope.collectResources()
+
+        assertTrue(request.scope.hasResources())
+        assertTrue(
+            resources.idToImageMapping
+                .getValue("live_cgm_graph")
+                .inlineResource!!
+                .data
+                .isNotEmpty(),
+        )
+        service.onDestroy()
     }
 
     private fun state(
