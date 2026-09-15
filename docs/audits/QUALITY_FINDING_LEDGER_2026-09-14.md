@@ -85,3 +85,20 @@ matrix.
 During static cleanup, obsolete complication previews, graph helpers, unused graph
 constants, stale pairing locals, and unused UI helpers were removed only after a
 repository-wide reference check.
+
+## Follow-up remediation — 2026-09-15
+
+Sugarlicious Wear graph and trend images now use request-scoped ProtoLayout
+resources. The obsolete `onTileResourcesRequest` pipeline and two unreachable
+tile-content implementations were removed. A Robolectric regression test verifies
+that the graph PNG is present in the request scope; the Wear unit test, debug APK,
+Lint, ktlint and Detekt gates pass without the four former deprecated image-builder
+compiler warnings.
+
+The two remaining `ApplySharedPref` findings were classified as intentional
+synchronous durability boundaries: settings must be committed before complication
+providers are invalidated, and an appearance mode must be visible before the next
+activity draw. Both commits now carry narrow, documented Lint suppressions rather
+than being changed to asynchronous writes. Sugarlicious Wear explicitly declares
+that its current German-only UI does not support RTL mirroring, resolving the
+ambiguous manifest policy warning without changing layout behavior.
