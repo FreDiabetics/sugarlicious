@@ -120,3 +120,10 @@ while replacing its optional `build/reports/problems-report.html`. Verification
 runs therefore use Gradle's official `--no-problems-report` switch; this disables
 only the incubating HTML Problems API report and does not skip tests, builds, Lint,
 ktlint or Detekt.
+
+All 17 `SetTextI18n` findings are now resolved. User-facing Mobile and Wear labels
+and Health Connect status text use resources with typed placeholders. Shared color
+editor channel labels use one resource format, while numeric editor seed values use
+`Locale.ROOT` deliberately so their machine-parsed decimal/integer representation
+does not change with the display locale. Unit tests, Lint, ktlint and Detekt pass
+for all three affected modules. The running warning inventory is 631.

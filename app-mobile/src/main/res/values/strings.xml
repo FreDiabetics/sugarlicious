@@ -7,4 +7,9 @@
     <string name="widget_metabolic_description">IOB, COB und Basal im Sugarlicious-Stil</string>
     <string name="widget_activity_description">Schritte, Puls, Aktivzeit und Kalorien aus Health Connect</string>
     <string name="widget_glucose_graph_description">Glukosewert, Trend und kanonischer CGM-Graph</string>
+    <string name="screen_watch">Watch</string>
+    <string name="screen_settings">Einstellungen</string>
+    <string name="health_connect_data_title">Health Connect Daten</string>
+    <string name="health_connect_not_synchronized">noch nicht synchronisiert</string>
+    <string name="health_connect_sync_summary">Leserechte %1$d/%2$d · Letzte Synchronisierung: %3$s</string>
 </resources>

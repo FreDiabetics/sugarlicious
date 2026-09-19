@@ -20,6 +20,7 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import app.aapswear.model.ArgbColor
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /** One functional color editor for classic Mobile/Wear/Collector surfaces. Layout stays responsive. */
@@ -87,7 +88,13 @@ object SharedColorEditor {
             val value = color()
             preview.background = background(value)
             rgb.text =
-                "R ${Color.red(value)} · G ${Color.green(value)} · B ${Color.blue(value)} · A ${Color.alpha(value)}"
+                activity.getString(
+                    R.string.shared_color_rgba,
+                    Color.red(value),
+                    Color.green(value),
+                    Color.blue(value),
+                    Color.alpha(value),
+                )
             if (!updating) {
                 updating = true
                 hex.setText(ArgbColor.format(value))
@@ -111,7 +118,7 @@ object SharedColorEditor {
         ) {
             val valueInput =
                 EditText(activity).apply {
-                    setText(progress.toString())
+                    setText(String.format(Locale.ROOT, "%d", progress))
                     inputType = InputType.TYPE_CLASS_NUMBER
                     setTextColor(textArgb)
                     textSize = 11f
@@ -164,7 +171,7 @@ object SharedColorEditor {
                                 fromUser: Boolean,
                             ) {
                                 if (fromUser) {
-                                    valueInput.setText(value.toString())
+                                    valueInput.setText(String.format(Locale.ROOT, "%d", value))
                                     update(value)
                                     refresh()
                                 }
@@ -219,7 +226,13 @@ object SharedColorEditor {
                         alpha = Color.alpha(value) / 255f
                         preview.background = background(value)
                         rgb.text =
-                            "R ${Color.red(value)} · G ${Color.green(value)} · B ${Color.blue(value)} · A ${Color.alpha(value)}"
+                            activity.getString(
+                                R.string.shared_color_rgba,
+                                Color.red(value),
+                                Color.green(value),
+                                Color.blue(value),
+                                Color.alpha(value),
+                            )
                         onChange(value)
                     }
                 }
@@ -231,7 +244,7 @@ object SharedColorEditor {
         slider("Deckkraft / Alpha", 100, (alpha * 100).roundToInt()) { alpha = it / 100f }
         root.addView(
             TextView(activity).apply {
-                text = "Presets / zuletzt verwendet"
+                setText(R.string.shared_color_presets_recent)
                 textSize = 10f
                 setTextColor(textArgb)
             },

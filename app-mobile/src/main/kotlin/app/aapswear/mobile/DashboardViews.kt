@@ -1223,7 +1223,7 @@ class DashboardViewFactory(
                     inputType =
                         android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or
                         android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-                    setText(value.toString())
+                    setText(String.format(Locale.ROOT, "%s", value))
                     setSelectAllOnFocus(true)
                 }
             android.app.AlertDialog

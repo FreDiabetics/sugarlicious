@@ -557,14 +557,14 @@ class MainActivity : ComponentActivity() {
                 back.visibility = View.GONE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
-                title.text = "Watch"
+                title.setText(R.string.screen_watch)
             }
             DashboardScreen.SETTINGS -> {
                 bar.visibility = View.VISIBLE
                 back.visibility = View.VISIBLE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
-                title.text = "Einstellungen"
+                title.setText(R.string.screen_settings)
             }
         }
 

@@ -90,7 +90,7 @@ class WearSettingsActivity : Activity() {
                         setPadding(9.dp, 0, 0, 0)
                         addView(
                             TextView(this@WearSettingsActivity).apply {
-                                text = "Sugarlicious"
+                                setText(R.string.app_name)
                                 textSize = 8f
                                 setTextColor(ui.accent)
                                 setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -99,7 +99,7 @@ class WearSettingsActivity : Activity() {
                         )
                         addView(
                             TextView(this@WearSettingsActivity).apply {
-                                text = "Watch Einstellungen"
+                                setText(R.string.watch_settings_title)
                                 textSize = 14f
                                 setTextColor(ui.textPrimary)
                                 setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -261,7 +261,7 @@ class WearSettingsActivity : Activity() {
                 val selected = current.graphHours == hours
                 hoursRow.addView(
                     Button(this).apply {
-                        text = "${hours}h"
+                        text = getString(R.string.graph_hours, hours)
                         textSize = 9f
                         minWidth = 0
                         minimumWidth = 0

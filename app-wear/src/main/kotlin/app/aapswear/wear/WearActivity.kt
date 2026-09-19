@@ -235,7 +235,7 @@ class WearActivity : Activity() {
 
     private fun requestPhoneRefresh(initial: Boolean = false) {
         if (!::connection.isInitialized) return
-        if (!initial) syncHint.text = "Werte werden synchronisiert"
+        if (!initial) syncHint.setText(R.string.syncing_values)
 
         scope.launch {
             connectedNodes =
@@ -244,9 +244,9 @@ class WearActivity : Activity() {
                 }
             syncHint.text =
                 if (connectedNodes > 0) {
-                    "Tippen zum Aktualisieren"
+                    getString(R.string.tap_to_refresh)
                 } else {
-                    "Telefon derzeit nicht erreichbar"
+                    getString(R.string.phone_unreachable)
                 }
             render()
         }

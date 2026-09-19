@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.text.InputType
 import android.widget.EditText
+import java.util.Locale
 
 /** Compact direct-value entry shared by classic Mobile and Wear settings sliders. */
 object SharedNumberEditor {
@@ -18,7 +19,7 @@ object SharedNumberEditor {
         val input =
             EditText(activity).apply {
                 inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_SIGNED
-                setText(current.toString())
+                setText(String.format(Locale.ROOT, "%d", current))
                 setSelection(length())
                 setSelectAllOnFocus(true)
             }

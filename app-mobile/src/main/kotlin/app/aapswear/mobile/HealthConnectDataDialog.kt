@@ -179,7 +179,7 @@ internal object HealthConnectDataDialog {
 
                 addView(
                     TextView(context).apply {
-                        text = "Health Connect Daten"
+                        setText(R.string.health_connect_data_title)
                         textSize = 20f
                         setTextColor(textPrimary)
                         typeface = Typeface.create("sans", Typeface.BOLD)
@@ -190,9 +190,14 @@ internal object HealthConnectDataDialog {
                         val synced =
                             snapshot?.syncedAtEpochMs?.takeIf { it > 0 }?.let {
                                 DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(it))
-                            } ?: "noch nicht synchronisiert"
+                            } ?: context.getString(R.string.health_connect_not_synchronized)
                         text =
-                            "Leserechte ${status.grantedReadPermissionCount}/${HealthConnectIntegration.readableRecordTypes.size} · Letzte Synchronisierung: $synced"
+                            context.getString(
+                                R.string.health_connect_sync_summary,
+                                status.grantedReadPermissionCount,
+                                HealthConnectIntegration.readableRecordTypes.size,
+                                synced,
+                            )
                         textSize = 11f
                         setTextColor(textSecondary)
                         setPadding(0, context.dp(4), 0, context.dp(10))
