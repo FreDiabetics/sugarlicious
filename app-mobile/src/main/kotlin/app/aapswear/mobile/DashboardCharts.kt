@@ -1311,49 +1311,48 @@ internal class MetabolicDashboardChart
                 // Keep the semantic boundary in data coordinates. A historical viewport may move it
                 // completely off-screen; clamping it to an edge would turn it into a sticky overlay.
                 val dividerX = mapX(dividerTimestamp, start, end, iobDataPlot)
-                val graphSave = canvas.save()
-                canvas.clipPath(
+                canvas.withClip(
                     Path().apply {
                         addRoundRect(iobPlot, radius, radius, Path.Direction.CW)
                         addRoundRect(cobLanePlot, radius, radius, Path.Direction.CW)
                     },
-                )
-                drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
-                drawInsulinActivity(canvas, iobDataPlot, points, start, end, scales.activity)
-                drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
-                if (!scaleOnRight && dividerTimestamp in start..end) {
-                    linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
-                    linePaint.strokeWidth = 1f.dp
-                    linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
-                    canvas.drawLine(dividerX, iobPlot.top, dividerX, cobPlot.bottom, linePaint)
-                    linePaint.pathEffect = null
-                }
+                ) {
+                    drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
+                    drawInsulinActivity(canvas, iobDataPlot, points, start, end, scales.activity)
+                    drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
+                    if (!scaleOnRight && dividerTimestamp in start..end) {
+                        linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
+                        linePaint.strokeWidth = 1f.dp
+                        linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
+                        canvas.drawLine(dividerX, iobPlot.top, dividerX, cobPlot.bottom, linePaint)
+                        linePaint.pathEffect = null
+                    }
 
-                drawTreatmentMarkers(
-                    canvas,
-                    iobDataPlot,
-                    cobPlot,
-                    iobPlot.top,
-                    allPoints,
-                    state?.therapyEvents.orEmpty(),
-                    points,
-                    start,
-                    end,
-                    iobRange,
-                    cobRange,
-                )
-                if (points.none { it.totalIob != null || it.cobGrams != null }) {
-                    drawText(
+                    drawTreatmentMarkers(
                         canvas,
-                        "Noch kein IOB/COB-Verlauf",
-                        (left + right) / 2f,
-                        (top + bottom) / 2f,
-                        10f,
-                        SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED),
-                        Paint.Align.CENTER,
+                        iobDataPlot,
+                        cobPlot,
+                        iobPlot.top,
+                        allPoints,
+                        state?.therapyEvents.orEmpty(),
+                        points,
+                        start,
+                        end,
+                        iobRange,
+                        cobRange,
                     )
+                    if (points.none { it.totalIob != null || it.cobGrams != null }) {
+                        drawText(
+                            canvas,
+                            "Noch kein IOB/COB-Verlauf",
+                            (left + right) / 2f,
+                            (top + bottom) / 2f,
+                            10f,
+                            SugarliciousColors.argb(SugarliciousColorRole.GRAPH_MUTED),
+                            Paint.Align.CENTER,
+                        )
+                    }
                 }
-                canvas.restoreToCount(graphSave)
                 drawMetabolicScale(canvas, iobDataPlot, iobRange, scaleOnRight)
                 drawMetabolicScale(canvas, cobPlot, cobRange, scaleOnRight)
                 if (showTimeAxis) {

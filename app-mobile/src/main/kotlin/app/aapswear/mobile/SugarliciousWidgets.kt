@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.PathParser
 import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withTranslation
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -1032,15 +1033,14 @@ internal fun renderMinimalGlucoseWidget(
             }
         val left = startX + textWidth + gap
         val top = centerY - arrowTargetHeight / 2f
-        canvas.save()
-        canvas.translate(left, top)
-        canvas.scale(arrowSize, arrowSize)
-        TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
-            val path = PathParser.createPathFromPathData(pathData)
-            if (options.trendStyle.outlineEnabled) canvas.drawPath(path, outlinePaint)
-            canvas.drawPath(path, arrowPaint)
+        canvas.withTranslation(left, top) {
+            scale(arrowSize, arrowSize)
+            TrendVectorPaths.forAsset(spec.asset).forEach { pathData ->
+                val path = PathParser.createPathFromPathData(pathData)
+                if (options.trendStyle.outlineEnabled) drawPath(path, outlinePaint)
+                drawPath(path, arrowPaint)
+            }
         }
-        canvas.restore()
     }
     drawWidgetOutline(canvas, bitmap.width, bitmap.height, options, pixelDensity)
     return bitmap

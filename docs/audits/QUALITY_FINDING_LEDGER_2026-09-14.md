@@ -198,3 +198,10 @@ batch now uses the AndroidX SQLite transaction scope. The complete G7 unit-test
 suite, debug APK, Lint, ktlint and Detekt gates pass; G7 reports zero `UseKtx`
 findings. The remaining cross-module `UseKtx` inventory is two Mobile canvas
 scopes and the running warning inventory is 436.
+
+The final two `UseKtx` findings are resolved by replacing manual Canvas
+save/clip/restore and save/translate/restore sequences with scoped AndroidX
+helpers. The graph clip and widget trend-arrow transform now restore Canvas state
+even if drawing exits exceptionally. The complete Mobile unit-test suite, debug
+APK, Lint, ktlint and Detekt gates pass, and both Mobile and G7 now report zero
+`UseKtx` findings. The running warning inventory is 434.
