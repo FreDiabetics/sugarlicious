@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.GlucoseTrendSizing
@@ -130,7 +131,7 @@ class G7AppearanceStore(
     @SuppressLint("ApplySharedPref") // The immediately resumed activity must observe this mode synchronously.
     fun setActiveMode(mode: AppearanceMode) {
         // The next activity draw must see the selection immediately, even when Android pauses us.
-        preferences.edit().putString(KEY_ACTIVE_MODE, mode.storageKey).commit()
+        preferences.edit(commit = true) { putString(KEY_ACTIVE_MODE, mode.storageKey) }
         notifyTileChanged()
     }
 
@@ -167,22 +168,22 @@ class G7AppearanceStore(
     }
 
     fun setGlucoseScalePercent(value: Int) {
-        preferences
-            .edit()
-            .putInt(
+        preferences.edit {
+            putInt(
                 KEY_GLUCOSE_SCALE,
                 value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
-            ).apply()
+            )
+        }
         notifyTileChanged()
     }
 
     fun setTrendScalePercent(value: Int) {
-        preferences
-            .edit()
-            .putInt(
+        preferences.edit {
+            putInt(
                 KEY_TREND_SCALE,
                 value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
-            ).apply()
+            )
+        }
         notifyTileChanged()
     }
 
@@ -191,12 +192,12 @@ class G7AppearanceStore(
     fun currentDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, true)
 
     fun setHistoricalDotOutlineEnabled(value: Boolean) {
-        preferences.edit().putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value).apply()
+        preferences.edit { putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value) }
         notifyTileChanged()
     }
 
     fun setCurrentDotOutlineEnabled(value: Boolean) {
-        preferences.edit().putBoolean(KEY_CURRENT_DOT_OUTLINE, value).apply()
+        preferences.edit { putBoolean(KEY_CURRENT_DOT_OUTLINE, value) }
         notifyTileChanged()
     }
 
@@ -225,7 +226,7 @@ class G7AppearanceStore(
         argb: Int,
     ) {
         migrateLegacy()
-        preferences.edit().putInt(colorKey(mode, role), argb).apply()
+        preferences.edit { putInt(colorKey(mode, role), argb) }
         notifyTileChanged()
     }
 
@@ -237,19 +238,17 @@ class G7AppearanceStore(
         mode: AppearanceMode,
         role: G7AppearanceRole,
     ) {
-        preferences.edit().remove(colorKey(mode, role)).apply()
+        preferences.edit { remove(colorKey(mode, role)) }
         notifyTileChanged()
     }
 
     fun resetAll() {
-        preferences
-            .edit()
-            .apply {
-                G7AppearanceRole.entries.forEach { remove(colorKey(it)) }
-                AppearanceMode.entries.forEach { mode -> G7AppearanceRole.entries.forEach { remove(colorKey(mode, it)) } }
-                remove(KEY_HISTORICAL_DOT_OUTLINE)
-                remove(KEY_CURRENT_DOT_OUTLINE)
-            }.apply()
+        preferences.edit {
+            G7AppearanceRole.entries.forEach { remove(colorKey(it)) }
+            AppearanceMode.entries.forEach { mode -> G7AppearanceRole.entries.forEach { remove(colorKey(mode, it)) } }
+            remove(KEY_HISTORICAL_DOT_OUTLINE)
+            remove(KEY_CURRENT_DOT_OUTLINE)
+        }
         notifyTileChanged()
     }
 
@@ -260,7 +259,7 @@ class G7AppearanceStore(
             ?: DEFAULT_GRAPH_HOURS
 
     fun setGraphHours(hours: Int) {
-        preferences.edit().putInt(KEY_GRAPH_HOURS, hours.takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS).apply()
+        preferences.edit { putInt(KEY_GRAPH_HOURS, hours.takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS) }
         notifyTileChanged()
     }
 
@@ -284,18 +283,16 @@ class G7AppearanceStore(
 
     private fun migrateLegacy() {
         if (preferences.getBoolean("appearance_profiles_v1", false)) return
-        preferences
-            .edit()
-            .apply {
-                G7AppearanceRole.entries.forEach { role ->
-                    if (!preferences.contains(colorKey(role))) return@forEach
-                    val value = preferences.getInt(colorKey(role), role.defaultArgb)
-                    AppearanceMode.entries.forEach { mode ->
-                        if (!preferences.contains(colorKey(mode, role))) putInt(colorKey(mode, role), value)
-                    }
+        preferences.edit {
+            G7AppearanceRole.entries.forEach { role ->
+                if (!preferences.contains(colorKey(role))) return@forEach
+                val value = preferences.getInt(colorKey(role), role.defaultArgb)
+                AppearanceMode.entries.forEach { mode ->
+                    if (!preferences.contains(colorKey(mode, role))) putInt(colorKey(mode, role), value)
                 }
-                putBoolean("appearance_profiles_v1", true)
-            }.apply()
+            }
+            putBoolean("appearance_profiles_v1", true)
+        }
     }
 
     companion object {

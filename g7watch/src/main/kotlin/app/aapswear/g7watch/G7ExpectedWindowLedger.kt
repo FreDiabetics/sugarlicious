@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
+import androidx.core.content.edit
 import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorExpectedWindow
@@ -403,12 +404,12 @@ internal class G7ExpectedWindowLedger(
     }
 
     private fun saveAll(values: List<CollectorExpectedWindow>) {
-        preferences
-            .edit()
-            .putString(
+        preferences.edit {
+            putString(
                 KEY_WINDOWS,
                 json.encodeToString(serializer, values.sortedBy { it.expectedAt }.takeLast(MAX_WINDOWS)),
-            ).apply()
+            )
+        }
     }
 
     private fun load(): List<CollectorExpectedWindow> =

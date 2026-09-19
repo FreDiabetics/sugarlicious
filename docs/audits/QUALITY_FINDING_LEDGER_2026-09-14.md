@@ -188,3 +188,13 @@ part of the restore contract; that single site carries a documented, local
 suppression. The complete Mobile unit-test suite, debug APK, Lint, ktlint and
 Detekt gates pass. Mobile now has only two canvas-scoping `UseKtx` findings, the
 cross-module `UseKtx` inventory is 43, and the running warning inventory is 477.
+
+All 41 G7 `UseKtx` findings are resolved. Preference writes for BLE wakeups,
+collector diagnostics, encrypted credentials, alarms, appearance, graph colors,
+error state, recovery windows and runtime state use the KTX editor while keeping
+their former asynchronous behavior. The appearance-mode boundary still commits
+synchronously through `edit(commit = true)`, and the reading acknowledgement
+batch now uses the AndroidX SQLite transaction scope. The complete G7 unit-test
+suite, debug APK, Lint, ktlint and Detekt gates pass; G7 reports zero `UseKtx`
+findings. The remaining cross-module `UseKtx` inventory is two Mobile canvas
+scopes and the running warning inventory is 436.

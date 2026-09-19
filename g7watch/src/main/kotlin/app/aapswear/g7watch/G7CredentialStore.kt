@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import androidx.core.content.edit
 import app.aapswear.g7.G7DefaultGKey
 import app.aapswear.g7.G7GKeyParts
 import app.aapswear.g7.G7SetupPayload
@@ -39,17 +40,16 @@ internal class G7CredentialStore(
         gKey: G7GKeyParts = G7DefaultGKey.parts,
     ) {
         require(gKey.isComplete())
-        preferences
-            .edit()
-            .putString(KEY_PAIRING_CODE, encrypt(payload.pairingCode.encodeToByteArray()))
-            .putString(KEY_SENSOR_SERIAL, payload.sensorSerial)
-            .putString(KEY_GTIN, payload.gtin)
-            .putString(KEY_GKEY_1, encrypt(gKey.certificateAuthority))
-            .putString(KEY_GKEY_2, encrypt(gKey.certificate))
-            .putString(KEY_GKEY_3, encrypt(gKey.privateKey))
-            .remove(KEY_SHARED_KEY)
-            .remove(KEY_SHARED_ADDRESS)
-            .apply()
+        preferences.edit {
+            putString(KEY_PAIRING_CODE, encrypt(payload.pairingCode.encodeToByteArray()))
+            putString(KEY_SENSOR_SERIAL, payload.sensorSerial)
+            putString(KEY_GTIN, payload.gtin)
+            putString(KEY_GKEY_1, encrypt(gKey.certificateAuthority))
+            putString(KEY_GKEY_2, encrypt(gKey.certificate))
+            putString(KEY_GKEY_3, encrypt(gKey.privateKey))
+            remove(KEY_SHARED_KEY)
+            remove(KEY_SHARED_ADDRESS)
+        }
     }
 
     fun read(): StoredG7Credentials? {
@@ -76,23 +76,21 @@ internal class G7CredentialStore(
         key: ByteArray,
     ) {
         require(key.size == 16)
-        preferences
-            .edit()
-            .putString(KEY_SHARED_KEY, encrypt(key))
-            .putString(KEY_SHARED_ADDRESS, address)
-            .apply()
+        preferences.edit {
+            putString(KEY_SHARED_KEY, encrypt(key))
+            putString(KEY_SHARED_ADDRESS, address)
+        }
     }
 
     fun clearSessionKey() {
-        preferences
-            .edit()
-            .remove(KEY_SHARED_KEY)
-            .remove(KEY_SHARED_ADDRESS)
-            .apply()
+        preferences.edit {
+            remove(KEY_SHARED_KEY)
+            remove(KEY_SHARED_ADDRESS)
+        }
     }
 
     fun clearAll() {
-        preferences.edit().clear().apply()
+        preferences.edit { clear() }
     }
 
     private fun encrypt(value: ByteArray): String {

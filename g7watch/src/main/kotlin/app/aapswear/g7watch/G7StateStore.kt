@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.g7.G7PersistedState
 import kotlinx.serialization.json.Json
 
@@ -23,7 +24,7 @@ internal class G7SensorStateStore(
     fun save(state: G7PersistedState) {
         // Authentication material is intentionally not part of G7PersistedState. Once the
         // protocol is validated, secrets must be stored with Android Keystore protection.
-        preferences.edit().putString(KEY_STATE, json.encodeToString(G7PersistedState.serializer(), state)).apply()
+        preferences.edit { putString(KEY_STATE, json.encodeToString(G7PersistedState.serializer(), state)) }
     }
 
     private companion object {

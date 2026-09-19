@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import androidx.core.database.sqlite.transaction
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingRepository
@@ -399,20 +400,16 @@ internal class G7ReadingDatabase(
     override suspend fun markSynced(ids: Set<String>) {
         if (ids.isEmpty()) return
         var updated = 0
-        writableDatabase.beginTransaction()
-        try {
+        writableDatabase.transaction {
             ids.forEach {
                 updated +=
-                    writableDatabase.update(
+                    update(
                         "readings",
                         ContentValues().apply { put("synced", 1) },
                         "id=? AND synced=0",
                         arrayOf(it),
                     )
             }
-            writableDatabase.setTransactionSuccessful()
-        } finally {
-            writableDatabase.endTransaction()
         }
         if (updated > 0) {
             appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)

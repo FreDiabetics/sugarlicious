@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import app.aapswear.g7.G7CollectorError
 import kotlinx.coroutines.CoroutineScope
@@ -77,14 +78,13 @@ internal object G7ErrorNotifier {
             } else {
                 error.occurredAtEpochMs
             }
-        prefs
-            .edit()
-            .putString(KEY_ACTIVE_SIGNATURE, signature)
-            .putString(KEY_ACTIVE_CODE, error.code)
-            .putString(KEY_ACTIVE_MESSAGE, error.safeMessage)
-            .putLong(KEY_FIRST_OCCURRED_AT, firstOccurredAt)
-            .putLong(KEY_LAST_POSTED_AT, System.currentTimeMillis())
-            .apply()
+        prefs.edit {
+            putString(KEY_ACTIVE_SIGNATURE, signature)
+            putString(KEY_ACTIVE_CODE, error.code)
+            putString(KEY_ACTIVE_MESSAGE, error.safeMessage)
+            putLong(KEY_FIRST_OCCURRED_AT, firstOccurredAt)
+            putLong(KEY_LAST_POSTED_AT, System.currentTimeMillis())
+        }
 
         app.getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID,
@@ -105,15 +105,13 @@ internal object G7ErrorNotifier {
 
     fun clearActive(context: Context) {
         val app = context.applicationContext
-        app
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_ACTIVE_SIGNATURE)
-            .remove(KEY_ACTIVE_CODE)
-            .remove(KEY_ACTIVE_MESSAGE)
-            .remove(KEY_FIRST_OCCURRED_AT)
-            .remove(KEY_LAST_POSTED_AT)
-            .apply()
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            remove(KEY_ACTIVE_SIGNATURE)
+            remove(KEY_ACTIVE_CODE)
+            remove(KEY_ACTIVE_MESSAGE)
+            remove(KEY_FIRST_OCCURRED_AT)
+            remove(KEY_LAST_POSTED_AT)
+        }
         app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
@@ -122,16 +120,15 @@ internal object G7ErrorNotifier {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val signature = prefs.getString(KEY_ACTIVE_SIGNATURE, null) ?: return null
         val acknowledgedAt = System.currentTimeMillis()
-        prefs
-            .edit()
-            .putString(KEY_LAST_ACK_SIGNATURE, signature)
-            .putLong(KEY_LAST_ACK_AT, acknowledgedAt)
-            .remove(KEY_ACTIVE_SIGNATURE)
-            .remove(KEY_ACTIVE_CODE)
-            .remove(KEY_ACTIVE_MESSAGE)
-            .remove(KEY_FIRST_OCCURRED_AT)
-            .remove(KEY_LAST_POSTED_AT)
-            .apply()
+        prefs.edit {
+            putString(KEY_LAST_ACK_SIGNATURE, signature)
+            putLong(KEY_LAST_ACK_AT, acknowledgedAt)
+            remove(KEY_ACTIVE_SIGNATURE)
+            remove(KEY_ACTIVE_CODE)
+            remove(KEY_ACTIVE_MESSAGE)
+            remove(KEY_FIRST_OCCURRED_AT)
+            remove(KEY_LAST_POSTED_AT)
+        }
         app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         return G7AcknowledgedError(signature, acknowledgedAt)
     }

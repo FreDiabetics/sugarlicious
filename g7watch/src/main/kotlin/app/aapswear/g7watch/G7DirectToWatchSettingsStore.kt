@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import androidx.core.content.edit
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseUnit
@@ -22,19 +23,17 @@ class G7DirectToWatchSettingsStore(
 
     init {
         // Range confirmation is a system-wide graph policy, not a per-watchface preference.
-        val editor =
-            preferences
-                .edit()
-                .remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
-                .remove(KEY_TARGET_TICKS_ENABLED)
-        if (!preferences.getBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, false)) {
-            // Older copied/default profiles disabled the tile outline, making its configured
-            // contour color appear broken. Repair that legacy state once without preventing a
-            // deliberate later change in the settings screen.
-            editor.putBoolean(KEY_BORDER_ENABLED, true)
-            editor.putBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, true)
+        preferences.edit {
+            remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
+            remove(KEY_TARGET_TICKS_ENABLED)
+            if (!preferences.getBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, false)) {
+                // Older copied/default profiles disabled the tile outline, making its configured
+                // contour color appear broken. Repair that legacy state once without preventing a
+                // deliberate later change in the settings screen.
+                putBoolean(KEY_BORDER_ENABLED, true)
+                putBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, true)
+            }
         }
-        editor.apply()
     }
 
     fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
@@ -256,7 +255,7 @@ class G7DirectToWatchSettingsStore(
     ) = preferences.getInt(key, default)
 
     private inline fun update(block: android.content.SharedPreferences.Editor.() -> Unit) {
-        preferences.edit().apply(block).apply()
+        preferences.edit(action = block)
         sync()
     }
 

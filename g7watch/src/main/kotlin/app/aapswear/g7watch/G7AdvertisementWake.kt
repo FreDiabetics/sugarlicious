@@ -11,6 +11,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import androidx.core.content.edit
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
@@ -88,13 +89,11 @@ internal object G7AdvertisementWakeScheduler {
                 }.getOrNull()
             scanner?.let { runCatching { it.stopScan(scanPendingIntent(app)) } }
         }
-        app
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_REGISTERED_ADDRESS)
-            .remove(KEY_REGISTRATION_STATUS)
-            .remove(KEY_REGISTRATION_AT)
-            .apply()
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            remove(KEY_REGISTERED_ADDRESS)
+            remove(KEY_REGISTRATION_STATUS)
+            remove(KEY_REGISTRATION_AT)
+        }
     }
 
     fun lastForwardedAt(context: Context): Long? =
@@ -108,11 +107,10 @@ internal object G7AdvertisementWakeScheduler {
         nowEpochMs: Long,
     ) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs
-            .edit()
-            .putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
-            .putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
-            .apply()
+        prefs.edit {
+            putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
+            putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
+        }
     }
 
     fun lastForwardedSlot(context: Context): Long? =
@@ -127,12 +125,11 @@ internal object G7AdvertisementWakeScheduler {
         nowEpochMs: Long,
     ) {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs
-            .edit()
-            .putLong(KEY_LAST_FORWARDED_SLOT, slotEpochMs)
-            .putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
-            .putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
-            .apply()
+        prefs.edit {
+            putLong(KEY_LAST_FORWARDED_SLOT, slotEpochMs)
+            putLong(KEY_LAST_FORWARDED_AT, nowEpochMs)
+            putLong(KEY_FORWARDED_COUNT, prefs.getLong(KEY_FORWARDED_COUNT, 0L) + 1L)
+        }
     }
 
     fun markCallbackError(
@@ -140,12 +137,10 @@ internal object G7AdvertisementWakeScheduler {
         errorCode: Int,
         nowEpochMs: Long,
     ) {
-        context.applicationContext
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_LAST_CALLBACK_ERROR, errorCode)
-            .putLong(KEY_LAST_CALLBACK_ERROR_AT, nowEpochMs)
-            .apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putInt(KEY_LAST_CALLBACK_ERROR, errorCode)
+            putLong(KEY_LAST_CALLBACK_ERROR_AT, nowEpochMs)
+        }
     }
 
     private fun rememberRegistration(
@@ -153,13 +148,11 @@ internal object G7AdvertisementWakeScheduler {
         address: String,
         status: Int,
     ) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_REGISTERED_ADDRESS, address)
-            .putInt(KEY_REGISTRATION_STATUS, status)
-            .putLong(KEY_REGISTRATION_AT, System.currentTimeMillis())
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY_REGISTERED_ADDRESS, address)
+            putInt(KEY_REGISTRATION_STATUS, status)
+            putLong(KEY_REGISTRATION_AT, System.currentTimeMillis())
+        }
     }
 
     private fun scanPendingIntent(context: Context): PendingIntent =

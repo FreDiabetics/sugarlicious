@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorCycleClassification
@@ -124,7 +125,7 @@ internal class G7CollectorDiagnosticStore(
             val overflow = active.dropLast(MAX_ACTIVE_ATTEMPTS)
             if (overflow.isNotEmpty()) appendHistory(overflow)
             saveActive(active.takeLast(MAX_ACTIVE_ATTEMPTS))
-            controlPreferences.edit().putLong(KEY_COUNTER, attemptId).apply()
+            controlPreferences.edit { putLong(KEY_COUNTER, attemptId) }
             attempt
         }
 
@@ -210,10 +211,9 @@ internal class G7CollectorDiagnosticStore(
     /** Persisted after AlarmManager accepts the request as durable evidence of the armed slot. */
     fun stageScheduledCycle(cycle: CollectorCycleTiming) =
         synchronized(lock) {
-            controlPreferences
-                .edit()
-                .putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), cycle))
-                .apply()
+            controlPreferences.edit {
+                putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), cycle))
+            }
         }
 
     /** Stamps the real BroadcastReceiver delivery time before the FGS handoff starts. */
@@ -225,10 +225,9 @@ internal class G7CollectorDiagnosticStore(
                     alarmTriggeredAt = nowEpochMs,
                     receiverReceivedAt = nowEpochMs,
                 )
-            controlPreferences
-                .edit()
-                .putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), updated))
-                .apply()
+            controlPreferences.edit {
+                putString(KEY_PENDING_CYCLE, json.encodeToString(CollectorCycleTiming.serializer(), updated))
+            }
             updated
         }
 
@@ -236,7 +235,7 @@ internal class G7CollectorDiagnosticStore(
     fun consumeScheduledCycle(serviceStartEpochMs: Long): CollectorCycleTiming? =
         synchronized(lock) {
             val pending = loadPendingCycle() ?: return@synchronized null
-            controlPreferences.edit().remove(KEY_PENDING_CYCLE).apply()
+            controlPreferences.edit { remove(KEY_PENDING_CYCLE) }
             pending.copy(serviceOnStartCommandAt = serviceStartEpochMs)
         }
 
@@ -342,20 +341,19 @@ internal class G7CollectorDiagnosticStore(
             .orEmpty()
 
     private fun saveHistory(attempts: List<CollectorDiagnosticAttempt>) {
-        historyPreferences
-            .edit()
-            .putString(KEY_HISTORY, json.encodeToString(serializer, attempts.takeLast(MAX_ATTEMPTS)))
-            .apply()
+        historyPreferences.edit {
+            putString(KEY_HISTORY, json.encodeToString(serializer, attempts.takeLast(MAX_ATTEMPTS)))
+        }
     }
 
     private fun saveActive(attempts: List<CollectorDiagnosticAttempt>) {
-        val editor = activePreferences.edit()
-        if (attempts.isEmpty()) {
-            editor.remove(KEY_ACTIVE)
-        } else {
-            editor.putString(KEY_ACTIVE, json.encodeToString(serializer, attempts.takeLast(MAX_ACTIVE_ATTEMPTS)))
+        activePreferences.edit {
+            if (attempts.isEmpty()) {
+                remove(KEY_ACTIVE)
+            } else {
+                putString(KEY_ACTIVE, json.encodeToString(serializer, attempts.takeLast(MAX_ACTIVE_ATTEMPTS)))
+            }
         }
-        editor.apply()
     }
 
     private fun appendHistory(attempts: List<CollectorDiagnosticAttempt>) {
@@ -406,7 +404,7 @@ internal class G7CollectorDiagnosticStore(
                 .values
                 .sortedBy(CollectorSlotSummary::expectedReadingEpoch)
                 .takeLast(MAX_SLOT_SUMMARIES)
-        slotPreferences.edit().putString(KEY_SLOTS, json.encodeToString(slotSerializer, retained)).apply()
+        slotPreferences.edit { putString(KEY_SLOTS, json.encodeToString(slotSerializer, retained)) }
     }
 
     private fun mergedAttempts(): List<CollectorDiagnosticAttempt> =
@@ -420,7 +418,7 @@ internal class G7CollectorDiagnosticStore(
         val legacy = controlPreferences.getString(KEY_LEGACY_ATTEMPTS, null) ?: return
         val decoded = runCatching { json.decodeFromString(serializer, legacy) }.getOrNull()
         if (decoded != null) appendHistory(decoded)
-        controlPreferences.edit().remove(KEY_LEGACY_ATTEMPTS).apply()
+        controlPreferences.edit { remove(KEY_LEGACY_ATTEMPTS) }
     }
 
     private fun compactCompletedActiveAttempts() {

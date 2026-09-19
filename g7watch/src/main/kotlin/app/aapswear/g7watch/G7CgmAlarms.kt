@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import android.provider.Settings
+import androidx.core.content.edit
 import androidx.core.net.toUri
 import app.aapswear.g7.CgmAlarm
 import app.aapswear.g7.CgmAlarmEngine
@@ -81,27 +82,25 @@ internal object G7AlarmSettingsStore {
                 settings.veryLowThreshold,
             ),
         )
-        context.applicationContext
-            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .putFloat("very_high", settings.veryHighThreshold.toFloat())
-            .putFloat("high", settings.highThreshold.toFloat())
-            .putFloat("low", settings.lowThreshold.toFloat())
-            .putFloat("rapid_rise", settings.rapidRiseThreshold.toFloat())
-            .putFloat("rapid_fall", settings.rapidFallThreshold.toFloat())
-            .putBoolean("very_high_enabled", settings.veryHighEnabled)
-            .putBoolean("high_enabled", settings.highEnabled)
-            .putBoolean("low_enabled", settings.lowEnabled)
-            .putBoolean("very_low_enabled", settings.veryLowEnabled)
-            .putBoolean("rapid_rise_enabled", settings.rapidRiseEnabled)
-            .putBoolean("rapid_fall_enabled", settings.rapidFallEnabled)
-            .putBoolean("signal_loss_enabled", settings.signalLossEnabled)
-            .putBoolean("sensor_error_enabled", settings.sensorErrorEnabled)
-            .putBoolean("vibration_enabled", settings.vibrationEnabled)
-            .putBoolean("sound_enabled", settings.soundEnabled)
-            .putBoolean("repeat_enabled", settings.repeatEnabled)
-            .putInt("repeat_minutes", settings.repeatIntervalMinutes.coerceIn(5, 120))
-            .apply()
+        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit {
+            putFloat("very_high", settings.veryHighThreshold.toFloat())
+            putFloat("high", settings.highThreshold.toFloat())
+            putFloat("low", settings.lowThreshold.toFloat())
+            putFloat("rapid_rise", settings.rapidRiseThreshold.toFloat())
+            putFloat("rapid_fall", settings.rapidFallThreshold.toFloat())
+            putBoolean("very_high_enabled", settings.veryHighEnabled)
+            putBoolean("high_enabled", settings.highEnabled)
+            putBoolean("low_enabled", settings.lowEnabled)
+            putBoolean("very_low_enabled", settings.veryLowEnabled)
+            putBoolean("rapid_rise_enabled", settings.rapidRiseEnabled)
+            putBoolean("rapid_fall_enabled", settings.rapidFallEnabled)
+            putBoolean("signal_loss_enabled", settings.signalLossEnabled)
+            putBoolean("sensor_error_enabled", settings.sensorErrorEnabled)
+            putBoolean("vibration_enabled", settings.vibrationEnabled)
+            putBoolean("sound_enabled", settings.soundEnabled)
+            putBoolean("repeat_enabled", settings.repeatEnabled)
+            putInt("repeat_minutes", settings.repeatIntervalMinutes.coerceIn(5, 120))
+        }
     }
 }
 
@@ -280,11 +279,9 @@ internal object G7CgmAlarmCoordinator {
         context: Context,
         snapshot: G7AlarmSnapshot,
     ) {
-        context.applicationContext
-            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_STATE, json.encodeToString(G7AlarmSnapshot.serializer(), snapshot))
-            .apply()
+        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit {
+            putString(KEY_STATE, json.encodeToString(G7AlarmSnapshot.serializer(), snapshot))
+        }
     }
 }
 

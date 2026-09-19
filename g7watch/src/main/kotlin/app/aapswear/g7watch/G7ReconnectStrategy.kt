@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import androidx.core.content.edit
 
 /** Developer-selectable discovery strategy; production defaults to the hardware-tested fix. */
 internal object G7ReconnectStrategyStore {
@@ -18,10 +19,8 @@ internal object G7ReconnectStrategyStore {
         context: Context,
         strategy: G7ReconnectStrategy,
     ) {
-        context.applicationContext
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_STRATEGY, strategy.name)
-            .apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(KEY_STRATEGY, strategy.name)
+        }
     }
 }

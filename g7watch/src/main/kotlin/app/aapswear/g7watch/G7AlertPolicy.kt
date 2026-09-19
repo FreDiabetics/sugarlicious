@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.edit
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7SessionState
@@ -44,12 +45,10 @@ internal object G7AlertPolicyStore {
         enabled: Boolean,
         automaticEnableAtEpochMs: Long? = null,
     ) {
-        context.applicationContext
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_ALARMS_ENABLED, enabled)
-            .putLong(KEY_AUTOMATIC_ENABLE_AT, automaticEnableAtEpochMs?.takeIf { it > 0L } ?: 0L)
-            .apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putBoolean(KEY_ALARMS_ENABLED, enabled)
+            putLong(KEY_AUTOMATIC_ENABLE_AT, automaticEnableAtEpochMs?.takeIf { it > 0L } ?: 0L)
+        }
     }
 }
 
