@@ -270,3 +270,10 @@ picker preview and package icon, not as a maskable launcher foreground. The
 detector is disabled only for code-free WFF modules alongside the existing
 WFF-specific resource exclusions. All 30 WFF Lint tasks pass without changing
 preview pixels or package metadata. The running warning inventory is 77.
+
+The single `VectorPath` finding belongs to the approved sensor silhouette used
+consistently by launcher, foreground notification, pairing and system-status UI.
+Its high-detail outline is intentional design input; automatic point reduction
+or rasterization would trade a theoretical parse cost for visible asset drift
+and density-specific copies. The exclusion is scoped to that one drawable, G7
+Lint passes, and the running warning inventory is 76.
