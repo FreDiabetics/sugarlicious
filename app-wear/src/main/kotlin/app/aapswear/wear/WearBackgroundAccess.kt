@@ -1,5 +1,6 @@
 package app.aapswear.wear
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
@@ -13,6 +14,9 @@ internal object WearBackgroundAccess {
             .getSystemService(PowerManager::class.java)
             .isIgnoringBatteryOptimizations(context.packageName)
 
+    // User-initiated exemption is required for continuous glucose monitoring,
+    // whose core data and alert path cannot be deferred by Doze.
+    @SuppressLint("BatteryLife")
     internal fun batterySettingsIntents(packageName: String): List<Intent> {
         val packageUri = Uri.parse("package:$packageName")
         return listOf(

@@ -277,3 +277,10 @@ Its high-detail outline is intentional design input; automatic point reduction
 or rasterization would trade a theoretical parse cost for visible asset drift
 and density-specific copies. The exclusion is scoped to that one drawable, G7
 Lint passes, and the running warning inventory is 76.
+
+All three `BatteryLife` findings now carry narrow, source-local rationale.
+The exemption request remains explicitly user-initiated and protects the core
+continuous-glucose/BLE data and safety-alert path from Doze suspension; no
+background grant is fabricated and the existing fallback settings routes stay
+intact. Wear and G7 background-access tests plus Mobile/Wear/G7 Lint and ktlint
+pass. The running warning inventory is 73.

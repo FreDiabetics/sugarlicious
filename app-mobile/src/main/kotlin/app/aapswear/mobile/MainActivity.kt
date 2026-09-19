@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -683,6 +684,9 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    // Continuous glucose delivery and safety alerts are the app's core function;
+    // Doze can otherwise suspend the local collector/data path.
+    @SuppressLint("BatteryLife")
     private fun requestUnrestrictedBattery() {
         if (AppRuntimeAccess.isIgnoringBatteryOptimizations(this)) {
             Toast.makeText(this, "Dauerbetrieb ist bereits uneingeschränkt", Toast.LENGTH_SHORT).show()
