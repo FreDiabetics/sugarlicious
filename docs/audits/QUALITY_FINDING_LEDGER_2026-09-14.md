@@ -127,3 +127,9 @@ editor channel labels use one resource format, while numeric editor seed values 
 `Locale.ROOT` deliberately so their machine-parsed decimal/integer representation
 does not change with the display locale. Unit tests, Lint, ktlint and Detekt pass
 for all three affected modules. The running warning inventory is 631.
+
+The sole `DiscouragedApi` finding is also classified and resolved. Android does
+not expose `system_app_widget_background_radius` through a public `android.R`
+symbol, so the optional framework lookup is retained behind its existing Samsung
+fallback and a function-local documented suppression. Mobile tests, Lint, ktlint
+and Detekt pass. The running warning inventory is 630.

@@ -381,6 +381,7 @@ internal fun resolveWidgetCornerRadiusDp(
         else -> systemDefaultDp
     }
 
+@SuppressLint("DiscouragedApi") // This optional framework dimen has no public android.R symbol; fallback remains mandatory.
 private fun systemWidgetCornerRadiusDp(context: Context): Float {
     val resources = context.resources
     val identifier = resources.getIdentifier("system_app_widget_background_radius", "dimen", "android")
