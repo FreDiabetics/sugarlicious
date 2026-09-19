@@ -1,7 +1,9 @@
 name: build
+
 on:
   push:
   pull_request:
+
 jobs:
   dependency-review:
     if: github.event_name == 'pull_request'
@@ -10,6 +12,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
       - name: Reject newly introduced vulnerable dependencies
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
@@ -19,15 +22,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
-       - uses: android-actions/setup-android@v3
+
+      - uses: android-actions/setup-android@v3
         with:
           packages: ''
           cmdline-tools-version: '15859902'
+
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
       - name: Validate branch protection helper with PowerShell 7
         shell: pwsh
         run: |
@@ -42,11 +49,14 @@ jobs:
             $errors | Format-List *
             throw 'tools/protect-main.ps1 failed PowerShell 7 parsing.'
           }
+
       - name: Prepare Watch Face Push marketplace assets
         shell: pwsh
         run: ./tools/watchface-push/Prepare-WatchFacePushAssets.ps1
+
       - name: Enforce Kotlin static analysis and formatting
         run: ./gradlew detekt ktlintCheck
+
       - name: Test and build all applications and watchfaces
         run: >-
           ./gradlew test assembleDebug
@@ -74,6 +84,7 @@ jobs:
           :watchfaces:robby:assembleRelease
           :watchfaces:simple-digital:assembleRelease
           :watchfaces:steam-punk:assembleRelease
+
       - name: Upload G7 Collector visual QA previews
         uses: actions/upload-artifact@v4
         with:
@@ -81,6 +92,7 @@ jobs:
           path: g7watch/build/reports/g7-visual-qa/*.png
           if-no-files-found: error
           retention-days: 14
+
       - name: Upload Android widget visual QA previews
         uses: actions/upload-artifact@v4
         with:
@@ -88,14 +100,18 @@ jobs:
           path: app-mobile/build/reports/widget-visual-qa/*.png
           if-no-files-found: error
           retention-days: 14
+
       - name: Lint all Android modules
         run: ./gradlew lint
+
       - name: Validate Watch Face Format XML
         shell: pwsh
         run: ./tools/wff-validator/validate.ps1
+
       - name: Verify code-free watchface APKs
         shell: pwsh
         run: ./tools/verify-codefree-watchfaces.ps1
+
       - name: Generate SPDX software bill of materials
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
