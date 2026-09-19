@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<complications>
-    <complication type="LONG_TEXT">
-        <text><plain value="123→ · Δ +5 · IOB 1.2 U · COB 15 g · Loop aktiv"/></text>
-        <title><plain value="Sugarlicious Vollstatus"/></title>
-    </complication>
-</complications>

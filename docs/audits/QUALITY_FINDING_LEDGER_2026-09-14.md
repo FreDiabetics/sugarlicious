@@ -213,3 +213,11 @@ and Lint pass, and both application modules now report zero `UnusedResources`
 findings. WFF resources are deliberately excluded from this deletion block because
 Android Lint does not understand every Watch Face Format XML reference. The
 running warning inventory is 427.
+
+The Wear application resource inventory is also clean. A superseded unsuffixed
+complication-preview series (27 PNGs and 28 XML descriptors), seven obsolete
+background/logo/launcher assets, seven unused color tokens and three unused
+strings were removed only after repository-wide reference checks. The currently
+registered suffixed provider previews remain intact. The complete Wear unit-test
+suite, debug APK, Lint, ktlint and Detekt gates pass, and `app-wear` now reports
+zero `UnusedResources` findings. The running warning inventory is 355.

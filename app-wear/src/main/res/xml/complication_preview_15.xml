@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<complications>
-    <complication type="SHORT_TEXT" monochromaticImage="@drawable/ic_complication_carbs">
-        <text><plain value="15g"/></text>
-    </complication>
-    <complication type="RANGED_VALUE" value="15" min="0" max="150" monochromaticImage="@drawable/ic_complication_carbs">
-        <text><plain value="15g"/></text>
-    </complication>
-</complications>
