@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Adaptive icon XML must remain in an API-qualified resource folder;
+         AAPT does not link this resource from mipmap-anydpi. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v33" />
+    </issue>
+</lint>

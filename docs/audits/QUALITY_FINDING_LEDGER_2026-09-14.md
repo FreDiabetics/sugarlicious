@@ -255,3 +255,11 @@ unique manifest icon resource ID while identical pixels are stored only once.
 The provider-specific preview test, complete Wear unit-test suite, debug APK,
 Lint, ktlint and Detekt gates pass; Wear Lint reports no `IconDuplicates`.
 The running warning inventory is 86.
+
+The final three `ObsoleteSdkInt` findings are classified as Adaptive Icon
+detector false positives. A controlled move from the API-qualified mipmap
+folders to `mipmap-anydpi` made all three launcher resources unavailable to
+AAPT and failed both resource linking and Mobile compilation. The icons remain
+in their platform-valid qualified folders, with path-scoped Lint exclusions in
+the three owning application modules. Mobile, Wear and G7 debug APK assembly
+and Lint pass, and the full inventory now contains 83 warnings.
