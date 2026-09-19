@@ -45,6 +45,10 @@ subprojects {
                     // their complete reachable resource graph as unused. WFF schema validation
                     // and the code-free APK verifier are the authoritative gates here.
                     disable.add("UnusedResources")
+                    // R8 is required to strip Android-plugin generated DEX from these hasCode=false
+                    // packages. Resource shrinking cannot be enabled safely for WFF's platform-
+                    // resolved XML graph, so the code-free verifier enforces the actual contract.
+                    disable.add("NotShrinkingResources")
                 }
             }
         }

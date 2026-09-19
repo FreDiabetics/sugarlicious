@@ -237,3 +237,12 @@ Wear, G7 and all library modules retain the detector. All 30 WFF Lint tasks pass
 the official format validator and 30/30 code-free APK verification remain the
 authoritative replacement gates. A fresh inventory across all current reports is
 122 warnings and no errors.
+
+The 30 WFF `NotShrinkingResources` findings are classified as another format-
+specific detector mismatch. A verification experiment proved that removing R8
+causes Android-plugin generated DEX to reappear in these `hasCode=false` APKs;
+therefore minification remains required to enforce the code-free package contract,
+while resource shrinking remains disabled because WFF resources are resolved by
+the platform XML graph. Only this detector is disabled for WFF modules. All 30
+release APKs rebuild, all 30 Lint tasks pass and the code-free verifier again
+passes 30/30. The running warning inventory is 92.
