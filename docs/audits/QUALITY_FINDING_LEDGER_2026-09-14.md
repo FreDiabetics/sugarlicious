@@ -246,3 +246,12 @@ while resource shrinking remains disabled because WFF resources are resolved by
 the platform XML graph. Only this detector is disabled for WFF modules. All 30
 release APKs rebuild, all 30 Lint tasks pass and the code-free verifier again
 passes 30/30. The running warning inventory is 92.
+
+Six `IconDuplicates` findings in the Wear complication picker are resolved
+without weakening its provider-specific identity contract. The duplicated B
+variant PNG payloads were replaced by distinct bitmap-drawable resources that
+delegate to the matching A variant, so each of the 41 providers retains a
+unique manifest icon resource ID while identical pixels are stored only once.
+The provider-specific preview test, complete Wear unit-test suite, debug APK,
+Lint, ktlint and Detekt gates pass; Wear Lint reports no `IconDuplicates`.
+The running warning inventory is 86.
