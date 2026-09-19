@@ -160,3 +160,8 @@ intentional Android 12 API context, while the platform continues to ignore newer
 attributes safely on Android 8–11. Lint confirms the findings are gone, every
 preview/cell-size/reconfiguration attribute remains packaged, and the Mobile
 debug APK builds. The running warning inventory is 539.
+
+All three `SmallSp` findings are resolved. The Widget loading label and the two
+metabolic preview annotations now use the Android accessibility floor of 11 sp
+instead of 10 sp. Mobile Lint and the debug APK build pass without introducing a
+layout warning. The running warning inventory is 536.

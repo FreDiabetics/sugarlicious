@@ -33,6 +33,6 @@
             android:layout_marginTop="2dp"
             android:text="@string/widget_loading"
             android:textColor="#B5B5B5"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </FrameLayout>
