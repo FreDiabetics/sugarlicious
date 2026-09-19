@@ -221,3 +221,12 @@ strings were removed only after repository-wide reference checks. The currently
 registered suffixed provider previews remain intact. The complete Wear unit-test
 suite, debug APK, Lint, ktlint and Detekt gates pass, and `app-wear` now reports
 zero `UnusedResources` findings. The running warning inventory is 355.
+
+WFF resources were audited with a format-aware reachability graph rooted at the
+platform-loaded `watch_face_info`, `watch_face_shapes` and `raw/watchface`
+resources. Thirty-six resources outside that graph were removed: fourteen legacy
+dial/hand/preview assets and twenty-two retired configuration labels. The four
+affected release APKs build, all 30 Watchfaces pass the official Google WFF
+validator, and the code-free verifier passes 30/30 APKs. The 195 reachable WFF
+resources that Android Lint still calls unused are retained as detector false
+positives rather than deleted. The running warning inventory is 319.
