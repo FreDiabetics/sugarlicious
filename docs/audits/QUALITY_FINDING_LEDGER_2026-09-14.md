@@ -133,3 +133,8 @@ not expose `system_app_widget_background_radius` through a public `android.R`
 symbol, so the optional framework lookup is retained behind its existing Samsung
 fallback and a function-local documented suppression. Mobile tests, Lint, ktlint
 and Detekt pass. The running warning inventory is 630.
+
+All 25 `HardcodedText` findings are resolved. Runtime navigation and loading
+labels now use resources, and launcher widget previews use explicitly named sample
+resources while preserving their exact rendered text. The complete Mobile unit
+test suite, debug APK and Lint pass. The running warning inventory is 605.

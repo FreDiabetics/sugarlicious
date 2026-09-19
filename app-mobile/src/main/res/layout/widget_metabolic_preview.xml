@@ -8,25 +8,25 @@
     android:padding="16dp">
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="Sugarlicious" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:layout_weight="1" android:text="Sugarlicious" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AKTUELL" android:textColor="#6DE892" android:textStyle="bold" android:textSize="10sp" />
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="@string/app_name" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:layout_weight="1" android:text="@string/app_name" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_current" android:textColor="#6DE892" android:textStyle="bold" android:textSize="10sp" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:baselineAligned="false" android:orientation="horizontal">
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="IOB" android:textColor="#64BFFF" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1.2 U" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_iob_label" android:textColor="#64BFFF" android:textStyle="bold" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_iob_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
         </LinearLayout>
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="COB" android:textColor="#FF9D18" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="15 g" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_cob_label" android:textColor="#FF9D18" android:textStyle="bold" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_cob_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
         </LinearLayout>
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BASAL" android:textColor="#54DF30" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.70" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_basal_label" android:textColor="#54DF30" android:textStyle="bold" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_basal_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
         </LinearLayout>
     </LinearLayout>
 
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="AndroidAPS · 3 min" android:textColor="#B5B5B5" android:textSize="10sp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="@string/widget_preview_source_age" android:textColor="#B5B5B5" android:textSize="10sp" />
 </LinearLayout>

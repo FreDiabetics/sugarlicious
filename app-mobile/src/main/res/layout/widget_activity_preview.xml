@@ -8,23 +8,23 @@
     android:padding="16dp">
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="Sugarlicious" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:text="Sugarlicious" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
+        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="@string/app_name" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:text="@string/app_name" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:baselineAligned="false" android:orientation="horizontal">
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SCHRITTE" android:textColor="#19D7E8" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="8.426" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_steps_label" android:textColor="#19D7E8" android:textStyle="bold" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_steps_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
         </LinearLayout>
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PULS" android:textColor="#FF5C69" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="78 bpm" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_heart_rate_label" android:textColor="#FF5C69" android:textStyle="bold" android:textSize="11sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_heart_rate_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
         </LinearLayout>
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:baselineAligned="false" android:orientation="horizontal">
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="AKTIV  42 min" android:textColor="#54DF30" android:textStyle="bold" android:textSize="12sp" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="KCAL  518" android:textColor="#FF9D18" android:textStyle="bold" android:textSize="12sp" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/widget_preview_active_value" android:textColor="#54DF30" android:textStyle="bold" android:textSize="12sp" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/widget_preview_calories_value" android:textColor="#FF9D18" android:textStyle="bold" android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>
