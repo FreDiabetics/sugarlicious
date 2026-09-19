@@ -4,7 +4,6 @@
     android:id="@+id/wear_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/wear_background"
     tools:ignore="HardcodedText,MergeRootFrame,SmallSp,UselessParent">
 
     <ScrollView

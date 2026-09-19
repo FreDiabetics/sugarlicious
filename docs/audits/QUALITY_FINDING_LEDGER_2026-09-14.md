@@ -102,3 +102,21 @@ activity draw. Both commits now carry narrow, documented Lint suppressions rathe
 than being changed to asynchronous writes. Sugarlicious Wear explicitly declares
 that its current German-only UI does not support RTL mirroring, resolving the
 ambiguous manifest policy warning without changing layout behavior.
+
+A fresh all-module Lint run on 2026-09-15 produced 650 warnings and no errors.
+The Wear root no longer paints the same background as its window theme, and the
+expanded Mobile notification no longer contains a redundant `FrameLayout`. The
+notification spacing remains outside the measured value/meta block and is covered
+by the existing Robolectric geometry test. These changes remove the `Overdraw` and
+`UselessParent` findings, leaving 648 warnings before the next remediation block.
+
+The three adaptive launcher icon `ObsoleteSdkInt` findings are confirmed Lint
+false positives. Moving those XML files from their API-qualified resource folders
+causes AAPT to omit the adaptive-icon resources and breaks all three application
+builds, despite the matching module minimum SDK. The required qualifiers remain.
+
+On this Windows host, Gradle 9.6.1 can finish every requested task and then fail
+while replacing its optional `build/reports/problems-report.html`. Verification
+runs therefore use Gradle's official `--no-problems-report` switch; this disables
+only the incubating HTML Problems API report and does not skip tests, builds, Lint,
+ktlint or Detekt.
