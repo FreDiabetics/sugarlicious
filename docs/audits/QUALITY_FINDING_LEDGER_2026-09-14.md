@@ -230,3 +230,10 @@ affected release APKs build, all 30 Watchfaces pass the official Google WFF
 validator, and the code-free verifier passes 30/30 APKs. The 195 reachable WFF
 resources that Android Lint still calls unused are retained as detector false
 positives rather than deleted. The running warning inventory is 319.
+
+The Android `UnusedResources` detector is now disabled only for code-free WFF
+application modules because it cannot model those platform entry points. Mobile,
+Wear, G7 and all library modules retain the detector. All 30 WFF Lint tasks pass;
+the official format validator and 30/30 code-free APK verification remain the
+authoritative replacement gates. A fresh inventory across all current reports is
+122 warnings and no errors.

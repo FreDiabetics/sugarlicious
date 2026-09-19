@@ -39,6 +39,13 @@ subprojects {
                     .res
                     .directories
                     .add(rootProject.file("watchfaces/shared-res").absolutePath)
+                lint {
+                    // Android Lint does not model the platform-loaded WFF roots
+                    // (watch_face_info, watch_face_shapes and raw/watchface), so it reports
+                    // their complete reachable resource graph as unused. WFF schema validation
+                    // and the code-free APK verifier are the authoritative gates here.
+                    disable.add("UnusedResources")
+                }
             }
         }
     }
