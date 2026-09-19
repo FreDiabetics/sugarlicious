@@ -1,6 +1,7 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
+import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputFile
@@ -29,6 +30,18 @@ subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") { enableKotlinQualityGates() }
     pluginManager.withPlugin("com.android.application") { enableKotlinQualityGates() }
     pluginManager.withPlugin("com.android.library") { enableKotlinQualityGates() }
+
+    if (path.startsWith(":watchfaces:")) {
+        pluginManager.withPlugin("com.android.application") {
+            extensions.configure<ApplicationExtension>("android") {
+                sourceSets
+                    .getByName("main")
+                    .res
+                    .directories
+                    .add(rootProject.file("watchfaces/shared-res").absolutePath)
+            }
+        }
+    }
 
     tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
         // Detekt analysis follows the Android/JVM 17 source contract. This affects

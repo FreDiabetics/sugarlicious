@@ -145,3 +145,11 @@ Foreground, glucose-alarm and collector-error notifications share one flag-free
 navigation intent instead of redundantly forcing `CLEAR_TOP` and `SINGLE_TOP`.
 Manifest and navigation regression tests plus the G7 unit-test, Lint, ktlint and
 Detekt gates pass. The running warning inventory is 593.
+
+All 31 `DataExtractionRules` findings are resolved. The G7 collector and every
+code-free WFF package now explicitly exclude all roots from cloud backup and
+device-to-device transfer; legacy backup is disabled as well. The 30 WFF modules
+consume one shared resource directory instead of maintaining duplicate policy
+files. G7 plus all WFF Lint tasks pass, all 30 WFF release APKs build, and the
+code-free verifier confirms 30/30 packages still contain no DEX. The running
+warning inventory is 562.
