@@ -2,6 +2,7 @@ package app.aapswear.mobile
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import app.aapswear.protocol.WatchRuntimeStatus
 
 internal object WatchRuntimeStatusStore {
@@ -15,18 +16,15 @@ internal object WatchRuntimeStatusStore {
         status: WatchRuntimeStatus,
     ) {
         val activeFaceIndex = status.activeSugarliciousFaceIndex
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .apply {
-                if (activeFaceIndex == null) {
-                    remove(FACE)
-                } else {
-                    putInt(FACE, activeFaceIndex)
-                }
-            }.putString(IDS, status.activeComplicationIds.joinToString(","))
-            .putLong(SENT, status.sentAtEpochMs)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            if (activeFaceIndex == null) {
+                remove(FACE)
+            } else {
+                putInt(FACE, activeFaceIndex)
+            }
+            putString(IDS, status.activeComplicationIds.joinToString(","))
+            putLong(SENT, status.sentAtEpochMs)
+        }
     }
 
     fun read(context: Context): WatchRuntimeStatus {

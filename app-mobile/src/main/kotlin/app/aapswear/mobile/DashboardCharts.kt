@@ -18,6 +18,7 @@ import android.view.ScaleGestureDetector
 import android.view.VelocityTracker
 import android.view.View
 import android.widget.OverScroller
+import androidx.core.content.edit
 import androidx.core.graphics.withClip
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
@@ -94,11 +95,10 @@ internal class StaticGraphScaleStore(
     ) {
         if (scale.mode == CgmGraphScaleMode.DYNAMIC || scale.mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) return
         val bounds = scale.bounds
-        preferences
-            .edit()
-            .putLong(key(axis, "minimum"), bounds.minimum.toBits())
-            .putLong(key(axis, "maximum"), bounds.maximum.toBits())
-            .apply()
+        preferences.edit {
+            putLong(key(axis, "minimum"), bounds.minimum.toBits())
+            putLong(key(axis, "maximum"), bounds.maximum.toBits())
+        }
     }
 
     private fun key(
@@ -141,11 +141,10 @@ internal fun resolveOverviewGraphHoursPreference(
             previousAuto24 -> 3
             else -> normalized
         }
-    preferences
-        .edit()
-        .putInt("graphHours", resolved)
-        .putBoolean(OVERVIEW_GRAPH_HOURS_MIGRATION, true)
-        .apply()
+    preferences.edit {
+        putInt("graphHours", resolved)
+        putBoolean(OVERVIEW_GRAPH_HOURS_MIGRATION, true)
+    }
     return resolved
 }
 

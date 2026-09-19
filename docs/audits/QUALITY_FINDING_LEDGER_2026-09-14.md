@@ -180,3 +180,11 @@ boundary was changed. Targeted graph, activity, watchface-preset and widget
 configuration tests plus the Mobile debug APK, Lint, ktlint and Detekt gates
 pass. The remaining `UseKtx` inventory is 55 and the running warning inventory
 is 489.
+
+The remaining 12 Mobile preference-editor `UseKtx` findings are resolved. Eleven
+asynchronous writes now use the KTX editor while the settings-restore transaction
+keeps its direct synchronous `commit()` because its Boolean durability result is
+part of the restore contract; that single site carries a documented, local
+suppression. The complete Mobile unit-test suite, debug APK, Lint, ktlint and
+Detekt gates pass. Mobile now has only two canvas-scoping `UseKtx` findings, the
+cross-module `UseKtx` inventory is 43, and the running warning inventory is 477.

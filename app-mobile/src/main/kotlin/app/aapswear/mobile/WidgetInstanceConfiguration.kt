@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
@@ -291,53 +292,46 @@ internal object WidgetInstanceConfigurationStore {
         appWidgetId: Int,
         value: WidgetInstanceConfiguration,
     ) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(key(appWidgetId, "hours"), value.graphHours)
-            .putBoolean(key(appWidgetId, "axis"), value.showTimeAxis)
-            .putString(key(appWidgetId, "scale"), value.scaleMode.name)
-            .putInt(key(appWidgetId, "dark.background"), value.backgroundArgb)
-            .putInt(key(appWidgetId, "light.background"), value.lightBackgroundArgb)
-            .putBoolean(key(appWidgetId, "background_enabled"), value.backgroundEnabled)
-            .putBoolean(key(appWidgetId, "outline_enabled"), value.outlineEnabled)
-            .putBoolean(key(appWidgetId, "light.background_enabled"), value.lightBackgroundEnabled)
-            .putBoolean(key(appWidgetId, "light.outline_enabled"), value.lightOutlineEnabled)
-            .putInt(key(appWidgetId, "dark.outline"), value.outlineArgb)
-            .putInt(key(appWidgetId, "light.outline"), value.lightOutlineArgb)
-            .putInt(key(appWidgetId, "corner_radius"), value.cornerRadiusDp)
-            .putInt(key(appWidgetId, "graph_corner_radius"), value.graphCornerRadiusDp)
-            .putInt(key(appWidgetId, "scale_lane_opacity_percent"), value.scaleLaneOpacityPercent.coerceIn(0, 100))
-            .putString(key(appWidgetId, "shape"), value.shapeMode.name)
-            .putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
-            .putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
-            .putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
-            .putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
-            .putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
-            .putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
-            .putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
-            .putBoolean(key(appWidgetId, "current_dot_outline_enabled"), value.currentDotOutlineEnabled)
-            .putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
-            .putFloat(key(appWidgetId, "current_dot_outline_width_dp"), value.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
-            .apply {
-                writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle)
-                writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle)
-            }.apply {
-                WidgetColorRole.entries.forEach { role ->
-                    val roleKey = key(appWidgetId, "dark.color.${role.preferenceKey}")
-                    value.colorOverrides[role]?.let { putInt(roleKey, it) } ?: remove(roleKey)
-                    val lightRoleKey = key(appWidgetId, "light.color.${role.preferenceKey}")
-                    value.lightColorOverrides[role]?.let { putInt(lightRoleKey, it) } ?: remove(lightRoleKey)
-                }
-            }.apply {
-                if (value.launchPackage ==
-                    null
-                ) {
-                    remove(key(appWidgetId, "launch"))
-                } else {
-                    putString(key(appWidgetId, "launch"), value.launchPackage)
-                }
-            }.apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putInt(key(appWidgetId, "hours"), value.graphHours)
+            putBoolean(key(appWidgetId, "axis"), value.showTimeAxis)
+            putString(key(appWidgetId, "scale"), value.scaleMode.name)
+            putInt(key(appWidgetId, "dark.background"), value.backgroundArgb)
+            putInt(key(appWidgetId, "light.background"), value.lightBackgroundArgb)
+            putBoolean(key(appWidgetId, "background_enabled"), value.backgroundEnabled)
+            putBoolean(key(appWidgetId, "outline_enabled"), value.outlineEnabled)
+            putBoolean(key(appWidgetId, "light.background_enabled"), value.lightBackgroundEnabled)
+            putBoolean(key(appWidgetId, "light.outline_enabled"), value.lightOutlineEnabled)
+            putInt(key(appWidgetId, "dark.outline"), value.outlineArgb)
+            putInt(key(appWidgetId, "light.outline"), value.lightOutlineArgb)
+            putInt(key(appWidgetId, "corner_radius"), value.cornerRadiusDp)
+            putInt(key(appWidgetId, "graph_corner_radius"), value.graphCornerRadiusDp)
+            putInt(key(appWidgetId, "scale_lane_opacity_percent"), value.scaleLaneOpacityPercent.coerceIn(0, 100))
+            putString(key(appWidgetId, "shape"), value.shapeMode.name)
+            putInt(key(appWidgetId, "glucose_scale"), value.glucoseScalePercent)
+            putInt(key(appWidgetId, "trend_scale"), value.trendScalePercent)
+            putInt(key(appWidgetId, "glucose_graph_value_percent"), value.glucoseGraphValuePercent)
+            putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
+            putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
+            putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
+            putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
+            putBoolean(key(appWidgetId, "current_dot_outline_enabled"), value.currentDotOutlineEnabled)
+            putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
+            putFloat(key(appWidgetId, "current_dot_outline_width_dp"), value.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
+            writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle)
+            writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle)
+            WidgetColorRole.entries.forEach { role ->
+                val roleKey = key(appWidgetId, "dark.color.${role.preferenceKey}")
+                value.colorOverrides[role]?.let { putInt(roleKey, it) } ?: remove(roleKey)
+                val lightRoleKey = key(appWidgetId, "light.color.${role.preferenceKey}")
+                value.lightColorOverrides[role]?.let { putInt(lightRoleKey, it) } ?: remove(lightRoleKey)
+            }
+            if (value.launchPackage == null) {
+                remove(key(appWidgetId, "launch"))
+            } else {
+                putString(key(appWidgetId, "launch"), value.launchPackage)
+            }
+        }
     }
 
     fun delete(
@@ -346,13 +340,11 @@ internal object WidgetInstanceConfigurationStore {
     ) {
         val prefix = "$appWidgetId."
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        prefs
-            .edit()
-            .apply {
-                prefs.all.keys
-                    .filter { it.startsWith(prefix) }
-                    .forEach(::remove)
-            }.apply()
+        prefs.edit {
+            prefs.all.keys
+                .filter { it.startsWith(prefix) }
+                .forEach(::remove)
+        }
     }
 
     private fun readTrendStyle(

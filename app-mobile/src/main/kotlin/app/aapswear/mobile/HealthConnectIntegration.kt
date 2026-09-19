@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.health.connect.client.permission.HealthPermission
@@ -338,11 +339,9 @@ internal object HealthConnectIntegration {
                             end,
                         ).maxByOrNull(Vo2MaxRecord::time)?.vo2MillilitersPerMinuteKilogram,
                 )
-            context
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit()
-                .putString(SNAPSHOT, json.encodeToString(HealthConnectSnapshot.serializer(), snapshot))
-                .apply()
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+                putString(SNAPSHOT, json.encodeToString(HealthConnectSnapshot.serializer(), snapshot))
+            }
             context.recordMobileDiagnostic(
                 module = "HEALTH-CONNECT",
                 code = "HC-SYNC-200",
@@ -614,11 +613,9 @@ internal object HealthConnectIntegration {
         context: Context,
         status: HealthConnectStatus,
     ) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(STATUS, json.encodeToString(HealthConnectStatus.serializer(), status))
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(STATUS, json.encodeToString(HealthConnectStatus.serializer(), status))
+        }
     }
 
     fun schedule(context: Context) {

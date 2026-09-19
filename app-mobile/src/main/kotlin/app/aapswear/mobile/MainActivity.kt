@@ -333,10 +333,9 @@ class MainActivity : ComponentActivity() {
         scope.launch {
             TherapyStateStore(this@MainActivity).state.collectLatest {
                 state = it?.mobileAndroidApsOnly()
-                getSharedPreferences("diagnostics", MODE_PRIVATE)
-                    .edit()
-                    .putLong("mobileObservedAt", System.currentTimeMillis())
-                    .apply()
+                getSharedPreferences("diagnostics", MODE_PRIVATE).edit {
+                    putLong("mobileObservedAt", System.currentTimeMillis())
+                }
                 refresh()
             }
         }

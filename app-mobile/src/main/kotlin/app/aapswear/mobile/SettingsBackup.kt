@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.serialization.json.Json
@@ -218,6 +219,7 @@ internal object SettingsBackup {
         }
     }
 
+    @SuppressLint("UseKtx") // The restore API must return the synchronous commit result to its caller.
     private fun replace(
         preferences: SharedPreferences,
         values: Map<String, Any>,

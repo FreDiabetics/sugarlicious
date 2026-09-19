@@ -497,12 +497,11 @@ internal object NotificationGraphDotStyleStore {
         style: NotificationGraphDotStyle,
     ) {
         ensureMigrated(preferences)
-        preferences
-            .edit()
-            .putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
-            .putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
-            .putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
-            .apply()
+        preferences.edit {
+            putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
+            putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
+            putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
+        }
     }
 
     fun copyCollapsedToExpanded(preferences: SharedPreferences) {
@@ -511,35 +510,37 @@ internal object NotificationGraphDotStyleStore {
     }
 
     fun resetProfiles(preferences: SharedPreferences) {
-        preferences
-            .edit()
-            .putFloat(
+        preferences.edit {
+            putFloat(
                 PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_RADIUS,
                 NotificationGraphProfile.COLLAPSED.defaultDotRadiusDp,
-            ).putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_ENABLED, true)
-            .putFloat(
+            )
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_ENABLED, true)
+            putFloat(
                 PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_WIDTH,
                 NotificationGraphProfile.COLLAPSED.defaultOutlineWidthDp,
-            ).putFloat(
+            )
+            putFloat(
                 PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_RADIUS,
                 NotificationGraphProfile.EXPANDED.defaultDotRadiusDp,
-            ).putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, true)
-            .putFloat(
+            )
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, true)
+            putFloat(
                 PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH,
                 NotificationGraphProfile.EXPANDED.defaultOutlineWidthDp,
-            ).putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
-            .apply {
-                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
-                    NotificationGraphProfile.entries.forEach { profile ->
-                        putFloat(modeKey(mode, radiusKey(profile)), profile.defaultDotRadiusDp)
-                        putBoolean(modeKey(mode, outlineEnabledKey(profile)), true)
-                        putFloat(modeKey(mode, outlineWidthKey(profile)), profile.defaultOutlineWidthDp)
-                    }
+            )
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                NotificationGraphProfile.entries.forEach { profile ->
+                    putFloat(modeKey(mode, radiusKey(profile)), profile.defaultDotRadiusDp)
+                    putBoolean(modeKey(mode, outlineEnabledKey(profile)), true)
+                    putFloat(modeKey(mode, outlineWidthKey(profile)), profile.defaultOutlineWidthDp)
                 }
-            }.remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS)
-            .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED)
-            .remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH)
-            .apply()
+            }
+            remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_RADIUS)
+            remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_ENABLED)
+            remove(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_OUTLINE_WIDTH)
+        }
     }
 
     private fun ensureMigrated(preferences: SharedPreferences) {
@@ -579,25 +580,23 @@ internal object NotificationGraphDotStyleStore {
         val expandedRadius = max(collapsedRadius, NotificationGraphProfile.EXPANDED.defaultDotRadiusDp)
         val expandedOutlineWidth = max(collapsedOutlineWidth, NotificationGraphProfile.EXPANDED.defaultOutlineWidthDp)
 
-        preferences
-            .edit()
-            .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_RADIUS, collapsedRadius)
-            .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_ENABLED, collapsedOutline)
-            .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_WIDTH, collapsedOutlineWidth)
-            .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_RADIUS, expandedRadius)
-            .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, collapsedOutline)
-            .putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH, expandedOutlineWidth)
-            .putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
-            .apply {
-                app.aapswear.model.AppearanceMode.entries.forEach { mode ->
-                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.COLLAPSED)), collapsedRadius)
-                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.COLLAPSED)), collapsedOutline)
-                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.COLLAPSED)), collapsedOutlineWidth)
-                    putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.EXPANDED)), expandedRadius)
-                    putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.EXPANDED)), collapsedOutline)
-                    putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.EXPANDED)), expandedOutlineWidth)
-                }
-            }.apply()
+        preferences.edit {
+            putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_RADIUS, collapsedRadius)
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_ENABLED, collapsedOutline)
+            putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_WIDTH, collapsedOutlineWidth)
+            putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_RADIUS, expandedRadius)
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED, collapsedOutline)
+            putFloat(PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH, expandedOutlineWidth)
+            putBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED, true)
+            app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+                putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.COLLAPSED)), collapsedRadius)
+                putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.COLLAPSED)), collapsedOutline)
+                putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.COLLAPSED)), collapsedOutlineWidth)
+                putFloat(modeKey(mode, radiusKey(NotificationGraphProfile.EXPANDED)), expandedRadius)
+                putBoolean(modeKey(mode, outlineEnabledKey(NotificationGraphProfile.EXPANDED)), collapsedOutline)
+                putFloat(modeKey(mode, outlineWidthKey(NotificationGraphProfile.EXPANDED)), expandedOutlineWidth)
+            }
+        }
     }
 
     private fun modeKey(
