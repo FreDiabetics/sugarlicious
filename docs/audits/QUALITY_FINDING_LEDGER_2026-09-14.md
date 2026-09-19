@@ -284,3 +284,9 @@ continuous-glucose/BLE data and safety-alert path from Doze suspension; no
 background grant is fabricated and the existing fallback settings routes stay
 intact. Wear and G7 background-access tests plus Mobile/Wear/G7 Lint and ktlint
 pass. The running warning inventory is 73.
+
+All 13 `VectorRaster` findings are now scoped to static widget, Tile,
+complication-picker and WFF preview artwork. These full-surface vectors are not
+hot-path icons; raster copies would add density variants and visual drift.
+All affected application/library and 30 WFF Lint tasks pass. The running
+warning inventory is 60.

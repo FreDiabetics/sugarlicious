@@ -52,6 +52,9 @@ subprojects {
                     // WFF packages intentionally reuse their full-bleed watchface preview as the
                     // package icon. It is picker artwork, not a maskable launcher foreground.
                     disable.add("IconLauncherShape")
+                    // Large WFF vectors are full-face picker previews. Raster copies would lose
+                    // density-independent fidelity and are not a runtime icon optimization.
+                    disable.add("VectorRaster")
                 }
             }
         }

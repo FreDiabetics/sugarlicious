@@ -5,4 +5,8 @@
     <issue id="ObsoleteSdkInt">
         <ignore path="src/main/res/mipmap-anydpi-v26" />
     </issue>
+    <!-- Large vector is static widget picker artwork, not a hot-path UI icon. -->
+    <issue id="VectorRaster">
+        <ignore path="src/main/res/drawable/widget_graph_preview_plot.xml" />
+    </issue>
 </lint>
