@@ -263,3 +263,10 @@ AAPT and failed both resource linking and Mobile compilation. The icons remain
 in their platform-valid qualified folders, with path-scoped Lint exclusions in
 the three owning application modules. Mobile, Wear and G7 debug APK assembly
 and Lint pass, and the full inventory now contains 83 warnings.
+
+All six `IconLauncherShape` findings were WFF false positives: the affected
+packages intentionally expose their full-bleed watchface screenshot as both
+picker preview and package icon, not as a maskable launcher foreground. The
+detector is disabled only for code-free WFF modules alongside the existing
+WFF-specific resource exclusions. All 30 WFF Lint tasks pass without changing
+preview pixels or package metadata. The running warning inventory is 77.

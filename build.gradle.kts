@@ -49,6 +49,9 @@ subprojects {
                     // packages. Resource shrinking cannot be enabled safely for WFF's platform-
                     // resolved XML graph, so the code-free verifier enforces the actual contract.
                     disable.add("NotShrinkingResources")
+                    // WFF packages intentionally reuse their full-bleed watchface preview as the
+                    // package icon. It is picker artwork, not a maskable launcher foreground.
+                    disable.add("IconLauncherShape")
                 }
             }
         }
