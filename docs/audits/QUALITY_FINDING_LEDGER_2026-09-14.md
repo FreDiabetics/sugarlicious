@@ -152,4 +152,11 @@ device-to-device transfer; legacy backup is disabled as well. The 30 WFF modules
 consume one shared resource directory instead of maintaining duplicate policy
 files. G7 plus all WFF Lint tasks pass, all 30 WFF release APKs build, and the
 code-free verifier confirms 30/30 packages still contain no DEX. The running
-warning inventory is 562.
+warning inventory, freshly recounted across all 38 reports, is 561.
+
+All 22 `UnusedAttribute` findings are resolved without removing modern widget
+metadata. The five Mobile widget-provider definitions explicitly declare their
+intentional Android 12 API context, while the platform continues to ignore newer
+attributes safely on Android 8–11. Lint confirms the findings are gone, every
+preview/cell-size/reconfiguration attribute remains packaged, and the Mobile
+debug APK builds. The running warning inventory is 539.
