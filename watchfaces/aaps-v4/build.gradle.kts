@@ -2,7 +2,7 @@ plugins { id("com.android.application") }
 android {
     enableKotlin = false
     namespace = "app.aapswear.watchface.aapsv4"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId =
             "app.aapswear.watchfacepush.aapsv4"

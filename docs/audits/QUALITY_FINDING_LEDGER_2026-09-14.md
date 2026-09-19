@@ -290,3 +290,18 @@ complication-picker and WFF preview artwork. These full-surface vectors are not
 hot-path icons; raster copies would add density variants and visual drift.
 All affected application/library and 30 WFF Lint tasks pass. The running
 warning inventory is 60.
+
+The remaining six `UseCompoundDrawables` findings are classified at their
+actual layouts: the Wear controls require independently addressable views for
+runtime tint/state changes, while the widget-picker preview requires independent
+icon sizing. The exclusions are limited to those two roots.
+
+All 36 Android modules now compile against stable API 37 and Mobile targets API
+37. Robolectric was upgraded to 4.17 with the JDK 25 test-only module opening it
+requires; Compose BOM, Fragment, Glance, Guava and JUnit were updated to their
+current stable versions. A stale preview test was aligned with the prior removal
+of unreachable WFF layers. The unused `bcpkix` dependency was removed from the
+G7 crypto module; its required elliptic-curve primitives remain supplied by
+`bcprov`. A full `test assembleDebug lint` run completed 1,865 tasks, and the
+follow-up affected-module gate passed. All 38 current Lint reports contain zero
+issues.

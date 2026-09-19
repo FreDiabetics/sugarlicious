@@ -4,7 +4,7 @@
     android:id="@+id/wear_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:ignore="HardcodedText,MergeRootFrame,SmallSp,UselessParent">
+    tools:ignore="HardcodedText,MergeRootFrame,SmallSp,UseCompoundDrawables,UselessParent">
 
     <ScrollView
         android:id="@+id/wear_scroll"

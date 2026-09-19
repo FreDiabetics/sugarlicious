@@ -2,7 +2,7 @@ plugins { id("com.android.library") }
 
 android {
     namespace = "app.aapswear.datasource.xdrip"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig { minSdk = 26 }
 }
 

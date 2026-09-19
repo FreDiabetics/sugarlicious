@@ -86,20 +86,14 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `authoritative WFS artwork remains on its native 450 canvas`() {
-        listOf(
-            "indices_hours.png",
-            "indices_dots.png",
-            "graph_mask.png",
-            "sugarlicious_analog_template.png",
-        ).forEach { name ->
-            val image =
-                requireNotNull(
-                    ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
-                ) { "$name must be a readable PNG" }
-            assertTrue("$name must be 450 px wide", image.width == 450)
-            assertTrue("$name must be 450 px high", image.height == 450)
-        }
+    fun `authoritative WFS template remains on its native 450 canvas`() {
+        val name = "sugarlicious_analog_template.png"
+        val image =
+            requireNotNull(
+                ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
+            ) { "$name must be a readable PNG" }
+        assertTrue("$name must be 450 px wide", image.width == 450)
+        assertTrue("$name must be 450 px high", image.height == 450)
     }
 
     @Test

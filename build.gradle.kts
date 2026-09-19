@@ -6,6 +6,7 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.testing.Test
 import org.gradle.process.ExecOperations
 
 plugins {
@@ -21,6 +22,12 @@ plugins {
 }
 
 subprojects {
+    tasks.withType<Test>().configureEach {
+        // Robolectric 4.17 uses the JDK's FileDescriptor bridge while bootstrapping
+        // Android 17. JDK 25 encapsulates that bridge unless it is opened to tests.
+        jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
+    }
+
     fun enableKotlinQualityGates() {
         pluginManager.apply("io.gitlab.arturbosch.detekt")
         pluginManager.apply("org.jlleitschuh.gradle.ktlint")

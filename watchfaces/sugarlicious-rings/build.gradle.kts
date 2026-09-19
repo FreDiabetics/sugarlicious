@@ -2,7 +2,7 @@ plugins { id("com.android.application") }
 android {
     enableKotlin = false
     namespace = "app.aapswear.watchface.sugarlicious.rings"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "app.aapswear.watchfacepush.rings"
         minSdk = 33
