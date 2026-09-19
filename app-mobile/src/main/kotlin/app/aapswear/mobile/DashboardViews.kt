@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import androidx.core.content.edit
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
@@ -536,7 +537,7 @@ class DashboardViewFactory(
                             minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
                             maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
                             valueFormatter = { "${it.toInt()} %" },
-                        ) { dashboardPreferences.edit().putInt(DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY, it.toInt()).apply() },
+                        ) { dashboardPreferences.edit { putInt(DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY, it.toInt()) } },
                     )
                     addView(divider())
                     addView(
@@ -546,7 +547,7 @@ class DashboardViewFactory(
                             minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
                             maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
                             valueFormatter = { "${it.toInt()} %" },
-                        ) { dashboardPreferences.edit().putInt(DashboardUiPreferences.MOBILE_TREND_SCALE_KEY, it.toInt()).apply() },
+                        ) { dashboardPreferences.edit { putInt(DashboardUiPreferences.MOBILE_TREND_SCALE_KEY, it.toInt()) } },
                     )
                 },
                 cardParams(top = 4),
@@ -594,7 +595,7 @@ class DashboardViewFactory(
                                 minimum = 0f,
                                 maximum = 30f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
-                            ) { dashboardPreferences.edit().putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it).apply() },
+                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) } },
                         )
                     }
                     addView(divider())
@@ -619,12 +620,12 @@ class DashboardViewFactory(
                                         },
                                         preferences.graphScaleMode == mode,
                                     ) {
-                                        dashboardPreferences
-                                            .edit()
-                                            .putString(
+                                        dashboardPreferences.edit {
+                                            putString(
                                                 DashboardUiPreferences.GRAPH_SCALE_MODE_KEY,
                                                 mode.name,
-                                            ).apply()
+                                            )
+                                        }
                                     }
                                 },
                             ),
@@ -642,12 +643,12 @@ class DashboardViewFactory(
                                     maximum = thresholdForUi(300.0, graphUnit),
                                     valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
                                 ) { entered ->
-                                    dashboardPreferences
-                                        .edit()
-                                        .putFloat(
+                                    dashboardPreferences.edit {
+                                        putFloat(
                                             DashboardUiPreferences.GRAPH_MINIMUM_KEY,
                                             thresholdFromUi(entered, graphUnit).toFloat(),
-                                        ).apply()
+                                        )
+                                    }
                                 },
                             )
                             addView(divider())
@@ -659,12 +660,12 @@ class DashboardViewFactory(
                                     maximum = thresholdForUi(600.0, graphUnit),
                                     valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
                                 ) { entered ->
-                                    dashboardPreferences
-                                        .edit()
-                                        .putFloat(
+                                    dashboardPreferences.edit {
+                                        putFloat(
                                             DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
                                             thresholdFromUi(entered, graphUnit).toFloat(),
-                                        ).apply()
+                                        )
+                                    }
                                 },
                             )
                         }

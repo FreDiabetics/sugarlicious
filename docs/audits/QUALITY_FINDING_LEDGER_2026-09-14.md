@@ -172,3 +172,11 @@ record size now use their type-safe AndroidX extensions. The retained
 `Uri.fromParts` mail construction remains intentional because it preserves its
 component encoding semantics. Both complete unit-test suites, debug APKs, Lint,
 ktlint and Detekt pass. The running warning inventory is 516.
+
+Another 27 Mobile `UseKtx` findings are resolved by moving asynchronous
+`SharedPreferences.Editor` writes to `SharedPreferences.edit {}`. Each migrated
+site retains the former `apply()` durability semantics; no synchronous commit
+boundary was changed. Targeted graph, activity, watchface-preset and widget
+configuration tests plus the Mobile debug APK, Lint, ktlint and Detekt gates
+pass. The remaining `UseKtx` inventory is 55 and the running warning inventory
+is 489.

@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 
 /** Keeps the last phone-side complication configuration for each Sugarlicious watch face. */
 internal object WatchFacePresetStore {
@@ -34,11 +35,9 @@ internal object WatchFacePresetStore {
     ) {
         val normalized = normalizeFaceIndex(faceIndex)
         val ids = complicationIds.validPresetIds()
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(key(normalized), ids.joinToString(","))
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString(key(normalized), ids.joinToString(","))
+        }
     }
 
     /**
@@ -50,11 +49,9 @@ internal object WatchFacePresetStore {
         faceIndex: Int,
     ): List<Int> {
         val ids = read(context, faceIndex)
-        context
-            .getSharedPreferences(GLOBAL_PRESET_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(GLOBAL_PRESET_KEY, ids.joinToString(","))
-            .apply()
+        context.getSharedPreferences(GLOBAL_PRESET_PREFS, Context.MODE_PRIVATE).edit {
+            putString(GLOBAL_PRESET_KEY, ids.joinToString(","))
+        }
         return ids
     }
 

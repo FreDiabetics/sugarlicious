@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.AppearanceMode
@@ -94,10 +95,7 @@ internal object WidgetColorStore {
     ) {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
-        preferences
-            .edit()
-            .putInt(key(mode, role), argb)
-            .apply()
+        preferences.edit { putInt(key(mode, role), argb) }
     }
 
     fun reset(
@@ -116,19 +114,16 @@ internal object WidgetColorStore {
     ) {
         context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .remove(key(mode, role))
-            .apply()
+            .edit { remove(key(mode, role)) }
     }
 
     fun resetAll(context: Context) {
         context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .apply {
+            .edit {
                 WidgetColorRole.entries.forEach { remove(key(it)) }
                 AppearanceMode.entries.forEach { mode -> WidgetColorRole.entries.forEach { remove(key(mode, it)) } }
-            }.apply()
+            }
     }
 
     /** Takes a point-in-time copy. Later Mobile graph changes no longer mutate widget colors. */
@@ -145,42 +140,40 @@ internal object WidgetColorStore {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
         val mobile = SugarliciousColorStore.load(preferences, mode)
-        preferences
-            .edit()
-            .apply {
-                WidgetColorRole.entries.forEach { role ->
-                    val sourceRole =
-                        when (role) {
-                            WidgetColorRole.HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
-                            WidgetColorRole.IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
-                            WidgetColorRole.LOW -> SugarliciousColorRole.CGM_DOT_LOW
-                            WidgetColorRole.URGENT_LOW -> SugarliciousColorRole.RANGE_LOW
-                            WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.RANGE_HIGH
-                            WidgetColorRole.BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
-                            WidgetColorRole.GRAPH_BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
-                            WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
-                            WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
-                            WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
-                            WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
-                            WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
-                            WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
-                            WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
-                            WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
-                            WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
-                            WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
-                            WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
-                            WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
-                            WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
-                            WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
-                            WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
-                            WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
-                            WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
-                            WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
-                            WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
-                        }
-                    putInt(key(mode, role), mobile.argb(sourceRole))
-                }
-            }.apply()
+        preferences.edit {
+            WidgetColorRole.entries.forEach { role ->
+                val sourceRole =
+                    when (role) {
+                        WidgetColorRole.HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
+                        WidgetColorRole.IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
+                        WidgetColorRole.LOW -> SugarliciousColorRole.CGM_DOT_LOW
+                        WidgetColorRole.URGENT_LOW -> SugarliciousColorRole.RANGE_LOW
+                        WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.RANGE_HIGH
+                        WidgetColorRole.BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
+                        WidgetColorRole.GRAPH_BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
+                        WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
+                        WidgetColorRole.RANGE_IN_RANGE -> SugarliciousColorRole.RANGE_IN_RANGE
+                        WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
+                        WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
+                        WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
+                        WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                        WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                        WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
+                        WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
+                        WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
+                        WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
+                        WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
+                        WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
+                        WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
+                        WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
+                        WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
+                        WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+                        WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+                        WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
+                    }
+                putInt(key(mode, role), mobile.argb(sourceRole))
+            }
+        }
     }
 
     fun hasOverride(
@@ -209,19 +202,17 @@ internal object WidgetColorStore {
     private fun migrateLegacy(preferences: android.content.SharedPreferences) {
         if (preferences.getBoolean("widget.appearance.profiles.v1", false)) return
         if (WidgetColorRole.entries.none { preferences.contains(key(it)) }) return
-        preferences
-            .edit()
-            .apply {
-                WidgetColorRole.entries.forEach { role ->
-                    if (preferences.contains(key(role))) {
-                        val value = preferences.getInt(key(role), 0)
-                        AppearanceMode.entries.forEach { mode ->
-                            if (!preferences.contains(key(mode, role))) putInt(key(mode, role), value)
-                        }
+        preferences.edit {
+            WidgetColorRole.entries.forEach { role ->
+                if (preferences.contains(key(role))) {
+                    val value = preferences.getInt(key(role), 0)
+                    AppearanceMode.entries.forEach { mode ->
+                        if (!preferences.contains(key(mode, role))) putInt(key(mode, role), value)
                     }
                 }
-                putBoolean("widget.appearance.profiles.v1", true)
-            }.apply()
+            }
+            putBoolean("widget.appearance.profiles.v1", true)
+        }
     }
 
     private fun mobileDefault(

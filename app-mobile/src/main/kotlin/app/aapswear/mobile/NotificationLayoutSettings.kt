@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import app.aapswear.model.GlucoseTrendSizing
 
 internal data class NotificationLayoutSettings(
@@ -40,16 +41,14 @@ internal object NotificationLayoutSettingsStore {
         value: NotificationLayoutSettings,
     ) {
         val p = PREFIX + profile.name.lowercase() + "."
-        preferences
-            .edit()
-            .apply {
-                putInt(p + "glucoseScale", value.glucoseScalePercent.coerceIn(70, 200))
-                putInt(p + "glucoseX", value.glucoseXPercent.coerceIn(-40, 40))
-                putInt(p + "glucoseY", value.glucoseYPercent.coerceIn(-40, 40))
-                value.trendScalePercent?.let { putInt(p + "trendScale", it.coerceIn(70, 200)) } ?: remove(p + "trendScale")
-                putInt(p + "trendX", value.trendXPercent.coerceIn(-40, 40))
-                putInt(p + "trendY", value.trendYPercent.coerceIn(-40, 40))
-                putInt(p + "metaScale", value.metaScalePercent.coerceIn(70, 160))
-            }.apply()
+        preferences.edit {
+            putInt(p + "glucoseScale", value.glucoseScalePercent.coerceIn(70, 200))
+            putInt(p + "glucoseX", value.glucoseXPercent.coerceIn(-40, 40))
+            putInt(p + "glucoseY", value.glucoseYPercent.coerceIn(-40, 40))
+            value.trendScalePercent?.let { putInt(p + "trendScale", it.coerceIn(70, 200)) } ?: remove(p + "trendScale")
+            putInt(p + "trendX", value.trendXPercent.coerceIn(-40, 40))
+            putInt(p + "trendY", value.trendYPercent.coerceIn(-40, 40))
+            putInt(p + "metaScale", value.metaScalePercent.coerceIn(70, 160))
+        }
     }
 }

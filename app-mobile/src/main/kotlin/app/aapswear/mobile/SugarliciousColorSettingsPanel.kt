@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
 import app.aapswear.mobile.ui.theme.SugarliciousColorGroup
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
@@ -258,7 +259,7 @@ internal fun SugarliciousColorSettingsPanel(
                 valueText = "${String.format(locale, "%.1f", cgmDotRadiusDp)} dp",
                 onValueChange = { cgmDotRadiusDp = it },
                 onValueChangeFinished = {
-                    preferences.edit().putFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), cgmDotRadiusDp).apply()
+                    preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), cgmDotRadiusDp) }
                 },
             )
 
@@ -268,7 +269,7 @@ internal fun SugarliciousColorSettingsPanel(
                 checked = cgmDotOutlineEnabled,
                 onCheckedChange = { enabled ->
                     cgmDotOutlineEnabled = enabled
-                    preferences.edit().putBoolean(graphAppearanceKey(selectedMode, "dotOutlineEnabled"), enabled).apply()
+                    preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "dotOutlineEnabled"), enabled) }
                 },
             )
 
@@ -281,7 +282,7 @@ internal fun SugarliciousColorSettingsPanel(
                     valueText = "${String.format(locale, "%.2f", cgmDotOutlineWidthDp)} dp",
                     onValueChange = { cgmDotOutlineWidthDp = it },
                     onValueChangeFinished = {
-                        preferences.edit().putFloat(graphAppearanceKey(selectedMode, "dotOutlineWidthDp"), cgmDotOutlineWidthDp).apply()
+                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotOutlineWidthDp"), cgmDotOutlineWidthDp) }
                     },
                 )
             }
@@ -294,12 +295,12 @@ internal fun SugarliciousColorSettingsPanel(
                 valueText = "${String.format(locale, "%.1f", predictionDotRadiusDp)} dp",
                 onValueChange = { predictionDotRadiusDp = it },
                 onValueChangeFinished = {
-                    preferences
-                        .edit()
-                        .putFloat(
+                    preferences.edit {
+                        putFloat(
                             graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
                             predictionDotRadiusDp,
-                        ).apply()
+                        )
+                    }
                 },
             )
 
@@ -311,12 +312,12 @@ internal fun SugarliciousColorSettingsPanel(
                 valueText = "${String.format(locale, "%.2f", predictionDotOutlineWidthDp)} dp",
                 onValueChange = { predictionDotOutlineWidthDp = it },
                 onValueChangeFinished = {
-                    preferences
-                        .edit()
-                        .putFloat(
+                    preferences.edit {
+                        putFloat(
                             graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
                             predictionDotOutlineWidthDp,
-                        ).apply()
+                        )
+                    }
                 },
             )
         }
@@ -552,34 +553,32 @@ internal fun migrateGraphAppearance(preferences: android.content.SharedPreferenc
             "prediction.dotOutlineWidthDp" to "cgm.prediction.dotOutlineWidthDp",
         )
     if (legacy.none { (_, oldKey) -> preferences.contains(oldKey) }) return
-    preferences
-        .edit()
-        .apply {
-            legacy.forEach { (suffix, oldKey) ->
-                if (!preferences.contains(oldKey)) return@forEach
-                AppearanceMode.entries.forEach { mode ->
-                    val target = graphAppearanceKey(mode, suffix)
-                    if (preferences.contains(target)) return@forEach
-                    when (suffix) {
-                        "dotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
-                        else ->
-                            putFloat(
-                                target,
-                                preferences.getFloat(
-                                    oldKey,
-                                    when (suffix) {
-                                        "dotRadiusDp" -> 2.4f
-                                        "prediction.dotRadiusDp" -> 1.75f
-                                        "prediction.dotOutlineWidthDp" -> 0.70f
-                                        else -> 0.95f
-                                    },
-                                ),
-                            )
-                    }
+    preferences.edit {
+        legacy.forEach { (suffix, oldKey) ->
+            if (!preferences.contains(oldKey)) return@forEach
+            AppearanceMode.entries.forEach { mode ->
+                val target = graphAppearanceKey(mode, suffix)
+                if (preferences.contains(target)) return@forEach
+                when (suffix) {
+                    "dotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
+                    else ->
+                        putFloat(
+                            target,
+                            preferences.getFloat(
+                                oldKey,
+                                when (suffix) {
+                                    "dotRadiusDp" -> 2.4f
+                                    "prediction.dotRadiusDp" -> 1.75f
+                                    "prediction.dotOutlineWidthDp" -> 0.70f
+                                    else -> 0.95f
+                                },
+                            ),
+                        )
                 }
             }
-            putBoolean("cgm.appearance.profiles.v1", true)
-        }.apply()
+        }
+        putBoolean("cgm.appearance.profiles.v1", true)
+    }
 }
 
 @Composable
@@ -1360,14 +1359,12 @@ internal fun NotificationGraphSettingsPanel() {
             TextButton(
                 onClick = {
                     NotificationGraphDotStyleStore.resetProfiles(preferences)
-                    preferences
-                        .edit()
-                        .apply {
-                            roles.forEach {
-                                remove(key(it))
-                                remove(legacyOverrideKey(it))
-                            }
-                        }.apply()
+                    preferences.edit {
+                        roles.forEach {
+                            remove(key(it))
+                            remove(legacyOverrideKey(it))
+                        }
+                    }
                     revision++
                 },
             ) {
@@ -1393,7 +1390,7 @@ internal fun NotificationGraphSettingsPanel() {
             "${scaleLaneOpacity.roundToInt()} %",
             { value ->
                 scaleLaneOpacity = value
-                preferences.edit().putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()).apply()
+                preferences.edit { putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()) }
                 PersistentBridgeService.refresh(context)
             },
             {},
@@ -1401,11 +1398,9 @@ internal fun NotificationGraphSettingsPanel() {
 
         Button(
             onClick = {
-                preferences
-                    .edit()
-                    .apply {
-                        roles.forEach { role -> putInt(key(role), palette.argb(role)) }
-                    }.apply()
+                preferences.edit {
+                    roles.forEach { role -> putInt(key(role), palette.argb(role)) }
+                }
                 revision++
             },
             modifier = Modifier.fillMaxWidth(),
@@ -1534,12 +1529,10 @@ internal fun NotificationGraphSettingsPanel() {
                         !preferences.contains(legacyOverrideKey(role)),
                 onEdit = { editingRole = role },
                 onReset = {
-                    preferences
-                        .edit()
-                        .remove(key(role))
-                        .apply {
-                            remove(legacyOverrideKey(role))
-                        }.apply()
+                    preferences.edit {
+                        remove(key(role))
+                        remove(legacyOverrideKey(role))
+                    }
                     revision++
                 },
             )
@@ -1553,7 +1546,7 @@ internal fun NotificationGraphSettingsPanel() {
             initialArgb = resolved(role),
             onDismiss = { editingRole = null },
             onChange = { argb ->
-                preferences.edit().putInt(key(role), argb).apply()
+                preferences.edit { putInt(key(role), argb) }
                 revision++
             },
         )

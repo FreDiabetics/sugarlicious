@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.TherapyDisplayState
 
@@ -32,12 +33,10 @@ internal object SugarliciousWatchFaceSelectionStore {
         context: Context,
         faceIndex: Int,
     ) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_FACE_INDEX, faceIndex.coerceIn(sugarliciousWatchFaceCards.indices))
-            .putInt(KEY_FACE_CATALOG_VERSION, FACE_CATALOG_VERSION)
-            .apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putInt(KEY_FACE_INDEX, faceIndex.coerceIn(sugarliciousWatchFaceCards.indices))
+            putInt(KEY_FACE_CATALOG_VERSION, FACE_CATALOG_VERSION)
+        }
     }
 
     fun isDirectToWatchRelevant(

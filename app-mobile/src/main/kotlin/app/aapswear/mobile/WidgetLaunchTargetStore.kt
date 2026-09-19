@@ -2,6 +2,7 @@ package app.aapswear.mobile
 
 import android.content.ComponentName
 import android.content.Context
+import androidx.core.content.edit
 
 internal data class WidgetLaunchTarget(
     val packageName: String,
@@ -44,11 +45,9 @@ internal object WidgetLaunchTargetStore {
         context: Context,
         target: WidgetLaunchTarget,
     ) {
-        context
-            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY, target.packageName)
-            .apply()
+        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).edit {
+            putString(KEY, target.packageName)
+        }
     }
 
     fun launchComponent(
