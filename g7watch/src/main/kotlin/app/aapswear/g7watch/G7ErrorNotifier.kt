@@ -143,10 +143,7 @@ internal object G7ErrorNotifier {
         occurredAtEpochMs: Long,
         onlyAlertOnce: Boolean,
     ): Notification {
-        val openIntent =
-            Intent(context, G7WatchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
+        val openIntent = g7OpenAppIntent(context)
         val openApp =
             PendingIntent.getActivity(
                 context,

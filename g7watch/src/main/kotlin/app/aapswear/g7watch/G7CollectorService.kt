@@ -1133,10 +1133,7 @@ class G7CollectorService : Service() {
     }
 
     internal fun notification(): Notification {
-        val openIntent =
-            Intent(this, G7WatchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            }
+        val openIntent = g7OpenAppIntent(this)
         val openApp =
             PendingIntent.getActivity(
                 this,

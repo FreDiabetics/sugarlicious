@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,5 +71,27 @@ class G7ManifestLifecycleTest {
             )
         assertTrue(receiver.enabled)
         assertTrue(!receiver.exported)
+    }
+
+    @Test fun `all collector activities share the wear recents task`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val activities =
+            listOf(
+                G7WatchActivity::class.java,
+                G7AppearanceActivity::class.java,
+                G7DirectToWatchSettingsActivity::class.java,
+                G7SettingsActivity::class.java,
+                G7AlarmSettingsActivity::class.java,
+                G7SystemStatusActivity::class.java,
+            )
+
+        activities.forEach { activityClass ->
+            val activity =
+                context.packageManager.getActivityInfo(
+                    ComponentName(context, activityClass),
+                    0,
+                )
+            assertNull(activity.taskAffinity)
+        }
     }
 }

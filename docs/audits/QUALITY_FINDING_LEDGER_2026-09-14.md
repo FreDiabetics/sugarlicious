@@ -138,3 +138,10 @@ All 25 `HardcodedText` findings are resolved. Runtime navigation and loading
 labels now use resources, and launcher widget previews use explicitly named sample
 resources while preserving their exact rendered text. The complete Mobile unit
 test suite, debug APK and Lint pass. The running warning inventory is 605.
+
+All 12 `WearRecents` findings are resolved. Every G7 activity now explicitly uses
+the empty Wear task affinity, while the launcher activity remains `singleTask`.
+Foreground, glucose-alarm and collector-error notifications share one flag-free
+navigation intent instead of redundantly forcing `CLEAR_TOP` and `SINGLE_TOP`.
+Manifest and navigation regression tests plus the G7 unit-test, Lint, ktlint and
+Detekt gates pass. The running warning inventory is 593.

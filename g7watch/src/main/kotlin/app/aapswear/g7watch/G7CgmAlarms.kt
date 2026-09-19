@@ -308,9 +308,7 @@ internal object G7CgmAlarmNotifier {
             PendingIntent.getActivity(
                 context,
                 NOTIFICATION_BASE + alarm.type.ordinal,
-                Intent(context, G7WatchActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                },
+                g7OpenAppIntent(context),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
         val acknowledge =

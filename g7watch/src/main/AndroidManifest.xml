@@ -27,7 +27,8 @@
         <activity
             android:name=".G7WatchActivity"
             android:exported="true"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:taskAffinity="">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -35,19 +36,24 @@
         </activity>
         <activity
             android:name=".G7AppearanceActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
         <activity
             android:name=".G7DirectToWatchSettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
         <activity
             android:name=".G7SettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
         <activity
             android:name=".G7AlarmSettingsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
         <activity
             android:name=".G7SystemStatusActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:taskAffinity="" />
         <service
             android:name=".G7CollectorService"
             android:exported="false"
