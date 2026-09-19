@@ -15,13 +15,6 @@ $gradle =
 
 Write-Host 'Building Sugarlicious Watch Face Push packages...'
 
-# Recreate the four analog hand layers from the user-supplied geometry before packaging so a
-# stale generated PNG can never reintroduce the former hand set into a pushed watch face.
-& (Join-Path $root 'tools/watchface-assets/Render-SugarliciousHands.ps1')
-if (-not $?) {
-    throw 'Sugarlicious hand rendering failed.'
-}
-
 $buildTasks = @($ALL_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
 $buildTasks += 'prepareWatchFaceValidatorCli'
 & $gradle @buildTasks
