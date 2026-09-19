@@ -205,3 +205,11 @@ helpers. The graph clip and widget trend-arrow transform now restore Canvas stat
 even if drawing exits exceptionally. The complete Mobile unit-test suite, debug
 APK, Lint, ktlint and Detekt gates pass, and both Mobile and G7 now report zero
 `UseKtx` findings. The running warning inventory is 434.
+
+Seven application resources with no Kotlin, XML, manifest, preview or build-script
+reference were removed: three obsolete Mobile widget/source drawables and four
+superseded G7 icon assets. Mobile and G7 resource packaging, debug APK assembly
+and Lint pass, and both application modules now report zero `UnusedResources`
+findings. WFF resources are deliberately excluded from this deletion block because
+Android Lint does not understand every Watch Face Format XML reference. The
+running warning inventory is 427.
