@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.view.View
 import android.view.animation.LinearInterpolator
+import androidx.core.view.isVisible
 import kotlin.math.PI
 import kotlin.math.cos
 
@@ -23,7 +24,7 @@ internal class G7ConnectionDotsView(
     var isAnimating: Boolean = true
         set(value) {
             field = value
-            if (value && isAttachedToWindow && visibility == VISIBLE) animator.start() else animator.cancel()
+            if (value && isAttachedToWindow && isVisible) animator.start() else animator.cancel()
             invalidate()
         }
 
@@ -42,7 +43,7 @@ internal class G7ConnectionDotsView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (isAnimating && visibility == VISIBLE && !animator.isStarted) animator.start()
+        if (isAnimating && isVisible && !animator.isStarted) animator.start()
     }
 
     override fun onDetachedFromWindow() {

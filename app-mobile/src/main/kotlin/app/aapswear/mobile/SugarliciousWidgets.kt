@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.PathParser
+import androidx.core.graphics.createBitmap
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
@@ -602,7 +603,7 @@ internal fun renderWidgetGraph(
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(72)
-    val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     if (clipToWidgetShape) {
         clipWidgetCanvas(
@@ -980,7 +981,7 @@ internal fun renderMinimalGlucoseWidget(
             trendScale = configurationScale(100),
         ),
 ): Bitmap {
-    val bitmap = Bitmap.createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     clipWidgetCanvas(canvas, bitmap.width, bitmap.height, options.cornerRadiusDp, pixelDensity)
     canvas.drawColor(palette.argb(WidgetColorRole.BACKGROUND))
@@ -1252,7 +1253,7 @@ internal fun renderGlucoseGraphWidget(
             graphHorizontalInsetDp = 5f,
             showScaleAndAge = true,
         )
-    val bitmap = Bitmap.createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
     clipWidgetCanvas(
         canvas,

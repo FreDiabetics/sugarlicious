@@ -25,6 +25,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.edit
+import androidx.core.net.toUri
+import androidx.core.view.isNotEmpty
 import androidx.health.connect.client.HealthConnectClient
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
@@ -346,7 +348,7 @@ class MainActivity : ComponentActivity() {
             HealthConnectClient.SDK_AVAILABLE -> healthPermissionsLauncher.launch(HealthConnectIntegration.permissions)
             HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
                 openExternal(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${HealthConnectIntegration.PROVIDER_PACKAGE}")),
+                    Intent(Intent.ACTION_VIEW, "market://details?id=${HealthConnectIntegration.PROVIDER_PACKAGE}".toUri()),
                 )
             else -> Toast.makeText(this, "Health Connect ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_SHORT).show()
         }
@@ -586,7 +588,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         container.visibility = View.VISIBLE
-        if (container.childCount > 0) return
+        if (container.isNotEmpty()) return
         val composeView =
             androidx.compose.ui.platform.ComposeView(this).apply {
                 setViewCompositionStrategy(
@@ -690,7 +692,7 @@ class MainActivity : ComponentActivity() {
         runCatching {
             startActivity(
                 Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    .setData(Uri.parse("package:$packageName")),
+                    .setData("package:$packageName".toUri()),
             )
         }.onFailure {
             openExternal(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
@@ -716,7 +718,7 @@ class MainActivity : ComponentActivity() {
         openExternal(
             Intent(
                 Intent.ACTION_VIEW,
-                Uri.parse("https://github.com/FreDiabetics/aaps_wearable-suite"),
+                "https://github.com/FreDiabetics/aaps_wearable-suite".toUri(),
             ),
         )
     }

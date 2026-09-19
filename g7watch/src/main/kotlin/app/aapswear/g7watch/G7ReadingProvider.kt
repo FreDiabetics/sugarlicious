@@ -5,6 +5,7 @@ import android.content.ContentValues
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import androidx.core.net.toUri
 import app.aapswear.storage.DiagnosticEventStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -178,8 +179,8 @@ class G7ReadingProvider : ContentProvider() {
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
     companion object {
-        val CONTENT_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/readings")
-        val DIAGNOSTICS_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/diagnostics")
-        val STATE_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/state")
+        val CONTENT_URI: Uri = "content://app.aapswear.g7watch.readings/readings".toUri()
+        val DIAGNOSTICS_URI: Uri = "content://app.aapswear.g7watch.readings/diagnostics".toUri()
+        val STATE_URI: Uri = "content://app.aapswear.g7watch.readings/state".toUri()
     }
 }

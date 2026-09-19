@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.ComponentName
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import androidx.core.graphics.createBitmap
 import androidx.wear.protolayout.ActionBuilders
 import androidx.wear.protolayout.ColorBuilders.argb
 import androidx.wear.protolayout.DimensionBuilders.dp
@@ -219,7 +220,7 @@ class G7GraphTileService : TileService() {
     ): ByteArray {
         val widthPx = (widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density).toInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val settings = G7DirectToWatchSettingsStore(this)
         SharedWearCgmGraphRenderer.render(
             Canvas(bitmap),

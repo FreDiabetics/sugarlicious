@@ -9,7 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
-import android.net.Uri
+import androidx.core.net.toUri
 import app.aapswear.g7.G7CollectorError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,7 +42,7 @@ internal object G7ErrorNotifier {
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
-        val sound = Uri.parse("android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}")
+        val sound = "android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}".toUri()
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Dringende Fehler von SugarWear"

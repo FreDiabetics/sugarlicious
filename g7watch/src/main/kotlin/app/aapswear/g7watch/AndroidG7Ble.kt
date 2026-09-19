@@ -19,6 +19,7 @@ import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import androidx.core.util.size
 import app.aapswear.g7.DirectConnectResult
 import app.aapswear.g7.G7AuthenticationSession
 import app.aapswear.g7.G7GattProfile
@@ -347,7 +348,7 @@ internal class AndroidG7Scanner(
                         minRssi = minRssi?.let { minOf(it, result.rssi) } ?: result.rssi
                         maxRssi = maxRssi?.let { maxOf(it, result.rssi) } ?: result.rssi
                         val advertisedName = result.scanRecord?.deviceName
-                        if ((result.scanRecord?.manufacturerSpecificData?.size() ?: 0) > 0) {
+                        if ((result.scanRecord?.manufacturerSpecificData?.size ?: 0) > 0) {
                             manufacturerDataResults.incrementAndGet()
                         }
                         if (isG7AdvertisedName(advertisedName)) namedG7Results.incrementAndGet()

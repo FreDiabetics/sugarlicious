@@ -11,8 +11,8 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
 import android.media.MediaPlayer
-import android.net.Uri
 import android.provider.Settings
+import androidx.core.net.toUri
 import app.aapswear.g7.CgmAlarm
 import app.aapswear.g7.CgmAlarmEngine
 import app.aapswear.g7.CgmAlarmSettings
@@ -508,7 +508,7 @@ internal object G7AlarmNotificationPolicy {
     fun settingsIntent(context: Context): Intent {
         val detail =
             Intent("android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS").apply {
-                data = Uri.parse("package:${context.packageName}")
+                data = "package:${context.packageName}".toUri()
             }
         return if (detail.resolveActivity(context.packageManager) != null) {
             detail

@@ -3,9 +3,9 @@ package app.aapswear.g7watch
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.core.net.toUri
 
 internal object G7BackgroundAccess {
     fun isBatteryUnrestricted(context: Context): Boolean =
@@ -14,7 +14,7 @@ internal object G7BackgroundAccess {
             .isIgnoringBatteryOptimizations(context.packageName)
 
     internal fun batterySettingsIntents(packageName: String): List<Intent> {
-        val packageUri = Uri.parse("package:$packageName")
+        val packageUri = "package:$packageName".toUri()
         return listOf(
             Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).setData(packageUri),
             Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),

@@ -165,3 +165,10 @@ All three `SmallSp` findings are resolved. The Widget loading label and the two
 metabolic preview annotations now use the Android accessibility floor of 11 sp
 instead of 10 sp. Mobile Lint and the debug APK build pass without introducing a
 layout warning. The running warning inventory is 536.
+
+Twenty behavior-neutral `UseKtx` findings are resolved across Mobile and G7:
+URI parsing, bitmap allocation, view visibility, child presence and BLE scan
+record size now use their type-safe AndroidX extensions. The retained
+`Uri.fromParts` mail construction remains intentional because it preserves its
+component encoding semantics. Both complete unit-test suites, debug APKs, Lint,
+ktlint and Detekt pass. The running warning inventory is 516.
