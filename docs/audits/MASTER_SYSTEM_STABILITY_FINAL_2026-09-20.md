@@ -68,7 +68,7 @@ The unchanged MP4 alarm files can still make Android Lint's XML parser print 16 
 ## Hardware evidence
 
 - Galaxy S26 Ultra (`SM-S948B`): candidate Mobile APK installed; version `0.6.4`/code 14 and installation time verified; launcher process remained alive and no new fatal exception or ANR was observed in the smoke window.
-- Galaxy Watch Ultra: final candidate installation is pending because the supplied endpoint stopped responding and the Watch disappeared from ADB/mDNS discovery during handoff.
+- Galaxy Watch Ultra (`SM-L705F`): candidate Sugarlicious Wear, SugarWear/G7 Collector, Digital and Vigil packages installed with data-preserving replacement. Both launch intents completed without a new fatal exception or ANR in the smoke window; no pairing or collector action was triggered.
 - Pixel Watch: deliberately untouched.
 - No sensor was disconnected, released or re-paired automatically.
 - Long-running BLE, sensor handoff, recovery SLA, AOD and battery claims still require the user's real-device acceptance run.
