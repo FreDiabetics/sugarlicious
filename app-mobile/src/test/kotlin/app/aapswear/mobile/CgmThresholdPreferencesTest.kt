@@ -4,17 +4,19 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
-import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class CgmThresholdPreferencesTest {
-    private val preferences = ApplicationProvider.getApplicationContext<Context>()
-        .getSharedPreferences("threshold_policy_test", Context.MODE_PRIVATE)
+    private val preferences =
+        ApplicationProvider
+            .getApplicationContext<Context>()
+            .getSharedPreferences("threshold_policy_test", Context.MODE_PRIVATE)
 
     @Test fun `defaults and valid policy persist canonically`() {
         preferences.edit().clear().commit()

@@ -1,10 +1,10 @@
 package app.aapswear.mobile
 
-import java.io.File
-import javax.imageio.ImageIO
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
+import javax.imageio.ImageIO
 
 class SugarliciousAnalogPreviewGeometryTest {
     @Test
@@ -12,6 +12,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         val xml = watchfaceFile().readText()
 
         assertTrue(xml.contains("slotId=\"7\"") && xml.contains("x=\"59\" y=\"63\" width=\"394\" height=\"138\""))
+        assertTrue(xml.contains("<PartImage x=\"70\" y=\"1\" width=\"255\" height=\"138\">"))
         assertTrue(xml.contains("startAngle=\"285\" endAngle=\"333\" direction=\"CLOCKWISE\""))
         assertTrue(xml.contains("startAngle=\"15\" endAngle=\"63\" direction=\"CLOCKWISE\""))
         assertTrue(xml.contains("startAngle=\"103\" endAngle=\"151\" direction=\"CLOCKWISE\""))
@@ -19,19 +20,27 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertTrue(xml.contains("slotId=\"4\"") && xml.contains("x=\"83\" y=\"195\" width=\"123\" height=\"123\""))
         assertTrue(xml.contains("slotId=\"5\"") && xml.contains("x=\"306\" y=\"195\" width=\"123\" height=\"123\""))
         assertTrue(xml.contains("slotId=\"6\"") && xml.contains("x=\"181\" y=\"281\" width=\"150\" height=\"149\""))
+        assertTrue(xml.contains("<PartText x=\"8\" y=\"64\" width=\"112\" height=\"32\">"))
+        assertTrue(xml.contains("<PartText x=\"8\" y=\"28\" width=\"107\" height=\"31\">"))
+        assertTrue(xml.contains("<PartText x=\"8\" y=\"64\" width=\"107\" height=\"32\">"))
+        assertTrue(xml.contains("<PartText x=\"8\" y=\"28\" width=\"107\" height=\"30\">"))
+        assertTrue(xml.contains("<Arc centerX=\"75\" centerY=\"76\" width=\"137\" height=\"137\""))
+        assertTrue(xml.contains("<PartText x=\"7\" y=\"52\" width=\"137\" height=\"45\">"))
         assertTrue(xml.contains("resource=\"sugarlicious_analog_template\""))
-        assertTrue(xml.contains("resource=\"hour_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"minute_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"second_hand_transparent\""))
-        assertTrue(xml.contains("resource=\"hour_hand_tblack\""))
-        assertTrue(xml.contains("resource=\"minute_hand_tblack\""))
-        assertTrue(xml.contains("resource=\"second_hand_tblack\""))
-        assertFalse(xml.contains("id=\"3\" displayName=\"hand_style_"))
+        assertTrue(xml.contains("<Metadata key=\"PREVIEW_TIME\" value=\"10:08:32\" />"))
+        assertFalse(xml.contains("<AnalogClock"))
+        assertFalse(xml.contains("handStyle"))
 
         assertTrue(SugarliciousAnalogGeometry.graph == AnalogRectGeometry(59f, 63f, 394f, 138f))
+        assertTrue(SugarliciousAnalogGeometry.graphContent == AnalogRectGeometry(129f, 64f, 255f, 138f))
         assertTrue(SugarliciousAnalogGeometry.middleLeft == AnalogRectGeometry(83f, 195f, 123f, 123f))
         assertTrue(SugarliciousAnalogGeometry.middleRight == AnalogRectGeometry(306f, 195f, 123f, 123f))
         assertTrue(SugarliciousAnalogGeometry.bottomCenter == AnalogRectGeometry(181f, 281f, 150f, 149f))
+        assertTrue(SugarliciousAnalogGeometry.middleLeftText == AnalogRectGeometry(91f, 259f, 112f, 32f))
+        assertTrue(SugarliciousAnalogGeometry.middleLeftTitle == AnalogRectGeometry(91f, 223f, 107f, 31f))
+        assertTrue(SugarliciousAnalogGeometry.middleRightText == AnalogRectGeometry(314f, 259f, 107f, 32f))
+        assertTrue(SugarliciousAnalogGeometry.middleRightTitle == AnalogRectGeometry(314f, 223f, 107f, 30f))
+        assertTrue(SugarliciousAnalogGeometry.bottomText == AnalogRectGeometry(188f, 333f, 137f, 45f))
     }
 
     @Test fun `slots share one center and remain symmetric and center safe`() {
@@ -56,7 +65,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertFalse(xml.contains("scaleX"))
         assertFalse(xml.contains("scaleY"))
         assertFalse(xml.contains("skew"))
-        assertTrue(xml.contains("<PartImage x=\"0\" y=\"0\" width=\"394\" height=\"138\">"))
+        assertTrue(xml.contains("<PartImage x=\"70\" y=\"1\" width=\"255\" height=\"138\">"))
     }
 
     @Test fun `generic slot types have geometry specific renderers`() {
@@ -77,28 +86,37 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `authoritative WFS artwork remains on its native 450 canvas`() {
-        listOf(
-            "indices_hours.png",
-            "indices_dots.png",
-            "graph_mask.png",
-            "sugarlicious_analog_template.png",
-        ).forEach { name ->
-            val image = requireNotNull(
+    fun `authoritative WFS template remains on its native 450 canvas`() {
+        val name = "sugarlicious_analog_template.png"
+        val image =
+            requireNotNull(
                 ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$name")),
             ) { "$name must be a readable PNG" }
-            assertTrue("$name must be 450 px wide", image.width == 450)
-            assertTrue("$name must be 450 px high", image.height == 450)
-        }
+        assertTrue("$name must be 450 px wide", image.width == 450)
+        assertTrue("$name must be 450 px high", image.height == 450)
     }
 
-    private fun watchfaceFile(): File = repoFile(
-        "watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml",
-    )
+    @Test
+    fun `dial uses the exact WFS luminance and outline colors`() {
+        val template =
+            requireNotNull(
+                ImageIO.read(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png")),
+            )
+        assertTrue(template.getRGB(291, 26) and 0xFFFFFF == 0x4C4C4C)
+        assertTrue(template.getRGB(73, 225) and 0xFFFFFF == 0x888888)
+        assertTrue("graph cutout must stay transparent", template.getRGB(225, 100) ushr 24 == 0)
+        assertTrue("dial background outside graph must stay opaque", template.getRGB(225, 225) ushr 24 == 0xFF)
+    }
 
-    private fun previewFile(): File = repoFile(
-        "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/preview.xml",
-    )
+    private fun watchfaceFile(): File =
+        repoFile(
+            "watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml",
+        )
+
+    private fun previewFile(): File =
+        repoFile(
+            "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/preview.xml",
+        )
 
     private fun repoFile(path: String): File {
         val cwd = File(requireNotNull(System.getProperty("user.dir")))

@@ -21,11 +21,12 @@ object AapsTargetParser {
         if (payload.isNullOrBlank()) return null
         return runCatching {
             val objectValue = json.parseToJsonElement(payload).jsonObject
-            val target = objectValue["targetBG"]
-                ?.jsonPrimitive
-                ?.doubleOrNull
-                ?.takeIf { it.isFinite() && it in 20.0..1_000.0 }
-                ?: return@runCatching null
+            val target =
+                objectValue["targetBG"]
+                    ?.jsonPrimitive
+                    ?.doubleOrNull
+                    ?.takeIf { it.isFinite() && it in 20.0..1_000.0 }
+                    ?: return@runCatching null
             val explicitTemporary =
                 objectValue["temporary"]?.jsonPrimitive?.booleanOrNull == true ||
                     objectValue["isTempTarget"]?.jsonPrimitive?.booleanOrNull == true

@@ -1,8 +1,8 @@
 package app.aapswear.mobile
 
-import app.aapswear.model.GlucoseSample
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TherapyDisplayState
@@ -28,74 +28,81 @@ internal object DisplayHistoryAccumulator {
         current: TherapyDisplayState,
         nowEpochMs: Long,
     ): TherapyDisplayState {
-        val profile = current.profile?.let { incoming ->
-            incoming.copy(diaHours = incoming.diaHours ?: previous?.profile?.diaHours)
-        } ?: previous?.profile
-        val diaHours = profile?.diaHours?.takeIf { it.isFinite() && it in 1.0..24.0 } ?: DEFAULT_DIA_HOURS
-        val glucose = mergeGlucose(
-            buildList {
-                addAll(previous?.glucoseHistory.orEmpty())
-                previous?.glucose?.let { add(it.toSample(previous.source)) }
-                addAll(current.glucoseHistory)
-                current.glucose?.let { add(it.toSample(current.source)) }
-            },
-            nowEpochMs,
-            current.source,
-        )
+        val profile =
+            current.profile?.let { incoming ->
+                incoming.copy(diaHours = incoming.diaHours ?: previous?.profile?.diaHours)
+            } ?: previous?.profile
+        val glucose =
+            mergeGlucose(
+                buildList {
+                    addAll(previous?.glucoseHistory.orEmpty())
+                    previous?.glucose?.let { add(it.toSample(previous.source)) }
+                    addAll(current.glucoseHistory)
+                    current.glucose?.let { add(it.toSample(current.source)) }
+                },
+                nowEpochMs,
+                current.source,
+            )
 
         val earliest = nowEpochMs - WINDOW_MS
         val latest = nowEpochMs + 5 * 60_000L
-        val therapy = buildList {
-            addAll(previous?.therapyHistory.orEmpty())
-            val timestamp = current.glucose?.measuredAtEpochMs ?: current.receivedAtEpochMs
-            val sample = TherapyHistorySample(
-                measuredAtEpochMs = timestamp,
-                totalIob = current.insulin?.totalIob,
-                cobGrams = current.carbs?.cobGrams,
-                basalUnitsPerHour = current.basal?.tempAbsoluteUnitsPerHour
-                    ?: current.basal?.currentUnitsPerHour,
-                baseBasalUnitsPerHour = current.basal?.currentUnitsPerHour,
-                tempBasalUnitsPerHour = current.basal?.tempAbsoluteUnitsPerHour,
-            )
-            if (sample.totalIob != null || sample.cobGrams != null || sample.basalUnitsPerHour != null) add(sample)
-            val loop = current.loop
-            loop?.smbUnits?.takeIf { it.isFinite() && it > 0.0 }?.let { units ->
-                add(
+        val therapy =
+            buildList {
+                addAll(previous?.therapyHistory.orEmpty())
+                addAll(current.therapyHistory)
+                val timestamp = current.glucose?.measuredAtEpochMs ?: current.receivedAtEpochMs
+                val sample =
                     TherapyHistorySample(
-                        measuredAtEpochMs = loop.smbAtEpochMs
-                            ?: loop.enactedAtEpochMs
-                            ?: current.receivedAtEpochMs,
-                        smbUnits = units,
-                    ),
-                )
-            }
-        }.filter { it.measuredAtEpochMs in earliest..latest }
-            .groupBy { it.measuredAtEpochMs }
-            .map { (timestamp, samples) -> samples.reduce { first, second -> first.merge(second, timestamp) } }
-            .sortedBy { it.measuredAtEpochMs }
-            .takeLast(MAX_POINTS)
-            .withEstimatedInsulinActivity(diaHours)
-        val therapyEvents = (previous?.therapyEvents.orEmpty() + current.therapyEvents)
-            .asSequence()
-            .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() && it.amount > 0.0 }
-            .distinctBy { it.id }
-            .sortedBy { it.timestampEpochMs }
-            .toList()
+                        measuredAtEpochMs = timestamp,
+                        totalIob = current.insulin?.totalIob,
+                        cobGrams = current.carbs?.cobGrams,
+                        basalUnitsPerHour =
+                            current.basal?.tempAbsoluteUnitsPerHour
+                                ?: current.basal?.currentUnitsPerHour,
+                        baseBasalUnitsPerHour = current.basal?.currentUnitsPerHour,
+                        tempBasalUnitsPerHour = current.basal?.tempAbsoluteUnitsPerHour,
+                    )
+                if (sample.totalIob != null || sample.cobGrams != null || sample.basalUnitsPerHour != null) add(sample)
+                val loop = current.loop
+                loop?.smbUnits?.takeIf { it.isFinite() && it > 0.0 }?.let { units ->
+                    add(
+                        TherapyHistorySample(
+                            measuredAtEpochMs =
+                                loop.smbAtEpochMs
+                                    ?: loop.enactedAtEpochMs
+                                    ?: current.receivedAtEpochMs,
+                            smbUnits = units,
+                        ),
+                    )
+                }
+            }.filter { it.measuredAtEpochMs in earliest..latest }
+                .groupBy { it.measuredAtEpochMs }
+                .map { (timestamp, samples) -> samples.reduce { first, second -> first.merge(second, timestamp) } }
+                .sortedBy { it.measuredAtEpochMs }
+                .takeLast(MAX_POINTS)
+        val therapyEvents =
+            (previous?.therapyEvents.orEmpty() + current.therapyEvents)
+                .asSequence()
+                .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() && it.amount > 0.0 }
+                .distinctBy { it.id }
+                .sortedBy { it.timestampEpochMs }
+                .toList()
 
-        val retained = current.copy(
-            // A missing field in a transport update is absence of new information, not a
-            // clinical transition to zero/off/unknown. Explicit values still replace prior ones.
-            glucose = current.glucose ?: previous?.glucose,
-            insulin = current.insulin ?: previous?.insulin,
-            carbs = current.carbs ?: previous?.carbs,
-            basal = current.basal ?: previous?.basal,
-            target = current.target ?: previous?.target,
-            loop = current.loop ?: previous?.loop,
-            pump = current.pump ?: previous?.pump,
-            device = current.device ?: previous?.device,
-            profile = profile,
-            capabilities = current.capabilities + previous?.capabilities.orEmpty(),
-        )
+        val retained =
+            current.copy(
+                // A missing field in a transport update is absence of new information, not a
+                // clinical transition to zero/off/unknown. Explicit values still replace prior ones.
+                glucose = current.glucose ?: previous?.glucose,
+                insulin = current.insulin ?: previous?.insulin,
+                carbs = current.carbs ?: previous?.carbs,
+                basal = current.basal ?: previous?.basal,
+                target = current.target ?: previous?.target,
+                loop = current.loop ?: previous?.loop,
+                pump = current.pump ?: previous?.pump,
+                device = current.device ?: previous?.device,
+                profile = profile,
+                capabilities = current.capabilities + previous?.capabilities.orEmpty(),
+            )
 
         return PersistentPredictionCache.merge(
             previous = previous,
@@ -114,17 +121,19 @@ internal object DisplayHistoryAccumulator {
         current: TherapyDisplayState,
         external: List<GlucoseSample>,
         nowEpochMs: Long,
-    ): TherapyDisplayState = current.copy(
-        glucoseHistory = mergeGlucose(
-            buildList {
-                addAll(current.glucoseHistory)
-                current.glucose?.let { add(it.toSample(current.source)) }
-                addAll(external)
-            },
-            nowEpochMs,
-            current.source,
-        ),
-    )
+    ): TherapyDisplayState =
+        current.copy(
+            glucoseHistory =
+                mergeGlucose(
+                    buildList {
+                        addAll(current.glucoseHistory)
+                        current.glucose?.let { add(it.toSample(current.source)) }
+                        addAll(external)
+                    },
+                    nowEpochMs,
+                    current.source,
+                ),
+        )
 
     private fun mergeGlucose(
         values: List<GlucoseSample>,
@@ -154,14 +163,12 @@ internal object DisplayHistoryAccumulator {
                         it.valueMgDl in 20.0..1_000.0 &&
                         it.startedAtEpochMs <= latest &&
                         it.endsAtEpochMs >= earliest
-                }
-                .map {
+                }.map {
                     it.copy(
                         startedAtEpochMs = it.startedAtEpochMs.coerceAtLeast(earliest),
                         endsAtEpochMs = it.endsAtEpochMs.coerceIn(it.startedAtEpochMs, latest),
                     )
-                }
-                .sortedBy(TargetSample::startedAtEpochMs)
+                }.sortedBy(TargetSample::startedAtEpochMs)
                 .toList()
 
         val result = mutableListOf<TargetSample>()
@@ -201,40 +208,17 @@ internal object DisplayHistoryAccumulator {
             quality = quality,
         )
 
-    private fun TherapyHistorySample.merge(other: TherapyHistorySample, timestamp: Long) =
-        TherapyHistorySample(
-            measuredAtEpochMs = timestamp,
-            totalIob = other.totalIob ?: totalIob,
-            cobGrams = other.cobGrams ?: cobGrams,
-            basalUnitsPerHour = other.basalUnitsPerHour ?: basalUnitsPerHour,
-            baseBasalUnitsPerHour = other.baseBasalUnitsPerHour ?: baseBasalUnitsPerHour,
-            tempBasalUnitsPerHour = other.tempBasalUnitsPerHour ?: tempBasalUnitsPerHour,
-            insulinActivityUnitsPerMinute = other.insulinActivityUnitsPerMinute ?: insulinActivityUnitsPerMinute,
-            smbUnits = other.smbUnits ?: smbUnits,
-        )
-
-    private fun List<TherapyHistorySample>.withEstimatedInsulinActivity(diaHours: Double): List<TherapyHistorySample> {
-        var previousIobSample: TherapyHistorySample? = null
-        return map { sample ->
-            if (sample.totalIob == null) return@map sample
-            if (sample.insulinActivityUnitsPerMinute != null) {
-                previousIobSample = sample
-                return@map sample
-            }
-            val previous = previousIobSample.also { previousIobSample = sample }
-            val minutes = previous?.let { (sample.measuredAtEpochMs - it.measuredAtEpochMs) / 60_000.0 } ?: Double.NaN
-            val priorIob = previous?.totalIob
-            val currentIob = sample.totalIob
-            val measuredDecay = if (priorIob != null && currentIob != null && minutes in 2.0..15.0) {
-                (priorIob - currentIob).coerceIn(0.0, 1.5) / minutes
-            } else {
-                null
-            }
-            val diaDecay = currentIob?.coerceAtLeast(0.0)?.div(diaHours * 60.0)
-            val decay = measuredDecay?.takeIf { it > 0.0001 } ?: diaDecay
-            sample.copy(insulinActivityUnitsPerMinute = decay?.takeIf { it > 0.0001 })
-        }
-    }
-
-    private const val DEFAULT_DIA_HOURS = 3.0
+    private fun TherapyHistorySample.merge(
+        other: TherapyHistorySample,
+        timestamp: Long,
+    ) = TherapyHistorySample(
+        measuredAtEpochMs = timestamp,
+        totalIob = other.totalIob ?: totalIob,
+        cobGrams = other.cobGrams ?: cobGrams,
+        basalUnitsPerHour = other.basalUnitsPerHour ?: basalUnitsPerHour,
+        baseBasalUnitsPerHour = other.baseBasalUnitsPerHour ?: baseBasalUnitsPerHour,
+        tempBasalUnitsPerHour = other.tempBasalUnitsPerHour ?: tempBasalUnitsPerHour,
+        insulinActivityUnitsPerMinute = other.insulinActivityUnitsPerMinute ?: insulinActivityUnitsPerMinute,
+        smbUnits = other.smbUnits ?: smbUnits,
+    )
 }

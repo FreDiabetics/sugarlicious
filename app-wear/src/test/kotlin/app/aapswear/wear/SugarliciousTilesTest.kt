@@ -1,8 +1,12 @@
 package app.aapswear.wear
 
+import androidx.test.core.app.ApplicationProvider
+import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
+import androidx.wear.tiles.RequestBuilders
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
@@ -11,18 +15,31 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class SugarliciousTilesTest {
+    private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     private val now = 50_000_000L
-    private val colors = WatchUiColors(
-        glucoseLow = 0xFFAA0000.toInt(),
-        glucoseInRange = 0xFF00AA00.toInt(),
-        glucoseHigh = 0xFFAAAA00.toInt(),
-    )
+    private val colors =
+        WatchUiColors(
+            glucoseLow = 0xFFAA0000.toInt(),
+            glucoseInRange = 0xFF00AA00.toInt(),
+            glucoseHigh = 0xFFAAAA00.toInt(),
+        )
+
+    @Test
+    fun `tile emphasis is calibrated to the Wear app system font`() {
+        assertEquals(500, sugarliciousTileWeight(true))
+        assertEquals(400, sugarliciousTileWeight(false))
+    }
 
     @Test
     fun `glucose tile keeps value trend and source separate and explicit`() {
@@ -61,16 +78,68 @@ class SugarliciousTilesTest {
         assertEquals("0.70", presentation.basal)
     }
 
-    private fun state(value: Double, measuredAt: Long) = TherapyDisplayState(
+    @Test
+    fun `graph tile positions every dot by measured time and advances with the minute clock`() {
+        val measuredAt = now - 5 * 60_000L
+        val oldReceivedNow = GlucoseSample(110.0, measuredAt, receivedAtEpochMs = now)
+        val source = state(123.0, now).copy(glucoseHistory = listOf(oldReceivedNow))
+
+        val initial = wearTileGraphPoints(source, now, 3, 180f)
+        val oneMinuteLater = wearTileGraphPoints(source, now + 60_000L, 3, 180f)
+        val oldInitial = initial.single { it.sample.measuredAtEpochMs == measuredAt }
+        val oldLater = oneMinuteLater.single { it.sample.measuredAtEpochMs == measuredAt }
+        val currentInitial = initial.single { it.sample.measuredAtEpochMs == now }
+
+        assertEquals(180f, currentInitial.xDp, 0.001f)
+        assertTrue(oldLater.xDp < oldInitial.xDp)
+        assertTrue(oldInitial.xDp < currentInitial.xDp)
+    }
+
+    @Test
+    fun `graph tile registers its inline image on the tile request scope`() {
+        WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GRAPH)
+        val device =
+            DeviceParameters
+                .Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
+        val service = Robolectric.buildService(GlucoseTileService::class.java).create().get()
+        val request =
+            RequestBuilders.TileRequest
+                .Builder()
+                .setDeviceConfiguration(device)
+                .build()
+
+        service.onTileRequest(request).get()
+        val resources = request.scope.collectResources()
+
+        assertTrue(request.scope.hasResources())
+        assertTrue(
+            resources.idToImageMapping
+                .getValue("live_cgm_graph")
+                .inlineResource!!
+                .data
+                .isNotEmpty(),
+        )
+        service.onDestroy()
+    }
+
+    private fun state(
+        value: Double,
+        measuredAt: Long,
+    ) = TherapyDisplayState(
         source = DataSourceId.ANDROID_APS,
         receivedAtEpochMs = now,
-        glucose = GlucoseState(
-            valueMgDl = value,
-            displayUnit = GlucoseUnit.MG_DL,
-            trend = Trend.FORTY_FIVE_UP,
-            measuredAtEpochMs = measuredAt,
-            deltaMgDl = 5.0,
-        ),
+        glucose =
+            GlucoseState(
+                valueMgDl = value,
+                displayUnit = GlucoseUnit.MG_DL,
+                trend = Trend.FORTY_FIVE_UP,
+                measuredAtEpochMs = measuredAt,
+                deltaMgDl = 5.0,
+            ),
         insulin = InsulinState(totalIob = 1.2),
         carbs = CarbState(cobGrams = 18.0),
         basal = BasalState(currentUnitsPerHour = 0.70),

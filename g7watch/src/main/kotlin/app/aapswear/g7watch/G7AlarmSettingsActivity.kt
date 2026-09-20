@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -15,7 +16,6 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import android.text.InputType
 import app.aapswear.g7.CgmAlarmSettings
 import app.aapswear.g7.CgmAlarmType
 import java.util.Locale
@@ -29,10 +29,12 @@ class G7AlarmSettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        scrollView = G7EdgeFadeScrollView(this).apply {
-            isFillViewport = true
-            addView(root)
-        }.applyG7EdgeFade()
+        scrollView =
+            G7EdgeFadeScrollView(this)
+                .apply {
+                    isFillViewport = true
+                    addView(root)
+                }.applyG7EdgeFade()
         setContentView(scrollView)
         render()
     }
@@ -49,8 +51,7 @@ class G7AlarmSettingsActivity : Activity() {
         val restoreScrollY = scrollView.scrollY
         val palette = G7AppearanceStore(this).load()
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
-        window.statusBarColor = background
-        window.navigationBarColor = background
+        applyG7SystemChrome(window, background)
         val settings = G7AlarmSettingsStore.read(this)
 
         root.apply {
@@ -72,45 +73,89 @@ class G7AlarmSettingsActivity : Activity() {
         lastDndState = granted
         return card(palette).apply {
             addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-            addView(label(if (granted) "Aktiv" else "Systemfreigabe erforderlich", 12f, if (granted) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE), true))
-            addView(label("Damit kritische Glukose- und Sensoralarme auch bei Nicht stören hörbar bleiben.", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
-            if (!granted) addView(actionButton("Systemfreigabe öffnen", palette) {
-                runCatching { startActivity(G7AlarmNotificationPolicy.settingsIntent(this@G7AlarmSettingsActivity)) }
-                    .onFailure { Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe konnte nicht geöffnet werden", Toast.LENGTH_LONG).show() }
-            })
+            addView(
+                label(
+                    if (granted) "Aktiv" else "Systemfreigabe erforderlich",
+                    12f,
+                    if (granted) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE),
+                    true,
+                ),
+            )
+            addView(
+                label(
+                    "Damit kritische Glukose- und Sensoralarme auch bei Nicht stören hörbar bleiben.",
+                    8.5f,
+                    palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                ),
+            )
+            if (!granted) {
+                addView(
+                    actionButton("Systemfreigabe öffnen", palette) {
+                        runCatching { startActivity(G7AlarmNotificationPolicy.settingsIntent(this@G7AlarmSettingsActivity)) }
+                            .onFailure {
+                                Toast
+                                    .makeText(
+                                        this@G7AlarmSettingsActivity,
+                                        "Systemfreigabe konnte nicht geöffnet werden",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                            }
+                    },
+                )
+            }
         }
     }
 
-    private fun globalCard(settings: CgmAlarmSettings, palette: G7AppearancePalette): LinearLayout = card(palette).apply {
-        addView(label("ALARMVERHALTEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
-        addView(toggle("Sound", settings.soundEnabled, palette) { save(settings.copy(soundEnabled = it)) })
-        addView(toggle("Vibration", settings.vibrationEnabled, palette) { save(settings.copy(vibrationEnabled = it)) })
-        addView(toggle("Wiederholen", settings.repeatEnabled, palette) { save(settings.copy(repeatEnabled = it)) })
-        addView(stepper("Wiederholung", "${settings.repeatIntervalMinutes} min", palette, {
-            save(settings.copy(repeatIntervalMinutes = (settings.repeatIntervalMinutes - 5).coerceAtLeast(5)))
-        }, {
-            save(settings.copy(repeatIntervalMinutes = (settings.repeatIntervalMinutes + 5).coerceAtMost(120)))
-        }))
-    }
-
-    private fun alarmCard(type: CgmAlarmType, settings: CgmAlarmSettings, palette: G7AppearancePalette): LinearLayout = card(palette).apply {
-        addView(toggle(g7AlarmTitle(type), alarmEnabled(settings, type), palette) { save(withAlarmEnabled(settings, type, it)) })
-        thresholdText(type, settings)?.let { addView(label("Schwelle · $it", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)) }
-        addView(label("Sound · ${g7AlarmSoundName(type)}", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
-        addView(label(
-            "${if (settings.vibrationEnabled) "Vibration aktiv" else "Vibration aus"} · ${if (settings.repeatEnabled) "Wiederholung ${settings.repeatIntervalMinutes} min" else "Keine Wiederholung"}",
-            8.5f,
-            palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-        ))
-        if (type in editableThresholdTypes) {
-            addView(actionButton("Schwelle eingeben · ${thresholdText(type, settings).orEmpty()}", palette) {
-                showThresholdEditor(type, settings, palette)
-            })
+    private fun globalCard(
+        settings: CgmAlarmSettings,
+        palette: G7AppearancePalette,
+    ): LinearLayout =
+        card(palette).apply {
+            addView(label("ALARMVERHALTEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+            addView(toggle("Sound", settings.soundEnabled, palette) { save(settings.copy(soundEnabled = it)) })
+            addView(toggle("Vibration", settings.vibrationEnabled, palette) { save(settings.copy(vibrationEnabled = it)) })
+            addView(toggle("Wiederholen", settings.repeatEnabled, palette) { save(settings.copy(repeatEnabled = it)) })
+            addView(
+                stepper("Wiederholung", "${settings.repeatIntervalMinutes} min", palette, {
+                    save(settings.copy(repeatIntervalMinutes = (settings.repeatIntervalMinutes - 5).coerceAtLeast(5)))
+                }, {
+                    save(settings.copy(repeatIntervalMinutes = (settings.repeatIntervalMinutes + 5).coerceAtMost(120)))
+                }),
+            )
         }
-        addView(actionButton("Test", palette) {
-            G7CgmAlarmNotifier.showTest(this@G7AlarmSettingsActivity, type, G7AlarmSettingsStore.read(this@G7AlarmSettingsActivity))
-        })
-    }
+
+    private fun alarmCard(
+        type: CgmAlarmType,
+        settings: CgmAlarmSettings,
+        palette: G7AppearancePalette,
+    ): LinearLayout =
+        card(palette).apply {
+            addView(toggle(g7AlarmTitle(type), alarmEnabled(settings, type), palette) { save(withAlarmEnabled(settings, type, it)) })
+            thresholdText(
+                type,
+                settings,
+            )?.let { addView(label("Schwelle · $it", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)) }
+            addView(label("Sound · ${g7AlarmSoundName(type)}", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+            addView(
+                label(
+                    "${if (settings.vibrationEnabled) "Vibration aktiv" else "Vibration aus"} · ${if (settings.repeatEnabled) "Wiederholung ${settings.repeatIntervalMinutes} min" else "Keine Wiederholung"}",
+                    8.5f,
+                    palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                ),
+            )
+            if (type in editableThresholdTypes) {
+                addView(
+                    actionButton("Schwelle eingeben · ${thresholdText(type, settings).orEmpty()}", palette) {
+                        showThresholdEditor(type, settings, palette)
+                    },
+                )
+            }
+            addView(
+                actionButton("Test", palette) {
+                    G7CgmAlarmNotifier.showTest(this@G7AlarmSettingsActivity, type, G7AlarmSettingsStore.read(this@G7AlarmSettingsActivity))
+                },
+            )
+        }
 
     private fun save(settings: CgmAlarmSettings) {
         G7AlarmSettingsStore.write(this, settings)
@@ -120,25 +165,45 @@ class G7AlarmSettingsActivity : Activity() {
 
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Alarme", palette)
 
-    private fun showThresholdEditor(type: CgmAlarmType, settings: CgmAlarmSettings, palette: G7AppearancePalette) {
+    private fun showThresholdEditor(
+        type: CgmAlarmType,
+        settings: CgmAlarmSettings,
+        palette: G7AppearancePalette,
+    ) {
         val restoreScrollY = scrollView.scrollY
         val current = thresholdValue(type, settings) ?: return
-        val input = EditText(this).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-            setText(if (type == CgmAlarmType.RAPID_RISE || type == CgmAlarmType.RAPID_FALL) String.format(Locale.US, "%.1f", current) else current.toInt().toString())
-            selectAll()
-            setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-            setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("${g7AlarmTitle(type)} · Schwelle")
-            .setView(input)
-            .setNegativeButton("Abbrechen", null)
-            .setPositiveButton("Speichern", null)
-            .create()
+        val input =
+            EditText(this).apply {
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                setText(
+                    if (type == CgmAlarmType.RAPID_RISE ||
+                        type == CgmAlarmType.RAPID_FALL
+                    ) {
+                        String.format(Locale.US, "%.1f", current)
+                    } else {
+                        current.toInt().toString()
+                    },
+                )
+                selectAll()
+                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+            }
+        val dialog =
+            AlertDialog
+                .Builder(this)
+                .setTitle("${g7AlarmTitle(type)} · Schwelle")
+                .setView(input)
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("Speichern", null)
+                .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val value = input.text.toString().trim().replace(',', '.').toDoubleOrNull()
+                val value =
+                    input.text
+                        .toString()
+                        .trim()
+                        .replace(',', '.')
+                        .toDoubleOrNull()
                 val updated = value?.let { withThreshold(settings, type, it) }
                 if (updated == null) {
                     input.error = thresholdValidationMessage(type, settings)
@@ -154,18 +219,25 @@ class G7AlarmSettingsActivity : Activity() {
     }
 
     private fun restoreScrollPosition(scrollY: Int) {
-        scrollView.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                scrollView.viewTreeObserver.removeOnPreDrawListener(this)
-                val maxScroll = (root.measuredHeight - scrollView.height).coerceAtLeast(0)
-                scrollView.scrollTo(0, scrollY.coerceAtMost(maxScroll))
-                return true
-            }
-        })
+        scrollView.viewTreeObserver.addOnPreDrawListener(
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    scrollView.viewTreeObserver.removeOnPreDrawListener(this)
+                    val maxScroll = (root.measuredHeight - scrollView.height).coerceAtLeast(0)
+                    scrollView.scrollTo(0, scrollY.coerceAtMost(maxScroll))
+                    return true
+                }
+            },
+        )
     }
 
     @Suppress("DEPRECATION")
-    private fun toggle(title: String, checked: Boolean, palette: G7AppearancePalette, changed: (Boolean) -> Unit) = Switch(this).apply {
+    private fun toggle(
+        title: String,
+        checked: Boolean,
+        palette: G7AppearancePalette,
+        changed: (Boolean) -> Unit,
+    ) = Switch(this).apply {
         text = title
         isChecked = checked
         setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
@@ -174,15 +246,28 @@ class G7AlarmSettingsActivity : Activity() {
         setOnCheckedChangeListener { _, value -> if (value != checked) changed(value) }
     }
 
-    private fun stepper(title: String, value: String, palette: G7AppearancePalette, minus: () -> Unit, plus: () -> Unit) = LinearLayout(this).apply {
+    private fun stepper(
+        title: String,
+        value: String,
+        palette: G7AppearancePalette,
+        minus: () -> Unit,
+        plus: () -> Unit,
+    ) = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        addView(label("$title · $value", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(
+            label("$title · $value", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+        )
         addView(actionButton("−", palette, minus), LinearLayout.LayoutParams(42.dp, 38.dp))
         addView(actionButton("+", palette, plus), LinearLayout.LayoutParams(42.dp, 38.dp).apply { marginStart = 4.dp })
     }
 
-    private fun actionButton(title: String, palette: G7AppearancePalette, action: () -> Unit) = Button(this).apply {
+    private fun actionButton(
+        title: String,
+        palette: G7AppearancePalette,
+        action: () -> Unit,
+    ) = Button(this).apply {
         text = title
         textSize = 8.5f
         isAllCaps = false
@@ -191,20 +276,30 @@ class G7AlarmSettingsActivity : Activity() {
         setOnClickListener { action() }
     }
 
-    private fun card(palette: G7AppearancePalette) = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(13.dp, 10.dp, 13.dp, 10.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 19f)
-    }
+    private fun card(palette: G7AppearancePalette) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(13.dp, 10.dp, 13.dp, 10.dp)
+            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 19f)
+        }
 
-    private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+    private fun label(
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean = false,
+    ) = TextView(this).apply {
         text = value
         textSize = size
         setTextColor(color)
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun rounded(fill: Int, stroke: Int, radiusDp: Float) = GradientDrawable().apply {
+    private fun rounded(
+        fill: Int,
+        stroke: Int,
+        radiusDp: Float,
+    ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
         setStroke(1.dp, stroke)
@@ -212,94 +307,165 @@ class G7AlarmSettingsActivity : Activity() {
     }
 
     private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+
     private fun cardParams(top: Int) = fullWidth().apply { topMargin = top.dp }
+
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }
 
-internal fun alarmEnabled(settings: CgmAlarmSettings, type: CgmAlarmType): Boolean = when (type) {
-    CgmAlarmType.VERY_HIGH -> settings.veryHighEnabled
-    CgmAlarmType.HIGH -> settings.highEnabled
-    CgmAlarmType.LOW -> settings.lowEnabled
-    CgmAlarmType.VERY_LOW -> settings.veryLowEnabled
-    CgmAlarmType.RAPID_RISE -> settings.rapidRiseEnabled
-    CgmAlarmType.RAPID_FALL -> settings.rapidFallEnabled
-    CgmAlarmType.SIGNAL_LOSS -> settings.signalLossEnabled
-    CgmAlarmType.SENSOR_ERROR -> settings.sensorErrorEnabled
-}
+internal fun alarmEnabled(
+    settings: CgmAlarmSettings,
+    type: CgmAlarmType,
+): Boolean =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> settings.veryHighEnabled
+        CgmAlarmType.HIGH -> settings.highEnabled
+        CgmAlarmType.LOW -> settings.lowEnabled
+        CgmAlarmType.VERY_LOW -> settings.veryLowEnabled
+        CgmAlarmType.RAPID_RISE -> settings.rapidRiseEnabled
+        CgmAlarmType.RAPID_FALL -> settings.rapidFallEnabled
+        CgmAlarmType.SIGNAL_LOSS -> settings.signalLossEnabled
+        CgmAlarmType.SENSOR_ERROR -> settings.sensorErrorEnabled
+    }
 
-internal fun withAlarmEnabled(settings: CgmAlarmSettings, type: CgmAlarmType, enabled: Boolean): CgmAlarmSettings = when (type) {
-    CgmAlarmType.VERY_HIGH -> settings.copy(veryHighEnabled = enabled)
-    CgmAlarmType.HIGH -> settings.copy(highEnabled = enabled)
-    CgmAlarmType.LOW -> settings.copy(lowEnabled = enabled)
-    CgmAlarmType.VERY_LOW -> settings.copy(veryLowEnabled = enabled)
-    CgmAlarmType.RAPID_RISE -> settings.copy(rapidRiseEnabled = enabled)
-    CgmAlarmType.RAPID_FALL -> settings.copy(rapidFallEnabled = enabled)
-    CgmAlarmType.SIGNAL_LOSS -> settings.copy(signalLossEnabled = enabled)
-    CgmAlarmType.SENSOR_ERROR -> settings.copy(sensorErrorEnabled = enabled)
-}
+internal fun withAlarmEnabled(
+    settings: CgmAlarmSettings,
+    type: CgmAlarmType,
+    enabled: Boolean,
+): CgmAlarmSettings =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> settings.copy(veryHighEnabled = enabled)
+        CgmAlarmType.HIGH -> settings.copy(highEnabled = enabled)
+        CgmAlarmType.LOW -> settings.copy(lowEnabled = enabled)
+        CgmAlarmType.VERY_LOW -> settings.copy(veryLowEnabled = enabled)
+        CgmAlarmType.RAPID_RISE -> settings.copy(rapidRiseEnabled = enabled)
+        CgmAlarmType.RAPID_FALL -> settings.copy(rapidFallEnabled = enabled)
+        CgmAlarmType.SIGNAL_LOSS -> settings.copy(signalLossEnabled = enabled)
+        CgmAlarmType.SENSOR_ERROR -> settings.copy(sensorErrorEnabled = enabled)
+    }
 
-internal fun thresholdText(type: CgmAlarmType, settings: CgmAlarmSettings): String? = when (type) {
-    CgmAlarmType.VERY_HIGH -> "${settings.veryHighThreshold.toInt()} mg/dL"
-    CgmAlarmType.HIGH -> "${settings.highThreshold.toInt()} mg/dL"
-    CgmAlarmType.LOW -> "${settings.lowThreshold.toInt()} mg/dL"
-    CgmAlarmType.VERY_LOW -> "${settings.veryLowThreshold.toInt()} mg/dL"
-    CgmAlarmType.RAPID_RISE -> String.format(Locale.US, "%.1f mg/dL/min", settings.rapidRiseThreshold)
-    CgmAlarmType.RAPID_FALL -> String.format(Locale.US, "%.1f mg/dL/min", settings.rapidFallThreshold)
-    CgmAlarmType.SIGNAL_LOSS -> "${settings.signalLossMinutes} min"
-    CgmAlarmType.SENSOR_ERROR -> null
-}
+internal fun thresholdText(
+    type: CgmAlarmType,
+    settings: CgmAlarmSettings,
+): String? =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> "${settings.veryHighThreshold.toInt()} mg/dL"
+        CgmAlarmType.HIGH -> "${settings.highThreshold.toInt()} mg/dL"
+        CgmAlarmType.LOW -> "${settings.lowThreshold.toInt()} mg/dL"
+        CgmAlarmType.VERY_LOW -> "${settings.veryLowThreshold.toInt()} mg/dL"
+        CgmAlarmType.RAPID_RISE -> String.format(Locale.US, "%.1f mg/dL/min", settings.rapidRiseThreshold)
+        CgmAlarmType.RAPID_FALL -> String.format(Locale.US, "%.1f mg/dL/min", settings.rapidFallThreshold)
+        CgmAlarmType.SIGNAL_LOSS -> "${settings.signalLossMinutes} min"
+        CgmAlarmType.SENSOR_ERROR -> null
+    }
 
-private val editableThresholdTypes = setOf(
-    CgmAlarmType.VERY_HIGH,
-    CgmAlarmType.HIGH,
-    CgmAlarmType.LOW,
-    CgmAlarmType.VERY_LOW,
-    CgmAlarmType.RAPID_RISE,
-    CgmAlarmType.RAPID_FALL,
-)
+private val editableThresholdTypes =
+    setOf(
+        CgmAlarmType.VERY_HIGH,
+        CgmAlarmType.HIGH,
+        CgmAlarmType.LOW,
+        CgmAlarmType.VERY_LOW,
+        CgmAlarmType.RAPID_RISE,
+        CgmAlarmType.RAPID_FALL,
+    )
 
-internal fun thresholdValue(type: CgmAlarmType, settings: CgmAlarmSettings): Double? = when (type) {
-    CgmAlarmType.VERY_HIGH -> settings.veryHighThreshold
-    CgmAlarmType.HIGH -> settings.highThreshold
-    CgmAlarmType.LOW -> settings.lowThreshold
-    CgmAlarmType.VERY_LOW -> settings.veryLowThreshold
-    CgmAlarmType.RAPID_RISE -> settings.rapidRiseThreshold
-    CgmAlarmType.RAPID_FALL -> settings.rapidFallThreshold
-    CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> null
-}
-
-internal fun withThreshold(settings: CgmAlarmSettings, type: CgmAlarmType, value: Double): CgmAlarmSettings? {
-    if (!value.isFinite()) return null
-    val updated = when (type) {
-        CgmAlarmType.VERY_HIGH -> if (value in (settings.highThreshold + 1.0)..400.0) settings.copy(veryHighThreshold = value) else null
-        CgmAlarmType.HIGH -> if (value > settings.lowThreshold && value < settings.veryHighThreshold) settings.copy(highThreshold = value) else null
-        CgmAlarmType.LOW -> if (value > settings.veryLowThreshold && value < settings.highThreshold) settings.copy(lowThreshold = value) else null
-        CgmAlarmType.VERY_LOW -> if (value in 40.0..<settings.lowThreshold) settings.copy(veryLowThreshold = value) else null
-        CgmAlarmType.RAPID_RISE -> if (value in 0.5..10.0) settings.copy(rapidRiseThreshold = value) else null
-        CgmAlarmType.RAPID_FALL -> if (value in 0.5..10.0) settings.copy(rapidFallThreshold = value) else null
+internal fun thresholdValue(
+    type: CgmAlarmType,
+    settings: CgmAlarmSettings,
+): Double? =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> settings.veryHighThreshold
+        CgmAlarmType.HIGH -> settings.highThreshold
+        CgmAlarmType.LOW -> settings.lowThreshold
+        CgmAlarmType.VERY_LOW -> settings.veryLowThreshold
+        CgmAlarmType.RAPID_RISE -> settings.rapidRiseThreshold
+        CgmAlarmType.RAPID_FALL -> settings.rapidFallThreshold
         CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> null
     }
+
+internal fun withThreshold(
+    settings: CgmAlarmSettings,
+    type: CgmAlarmType,
+    value: Double,
+): CgmAlarmSettings? {
+    if (!value.isFinite()) return null
+    val updated =
+        when (type) {
+            CgmAlarmType.VERY_HIGH -> if (value in (settings.highThreshold + 1.0)..400.0) settings.copy(veryHighThreshold = value) else null
+            CgmAlarmType.HIGH ->
+                if (value > settings.lowThreshold &&
+                    value < settings.veryHighThreshold
+                ) {
+                    settings.copy(highThreshold = value)
+                } else {
+                    null
+                }
+            CgmAlarmType.LOW ->
+                if (value > settings.veryLowThreshold &&
+                    value < settings.highThreshold
+                ) {
+                    settings.copy(lowThreshold = value)
+                } else {
+                    null
+                }
+            CgmAlarmType.VERY_LOW -> if (value in 40.0..<settings.lowThreshold) settings.copy(veryLowThreshold = value) else null
+            CgmAlarmType.RAPID_RISE -> if (value in 0.5..10.0) settings.copy(rapidRiseThreshold = value) else null
+            CgmAlarmType.RAPID_FALL -> if (value in 0.5..10.0) settings.copy(rapidFallThreshold = value) else null
+            CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> null
+        }
     return updated?.takeIf {
-        app.aapswear.model.CgmThresholds(it.veryHighThreshold, it.highThreshold, it.lowThreshold, it.veryLowThreshold).isValid &&
-            it.rapidRiseThreshold in 0.5..10.0 && it.rapidFallThreshold in 0.5..10.0
+        app.aapswear.model
+            .CgmThresholds(it.veryHighThreshold, it.highThreshold, it.lowThreshold, it.veryLowThreshold)
+            .isValid &&
+            it.rapidRiseThreshold in 0.5..10.0 &&
+            it.rapidFallThreshold in 0.5..10.0
     }
 }
 
-private fun thresholdValidationMessage(type: CgmAlarmType, settings: CgmAlarmSettings): String = when (type) {
-    CgmAlarmType.VERY_HIGH -> "Wert muss über ${settings.highThreshold.toInt()} und höchstens 400 sein"
-    CgmAlarmType.HIGH -> "Wert muss zwischen ${settings.lowThreshold.toInt()} und ${settings.veryHighThreshold.toInt()} liegen"
-    CgmAlarmType.LOW -> "Wert muss zwischen ${settings.veryLowThreshold.toInt()} und ${settings.highThreshold.toInt()} liegen"
-    CgmAlarmType.VERY_LOW -> "Wert muss mindestens 40 und unter ${settings.lowThreshold.toInt()} sein"
-    CgmAlarmType.RAPID_RISE, CgmAlarmType.RAPID_FALL -> "Wert muss zwischen 0,5 und 10,0 liegen"
-    CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> "Nicht editierbar"
-}
+private fun thresholdValidationMessage(
+    type: CgmAlarmType,
+    settings: CgmAlarmSettings,
+): String =
+    when (type) {
+        CgmAlarmType.VERY_HIGH -> "Wert muss über ${settings.highThreshold.toInt()} und höchstens 400 sein"
+        CgmAlarmType.HIGH -> "Wert muss zwischen ${settings.lowThreshold.toInt()} und ${settings.veryHighThreshold.toInt()} liegen"
+        CgmAlarmType.LOW -> "Wert muss zwischen ${settings.veryLowThreshold.toInt()} und ${settings.highThreshold.toInt()} liegen"
+        CgmAlarmType.VERY_LOW -> "Wert muss mindestens 40 und unter ${settings.lowThreshold.toInt()} sein"
+        CgmAlarmType.RAPID_RISE, CgmAlarmType.RAPID_FALL -> "Wert muss zwischen 0,5 und 10,0 liegen"
+        CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> "Nicht editierbar"
+    }
 
-internal fun adjustThreshold(settings: CgmAlarmSettings, type: CgmAlarmType, delta: Double): CgmAlarmSettings = when (type) {
-    CgmAlarmType.VERY_HIGH -> settings.copy(veryHighThreshold = (settings.veryHighThreshold + delta).coerceIn(settings.highThreshold + 5.0, 400.0))
-    CgmAlarmType.HIGH -> settings.copy(highThreshold = (settings.highThreshold + delta).coerceIn(settings.lowThreshold + 5.0, settings.veryHighThreshold - 5.0))
-    CgmAlarmType.LOW -> settings.copy(lowThreshold = (settings.lowThreshold + delta).coerceIn(settings.veryLowThreshold + 5.0, settings.highThreshold - 5.0))
-    CgmAlarmType.VERY_LOW -> settings.copy(veryLowThreshold = (settings.veryLowThreshold + delta).coerceIn(40.0, settings.lowThreshold - 5.0))
-    CgmAlarmType.RAPID_RISE -> settings.copy(rapidRiseThreshold = (settings.rapidRiseThreshold + delta).coerceIn(0.5, 10.0))
-    CgmAlarmType.RAPID_FALL -> settings.copy(rapidFallThreshold = (settings.rapidFallThreshold + delta).coerceIn(0.5, 10.0))
-    CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> settings
-}
+internal fun adjustThreshold(
+    settings: CgmAlarmSettings,
+    type: CgmAlarmType,
+    delta: Double,
+): CgmAlarmSettings =
+    when (type) {
+        CgmAlarmType.VERY_HIGH ->
+            settings.copy(
+                veryHighThreshold = (settings.veryHighThreshold + delta).coerceIn(settings.highThreshold + 5.0, 400.0),
+            )
+        CgmAlarmType.HIGH ->
+            settings.copy(
+                highThreshold =
+                    (settings.highThreshold + delta).coerceIn(
+                        settings.lowThreshold + 5.0,
+                        settings.veryHighThreshold - 5.0,
+                    ),
+            )
+        CgmAlarmType.LOW ->
+            settings.copy(
+                lowThreshold =
+                    (settings.lowThreshold + delta).coerceIn(
+                        settings.veryLowThreshold + 5.0,
+                        settings.highThreshold - 5.0,
+                    ),
+            )
+        CgmAlarmType.VERY_LOW ->
+            settings.copy(
+                veryLowThreshold = (settings.veryLowThreshold + delta).coerceIn(40.0, settings.lowThreshold - 5.0),
+            )
+        CgmAlarmType.RAPID_RISE -> settings.copy(rapidRiseThreshold = (settings.rapidRiseThreshold + delta).coerceIn(0.5, 10.0))
+        CgmAlarmType.RAPID_FALL -> settings.copy(rapidFallThreshold = (settings.rapidFallThreshold + delta).coerceIn(0.5, 10.0))
+        CgmAlarmType.SIGNAL_LOSS, CgmAlarmType.SENSOR_ERROR -> settings
+    }

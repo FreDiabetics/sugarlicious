@@ -4,12 +4,12 @@ import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.G7Reading
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SensorState
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 class G7CollectorBackfillProtocolTest {
     @Test
@@ -33,6 +33,12 @@ class G7CollectorBackfillProtocolTest {
     }
 
     @Test
+    fun `first connection requests all sensor history from first cadence slot`() {
+        assertEquals(300L, G7CollectorBackfillProtocol.requestedStart(null, 4L * 60L * 60L))
+        assertEquals(3_600L, G7CollectorBackfillProtocol.requestedStart(null, 25L * 60L * 60L))
+    }
+
+    @Test
     fun `history request ends at the slot before the already received live value`() {
         assertEquals(9_700L, G7CollectorBackfillProtocol.requestedEnd(10_000))
         assertArrayEquals(
@@ -43,17 +49,35 @@ class G7CollectorBackfillProtocolTest {
 
     @Test
     fun `record is historical and timestamps use sensor clock`() {
-        val packet = ByteBuffer.allocate(9).order(ByteOrder.LITTLE_ENDIAN)
-            .putInt(7_200).putShort(145).put(0x06).put(0).put(10).array()
-        val live = G7Reading(
-            sensorId = "sensor", sessionId = "session", sequenceNumber = 99,
-            glucoseMgDl = 150.0, sensorTimestampEpochMs = 11_000_000,
-            receivedAtEpochMs = 11_000_000, sensorClockSeconds = 10_000,
-            sensorStartEpochMs = 1_000_000, sensorState = G7SensorState.ACTIVE,
-        )
-        val parsed = G7CollectorBackfillProtocol.parseRecord(
-            packet, G7Sensor("sensor", "session"), live, 12_000_000,
-        )
+        val packet =
+            ByteBuffer
+                .allocate(9)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(7_200)
+                .putShort(145)
+                .put(0x06)
+                .put(0)
+                .put(10)
+                .array()
+        val live =
+            G7Reading(
+                sensorId = "sensor",
+                sessionId = "session",
+                sequenceNumber = 99,
+                glucoseMgDl = 150.0,
+                sensorTimestampEpochMs = 11_000_000,
+                receivedAtEpochMs = 11_000_000,
+                sensorClockSeconds = 10_000,
+                sensorStartEpochMs = 1_000_000,
+                sensorState = G7SensorState.ACTIVE,
+            )
+        val parsed =
+            G7CollectorBackfillProtocol.parseRecord(
+                packet,
+                G7Sensor("sensor", "session"),
+                live,
+                12_000_000,
+            )
         assertEquals(CgmReadingOrigin.BACKFILL, parsed.origin)
         assertEquals(8_200_000L, parsed.sensorTimestampEpochMs)
         assertEquals(12_000_000L, parsed.receivedAtEpochMs)

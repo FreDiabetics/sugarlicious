@@ -7,9 +7,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.core.content.FileProvider
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,10 +35,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousRadius
@@ -49,14 +47,14 @@ import app.aapswear.mobile.ui.theme.SugarliciousTheme
 import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.storage.DiagnosticEventStore
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class DiagnosticActivity : ComponentActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -89,7 +87,18 @@ class DiagnosticActivity : ComponentActivity() {
     private fun refreshWatch() {
         scope.launch {
             val nodes = runCatching { requestWatchDiagnostics(applicationContext) }.getOrDefault(0)
-            Toast.makeText(this@DiagnosticActivity, if (nodes > 0) "Watch-Diagnose angefordert" else "Keine Watch erreichbar", Toast.LENGTH_SHORT).show()
+            Toast
+                .makeText(
+                    this@DiagnosticActivity,
+                    if (nodes >
+                        0
+                    ) {
+                        "Watch-Diagnose angefordert"
+                    } else {
+                        "Keine Watch erreichbar"
+                    },
+                    Toast.LENGTH_SHORT,
+                ).show()
         }
     }
 
@@ -116,15 +125,22 @@ class DiagnosticActivity : ComponentActivity() {
             runCatching { DiagnosticBundleExporter.create(applicationContext, events) }
                 .onSuccess { file ->
                     val uri = FileProvider.getUriForFile(applicationContext, "$packageName.files", file)
-                    val share = Intent(Intent.ACTION_SEND)
-                        .setType("application/zip")
-                        .putExtra(Intent.EXTRA_SUBJECT, "Sugarlicious Diagnosepaket")
-                        .putExtra(Intent.EXTRA_STREAM, uri)
-                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    val share =
+                        Intent(Intent.ACTION_SEND)
+                            .setType("application/zip")
+                            .putExtra(Intent.EXTRA_SUBJECT, "Sugarlicious Diagnosepaket")
+                            .putExtra(Intent.EXTRA_STREAM, uri)
+                            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     runOnUiThread { startActivity(Intent.createChooser(share, "Diagnosepaket exportieren")) }
-                }
-                .onFailure { error ->
-                    runOnUiThread { Toast.makeText(this@DiagnosticActivity, "Export fehlgeschlagen: ${error.message}", Toast.LENGTH_LONG).show() }
+                }.onFailure { error ->
+                    runOnUiThread {
+                        Toast
+                            .makeText(
+                                this@DiagnosticActivity,
+                                "Export fehlgeschlagen: ${error.message}",
+                                Toast.LENGTH_LONG,
+                            ).show()
+                    }
                 }
         }
     }
@@ -142,10 +158,14 @@ private fun DiagnosticScreen(
 ) {
     var query by remember { mutableStateOf("") }
     var severity by remember { mutableStateOf<DiagnosticSeverity?>(null) }
-    val filtered = events.filter { event ->
-        (severity == null || event.severity == severity) &&
-            (query.isBlank() || listOf(event.code, event.module, event.message, event.origin).any { it.contains(query, ignoreCase = true) })
-    }
+    val filtered =
+        events.filter { event ->
+            (severity == null || event.severity == severity) &&
+                (
+                    query.isBlank() ||
+                        listOf(event.code, event.module, event.message, event.origin).any { it.contains(query, ignoreCase = true) }
+                )
+        }
 
     Scaffold(containerColor = SugarliciousColors.Background) { padding ->
         Column(
@@ -158,7 +178,13 @@ private fun DiagnosticScreen(
             ) {
                 SugarliciousAction("‹", onBack, compact = true)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("SUGARLICIOUS", color = SugarliciousColors.Primary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text(
+                        "SUGARLICIOUS",
+                        color = SugarliciousColors.Primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    )
                     Text("Diagnose", color = SugarliciousColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -170,17 +196,18 @@ private fun DiagnosticScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(SugarliciousRadius.Card),
                 modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = SugarliciousColors.TextPrimary,
-                    unfocusedTextColor = SugarliciousColors.TextPrimary,
-                    focusedContainerColor = SugarliciousColors.Surface,
-                    unfocusedContainerColor = SugarliciousColors.Surface,
-                    focusedBorderColor = SugarliciousColors.Primary,
-                    unfocusedBorderColor = SugarliciousColors.Border,
-                    focusedLabelColor = SugarliciousColors.Primary,
-                    unfocusedLabelColor = SugarliciousColors.TextSecondary,
-                    cursorColor = SugarliciousColors.Primary,
-                ),
+                colors =
+                    OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = SugarliciousColors.TextPrimary,
+                        unfocusedTextColor = SugarliciousColors.TextPrimary,
+                        focusedContainerColor = SugarliciousColors.Surface,
+                        unfocusedContainerColor = SugarliciousColors.Surface,
+                        focusedBorderColor = SugarliciousColors.Primary,
+                        unfocusedBorderColor = SugarliciousColors.Border,
+                        focusedLabelColor = SugarliciousColors.Primary,
+                        unfocusedLabelColor = SugarliciousColors.TextSecondary,
+                        cursorColor = SugarliciousColors.Primary,
+                    ),
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -194,7 +221,10 @@ private fun DiagnosticScreen(
                 shape = RoundedCornerShape(SugarliciousRadius.Card),
                 modifier = Modifier.fillMaxWidth().border(1.dp, SugarliciousColors.Border, RoundedCornerShape(SugarliciousRadius.Card)),
             ) {
-                Column(modifier = Modifier.padding(SugarliciousSpacing.Md), verticalArrangement = Arrangement.spacedBy(SugarliciousSpacing.Sm)) {
+                Column(
+                    modifier = Modifier.padding(SugarliciousSpacing.Md),
+                    verticalArrangement = Arrangement.spacedBy(SugarliciousSpacing.Sm),
+                ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(SugarliciousSpacing.Sm)) {
                         SugarliciousAction("Watch abrufen", onRefreshWatch)
                         SugarliciousAction("Kopieren", onCopy)
@@ -225,35 +255,46 @@ private fun DiagnosticScreen(
 }
 
 @Composable
-private fun SeverityChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun SeverityChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     FilterChip(
         selected = selected,
         onClick = onClick,
         label = { Text(label, fontWeight = FontWeight.Bold) },
         shape = RoundedCornerShape(SugarliciousRadius.Pill),
-        colors = FilterChipDefaults.filterChipColors(
-            containerColor = SugarliciousColors.Surface,
-            labelColor = SugarliciousColors.TextSecondary,
-            selectedContainerColor = SugarliciousColors.SurfaceSelected,
-            selectedLabelColor = SugarliciousColors.Primary,
-        ),
-        border = FilterChipDefaults.filterChipBorder(
-            enabled = true,
-            selected = selected,
-            borderColor = SugarliciousColors.Border,
-            selectedBorderColor = SugarliciousColors.Primary,
-        ),
+        colors =
+            FilterChipDefaults.filterChipColors(
+                containerColor = SugarliciousColors.Surface,
+                labelColor = SugarliciousColors.TextSecondary,
+                selectedContainerColor = SugarliciousColors.SurfaceSelected,
+                selectedLabelColor = SugarliciousColors.Primary,
+            ),
+        border =
+            FilterChipDefaults.filterChipBorder(
+                enabled = true,
+                selected = selected,
+                borderColor = SugarliciousColors.Border,
+                selectedBorderColor = SugarliciousColors.Primary,
+            ),
     )
 }
 
 @Composable
-private fun SugarliciousAction(label: String, onClick: () -> Unit, compact: Boolean = false) {
+private fun SugarliciousAction(
+    label: String,
+    onClick: () -> Unit,
+    compact: Boolean = false,
+) {
     Surface(
         color = SugarliciousColors.SurfaceHigh,
         shape = RoundedCornerShape(SugarliciousRadius.Pill),
-        modifier = Modifier
-            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(SugarliciousRadius.Pill))
-            .clickable(onClick = onClick),
+        modifier =
+            Modifier
+                .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(SugarliciousRadius.Pill))
+                .clickable(onClick = onClick),
     ) {
         Text(
             label,
@@ -267,11 +308,12 @@ private fun SugarliciousAction(label: String, onClick: () -> Unit, compact: Bool
 
 @Composable
 private fun DiagnosticEventCard(event: DiagnosticEvent) {
-    val accent = when (event.severity) {
-        DiagnosticSeverity.ERROR -> SugarliciousColors.Red
-        DiagnosticSeverity.WARNING -> SugarliciousColors.Yellow
-        else -> SugarliciousColors.Primary
-    }
+    val accent =
+        when (event.severity) {
+            DiagnosticSeverity.ERROR -> SugarliciousColors.Red
+            DiagnosticSeverity.WARNING -> SugarliciousColors.Yellow
+            else -> SugarliciousColors.Primary
+        }
     Surface(
         color = SugarliciousColors.Surface,
         shape = RoundedCornerShape(SugarliciousRadius.Card),
@@ -282,10 +324,18 @@ private fun DiagnosticEventCard(event: DiagnosticEvent) {
                 Text(event.code, color = SugarliciousColors.TextPrimary, fontWeight = FontWeight.Bold)
                 Text(event.severity.name, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
-            Text("${event.origin} · ${event.module} · ${diagnosticTime(event.occurredAtEpochMs)}", color = SugarliciousColors.TextSecondary, fontSize = 11.sp)
+            Text(
+                "${event.origin} · ${event.module} · ${diagnosticTime(event.occurredAtEpochMs)}",
+                color = SugarliciousColors.TextSecondary,
+                fontSize = 11.sp,
+            )
             Text(event.message, color = SugarliciousColors.TextPrimary)
             if (event.metadata.isNotEmpty()) {
-                Text(event.metadata.entries.joinToString(" · ") { "${it.key}=${it.value}" }, color = SugarliciousColors.TextSecondary, fontSize = 11.sp)
+                Text(
+                    event.metadata.entries.joinToString(" · ") { "${it.key}=${it.value}" },
+                    color = SugarliciousColors.TextSecondary,
+                    fontSize = 11.sp,
+                )
             }
         }
     }
@@ -300,5 +350,4 @@ internal fun formatDiagnosticEvents(events: List<DiagnosticEvent>): String =
         }
     }
 
-private fun diagnosticTime(timestamp: Long): String =
-    SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+private fun diagnosticTime(timestamp: Long): String = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.getDefault()).format(Date(timestamp))

@@ -4,8 +4,8 @@ import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.LongTextComplicationData
 import androidx.wear.watchface.complications.data.PhotoImageComplicationData
 import androidx.wear.watchface.complications.data.RangedValueComplicationData
-import androidx.wear.watchface.complications.data.SmallImageComplicationData
 import androidx.wear.watchface.complications.data.ShortTextComplicationData
+import androidx.wear.watchface.complications.data.SmallImageComplicationData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -20,6 +20,18 @@ import java.time.Instant
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class TherapyComplicationsTest {
+    @Test
+    fun `all standard Watchface graph slots advance by measured time and wall clock`() {
+        val minute = 60_000L
+        val readingAt = 50_000_000L
+        val duration = 3L * 60L * minute
+        val arrival = standardWearGraphWindow(readingAt, duration)
+        val later = standardWearGraphWindow(readingAt + minute, duration)
+
+        assertEquals(1f, arrival.xFraction(readingAt), 0.0001f)
+        assertTrue(later.xFraction(readingAt) < arrival.xFraction(readingAt))
+        assertTrue(later.xFraction(readingAt - 45 * minute) < later.xFraction(readingAt))
+    }
 
     @Test
     fun `all documented providers remain active`() {
@@ -166,8 +178,7 @@ class TherapyComplicationsTest {
                 .getTextAt(
                     service.resources,
                     Instant.now(),
-                )
-                .toString(),
+                ).toString(),
         )
         assertNull(data.title)
         assertNotNull(data.monochromaticImage)
@@ -214,8 +225,7 @@ class TherapyComplicationsTest {
                 .getTextAt(
                     iobService.resources,
                     Instant.now(),
-                )
-                .toString(),
+                ).toString(),
         )
         assertNull(iob.title)
         assertNotNull(iob.monochromaticImage)
@@ -235,8 +245,7 @@ class TherapyComplicationsTest {
                 .getTextAt(
                     cobService.resources,
                     Instant.now(),
-                )
-                .toString(),
+                ).toString(),
         )
         assertNull(cob.title)
         assertNotNull(cob.monochromaticImage)
@@ -248,10 +257,16 @@ class TherapyComplicationsTest {
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
         assertEquals(3, data.title!!.getTextAt(service.resources, Instant.now()).length)
         assertEquals(
-            data.title!!.getTextAt(service.resources, Instant.now()).toString().uppercase(),
+            data.title!!
+                .getTextAt(service.resources, Instant.now())
+                .toString()
+                .uppercase(),
             data.title!!.getTextAt(service.resources, Instant.now()).toString(),
         )
-        data.text.getTextAt(service.resources, Instant.now()).toString().toInt()
+        data.text
+            .getTextAt(service.resources, Instant.now())
+            .toString()
+            .toInt()
     }
 
     @Test

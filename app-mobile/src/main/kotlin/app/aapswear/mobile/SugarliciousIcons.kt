@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.content.Context
 import android.content.res.ColorStateList
-import android.graphics.Color as AndroidColor
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -19,11 +18,14 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import android.graphics.Color as AndroidColor
 
-internal fun shouldOutlineSugarliciousIcon(isLight: Boolean, colored: Boolean): Boolean =
-    isLight && colored
+internal fun shouldOutlineSugarliciousIcon(
+    isLight: Boolean,
+    colored: Boolean,
+): Boolean = false
 
-/** Shared colored-icon renderer. Light mode adds a subtle black silhouette; Dark stays untouched. */
+/** Shared colored-icon renderer. Outlines are never inferred from the active color mode. */
 @Composable
 internal fun SugarliciousIcon(
     @DrawableRes drawableRes: Int,
@@ -80,17 +82,21 @@ internal fun sugarliciousIconView(
         importantForAccessibility =
             if (contentDescription == null) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
 
-        fun image(tint: Int?, x: Float = 0f, y: Float = 0f, description: String? = null) =
-            ImageView(context).apply {
-                setImageResource(drawableRes)
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                imageTintList = tint?.let(ColorStateList::valueOf)
-                translationX = x
-                translationY = y
-                this.contentDescription = description
-                importantForAccessibility =
-                    if (description == null) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            }
+        fun image(
+            tint: Int?,
+            x: Float = 0f,
+            y: Float = 0f,
+            description: String? = null,
+        ) = ImageView(context).apply {
+            setImageResource(drawableRes)
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            imageTintList = tint?.let(ColorStateList::valueOf)
+            translationX = x
+            translationY = y
+            this.contentDescription = description
+            importantForAccessibility =
+                if (description == null) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
+        }
 
         if (shouldOutlineSugarliciousIcon(SugarliciousColors.palette.isLight, colored)) {
             val offset = context.resources.displayMetrics.density * 0.65f

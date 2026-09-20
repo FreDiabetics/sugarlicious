@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<complications>
-    <complication type="SHORT_TEXT">
-        <text><plain value="123→" valueType="string"/></text>
-        <title><plain value="" valueType="string"/></title>
-    </complication>
-</complications>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shared_color_rgba">R %1$d · G %2$d · B %3$d · A %4$d</string>
+    <string name="shared_color_presets_recent">Presets / zuletzt verwendet</string>
+</resources>

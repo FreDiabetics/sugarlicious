@@ -26,11 +26,12 @@ class TherapyHeroIndicatorsTest {
 
     @Test
     fun `three rings use canonical values and clamp their scales`() {
-        val state = state(
-            insulin = InsulinState(totalIob = 12.0),
-            carbs = CarbState(cobGrams = 450.0),
-            basal = BasalState(currentUnitsPerHour = 0.8, tempAbsoluteUnitsPerHour = 1.2, tempPercent = 150),
-        )
+        val state =
+            state(
+                insulin = InsulinState(totalIob = 12.0),
+                carbs = CarbState(cobGrams = 450.0),
+                basal = BasalState(currentUnitsPerHour = 0.8, tempAbsoluteUnitsPerHour = 1.2, tempPercent = 150),
+            )
         val values = therapyIndicatorPresentations(state, iobMaximumUnits = 10f, nowEpochMs = 1_000L)
         assertEquals(3, values.size)
         assertEquals(1f, values[0].progress!!, 0.0001f)
@@ -51,12 +52,14 @@ class TherapyHeroIndicatorsTest {
 
     @Test
     fun `latest canonical therapy history supplies missing basal snapshot`() {
-        val state = TherapyDisplayState(
-            receivedAtEpochMs = 1_000L,
-            therapyHistory = listOf(
-                TherapyHistorySample(800L, basalUnitsPerHour = 0.75, baseBasalUnitsPerHour = 0.5),
-            ),
-        )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = 1_000L,
+                therapyHistory =
+                    listOf(
+                        TherapyHistorySample(800L, basalUnitsPerHour = 0.75, baseBasalUnitsPerHour = 0.5),
+                    ),
+            )
         val basal = therapyIndicatorPresentations(state, 10f, 1_000L)[2]
         assertEquals("0.75U/h", basal.value)
         assertEquals("@150%", basal.secondary)
@@ -97,12 +100,13 @@ class TherapyHeroIndicatorsTest {
 
     @Test
     fun `expired temp basal falls back to canonical base rate and 100 percent`() {
-        val basal = BasalState(
-            currentUnitsPerHour = 0.8,
-            tempAbsoluteUnitsPerHour = 1.2,
-            tempPercent = 150,
-            tempEndsAtEpochMs = 900L,
-        )
+        val basal =
+            BasalState(
+                currentUnitsPerHour = 0.8,
+                tempAbsoluteUnitsPerHour = 1.2,
+                tempPercent = 150,
+                tempEndsAtEpochMs = 900L,
+            )
         assertEquals(EffectiveBasalPresentation(0.8, 100), effectiveBasalPresentation(basal, 1_000L))
     }
 

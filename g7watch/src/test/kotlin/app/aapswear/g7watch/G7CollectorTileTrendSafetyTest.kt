@@ -43,16 +43,18 @@ class G7CollectorTileTrendSafetyTest {
         assertNull(sensorError.trend)
     }
 
-    private fun reading(timestamp: Long, trend: Trend) =
-        CgmReading(
-            id = "reading-$timestamp-$trend",
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = "sensor",
-            sessionId = "session",
-            glucoseMgDl = 123.0,
-            timestampEpochMs = timestamp,
-            receivedAtEpochMs = timestamp,
-            trend = trend,
-            status = CgmReadingStatus.VALID,
-        )
+    private fun reading(
+        timestamp: Long,
+        trend: Trend,
+    ) = CgmReading(
+        id = "reading-$timestamp-$trend",
+        source = DataSourceId.DEXCOM_G7_WATCH,
+        sensorId = "sensor",
+        sessionId = "session",
+        glucoseMgDl = 123.0,
+        timestampEpochMs = timestamp,
+        receivedAtEpochMs = timestamp,
+        trend = trend,
+        status = CgmReadingStatus.VALID,
+    )
 }

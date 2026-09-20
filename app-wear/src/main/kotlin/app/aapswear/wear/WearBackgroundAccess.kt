@@ -1,22 +1,22 @@
 package app.aapswear.wear
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 
 internal object WearBackgroundAccess {
     fun isBatteryUnrestricted(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            true
-        } else {
-            context.getSystemService(PowerManager::class.java)
-                .isIgnoringBatteryOptimizations(context.packageName)
-        }
+        context
+            .getSystemService(PowerManager::class.java)
+            .isIgnoringBatteryOptimizations(context.packageName)
 
+    // User-initiated exemption is required for continuous glucose monitoring,
+    // whose core data and alert path cannot be deferred by Doze.
+    @SuppressLint("BatteryLife")
     internal fun batterySettingsIntents(packageName: String): List<Intent> {
         val packageUri = Uri.parse("package:$packageName")
         return listOf(
@@ -28,10 +28,11 @@ internal object WearBackgroundAccess {
 
     fun openBatterySettings(activity: Activity): Boolean {
         for (intent in batterySettingsIntents(activity.packageName)) {
-            val opened = runCatching {
-                activity.startActivity(intent)
-                true
-            }.getOrDefault(false)
+            val opened =
+                runCatching {
+                    activity.startActivity(intent)
+                    true
+                }.getOrDefault(false)
             if (opened) return true
         }
         return false

@@ -4,25 +4,23 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import app.aapswear.protocol.WatchConfig
-import app.aapswear.protocol.WatchGlucoseUnit
-import app.aapswear.protocol.WearProtocol
-import app.aapswear.protocol.G7ReadingAck
-import app.aapswear.protocol.G7ReadingBatch
-import app.aapswear.protocol.WatchGraphColors
-import app.aapswear.protocol.WatchColorSync
-import app.aapswear.protocol.WatchAppearanceProfile
-import app.aapswear.model.AppearanceMode
-import app.aapswear.protocol.WatchGraphStyle
-import app.aapswear.protocol.WatchUiColors
-import app.aapswear.protocol.WatchDataSource
-import app.aapswear.model.DataSourceId
-import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
-import app.aapswear.storage.TherapyStateStore
-import app.aapswear.storage.PhoneTherapyStateStore
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.DiagnosticSeverity
+import app.aapswear.protocol.G7ReadingAck
+import app.aapswear.protocol.G7ReadingBatch
+import app.aapswear.protocol.WatchAppearanceProfile
+import app.aapswear.protocol.WatchColorSync
+import app.aapswear.protocol.WatchConfig
+import app.aapswear.protocol.WatchDataSource
+import app.aapswear.protocol.WatchGlucoseUnit
+import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.WatchUiColors
+import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.DiagnosticEventStore
+import app.aapswear.storage.PhoneTherapyStateStore
+import app.aapswear.storage.TherapyStateStore
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
@@ -48,13 +46,14 @@ class MobileDataLayerService : WearableListenerService() {
             WearProtocol.REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-WATCH-100", "Watch requested current state")
-                    val phoneState = PhoneTherapyStateStore(this@MobileDataLayerService)
-                        .state
-                        .first()
-                        ?: TherapyStateStore(this@MobileDataLayerService)
+                    val phoneState =
+                        PhoneTherapyStateStore(this@MobileDataLayerService)
                             .state
                             .first()
-                            ?.withoutDirectWatchCgm()
+                            ?: TherapyStateStore(this@MobileDataLayerService)
+                                .state
+                                .first()
+                                ?.withoutDirectWatchCgm()
                     runCatching {
                         phoneState?.let { publishState(this@MobileDataLayerService, it) }
                         publishWatchConfig(this@MobileDataLayerService)
@@ -88,11 +87,12 @@ class MobileDataLayerService : WearableListenerService() {
             WearProtocol.WATCH_FACE_STATUS_PATH -> {
                 val message = event.data.decodeToString()
                 Handler(Looper.getMainLooper()).post {
-                    Toast.makeText(
-                        applicationContext,
-                        message,
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    Toast
+                        .makeText(
+                            applicationContext,
+                            message,
+                            Toast.LENGTH_SHORT,
+                        ).show()
                 }
             }
             WearProtocol.WATCH_RUNTIME_STATUS_PATH -> {
@@ -104,23 +104,37 @@ class MobileDataLayerService : WearableListenerService() {
                                 "WATCH",
                                 "WATCH-STATUS-200",
                                 "Watch runtime status received",
-                                metadata = mapOf("complications" to it.activeComplicationIds.size, "watchface" to it.activeSugarliciousFaceIndex),
+                                metadata =
+                                    mapOf(
+                                        "complications" to it.activeComplicationIds.size,
+                                        "watchface" to it.activeSugarliciousFaceIndex,
+                                    ),
                             )
                         }
-                    }
-                    .onFailure {
+                    }.onFailure {
                         scope.launch {
-                            applicationContext.recordMobileDiagnostic("WATCH", "WATCH-STATUS-401", "Invalid Watch runtime status", DiagnosticSeverity.WARNING)
+                            applicationContext.recordMobileDiagnostic(
+                                "WATCH",
+                                "WATCH-STATUS-401",
+                                "Invalid Watch runtime status",
+                                DiagnosticSeverity.WARNING,
+                            )
                         }
                     }
             }
 
             WearProtocol.G7_READING_BATCH_PATH -> {
                 scope.launch {
-                    val batch = runCatching { WearProtocol.decodeG7ReadingBatch(event.data) }.getOrElse {
-                        applicationContext.recordMobileDiagnostic("G7", "G7-SYNC-401", "Invalid G7 Watch history batch rejected", DiagnosticSeverity.WARNING)
-                        return@launch
-                    }
+                    val batch =
+                        runCatching { WearProtocol.decodeG7ReadingBatch(event.data) }.getOrElse {
+                            applicationContext.recordMobileDiagnostic(
+                                "G7",
+                                "G7-SYNC-401",
+                                "Invalid G7 Watch history batch rejected",
+                                DiagnosticSeverity.WARNING,
+                            )
+                            return@launch
+                        }
                     acceptG7Batch(batch, event.sourceNodeId)
                 }
             }
@@ -136,8 +150,7 @@ class MobileDataLayerService : WearableListenerService() {
                                 "Watch diagnostics received",
                                 metadata = mapOf("eventCount" to batch.events.size),
                             )
-                        }
-                        .onFailure {
+                        }.onFailure {
                             applicationContext.recordMobileDiagnostic(
                                 "DIAGNOSTICS",
                                 "DIAG-SYNC-401",
@@ -155,19 +168,26 @@ class MobileDataLayerService : WearableListenerService() {
         super.onDestroy()
     }
 
-    private suspend fun acceptG7Batch(batch: G7ReadingBatch, sourceNodeId: String) {
+    private suspend fun acceptG7Batch(
+        batch: G7ReadingBatch,
+        sourceNodeId: String,
+    ) {
         MobileG7BackfillStore(this).clear()
         val ignoredIds = batch.readings.mapNotNull { it.id.takeIf(String::isNotBlank) }.toSet()
-        val ack = G7ReadingAck(
-            batchId = batch.batchId,
-            acknowledgedIds = ignoredIds,
-            acknowledgedAtEpochMs = System.currentTimeMillis(),
-        )
-        Wearable.getMessageClient(this)
+        val ack =
+            G7ReadingAck(
+                batchId = batch.batchId,
+                acknowledgedIds = ignoredIds,
+                acknowledgedAtEpochMs = System.currentTimeMillis(),
+            )
+        Wearable
+            .getMessageClient(this)
             .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
             .await()
         applicationContext.recordMobileDiagnostic(
-            "G7", "G7-SYNC-204", "Direct-to-Watch history ignored by AndroidAPS-only Mobile policy",
+            "G7",
+            "G7-SYNC-204",
+            "SugarWear history ignored by AndroidAPS-only Mobile policy",
             metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
         )
     }
@@ -203,111 +223,110 @@ internal fun readWatchConfig(context: Context): WatchConfig {
                 "cgm.prediction.zeroTemp",
             ).any { preferences.getBoolean(it, false) },
         glucoseUnit = unit,
-        dataSource = when (
-            runCatching {
-                DataSourcePreference.valueOf(
-                    preferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                )
-            }.getOrDefault(DataSourcePreference.AUTOMATIC)
-        ) {
-            DataSourcePreference.AUTOMATIC -> WatchDataSource.AUTOMATIC
-            DataSourcePreference.DEXCOM_G7_WATCH -> WatchDataSource.DEXCOM_G7_WATCH
-            DataSourcePreference.ANDROID_APS,
-            DataSourcePreference.XDRIP_PLUS,
-            -> WatchDataSource.PHONE
-        },
+        // Mobile is intentionally AndroidAPS-only. Do not leak a removed legacy source choice
+        // into Wear configuration before the next AAPS payload has had a chance to migrate it.
+        dataSource = WatchDataSource.PHONE,
         showTherapyStats = preferences.getBoolean("showDetails", true),
-        graphColors = WatchGraphColors(
-            graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
-            rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
-            rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
-            rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
-            cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
-            cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
-            cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
-            cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
-            cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
-            divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
-            highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
-            lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
-            axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
-            axisTick = palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK),
-            nowLine = palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE),
-            outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
-            predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
-            predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
-            predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
-            predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
-            targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
-            signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
-        ),
+        graphColors =
+            WatchGraphColors(
+                graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
+                rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
+                rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
+                rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
+                cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
+                cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
+                cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
+                cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+                cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+                divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
+                highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
+                lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
+                axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
+                axisTick = palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK),
+                nowLine = palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE),
+                outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
+                predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
+                predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
+                predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
+                predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
+                targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
+                signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
+            ),
         graphStyle = readMobileGraphStyle(preferences),
-        uiColors = WatchUiColors(
-            background = palette.argb(SugarliciousColorRole.BACKGROUND),
-            tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
-            tileBorder = palette.argb(SugarliciousColorRole.BORDER),
-            textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
-            textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
-            accent = palette.argb(SugarliciousColorRole.PRIMARY),
-            glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
-            glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
-            glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
-            glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
-            glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
-            iob = palette.argb(SugarliciousColorRole.BLUE),
-            cob = palette.argb(SugarliciousColorRole.ORANGE),
-            basal = palette.argb(SugarliciousColorRole.SECONDARY),
-        ),
+        uiColors =
+            WatchUiColors(
+                background = palette.argb(SugarliciousColorRole.BACKGROUND),
+                tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
+                tileBorder = palette.argb(SugarliciousColorRole.BORDER),
+                textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
+                textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
+                deltaUnit = palette.argb(SugarliciousColorRole.DELTA_UNIT),
+                accent = palette.argb(SugarliciousColorRole.PRIMARY),
+                glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
+                glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
+                glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
+                glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+                glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+                iob = palette.argb(SugarliciousColorRole.BLUE),
+                cob = palette.argb(SugarliciousColorRole.ORANGE),
+                basal = palette.argb(SugarliciousColorRole.SECONDARY),
+            ),
         cgmThresholds = CgmThresholdPreferences.read(preferences),
         sentAtEpochMs = System.currentTimeMillis(),
     )
 }
 
-internal fun readWatchAppearanceProfile(context: Context, mode: AppearanceMode): WatchAppearanceProfile {
+internal fun readWatchAppearanceProfile(
+    context: Context,
+    mode: AppearanceMode,
+): WatchAppearanceProfile {
     val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
     val palette = SugarliciousColorStore.load(preferences, mode)
     return WatchAppearanceProfile(
-        graphColors = WatchGraphColors(
-            graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
-            rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
-            rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
-            rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
-            cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
-            cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
-            cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
-            cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
-            cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
-            divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
-            highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
-            lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
-            axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
-            axisTick = palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK),
-            nowLine = palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE),
-            outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
-            predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
-            predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
-            predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
-            predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
-            targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
-            signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
-        ),
+        graphColors =
+            WatchGraphColors(
+                graphBackground = palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND),
+                rangeLow = palette.argb(SugarliciousColorRole.RANGE_LOW),
+                rangeInRange = palette.argb(SugarliciousColorRole.RANGE_IN_RANGE),
+                rangeHigh = palette.argb(SugarliciousColorRole.RANGE_HIGH),
+                cgmLow = palette.argb(SugarliciousColorRole.CGM_DOT_LOW),
+                cgmInRange = palette.argb(SugarliciousColorRole.CGM_DOT_IN_RANGE),
+                cgmHigh = palette.argb(SugarliciousColorRole.CGM_DOT_HIGH),
+                cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+                cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+                divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
+                highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
+                lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
+                axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
+                axisTick = palette.argb(SugarliciousColorRole.GRAPH_AXIS_TICK),
+                nowLine = palette.argb(SugarliciousColorRole.GRAPH_NOW_LINE),
+                outline = palette.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE),
+                predictionIob = palette.argb(SugarliciousColorRole.PREDICTION_IOB),
+                predictionCob = palette.argb(SugarliciousColorRole.PREDICTION_COB),
+                predictionUam = palette.argb(SugarliciousColorRole.PREDICTION_UAM),
+                predictionZeroTemp = palette.argb(SugarliciousColorRole.PREDICTION_ZERO_TEMP),
+                targetValue = palette.argb(SugarliciousColorRole.TARGET_VALUE),
+                signalLoss = palette.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS),
+            ),
         graphStyle = readMobileGraphStyle(preferences, mode),
-        uiColors = WatchUiColors(
-            background = palette.argb(SugarliciousColorRole.BACKGROUND),
-            tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
-            tileBorder = palette.argb(SugarliciousColorRole.BORDER),
-            textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
-            textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
-            accent = palette.argb(SugarliciousColorRole.PRIMARY),
-            glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
-            glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
-            glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
-            glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
-            glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
-            iob = palette.argb(SugarliciousColorRole.BLUE),
-            cob = palette.argb(SugarliciousColorRole.ORANGE),
-            basal = palette.argb(SugarliciousColorRole.SECONDARY),
-        ),
+        uiColors =
+            WatchUiColors(
+                background = palette.argb(SugarliciousColorRole.BACKGROUND),
+                tileBackground = palette.argb(SugarliciousColorRole.SURFACE),
+                tileBorder = palette.argb(SugarliciousColorRole.BORDER),
+                textPrimary = palette.argb(SugarliciousColorRole.TEXT_PRIMARY),
+                textSecondary = palette.argb(SugarliciousColorRole.TEXT_SECONDARY),
+                deltaUnit = palette.argb(SugarliciousColorRole.DELTA_UNIT),
+                accent = palette.argb(SugarliciousColorRole.PRIMARY),
+                glucoseLow = palette.argb(SugarliciousColorRole.GLUCOSE_LOW),
+                glucoseInRange = palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE),
+                glucoseHigh = palette.argb(SugarliciousColorRole.GLUCOSE_HIGH),
+                glucoseVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
+                glucoseVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+                iob = palette.argb(SugarliciousColorRole.BLUE),
+                cob = palette.argb(SugarliciousColorRole.ORANGE),
+                basal = palette.argb(SugarliciousColorRole.SECONDARY),
+            ),
     )
 }
 
@@ -319,8 +338,7 @@ internal suspend fun publishWatchConfig(context: Context) {
                 WearProtocol.encodeConfig(
                     readWatchConfig(context),
                 ),
-            )
-            .setUrgent()
+            ).setUrgent()
 
     Wearable
         .getDataClient(context)
@@ -345,14 +363,14 @@ internal suspend fun publishWatchColors(context: Context) {
                         sentAtEpochMs = System.currentTimeMillis(),
                     ),
                 ),
-            )
-            .setUrgent()
+            ).setUrgent()
     Wearable.getDataClient(context).putDataItem(request).await()
 }
 
 internal suspend fun requestWatchRuntimeStatus(context: Context) {
     refreshReachableWatchNodeIds(context).forEach { nodeId ->
-        Wearable.getMessageClient(context)
+        Wearable
+            .getMessageClient(context)
             .sendMessage(nodeId, WearProtocol.WATCH_RUNTIME_REQUEST_PATH, byteArrayOf())
             .await()
     }

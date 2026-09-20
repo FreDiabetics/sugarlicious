@@ -106,6 +106,8 @@ class WidgetGraphLayoutTest {
         assertTrue(result.yAxisLeftPx < result.widthPx)
     }
 
-    private fun metrics(width: Int, height: Int): WidgetGraphLayoutMetrics =
-        WidgetGraphLayoutMetrics.resolve(width, height, density, scaledDensity)
+    private fun metrics(
+        width: Int,
+        height: Int,
+    ): WidgetGraphLayoutMetrics = WidgetGraphLayoutMetrics.resolve(width, height, density, scaledDensity)
 }

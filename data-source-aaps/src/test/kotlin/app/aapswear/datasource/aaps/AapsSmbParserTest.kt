@@ -7,10 +7,11 @@ import kotlin.test.assertNull
 class AapsSmbParserTest {
     @Test
     fun parsesUnitsAndIsoDeliveryTime() {
-        val parsed = AapsSmbParser.parse(
-            """{"units":0.35,"deliverAt":"2026-08-09T14:15:00Z"}""",
-            1L,
-        )
+        val parsed =
+            AapsSmbParser.parse(
+                """{"units":0.35,"deliverAt":"2026-08-09T14:15:00Z"}""",
+                1L,
+            )
         assertEquals(0.35, parsed?.units)
         assertEquals(1_786_284_900_000L, parsed?.deliveredAtEpochMs)
     }

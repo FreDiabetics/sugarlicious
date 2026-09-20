@@ -1,7 +1,7 @@
 package app.aapswear.wear
 
-import app.aapswear.model.DataSourceId
 import app.aapswear.model.CgmSourceState
+import app.aapswear.model.DataSourceId
 import app.aapswear.protocol.WatchDataSource
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

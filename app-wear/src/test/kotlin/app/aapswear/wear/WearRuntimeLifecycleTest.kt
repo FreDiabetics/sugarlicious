@@ -41,7 +41,9 @@ class WearRuntimeLifecycleTest {
         assertEquals("package:app.aapswear", intents.first().dataString)
     }
 
-    @Test fun `runtime service is sticky and notification is permanent silent service state`() {
+    @Suppress("DEPRECATION") // Notification sound has no replacement inspection API.
+    @Test
+    fun `runtime service is sticky and notification is permanent silent service state`() {
         val controller = Robolectric.buildService(StateDataLayerService::class.java).create()
         val service = controller.get()
         val notification = service.runtimeNotification()

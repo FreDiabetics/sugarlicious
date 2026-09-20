@@ -6,9 +6,9 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.wear.watchfacepush.WatchFacePushManager
 import androidx.wear.watchfacepush.WatchFacePushManagerFactory
-import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import java.io.File
 
 internal data class ManagedWatchFaceSlot(
     val slotId: String,
@@ -48,9 +48,9 @@ internal object SugarliciousWatchFacePush {
     internal val activeFaceSpecs =
         listOf(
             FaceSpec(
-                "app.aapswear.watchfacepush.analog",
-                "watchfaces/sugarlicious_analog.apk",
-                "watchfaces/sugarlicious_analog_token.txt",
+                "app.aapswear.watchfacepush.digital",
+                "watchfaces/sugarlicious_digital.apk",
+                "watchfaces/sugarlicious_digital_token.txt",
             ),
             FaceSpec(
                 "app.aapswear.watchfacepush.g6style",
@@ -66,7 +66,11 @@ internal object SugarliciousWatchFacePush {
             FaceSpec("app.aapswear.watchfacepush.aapscircle", "watchfaces/aaps_circle.apk", "watchfaces/aaps_circle_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapscockpit", "watchfaces/aaps_cockpit.apk", "watchfaces/aaps_cockpit_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapscommunity", "watchfaces/aaps_community.apk", "watchfaces/aaps_community_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsdigitalstyle", "watchfaces/aaps_digital_style.apk", "watchfaces/aaps_digital_style_token.txt"),
+            FaceSpec(
+                "app.aapswear.watchfacepush.aapsdigitalstyle",
+                "watchfaces/aaps_digital_style.apk",
+                "watchfaces/aaps_digital_style_token.txt",
+            ),
             FaceSpec("app.aapswear.watchfacepush.aapslarge", "watchfaces/aaps_large.apk", "watchfaces/aaps_large_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapsnochart", "watchfaces/aaps_no_chart.apk", "watchfaces/aaps_no_chart_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.aapsstandard", "watchfaces/aaps_standard.apk", "watchfaces/aaps_standard_token.txt"),
@@ -76,11 +80,19 @@ internal object SugarliciousWatchFacePush {
             FaceSpec("app.aapswear.watchfacepush.aimico", "watchfaces/aimico.apk", "watchfaces/aimico_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.analoggwatch", "watchfaces/analog_g_watch.apk", "watchfaces/analog_g_watch_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.bluering", "watchfaces/blue_ring.apk", "watchfaces/blue_ring_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.digitalbiggraph", "watchfaces/digital_big_graph.apk", "watchfaces/digital_big_graph_token.txt"),
+            FaceSpec(
+                "app.aapswear.watchfacepush.digitalbiggraph",
+                "watchfaces/digital_big_graph.apk",
+                "watchfaces/digital_big_graph_token.txt",
+            ),
             FaceSpec("app.aapswear.watchfacepush.digitalgwatch", "watchfaces/digital_g_watch.apk", "watchfaces/digital_g_watch_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.gears", "watchfaces/gears.apk", "watchfaces/gears_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.gota", "watchfaces/gota.apk", "watchfaces/gota_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.luckyloopkoeln", "watchfaces/lucky_loop_koeln.apk", "watchfaces/lucky_loop_koeln_token.txt"),
+            FaceSpec(
+                "app.aapswear.watchfacepush.luckyloopkoeln",
+                "watchfaces/lucky_loop_koeln.apk",
+                "watchfaces/lucky_loop_koeln_token.txt",
+            ),
             FaceSpec("app.aapswear.watchfacepush.pzero", "watchfaces/p_zero.apk", "watchfaces/p_zero_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.robby", "watchfaces/robby.apk", "watchfaces/robby_token.txt"),
             FaceSpec("app.aapswear.watchfacepush.simpledigital", "watchfaces/simple_digital.apk", "watchfaces/simple_digital_token.txt"),
@@ -107,17 +119,19 @@ internal object SugarliciousWatchFacePush {
                     WatchFacePushManagerFactory
                         .createWatchFacePushManager(context)
                 val installed =
-                    manager.listWatchFaces()
+                    manager
+                        .listWatchFaces()
                         .installedWatchFaceDetails
 
-                faces.indexOfFirst { face ->
-                    installed.any { details ->
-                        details.packageName == face.packageName &&
-                            runCatching {
-                                manager.isWatchFaceActive(details.packageName)
-                            }.getOrDefault(false)
-                    }
-                }.takeIf { it >= 0 }
+                faces
+                    .indexOfFirst { face ->
+                        installed.any { details ->
+                            details.packageName == face.packageName &&
+                                runCatching {
+                                    manager.isWatchFaceActive(details.packageName)
+                                }.getOrDefault(false)
+                        }
+                    }.takeIf { it >= 0 }
             }.getOrNull()
 
         if (detected != null) return detected
@@ -171,7 +185,8 @@ internal object SugarliciousWatchFacePush {
                 WatchFacePushManagerFactory
                     .createWatchFacePushManager(context)
             val installed =
-                manager.listWatchFaces()
+                manager
+                    .listWatchFaces()
                     .installedWatchFaceDetails
             Log.i(
                 TAG,
@@ -206,16 +221,17 @@ internal object SugarliciousWatchFacePush {
             val targetWasActive = selectedSlot?.isActive == true
 
             val details =
-                ParcelFileDescriptor.open(
-                    apk,
-                    ParcelFileDescriptor.MODE_READ_ONLY,
-                ).use { pfd ->
-                    if (target == null) {
-                        manager.addWatchFace(pfd, token)
-                    } else {
-                        manager.updateWatchFace(target.slotId, pfd, token)
+                ParcelFileDescriptor
+                    .open(
+                        apk,
+                        ParcelFileDescriptor.MODE_READ_ONLY,
+                    ).use { pfd ->
+                        if (target == null) {
+                            manager.addWatchFace(pfd, token)
+                        } else {
+                            manager.updateWatchFace(target.slotId, pfd, token)
+                        }
                     }
-                }
             Log.i(TAG, "Updated slot ${details.slotId}=${details.packageName}; wasActive=$targetWasActive")
 
             when {
@@ -249,7 +265,8 @@ internal object SugarliciousWatchFacePush {
         context: Context,
         index: Int,
     ) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putInt(LAST_APPLIED_FACE, index)
             .putLong(LAST_APPLIED_AT, System.currentTimeMillis())
@@ -276,7 +293,8 @@ internal object SugarliciousWatchFacePush {
                 delay(settlingDelay)
                 slotId =
                     runCatching {
-                        manager.listWatchFaces()
+                        manager
+                            .listWatchFaces()
                             .installedWatchFaceDetails
                             .firstOrNull { it.packageName == packageName }
                             ?.slotId
@@ -316,7 +334,8 @@ internal object SugarliciousWatchFacePush {
     }
 
     private fun markDirectActivationAttempted(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
             .putBoolean(DIRECT_ACTIVATION_ATTEMPTED, true)
             .apply()

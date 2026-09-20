@@ -7,10 +7,11 @@ import kotlin.test.assertTrue
 
 class AapsPredictionParserTest {
     @Test fun parsesKnownPredictionSeriesAtFiveMinuteIntervals() {
-        val parsed = AapsPredictionParser.parse(
-            """{"predBGs":{"IOB":[129,125,120],"UAM":[129,135,142],"bad":[1,2]}}""",
-            1_000_000L,
-        )
+        val parsed =
+            AapsPredictionParser.parse(
+                """{"predBGs":{"IOB":[129,125,120],"UAM":[129,135,142],"bad":[1,2]}}""",
+                1_000_000L,
+            )
         assertEquals(listOf(PredictionKind.IOB, PredictionKind.UAM), parsed.map { it.kind })
         assertEquals(1_600_000L, parsed.first().samples[2].measuredAtEpochMs)
         assertEquals(120.0, parsed.first().samples[2].valueMgDl)

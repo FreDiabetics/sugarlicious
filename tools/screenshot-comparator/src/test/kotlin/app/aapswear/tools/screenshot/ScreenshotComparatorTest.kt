@@ -24,10 +24,11 @@ class ScreenshotComparatorTest {
     @Test
     fun `difference image and metrics identify changed pixels`() {
         val reference = image(2, 1, Color.WHITE)
-        val actualImage = BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB).apply {
-            setRGB(0, 0, Color.WHITE.rgb)
-            setRGB(1, 0, Color.RED.rgb)
-        }
+        val actualImage =
+            BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB).apply {
+                setRGB(0, 0, Color.WHITE.rgb)
+                setRGB(1, 0, Color.RED.rgb)
+            }
         val actual = write(actualImage)
         val diff = File.createTempFile("diff", ".png").also { it.delete() }
         val metrics = ScreenshotComparator().compare(reference, actual, diff)
@@ -44,11 +45,16 @@ class ScreenshotComparatorTest {
         }
     }
 
-    private fun image(width: Int, height: Int, color: Color): File =
-        write(BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB).apply {
-            for (y in 0 until height) for (x in 0 until width) setRGB(x, y, color.rgb)
-        })
+    private fun image(
+        width: Int,
+        height: Int,
+        color: Color,
+    ): File =
+        write(
+            BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB).apply {
+                for (y in 0 until height) for (x in 0 until width) setRGB(x, y, color.rgb)
+            },
+        )
 
-    private fun write(image: BufferedImage): File =
-        File.createTempFile("screenshot", ".png").also { ImageIO.write(image, "png", it) }
+    private fun write(image: BufferedImage): File = File.createTempFile("screenshot", ".png").also { ImageIO.write(image, "png", it) }
 }

@@ -14,7 +14,10 @@ internal object MobileTrendArrowAppearance {
     var style by mutableStateOf(TrendArrowStyle.defaults(AppearanceMode.DARK, 0xFFF5F5F5.toInt()))
         private set
 
-    fun load(preferences: SharedPreferences, mode: AppearanceMode = SugarliciousColorStore.activeMode(preferences)): TrendArrowStyle =
+    fun load(
+        preferences: SharedPreferences,
+        mode: AppearanceMode = SugarliciousColorStore.activeMode(preferences),
+    ): TrendArrowStyle =
         TrendArrowStylePreferences.read(
             preferences,
             mode,
@@ -26,7 +29,11 @@ internal object MobileTrendArrowAppearance {
         style = load(preferences)
     }
 
-    fun save(preferences: SharedPreferences, mode: AppearanceMode, value: TrendArrowStyle) {
+    fun save(
+        preferences: SharedPreferences,
+        mode: AppearanceMode,
+        value: TrendArrowStyle,
+    ) {
         TrendArrowStylePreferences.write(preferences, mode, value)
         style = value.normalized()
     }

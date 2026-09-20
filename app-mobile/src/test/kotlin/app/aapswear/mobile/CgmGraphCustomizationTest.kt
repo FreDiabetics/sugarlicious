@@ -36,7 +36,11 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `target value color reuses compatible picker role and persists independently from range`() {
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val targetColor = Color.rgb(224, 42, 205)
         val rangeColor = Color.rgb(24, 180, 65)
         val oldTargetBandColor = Color.rgb(6, 48, 18)
@@ -60,7 +64,11 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `configured target value color is used by target line`() {
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val targetColor = Color.rgb(224, 42, 205)
         val alternateTargetColor = Color.rgb(30, 210, 70)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
@@ -68,50 +76,54 @@ class CgmGraphCustomizationTest {
 
         try {
             val now = System.currentTimeMillis()
-            val state = TherapyDisplayState(
-                receivedAtEpochMs = now,
-                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-                glucoseHistory = listOf(
-                    GlucoseSample(118.0, now - 10 * 60_000L),
-                    GlucoseSample(120.0, now - 5 * 60_000L),
-                    GlucoseSample(122.0, now),
-                ),
-                target = TargetState(80.0, 160.0, valueMgDl = 100.0),
-            )
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory =
+                        listOf(
+                            GlucoseSample(118.0, now - 10 * 60_000L),
+                            GlucoseSample(120.0, now - 5 * 60_000L),
+                            GlucoseSample(122.0, now),
+                        ),
+                    target = TargetState(80.0, 160.0, valueMgDl = 100.0),
+                )
 
-            val configured = render(
-                GlucoseDashboardChart(context).apply {
-                    bind(
-                        state = state,
-                        unit = GlucoseUnit.MG_DL,
-                        showPredictions = false,
-                        durationHours = 3,
-                        showTargetRange = false,
-                        showTargetValue = true,
-                        cgmDotOutlineEnabled = false,
-                        clockEpochMs = now,
-                    )
-                },
-                240,
-            )
+            val configured =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(
+                            state = state,
+                            unit = GlucoseUnit.MG_DL,
+                            showPredictions = false,
+                            durationHours = 3,
+                            showTargetRange = false,
+                            showTargetValue = true,
+                            cgmDotOutlineEnabled = false,
+                            clockEpochMs = now,
+                        )
+                    },
+                    240,
+                )
 
             SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, alternateTargetColor)
             SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
-            val recolored = render(
-                GlucoseDashboardChart(context).apply {
-                    bind(
-                        state = state,
-                        unit = GlucoseUnit.MG_DL,
-                        showPredictions = false,
-                        durationHours = 3,
-                        showTargetRange = false,
-                        showTargetValue = true,
-                        cgmDotOutlineEnabled = false,
-                        clockEpochMs = now,
-                    )
-                },
-                240,
-            )
+            val recolored =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(
+                            state = state,
+                            unit = GlucoseUnit.MG_DL,
+                            showPredictions = false,
+                            durationHours = 3,
+                            showTargetRange = false,
+                            showTargetValue = true,
+                            cgmDotOutlineEnabled = false,
+                            clockEpochMs = now,
+                        )
+                    },
+                    240,
+                )
 
             val changedPixels = bitmapDifferenceCount(configured, recolored)
             assertTrue("changedPixels=$changedPixels", changedPixels > 40)
@@ -122,41 +134,50 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `overview graph forwards enabled target value preference`() {
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val targetColor = Color.rgb(224, 42, 205)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
         SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
 
         try {
             val now = System.currentTimeMillis()
-            val state = TherapyDisplayState(
-                receivedAtEpochMs = now,
-                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-                glucoseHistory = listOf(
-                    GlucoseSample(118.0, now - 10 * 60_000L),
-                    GlucoseSample(120.0, now - 5 * 60_000L),
-                    GlucoseSample(122.0, now),
-                ),
-                target = TargetState(80.0, 160.0, valueMgDl = 100.0),
-            )
-            val enabledUi = DashboardUiPreferences(
-                showCgmTargetValue = true,
-                cgmDotOutlineEnabled = false,
-            )
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory =
+                        listOf(
+                            GlucoseSample(118.0, now - 10 * 60_000L),
+                            GlucoseSample(120.0, now - 5 * 60_000L),
+                            GlucoseSample(122.0, now),
+                        ),
+                    target = TargetState(80.0, 160.0, valueMgDl = 100.0),
+                )
+            val enabledUi =
+                DashboardUiPreferences(
+                    showCgmTargetValue = true,
+                    cgmDotOutlineEnabled = false,
+                )
             val disabledUi = enabledUi.copy(showCgmTargetValue = false)
 
-            val enabled = render(
-                GlucoseDashboardChart(context).apply {
-                    bindOverview(state, enabledUi, now)
-                },
-                240,
-            )
-            val disabled = render(
-                GlucoseDashboardChart(context).apply {
-                    bindOverview(state, disabledUi, now)
-                },
-                240,
-            )
+            val enabled =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bindOverview(state, enabledUi, now)
+                    },
+                    240,
+                )
+            val disabled =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bindOverview(state, disabledUi, now)
+                    },
+                    240,
+                )
 
             val changedPixels = bitmapDifferenceCount(enabled, disabled)
             assertTrue("changedPixels=$changedPixels", changedPixels > 40)
@@ -167,22 +188,28 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `changed target history invalidates an otherwise unchanged graph`() {
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val targetColor = Color.rgb(224, 42, 205)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TARGET_VALUE, targetColor)
         SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
 
         try {
             val now = System.currentTimeMillis()
-            val base = TherapyDisplayState(
-                receivedAtEpochMs = now,
-                glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-                glucoseHistory = listOf(
-                    GlucoseSample(118.0, now - 10 * 60_000L),
-                    GlucoseSample(122.0, now),
-                ),
-                target = TargetState(80.0, 160.0),
-            )
+            val base =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(122.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory =
+                        listOf(
+                            GlucoseSample(118.0, now - 10 * 60_000L),
+                            GlucoseSample(122.0, now),
+                        ),
+                    target = TargetState(80.0, 160.0),
+                )
             val chart = GlucoseDashboardChart(context)
             chart.bind(
                 state = base,
@@ -197,15 +224,17 @@ class CgmGraphCustomizationTest {
             val before = render(chart, 240)
 
             chart.bind(
-                state = base.copy(
-                    targetHistory = listOf(
-                        TargetSample(
-                            valueMgDl = 100.0,
-                            startedAtEpochMs = now - 3 * 60 * 60_000L,
-                            endsAtEpochMs = now,
-                        ),
+                state =
+                    base.copy(
+                        targetHistory =
+                            listOf(
+                                TargetSample(
+                                    valueMgDl = 100.0,
+                                    startedAtEpochMs = now - 3 * 60 * 60_000L,
+                                    endsAtEpochMs = now,
+                                ),
+                            ),
                     ),
-                ),
                 unit = GlucoseUnit.MG_DL,
                 showPredictions = false,
                 durationHours = 3,
@@ -225,7 +254,11 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `prediction point size and zero outline preference change rendered dots`() {
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val predictionColor = Color.rgb(55, 190, 245)
         val outlineColor = Color.rgb(215, 40, 190)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.PREDICTION_IOB, predictionColor)
@@ -234,27 +267,31 @@ class CgmGraphCustomizationTest {
 
         try {
             val now = System.currentTimeMillis()
-            val state = TherapyDisplayState(
-                receivedAtEpochMs = now,
-                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
-                glucoseHistory = listOf(
-                    GlucoseSample(116.0, now - 5 * 60_000L),
-                    GlucoseSample(120.0, now),
-                ),
-                glucosePredictions = listOf(
-                    GlucosePrediction(
-                        PredictionKind.IOB,
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory =
                         listOf(
+                            GlucoseSample(116.0, now - 5 * 60_000L),
                             GlucoseSample(120.0, now),
-                            GlucoseSample(126.0, now + 5 * 60_000L),
-                            GlucoseSample(132.0, now + 10 * 60_000L),
                         ),
-                    ),
-                ),
-                target = TargetState(80.0, 160.0),
-            )
+                    glucosePredictions =
+                        listOf(
+                            GlucosePrediction(
+                                PredictionKind.IOB,
+                                listOf(
+                                    GlucoseSample(120.0, now),
+                                    GlucoseSample(126.0, now + 5 * 60_000L),
+                                    GlucoseSample(132.0, now + 10 * 60_000L),
+                                ),
+                            ),
+                        ),
+                    target = TargetState(80.0, 160.0),
+                )
 
-            preferences.edit()
+            preferences
+                .edit()
                 .putFloat("cgm.prediction.dotRadiusDp", 1.0f)
                 .putFloat("cgm.prediction.dotOutlineWidthDp", 0.0f)
                 .commit()
@@ -262,7 +299,8 @@ class CgmGraphCustomizationTest {
             val smallFill = count(small) { it == predictionColor }
             val smallOutline = count(small) { it == outlineColor }
 
-            preferences.edit()
+            preferences
+                .edit()
                 .putFloat("cgm.prediction.dotRadiusDp", 5.0f)
                 .putFloat("cgm.prediction.dotOutlineWidthDp", 2.0f)
                 .commit()
@@ -280,7 +318,9 @@ class CgmGraphCustomizationTest {
 
     @Test
     fun `prediction style preferences are clamped by dashboard model`() {
-        preferences.edit().clear()
+        preferences
+            .edit()
+            .clear()
             .putFloat("cgm.prediction.dotRadiusDp", 99f)
             .putFloat("cgm.prediction.dotOutlineWidthDp", -4f)
             .commit()
@@ -290,7 +330,10 @@ class CgmGraphCustomizationTest {
         assertEquals(0.0f, ui.predictionDotOutlineWidthDp, 0.0001f)
     }
 
-    private fun renderPrediction(state: TherapyDisplayState, now: Long): Bitmap {
+    private fun renderPrediction(
+        state: TherapyDisplayState,
+        now: Long,
+    ): Bitmap {
         val viewport = ChartViewport(1).apply { setFutureWindow(15 * 60_000L) }
         return render(
             GlucoseDashboardChart(context, sharedViewport = viewport).apply {
@@ -308,7 +351,10 @@ class CgmGraphCustomizationTest {
         )
     }
 
-    private fun render(view: View, size: Int): Bitmap {
+    private fun render(
+        view: View,
+        size: Int,
+    ): Bitmap {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         view.measure(
             View.MeasureSpec.makeMeasureSpec(size, View.MeasureSpec.EXACTLY),
@@ -319,7 +365,10 @@ class CgmGraphCustomizationTest {
         return bitmap
     }
 
-    private fun bitmapDifferenceCount(first: Bitmap, second: Bitmap): Int {
+    private fun bitmapDifferenceCount(
+        first: Bitmap,
+        second: Bitmap,
+    ): Int {
         assertEquals(first.width, second.width)
         assertEquals(first.height, second.height)
         var changed = 0
@@ -331,7 +380,10 @@ class CgmGraphCustomizationTest {
         return changed
     }
 
-    private fun count(bitmap: Bitmap, predicate: (Int) -> Boolean): Int {
+    private fun count(
+        bitmap: Bitmap,
+        predicate: (Int) -> Boolean,
+    ): Int {
         var matches = 0
         for (y in 0 until bitmap.height) {
             for (x in 0 until bitmap.width) {

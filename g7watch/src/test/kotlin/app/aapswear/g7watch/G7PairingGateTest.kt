@@ -20,9 +20,15 @@ class G7PairingGateTest {
         assertTrue(hasUsableCollectorSession(reading("sensor"), "sensor"))
     }
 
-    private fun reading(sensorId: String) = CgmReading(
-        id = "id", source = DataSourceId.DEXCOM_G7_WATCH, sensorId = sensorId,
-        sessionId = sensorId, glucoseMgDl = 120.0, timestampEpochMs = 1,
-        receivedAtEpochMs = 1, status = CgmReadingStatus.VALID,
-    )
+    private fun reading(sensorId: String) =
+        CgmReading(
+            id = "id",
+            source = DataSourceId.DEXCOM_G7_WATCH,
+            sensorId = sensorId,
+            sessionId = sensorId,
+            glucoseMgDl = 120.0,
+            timestampEpochMs = 1,
+            receivedAtEpochMs = 1,
+            status = CgmReadingStatus.VALID,
+        )
 }

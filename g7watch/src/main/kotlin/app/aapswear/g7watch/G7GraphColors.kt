@@ -3,13 +3,16 @@ package app.aapswear.g7watch
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.edit
+import app.aapswear.model.AppearanceMode
+import app.aapswear.model.CgmThresholds
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WearProtocol
-import app.aapswear.model.CgmThresholds
-import app.aapswear.model.AppearanceMode
 
-internal class G7GraphColorStore(context: Context) {
+internal class G7GraphColorStore(
+    context: Context,
+) {
     private val appContext = context.applicationContext
     private val preferences =
         context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
@@ -46,26 +49,27 @@ internal class G7GraphColorStore(context: Context) {
         )
     }
 
-    fun readThresholds(): CgmThresholds = CgmThresholds(
-        veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
-        highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
-        lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
-        veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
-    ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
+    fun readThresholds(): CgmThresholds =
+        CgmThresholds(
+            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
+            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
+            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
+            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
+        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
 
     fun saveThresholds(value: CgmThresholds) {
         require(value.isValid)
-        preferences.edit()
-            .putFloat("threshold_very_high", value.veryHighMgDl.toFloat())
-            .putFloat("threshold_high", value.highMgDl.toFloat())
-            .putFloat("threshold_low", value.lowMgDl.toFloat())
-            .putFloat("threshold_very_low", value.veryLowMgDl.toFloat())
-            .apply()
+        preferences.edit {
+            putFloat("threshold_very_high", value.veryHighMgDl.toFloat())
+            putFloat("threshold_high", value.highMgDl.toFloat())
+            putFloat("threshold_low", value.lowMgDl.toFloat())
+            putFloat("threshold_very_low", value.veryLowMgDl.toFloat())
+        }
     }
 
     fun save(sync: WatchColorSync) {
         val fallback = sync.graphColors
-        preferences.edit().apply {
+        preferences.edit {
             putColors(AppearanceMode.LIGHT, sync.lightProfile?.graphColors ?: fallback)
             putColors(AppearanceMode.DARK, sync.darkProfile?.graphColors ?: fallback)
             putFloat("threshold_very_high", sync.cgmThresholds.veryHighMgDl.toFloat())
@@ -73,10 +77,13 @@ internal class G7GraphColorStore(context: Context) {
             putFloat("threshold_low", sync.cgmThresholds.lowMgDl.toFloat())
             putFloat("threshold_very_low", sync.cgmThresholds.veryLowMgDl.toFloat())
             putLong("synced_at", sync.sentAtEpochMs)
-        }.apply()
+        }
     }
 
-    private fun android.content.SharedPreferences.Editor.putColors(mode: AppearanceMode, colors: WatchGraphColors) {
+    private fun android.content.SharedPreferences.Editor.putColors(
+        mode: AppearanceMode,
+        colors: WatchGraphColors,
+    ) {
         val prefix = "${mode.storageKey}."
         putInt(prefix + "background", colors.graphBackground)
         putInt(prefix + "range_low", colors.rangeLow)
@@ -104,7 +111,7 @@ internal class G7GraphColorStore(context: Context) {
 
     private fun migrateLegacy() {
         if (preferences.getBoolean("appearance_profiles_v1", false)) return
-        preferences.edit().apply {
+        preferences.edit {
             preferences.all.forEach { (key, raw) ->
                 if (raw !is Int || key.startsWith("light.") || key.startsWith("dark.")) return@forEach
                 AppearanceMode.entries.forEach { mode ->
@@ -113,7 +120,7 @@ internal class G7GraphColorStore(context: Context) {
                 }
             }
             putBoolean("appearance_profiles_v1", true)
-        }.apply()
+        }
     }
 
     private companion object {
@@ -122,7 +129,10 @@ internal class G7GraphColorStore(context: Context) {
 }
 
 class G7ColorSyncReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_APPLY) return
         val payload = intent.getByteArrayExtra(EXTRA_PAYLOAD) ?: return
         val sync = runCatching { WearProtocol.decodeWatchColorSync(payload) }.getOrNull() ?: return

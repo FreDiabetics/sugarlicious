@@ -16,6 +16,8 @@ object ArgbContrast {
         return 0.2126 * red + 0.7152 * green + 0.0722 * blue
     }
 
-    fun isLight(argb: Int, threshold: Double = 0.56): Boolean =
-        relativeLuminance(argb) >= threshold
+    fun isLight(
+        argb: Int,
+        threshold: Double = 0.56,
+    ): Boolean = relativeLuminance(argb) >= threshold
 }

@@ -1,22 +1,22 @@
 package app.aapswear.mobile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.Trend
-import app.aapswear.model.TrendVisuals
 import app.aapswear.model.TrendArrowStyle
+import app.aapswear.model.TrendVisuals
 import app.aapswear.uishared.TrendDrawableResources
 
 /** Optional local cap used by compact complication previews without changing larger app visuals. */
@@ -42,7 +42,12 @@ internal fun SugarliciousTrendIndicator(
         if (renderStyle.outlineThicknessDp > 0f) {
             val offset = renderStyle.outlineThicknessDp.dp
             listOf(-offset to 0.dp, offset to 0.dp, 0.dp to -offset, 0.dp to offset).forEach { (x, y) ->
-                Image(painterResource(drawable), null, Modifier.size(width, height).offset(x, y), colorFilter = ColorFilter.tint(Color(renderStyle.outlineColor)))
+                Image(
+                    painterResource(drawable),
+                    null,
+                    Modifier.size(width, height).offset(x, y),
+                    colorFilter = ColorFilter.tint(Color(renderStyle.outlineColor)),
+                )
             }
         }
         Image(painterResource(drawable), null, Modifier.size(width, height), colorFilter = ColorFilter.tint(Color(renderStyle.fillColor)))

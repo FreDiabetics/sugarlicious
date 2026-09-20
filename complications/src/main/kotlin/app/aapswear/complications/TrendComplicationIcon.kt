@@ -1,18 +1,18 @@
 package app.aapswear.complications
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.drawable.Icon
-import android.content.res.Configuration
 import androidx.wear.watchface.complications.data.MonochromaticImage
-import app.aapswear.model.Trend
-import app.aapswear.model.TrendVisuals
-import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.Trend
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.model.TrendArrowStyleOverride
+import app.aapswear.model.TrendVisuals
 import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.uishared.TrendDrawableResources
 import kotlin.math.roundToInt
@@ -26,32 +26,54 @@ internal object TrendComplicationIcon {
         catalogId: Int? = null,
         stylePreferencesName: String = "watch_display",
     ): MonochromaticImage? {
-        val systemScale = context.getSharedPreferences("watch_display", Context.MODE_PRIVATE)
-            .getInt("trend_scale_percent", GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
-            .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+        val systemScale =
+            context
+                .getSharedPreferences("watch_display", Context.MODE_PRIVATE)
+                .getInt("trend_scale_percent", GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
         val appearance = context.getSharedPreferences("complication_appearance", Context.MODE_PRIVATE)
-        val scale = catalogId?.let { id ->
-            appearance.getInt("$id.trendScale", systemScale)
-        } ?: systemScale
+        val scale =
+            catalogId?.let { id ->
+                appearance.getInt("$id.trendScale", systemScale)
+            } ?: systemScale
         val offsetX = catalogId?.let { appearance.getInt("$it.trendX", 0) } ?: 0
         val offsetY = catalogId?.let { appearance.getInt("$it.trendY", 0) } ?: 0
-        val mode = if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) AppearanceMode.DARK else AppearanceMode.LIGHT
-        val parent = TrendArrowStylePreferences.read(
-            context.getSharedPreferences(stylePreferencesName, Context.MODE_PRIVATE), mode, Color.WHITE,
-            legacyScaleKey = if (stylePreferencesName == "watch_display") "trend_scale_percent" else null,
-        )
-        val override = catalogId?.let { id ->
-            TrendArrowStyleOverride(
-                fillColor = appearance.getInt("$id.trendFill", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
-                outlineEnabled = if (appearance.contains("$id.trendOutlineEnabled")) appearance.getBoolean("$id.trendOutlineEnabled", false) else null,
-                outlineColor = appearance.getInt("$id.trendOutlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
-                outlineThicknessDp = appearance.getFloat("$id.trendOutlineThickness", Float.NaN).takeUnless { it.isNaN() },
-                sizePercent = if (appearance.contains("$id.trendScale")) scale else null,
-                alpha = appearance.getFloat("$id.trendAlpha", Float.NaN).takeUnless { it.isNaN() },
+        val mode =
+            if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+                Configuration.UI_MODE_NIGHT_YES
+            ) {
+                AppearanceMode.DARK
+            } else {
+                AppearanceMode.LIGHT
+            }
+        val parent =
+            TrendArrowStylePreferences.read(
+                context.getSharedPreferences(stylePreferencesName, Context.MODE_PRIVATE),
+                mode,
+                Color.WHITE,
+                legacyScaleKey = if (stylePreferencesName == "watch_display") "trend_scale_percent" else null,
             )
-        } ?: TrendArrowStyleOverride()
+        val override =
+            catalogId?.let { id ->
+                TrendArrowStyleOverride(
+                    fillColor = appearance.getInt("$id.trendFill", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                    outlineEnabled =
+                        if (appearance.contains(
+                                "$id.trendOutlineEnabled",
+                            )
+                        ) {
+                            appearance.getBoolean("$id.trendOutlineEnabled", false)
+                        } else {
+                            null
+                        },
+                    outlineColor = appearance.getInt("$id.trendOutlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
+                    outlineThicknessDp = appearance.getFloat("$id.trendOutlineThickness", Float.NaN).takeUnless { it.isNaN() },
+                    sizePercent = if (appearance.contains("$id.trendScale")) scale else null,
+                    alpha = appearance.getFloat("$id.trendAlpha", Float.NaN).takeUnless { it.isNaN() },
+                )
+            } ?: TrendArrowStyleOverride()
         val bitmap = renderScaled(context, trend, sizePx, scale, offsetX, offsetY, override.resolve(parent)) ?: return null
-        return MonochromaticImage.Builder(Icon.createWithBitmap(bitmap)).build()
+        return MonochromaticImage.Builder(Icon.createWithBitmap(normalizeComplicationCanvas(bitmap))).build()
     }
 
     /**
@@ -86,16 +108,18 @@ internal object TrendComplicationIcon {
             outline?.setTint(render.outlineColor)
             val px = render.outlineThicknessDp * context.resources.displayMetrics.density
             listOf(-px to 0f, px to 0f, 0f to -px, 0f to px).forEach { (x, y) ->
-                val save = canvas.save(); canvas.translate(x, y); outline?.bounds = drawable.bounds; outline?.draw(canvas); canvas.restoreToCount(save)
+                val save = canvas.save()
+                canvas.translate(x, y)
+                outline?.bounds = drawable.bounds
+                outline?.draw(canvas)
+                canvas.restoreToCount(save)
             }
         }
         drawable.draw(canvas)
         return bitmap
     }
 
-    internal fun glyphFillFraction(scalePercent: Int): Float {
-        return GlucoseTrendSizing.scaleFactor(scalePercent) / 2f
-    }
+    internal fun glyphFillFraction(scalePercent: Int): Float = GlucoseTrendSizing.scaleFactor(scalePercent) / 2f
 
     /** Removes the stable host canvas padding when a glyph participates in a text layout. */
     internal fun cropTransparentPadding(bitmap: Bitmap): Bitmap {
@@ -113,8 +137,20 @@ internal object TrendComplicationIcon {
                 }
             }
         }
-        return if (right < left || bottom < top) bitmap
-        else Bitmap.createBitmap(bitmap, left, top, right - left + 1, bottom - top + 1)
+        return if (right < left || bottom < top) {
+            bitmap
+        } else {
+            Bitmap.createBitmap(bitmap, left, top, right - left + 1, bottom - top + 1)
+        }
+    }
+
+    /** Wear OS treats monochromatic complication icons as square masks. Supplying the intrinsic
+     * 125:60 double-arrow bitmap can clip one half on several slot renderers, so normalize only
+     * the provider payload while retaining both vector paths and the configured style. */
+    internal fun normalizeComplicationCanvas(bitmap: Bitmap): Bitmap {
+        if (bitmap.width == bitmap.height) return bitmap
+        val side = bitmap.height.coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, side, side, true)
     }
 
     fun render(

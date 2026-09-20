@@ -4,16 +4,16 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.aapswear.model.AppClock
 import app.aapswear.model.DiagnosticEvent
 import app.aapswear.model.DiagnosticSeverity
-import app.aapswear.model.AppClock
 import app.aapswear.model.SystemAppClock
-import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 private val Context.diagnosticEventDataStore by preferencesDataStore("diagnostic_events")
 
@@ -23,7 +23,11 @@ class DiagnosticEventStore(
     private val clock: AppClock = SystemAppClock,
 ) {
     private val appContext = context.applicationContext
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
     private val serializer = ListSerializer(DiagnosticEvent.serializer())
 
     val events: Flow<List<DiagnosticEvent>> =
@@ -74,7 +78,10 @@ class DiagnosticEventStore(
         appContext.diagnosticEventDataStore.edit { it.remove(EVENTS_KEY) }
     }
 
-    private fun normalize(values: List<DiagnosticEvent>, nowEpochMs: Long): List<DiagnosticEvent> =
+    private fun normalize(
+        values: List<DiagnosticEvent>,
+        nowEpochMs: Long,
+    ): List<DiagnosticEvent> =
         values
             .asSequence()
             .filter { it.occurredAtEpochMs in (nowEpochMs - RETENTION_MS)..(nowEpochMs + FUTURE_TOLERANCE_MS) }
@@ -94,8 +101,7 @@ class DiagnosticEventStore(
             metadata = sanitizeMetadata(event.metadata),
         )
 
-    private fun decode(raw: String?): List<DiagnosticEvent> =
-        raw?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty()
+    private fun decode(raw: String?): List<DiagnosticEvent> = raw?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty()
 
     private fun sanitizeMetadata(values: Map<String, Any?>): Map<String, String> =
         values.entries
@@ -104,8 +110,10 @@ class DiagnosticEventStore(
             .take(MAX_METADATA_FIELDS)
             .associate { (key, value) -> clean(key, 40) to clean(value?.toString() ?: "—", 120) }
 
-    private fun clean(value: String, maxLength: Int): String =
-        value.replace(Regex("[\\r\\n\\t]+"), " ").trim().take(maxLength)
+    private fun clean(
+        value: String,
+        maxLength: Int,
+    ): String = value.replace(Regex("[\\r\\n\\t]+"), " ").trim().take(maxLength)
 
     private companion object {
         val EVENTS_KEY = stringPreferencesKey("events_v1")

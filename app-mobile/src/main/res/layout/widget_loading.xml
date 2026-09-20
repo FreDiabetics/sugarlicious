@@ -14,7 +14,7 @@
         <ImageView
             android:layout_width="24dp"
             android:layout_height="24dp"
-            android:contentDescription="Sugarlicious"
+            android:contentDescription="@string/app_name"
             android:src="@drawable/ic_sugarlicious_monochrome"
             android:tint="#6DE892" />
 
@@ -22,7 +22,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Sugarlicious"
+            android:text="@string/app_name"
             android:textColor="#F5F5F5"
             android:textSize="13sp"
             android:textStyle="bold" />
@@ -31,8 +31,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:text="Daten werden geladen …"
+            android:text="@string/widget_loading"
             android:textColor="#B5B5B5"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </FrameLayout>

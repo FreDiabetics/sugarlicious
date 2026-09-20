@@ -1,31 +1,40 @@
 package app.aapswear.datasource.aaps
 
-import java.time.Instant
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import java.time.Instant
 
-data class AapsSmb(val units: Double, val deliveredAtEpochMs: Long)
+data class AapsSmb(
+    val units: Double,
+    val deliveredAtEpochMs: Long,
+)
 
 /** Reads a delivered SMB from AAPS' public enacted JSON without importing private AAPS models. */
 object AapsSmbParser {
     private val json = Json { ignoreUnknownKeys = true }
 
-    fun parse(payload: String?, fallbackAtEpochMs: Long?): AapsSmb? {
+    fun parse(
+        payload: String?,
+        fallbackAtEpochMs: Long?,
+    ): AapsSmb? {
         if (payload.isNullOrBlank()) return null
         val root = runCatching { json.parseToJsonElement(payload).jsonObject }.getOrNull() ?: return null
-        val units = runCatching { root["units"]?.jsonPrimitive?.doubleOrNull }.getOrNull()
-            ?.takeIf { it.isFinite() && it in 0.001..25.0 } ?: return null
-        val deliveredAt = runCatching { root["deliverAt"]?.jsonPrimitive }.getOrNull()?.let { value ->
-            value.longOrNull?.let(::normalizeEpoch)
-                ?: value.contentOrNull?.let { text ->
-                    text.toLongOrNull()?.let(::normalizeEpoch)
-                        ?: runCatching { Instant.parse(text).toEpochMilli() }.getOrNull()
-                }
-        } ?: fallbackAtEpochMs
+        val units =
+            runCatching { root["units"]?.jsonPrimitive?.doubleOrNull }
+                .getOrNull()
+                ?.takeIf { it.isFinite() && it in 0.001..25.0 } ?: return null
+        val deliveredAt =
+            runCatching { root["deliverAt"]?.jsonPrimitive }.getOrNull()?.let { value ->
+                value.longOrNull?.let(::normalizeEpoch)
+                    ?: value.contentOrNull?.let { text ->
+                        text.toLongOrNull()?.let(::normalizeEpoch)
+                            ?: runCatching { Instant.parse(text).toEpochMilli() }.getOrNull()
+                    }
+            } ?: fallbackAtEpochMs
         return deliveredAt?.takeIf { it > 0L }?.let { AapsSmb(units, it) }
     }
 

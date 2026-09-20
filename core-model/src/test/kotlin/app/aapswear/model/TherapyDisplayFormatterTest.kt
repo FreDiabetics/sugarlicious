@@ -80,7 +80,10 @@ class TherapyDisplayFormatterTest {
         assertEquals("Keine Quelle", TherapyDisplayFormatter.sourceName(null))
     }
 
-    private fun glucose(valueMgDl: Double, unit: GlucoseUnit) = GlucoseState(
+    private fun glucose(
+        valueMgDl: Double,
+        unit: GlucoseUnit,
+    ) = GlucoseState(
         valueMgDl = valueMgDl,
         displayUnit = unit,
         trend = Trend.FLAT,
@@ -89,14 +92,16 @@ class TherapyDisplayFormatterTest {
         averageDeltaMgDl = null,
     )
 
-    private fun stateAt(timestamp: Long) = TherapyDisplayState(
-        source = DataSourceId.ANDROID_APS,
-        receivedAtEpochMs = timestamp,
-        glucose = GlucoseState(
-            valueMgDl = 123.0,
-            displayUnit = GlucoseUnit.MG_DL,
-            trend = Trend.FLAT,
-            measuredAtEpochMs = timestamp,
-        ),
-    )
+    private fun stateAt(timestamp: Long) =
+        TherapyDisplayState(
+            source = DataSourceId.ANDROID_APS,
+            receivedAtEpochMs = timestamp,
+            glucose =
+                GlucoseState(
+                    valueMgDl = 123.0,
+                    displayUnit = GlucoseUnit.MG_DL,
+                    trend = Trend.FLAT,
+                    measuredAtEpochMs = timestamp,
+                ),
+        )
 }

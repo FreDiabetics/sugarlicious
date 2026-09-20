@@ -8,7 +8,10 @@ import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
 
-internal fun shouldRestoreG7Collector(action: String?, collectorEnabled: Boolean): Boolean =
+internal fun shouldRestoreG7Collector(
+    action: String?,
+    collectorEnabled: Boolean,
+): Boolean =
     collectorEnabled &&
         (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED)
 
@@ -43,7 +46,10 @@ internal object G7WakeHandoff {
 }
 
 class G7BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val state = G7SensorStateStore(context).read()
         if (!shouldRestoreG7Collector(intent.action, state.collectorEnabled)) return
 
@@ -60,12 +66,15 @@ class G7BootReceiver : BroadcastReceiver() {
         // If Android temporarily refuses the FGS launch, keep collectorEnabled=true and retain a
         // durable future alarm so a later slot can recover without re-pairing or losing the session.
         runCatching { G7CollectorService.start(context) }
-            .onFailure { G7ReconnectAlarmScheduler.scheduleRecovery(context, state) }
+            .onFailure { G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state) }
     }
 }
 
 class G7ReconnectReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val state = G7SensorStateStore(context).read()
         if (!state.collectorEnabled) return
         val now = System.currentTimeMillis()
@@ -88,15 +97,23 @@ class G7ReconnectReceiver : BroadcastReceiver() {
                 // The alarm that brought us here has already fired. Always stage another future
                 // slot before returning, otherwise a transient FGS launch rejection can strand the
                 // collector indefinitely.
-                G7ReconnectAlarmScheduler.scheduleRecovery(context, state, now)
-                val attempt = diagnosticStore.begin(
-                    manual = false,
-                    restart = false,
-                    cycle = scheduled?.copy(cycleEndedAt = System.currentTimeMillis()),
-                    nowEpochMs = now,
-                )
+                G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state, now)
+                val attempt =
+                    diagnosticStore.begin(
+                        manual = false,
+                        restart = false,
+                        cycle = scheduled?.copy(cycleEndedAt = System.currentTimeMillis()),
+                        nowEpochMs = now,
+                    )
                 diagnosticStore.setClassification(attempt.attemptId, CollectorCycleClassification.SERVICE_START_FAILED)
-                G7ExpectedWindowLedger(context).markFinal(scheduled?.expectedWindowId, CollectorCycleClassification.SERVICE_START_FAILED, recoveryRequired = true, reason = error.javaClass.simpleName)
+                G7ExpectedWindowLedger(
+                    context,
+                ).markFinal(
+                    scheduled?.expectedWindowId,
+                    CollectorCycleClassification.SERVICE_START_FAILED,
+                    recoveryRequired = true,
+                    reason = error.javaClass.simpleName,
+                )
                 diagnosticStore.record(
                     attempt.attemptId,
                     CollectorDiagnosticStage.ERROR,

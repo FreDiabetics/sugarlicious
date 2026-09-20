@@ -50,13 +50,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayState
-import java.util.Calendar
-import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.util.Calendar
+import java.util.TimeZone
 import kotlin.math.abs
 
 internal val sugarliciousWatchFaceNames =
@@ -109,7 +109,8 @@ private object GalaxyWatchUltraFrameLoader {
                         inSampleSize = 2
                         inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
                     }
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                BitmapFactory
+                    .decodeByteArray(bytes, 0, bytes.size, options)
                     ?.also { bitmap -> bitmap.prepareToDraw() }
                     ?.asImageBitmap()
             }.also { decoded -> cached = decoded }
@@ -127,8 +128,7 @@ internal fun carouselTargetPage(
     return (currentPage + direction).coerceIn(0, pageCount - 1)
 }
 
-internal fun carouselPageVisibility(distanceFromCenter: Float): Float =
-    if (distanceFromCenter <= 0.50f) 1f else 0f
+internal fun carouselPageVisibility(distanceFromCenter: Float): Float = if (distanceFromCenter <= 0.50f) 1f else 0f
 
 internal data class WatchPreviewHandAngles(
     val hour: Float,
@@ -169,9 +169,10 @@ internal fun OverviewWatchFaceTile(
     var runtime by remember { mutableStateOf(WatchRuntimeStatusStore.read(appContext)) }
 
     DisposableEffect(appContext) {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            runtime = WatchRuntimeStatusStore.read(appContext)
-        }
+        val listener =
+            SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+                runtime = WatchRuntimeStatusStore.read(appContext)
+            }
         WatchRuntimeStatusStore.registerListener(appContext, listener)
         onDispose { WatchRuntimeStatusStore.unregisterListener(appContext, listener) }
     }
@@ -289,13 +290,15 @@ internal fun OverviewWatchFaceTile(
                                 scaleX = scale
                                 scaleY = scale
                                 alpha = carouselPageVisibility(rawDistance)
-                            }
-                            .clickable(onClick = onEdit),
+                            }.clickable(onClick = onEdit),
                     contentAlignment = Alignment.Center,
                 ) {
                     val pageComplications =
-                        if (index == selected) activeComplicationIds
-                        else WatchFacePresetStore.read(appContext, index)
+                        if (index == selected) {
+                            activeComplicationIds
+                        } else {
+                            WatchFacePresetStore.read(appContext, index)
+                        }
                     FaceDial(
                         index = index,
                         state = state,
@@ -402,8 +405,8 @@ private fun GalaxyWatchUltraFrame() {
 internal fun FaceDial(
     index: Int,
     state: TherapyDisplayState?,
-    activeComplicationIds: List<Int> = emptyList(),
     modifier: Modifier = Modifier,
+    activeComplicationIds: List<Int> = emptyList(),
 ) {
     when (index) {
         0 -> SugarliciousAnalogFacePreview(state = state, modifier = modifier)

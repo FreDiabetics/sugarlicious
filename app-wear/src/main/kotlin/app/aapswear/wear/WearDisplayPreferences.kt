@@ -1,22 +1,21 @@
 package app.aapswear.wear
 
 import android.content.Context
-import android.content.res.Configuration
 import app.aapswear.model.AppearanceMode
-import app.aapswear.protocol.WatchConfig
-import app.aapswear.protocol.WatchGlucoseUnit
-import app.aapswear.protocol.WatchGraphColors
-import app.aapswear.protocol.WatchColorSync
-import app.aapswear.protocol.WatchGraphStyle
-import app.aapswear.protocol.WatchUiColors
-import app.aapswear.protocol.WatchAppearanceProfile
-import app.aapswear.protocol.WatchDataSource
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.SettingsSchemaVersions
-import app.aapswear.storage.ensureSettingsSchema
-import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.model.TrendArrowStyle
+import app.aapswear.protocol.WatchAppearanceProfile
+import app.aapswear.protocol.WatchColorSync
+import app.aapswear.protocol.WatchConfig
+import app.aapswear.protocol.WatchDataSource
+import app.aapswear.protocol.WatchGlucoseUnit
+import app.aapswear.protocol.WatchGraphColors
+import app.aapswear.protocol.WatchGraphStyle
+import app.aapswear.protocol.WatchUiColors
+import app.aapswear.storage.TrendArrowStylePreferences
+import app.aapswear.storage.ensureSettingsSchema
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +30,7 @@ internal data class WearDisplayPreferences(
     val graphHours: Int = 3,
     val showPredictions: Boolean = false,
     val glucoseUnit: WatchGlucoseUnit = WatchGlucoseUnit.AAPS,
-    val dataSource: WatchDataSource = WatchDataSource.AUTOMATIC,
+    val dataSource: WatchDataSource = WatchDataSource.PHONE,
     val showTherapyStats: Boolean = true,
     val syncedAtEpochMs: Long = 0L,
     val graphColors: WatchGraphColors = WatchGraphColors(),
@@ -53,6 +52,7 @@ internal data class WearDisplayPreferences(
         private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_SYNCED_AT = "synced_at"
         private const val KEY_LOCAL_CUSTOMIZED = "local_customized"
+        private const val KEY_ACTIVE_APPEARANCE_MODE = "active_appearance_mode"
         private const val COLOR_PREFIX = "graph_color_"
         private const val UI_PREFIX = "ui_color_"
         private const val STYLE_DOT_RADIUS = "cgm_dot_radius_dp"
@@ -67,22 +67,45 @@ internal data class WearDisplayPreferences(
         private const val THRESHOLD_VERY_LOW = "threshold_very_low"
         val allowedGraphHours = listOf(1, 2, 3, 6, 12, 24)
 
-        fun activeAppearanceMode(context: Context): AppearanceMode =
-            if ((context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES) {
-                AppearanceMode.DARK
-            } else AppearanceMode.LIGHT
+        fun activeAppearanceMode(context: Context): AppearanceMode {
+            val stored =
+                context
+                    .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getString(KEY_ACTIVE_APPEARANCE_MODE, null)
+                    ?.let { runCatching { AppearanceMode.valueOf(it) }.getOrNull() }
+            // Wear surfaces are dark by default. The explicit in-app selector is authoritative;
+            // Samsung's transient system uiMode must not silently pin the app to the light profile.
+            return stored ?: AppearanceMode.DARK
+        }
+
+        fun setActiveAppearanceMode(
+            context: Context,
+            mode: AppearanceMode,
+        ) {
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_ACTIVE_APPEARANCE_MODE, mode.name)
+                .apply()
+        }
 
         private fun appearancePrefix(mode: AppearanceMode) = "appearance.${mode.storageKey}."
 
         fun read(context: Context): WearDisplayPreferences = read(context, activeAppearanceMode(context))
 
-        fun resetTrendArrowStyle(context: Context, mode: AppearanceMode) {
+        fun resetTrendArrowStyle(
+            context: Context,
+            mode: AppearanceMode,
+        ) {
             val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             TrendArrowStylePreferences.reset(preferences, mode)
             preferences.edit().remove(KEY_TREND_SCALE).apply()
         }
 
-        fun read(context: Context, mode: AppearanceMode): WearDisplayPreferences {
+        fun read(
+            context: Context,
+            mode: AppearanceMode,
+        ): WearDisplayPreferences {
             val preferences =
                 context.getSharedPreferences(
                     PREFS,
@@ -105,12 +128,13 @@ internal data class WearDisplayPreferences(
                     )
                 }.getOrDefault(WatchGlucoseUnit.AAPS)
 
-            val trendStyle = TrendArrowStylePreferences.read(
-                preferences,
-                mode,
-                uiDefaults.glucoseInRange,
-                legacyScaleKey = KEY_TREND_SCALE,
-            )
+            val trendStyle =
+                TrendArrowStylePreferences.read(
+                    preferences,
+                    mode,
+                    uiDefaults.glucoseInRange,
+                    legacyScaleKey = KEY_TREND_SCALE,
+                )
             return WearDisplayPreferences(
                 graphHours =
                     preferences
@@ -120,17 +144,20 @@ internal data class WearDisplayPreferences(
                 showPredictions =
                     preferences.getBoolean(KEY_SHOW_PREDICTIONS, false),
                 glucoseUnit = unit,
-                dataSource = runCatching {
-                    WatchDataSource.valueOf(
-                        preferences.getString(KEY_DATA_SOURCE, WatchDataSource.AUTOMATIC.name)!!,
-                    )
-                }.getOrDefault(WatchDataSource.AUTOMATIC),
+                // Sugarlicious Wear is AndroidAPS/phone-fed. Direct sensor collection belongs to
+                // the separate SugarWear app, so legacy Automatic/Direct values must not revive
+                // a second CGM stream after a reboot or package update.
+                dataSource = WatchDataSource.PHONE,
                 showTherapyStats =
                     preferences.getBoolean(KEY_SHOW_THERAPY_STATS, true),
-                glucoseScalePercent = preferences.getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
-                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
-                trendScalePercent = preferences.getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
-                    .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                glucoseScalePercent =
+                    preferences
+                        .getInt(KEY_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                        .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                trendScalePercent =
+                    preferences
+                        .getInt(KEY_TREND_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                        .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
                 trendArrowStyle = trendStyle,
                 syncedAtEpochMs =
                     preferences.getLong(KEY_SYNCED_AT, 0L),
@@ -155,7 +182,11 @@ internal data class WearDisplayPreferences(
                         predictionIob = preferences.getInt(prefix + COLOR_PREFIX + "prediction_iob", graphDefaults.predictionIob),
                         predictionCob = preferences.getInt(prefix + COLOR_PREFIX + "prediction_cob", graphDefaults.predictionCob),
                         predictionUam = preferences.getInt(prefix + COLOR_PREFIX + "prediction_uam", graphDefaults.predictionUam),
-                        predictionZeroTemp = preferences.getInt(prefix + COLOR_PREFIX + "prediction_zero_temp", graphDefaults.predictionZeroTemp),
+                        predictionZeroTemp =
+                            preferences.getInt(
+                                prefix + COLOR_PREFIX + "prediction_zero_temp",
+                                graphDefaults.predictionZeroTemp,
+                            ),
                         targetValue = preferences.getInt(prefix + COLOR_PREFIX + "target_value", graphDefaults.targetValue),
                         signalLoss = preferences.getInt(prefix + COLOR_PREFIX + "signal_loss", graphDefaults.signalLoss),
                     ),
@@ -167,19 +198,26 @@ internal data class WearDisplayPreferences(
                                 .coerceIn(1.5f, 6.0f),
                         cgmDotOutlineEnabled =
                             preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmDotOutlineEnabled),
-                        cgmHistoricalDotOutlineEnabled = preferences.getBoolean(
-                            prefix + STYLE_HISTORICAL_OUTLINE_ENABLED,
-                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmHistoricalDotOutlineEnabled),
-                        ),
-                        cgmCurrentDotOutlineEnabled = preferences.getBoolean(
-                            prefix + STYLE_CURRENT_OUTLINE_ENABLED,
-                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmCurrentDotOutlineEnabled),
-                        ),
+                        cgmHistoricalDotOutlineEnabled =
+                            preferences.getBoolean(
+                                prefix + STYLE_HISTORICAL_OUTLINE_ENABLED,
+                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmHistoricalDotOutlineEnabled),
+                            ),
+                        cgmCurrentDotOutlineEnabled =
+                            preferences.getBoolean(
+                                prefix + STYLE_CURRENT_OUTLINE_ENABLED,
+                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmCurrentDotOutlineEnabled),
+                            ),
                         cgmDotOutlineWidthDp =
                             preferences
                                 .getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp)
                                 .coerceIn(0.25f, 3.0f),
-                        scaleLaneOpacityPercent = preferences.getInt(prefix + STYLE_SCALE_LANE_OPACITY, styleDefaults.scaleLaneOpacityPercent).coerceIn(0, 100),
+                        scaleLaneOpacityPercent =
+                            preferences
+                                .getInt(
+                                    prefix + STYLE_SCALE_LANE_OPACITY,
+                                    styleDefaults.scaleLaneOpacityPercent,
+                                ).coerceIn(0, 100),
                     ),
                 uiColors =
                     WatchUiColors(
@@ -188,6 +226,7 @@ internal data class WearDisplayPreferences(
                         tileBorder = preferences.getInt(prefix + UI_PREFIX + "tile_border", uiDefaults.tileBorder),
                         textPrimary = preferences.getInt(prefix + UI_PREFIX + "text_primary", uiDefaults.textPrimary),
                         textSecondary = preferences.getInt(prefix + UI_PREFIX + "text_secondary", uiDefaults.textSecondary),
+                        deltaUnit = preferences.getInt(prefix + UI_PREFIX + "delta_unit", uiDefaults.deltaUnit),
                         accent = preferences.getInt(prefix + UI_PREFIX + "accent", uiDefaults.accent),
                         glucoseLow = preferences.getInt(prefix + UI_PREFIX + "glucose_low", uiDefaults.glucoseLow),
                         glucoseInRange = preferences.getInt(prefix + UI_PREFIX + "glucose_in_range", uiDefaults.glucoseInRange),
@@ -198,12 +237,13 @@ internal data class WearDisplayPreferences(
                         cob = preferences.getInt(prefix + UI_PREFIX + "cob", uiDefaults.cob),
                         basal = preferences.getInt(prefix + UI_PREFIX + "basal", uiDefaults.basal),
                     ),
-                cgmThresholds = CgmThresholds(
-                    veryHighMgDl = preferences.getFloat(THRESHOLD_VERY_HIGH, 250f).toDouble(),
-                    highMgDl = preferences.getFloat(THRESHOLD_HIGH, 180f).toDouble(),
-                    lowMgDl = preferences.getFloat(THRESHOLD_LOW, 70f).toDouble(),
-                    veryLowMgDl = preferences.getFloat(THRESHOLD_VERY_LOW, 50f).toDouble(),
-                ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT,
+                cgmThresholds =
+                    CgmThresholds(
+                        veryHighMgDl = preferences.getFloat(THRESHOLD_VERY_HIGH, 250f).toDouble(),
+                        highMgDl = preferences.getFloat(THRESHOLD_HIGH, 180f).toDouble(),
+                        lowMgDl = preferences.getFloat(THRESHOLD_LOW, 70f).toDouble(),
+                        veryLowMgDl = preferences.getFloat(THRESHOLD_VERY_LOW, 50f).toDouble(),
+                    ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT,
             )
         }
 
@@ -228,11 +268,12 @@ internal data class WearDisplayPreferences(
                 config.sentAtEpochMs.takeIf { it > 0L }
                     ?: System.currentTimeMillis()
 
-            preferences.edit()
+            preferences
+                .edit()
                 .putLong(KEY_SYNCED_AT, syncedAt)
-                .putString(KEY_DATA_SOURCE, config.dataSource.name)
+                .putString(KEY_DATA_SOURCE, WatchDataSource.PHONE.name)
                 .apply()
-            notifyG7CollectorSourceTransition(context, previousSource, config.dataSource)
+            notifyG7CollectorSourceTransition(context, previousSource, WatchDataSource.PHONE)
         }
 
         fun saveLocal(
@@ -260,11 +301,13 @@ internal data class WearDisplayPreferences(
         ) {
             val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val fallback = WatchAppearanceProfile(graphColors = sync.graphColors)
-            preferences.edit().apply {
-                putLong(KEY_SYNCED_AT, sync.sentAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
-                putAppearanceProfile(AppearanceMode.LIGHT, sync.lightProfile ?: fallback)
-                putAppearanceProfile(AppearanceMode.DARK, sync.darkProfile ?: fallback)
-            }.apply()
+            preferences
+                .edit()
+                .apply {
+                    putLong(KEY_SYNCED_AT, sync.sentAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
+                    putAppearanceProfile(AppearanceMode.LIGHT, sync.lightProfile ?: fallback)
+                    putAppearanceProfile(AppearanceMode.DARK, sync.darkProfile ?: fallback)
+                }.apply()
         }
 
         private fun notifyG7CollectorSourceTransition(
@@ -292,22 +335,31 @@ internal data class WearDisplayPreferences(
                     cgmDotOutlineWidthDp = value.graphStyle.cgmDotOutlineWidthDp.coerceIn(0.25f, 3.0f),
                 )
 
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
-                putInt(KEY_GRAPH_HOURS, graphHours)
-                putBoolean(KEY_SHOW_PREDICTIONS, value.showPredictions)
-                putString(KEY_GLUCOSE_UNIT, value.glucoseUnit.name)
-                putString(KEY_DATA_SOURCE, value.dataSource.name)
-                putBoolean(KEY_SHOW_THERAPY_STATS, value.showTherapyStats)
-                putInt(KEY_GLUCOSE_SCALE, value.glucoseScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
-                putInt(KEY_TREND_SCALE, value.trendScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
-                putLong(KEY_SYNCED_AT, value.syncedAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
-                putBoolean(KEY_LOCAL_CUSTOMIZED, markLocal)
-                putFloat(THRESHOLD_VERY_HIGH, value.cgmThresholds.veryHighMgDl.toFloat())
-                putFloat(THRESHOLD_HIGH, value.cgmThresholds.highMgDl.toFloat())
-                putFloat(THRESHOLD_LOW, value.cgmThresholds.lowMgDl.toFloat())
-                putFloat(THRESHOLD_VERY_LOW, value.cgmThresholds.veryLowMgDl.toFloat())
-                putAppearanceProfile(mode, WatchAppearanceProfile(value.graphColors, style, value.uiColors))
-            }.apply()
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .apply {
+                    putInt(KEY_GRAPH_HOURS, graphHours)
+                    putBoolean(KEY_SHOW_PREDICTIONS, value.showPredictions)
+                    putString(KEY_GLUCOSE_UNIT, value.glucoseUnit.name)
+                    putString(KEY_DATA_SOURCE, WatchDataSource.PHONE.name)
+                    putBoolean(KEY_SHOW_THERAPY_STATS, value.showTherapyStats)
+                    putInt(
+                        KEY_GLUCOSE_SCALE,
+                        value.glucoseScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                    )
+                    putInt(
+                        KEY_TREND_SCALE,
+                        value.trendScalePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+                    )
+                    putLong(KEY_SYNCED_AT, value.syncedAtEpochMs.takeIf { it > 0L } ?: System.currentTimeMillis())
+                    putBoolean(KEY_LOCAL_CUSTOMIZED, markLocal)
+                    putFloat(THRESHOLD_VERY_HIGH, value.cgmThresholds.veryHighMgDl.toFloat())
+                    putFloat(THRESHOLD_HIGH, value.cgmThresholds.highMgDl.toFloat())
+                    putFloat(THRESHOLD_LOW, value.cgmThresholds.lowMgDl.toFloat())
+                    putFloat(THRESHOLD_VERY_LOW, value.cgmThresholds.veryLowMgDl.toFloat())
+                    putAppearanceProfile(mode, WatchAppearanceProfile(value.graphColors, style, value.uiColors))
+                }.apply()
             TrendArrowStylePreferences.write(
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE),
                 mode,
@@ -355,6 +407,7 @@ internal data class WearDisplayPreferences(
             putInt(prefix + UI_PREFIX + "tile_border", ui.tileBorder)
             putInt(prefix + UI_PREFIX + "text_primary", ui.textPrimary)
             putInt(prefix + UI_PREFIX + "text_secondary", ui.textSecondary)
+            putInt(prefix + UI_PREFIX + "delta_unit", ui.deltaUnit)
             putInt(prefix + UI_PREFIX + "accent", ui.accent)
             putInt(prefix + UI_PREFIX + "glucose_low", ui.glucoseLow)
             putInt(prefix + UI_PREFIX + "glucose_in_range", ui.glucoseInRange)
@@ -369,21 +422,34 @@ internal data class WearDisplayPreferences(
         private fun migrateAppearanceProfiles(preferences: android.content.SharedPreferences) {
             if (preferences.getBoolean("appearance_profiles_v1", false)) return
             val prefixes = listOf(COLOR_PREFIX, UI_PREFIX)
-            preferences.edit().apply {
-                preferences.all.forEach { (key, raw) ->
-                    if (prefixes.none(key::startsWith) && key !in setOf(STYLE_DOT_RADIUS, STYLE_OUTLINE_ENABLED, STYLE_HISTORICAL_OUTLINE_ENABLED, STYLE_CURRENT_OUTLINE_ENABLED, STYLE_OUTLINE_WIDTH)) return@forEach
-                    AppearanceMode.entries.forEach { mode ->
-                        val target = appearancePrefix(mode) + key
-                        if (preferences.contains(target)) return@forEach
-                        when (raw) {
-                            is Int -> putInt(target, raw)
-                            is Float -> putFloat(target, raw)
-                            is Boolean -> putBoolean(target, raw)
+            preferences
+                .edit()
+                .apply {
+                    preferences.all.forEach { (key, raw) ->
+                        if (prefixes.none(key::startsWith) &&
+                            key !in
+                            setOf(
+                                STYLE_DOT_RADIUS,
+                                STYLE_OUTLINE_ENABLED,
+                                STYLE_HISTORICAL_OUTLINE_ENABLED,
+                                STYLE_CURRENT_OUTLINE_ENABLED,
+                                STYLE_OUTLINE_WIDTH,
+                            )
+                        ) {
+                            return@forEach
+                        }
+                        AppearanceMode.entries.forEach { mode ->
+                            val target = appearancePrefix(mode) + key
+                            if (preferences.contains(target)) return@forEach
+                            when (raw) {
+                                is Int -> putInt(target, raw)
+                                is Float -> putFloat(target, raw)
+                                is Boolean -> putBoolean(target, raw)
+                            }
                         }
                     }
-                }
-                putBoolean("appearance_profiles_v1", true)
-            }.apply()
+                    putBoolean("appearance_profiles_v1", true)
+                }.apply()
         }
     }
 }

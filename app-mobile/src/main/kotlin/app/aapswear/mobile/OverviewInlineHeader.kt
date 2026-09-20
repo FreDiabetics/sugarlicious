@@ -64,14 +64,15 @@ internal fun OverviewInlineHeader(onSettings: () -> Unit) {
         }
 
         Text(
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(color = SugarliciousColors.TextPrimary)) {
-                    append("Sugar")
-                }
-                withStyle(SpanStyle(color = SugarliciousColors.Primary)) {
-                    append("licious")
-                }
-            },
+            text =
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = SugarliciousColors.TextPrimary)) {
+                        append("Sugar")
+                    }
+                    withStyle(SpanStyle(color = SugarliciousColors.Primary)) {
+                        append("licious")
+                    }
+                },
             fontSize = 21.sp,
             fontWeight = FontWeight.Bold,
         )

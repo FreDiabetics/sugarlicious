@@ -54,5 +54,4 @@ internal fun recordWatchContact(
     }
 }
 
-internal fun isWatchConnected(reachableWatches: Int): Boolean =
-    reachableWatches > 0
+internal fun isWatchConnected(reachableWatches: Int): Boolean = reachableWatches > 0

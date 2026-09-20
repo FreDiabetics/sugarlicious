@@ -17,25 +17,41 @@ class ComplicationPresentationTest {
     }
 
     private val now = 1_700_000_000_000L
-    private val state = TherapyDisplayState(
-        receivedAtEpochMs = now,
-        sourceVersion = "4.0.0",
-        glucose = GlucoseState(123.0, GlucoseUnit.MG_DL, Trend.FORTY_FIVE_UP, now - 2 * 60_000L, 5.0),
-        glucoseHistory = listOf(
-            GlucoseSample(80.0, now - 10 * 60_000L),
-            GlucoseSample(120.0, now - 5 * 60_000L),
-            GlucoseSample(200.0, now),
-        ),
-        insulin = InsulinState(totalIob = 1.2),
-        carbs = CarbState(cobGrams = 15.0),
-        basal = BasalState(currentUnitsPerHour = 0.7),
-    )
+    private val state =
+        TherapyDisplayState(
+            receivedAtEpochMs = now,
+            sourceVersion = "4.0.0",
+            glucose = GlucoseState(123.0, GlucoseUnit.MG_DL, Trend.FORTY_FIVE_UP, now - 2 * 60_000L, 5.0),
+            glucoseHistory =
+                listOf(
+                    GlucoseSample(80.0, now - 10 * 60_000L),
+                    GlucoseSample(120.0, now - 5 * 60_000L),
+                    GlucoseSample(200.0, now),
+                ),
+            insulin = InsulinState(totalIob = 1.2),
+            carbs = CarbState(cobGrams = 15.0),
+            basal = BasalState(currentUnitsPerHour = 0.7),
+        )
 
     @Test fun `glucose trend keeps text and icon separate`() {
         val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND, state, now)
         assertEquals("123", p.text)
         assertEquals(Trend.FORTY_FIVE_UP, p.trend)
         assertNull(p.title)
+    }
+
+    @Test fun `unavailable trend uses a visible placeholder instead of an empty slot`() {
+        val stale = state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 20 * 60_000L))
+
+        val trendOnly = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.TREND_ONLY, stale, now)
+        assertEquals("—", trendOnly.text)
+        assertNull(trendOnly.trend)
+
+        val ranged = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED, stale, now)
+        assertEquals("—", ranged.text)
+        assertEquals("—", ranged.title)
+        assertNull(ranged.trend)
+        assertEquals("Glukose —, Trend nicht verfügbar", ranged.contentDescription)
     }
 
     @Test fun `glucose delta uses title instead of concatenating`() {
@@ -65,11 +81,12 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `combined therapy never invents zero for missing values`() {
-        val p = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB_BASAL,
-            state.copy(insulin = null, carbs = null, basal = null),
-            now,
-        )
+        val p =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB_BASAL,
+                state.copy(insulin = null, carbs = null, basal = null),
+                now,
+            )
         assertEquals("—", p.title)
         assertEquals("— · —", p.text)
     }
@@ -82,54 +99,60 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `IOB COB preserves either available value without inventing zero`() {
-        val iobOnly = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(carbs = null),
-            now,
-        )
+        val iobOnly =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(carbs = null),
+                now,
+            )
         assertEquals("1.2 U", iobOnly.title)
         assertEquals("—", iobOnly.text)
 
-        val cobOnly = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(insulin = null),
-            now,
-        )
+        val cobOnly =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(insulin = null),
+                now,
+            )
         assertEquals("—", cobOnly.title)
         assertEquals("15 g", cobOnly.text)
 
-        val neither = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(insulin = null, carbs = null),
-            now,
-        )
+        val neither =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(insulin = null, carbs = null),
+                now,
+            )
         assertEquals("—", neither.title)
         assertEquals("—", neither.text)
     }
 
     @Test fun `IOB COB rejects invalid numbers and describes freshness without discarding last state`() {
-        val invalid = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(insulin = InsulinState(totalIob = Double.NaN), carbs = CarbState(cobGrams = Double.POSITIVE_INFINITY)),
-            now,
-        )
+        val invalid =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(insulin = InsulinState(totalIob = Double.NaN), carbs = CarbState(cobGrams = Double.POSITIVE_INFINITY)),
+                now,
+            )
         assertEquals("—", invalid.title)
         assertEquals("—", invalid.text)
 
-        val stale = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
-            now,
-        )
+        val stale =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
+                now,
+            )
         assertEquals("1.2 U", stale.title)
         assertEquals("15 g", stale.text)
         assertEquals("veraltet, IOB 1.2 U, COB 15 g", stale.contentDescription)
 
-        val error = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.IOB_COB,
-            state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
-            now,
-        )
+        val error =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.IOB_COB,
+                state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
+                now,
+            )
         assertEquals("1.2 U", error.title)
         assertEquals("15 g", error.text)
         assertEquals("Sensorfehler, IOB 1.2 U, COB 15 g", error.contentDescription)
@@ -141,36 +164,40 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `loop complication uses the shared app state instead of circle glyphs`() {
-        val closed = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.LOOP,
-            state.copy(loop = LoopState(status = "enacted")),
-            now,
-        )
+        val closed =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.LOOP,
+                state.copy(loop = LoopState(status = "enacted")),
+                now,
+            )
         assertEquals("Closed", closed.text)
         assertEquals("Closed Loop", closed.contentDescription)
 
-        val paused = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.LOOP,
-            state.copy(loop = LoopState(status = "paused")),
-            now,
-        )
+        val paused =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.LOOP,
+                state.copy(loop = LoopState(status = "paused")),
+                now,
+            )
         assertEquals("Pausiert", paused.text)
         assertEquals("Loop pausiert", paused.contentDescription)
     }
 
     @Test fun `tir presentation uses configured central thresholds`() {
-        val thresholds = CgmThresholds(
-            veryHighMgDl = 240.0,
-            highMgDl = 160.0,
-            lowMgDl = 80.0,
-            veryLowMgDl = 55.0,
-        )
-        val presentation = ComplicationPresentationFormatter.format(
-            SugarliciousComplicationIds.TIR,
-            state,
-            now,
-            thresholds,
-        )
+        val thresholds =
+            CgmThresholds(
+                veryHighMgDl = 240.0,
+                highMgDl = 160.0,
+                lowMgDl = 80.0,
+                veryLowMgDl = 55.0,
+            )
+        val presentation =
+            ComplicationPresentationFormatter.format(
+                SugarliciousComplicationIds.TIR,
+                state,
+                now,
+                thresholds,
+            )
 
         assertEquals("67%", presentation.text)
         assertEquals("80–160", presentation.title)

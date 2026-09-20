@@ -30,16 +30,17 @@ data class TrendVisualSpec(
 }
 
 object TrendVisuals {
-    fun spec(trend: Trend): TrendVisualSpec? = when (trend) {
-        Trend.DOUBLE_UP -> TrendVisualSpec(TrendVisualAsset.DOUBLE_UP, 125f)
-        Trend.SINGLE_UP -> TrendVisualSpec(TrendVisualAsset.UP)
-        Trend.FORTY_FIVE_UP -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_UP)
-        Trend.FLAT -> TrendVisualSpec(TrendVisualAsset.FLAT)
-        Trend.FORTY_FIVE_DOWN -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_DOWN)
-        Trend.SINGLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOWN)
-        Trend.DOUBLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOUBLE_DOWN, 125f)
-        Trend.UNKNOWN -> null
-    }
+    fun spec(trend: Trend): TrendVisualSpec? =
+        when (trend) {
+            Trend.DOUBLE_UP -> TrendVisualSpec(TrendVisualAsset.DOUBLE_UP, 125f)
+            Trend.SINGLE_UP -> TrendVisualSpec(TrendVisualAsset.UP)
+            Trend.FORTY_FIVE_UP -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_UP)
+            Trend.FLAT -> TrendVisualSpec(TrendVisualAsset.FLAT)
+            Trend.FORTY_FIVE_DOWN -> TrendVisualSpec(TrendVisualAsset.FORTY_FIVE_DOWN)
+            Trend.SINGLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOWN)
+            Trend.DOUBLE_DOWN -> TrendVisualSpec(TrendVisualAsset.DOUBLE_DOWN, 125f)
+            Trend.UNKNOWN -> null
+        }
 }
 
 object SugarliciousComplicationIds {
@@ -83,52 +84,53 @@ object SugarliciousComplicationIds {
     const val GRAPH_LARGE = 52
     const val IOB_COB_LONG = 55
 
-    val ordered = listOf(
-        GLUCOSE,
-        GLUCOSE_TREND,
-        GLUCOSE_PLUS_DELTA,
-        GLUCOSE_TREND_AGE,
-        GLUCOSE_TREND_DELTA,
-        GLUCOSE_TREND_DELTA_AGE,
-        GRAPH,
-        TREND_ONLY,
-        DELTA_ONLY,
-        GLUCOSE_AGE,
-        TIME_DELTA,
-        SENSOR_AGE,
-        BASAL,
-        IOB,
-        COB,
-        IOB_COB,
-        IOB_COB_BASAL,
-        LOOP,
-        RESERVOIR,
-        TIR,
-        DATE,
-    )
+    val ordered =
+        listOf(
+            GLUCOSE,
+            GLUCOSE_TREND,
+            GLUCOSE_PLUS_DELTA,
+            GLUCOSE_TREND_AGE,
+            GLUCOSE_TREND_DELTA,
+            GLUCOSE_TREND_DELTA_AGE,
+            GRAPH,
+            TREND_ONLY,
+            DELTA_ONLY,
+            GLUCOSE_AGE,
+            TIME_DELTA,
+            SENSOR_AGE,
+            BASAL,
+            IOB,
+            COB,
+            IOB_COB,
+            IOB_COB_BASAL,
+            LOOP,
+            RESERVOIR,
+            TIR,
+            DATE,
+        )
 
-    val variantsByBase = mapOf(
-        GLUCOSE to listOf(GLUCOSE, GLUCOSE_LONG, GLUCOSE_RANGED),
-        IOB to listOf(IOB, IOB_RANGED),
-        COB to listOf(COB, COB_RANGED),
-        GLUCOSE_TREND to listOf(GLUCOSE_TREND, GLUCOSE_TREND_LONG, GLUCOSE_TREND_RANGED),
-        GLUCOSE_PLUS_DELTA to listOf(GLUCOSE_PLUS_DELTA, GLUCOSE_PLUS_DELTA_LONG),
-        GLUCOSE_TREND_AGE to listOf(GLUCOSE_TREND_AGE, GLUCOSE_TREND_AGE_LONG),
-        GLUCOSE_TREND_DELTA_AGE to listOf(GLUCOSE_TREND_DELTA_AGE, GLUCOSE_TREND_DELTA_AGE_LONG),
-        IOB_COB_BASAL to listOf(IOB_COB_BASAL, IOB_COB_BASAL_LONG),
-        IOB_COB to listOf(IOB_COB, IOB_COB_LONG),
-        LOOP to listOf(LOOP, LOOP_ICON),
-        RESERVOIR to listOf(RESERVOIR, RESERVOIR_RANGED),
-        SENSOR_AGE to listOf(SENSOR_AGE, SENSOR_AGE_RANGED),
-        TIR to listOf(TIR, TIR_GOAL, TIR_WEIGHTED),
-        GRAPH to listOf(GRAPH, GRAPH_LARGE),
-    )
+    val variantsByBase =
+        mapOf(
+            GLUCOSE to listOf(GLUCOSE, GLUCOSE_LONG, GLUCOSE_RANGED),
+            IOB to listOf(IOB, IOB_RANGED),
+            COB to listOf(COB, COB_RANGED),
+            GLUCOSE_TREND to listOf(GLUCOSE_TREND, GLUCOSE_TREND_LONG, GLUCOSE_TREND_RANGED),
+            GLUCOSE_PLUS_DELTA to listOf(GLUCOSE_PLUS_DELTA, GLUCOSE_PLUS_DELTA_LONG),
+            GLUCOSE_TREND_AGE to listOf(GLUCOSE_TREND_AGE, GLUCOSE_TREND_AGE_LONG),
+            GLUCOSE_TREND_DELTA_AGE to listOf(GLUCOSE_TREND_DELTA_AGE, GLUCOSE_TREND_DELTA_AGE_LONG),
+            IOB_COB_BASAL to listOf(IOB_COB_BASAL, IOB_COB_BASAL_LONG),
+            IOB_COB to listOf(IOB_COB, IOB_COB_LONG),
+            LOOP to listOf(LOOP, LOOP_ICON),
+            RESERVOIR to listOf(RESERVOIR, RESERVOIR_RANGED),
+            SENSOR_AGE to listOf(SENSOR_AGE, SENSOR_AGE_RANGED),
+            TIR to listOf(TIR, TIR_GOAL, TIR_WEIGHTED),
+            GRAPH to listOf(GRAPH, GRAPH_LARGE),
+        )
 
     val all: List<Int> =
         ordered.flatMap { base -> variantsByBase[base] ?: listOf(base) }
 
-    fun baseId(id: Int): Int =
-        variantsByBase.entries.firstOrNull { (_, variants) -> id in variants }?.key ?: id
+    fun baseId(id: Int): Int = variantsByBase.entries.firstOrNull { (_, variants) -> id in variants }?.key ?: id
 }
 
 object ComplicationPresentationFormatter {
@@ -153,7 +155,7 @@ object ComplicationPresentationFormatter {
 
             SugarliciousComplicationIds.TREND_ONLY ->
                 p(
-                    text = "",
+                    text = if (trend == null) DASH else "",
                     trend = trend,
                     desc = trend?.let { "Glukosetrend ${TherapyDisplayFormatter.trendArrow(it)}" } ?: "Kein Glukosetrend",
                 )
@@ -182,13 +184,14 @@ object ComplicationPresentationFormatter {
             SugarliciousComplicationIds.IOB_COB -> {
                 val iob = therapyUnits(state?.insulin?.totalIob, " U", 1)
                 val cob = therapyUnits(state?.carbs?.cobGrams, " g", 0)
-                val freshnessLabel = when (freshness) {
-                    Freshness.CURRENT -> null
-                    Freshness.DELAYED -> "verzögert"
-                    Freshness.STALE -> "veraltet"
-                    Freshness.ERROR -> "Sensorfehler"
-                    Freshness.NO_DATA -> if (state == null) "keine Quelle" else "keine aktuellen CGM-Daten"
-                }
+                val freshnessLabel =
+                    when (freshness) {
+                        Freshness.CURRENT -> null
+                        Freshness.DELAYED -> "verzögert"
+                        Freshness.STALE -> "veraltet"
+                        Freshness.ERROR -> "Sensorfehler"
+                        Freshness.NO_DATA -> if (state == null) "keine Quelle" else "keine aktuellen CGM-Daten"
+                    }
                 p(
                     text = cob,
                     title = iob,
@@ -197,7 +200,12 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.GLUCOSE_TREND ->
-                p(glucoseText, trend = trend, desc = "Glukose $glucoseText mit Trend")
+                p(
+                    text = glucoseText,
+                    title = DASH.takeIf { trend == null },
+                    trend = trend,
+                    desc = if (trend == null) "Glukose $glucoseText, Trend nicht verfügbar" else "Glukose $glucoseText mit Trend",
+                )
 
             SugarliciousComplicationIds.GLUCOSE_PLUS_DELTA ->
                 p(glucoseText, delta.ifBlank { DASH }, desc = "Glukose $glucoseText, Delta ${delta.ifBlank { DASH }}")
@@ -266,10 +274,11 @@ object ComplicationPresentationFormatter {
         thresholds: CgmThresholds = CgmThresholds.DEFAULT,
     ): Int? {
         val cutoff = nowEpochMs - 24L * 60L * 60_000L
-        val samples = state?.glucoseHistory.orEmpty().filter {
-            it.measuredAtEpochMs in cutoff..(nowEpochMs + FreshnessPolicy.FUTURE_TOLERANCE_MS) &&
-                it.valueMgDl in 20.0..1000.0
-        }
+        val samples =
+            state?.glucoseHistory.orEmpty().filter {
+                it.measuredAtEpochMs in cutoff..(nowEpochMs + FreshnessPolicy.FUTURE_TOLERANCE_MS) &&
+                    it.valueMgDl in 20.0..1000.0
+            }
         if (samples.isEmpty()) return null
         return (
             samples.count { it.valueMgDl in thresholds.lowMgDl..thresholds.highMgDl } *
@@ -284,18 +293,22 @@ object ComplicationPresentationFormatter {
         desc: String,
     ) = ComplicationPresentation(text = text, title = title, trend = trend, contentDescription = desc)
 
-    private fun therapyUnits(value: Double?, suffix: String, digits: Int): String =
-        TherapyDisplayFormatter.units(value?.takeIf(Double::isFinite), suffix, digits)
+    private fun therapyUnits(
+        value: Double?,
+        suffix: String,
+        digits: Int,
+    ): String = TherapyDisplayFormatter.units(value?.takeIf(Double::isFinite), suffix, digits)
 
-    internal fun germanWeekday(dayOfWeek: DayOfWeek): String = when (dayOfWeek) {
-        DayOfWeek.MONDAY -> "MON"
-        DayOfWeek.TUESDAY -> "DIE"
-        DayOfWeek.WEDNESDAY -> "MIT"
-        DayOfWeek.THURSDAY -> "DON"
-        DayOfWeek.FRIDAY -> "FRE"
-        DayOfWeek.SATURDAY -> "SAM"
-        DayOfWeek.SUNDAY -> "SON"
-    }
+    internal fun germanWeekday(dayOfWeek: DayOfWeek): String =
+        when (dayOfWeek) {
+            DayOfWeek.MONDAY -> "MON"
+            DayOfWeek.TUESDAY -> "DIE"
+            DayOfWeek.WEDNESDAY -> "MIT"
+            DayOfWeek.THURSDAY -> "DON"
+            DayOfWeek.FRIDAY -> "FRE"
+            DayOfWeek.SATURDAY -> "SAM"
+            DayOfWeek.SUNDAY -> "SON"
+        }
 
     private const val DASH = "—"
 }

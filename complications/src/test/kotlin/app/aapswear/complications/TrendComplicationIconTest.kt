@@ -1,8 +1,8 @@
 package app.aapswear.complications
 
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.model.Trend
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.Trend
 import app.aapswear.model.TrendArrowStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,15 +20,16 @@ class TrendComplicationIconTest {
     @Test
     fun `all complication trends preserve supplied canvas geometry`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val expected = mapOf(
-            Trend.DOUBLE_UP to 125,
-            Trend.SINGLE_UP to 60,
-            Trend.FORTY_FIVE_UP to 60,
-            Trend.FLAT to 60,
-            Trend.FORTY_FIVE_DOWN to 60,
-            Trend.SINGLE_DOWN to 60,
-            Trend.DOUBLE_DOWN to 125,
-        )
+        val expected =
+            mapOf(
+                Trend.DOUBLE_UP to 125,
+                Trend.SINGLE_UP to 60,
+                Trend.FORTY_FIVE_UP to 60,
+                Trend.FLAT to 60,
+                Trend.FORTY_FIVE_DOWN to 60,
+                Trend.SINGLE_DOWN to 60,
+                Trend.DOUBLE_DOWN to 125,
+            )
         expected.forEach { (trend, expectedWidth) ->
             val bitmap = TrendComplicationIcon.render(context, trend, 60)
             assertNotNull(bitmap)
@@ -45,6 +46,27 @@ class TrendComplicationIconTest {
                 val bitmap = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, scale))
                 assertEquals(125f / 60f, bitmap.width.toFloat() / bitmap.height, 0.02f)
             }
+        }
+    }
+
+    @Test
+    fun `double arrows use a square complication payload so neither glyph is clipped`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
+            val wide = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
+            val normalized = TrendComplicationIcon.normalizeComplicationCanvas(wide)
+            assertEquals(normalized.height, normalized.width)
+            assertTrue(
+                (0 until normalized.height).any { y ->
+                    android.graphics.Color.alpha(normalized.getPixel(normalized.width / 4, y)) > 0
+                },
+            )
+            assertTrue(
+                (0 until normalized.height).any { y ->
+                    android.graphics.Color.alpha(normalized.getPixel(normalized.width * 3 / 4, y)) >
+                        0
+                },
+            )
         }
     }
 
@@ -89,11 +111,11 @@ class TrendComplicationIconTest {
         assertTrue(bitmap!!.hasAlpha())
     }
 
-
     private fun nonTransparentHeight(bitmap: android.graphics.Bitmap): Int {
-        val rows = (0 until bitmap.height).filter { y ->
-            (0 until bitmap.width).any { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
-        }
+        val rows =
+            (0 until bitmap.height).filter { y ->
+                (0 until bitmap.width).any { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
+            }
         return if (rows.isEmpty()) 0 else rows.last() - rows.first() + 1
     }
 }

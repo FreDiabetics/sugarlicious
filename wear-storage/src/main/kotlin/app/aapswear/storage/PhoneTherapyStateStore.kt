@@ -13,9 +13,15 @@ import kotlinx.serialization.json.Json
 private val Context.phoneTherapyDataStore by preferencesDataStore("phone_therapy_input_state")
 
 /** Raw phone-fed state kept independent from the canonical Mobile display state. */
-class PhoneTherapyStateStore(private val context: Context) {
+class PhoneTherapyStateStore(
+    private val context: Context,
+) {
     private val key = stringPreferencesKey("state_v1")
-    private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
 
     val state: Flow<TherapyDisplayState?> =
         context.phoneTherapyDataStore.data.map { preferences ->

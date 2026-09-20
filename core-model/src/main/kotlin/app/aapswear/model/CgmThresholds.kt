@@ -20,8 +20,13 @@ data class CgmThresholds(
 ) {
     val isValid: Boolean
         get() =
-            veryHighMgDl.isFinite() && highMgDl.isFinite() && lowMgDl.isFinite() && veryLowMgDl.isFinite() &&
-                veryLowMgDl < lowMgDl && lowMgDl < highMgDl && highMgDl < veryHighMgDl
+            veryHighMgDl.isFinite() &&
+                highMgDl.isFinite() &&
+                lowMgDl.isFinite() &&
+                veryLowMgDl.isFinite() &&
+                veryLowMgDl < lowMgDl &&
+                lowMgDl < highMgDl &&
+                highMgDl < veryHighMgDl
 
     fun classify(valueMgDl: Double): CgmRangeClass? {
         if (!isValid || !valueMgDl.isFinite()) return null

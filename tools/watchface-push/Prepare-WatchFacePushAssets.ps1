@@ -15,13 +15,6 @@ $gradle =
 
 Write-Host 'Building Sugarlicious Watch Face Push packages...'
 
-# Recreate the four analog hand layers from the user-supplied geometry before packaging so a
-# stale generated PNG can never reintroduce the former hand set into a pushed watch face.
-& (Join-Path $root 'tools/watchface-assets/Render-SugarliciousHands.ps1')
-if (-not $?) {
-    throw 'Sugarlicious hand rendering failed.'
-}
-
 $buildTasks = @($ALL_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
 $buildTasks += 'prepareWatchFaceValidatorCli'
 & $gradle @buildTasks
@@ -105,11 +98,11 @@ foreach ($face in $ALL_WATCHFACES) {
 # Wear OS registers this representative face in the system picker when the marketplace app is
 # installed. Once the user activates it, all later variants can replace the same active Push slot.
 $defaultApk = Join-Path $generatedRoot 'default_watchface.apk'
-$defaultToken = Get-Content (Join-Path $generated 'sugarlicious_analog_token.txt') -Raw
+$defaultToken = Get-Content (Join-Path $generated 'sugarlicious_digital_token.txt') -Raw
 $escapedDefaultToken = [System.Security.SecurityElement]::Escape($defaultToken.Trim())
 $defaultTokenResource = Join-Path $generatedValues 'default_watchface_token.xml'
 
-Copy-Item (Join-Path $generated 'sugarlicious_analog.apk') $defaultApk -Force
+Copy-Item (Join-Path $generated 'sugarlicious_digital.apk') $defaultApk -Force
 [System.IO.File]::WriteAllText(
     $defaultTokenResource,
     "<resources>`n    <string name=`"default_wf_token`" translatable=`"false`">$escapedDefaultToken</string>`n</resources>`n",

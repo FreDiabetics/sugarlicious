@@ -1,13 +1,14 @@
 <resources>
     <string name="app_name">Sugarlicious</string>
-    <string name="brand_logo">FreDiabetics-Logo</string>
-    <string name="read_only">Nur Anzeige · read-only</string>
     <string name="syncing_values">Werte werden aktualisiert …</string>
-    <string name="data_source_unavailable">Datenquelle nicht bereit</string>
     <string name="tile_glucose_label">Sugarlicious Glukose</string>
     <string name="tile_glucose_description">Glukose, Trend und Delta</string>
     <string name="tile_therapy_label">Sugarlicious Therapie</string>
     <string name="tile_therapy_description">IOB, COB und Basal im Überblick</string>
     <string name="complication_preview_delta" formatted="false">+5</string>
     <string name="complication_preview_tir" formatted="false">100%</string>
+    <string name="tap_to_refresh">Tippen zum Aktualisieren</string>
+    <string name="phone_unreachable">Telefon derzeit nicht erreichbar</string>
+    <string name="watch_settings_title">Watch Einstellungen</string>
+    <string name="graph_hours">%1$dh</string>
 </resources>

@@ -192,10 +192,10 @@ if (($effectiveTarget -eq "mobile") -or ($effectiveTarget -eq "all")) {
 if (($effectiveTarget -eq "wear") -or ($effectiveTarget -eq "g7") -or ($effectiveTarget -eq "all")) {
     if (($effectiveTarget -eq "g7") -or ($effectiveTarget -eq "all")) {
         $g7WatchApk = Get-ChildItem .\g7watch\build\outputs\apk\debug\*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($null -eq $g7WatchApk) { throw "G7 Watch Collector APK not found" }
-        Write-Host "Installing G7 Watch Collector on $watch..."
+        if ($null -eq $g7WatchApk) { throw "SugarWear APK not found" }
+        Write-Host "Installing SugarWear on $watch..."
         adb -s $watch install -r $g7WatchApk.FullName
-        Assert-LastExitCode "G7 Watch Collector install"
+        Assert-LastExitCode "SugarWear install"
     }
 
     if (($effectiveTarget -ne "wear") -and ($effectiveTarget -ne "all")) {

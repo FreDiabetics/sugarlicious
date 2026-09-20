@@ -12,7 +12,10 @@ import android.content.Intent
  * Watch Direct is currently canonical and therefore allowed to raise user-facing alarms.
  */
 class G7SourceControlReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_SET_SOURCE) return
 
         val g7Selected = intent.getBooleanExtra(EXTRA_G7_SELECTED, false)
@@ -55,19 +58,21 @@ private fun latestAlarmCandidate(
     state: app.aapswear.g7.G7PersistedState,
 ): app.aapswear.g7.CgmReading? {
     val sensor = state.sensor ?: return null
-    val persisted = runCatching {
-        G7ReadingDatabase(context).let { database ->
-            try {
-                database.query(
-                    selection = "status IN (?,?) AND sensor_id=? AND session_id=?",
-                    args = arrayOf("VALID", "SENSOR_ERROR", sensor.sensorId, sensor.sessionId.orEmpty()),
-                    limit = 1,
-                ).firstOrNull()
-            } finally {
-                database.close()
+    val persisted =
+        runCatching {
+            G7ReadingDatabase(context).let { database ->
+                try {
+                    database
+                        .query(
+                            selection = "status IN (?,?) AND sensor_id=? AND session_id=?",
+                            args = arrayOf("VALID", "SENSOR_ERROR", sensor.sensorId, sensor.sessionId.orEmpty()),
+                            limit = 1,
+                        ).firstOrNull()
+                } finally {
+                    database.close()
+                }
             }
-        }
-    }.getOrNull()
+        }.getOrNull()
     return persisted ?: state.lastReading?.takeIf {
         it.sensorId == sensor.sensorId && it.sessionId == sensor.sessionId
     }

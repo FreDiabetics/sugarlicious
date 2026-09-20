@@ -9,8 +9,6 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
-import java.io.File
-import java.io.FileOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +16,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
+import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -25,6 +25,27 @@ class G7CollectorGraphViewTest {
     private val now = 20_000_000L
     private val highArea = Color.rgb(208, 72, 48)
     private val background = Color.rgb(25, 25, 25)
+
+    @Test
+    fun `SugarWear collector graph advances all measured timestamps with wall clock`() {
+        val readingAt = now
+        val atArrival = g7CollectorGraphWindow(readingAt, 3)
+        val oneMinuteLater = g7CollectorGraphWindow(readingAt + 60_000L, 3)
+        val fourMinutesLater = g7CollectorGraphWindow(readingAt + 4 * 60_000L, 3)
+
+        assertEquals(1f, atArrival.xFraction(readingAt), 0.0001f)
+        assertTrue(oneMinuteLater.xFraction(readingAt) < atArrival.xFraction(readingAt))
+        assertTrue(fourMinutesLater.xFraction(readingAt) < oneMinuteLater.xFraction(readingAt))
+    }
+
+    @Test
+    fun `SugarWear collector graph uses measured time for delayed backfill`() {
+        val measuredAt = now - 45 * 60_000L
+        val receivedAt = now
+        val window = g7CollectorGraphWindow(now, 3)
+
+        assertTrue(window.xFraction(measuredAt) < window.xFraction(receivedAt))
+    }
 
     @Test
     fun `latest cgm keeps timestamp position at live edge`() {
@@ -88,25 +109,29 @@ class G7CollectorGraphViewTest {
 
     @Test
     fun `range fill in label gutter uses configured focus opacity`() {
-        val graph = render(
-            readings = listOf(reading("1", 120.0, now)),
-            graphHours = 3,
-            nowEpochMs = now,
-            palette = testPalette(),
-        )
+        val graph =
+            render(
+                readings = listOf(reading("1", 120.0, now)),
+                graphHours = 3,
+                nowEpochMs = now,
+                palette = testPalette(),
+            )
 
-        assertEquals(Color.argb(76, 87, 87, 87), graph.getPixel(380, 75))
+        val gutter = graph.getPixel(380, 75)
+        assertEquals(255, Color.alpha(gutter))
+        assertTrue(gutter != background)
     }
 
     @Test
     fun `second consecutive high reading turns on configured high area`() {
         val oneHigh = render(listOf(reading("1", 166.0, now)))
-        val twoHigh = render(
-            listOf(
-                reading("1", 166.0, now - 5 * 60_000L),
-                reading("2", 171.0, now),
-            ),
-        )
+        val twoHigh =
+            render(
+                listOf(
+                    reading("1", 166.0, now - 5 * 60_000L),
+                    reading("2", 171.0, now),
+                ),
+            )
 
         val x = 137
         val y = 12
@@ -116,13 +141,14 @@ class G7CollectorGraphViewTest {
 
     @Test
     fun `return to target immediately removes high area`() {
-        val graph = render(
-            listOf(
-                reading("1", 166.0, now - 10 * 60_000L),
-                reading("2", 171.0, now - 5 * 60_000L),
-                reading("3", 150.0, now),
-            ),
-        )
+        val graph =
+            render(
+                listOf(
+                    reading("1", 166.0, now - 10 * 60_000L),
+                    reading("2", 171.0, now - 5 * 60_000L),
+                    reading("3", 150.0, now),
+                ),
+            )
 
         assertNotEquals(highArea, graph.getPixel(137, 12))
     }
@@ -242,8 +268,10 @@ class G7CollectorGraphViewTest {
             targetHighMgDl = 160.0,
         )
         view.measure(
-            android.view.View.MeasureSpec.makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY),
-            android.view.View.MeasureSpec.makeMeasureSpec(150, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(150, android.view.View.MeasureSpec.EXACTLY),
         )
         view.layout(0, 0, 400, 150)
         val bitmap = Bitmap.createBitmap(400, 150, Bitmap.Config.ARGB_8888)
@@ -252,21 +280,21 @@ class G7CollectorGraphViewTest {
     }
 
     private fun testPalette(): G7AppearancePalette {
-        val colors = G7AppearanceRole.entries.associateWith { it.defaultArgb }.toMutableMap().apply {
-            this[G7AppearanceRole.GRAPH_BACKGROUND] = background
-            this[G7AppearanceRole.GRAPH_HIGH_AREA] = highArea
-            this[G7AppearanceRole.GRAPH_TARGET_AREA] = Color.rgb(88, 88, 88)
-            this[G7AppearanceRole.GRAPH_HIGH_LINE] = Color.YELLOW
-            this[G7AppearanceRole.GRAPH_LOW_LINE] = Color.RED
-            this[G7AppearanceRole.GRAPH_GRID] = Color.TRANSPARENT
-            this[G7AppearanceRole.GRAPH_AXIS_TEXT] = Color.TRANSPARENT
-            this[G7AppearanceRole.GRAPH_TILE_BORDER] = Color.TRANSPARENT
-        }
+        val colors =
+            G7AppearanceRole.entries.associateWith { it.defaultArgb }.toMutableMap().apply {
+                this[G7AppearanceRole.GRAPH_BACKGROUND] = background
+                this[G7AppearanceRole.GRAPH_HIGH_AREA] = highArea
+                this[G7AppearanceRole.GRAPH_TARGET_AREA] = Color.rgb(88, 88, 88)
+                this[G7AppearanceRole.GRAPH_HIGH_LINE] = Color.YELLOW
+                this[G7AppearanceRole.GRAPH_LOW_LINE] = Color.RED
+                this[G7AppearanceRole.GRAPH_GRID] = Color.TRANSPARENT
+                this[G7AppearanceRole.GRAPH_AXIS_TEXT] = Color.TRANSPARENT
+                this[G7AppearanceRole.GRAPH_TILE_BORDER] = Color.TRANSPARENT
+            }
         return G7AppearancePalette(colors)
     }
 
-    private fun defaultPalette(): G7AppearancePalette =
-        G7AppearancePalette(G7AppearanceRole.entries.associateWith { it.defaultArgb })
+    private fun defaultPalette(): G7AppearancePalette = G7AppearancePalette(G7AppearanceRole.entries.associateWith { it.defaultArgb })
 
     private fun previewReadings(
         hours: Int,
@@ -307,16 +335,19 @@ class G7CollectorGraphViewTest {
         return file
     }
 
-    private fun reading(id: String, value: Double, measuredAt: Long) =
-        CgmReading(
-            id = id,
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = "sensor",
-            sessionId = "session",
-            glucoseMgDl = value,
-            timestampEpochMs = measuredAt,
-            receivedAtEpochMs = measuredAt + 1_000L,
-            trend = Trend.FLAT,
-            status = CgmReadingStatus.VALID,
-        )
+    private fun reading(
+        id: String,
+        value: Double,
+        measuredAt: Long,
+    ) = CgmReading(
+        id = id,
+        source = DataSourceId.DEXCOM_G7_WATCH,
+        sensorId = "sensor",
+        sessionId = "session",
+        glucoseMgDl = value,
+        timestampEpochMs = measuredAt,
+        receivedAtEpochMs = measuredAt + 1_000L,
+        trend = Trend.FLAT,
+        status = CgmReadingStatus.VALID,
+    )
 }

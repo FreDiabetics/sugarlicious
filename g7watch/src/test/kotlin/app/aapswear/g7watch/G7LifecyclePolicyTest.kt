@@ -19,6 +19,24 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7LifecyclePolicyTest {
+    @Test fun `pairing attempt gets one absolute deadline and rehydration preserves it`() {
+        val initial = G7PersistedState(sensor = G7Sensor("sensor"), collectorEnabled = true)
+        val started = ensureG7PairingAttempt(initial, 1_000L)
+        val restored = ensureG7PairingAttempt(started, 20_000L)
+
+        assertEquals(1_000L, started.pairingStartedAtEpochMs)
+        assertEquals(1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS, started.pairingDeadlineEpochMs)
+        assertEquals(started.pairingAttemptId, restored.pairingAttemptId)
+        assertEquals(started.pairingStartedAtEpochMs, restored.pairingStartedAtEpochMs)
+        assertEquals(started.pairingDeadlineEpochMs, restored.pairingDeadlineEpochMs)
+
+        val discoveredButNotValidated = started.copy(sensor = G7Sensor("sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"))
+        assertEquals(
+            started.pairingDeadlineEpochMs,
+            ensureG7PairingAttempt(discoveredButNotValidated, 30_000L).pairingDeadlineEpochMs,
+        )
+    }
+
     @Test fun `collector repairs missing or expired follow up but preserves future alarm`() {
         val now = 1_000_000L
         assertTrue(needsG7FollowUpRepair(true, null, now))
@@ -27,6 +45,7 @@ class G7LifecyclePolicyTest {
         assertFalse(needsG7FollowUpRepair(false, null, now))
         assertFalse(needsG7FollowUpRepair(true, now + 1L, now))
     }
+
     @Test fun `enabled collector restores after boot`() {
         assertTrue(shouldRestoreG7Collector(Intent.ACTION_BOOT_COMPLETED, collectorEnabled = true))
     }
@@ -128,10 +147,11 @@ class G7LifecyclePolicyTest {
 
     @Test fun `failed scheduled cycle retains only the staged next real sensor slot`() {
         val current = CollectorCycleTiming(expectedReadingEpoch = 1_000_000L)
-        val safety = CollectorCycleTiming(
-            expectedReadingEpoch = 1_300_000L,
-            requestedReconnectEpoch = 1_295_000L,
-        )
+        val safety =
+            CollectorCycleTiming(
+                expectedReadingEpoch = 1_300_000L,
+                requestedReconnectEpoch = 1_295_000L,
+            )
 
         assertEquals(safety, stagedSafetyCycle(current, safety))
         assertNull(
@@ -153,32 +173,37 @@ class G7LifecyclePolicyTest {
 
     @Test fun `restart resets only volatile runtime and retains enabled sensor session and history`() {
         val sensor = G7Sensor("sensor", "session", deviceAddress = "AA:BB:CC:DD:EE:FF")
-        val reading = CgmReading(
-            id = "reading",
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = "sensor",
-            sessionId = "session",
-            glucoseMgDl = 123.0,
-            timestampEpochMs = 1_000L,
-            receivedAtEpochMs = 1_001L,
-            sequenceNumber = 7L,
-        )
-        val original = G7PersistedState(
-            sensor = sensor,
-            collectorEnabled = true,
-            collectorOwner = CollectorOwner.WATCH,
-            connectionState = G7ConnectionState.CONNECTED,
-            protocolState = G7ProtocolState.RECOVERING,
-            sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
-            lastReading = reading,
-            lastSuccessfulConnectionEpochMs = 1_001L,
-            nextReconnectEpochMs = 2_000L,
-            retryCount = 4,
-            lastError = G7CollectorError("G7-BLE-107", true, 1_500L, "recoverable"),
-            activeAttemptId = 9L,
-            scanStartedAtEpochMs = 1_600L,
-            scanTimeoutAtEpochMs = 91_600L,
-        )
+        val reading =
+            CgmReading(
+                id = "reading",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "sensor",
+                sessionId = "session",
+                glucoseMgDl = 123.0,
+                timestampEpochMs = 1_000L,
+                receivedAtEpochMs = 1_001L,
+                sequenceNumber = 7L,
+            )
+        val original =
+            G7PersistedState(
+                sensor = sensor,
+                collectorEnabled = true,
+                collectorOwner = CollectorOwner.WATCH,
+                connectionState = G7ConnectionState.CONNECTED,
+                protocolState = G7ProtocolState.RECOVERING,
+                sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
+                lastReading = reading,
+                lastSuccessfulConnectionEpochMs = 1_001L,
+                nextReconnectEpochMs = 2_000L,
+                retryCount = 4,
+                lastError = G7CollectorError("G7-BLE-107", true, 1_500L, "recoverable"),
+                activeAttemptId = 9L,
+                scanStartedAtEpochMs = 1_600L,
+                scanTimeoutAtEpochMs = 91_600L,
+                pairingAttemptId = "pairing-1",
+                pairingStartedAtEpochMs = 1_600L,
+                pairingDeadlineEpochMs = 91_600L,
+            )
 
         val restarted = resetG7RuntimeForRestart(original)
 
@@ -193,5 +218,9 @@ class G7LifecyclePolicyTest {
         assertEquals(null, restarted.lastError)
         assertEquals(G7ConnectionState.DISCONNECTED, restarted.connectionState)
         assertEquals(G7ProtocolState.UNINITIALIZED, restarted.protocolState)
+        assertEquals("pairing-1", restarted.pairingAttemptId)
+        assertEquals(1_600L, restarted.pairingStartedAtEpochMs)
+        assertEquals(91_600L, restarted.pairingDeadlineEpochMs)
+        assertEquals(91_600L, restarted.scanTimeoutAtEpochMs)
     }
 }

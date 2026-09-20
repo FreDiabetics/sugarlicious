@@ -21,7 +21,10 @@ data class GlucoseVisualSpec(
     val spacing: Float,
     val baselineAligned: Boolean = true,
 ) {
-    fun scaled(glucosePercent: Int, trendPercent: Int): GlucoseVisualSpec =
+    fun scaled(
+        glucosePercent: Int,
+        trendPercent: Int,
+    ): GlucoseVisualSpec =
         copy(
             glucoseTextSize = glucoseTextSize * GlucoseTrendSizing.scaleFactor(glucosePercent),
             trendHeight = trendHeight * GlucoseTrendSizing.scaleFactor(trendPercent),
@@ -80,13 +83,19 @@ data class TrendAppearance(
         (surfaceOverrides[surface] ?: systemTrendScalePercent)
             .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
 
-    fun withOverride(surface: PresentationSurface, percent: Int?): TrendAppearance = copy(
-        surfaceOverrides = if (percent == null || percent == systemTrendScalePercent) {
-            surfaceOverrides - surface
-        } else {
-            surfaceOverrides + (surface to percent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
-        },
-    )
+    fun withOverride(
+        surface: PresentationSurface,
+        percent: Int?,
+    ): TrendAppearance =
+        copy(
+            surfaceOverrides =
+                if (percent == null || percent == systemTrendScalePercent) {
+                    surfaceOverrides - surface
+                } else {
+                    surfaceOverrides +
+                        (surface to percent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
+                },
+        )
 }
 
 enum class AxisSide { LEFT, RIGHT }

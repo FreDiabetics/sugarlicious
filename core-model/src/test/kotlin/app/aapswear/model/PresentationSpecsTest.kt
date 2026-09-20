@@ -15,14 +15,15 @@ class PresentationSpecsTest {
 
     @Test
     fun `graph defaults encode sensor floor and two reading confirmation`() {
-        val spec = GraphSpec(
-            time = GraphTimePolicy(3L * 60L * 60_000L),
-            axis = GraphAxisSpec(),
-            range = GraphRangeSpec(80, 160),
-            dots = GraphDotSpec(7f, 1f),
-            showPredictions = false,
-            showTreatments = false,
-        )
+        val spec =
+            GraphSpec(
+                time = GraphTimePolicy(3L * 60L * 60_000L),
+                axis = GraphAxisSpec(),
+                range = GraphRangeSpec(80, 160),
+                dots = GraphDotSpec(7f, 1f),
+                showPredictions = false,
+                showTreatments = false,
+            )
         assertEquals(40, spec.range.minimumMgDl)
         assertEquals(2, spec.range.confirmationCount)
         assertTrue(spec.time.anchorAtLatestCgm)

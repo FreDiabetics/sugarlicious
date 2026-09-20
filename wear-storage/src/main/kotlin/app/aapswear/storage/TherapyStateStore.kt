@@ -8,15 +8,28 @@ import app.aapswear.model.TherapyDisplayState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
+
 private val Context.therapyDataStore by preferencesDataStore("therapy_display_state")
-class TherapyStateStore(private val context:Context) {
- private val key=stringPreferencesKey("state_v1"); private val json=Json{ignoreUnknownKeys=true;explicitNulls=false}
- val state:Flow<TherapyDisplayState?> = context.therapyDataStore.data.map { preferences ->
-  preferences[key]?.let { raw ->
-   runCatching { json.decodeFromString<TherapyDisplayState>(raw) }
-    .onFailure { Log.w("SugarliciousStorage", "State decode failed: ${it.javaClass.simpleName}") }
-    .getOrNull()
-  }
- }
- suspend fun save(value:TherapyDisplayState){ context.therapyDataStore.edit{it[key]=json.encodeToString(value)} }
+
+class TherapyStateStore(
+    private val context: Context,
+) {
+    private val key = stringPreferencesKey("state_v1")
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
+    val state: Flow<TherapyDisplayState?> =
+        context.therapyDataStore.data.map { preferences ->
+            preferences[key]?.let { raw ->
+                runCatching { json.decodeFromString<TherapyDisplayState>(raw) }
+                    .onFailure { Log.w("SugarliciousStorage", "State decode failed: ${it.javaClass.simpleName}") }
+                    .getOrNull()
+            }
+        }
+
+    suspend fun save(value: TherapyDisplayState) {
+        context.therapyDataStore.edit { it[key] = json.encodeToString(value) }
+    }
 }

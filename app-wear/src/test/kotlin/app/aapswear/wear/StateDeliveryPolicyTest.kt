@@ -40,13 +40,30 @@ class StateDeliveryPolicyTest {
         assertTrue(shouldAcceptPhoneState(value, value))
     }
 
-    private fun state(receivedAt: Long, glucoseAt: Long) =
-        TherapyDisplayState(
-            receivedAtEpochMs = receivedAt,
-            glucose = GlucoseState(
+    @Test fun `second transport copy is not applied twice`() {
+        val previous = state(receivedAt = 20_000L, glucoseAt = 19_000L)
+        val secondTransportCopy = previous.copy(receivedAtEpochMs = 21_000L)
+
+        assertFalse(hasMeaningfulPhoneStateChange(previous, secondTransportCopy))
+    }
+
+    @Test fun `therapy change with unchanged glucose is still applied`() {
+        val previous = state(receivedAt = 20_000L, glucoseAt = 19_000L)
+        val updated = previous.copy(receivedAtEpochMs = 21_000L, sourceContract = "therapy-update")
+
+        assertTrue(hasMeaningfulPhoneStateChange(previous, updated))
+    }
+
+    private fun state(
+        receivedAt: Long,
+        glucoseAt: Long,
+    ) = TherapyDisplayState(
+        receivedAtEpochMs = receivedAt,
+        glucose =
+            GlucoseState(
                 valueMgDl = 123.0,
                 displayUnit = GlucoseUnit.MG_DL,
                 measuredAtEpochMs = glucoseAt,
             ),
-        )
+    )
 }

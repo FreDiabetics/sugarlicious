@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,7 +18,8 @@ class WatchFacePushControllerTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
             .edit()
             .clear()
             .commit()
@@ -68,7 +70,8 @@ class WatchFacePushControllerTest {
     fun `successful updates do not imply that the one-shot activation was consumed`() {
         assertFalse(SugarliciousWatchFacePush.directActivationWasAttempted(context))
 
-        context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
             .edit()
             .putLong("last_applied_at", 1L)
             .commit()
@@ -84,23 +87,49 @@ class WatchFacePushControllerTest {
             assertEquals('P'.code, apk.read())
             assertEquals('K'.code, apk.read())
         }
+
+        val pickerApk = context.assets.open("default_watchface.apk").use { it.readBytes() }
+        val selectableApk = context.assets.open("watchfaces/sugarlicious_digital.apk").use { it.readBytes() }
+        assertArrayEquals(
+            "The picker and the selectable Digital asset must be the same freshly built WFF",
+            pickerApk,
+            selectableApk,
+        )
     }
 
     @Test
-    fun `only ApeX and Vigil are exposed while all legacy definitions remain retained`() {
+    fun `only Digital and Vigil are exposed while all legacy definitions remain retained`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
         val legacy = SugarliciousWatchFacePush.legacyFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(2, active.size)
+        assertEquals(
+            setOf(
+                "app.aapswear.watchfacepush.digital",
+                "app.aapswear.watchfacepush.g6style",
+            ),
+            active.map { it.packageName }.toSet(),
+        )
         assertEquals(23, legacy.size)
-        assertTrue(active.map { it.packageName }.toSet().intersect(legacy.map { it.packageName }.toSet()).isEmpty())
+        assertTrue(
+            active
+                .map { it.packageName }
+                .toSet()
+                .intersect(legacy.map { it.packageName }.toSet())
+                .isEmpty(),
+        )
         active.forEach { spec ->
             context.assets.open(spec.apkAsset).use { apk ->
                 assertEquals('P'.code, apk.read())
                 assertEquals('K'.code, apk.read())
             }
-            assertTrue(context.assets.open(spec.tokenAsset).bufferedReader().use { it.readText().isNotBlank() })
+            assertTrue(
+                context.assets
+                    .open(spec.tokenAsset)
+                    .bufferedReader()
+                    .use { it.readText().isNotBlank() },
+            )
         }
     }
 }

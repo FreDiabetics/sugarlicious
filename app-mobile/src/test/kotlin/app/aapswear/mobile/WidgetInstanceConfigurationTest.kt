@@ -32,20 +32,34 @@ class WidgetInstanceConfigurationTest {
         assertFalse(targetScaleOnRight(false, false, true, false))
         assertFalse(targetScaleOnRight(false, false, false, true))
     }
+
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test
     fun `two widget instances retain independent appearance and graph settings`() {
-        val first = WidgetInstanceConfiguration(
-            6, true, WidgetScaleMode.DYNAMIC, Color.argb(120, 10, 20, 30), "app.aapswear",
-            backgroundEnabled = false, graphCornerRadiusDp = 12, glucoseScalePercent = 88, trendScalePercent = 112,
-            colorOverrides = mapOf(WidgetColorRole.TREND_HIGH to Color.MAGENTA),
-        )
-        val second = WidgetInstanceConfiguration(
-            24, false, WidgetScaleMode.LOGARITHMIC, Color.BLACK, "com.eveningoutpost.dexdrip",
-            graphCornerRadiusDp = 26,
-            colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to Color.GREEN),
-        )
+        val first =
+            WidgetInstanceConfiguration(
+                6,
+                true,
+                WidgetScaleMode.DYNAMIC,
+                Color.argb(120, 10, 20, 30),
+                "app.aapswear",
+                backgroundEnabled = false,
+                graphCornerRadiusDp = 12,
+                glucoseScalePercent = 88,
+                trendScalePercent = 112,
+                colorOverrides = mapOf(WidgetColorRole.TREND_HIGH to Color.MAGENTA),
+            )
+        val second =
+            WidgetInstanceConfiguration(
+                24,
+                false,
+                WidgetScaleMode.LOGARITHMIC,
+                Color.BLACK,
+                "com.eveningoutpost.dexdrip",
+                graphCornerRadiusDp = 26,
+                colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to Color.GREEN),
+            )
         WidgetInstanceConfigurationStore.save(context, 101, first)
         WidgetInstanceConfigurationStore.save(context, 202, second)
 
@@ -60,16 +74,17 @@ class WidgetInstanceConfigurationTest {
         val lightBackground = Color.rgb(242, 236, 219)
         val darkDot = Color.CYAN
         val lightDot = Color.BLUE
-        val value = WidgetInstanceConfiguration(
-            backgroundArgb = darkBackground,
-            lightBackgroundArgb = lightBackground,
-            backgroundEnabled = false,
-            lightBackgroundEnabled = true,
-            outlineEnabled = true,
-            lightOutlineEnabled = false,
-            colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to darkDot),
-            lightColorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to lightDot),
-        )
+        val value =
+            WidgetInstanceConfiguration(
+                backgroundArgb = darkBackground,
+                lightBackgroundArgb = lightBackground,
+                backgroundEnabled = false,
+                lightBackgroundEnabled = true,
+                outlineEnabled = true,
+                lightOutlineEnabled = false,
+                colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to darkDot),
+                lightColorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to lightDot),
+            )
 
         WidgetInstanceConfigurationStore.save(context, 212, value)
         val stored = WidgetInstanceConfigurationStore.read(context, 212)
@@ -88,11 +103,12 @@ class WidgetInstanceConfigurationTest {
     @Test
     fun `widget trend overrides persist independently and inherit missing values`() {
         val parent = TrendArrowStyle.defaults(AppearanceMode.DARK, Color.WHITE)
-        val value = WidgetInstanceConfiguration(
-            trendScalePercent = 135,
-            darkTrendStyle = TrendArrowStyleOverride(outlineEnabled = false, alpha = 0.55f),
-            lightTrendStyle = TrendArrowStyleOverride(outlineColor = Color.MAGENTA, outlineThicknessDp = 1.25f),
-        )
+        val value =
+            WidgetInstanceConfiguration(
+                trendScalePercent = 135,
+                darkTrendStyle = TrendArrowStyleOverride(outlineEnabled = false, alpha = 0.55f),
+                lightTrendStyle = TrendArrowStyleOverride(outlineColor = Color.MAGENTA, outlineThicknessDp = 1.25f),
+            )
         WidgetInstanceConfigurationStore.save(context, 213, value)
         val stored = WidgetInstanceConfigurationStore.read(context, 213)
 
@@ -150,26 +166,28 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `combined widget keeps value graph ratio and unit setting per instance`() {
-        val compactValue = WidgetInstanceConfiguration(
-            glucoseGraphValuePercent = 35,
-            showGlucoseUnit = false,
-            glucoseBold = false,
-            deltaUnitBold = true,
-            historicalDotOutlineEnabled = false,
-            currentDotOutlineEnabled = true,
-            historicalDotOutlineWidthDp = 0.65f,
-            currentDotOutlineWidthDp = 1.8f,
-        )
-        val largeValue = WidgetInstanceConfiguration(
-            glucoseGraphValuePercent = 42,
-            showGlucoseUnit = true,
-            glucoseBold = true,
-            deltaUnitBold = false,
-            historicalDotOutlineEnabled = true,
-            currentDotOutlineEnabled = false,
-            historicalDotOutlineWidthDp = 2.25f,
-            currentDotOutlineWidthDp = 0.4f,
-        )
+        val compactValue =
+            WidgetInstanceConfiguration(
+                glucoseGraphValuePercent = 35,
+                showGlucoseUnit = false,
+                glucoseBold = false,
+                deltaUnitBold = true,
+                historicalDotOutlineEnabled = false,
+                currentDotOutlineEnabled = true,
+                historicalDotOutlineWidthDp = 0.65f,
+                currentDotOutlineWidthDp = 1.8f,
+            )
+        val largeValue =
+            WidgetInstanceConfiguration(
+                glucoseGraphValuePercent = 42,
+                showGlucoseUnit = true,
+                glucoseBold = true,
+                deltaUnitBold = false,
+                historicalDotOutlineEnabled = true,
+                currentDotOutlineEnabled = false,
+                historicalDotOutlineWidthDp = 2.25f,
+                currentDotOutlineWidthDp = 0.4f,
+            )
         WidgetInstanceConfigurationStore.save(context, 909, compactValue)
         WidgetInstanceConfigurationStore.save(context, 910, largeValue)
 
@@ -181,7 +199,8 @@ class WidgetInstanceConfigurationTest {
     @Test
     fun `legacy oversized graph region migrates to balanced default`() {
         val id = 911
-        context.getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
             .edit()
             .putInt("$id.glucose_graph_value_percent", 27)
             .apply()

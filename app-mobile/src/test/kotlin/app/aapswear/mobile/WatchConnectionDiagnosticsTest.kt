@@ -19,7 +19,11 @@ class WatchConnectionDiagnosticsTest {
     @Before
     fun clearDiagnostics() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("diagnostics", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test

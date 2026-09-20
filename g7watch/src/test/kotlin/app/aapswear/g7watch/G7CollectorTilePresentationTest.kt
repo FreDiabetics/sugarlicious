@@ -13,13 +13,20 @@ import org.junit.Test
 
 class G7CollectorTilePresentationTest {
     private val now = 2_000_000L
-    private val colors = WatchGraphColors(
-        graphBackground = 0xFF111111.toInt(),
-        rangeLow = 0xFFAA0000.toInt(),
-        rangeHigh = 0xFFCCAA00.toInt(),
-        cgmLow = 0xFFFF0000.toInt(),
-        cgmHigh = 0xFFFFCC00.toInt(),
-    )
+    private val colors =
+        WatchGraphColors(
+            graphBackground = 0xFF111111.toInt(),
+            rangeLow = 0xFFAA0000.toInt(),
+            rangeHigh = 0xFFCCAA00.toInt(),
+            cgmLow = 0xFFFF0000.toInt(),
+            cgmHigh = 0xFFFFCC00.toInt(),
+        )
+
+    @Test
+    fun `tile emphasis is calibrated to match the in app system font`() {
+        assertEquals(500, sugarWearTileWeight(true))
+        assertEquals(400, sugarWearTileWeight(false))
+    }
 
     @Test
     fun `stale keeps validated value while no data invalid and sensor errors stay neutral`() {
@@ -60,11 +67,12 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `tile shows vector trend delta unit and compact age without source`() {
-        val presentation = g7TilePresentation(
-            reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
-            colors,
-            now,
-        )
+        val presentation =
+            g7TilePresentation(
+                reading(123.0, now - 2 * 60_000L, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
+                colors,
+                now,
+            )
 
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
@@ -78,16 +86,18 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `collector app value shows the same validated trend beside glucose`() {
-        val up = g7TilePresentation(
-            reading(123.0, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
-            colors,
-            now,
-        )
-        val doubleDown = g7TilePresentation(
-            reading(98.0, delta = -9.0, trend = Trend.DOUBLE_DOWN),
-            colors,
-            now,
-        )
+        val up =
+            g7TilePresentation(
+                reading(123.0, delta = 5.0, trend = Trend.FORTY_FIVE_UP),
+                colors,
+                now,
+            )
+        val doubleDown =
+            g7TilePresentation(
+                reading(98.0, delta = -9.0, trend = Trend.DOUBLE_DOWN),
+                colors,
+                now,
+            )
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)
@@ -106,31 +116,17 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `collector ok and working status use Sugarlicious green pill`() {
-        val ok = g7TileStatusPresentation(
-            G7UserStatus(
-                level = G7UserStatusLevel.OK,
-                title = "Verbunden",
-                phase = "Bereit",
-                status = "Aktiv",
-                description = "ok",
-                action = "none",
-            ),
-        )
-        val working = g7TileStatusPresentation(
-            G7UserStatus(
-                level = G7UserStatusLevel.WORKING,
-                title = "Verbindung wird aufgebaut",
-                phase = "Verbinden",
-                status = "Aktiv",
-                description = "working",
-                action = "none",
-            ),
-        )
+    fun `tile pill uses only stable SugarWear status`() {
+        val connected = g7TileStatusPresentation(G7StatusPillState.CONNECTED)
+        val signalLoss = g7TileStatusPresentation(G7StatusPillState.SIGNAL_LOSS)
+        val sensorError = g7TileStatusPresentation(G7StatusPillState.SENSOR_ERROR)
+        val noSensor = g7TileStatusPresentation(G7StatusPillState.NO_ACTIVE_SENSOR)
 
-        assertEquals("VERBUNDEN", ok.label)
-        assertEquals(G7_TILE_ACCENT, ok.color)
-        assertEquals(G7_TILE_ACCENT, working.color)
+        assertEquals("VERBUNDEN", connected.label)
+        assertEquals("SIGNALVERLUST", signalLoss.label)
+        assertEquals("SENSORFEHLER", sensorError.label)
+        assertEquals("KEIN AKTIVER SENSOR GEKOPPELT", noSensor.label)
+        assertEquals(G7_TILE_ACCENT, connected.color)
         assertEquals(0x246DE892, withTileAlpha(G7_TILE_ACCENT, 36))
     }
 

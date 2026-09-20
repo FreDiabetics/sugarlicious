@@ -10,8 +10,6 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
-import java.io.File
-import java.io.FileOutputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -19,6 +17,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
+import java.io.File
+import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -88,7 +88,11 @@ class WidgetGraphVisualQaTest {
         assertTrue(metrics.yAxisLeftPx < width)
     }
 
-    private fun render(state: TherapyDisplayState, width: Int, height: Int): Bitmap =
+    private fun render(
+        state: TherapyDisplayState,
+        width: Int,
+        height: Int,
+    ): Bitmap =
         renderWidgetGraph(
             state = state,
             palette = palette,
@@ -99,8 +103,10 @@ class WidgetGraphVisualQaTest {
             scaledDensity = density,
         )
 
-    private fun stateWithTerminalValues(previous: Double, latest: Double): TherapyDisplayState =
-        stateFromHistory(listOf(112.0, 116.0, previous, latest))
+    private fun stateWithTerminalValues(
+        previous: Double,
+        latest: Double,
+    ): TherapyDisplayState = stateFromHistory(listOf(112.0, 116.0, previous, latest))
 
     private fun stateFromHistory(values: List<Double>): TherapyDisplayState {
         val points =
@@ -123,7 +129,4 @@ class WidgetGraphVisualQaTest {
             target = TargetState(lowMgDl = 80.0, highMgDl = 160.0),
         )
     }
-
-    private fun widgetGlucoseYForTest(valueMgDl: Double, plot: android.graphics.RectF): Float =
-        plot.bottom - glucoseLogRatio(valueMgDl).toFloat() * plot.height()
 }

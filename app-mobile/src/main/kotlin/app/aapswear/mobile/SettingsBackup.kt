@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.serialization.json.Json
@@ -7,8 +8,8 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.float
 import kotlinx.serialization.json.int
@@ -41,33 +42,37 @@ internal object SettingsBackup {
     private const val MAX_KEY_LENGTH = 256
     private const val MAX_STRING_LENGTH = 65_536
 
-    private val preferenceFiles = listOf(
-        "dashboard_ui",
-        "complication_setup",
-        "sugarlicious_watchface_presets",
-    )
+    private val preferenceFiles =
+        listOf(
+            "dashboard_ui",
+            "complication_setup",
+            "sugarlicious_watchface_presets",
+        )
 
-    private val json = Json {
-        prettyPrint = true
-        prettyPrintIndent = "  "
-    }
+    private val json =
+        Json {
+            prettyPrint = true
+            prettyPrintIndent = "  "
+        }
 
     fun write(
         context: Context,
         output: OutputStream,
         exportedAtEpochMs: Long = System.currentTimeMillis(),
     ) {
-        val preferences = buildJsonObject {
-            preferenceFiles.forEach { name ->
-                put(name, encodePreferences(context.getSharedPreferences(name, Context.MODE_PRIVATE)))
+        val preferences =
+            buildJsonObject {
+                preferenceFiles.forEach { name ->
+                    put(name, encodePreferences(context.getSharedPreferences(name, Context.MODE_PRIVATE)))
+                }
             }
-        }
-        val document = buildJsonObject {
-            put("format", FORMAT)
-            put("version", VERSION)
-            put("exportedAtEpochMs", exportedAtEpochMs)
-            put("preferences", preferences)
-        }
+        val document =
+            buildJsonObject {
+                put("format", FORMAT)
+                put("version", VERSION)
+                put("exportedAtEpochMs", exportedAtEpochMs)
+                put("preferences", preferences)
+            }
         output.bufferedWriter(StandardCharsets.UTF_8).use { writer ->
             writer.write(json.encodeToString(JsonElement.serializer(), document))
         }
@@ -85,22 +90,25 @@ internal object SettingsBackup {
             "Nicht unterstützte Sicherungsversion"
         }
 
-        val encodedFiles = document["preferences"]?.jsonObject
-            ?: throw IllegalArgumentException("Einstellungen fehlen")
+        val encodedFiles =
+            document["preferences"]?.jsonObject
+                ?: throw IllegalArgumentException("Einstellungen fehlen")
         require(encodedFiles.keys == preferenceFiles.toSet()) {
             "Die Sicherung ist unvollständig oder enthält unbekannte Bereiche"
         }
 
         var valueCount = 0
-        val decoded = preferenceFiles.associateWith { name ->
-            decodePreferences(encodedFiles.getValue(name).jsonObject).also { values ->
-                valueCount += values.size
-                require(valueCount <= MAX_VALUES) { "Die Sicherung enthält zu viele Einstellungen" }
+        val decoded =
+            preferenceFiles.associateWith { name ->
+                decodePreferences(encodedFiles.getValue(name).jsonObject).also { values ->
+                    valueCount += values.size
+                    require(valueCount <= MAX_VALUES) { "Die Sicherung enthält zu viele Einstellungen" }
+                }
             }
-        }
-        val snapshots = preferenceFiles.associateWith { name ->
-            context.getSharedPreferences(name, Context.MODE_PRIVATE).all.copyPreferenceValues()
-        }
+        val snapshots =
+            preferenceFiles.associateWith { name ->
+                context.getSharedPreferences(name, Context.MODE_PRIVATE).all.copyPreferenceValues()
+            }
 
         try {
             decoded.forEach { (name, values) ->
@@ -120,88 +128,98 @@ internal object SettingsBackup {
         )
     }
 
-    private fun encodePreferences(preferences: SharedPreferences): JsonObject = buildJsonObject {
-        preferences.all.toSortedMap().forEach { (key, value) ->
-            put(key, encodeValue(value))
+    private fun encodePreferences(preferences: SharedPreferences): JsonObject =
+        buildJsonObject {
+            preferences.all.toSortedMap().forEach { (key, value) ->
+                put(key, encodeValue(value))
+            }
         }
-    }
 
-    private fun encodeValue(value: Any?): JsonObject = buildJsonObject {
-        when (value) {
-            is Boolean -> {
-                put("type", "boolean")
-                put("value", value)
+    private fun encodeValue(value: Any?): JsonObject =
+        buildJsonObject {
+            when (value) {
+                is Boolean -> {
+                    put("type", "boolean")
+                    put("value", value)
+                }
+
+                is Int -> {
+                    put("type", "int")
+                    put("value", value)
+                }
+
+                is Long -> {
+                    put("type", "long")
+                    put("value", value)
+                }
+
+                is Float -> {
+                    require(value.isFinite()) { "Ungültiger Zahlenwert" }
+                    put("type", "float")
+                    put("value", value)
+                }
+
+                is String -> {
+                    require(value.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
+                    put("type", "string")
+                    put("value", value)
+                }
+
+                is Set<*> -> {
+                    val strings =
+                        value
+                            .map {
+                                require(it is String) { "Nicht unterstützter Einstellungswert" }
+                                require(it.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
+                                it
+                            }.sorted()
+                    put("type", "stringSet")
+                    put("value", JsonArray(strings.map(::JsonPrimitive)))
+                }
+
+                else -> throw IllegalArgumentException("Nicht unterstützter Einstellungswert")
             }
-
-            is Int -> {
-                put("type", "int")
-                put("value", value)
-            }
-
-            is Long -> {
-                put("type", "long")
-                put("value", value)
-            }
-
-            is Float -> {
-                require(value.isFinite()) { "Ungültiger Zahlenwert" }
-                put("type", "float")
-                put("value", value)
-            }
-
-            is String -> {
-                require(value.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
-                put("type", "string")
-                put("value", value)
-            }
-
-            is Set<*> -> {
-                val strings = value.map {
-                    require(it is String) { "Nicht unterstützter Einstellungswert" }
-                    require(it.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
-                    it
-                }.sorted()
-                put("type", "stringSet")
-                put("value", JsonArray(strings.map(::JsonPrimitive)))
-            }
-
-            else -> throw IllegalArgumentException("Nicht unterstützter Einstellungswert")
         }
-    }
 
-    private fun decodePreferences(encoded: JsonObject): Map<String, Any> = buildMap {
-        encoded.forEach { (key, value) ->
-            require(key.isNotBlank() && key.length <= MAX_KEY_LENGTH) { "Ungültiger Einstellungsschlüssel" }
-            put(key, decodeValue(value.jsonObject))
+    private fun decodePreferences(encoded: JsonObject): Map<String, Any> =
+        buildMap {
+            encoded.forEach { (key, value) ->
+                require(key.isNotBlank() && key.length <= MAX_KEY_LENGTH) { "Ungültiger Einstellungsschlüssel" }
+                put(key, decodeValue(value.jsonObject))
+            }
         }
-    }
 
     private fun decodeValue(encoded: JsonObject): Any {
-        val type = encoded["type"]?.jsonPrimitive?.contentOrNull
-            ?: throw IllegalArgumentException("Einstellungstyp fehlt")
+        val type =
+            encoded["type"]?.jsonPrimitive?.contentOrNull
+                ?: throw IllegalArgumentException("Einstellungstyp fehlt")
         val value = encoded["value"] ?: throw IllegalArgumentException("Einstellungswert fehlt")
         return when (type) {
             "boolean" -> value.jsonPrimitive.boolean
             "int" -> value.jsonPrimitive.int
             "long" -> value.jsonPrimitive.long
-            "float" -> value.jsonPrimitive.float.also {
-                require(it.isFinite()) { "Ungültiger Zahlenwert" }
-            }
-
-            "string" -> value.jsonPrimitive.content.also {
-                require(it.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
-            }
-
-            "stringSet" -> value.jsonArray.mapTo(linkedSetOf()) {
-                it.jsonPrimitive.content.also { item ->
-                    require(item.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
+            "float" ->
+                value.jsonPrimitive.float.also {
+                    require(it.isFinite()) { "Ungültiger Zahlenwert" }
                 }
-            }
+
+            "string" ->
+                value.jsonPrimitive.content.also {
+                    require(it.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
+                }
+
+            "stringSet" ->
+                value.jsonArray.mapTo(linkedSetOf()) {
+                    it.jsonPrimitive.content.also { item ->
+                        require(item.length <= MAX_STRING_LENGTH) { "Einstellungswert ist zu lang" }
+                    }
+                }
 
             else -> throw IllegalArgumentException("Unbekannter Einstellungstyp")
         }
     }
 
+    @SuppressLint("UseKtx") // The restore API must return the synchronous commit result to its caller.
     private fun replace(
         preferences: SharedPreferences,
         values: Map<String, Any>,
@@ -214,20 +232,24 @@ internal object SettingsBackup {
                 is Long -> editor.putLong(key, value)
                 is Float -> editor.putFloat(key, value)
                 is String -> editor.putString(key, value)
-                is Set<*> -> @Suppress("UNCHECKED_CAST") editor.putStringSet(key, value as Set<String>)
+                is Set<*> ->
+                    @Suppress("UNCHECKED_CAST")
+                    editor.putStringSet(key, value as Set<String>)
                 else -> throw IllegalArgumentException("Nicht unterstützter Einstellungswert")
             }
         }
         return editor.commit()
     }
 
-    private fun Map<String, *>.copyPreferenceValues(): Map<String, Any> = entries.associate { (key, value) ->
-        key to when (value) {
-            is Set<*> -> value.filterIsInstance<String>().toSet()
-            null -> throw IllegalArgumentException("Leerer Einstellungswert")
-            else -> value
+    private fun Map<String, *>.copyPreferenceValues(): Map<String, Any> =
+        entries.associate { (key, value) ->
+            key to
+                when (value) {
+                    is Set<*> -> value.filterIsInstance<String>().toSet()
+                    null -> throw IllegalArgumentException("Leerer Einstellungswert")
+                    else -> value
+                }
         }
-    }
 
     private fun readBoundedUtf8(input: InputStream): String {
         val output = ByteArrayOutputStream()

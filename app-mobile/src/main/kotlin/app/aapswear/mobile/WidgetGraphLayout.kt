@@ -62,56 +62,65 @@ internal data class WidgetGraphLayoutMetrics(
             val heightDp = height / safeDensity
             val aspect = widthDp / heightDp.coerceAtLeast(1f)
 
-            val sizeClass = when {
-                widthDp < 125f || heightDp < 82f -> WidgetGraphSizeClass.VERY_SMALL
-                aspect >= 2.35f -> WidgetGraphSizeClass.EXTRA_WIDE
-                heightDp / widthDp.coerceAtLeast(1f) >= 1.35f -> WidgetGraphSizeClass.TALL
-                widthDp < 185f || heightDp < 115f -> WidgetGraphSizeClass.SMALL
-                widthDp >= 300f || heightDp >= 190f -> WidgetGraphSizeClass.LARGE
-                else -> WidgetGraphSizeClass.MEDIUM
-            }
+            val sizeClass =
+                when {
+                    widthDp < 125f || heightDp < 82f -> WidgetGraphSizeClass.VERY_SMALL
+                    aspect >= 2.35f -> WidgetGraphSizeClass.EXTRA_WIDE
+                    heightDp / widthDp.coerceAtLeast(1f) >= 1.35f -> WidgetGraphSizeClass.TALL
+                    widthDp < 185f || heightDp < 115f -> WidgetGraphSizeClass.SMALL
+                    widthDp >= 300f || heightDp >= 190f -> WidgetGraphSizeClass.LARGE
+                    else -> WidgetGraphSizeClass.MEDIUM
+                }
 
             fun dp(value: Float): Float = value * safeDensity
+
             fun sp(value: Float): Float = value * safeScaledDensity
 
-            val outerInsetDp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 5f
-                WidgetGraphSizeClass.SMALL -> 6f
-                else -> 8f
-            }
-            val requestedRightAxisDp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 27f
-                WidgetGraphSizeClass.SMALL -> 30f
-                WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.TALL -> 34f
-                WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.EXTRA_WIDE -> 38f
-            }
-            val requestedBottomAxisDp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 20f
-                WidgetGraphSizeClass.SMALL -> 22f
-                WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.EXTRA_WIDE -> 24f
-                WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.TALL -> 26f
-            }
-            val axisSp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 7.5f
-                WidgetGraphSizeClass.SMALL -> 8f
-                WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.EXTRA_WIDE -> CgmGraphVisualPolicy.AXIS_TEXT_SP
-                WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.TALL -> 9.5f
-            }
+            val outerInsetDp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 5f
+                    WidgetGraphSizeClass.SMALL -> 6f
+                    else -> 8f
+                }
+            val requestedRightAxisDp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 27f
+                    WidgetGraphSizeClass.SMALL -> 30f
+                    WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.TALL -> 34f
+                    WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.EXTRA_WIDE -> 38f
+                }
+            val requestedBottomAxisDp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 20f
+                    WidgetGraphSizeClass.SMALL -> 22f
+                    WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.EXTRA_WIDE -> 24f
+                    WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.TALL -> 26f
+                }
+            val axisSp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 7.5f
+                    WidgetGraphSizeClass.SMALL -> 8f
+                    WidgetGraphSizeClass.MEDIUM, WidgetGraphSizeClass.EXTRA_WIDE -> CgmGraphVisualPolicy.AXIS_TEXT_SP
+                    WidgetGraphSizeClass.LARGE, WidgetGraphSizeClass.TALL -> 9.5f
+                }
             val yAxisSp = min(10f, axisSp + 0.5f)
-            val dotRadiusDp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 2.0f
-                WidgetGraphSizeClass.SMALL -> 2.2f
-                else -> CgmGraphVisualPolicy.DOT_RADIUS_DP
-            }.coerceIn(1.8f, 2.6f)
-            val outlineDp = when (sizeClass) {
-                WidgetGraphSizeClass.VERY_SMALL -> 0.70f
-                WidgetGraphSizeClass.SMALL -> 0.82f
-                else -> CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP
-            }.coerceIn(0.55f, CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP)
+            val dotRadiusDp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 2.0f
+                    WidgetGraphSizeClass.SMALL -> 2.2f
+                    else -> CgmGraphVisualPolicy.DOT_RADIUS_DP
+                }.coerceIn(1.8f, 2.6f)
+            val outlineDp =
+                when (sizeClass) {
+                    WidgetGraphSizeClass.VERY_SMALL -> 0.70f
+                    WidgetGraphSizeClass.SMALL -> 0.82f
+                    else -> CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP
+                }.coerceIn(0.55f, CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP)
 
             val outerInset = min(dp(outerInsetDp), min(width, height) * 0.08f)
-            val leftInset = (outerInset + dp(if (sizeClass == WidgetGraphSizeClass.VERY_SMALL) 2f else 4f))
-                .coerceAtMost(width * 0.22f)
+            val leftInset =
+                (outerInset + dp(if (sizeClass == WidgetGraphSizeClass.VERY_SMALL) 2f else 4f))
+                    .coerceAtMost(width * 0.22f)
             val rightAxisPx =
                 dp(requestedRightAxisDp)
                     .coerceAtMost((width - leftInset - outerInset - dp(18f)).coerceAtLeast(dp(18f)))
@@ -119,10 +128,12 @@ internal data class WidgetGraphLayoutMetrics(
                 dp(requestedBottomAxisDp)
                     .coerceAtMost((height - outerInset - dp(24f)).coerceAtLeast(dp(16f)))
             val plotTop = outerInset
-            val plotRight = (width - outerInset - rightAxisPx)
-                .coerceIn(leftInset + dp(12f), (width - outerInset).coerceAtLeast(leftInset + dp(12f)))
-            val plotBottom = (height - outerInset - bottomAxisPx)
-                .coerceIn(plotTop + dp(18f), (height - outerInset).coerceAtLeast(plotTop + dp(18f)))
+            val plotRight =
+                (width - outerInset - rightAxisPx)
+                    .coerceIn(leftInset + dp(12f), (width - outerInset).coerceAtLeast(leftInset + dp(12f)))
+            val plotBottom =
+                (height - outerInset - bottomAxisPx)
+                    .coerceIn(plotTop + dp(18f), (height - outerInset).coerceAtLeast(plotTop + dp(18f)))
 
             return WidgetGraphLayoutMetrics(
                 widthPx = width,

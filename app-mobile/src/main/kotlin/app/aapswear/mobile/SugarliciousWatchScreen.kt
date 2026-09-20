@@ -1,7 +1,6 @@
 package app.aapswear.mobile
 
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +19,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -27,7 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,39 +72,43 @@ internal val sugarliciousWatchFaceCards =
         ),
         SugarliciousWatchFaceCard(
             name = "Vigil",
-            style = "Direct to Watch",
+            style = "SugarWear",
             slots = 3,
-            features = listOf("Direct to Watch", "3h Graph", "AOD", "Fixed Layout"),
+            features = listOf("SugarWear", "3h Graph", "AOD", "Fixed Layout"),
         ),
     )
 
-internal data class LegacyWatchFaceCard(val name: String, val previewRes: Int)
-
-internal val legacyWatchFaceCards = listOf(
-    LegacyWatchFaceCard("AAPS BigChart", R.drawable.legacy_aaps_big_chart),
-    LegacyWatchFaceCard("AAPS Circle", R.drawable.legacy_aaps_circle),
-    LegacyWatchFaceCard("AAPS Cockpit", R.drawable.legacy_aaps_cockpit),
-    LegacyWatchFaceCard("AAPS Community", R.drawable.legacy_aaps_community),
-    LegacyWatchFaceCard("AAPS Digital Style", R.drawable.legacy_aaps_digital_style),
-    LegacyWatchFaceCard("AAPS Large", R.drawable.legacy_aaps_large),
-    LegacyWatchFaceCard("AAPS NoChart", R.drawable.legacy_aaps_no_chart),
-    LegacyWatchFaceCard("AAPS Standard", R.drawable.legacy_aaps_standard),
-    LegacyWatchFaceCard("AAPS V2", R.drawable.legacy_aaps_v2),
-    LegacyWatchFaceCard("AAPS V2 TT DarkOnly", R.drawable.legacy_aaps_v2_tt_dark),
-    LegacyWatchFaceCard("AAPS V4", R.drawable.legacy_aaps_v4),
-    LegacyWatchFaceCard("AIMICO", R.drawable.legacy_aimico),
-    LegacyWatchFaceCard("Analog G-Watch", R.drawable.legacy_analog_g_watch),
-    LegacyWatchFaceCard("Blue Ring", R.drawable.legacy_blue_ring),
-    LegacyWatchFaceCard("Digital Big Graph", R.drawable.legacy_digital_big_graph),
-    LegacyWatchFaceCard("Digital G-Watch", R.drawable.legacy_digital_g_watch),
-    LegacyWatchFaceCard("Gears", R.drawable.legacy_gears),
-    LegacyWatchFaceCard("Gota", R.drawable.legacy_gota),
-    LegacyWatchFaceCard("LuckyLoopKoeln", R.drawable.legacy_lucky_loop_koeln),
-    LegacyWatchFaceCard("P-Zero", R.drawable.legacy_p_zero),
-    LegacyWatchFaceCard("Robby", R.drawable.legacy_robby),
-    LegacyWatchFaceCard("Simple Digital", R.drawable.legacy_simple_digital),
-    LegacyWatchFaceCard("AAPS SteamPunk", R.drawable.legacy_steam_punk),
+internal data class LegacyWatchFaceCard(
+    val name: String,
+    val previewRes: Int,
 )
+
+internal val legacyWatchFaceCards =
+    listOf(
+        LegacyWatchFaceCard("AAPS BigChart", R.drawable.legacy_aaps_big_chart),
+        LegacyWatchFaceCard("AAPS Circle", R.drawable.legacy_aaps_circle),
+        LegacyWatchFaceCard("AAPS Cockpit", R.drawable.legacy_aaps_cockpit),
+        LegacyWatchFaceCard("AAPS Community", R.drawable.legacy_aaps_community),
+        LegacyWatchFaceCard("AAPS Digital Style", R.drawable.legacy_aaps_digital_style),
+        LegacyWatchFaceCard("AAPS Large", R.drawable.legacy_aaps_large),
+        LegacyWatchFaceCard("AAPS NoChart", R.drawable.legacy_aaps_no_chart),
+        LegacyWatchFaceCard("AAPS Standard", R.drawable.legacy_aaps_standard),
+        LegacyWatchFaceCard("AAPS V2", R.drawable.legacy_aaps_v2),
+        LegacyWatchFaceCard("AAPS V2 TT DarkOnly", R.drawable.legacy_aaps_v2_tt_dark),
+        LegacyWatchFaceCard("AAPS V4", R.drawable.legacy_aaps_v4),
+        LegacyWatchFaceCard("AIMICO", R.drawable.legacy_aimico),
+        LegacyWatchFaceCard("Analog G-Watch", R.drawable.legacy_analog_g_watch),
+        LegacyWatchFaceCard("Blue Ring", R.drawable.legacy_blue_ring),
+        LegacyWatchFaceCard("Digital Big Graph", R.drawable.legacy_digital_big_graph),
+        LegacyWatchFaceCard("Digital G-Watch", R.drawable.legacy_digital_g_watch),
+        LegacyWatchFaceCard("Gears", R.drawable.legacy_gears),
+        LegacyWatchFaceCard("Gota", R.drawable.legacy_gota),
+        LegacyWatchFaceCard("LuckyLoopKoeln", R.drawable.legacy_lucky_loop_koeln),
+        LegacyWatchFaceCard("P-Zero", R.drawable.legacy_p_zero),
+        LegacyWatchFaceCard("Robby", R.drawable.legacy_robby),
+        LegacyWatchFaceCard("Simple Digital", R.drawable.legacy_simple_digital),
+        LegacyWatchFaceCard("AAPS SteamPunk", R.drawable.legacy_steam_punk),
+    )
 
 @Composable
 internal fun SugarliciousWatchScreen(
@@ -118,8 +121,8 @@ internal fun SugarliciousWatchScreen(
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
     val directToWatchRelevant =
         SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state, preferences)
-    var activeFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
-    var editingFaceIndex by remember(savedFaceIndex) { mutableStateOf(savedFaceIndex) }
+    var activeFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
+    var editingFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
 
     LaunchedEffect(appContext) {
@@ -194,9 +197,9 @@ internal fun SugarliciousWatchScreen(
                     Text(
                         text =
                             if (directToWatchRelevant) {
-                                "Direct to Watch nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten Sensor-Datenstrom der Watch."
+                                "SugarWear nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten Sensor-Datenstrom der Watch."
                             } else {
-                                "Direct to Watch wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
+                                "SugarWear wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
                             },
                         color = SugarliciousColors.TextSecondary,
                         fontSize = 12.sp,
@@ -209,16 +212,16 @@ internal fun SugarliciousWatchScreen(
                         state = state,
                         onPresetChanged = { updated ->
                             WatchFacePresetStore.save(appContext, editingFaceIndex, updated)
-                            facePresets = facePresets.toMutableList().also { presets ->
-                                presets[editingFaceIndex] = updated
-                            }
+                            facePresets =
+                                facePresets.toMutableList().also { presets ->
+                                    presets[editingFaceIndex] = updated
+                                }
                         },
                     )
                 }
             }
         }
     }
-
 }
 
 @Composable
@@ -249,8 +252,7 @@ private fun WatchFaceTile(
                             SugarliciousColors.Border.copy(alpha = if (enabled) 0.58f else 0.32f)
                         },
                     shape = shape,
-                )
-                .clickable(enabled = enabled) {
+                ).clickable(enabled = enabled) {
                     onSelected()
                     scope.launch {
                         val appContext = context.applicationContext
@@ -293,7 +295,7 @@ private fun WatchFaceTile(
             )
             if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
-                    text = if (enabled) "Direct-To-Watch Ziffernblatt" else "Direct to Watch erforderlich",
+                    text = if (enabled) "SugarWear Ziffernblatt" else "SugarWear erforderlich",
                     color = if (enabled) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,

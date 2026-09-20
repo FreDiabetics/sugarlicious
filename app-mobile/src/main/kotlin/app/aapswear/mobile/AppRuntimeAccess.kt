@@ -16,14 +16,10 @@ internal object AppRuntimeAccess {
             "Freigeben"
         }
 
-    fun batteryLabel(context: Context): String =
-        if (isIgnoringBatteryOptimizations(context)) "Uneingeschränkt" else "Optimiert"
+    fun batteryLabel(context: Context): String = if (isIgnoringBatteryOptimizations(context)) "Uneingeschränkt" else "Optimiert"
 
     fun isIgnoringBatteryOptimizations(context: Context): Boolean =
-        if (Build.VERSION.SDK_INT < 23) {
-            true
-        } else {
-            context.getSystemService(PowerManager::class.java)
-                .isIgnoringBatteryOptimizations(context.packageName)
-        }
+        context
+            .getSystemService(PowerManager::class.java)
+            .isIgnoringBatteryOptimizations(context.packageName)
 }

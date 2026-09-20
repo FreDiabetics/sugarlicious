@@ -11,6 +11,16 @@ object ComplicationUpdatePlanner {
     val allManagedProviders: List<Class<*>>
         get() = (AllProviders.classes + directToWatchProviders).distinct()
 
+    /**
+     * Providers whose payload changes as wall-clock time advances even when no new state arrives.
+     *
+     * Freshness, age, the live graph edge and rolling TIR windows are time-derived. Restricting
+     * minute refreshes to the Vigil clock/status providers left glucose/trend complications on an
+     * old payload during signal loss and after process recovery.
+     */
+    val timeSensitiveProviders: List<Class<*>>
+        get() = (glucoseProviders + graphProviders + tirProviders + directToWatchProviders).distinct()
+
     fun affectedProviders(
         old: TherapyDisplayState?,
         new: TherapyDisplayState,
@@ -65,6 +75,10 @@ object ComplicationUpdatePlanner {
             DirectToWatchHeaderComplication::class.java,
             DirectToWatchGraphComplication::class.java,
             DirectToWatchStatusComplication::class.java,
+            DirectToWatchClockComplication::class.java,
+            DirectToWatchAmbientClockComplication::class.java,
+            DirectToWatchAmbientHeaderComplication::class.java,
+            DirectToWatchAmbientGraphComplication::class.java,
         )
     private val directToWatchStatusProviders = listOf(DirectToWatchStatusComplication::class.java)
 

@@ -17,6 +17,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetState
@@ -37,11 +38,16 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import kotlin.math.abs
-import app.aapswear.model.GlucoseTrendSizing
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
+    @Test
+    fun `external surfaces refresh on the next aligned minute boundary`() {
+        assertEquals(60_000L, delayUntilNextExternalSurfaceMinute(120_000L))
+        assertEquals(45_000L, delayUntilNextExternalSurfaceMinute(135_000L))
+        assertEquals(1L, delayUntilNextExternalSurfaceMinute(179_999L))
+    }
 
     @Test
     fun `notification value block keeps metadata below the value and flat arrow`() {
@@ -102,7 +108,11 @@ class PersistentBridgeServiceTest {
     @Config(sdk = [35])
     fun `normal notification is ongoing private and sticky by default`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
         val service = controller.get()
         val manager = service.getSystemService(NotificationManager::class.java)
@@ -117,34 +127,44 @@ class PersistentBridgeServiceTest {
         controller.destroy()
     }
 
+    // Custom notification RemoteViews only expose compatibility fields for
+    // inspection, so this API use is intentionally isolated to this test.
+    @Suppress("DEPRECATION")
     @Test
     @Config(sdk = [36])
     fun `live preference requests promoted status with current glucose delta and graph`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
             .clear()
             .putString("themeMode", "DARK")
             .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
             .commit()
-        context.getSharedPreferences("diagnostics", android.content.Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("diagnostics", android.content.Context.MODE_PRIVATE)
+            .edit()
             .putString("sourceVersion", "4.0.0-dev")
             .putInt("reachableWatches", 1)
             .commit()
         val now = System.currentTimeMillis()
-        val therapyState = TherapyDisplayState(
-            receivedAtEpochMs = now,
-            glucose = GlucoseState(
-                valueMgDl = 123.0,
-                displayUnit = GlucoseUnit.MG_DL,
-                trend = Trend.FLAT,
-                measuredAtEpochMs = now,
-                deltaMgDl = 5.0,
-            ),
-            glucoseHistory = listOf(
-                GlucoseSample(115.0, now - 10 * 60_000L),
-                GlucoseSample(120.0, now - 5 * 60_000L),
-            ),
-        )
+        val therapyState =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose =
+                    GlucoseState(
+                        valueMgDl = 123.0,
+                        displayUnit = GlucoseUnit.MG_DL,
+                        trend = Trend.FLAT,
+                        measuredAtEpochMs = now,
+                        deltaMgDl = 5.0,
+                    ),
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(115.0, now - 10 * 60_000L),
+                        GlucoseSample(120.0, now - 5 * 60_000L),
+                    ),
+            )
         runBlocking { TherapyStateStore(context).save(therapyState) }
 
         val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
@@ -156,7 +176,7 @@ class PersistentBridgeServiceTest {
         assertEquals("123", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertTrue(notification.extras.getBoolean(PersistentBridgeService.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertTrue(content.contains("+5"))
-        assertFalse(content.contains("mg/dL"))
+        assertTrue(content.contains("+5 mg/dL"))
         assertNull(notification.getLargeIcon())
         assertNotNull(notification.contentView)
         assertNotNull(notification.bigContentView)
@@ -194,16 +214,18 @@ class PersistentBridgeServiceTest {
         }
         graphColors.commit()
 
-        val collapsedGraph = NotificationGraphRenderer.renderCollapsed(
-            context,
-            therapyState,
-            graphPreferences,
-        )
-        val expandedGraph = NotificationGraphRenderer.renderExpanded(
-            context,
-            therapyState,
-            graphPreferences,
-        )
+        val collapsedGraph =
+            NotificationGraphRenderer.renderCollapsed(
+                context,
+                therapyState,
+                graphPreferences,
+            )
+        val expandedGraph =
+            NotificationGraphRenderer.renderExpanded(
+                context,
+                therapyState,
+                graphPreferences,
+            )
 
         assertEquals(NotificationGraphRenderer.COLLAPSED_WIDTH, collapsedGraph.width)
         assertEquals(NotificationGraphRenderer.COLLAPSED_HEIGHT, collapsedGraph.height)
@@ -235,40 +257,48 @@ class PersistentBridgeServiceTest {
     fun `notification graph ignores target value and target history`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val now = System.currentTimeMillis()
         val base =
             TherapyDisplayState(
                 receivedAtEpochMs = now,
-                glucose = GlucoseState(
-                    valueMgDl = 123.0,
-                    displayUnit = GlucoseUnit.MG_DL,
-                    measuredAtEpochMs = now - 60_000L,
-                ),
-                glucoseHistory = listOf(
-                    GlucoseSample(116.0, now - 10 * 60_000L),
-                    GlucoseSample(120.0, now - 5 * 60_000L),
-                ),
-                target = TargetState(lowMgDl = 80.0, highMgDl = 160.0, valueMgDl = 100.0),
-                targetHistory = listOf(
-                    TargetSample(
-                        valueMgDl = 100.0,
-                        startedAtEpochMs = now - 60L * 60_000L,
-                        endsAtEpochMs = now,
+                glucose =
+                    GlucoseState(
+                        valueMgDl = 123.0,
+                        displayUnit = GlucoseUnit.MG_DL,
+                        measuredAtEpochMs = now - 60_000L,
                     ),
-                ),
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(116.0, now - 10 * 60_000L),
+                        GlucoseSample(120.0, now - 5 * 60_000L),
+                    ),
+                target = TargetState(lowMgDl = 80.0, highMgDl = 160.0, valueMgDl = 100.0),
+                targetHistory =
+                    listOf(
+                        TargetSample(
+                            valueMgDl = 100.0,
+                            startedAtEpochMs = now - 60L * 60_000L,
+                            endsAtEpochMs = now,
+                        ),
+                    ),
             )
         val changedTargetHistory =
             base.copy(
                 target = base.target?.copy(valueMgDl = 130.0, temporary = true),
-                targetHistory = listOf(
-                    TargetSample(
-                        valueMgDl = 130.0,
-                        startedAtEpochMs = now - 30L * 60_000L,
-                        endsAtEpochMs = now + 30L * 60_000L,
-                        temporary = true,
+                targetHistory =
+                    listOf(
+                        TargetSample(
+                            valueMgDl = 130.0,
+                            startedAtEpochMs = now - 30L * 60_000L,
+                            endsAtEpochMs = now + 30L * 60_000L,
+                            temporary = true,
+                        ),
                     ),
-                ),
             )
 
         val collapsedBase = NotificationGraphRenderer.renderCollapsed(context, base, preferences)
@@ -307,7 +337,11 @@ class PersistentBridgeServiceTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
 
-        preferences.edit().clear().putInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 1).commit()
+        preferences
+            .edit()
+            .clear()
+            .putInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 1)
+            .commit()
         assertEquals(1, NotificationGraphRenderer.notificationGraphHours(preferences))
 
         preferences.edit().putInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 2).commit()

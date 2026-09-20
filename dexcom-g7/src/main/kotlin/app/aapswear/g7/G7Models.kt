@@ -32,10 +32,15 @@ data class CgmReading(
 )
 
 @Serializable enum class CgmReadingStatus { VALID, SENSOR_ERROR, INVALID }
+
 @Serializable enum class CgmReadingOrigin { LIVE, BACKFILL }
+
 @Serializable enum class G7Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
+
 @Serializable enum class G7SensorState { UNKNOWN, WARMUP, ACTIVE, GRACE_PERIOD, ENDED, ERROR }
+
 @Serializable enum class G7ConnectionState { DISCONNECTED, SCANNING, CONNECTING, DISCOVERING, CONNECTED }
+
 @Serializable
 enum class G7ProtocolState {
     UNINITIALIZED,
@@ -64,6 +69,7 @@ enum class G7ProtocolState {
     RECOVERING,
     ERROR,
 }
+
 @Serializable enum class G7AuthenticationState { UNKNOWN, REQUIRED, AUTHENTICATING, AUTHENTICATED, FAILED }
 
 @Serializable
@@ -83,7 +89,9 @@ enum class G7SessionState {
 }
 
 @Serializable enum class G7CollectorState { DISABLED, STARTING, SCANNING, CONNECTING, AUTHENTICATING, CONNECTED, RECEIVING, WAITING, RECOVERING, ERROR, USER_ACTION_REQUIRED }
+
 @Serializable enum class CollectorOwner { PHONE, WATCH, TRANSITION_TO_PHONE, TRANSITION_TO_WATCH, UNKNOWN }
+
 @Serializable enum class G7RecoveryStep { NORMAL_RECONNECT, AUTH_RETRY, SHORT_RETRY, BLE_RESCAN, DEVICE_ADDRESS_REFRESH, SESSION_REAUTH, SESSION_RESET, REBOND, FULL_HANDSHAKE, USER_INTERVENTION_REQUIRED }
 
 @Serializable
@@ -149,6 +157,7 @@ enum class CollectorCycleClassification {
     DIRECT_CONNECT_FAILED,
     FALLBACK_SCAN_FAILED,
     HUNG,
+    PROCESS_INTERRUPTED,
     COALESCED,
     MISSED_SENSOR_WINDOW,
     GATT_NO_CALLBACK,
@@ -166,6 +175,53 @@ enum class DirectConnectResult {
     SECURITY_ERROR,
     SUCCESS,
 }
+
+/** Orthogonal, persisted collector truth. None of these values implies another dimension. */
+@Serializable enum class G7SensorIdentityState { NO_SENSOR, SENSOR_KNOWN, SENSOR_ACTIVE, SENSOR_EXPIRED, SENSOR_REPLACED }
+
+@Serializable enum class G7SensorAvailability { UNKNOWN, AVAILABLE, TEMPORARILY_UNREACHABLE, POSSIBLY_OWNED_BY_OTHER_COLLECTOR, RELEASE_PENDING, UNAVAILABLE }
+
+@Serializable enum class G7BleLinkState { DISCONNECTED, CONNECTING, CONNECTED, AUTHENTICATING, READY, CLOSING }
+
+@Serializable enum class G7CollectorRuntimeState { DISABLED, IDLE, WAITING_FOR_WINDOW, COLLECTING, RECOVERING, BACKFILLING, DEGRADED }
+
+@Serializable enum class G7DataHealth { FRESH, LATE, STALE, NO_DATA }
+
+@Serializable enum class G7RecoveryStage { NORMAL, DIRECT_RETRY, STACK_COOLDOWN, SCAN_RECOVERY, WAIT_NEXT_SENSOR_WINDOW, RECOVERY_ESCALATED }
+
+@Serializable enum class G7FailureClass {
+    NONE,
+    SCHEDULING_MISSED,
+    PROCESS_INTERRUPTED,
+    DIRECT_NO_CALLBACK,
+    DIRECT_GATT_133,
+    DIRECT_OTHER_GATT_ERROR,
+    AUTH_FAILURE,
+    DATA_TIMEOUT,
+    SENSOR_NOT_ADVERTISING,
+    SCAN_RADIO_FAILURE,
+    SENSOR_UNREACHABLE,
+    BACKFILL_TRIGGER_FAILURE,
+    BACKFILL_REQUEST_FAILURE,
+    BACKFILL_DATA_MISSING,
+}
+
+@Serializable
+data class G7CollectorHealth(
+    val sensorIdentity: G7SensorIdentityState = G7SensorIdentityState.NO_SENSOR,
+    val sensorAvailability: G7SensorAvailability = G7SensorAvailability.UNKNOWN,
+    val bleLink: G7BleLinkState = G7BleLinkState.DISCONNECTED,
+    val runtime: G7CollectorRuntimeState = G7CollectorRuntimeState.DISABLED,
+    val dataHealth: G7DataHealth = G7DataHealth.NO_DATA,
+    val recoveryStage: G7RecoveryStage = G7RecoveryStage.NORMAL,
+    val consecutiveFailures: Int = 0,
+    val lastFailureClass: G7FailureClass = G7FailureClass.NONE,
+    val lastFreshReadingAt: Long? = null,
+    val lastSuccessfulConnectionAt: Long? = null,
+    val lastReachabilityEvidenceAt: Long? = null,
+    val recoveryStageEnteredAt: Long? = null,
+    val releaseRequestedAt: Long? = null,
+)
 
 @Serializable
 enum class CollectorSlotStrategy {
@@ -196,6 +252,10 @@ enum class CollectorWindowTerminalState {
     MISSED_WINDOW,
     UNKNOWN,
 }
+
+@Serializable enum class G7GapRecoveryState { OPEN, RECOVERY_REQUIRED, RECOVERY_IN_FLIGHT, RECOVERED, UNRECOVERABLE, SESSION_ENDED }
+
+@Serializable enum class G7BackfillOutcome { REQUEST_STARTED, REQUEST_FAILED, RESPONSE_RECEIVED, PARTIAL_RECOVERY, RESPONSE_DID_NOT_CONTAIN_GAP, GAP_RECOVERED, ALREADY_PRESENT }
 
 @Serializable
 data class CollectorCycleTiming(
@@ -268,11 +328,15 @@ data class CollectorCycleTiming(
 data class CollectorExpectedWindow(
     val expectedWindowId: String,
     val expectedAt: Long,
+    val windowCreatedAt: Long? = null,
     val primaryAlarmScheduledAt: Long? = null,
     val primaryAlarmTriggeredAt: Long? = null,
     val cycleStartedAt: Long? = null,
     val advertisementSeenAt: Long? = null,
     val fallbackScanUsed: Boolean = false,
+    val scanStartedAt: Long? = null,
+    val scanEndedAt: Long? = null,
+    val scanResultCount: Int = 0,
     val gattStartedAt: Long? = null,
     val gattGeneration: Long? = null,
     val gattResult: DirectConnectResult? = null,
@@ -293,6 +357,7 @@ data class CollectorExpectedWindow(
     val serviceStartedAt: Long? = null,
     val wakeLockAcquiredAt: Long? = null,
     val processId: Int? = null,
+    val processInstanceId: String? = null,
     val processUptimeMs: Long? = null,
     val bootId: String? = null,
     val attemptId: Long? = null,
@@ -301,6 +366,20 @@ data class CollectorExpectedWindow(
     val terminalState: CollectorWindowTerminalState? = null,
     val terminalReason: String? = null,
     val completedAt: Long? = null,
+    val gapDetectedAt: Long? = null,
+    val nextLiveMeasuredAt: Long? = null,
+    val nextLiveReceivedAt: Long? = null,
+    val liveCommittedAt: Long? = null,
+    val backfillRequestedAt: Long? = null,
+    val backfillResponseAt: Long? = null,
+    val backfillInsertedAt: Long? = null,
+    val recoveredMeasuredAt: Long? = null,
+    val recoveryAttemptCount: Int = 0,
+    val lastRecoveryAttemptAt: Long? = null,
+    val lastRecoveryOutcome: String? = null,
+    val gapRecoveryState: G7GapRecoveryState = G7GapRecoveryState.OPEN,
+    val firstRecoveryOpportunityAt: Long? = null,
+    val terminalGapReason: String? = null,
 )
 
 @Serializable
@@ -318,6 +397,15 @@ data class CollectorHardwareMetrics(
     val availabilityPercent: Double = 0.0,
     val medianReceiveDelayMs: Long? = null,
     val p95ReceiveDelayMs: Long? = null,
+    val connectAttempts: Int = 0,
+    val bleScanTimeMs: Long = 0,
+    val wakeLockDurationMs: Long = 0,
+    val sensorNotVisibleEpisodes: Int = 0,
+    val silentWindows: Int = 0,
+    val duplicateCanonicalWindows: Int = 0,
+    val recoveredGapCount: Int = 0,
+    val backfillWithinTenMinutesCount: Int = 0,
+    val backfillWithinTenMinutesPercent: Double = 0.0,
 )
 
 @Serializable
@@ -352,6 +440,7 @@ data class CollectorDiagnosticEvent(
 data class CollectorDiagnosticAttempt(
     val attemptId: Long,
     val startedAtEpochMs: Long,
+    val processInstanceId: String? = null,
     val lastProgressAtEpochMs: Long = startedAtEpochMs,
     val currentStage: CollectorDiagnosticStage = CollectorDiagnosticStage.IDLE,
     val deadlineEpochMs: Long? = null,
@@ -425,6 +514,10 @@ data class G7PersistedState(
     val activeAttemptId: Long? = null,
     val scanStartedAtEpochMs: Long? = null,
     val scanTimeoutAtEpochMs: Long? = null,
+    val pairingAttemptId: String? = null,
+    val pairingStartedAtEpochMs: Long? = null,
+    val pairingDeadlineEpochMs: Long? = null,
     val lastScanAtEpochMs: Long? = null,
     val lastAttemptCompletedAtEpochMs: Long? = null,
+    val health: G7CollectorHealth = G7CollectorHealth(),
 )

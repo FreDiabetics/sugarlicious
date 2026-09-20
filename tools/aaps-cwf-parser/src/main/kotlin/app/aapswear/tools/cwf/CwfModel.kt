@@ -40,5 +40,6 @@ data class CwfDocument(
     val warnings: List<String>,
 )
 
-class CwfValidationException(message: String) : IllegalArgumentException(message)
-
+class CwfValidationException(
+    message: String,
+) : IllegalArgumentException(message)

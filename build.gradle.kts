@@ -1,10 +1,12 @@
 import java.io.ByteArrayOutputStream
 import java.io.File
 import javax.inject.Inject
+import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.testing.Test
 import org.gradle.process.ExecOperations
 
 plugins {
@@ -15,6 +17,63 @@ plugins {
     kotlin("android") version "2.4.10" apply false
     kotlin("jvm") version "2.4.10" apply false
     kotlin("plugin.serialization") version "2.4.10" apply false
+    id("dev.detekt") version "2.0.0-alpha.6" apply false
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
+}
+
+subprojects {
+    tasks.withType<Test>().configureEach {
+        // Robolectric 4.17 uses the JDK's FileDescriptor bridge while bootstrapping
+        // Android 17. JDK 25 encapsulates that bridge unless it is opened to tests.
+        jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
+    }
+
+    fun enableKotlinQualityGates() {
+        pluginManager.apply("dev.detekt")
+        pluginManager.apply("org.jlleitschuh.gradle.ktlint")
+    }
+
+    pluginManager.withPlugin("org.jetbrains.kotlin.android") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("org.jetbrains.kotlin.jvm") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("com.android.application") { enableKotlinQualityGates() }
+    pluginManager.withPlugin("com.android.library") { enableKotlinQualityGates() }
+
+    if (path.startsWith(":watchfaces:")) {
+        pluginManager.withPlugin("com.android.application") {
+            extensions.configure<ApplicationExtension>("android") {
+                sourceSets
+                    .getByName("main")
+                    .res
+                    .directories
+                    .add(rootProject.file("watchfaces/shared-res").absolutePath)
+                lint {
+                    // Android Lint does not model the platform-loaded WFF roots
+                    // (watch_face_info, watch_face_shapes and raw/watchface), so it reports
+                    // their complete reachable resource graph as unused. WFF schema validation
+                    // and the code-free APK verifier are the authoritative gates here.
+                    disable.add("UnusedResources")
+                    // R8 is required to strip Android-plugin generated DEX from these hasCode=false
+                    // packages. Resource shrinking cannot be enabled safely for WFF's platform-
+                    // resolved XML graph, so the code-free verifier enforces the actual contract.
+                    disable.add("NotShrinkingResources")
+                    // WFF packages intentionally reuse their full-bleed watchface preview as the
+                    // package icon. It is picker artwork, not a maskable launcher foreground.
+                    disable.add("IconLauncherShape")
+                    // Large WFF vectors are full-face picker previews. Raster copies would lose
+                    // density-independent fidelity and are not a runtime icon optimization.
+                    disable.add("VectorRaster")
+                }
+            }
+        }
+    }
+
+    tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+        // Detekt analysis follows the Android/JVM 17 source contract. This affects
+        // analysis only; production compilation keeps each module's configured target.
+        jvmTarget.set("17")
+        buildUponDefaultConfig = true
+        config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+    }
 }
 
 // Mobile and Wear deliberately share app.aapswear because they are companion variants on
@@ -80,7 +139,7 @@ abstract class InstallSugarliciousDebugTask
             installApk(phone, mobileApk.get().asFile, "Mobile")
             removeAccidentalPhoneCollector(phone)
             installApk(watch, wearApk.get().asFile, "Wear")
-            installApk(watch, g7WatchApk.get().asFile, "G7 Watch Collector")
+            installApk(watch, g7WatchApk.get().asFile, "SugarWear")
             installApk(watch, vigilApk.get().asFile, "Vigil")
         }
 
@@ -179,7 +238,7 @@ abstract class InstallSugarliciousDebugTask
         }
     }
 
-val watchFaceValidatorCli by configurations.creating
+val watchFaceValidatorCli = configurations.create("watchFaceValidatorCli")
 
 dependencies {
     watchFaceValidatorCli(

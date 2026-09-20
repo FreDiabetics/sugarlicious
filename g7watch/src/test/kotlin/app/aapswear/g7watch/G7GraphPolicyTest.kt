@@ -19,7 +19,9 @@ class G7GraphPolicyTest {
             G7RangeExcursion.HIGH,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("1", 166.0, now - 5 * 60_000L), reading("2", 171.0, now)),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -33,7 +35,9 @@ class G7GraphPolicyTest {
                     reading("2", 171.0, now - 5 * 60_000L),
                     reading("3", 158.0, now),
                 ),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -43,7 +47,9 @@ class G7GraphPolicyTest {
             G7RangeExcursion.LOW,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("1", 77.0, now - 5 * 60_000L), reading("2", 73.0, now)),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -57,7 +63,9 @@ class G7GraphPolicyTest {
                     reading("2", 73.0, now - 5 * 60_000L),
                     reading("3", 84.0, now),
                 ),
-                80.0, 160.0, now,
+                80.0,
+                160.0,
+                now,
             ),
         )
     }
@@ -78,16 +86,18 @@ class G7GraphPolicyTest {
             G7RangeExcursion.HIGH,
             G7GraphPolicy.rangeExcursion(
                 listOf(reading("3", 170.0, now - 5 * 60_000L), reading("4", 175.0, now)),
-                80.0, 160.0, oldNow,
+                80.0,
+                160.0,
+                oldNow,
             ),
         )
     }
 
-    @Test fun `out of order arrival resets sequence`() {
+    @Test fun `persisted values are evaluated by measurement time after reconnect`() {
         val first = reading("1", 170.0, now - 5 * 60_000L, receivedAt = now - 4 * 60_000L)
         val olderArrivingLater = reading("2", 172.0, now - 10 * 60_000L, receivedAt = now - 3 * 60_000L)
         val latest = reading("3", 174.0, now, receivedAt = now)
-        assertEquals(G7RangeExcursion.NONE, G7GraphPolicy.rangeExcursion(listOf(first, olderArrivingLater, latest), 80.0, 160.0, now))
+        assertEquals(G7RangeExcursion.HIGH, G7GraphPolicy.rangeExcursion(listOf(first, olderArrivingLater, latest), 80.0, 160.0, now))
     }
 
     @Test fun `sensor or session switch resets sequence`() {

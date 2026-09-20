@@ -10,11 +10,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-internal fun shouldRestorePersistentBridge(action: String?): Boolean =
-    action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED
+internal fun shouldRestorePersistentBridge(action: String?): Boolean = action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED
 
 class PersistentBridgeBootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (shouldRestorePersistentBridge(intent.action)) {
             PersistentBridgeService.start(context)
             val pending = goAsync()

@@ -76,8 +76,7 @@ object PersistentPredictionCache {
                         it.valueMgDl.isFinite() &&
                             it.valueMgDl in 20.0..1000.0 &&
                             it.measuredAtEpochMs in earliestSample..latestSample
-                    }
-                    .associateBy { it.measuredAtEpochMs }
+                    }.associateBy { it.measuredAtEpochMs }
                     .values
                     .sortedBy { it.measuredAtEpochMs }
                     .takeLast(MAX_SAMPLES_PER_SERIES)
@@ -85,8 +84,7 @@ object PersistentPredictionCache {
                 .takeIf {
                     it.isNotEmpty() &&
                         it.last().measuredAtEpochMs >= oldestRetainedEnd
-                }
-                ?.let { GlucosePrediction(series.kind, it) }
+                }?.let { GlucosePrediction(series.kind, it) }
         }
     }
 }

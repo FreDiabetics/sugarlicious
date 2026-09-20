@@ -27,8 +27,31 @@ class PredictionDisplayTimelineTest {
 
         val visible = PredictionDisplayTimeline.anchor(predictions, now).single().samples
 
-        assertEquals(firstFuture, visible.first().measuredAtEpochMs)
+        assertEquals(now, visible.first().measuredAtEpochMs)
         assertEquals(5 * 60_000L, visible[1].measuredAtEpochMs - visible[0].measuredAtEpochMs)
+    }
+
+    @Test
+    fun `boundary value is interpolated once when source straddles now`() {
+        val now = 1_000_000L
+        val visible =
+            PredictionDisplayTimeline
+                .anchor(
+                    listOf(
+                        GlucosePrediction(
+                            PredictionKind.IOB,
+                            listOf(
+                                GlucoseSample(100.0, now - 5 * 60_000L),
+                                GlucoseSample(120.0, now + 5 * 60_000L),
+                            ),
+                        ),
+                    ),
+                    now,
+                ).single()
+                .samples
+
+        assertEquals(listOf(now, now + 5 * 60_000L), visible.map { it.measuredAtEpochMs })
+        assertEquals(110.0, visible.first().valueMgDl, 0.0001)
     }
 
     @Test

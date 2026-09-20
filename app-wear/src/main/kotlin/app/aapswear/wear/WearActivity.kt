@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -15,21 +14,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import app.aapswear.complications.G7LocalReadingResolver
-import app.aapswear.complications.R as ComplicationR
 import app.aapswear.model.BasalState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticSeverity
+import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
-import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.wearGlucoseCardPresentation
-import app.aapswear.uishared.TrendDrawableResources
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.storage.TherapyStateStore
+import app.aapswear.uishared.TrendDrawableResources
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,6 +39,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.roundToInt
+import app.aapswear.complications.R as ComplicationR
+
+internal fun nextWearGraphHours(current: Int): Int {
+    val values = WearDisplayPreferences.allowedGraphHours
+    val index = values.indexOf(current)
+    return values[if (index < 0) 0 else (index + 1) % values.size]
+}
+
+internal fun wearGraphScaleAgeText(
+    graphHours: Int,
+    measuredAtEpochMs: Long?,
+    nowEpochMs: Long,
+): String {
+    val age =
+        measuredAtEpochMs
+            ?.takeIf { it <= nowEpochMs + 60_000L }
+            ?.let { "${((nowEpochMs - it).coerceAtLeast(0L) / 60_000L)}m" }
+            ?: "—"
+    return "${graphHours}h • $age"
+}
 
 class WearActivity : Activity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -101,15 +119,25 @@ class WearActivity : Activity() {
         scope.launch {
             TherapyStateStore(this@WearActivity).state.collectLatest {
                 latest = it
+                getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("wearUiObservedAt", System.currentTimeMillis())
+                    .apply()
                 render()
             }
         }
-        findViewById<View>(R.id.wear_graph_period).setOnClickListener {
-            val current = WearDisplayPreferences.read(this)
-            val values = WearDisplayPreferences.allowedGraphHours
-            val next = values[(values.indexOf(current.graphHours).coerceAtLeast(0) + 1) % values.size]
-            WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
-            render(refreshClock = true)
+        val advanceGraphScale =
+            View.OnClickListener {
+                val current = WearDisplayPreferences.read(this)
+                val next = nextWearGraphHours(current.graphHours)
+                WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
+                render(refreshClock = true)
+            }
+        // Graph gestures and scale selection stay separate. This explicit round-safe hit target
+        // remains above the chart canvas and is the single source of the scale action.
+        findViewById<View>(R.id.wear_graph_period).apply {
+            setOnClickListener(advanceGraphScale)
+            bringToFront()
         }
         scope.launch {
             WearCanonicalStateEvents.updates.collectLatest {
@@ -142,11 +170,12 @@ class WearActivity : Activity() {
                 DiagnosticSeverity.INFO,
             )
         } else {
-            Toast.makeText(
-                this,
-                "Dauerbetrieb nicht freigegeben – Akkuoptimierung ist weiterhin aktiv",
-                Toast.LENGTH_LONG,
-            ).show()
+            Toast
+                .makeText(
+                    this,
+                    "Dauerbetrieb nicht freigegeben – Akkuoptimierung ist weiterhin aktiv",
+                    Toast.LENGTH_LONG,
+                ).show()
             recordRuntimeDiagnostic(
                 "WATCH-BG-403",
                 "Battery optimization exemption was not granted for Sugarlicious Wear",
@@ -162,12 +191,13 @@ class WearActivity : Activity() {
         getSharedPreferences(WearDisplayPreferences.PREFS, Context.MODE_PRIVATE)
             .registerOnSharedPreferenceChangeListener(displayPreferencesListener)
 
-        refreshJob = scope.launch {
-            while (true) {
-                render(refreshClock = true)
-                delay(30_000L)
+        refreshJob =
+            scope.launch {
+                while (true) {
+                    render(refreshClock = true)
+                    delay(30_000L)
+                }
             }
-        }
     }
 
     override fun onStop() {
@@ -205,17 +235,19 @@ class WearActivity : Activity() {
 
     private fun requestPhoneRefresh(initial: Boolean = false) {
         if (!::connection.isInitialized) return
-        if (!initial) syncHint.text = "Werte werden synchronisiert"
+        if (!initial) syncHint.setText(R.string.syncing_values)
 
         scope.launch {
-            connectedNodes = withContext(Dispatchers.IO) {
-                runCatching { requestLatestState(applicationContext) }.getOrDefault(0)
-            }
-            syncHint.text = if (connectedNodes > 0) {
-                "Tippen zum Aktualisieren"
-            } else {
-                "Telefon derzeit nicht erreichbar"
-            }
+            connectedNodes =
+                withContext(Dispatchers.IO) {
+                    runCatching { requestLatestState(applicationContext) }.getOrDefault(0)
+                }
+            syncHint.text =
+                if (connectedNodes > 0) {
+                    getString(R.string.tap_to_refresh)
+                } else {
+                    getString(R.string.phone_unreachable)
+                }
             render()
         }
     }
@@ -237,42 +269,47 @@ class WearActivity : Activity() {
 
         val thresholds = preferences.cgmThresholds
         val resolvedUnit = resolveUnit(glucoseState?.displayUnit, preferences.glucoseUnit)
-        val glucosePresentation = wearGlucoseCardPresentation(
-            WearGlucoseCardInput(
-                valueMgDl = glucoseState?.valueMgDl,
-                displayUnit = resolvedUnit,
-                deltaMgDl = glucoseState?.deltaMgDl,
-                trend = glucoseState?.trend ?: app.aapswear.model.Trend.UNKNOWN,
-                measuredAtEpochMs = glucoseState?.measuredAtEpochMs,
-                quality = glucoseState?.quality ?: app.aapswear.model.CgmQuality.INVALID,
-                sourceLabel = TherapyDisplayFormatter.sourceName(state?.source),
-            ),
-            thresholds,
-            now,
-        )
+        val glucosePresentation =
+            wearGlucoseCardPresentation(
+                WearGlucoseCardInput(
+                    valueMgDl = glucoseState?.valueMgDl,
+                    displayUnit = resolvedUnit,
+                    deltaMgDl = glucoseState?.deltaMgDl,
+                    trend = glucoseState?.trend ?: app.aapswear.model.Trend.UNKNOWN,
+                    measuredAtEpochMs = glucoseState?.measuredAtEpochMs,
+                    quality = glucoseState?.quality ?: app.aapswear.model.CgmQuality.INVALID,
+                    sourceLabel = TherapyDisplayFormatter.sourceName(state?.source),
+                ),
+                thresholds,
+                now,
+            )
         val canShowValue = glucosePresentation.displayable
 
         val glucoseSectionChanged =
-            firstRender || refreshClock || previousState?.glucose != glucoseState ||
+            firstRender ||
+                refreshClock ||
+                previousState?.glucose != glucoseState ||
                 previousState?.target != state?.target ||
                 previousState?.source != state?.source ||
-                previousPreferences?.glucoseUnit != preferences.glucoseUnit ||
-                previousPreferences?.glucoseScalePercent != preferences.glucoseScalePercent ||
-                previousPreferences?.trendScalePercent != preferences.trendScalePercent ||
-                previousPreferences?.uiColors != preferences.uiColors
+                previousPreferences == null ||
+                previousPreferences.glucoseUnit != preferences.glucoseUnit ||
+                previousPreferences.glucoseScalePercent != preferences.glucoseScalePercent ||
+                previousPreferences.trendScalePercent != preferences.trendScalePercent ||
+                previousPreferences.uiColors != preferences.uiColors
 
         if (glucoseSectionChanged) {
             val presentation = glucosePresentation
             glucose.text = presentation.value
             glucose.textSize = WearGlucoseCardStyle.VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent)
-            val valueColor = when {
-                !presentation.displayable -> preferences.uiColors.textPrimary
-                presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
-                presentation.rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
-                presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
-                presentation.rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
-                else -> preferences.uiColors.glucoseInRange
-            }
+            val valueColor =
+                when {
+                    !presentation.displayable -> preferences.uiColors.textPrimary
+                    presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
+                    presentation.rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
+                    presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_HIGH -> preferences.uiColors.glucoseVeryHigh
+                    presentation.rangeClass == app.aapswear.model.CgmRangeClass.HIGH -> preferences.uiColors.glucoseHigh
+                    else -> preferences.uiColors.glucoseInRange
+                }
             glucose.setTextColor(valueColor)
             val glucoseFill = preferences.uiColors.tileBackground
             renderTrend(
@@ -283,8 +320,9 @@ class WearActivity : Activity() {
                 style = preferences.trendArrowStyle,
             )
             delta.text = presentation.primaryMeta
-            age.text = presentation.secondaryMeta
-            age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
+            delta.setTextColor(preferences.uiColors.deltaUnit)
+            age.text = ""
+            age.visibility = View.GONE
 
             findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, preferences.uiColors.tileBorder, WearGlucoseCardStyle.CARD_RADIUS_DP)
@@ -299,14 +337,15 @@ class WearActivity : Activity() {
             thresholds = preferences.cgmThresholds,
         )
         findViewById<TextView>(R.id.wear_graph_period).apply {
-            text = "${preferences.graphHours}h"
-            setTextColor(preferences.uiColors.textPrimary)
+            text = wearGraphScaleAgeText(preferences.graphHours, state?.glucose?.measuredAtEpochMs, now)
+            setTextColor(preferences.uiColors.textSecondary)
             background = null
         }
         if (refreshClock) chart.invalidate()
 
         if (
-            firstRender || refreshClock ||
+            firstRender ||
+            refreshClock ||
             previousPreferences?.showTherapyStats != preferences.showTherapyStats ||
             previousState?.insulin != state?.insulin ||
             previousState?.carbs != state?.carbs ||
@@ -318,9 +357,12 @@ class WearActivity : Activity() {
 
             iob.text = if (canShowValue) formatNumber(state?.insulin?.totalIob, 2, " U") else "—"
             cob.text = if (canShowValue) formatNumber(state?.carbs?.cobGrams, 0, " g") else "—"
-            basal.text = if (canShowValue) {
-                formatNumber(basalDisplayUnitsPerHour(state?.basal), 2, " U/h")
-            } else "—"
+            basal.text =
+                if (canShowValue) {
+                    formatNumber(basalDisplayUnitsPerHour(state?.basal), 2, " U/h")
+                } else {
+                    "—"
+                }
             currentBasalIconRes = basalIconResource(state?.basal)
             basalIcon.renderSugarliciousWearIcon(
                 drawableRes = currentBasalIconRes,
@@ -330,18 +372,20 @@ class WearActivity : Activity() {
         }
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
-            source.text = when (state?.source) {
-                DataSourceId.DEXCOM_G7_WATCH -> "Direct to Watch"
-                DataSourceId.ANDROID_APS -> "AndroidAPS"
-                DataSourceId.NIGHTSCOUT -> "Nightscout"
-                DataSourceId.XDRIP_PLUS -> state.sourceVersion?.let { "xDrip+ $it" } ?: "xDrip+"
-                DataSourceId.OTHER -> "Other"
-                null -> "Datenquelle nicht verfügbar"
-            }
+            source.text =
+                when (state?.source) {
+                    DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
+                    DataSourceId.ANDROID_APS -> "AndroidAPS"
+                    DataSourceId.NIGHTSCOUT -> "Nightscout"
+                    DataSourceId.XDRIP_PLUS -> state.sourceVersion?.let { "xDrip+ $it" } ?: "xDrip+"
+                    DataSourceId.OTHER -> "Other"
+                    null -> "Datenquelle nicht verfügbar"
+                }
         }
 
         if (
-            firstRender || lastRenderedConnectedNodes != connectedNodes ||
+            firstRender ||
+            lastRenderedConnectedNodes != connectedNodes ||
             previousPreferences?.uiColors != preferences.uiColors
         ) {
             connection.text = if (connectedNodes > 0) "● Telefon verbunden" else "○ Telefon nicht erreichbar"
@@ -357,7 +401,13 @@ class WearActivity : Activity() {
         hasRendered = true
     }
 
-    private fun renderTrend(trend: app.aapswear.model.Trend?, color: Int, background: Int, scale: Float, style: app.aapswear.model.TrendArrowStyle) {
+    private fun renderTrend(
+        trend: app.aapswear.model.Trend?,
+        color: Int,
+        background: Int,
+        scale: Float,
+        style: app.aapswear.model.TrendArrowStyle,
+    ) {
         val spec = trend?.let(TrendVisuals::spec)
         if (spec == null) {
             trendContainer.visibility = View.GONE
@@ -367,10 +417,11 @@ class WearActivity : Activity() {
         trendArrow1.renderSugarliciousWearIcon(TrendDrawableResources.forAsset(spec.asset), color, background, trendStyle = style)
         trendArrow1.rotation = 0f
         val density = resources.displayMetrics.density
-        trendArrow1.layoutParams = trendArrow1.layoutParams.apply {
-            height = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * density).roundToInt()
-            width = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * spec.aspectRatio * density).roundToInt()
-        }
+        trendArrow1.layoutParams =
+            trendArrow1.layoutParams.apply {
+                height = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * density).roundToInt()
+                width = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * spec.aspectRatio * density).roundToInt()
+            }
         trendArrow1.visibility = View.VISIBLE
     }
 
@@ -425,7 +476,11 @@ class WearActivity : Activity() {
         )
     }
 
-    private fun roundedBackground(fill: Int, border: Int, radiusDp: Float): GradientDrawable =
+    private fun roundedBackground(
+        fill: Int,
+        border: Int,
+        radiusDp: Float,
+    ): GradientDrawable =
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusDp * resources.displayMetrics.density
@@ -434,9 +489,7 @@ class WearActivity : Activity() {
         }
 
     private fun requestRuntimeNotificationPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 33 ||
-            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
             return false
         }
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
@@ -450,11 +503,12 @@ class WearActivity : Activity() {
         if (WearBackgroundAccess.openBatterySettings(this)) return true
 
         batteryRequestPending = false
-        Toast.makeText(
-            this,
-            "Akku-Einstellungen konnten auf dieser Watch nicht geöffnet werden",
-            Toast.LENGTH_LONG,
-        ).show()
+        Toast
+            .makeText(
+                this,
+                "Akku-Einstellungen konnten auf dieser Watch nicht geöffnet werden",
+                Toast.LENGTH_LONG,
+            ).show()
         recordRuntimeDiagnostic(
             "WATCH-BG-404",
             "Battery optimization settings could not be opened for Sugarlicious Wear",
@@ -475,11 +529,12 @@ class WearActivity : Activity() {
 
     private fun renderWatchFacePushStatus() {
         if (!::watchFacePushStatus.isInitialized) return
-        watchFacePushStatus.text = when {
-            !SugarliciousWatchFacePush.isSupported() -> "Watchface-Direktwechsel: Wear OS 6+ erforderlich"
-            SugarliciousWatchFacePush.hasActivationPermission(this) -> "Watchface-Direktwechsel freigegeben"
-            else -> "Watchface-Direktwechsel nicht freigegeben"
-        }
+        watchFacePushStatus.text =
+            when {
+                !SugarliciousWatchFacePush.isSupported() -> "Watchface-Direktwechsel: Wear OS 6+ erforderlich"
+                SugarliciousWatchFacePush.hasActivationPermission(this) -> "Watchface-Direktwechsel freigegeben"
+                else -> "Watchface-Direktwechsel nicht freigegeben"
+            }
     }
 
     private fun recordRuntimeDiagnostic(
@@ -509,11 +564,12 @@ class WearActivity : Activity() {
             NOTIFICATION_PERMISSION_REQUEST -> {
                 val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
                 if (!granted) {
-                    Toast.makeText(
-                        this,
-                        "Benachrichtigungen nicht freigegeben – die Dauerbetrieb-Anzeige kann verborgen bleiben",
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    Toast
+                        .makeText(
+                            this,
+                            "Benachrichtigungen nicht freigegeben – die Dauerbetrieb-Anzeige kann verborgen bleiben",
+                            Toast.LENGTH_LONG,
+                        ).show()
                     recordRuntimeDiagnostic(
                         "WATCH-NOTIFY-403",
                         "Notification permission was not granted for Sugarlicious Wear",
@@ -527,14 +583,21 @@ class WearActivity : Activity() {
         }
     }
 
-    private fun resolveUnit(stateUnit: GlucoseUnit?, preference: WatchGlucoseUnit): GlucoseUnit = when (preference) {
-        WatchGlucoseUnit.AAPS -> stateUnit ?: GlucoseUnit.MG_DL
-        WatchGlucoseUnit.MG_DL -> GlucoseUnit.MG_DL
-        WatchGlucoseUnit.MMOL_L -> GlucoseUnit.MMOL_L
-    }
+    private fun resolveUnit(
+        stateUnit: GlucoseUnit?,
+        preference: WatchGlucoseUnit,
+    ): GlucoseUnit =
+        when (preference) {
+            WatchGlucoseUnit.AAPS -> stateUnit ?: GlucoseUnit.MG_DL
+            WatchGlucoseUnit.MG_DL -> GlucoseUnit.MG_DL
+            WatchGlucoseUnit.MMOL_L -> GlucoseUnit.MMOL_L
+        }
 
-    private fun formatNumber(value: Double?, digits: Int, suffix: String): String =
-        value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
+    private fun formatNumber(
+        value: Double?,
+        digits: Int,
+        suffix: String,
+    ): String = value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
 
     companion object {
         private const val NOTIFICATION_PERMISSION_REQUEST = 700

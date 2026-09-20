@@ -7,8 +7,8 @@ import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
-import app.aapswear.model.DataSourceId
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
@@ -32,7 +32,11 @@ class WidgetColorsTest {
 
     @Before
     fun clear() {
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test
@@ -47,7 +51,11 @@ class WidgetColorsTest {
     @Test
     fun `copy from graph is a snapshot and remains independent afterwards`() {
         val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val first = Color.rgb(19, 81, 177)
         val later = Color.rgb(210, 44, 51)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_IN_RANGE, first)
@@ -81,26 +89,43 @@ class WidgetColorsTest {
     }
 
     @Test
+    fun `widget delta and unit override stays independent from mobile appearance`() {
+        val mobile = Color.rgb(12, 34, 56)
+        val widget = Color.argb(144, 78, 90, 123)
+        val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        SugarliciousColorStore.save(preferences, AppearanceMode.DARK, SugarliciousColorRole.DELTA_UNIT, mobile)
+        WidgetColorStore.save(context, AppearanceMode.DARK, WidgetColorRole.DELTA_UNIT, widget)
+
+        assertEquals(widget, WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.DELTA_UNIT))
+        assertEquals(mobile, SugarliciousColorStore.load(preferences, AppearanceMode.DARK).argb(SugarliciousColorRole.DELTA_UNIT))
+    }
+
+    @Test
     fun `graph widget renders canonical points and is registered`() {
         val now = 10_000_000L
-        val palette = WidgetPalette(WidgetColorRole.entries.associateWith { role ->
-            when (role) {
-                WidgetColorRole.IN_RANGE -> Color.rgb(17, 231, 93)
-                WidgetColorRole.BACKGROUND -> Color.rgb(12, 15, 18)
-                WidgetColorRole.TEXT -> Color.WHITE
-                else -> Color.rgb(230, 80, 80)
-            }
-        })
-        val state = TherapyDisplayState(
-            source = DataSourceId.ANDROID_APS,
-            receivedAtEpochMs = now,
-            glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, Trend.FLAT, now - 60_000L),
-            glucoseHistory = listOf(
-                GlucoseSample(110.0, now - 10 * 60_000L),
-                GlucoseSample(120.0, now - 5 * 60_000L),
-            ),
-            target = TargetState(lowMgDl = 80.0, highMgDl = 160.0),
-        )
+        val palette =
+            WidgetPalette(
+                WidgetColorRole.entries.associateWith { role ->
+                    when (role) {
+                        WidgetColorRole.IN_RANGE -> Color.rgb(17, 231, 93)
+                        WidgetColorRole.BACKGROUND -> Color.rgb(12, 15, 18)
+                        WidgetColorRole.TEXT -> Color.WHITE
+                        else -> Color.rgb(230, 80, 80)
+                    }
+                },
+            )
+        val state =
+            TherapyDisplayState(
+                source = DataSourceId.ANDROID_APS,
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, Trend.FLAT, now - 60_000L),
+                glucoseHistory =
+                    listOf(
+                        GlucoseSample(110.0, now - 10 * 60_000L),
+                        GlucoseSample(120.0, now - 5 * 60_000L),
+                    ),
+                target = TargetState(lowMgDl = 80.0, highMgDl = 160.0),
+            )
 
         val bitmap = renderWidgetGraph(state, palette, width = 400, height = 180, now = now)
 
@@ -108,10 +133,11 @@ class WidgetColorsTest {
         assertEquals(180, bitmap.height)
         assertFalse(bitmap.isRecycled)
         assertEquals(3, canonicalWidgetSamples(state, now).size)
-        val receiver = context.packageManager.getReceiverInfo(
-            ComponentName(context, GraphWidgetReceiver::class.java),
-            PackageManager.GET_META_DATA,
-        )
+        val receiver =
+            context.packageManager.getReceiverInfo(
+                ComponentName(context, GraphWidgetReceiver::class.java),
+                PackageManager.GET_META_DATA,
+            )
         assertNotNull(receiver)
         assertNotNull(receiver.metaData)
     }
@@ -126,8 +152,8 @@ class WidgetColorsTest {
     }
 
     @Test
-    fun `light colored icons alone receive the silhouette`() {
-        assertTrue(shouldOutlineSugarliciousIcon(isLight = true, colored = true))
+    fun `light mode never adds an automatic icon silhouette`() {
+        assertFalse(shouldOutlineSugarliciousIcon(isLight = true, colored = true))
         assertFalse(shouldOutlineSugarliciousIcon(isLight = false, colored = true))
         assertFalse(shouldOutlineSugarliciousIcon(isLight = true, colored = false))
     }

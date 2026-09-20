@@ -5,7 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.model.DiagnosticSeverity
@@ -52,14 +51,17 @@ internal object G7SensorWindowWatchdog {
     private const val EXTRA_WINDOW_ID = "expectedWindowId"
     private const val EXTRA_EXPECTED_AT = "expectedAt"
 
-    fun arm(context: Context, cycle: CollectorCycleTiming) {
+    fun arm(
+        context: Context,
+        cycle: CollectorCycleTiming,
+    ) {
         val expectedAt = cycle.expectedReadingEpoch ?: return
         val windowId = cycle.expectedWindowId ?: expectedWindowId(expectedAt)
         val triggerAt = expectedAt + WINDOW_TOLERANCE_MS
         val app = context.applicationContext
         val pending = pendingIntent(app, windowId, expectedAt)
         val alarms = app.getSystemService(AlarmManager::class.java)
-        val exactAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarms.canScheduleExactAlarms()
+        val exactAllowed = alarms.canScheduleExactAlarms()
         if (exactAllowed) {
             runCatching { alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending) }
                 .getOrElse { alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending) }
@@ -76,7 +78,11 @@ internal object G7SensorWindowWatchdog {
         pending.cancel()
     }
 
-    private fun pendingIntent(context: Context, windowId: String?, expectedAt: Long): PendingIntent =
+    private fun pendingIntent(
+        context: Context,
+        windowId: String?,
+        expectedAt: Long,
+    ): PendingIntent =
         PendingIntent.getBroadcast(
             context,
             REQUEST_CODE,
@@ -88,11 +94,15 @@ internal object G7SensorWindowWatchdog {
         )
 
     fun windowId(intent: Intent): String? = intent.getStringExtra(EXTRA_WINDOW_ID)
+
     fun expectedAt(intent: Intent): Long = intent.getLongExtra(EXTRA_EXPECTED_AT, 0L)
 }
 
 class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         val app = context.applicationContext
         val now = System.currentTimeMillis()
         val windowId = G7SensorWindowWatchdog.windowId(intent)
@@ -104,29 +114,31 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
         val state = G7SensorStateStore(app).read()
         if (!state.collectorEnabled || state.sensor == null || G7CredentialStore(app).read() == null) return
         val pending = G7CollectorDiagnosticStore(app).pendingScheduledCycle()?.requestedReconnectEpoch
-        val decision = evaluateG7WindowWatchdog(
-            expectedAt = expectedAt,
-            nowEpochMs = now,
-            primaryTriggeredAt = window.primaryAlarmTriggeredAt,
-            cycleStartedAt = window.cycleStartedAt,
-            readingReceivedAt = window.readingReceivedAt,
-            finalResult = window.finalResult,
-            activeCycle = G7CollectorRuntimeRegistry.hasLiveCycle(),
-            plausibleFutureTriggerEpochMs = pending,
-        )
+        val decision =
+            evaluateG7WindowWatchdog(
+                expectedAt = expectedAt,
+                nowEpochMs = now,
+                primaryTriggeredAt = window.primaryAlarmTriggeredAt,
+                cycleStartedAt = window.cycleStartedAt,
+                readingReceivedAt = window.readingReceivedAt,
+                finalResult = window.finalResult,
+                activeCycle = G7CollectorRuntimeRegistry.hasLiveCycle(),
+                plausibleFutureTriggerEpochMs = pending,
+            )
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             app.recordG7Diagnostic(
                 code = "WATCHDOG_FIRED",
                 message = "WATCHDOG_FIRED · ${decision.reason}",
                 severity = if (decision.missed) DiagnosticSeverity.WARNING else DiagnosticSeverity.INFO,
-                metadata = mapOf(
-                    "expectedWindowId" to windowId,
-                    "expectedAt" to expectedAt,
-                    "latenessMs" to (now - expectedAt),
-                    "primaryAlarmTriggeredAt" to window.primaryAlarmTriggeredAt,
-                    "cycleStartedAt" to window.cycleStartedAt,
-                    "futureTriggerEpochMs" to pending,
-                ),
+                metadata =
+                    mapOf(
+                        "expectedWindowId" to windowId,
+                        "expectedAt" to expectedAt,
+                        "latenessMs" to (now - expectedAt),
+                        "primaryAlarmTriggeredAt" to window.primaryAlarmTriggeredAt,
+                        "cycleStartedAt" to window.cycleStartedAt,
+                        "futureTriggerEpochMs" to pending,
+                    ),
             )
         }
         if (!decision.missed) return
@@ -150,11 +162,12 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
                 code = "MISSED_SENSOR_WINDOW",
                 message = "MISSED_SENSOR_WINDOW · Recovery-Zeitpfad wiederhergestellt",
                 severity = DiagnosticSeverity.WARNING,
-                metadata = mapOf(
-                    "expectedWindowId" to windowId,
-                    "expectedAt" to expectedAt,
-                    "nextReconnectEpochMs" to repaired?.requestedReconnectEpoch,
-                ),
+                metadata =
+                    mapOf(
+                        "expectedWindowId" to windowId,
+                        "expectedAt" to expectedAt,
+                        "nextReconnectEpochMs" to repaired?.requestedReconnectEpoch,
+                    ),
             )
             app.recordG7Diagnostic(
                 if (repaired?.requestedReconnectEpoch != null) "WINDOW_RECOVERY_SUCCESS" else "WINDOW_RECOVERY_FAILED",

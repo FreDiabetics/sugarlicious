@@ -1,8 +1,8 @@
 package app.aapswear.g7
 
-import java.util.UUID
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.UUID
 
 object G7GattProfile {
     val serviceUuid: UUID = UUID.fromString("f8083532-849e-531c-c594-30f1f86a4ea5")
@@ -11,15 +11,22 @@ object G7GattProfile {
     val backfillUuid: UUID = UUID.fromString("f8083536-849e-531c-c594-30f1f86a4ea5")
     val extraDataUuid: UUID = UUID.fromString("f8083538-849e-531c-c594-30f1f86a4ea5")
     val clientConfigurationUuid: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
-
 }
 
 interface G7PacketParser {
-    fun parse(packet: ByteArray, sensor: G7Sensor, receivedAtEpochMs: Long): G7Reading
+    fun parse(
+        packet: ByteArray,
+        sensor: G7Sensor,
+        receivedAtEpochMs: Long,
+    ): G7Reading
 }
 
 class G7GlucosePacketParser : G7PacketParser {
-    override fun parse(packet: ByteArray, sensor: G7Sensor, receivedAtEpochMs: Long): G7Reading {
+    override fun parse(
+        packet: ByteArray,
+        sensor: G7Sensor,
+        receivedAtEpochMs: Long,
+    ): G7Reading {
         require(packet.size >= MIN_PACKET_SIZE) { "G7 glucose packet is too short" }
         val data = ByteBuffer.wrap(packet).order(ByteOrder.LITTLE_ENDIAN)
         require(data.get() == OPCODE) { "Unexpected G7 glucose opcode" }
@@ -60,13 +67,14 @@ class G7GlucosePacketParser : G7PacketParser {
         )
     }
 
-    private fun Int.toSensorState(): G7SensorState = when (this) {
-        0x02, 0xc1 -> G7SensorState.WARMUP
-        0x06, 0x07 -> G7SensorState.ACTIVE
-        0x0f, 0x18, 0x1a, 0xc2 -> G7SensorState.ENDED
-        in 0x0b..0x17, 0x19, in 0x1b..0x1e -> G7SensorState.ERROR
-        else -> G7SensorState.UNKNOWN
-    }
+    private fun Int.toSensorState(): G7SensorState =
+        when (this) {
+            0x02, 0xc1 -> G7SensorState.WARMUP
+            0x06, 0x07 -> G7SensorState.ACTIVE
+            0x0f, 0x18, 0x1a, 0xc2 -> G7SensorState.ENDED
+            in 0x0b..0x17, 0x19, in 0x1b..0x1e -> G7SensorState.ERROR
+            else -> G7SensorState.UNKNOWN
+        }
 
     private companion object {
         const val OPCODE: Byte = 0x4e
@@ -77,8 +85,17 @@ class G7GlucosePacketParser : G7PacketParser {
     }
 }
 
-interface G7Scanner { suspend fun findKnownSensor(sensor: G7Sensor?, timeoutMs: Long): G7Sensor? }
-interface G7ConnectionManager { suspend fun collectNextReading(sensor: G7Sensor): G7Reading }
+interface G7Scanner {
+    suspend fun findKnownSensor(
+        sensor: G7Sensor?,
+        timeoutMs: Long,
+    ): G7Sensor?
+}
+
+interface G7ConnectionManager {
+    suspend fun collectNextReading(sensor: G7Sensor): G7Reading
+}
+
 interface G7WatchSyncTransport {
     suspend fun sendReadings(readings: List<CgmReading>): G7SyncDispatch
 }
@@ -88,7 +105,10 @@ data class G7SyncDispatch(
     val readingIds: Set<String>,
 )
 
-class G7ReadingSyncManager(private val repository: CgmReadingRepository, private val transport: G7WatchSyncTransport) {
+class G7ReadingSyncManager(
+    private val repository: CgmReadingRepository,
+    private val transport: G7WatchSyncTransport,
+) {
     suspend fun sendPending(batchSize: Int = 100): G7SyncDispatch? {
         val pending = repository.getUnsynced(batchSize)
         if (pending.isEmpty()) return null

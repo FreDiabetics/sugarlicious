@@ -2,21 +2,31 @@ package app.aapswear.g7
 
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 class G7FoundationTest {
     private val now = 1_800_000_000_000L
 
-    private fun reading(value: Double, at: Long = now, id: String = value.toString()) = CgmReading(
-        id, DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", value, at, at,
+    private fun reading(
+        value: Double,
+        at: Long = now,
+        id: String = value.toString(),
+    ) = CgmReading(
+        id,
+        DataSourceId.DEXCOM_G7_WATCH,
+        "sensor",
+        "session",
+        value,
+        at,
+        at,
     )
 
     @Test fun `delta accepts only adjacent sensor readings`() {
@@ -25,15 +35,16 @@ class G7FoundationTest {
     }
 
     @Test fun `reading identity is independent of transport sequence`() {
-        fun converted(sequence: Long) = G7Reading(
-            sensorId = "sensor",
-            sessionId = "session",
-            sequenceNumber = sequence,
-            glucoseMgDl = 123.0,
-            sensorTimestampEpochMs = now,
-            receivedAtEpochMs = now,
-            sensorState = G7SensorState.ACTIVE,
-        ).toCgm()
+        fun converted(sequence: Long) =
+            G7Reading(
+                sensorId = "sensor",
+                sessionId = "session",
+                sequenceNumber = sequence,
+                glucoseMgDl = 123.0,
+                sensorTimestampEpochMs = now,
+                receivedAtEpochMs = now,
+                sensorState = G7SensorState.ACTIVE,
+            ).toCgm()
         assertEquals(
             converted(2_423L).id,
             converted(2_420L).id,
@@ -74,7 +85,13 @@ class G7FoundationTest {
     @Test fun `local current G7 wins source resolution`() {
         val g7 = reading(112.0)
         val phone = g7.copy(id = "phone", source = DataSourceId.ANDROID_APS, timestampEpochMs = now + 1_000L)
-        assertEquals(g7, CgmSourceResolver.resolve(listOf(CgmSourceCandidate(DataSourceId.ANDROID_APS, phone), CgmSourceCandidate(DataSourceId.DEXCOM_G7_WATCH, g7)), now))
+        assertEquals(
+            g7,
+            CgmSourceResolver.resolve(
+                listOf(CgmSourceCandidate(DataSourceId.ANDROID_APS, phone), CgmSourceCandidate(DataSourceId.DEXCOM_G7_WATCH, g7)),
+                now,
+            ),
+        )
     }
 
     @Test fun `phone loss never changes watch ownership`() {
@@ -83,19 +100,20 @@ class G7FoundationTest {
     }
 
     @Test fun `fresh setup clears stale errors retries and readings`() {
-        val stale = G7PersistedState(
-            sensor = G7Sensor("old"),
-            collectorEnabled = true,
-            connectionState = G7ConnectionState.DISCONNECTED,
-            protocolState = G7ProtocolState.ERROR,
-            sessionState = G7SessionState.RECOVERING,
-            authenticationState = G7AuthenticationState.FAILED,
-            lastReading = reading(99.0),
-            lastSuccessfulConnectionEpochMs = now - 60_000L,
-            nextReconnectEpochMs = now + 60_000L,
-            retryCount = 5,
-            lastError = G7CollectorError("G7-BLE-107", true, now, "not found"),
-        )
+        val stale =
+            G7PersistedState(
+                sensor = G7Sensor("old"),
+                collectorEnabled = true,
+                connectionState = G7ConnectionState.DISCONNECTED,
+                protocolState = G7ProtocolState.ERROR,
+                sessionState = G7SessionState.RECOVERING,
+                authenticationState = G7AuthenticationState.FAILED,
+                lastReading = reading(99.0),
+                lastSuccessfulConnectionEpochMs = now - 60_000L,
+                nextReconnectEpochMs = now + 60_000L,
+                retryCount = 5,
+                lastError = G7CollectorError("G7-BLE-107", true, now, "not found"),
+            )
         val state = G7SessionManager(stale).beginInitialSetup(G7Sensor("new"))
         assertEquals(G7ConnectionState.SCANNING, state.connectionState)
         assertEquals(G7ProtocolState.SCANNING, state.protocolState)
@@ -109,14 +127,15 @@ class G7FoundationTest {
     }
 
     @Test fun `entering a sensor code can prepare setup without enabling scan`() {
-        val stale = G7PersistedState(
-            sensor = G7Sensor("old"),
-            collectorEnabled = true,
-            protocolState = G7ProtocolState.ERROR,
-            sessionState = G7SessionState.RECOVERING,
-            nextReconnectEpochMs = now + 60_000L,
-            retryCount = 4,
-        )
+        val stale =
+            G7PersistedState(
+                sensor = G7Sensor("old"),
+                collectorEnabled = true,
+                protocolState = G7ProtocolState.ERROR,
+                sessionState = G7SessionState.RECOVERING,
+                nextReconnectEpochMs = now + 60_000L,
+                retryCount = 4,
+            )
         val prepared = G7SessionManager(stale).prepareInitialSetup(G7Sensor("new"))
         assertFalse(prepared.collectorEnabled)
         assertEquals(G7ConnectionState.DISCONNECTED, prepared.connectionState)
@@ -136,14 +155,15 @@ class G7FoundationTest {
     }
 
     @Test fun `collector stop prevents scheduled reconnect but keeps sensor configuration`() {
-        val configured = G7PersistedState(
-            sensor = G7Sensor("sensor"),
-            collectorEnabled = true,
-            protocolState = G7ProtocolState.WAITING_FOR_NEXT_READING,
-            sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
-            nextReconnectEpochMs = now + 60_000L,
-            retryCount = 3,
-        )
+        val configured =
+            G7PersistedState(
+                sensor = G7Sensor("sensor"),
+                collectorEnabled = true,
+                protocolState = G7ProtocolState.WAITING_FOR_NEXT_READING,
+                sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
+                nextReconnectEpochMs = now + 60_000L,
+                retryCount = 3,
+            )
         val stopped = G7SessionManager(configured).stop()
         assertFalse(stopped.collectorEnabled)
         assertEquals("sensor", stopped.sensor?.sensorId)
@@ -184,13 +204,14 @@ class G7FoundationTest {
     @Test fun `direct and fallback window misses retain cadence from last real reading`() {
         val lastReading = reading(112.0, now - 60_000L, "last")
         val expectedReconnect = now + 210_000L
-        val windowErrors = listOf(
-            "G7-GATT-133",
-            "G7-GATT-215",
-            "G7-BLE-107",
-            "G7-BLE-111",
-            "G7-BLE-FALLBACK-107",
-        )
+        val windowErrors =
+            listOf(
+                "G7-GATT-133",
+                "G7-GATT-215",
+                "G7-BLE-107",
+                "G7-BLE-111",
+                "G7-BLE-FALLBACK-107",
+            )
 
         windowErrors.forEach { code ->
             val state =
@@ -232,11 +253,23 @@ class G7FoundationTest {
     }
 
     @Test fun `G7 packet parser accepts validated glucose framing and rejects malformed data`() {
-        val packet = ByteBuffer.allocate(19).order(ByteOrder.LITTLE_ENDIAN).apply {
-            put(0x4e); put(7)
-            putInt(1234); putShort(17); putShort(42); putShort(20)
-            putShort(112); put(0x06); put(12); putShort(118); put(0)
-        }.array()
+        val packet =
+            ByteBuffer
+                .allocate(19)
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .apply {
+                    put(0x4e)
+                    put(7)
+                    putInt(1234)
+                    putShort(17)
+                    putShort(42)
+                    putShort(20)
+                    putShort(112)
+                    put(0x06)
+                    put(12)
+                    putShort(118)
+                    put(0)
+                }.array()
         val reading = G7GlucosePacketParser().parse(packet, G7Sensor("sensor", "session"), now)
         assertEquals(112.0, reading.glucoseMgDl)
         assertEquals(1.2, reading.trendRateMgDlPerMinute)
@@ -265,13 +298,14 @@ class G7FoundationTest {
         assertEquals(Trend.FLAT, CgmTrendMapper.fromRate(0.2))
     }
 
-    private fun alarmSettings() = CgmAlarmSettings(
-        veryHighThreshold = 250.0,
-        highThreshold = 180.0,
-        lowThreshold = 70.0,
-        veryLowThreshold = 55.0,
-        rapidRiseThreshold = 3.0,
-        rapidFallThreshold = 3.0,
-        signalLossMinutes = 15,
-    )
+    private fun alarmSettings() =
+        CgmAlarmSettings(
+            veryHighThreshold = 250.0,
+            highThreshold = 180.0,
+            lowThreshold = 70.0,
+            veryLowThreshold = 55.0,
+            rapidRiseThreshold = 3.0,
+            rapidFallThreshold = 3.0,
+            signalLossMinutes = 15,
+        )
 }

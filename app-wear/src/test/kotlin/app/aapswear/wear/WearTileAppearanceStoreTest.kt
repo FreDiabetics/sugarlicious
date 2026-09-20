@@ -1,8 +1,8 @@
 package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WatchGraphStyle
+import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Before
@@ -21,13 +21,15 @@ class WearTileAppearanceStoreTest {
         assertEquals(WearTileContent.GRAPH, WearTileContentStore.read(context, WearTileKind.GLUCOSE))
         assertEquals(WearTileContent.PUMP, WearTileContentStore.read(context, WearTileKind.THERAPY))
     }
+
     private val context
         get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Before
     fun clearPreferences() {
         WearTileKind.entries.forEach { kind ->
-            context.getSharedPreferences(kind.preferenceName, android.content.Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences(kind.preferenceName, android.content.Context.MODE_PRIVATE)
                 .edit()
                 .clear()
                 .commit()
@@ -62,6 +64,20 @@ class WearTileAppearanceStoreTest {
         )
 
         assertEquals(overview.uiColors, WearDisplayPreferences.read(context).uiColors)
+    }
+
+    @Test
+    fun `delta and unit color remains isolated between wear overview and tile`() {
+        val overview = WearDisplayPreferences(uiColors = WatchUiColors(deltaUnit = 0xFF112233.toInt()))
+        WearDisplayPreferences.saveLocal(context, overview)
+        WearTileAppearanceStore.write(
+            context,
+            WearTileKind.GLUCOSE,
+            WatchUiColors(deltaUnit = 0x88445566.toInt()),
+        )
+
+        assertEquals(0xFF112233.toInt(), WearDisplayPreferences.read(context).uiColors.deltaUnit)
+        assertEquals(0x88445566.toInt(), WearTileAppearanceStore.read(context, WearTileKind.GLUCOSE).deltaUnit)
     }
 
     @Test

@@ -1,10 +1,10 @@
 package app.aapswear.protocol
 
+import app.aapswear.g7.CgmReading
+import app.aapswear.model.CgmThresholds
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticBatch
 import app.aapswear.model.TherapyDisplayState
-import app.aapswear.g7.CgmReading
-import app.aapswear.model.DataSourceId
-import app.aapswear.model.CgmThresholds
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -12,9 +12,23 @@ import kotlinx.serialization.json.Json
 data class WearEnvelope(
     val protocolVersion: Int = CURRENT,
     val state: TherapyDisplayState,
+    val generatedAtEpochMs: Long = state.receivedAtEpochMs,
+    val eventId: String = eventIdFor(state),
+    val source: DataSourceId = state.source,
+    val sensorId: String? = state.glucose?.sensorId,
+    val sessionId: String? = state.glucose?.sessionId,
 ) {
     companion object {
-        const val CURRENT = 7
+        const val CURRENT = 8
+
+        fun eventIdFor(state: TherapyDisplayState): String =
+            listOf(
+                state.source.name,
+                state.glucose?.sensorId.orEmpty(),
+                state.glucose?.sessionId.orEmpty(),
+                state.glucose?.measuredAtEpochMs ?: 0L,
+                state.receivedAtEpochMs,
+            ).joinToString(":")
     }
 }
 
@@ -70,12 +84,13 @@ data class WatchGraphColors(
 )
 
 object DirectToWatchGraphColorDefaults {
-    fun create() = WatchGraphColors(
-        graphBackground = 0xFF000000.toInt(),
-        rangeInRange = 0x665C5C5C,
-        rangeHigh = 0x4DFFD040,
-        rangeLow = 0x4DFF5C69,
-    )
+    fun create() =
+        WatchGraphColors(
+            graphBackground = -14935012,
+            rangeInRange = 1717328988,
+            rangeHigh = 1308610624,
+            rangeLow = 1308580969,
+        )
 }
 
 @Serializable
@@ -131,6 +146,7 @@ data class WatchUiColors(
     val tileBorder: Int = 0xFF404040.toInt(),
     val textPrimary: Int = 0xFFF5F5F5.toInt(),
     val textSecondary: Int = 0xFFB5B5B5.toInt(),
+    val deltaUnit: Int = textSecondary,
     val accent: Int = 0xFF6DE892.toInt(),
     val glucoseLow: Int = 0xFFFF5C69.toInt(),
     val glucoseInRange: Int = 0xFFF5F5F5.toInt(),
@@ -201,13 +217,20 @@ object WearProtocol {
     const val DIAGNOSTICS_BATCH_PATH = "/aaps-display/v1/diagnostics-batch"
     const val SUGARLICIOUS_WATCH_FACE_MAX_INDEX = 5
 
-    private val json = Json {
-        ignoreUnknownKeys = true
-        explicitNulls = false
-    }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
 
-    fun encode(state: TherapyDisplayState): ByteArray =
-        json.encodeToString(WearEnvelope(state = state)).encodeToByteArray()
+    fun encode(
+        state: TherapyDisplayState,
+        generatedAtEpochMs: Long = System.currentTimeMillis(),
+    ): ByteArray =
+        json
+            .encodeToString(
+                WearEnvelope(state = state, generatedAtEpochMs = generatedAtEpochMs),
+            ).encodeToByteArray()
 
     /**
      * Builds a Wear Data Layer safe state without changing the locally persisted Mobile model.
@@ -219,55 +242,76 @@ object WearProtocol {
         maxBytes: Int = MAX_STATE_PAYLOAD_BYTES,
     ): ByteArray {
         require(maxBytes > 0)
-        var transport = state.copy(
-            // These raw AAPS JSON documents are diagnostic input, not Wear presentation data,
-            // and can each be larger than the complete Data Layer allowance.
-            loop = state.loop?.copy(suggestedPayload = null, enactedPayload = null),
-            glucoseHistory = state.glucoseHistory.takeLast(288),
-            therapyHistory = state.therapyHistory.takeLast(288),
-            therapyEvents = state.therapyEvents.takeLast(180),
-            targetHistory = state.targetHistory.takeLast(96),
-            glucosePredictions = state.glucosePredictions.map { it.copy(samples = it.samples.takeLast(72)) },
-        )
+        var transport =
+            state.copy(
+                // These raw AAPS JSON documents are diagnostic input, not Wear presentation data,
+                // and can each be larger than the complete Data Layer allowance.
+                loop = state.loop?.copy(suggestedPayload = null, enactedPayload = null),
+                glucoseHistory = state.glucoseHistory.takeLast(288),
+                therapyHistory = state.therapyHistory.takeLast(288),
+                therapyEvents = state.therapyEvents.takeLast(180),
+                targetHistory = state.targetHistory.takeLast(96),
+                glucosePredictions = state.glucosePredictions.map { it.copy(samples = it.samples.takeLast(72)) },
+            )
         var payload = encode(transport)
         while (payload.size > maxBytes) {
-            transport = when {
-                transport.therapyHistory.size > 72 -> transport.copy(therapyHistory = transport.therapyHistory.drop(oldestQuarter(transport.therapyHistory.size, 72)))
-                transport.therapyEvents.size > 40 -> transport.copy(therapyEvents = transport.therapyEvents.drop(oldestQuarter(transport.therapyEvents.size, 40)))
-                transport.targetHistory.size > 24 -> transport.copy(targetHistory = transport.targetHistory.drop(oldestQuarter(transport.targetHistory.size, 24)))
-                transport.glucoseHistory.size > 72 -> transport.copy(glucoseHistory = transport.glucoseHistory.drop(oldestQuarter(transport.glucoseHistory.size, 72)))
-                transport.glucosePredictions.any { it.samples.size > 12 } -> transport.copy(
-                    glucosePredictions = transport.glucosePredictions.map { prediction ->
-                        prediction.copy(samples = prediction.samples.takeLast((prediction.samples.size * 3 / 4).coerceAtLeast(12)))
-                    },
-                )
-                else -> throw IllegalArgumentException("Wear state cannot fit into $maxBytes bytes")
-            }
+            transport =
+                when {
+                    transport.therapyHistory.size > 72 ->
+                        transport.copy(
+                            therapyHistory = transport.therapyHistory.drop(oldestQuarter(transport.therapyHistory.size, 72)),
+                        )
+                    transport.therapyEvents.size > 40 ->
+                        transport.copy(
+                            therapyEvents = transport.therapyEvents.drop(oldestQuarter(transport.therapyEvents.size, 40)),
+                        )
+                    transport.targetHistory.size > 24 ->
+                        transport.copy(
+                            targetHistory = transport.targetHistory.drop(oldestQuarter(transport.targetHistory.size, 24)),
+                        )
+                    transport.glucoseHistory.size > 72 ->
+                        transport.copy(
+                            glucoseHistory = transport.glucoseHistory.drop(oldestQuarter(transport.glucoseHistory.size, 72)),
+                        )
+                    transport.glucosePredictions.any { it.samples.size > 12 } ->
+                        transport.copy(
+                            glucosePredictions =
+                                transport.glucosePredictions.map { prediction ->
+                                    prediction.copy(
+                                        samples = prediction.samples.takeLast((prediction.samples.size * 3 / 4).coerceAtLeast(12)),
+                                    )
+                                },
+                        )
+                    else -> throw IllegalArgumentException("Wear state cannot fit into $maxBytes bytes")
+                }
             payload = encode(transport)
         }
         return payload
     }
 
-    private fun oldestQuarter(size: Int, minimum: Int): Int =
-        (size / 4).coerceAtLeast(1).coerceAtMost(size - minimum)
+    private fun oldestQuarter(
+        size: Int,
+        minimum: Int,
+    ): Int = (size / 4).coerceAtLeast(1).coerceAtMost(size - minimum)
 
     fun decode(bytes: ByteArray): TherapyDisplayState {
-        val envelope = json.decodeFromString<WearEnvelope>(bytes.decodeToString())
-        require(envelope.protocolVersion in 1..WearEnvelope.CURRENT)
+        val envelope = decodeEnvelope(bytes)
         return migrate(envelope.state)
     }
 
-    fun encodeConfig(config: WatchConfig): ByteArray =
-        json.encodeToString(config).encodeToByteArray()
+    fun decodeEnvelope(bytes: ByteArray): WearEnvelope {
+        val envelope = json.decodeFromString<WearEnvelope>(bytes.decodeToString())
+        require(envelope.protocolVersion in 1..WearEnvelope.CURRENT)
+        return envelope.copy(state = migrate(envelope.state))
+    }
 
-    fun encodeRuntimeStatus(status: WatchRuntimeStatus): ByteArray =
-        json.encodeToString(status).encodeToByteArray()
+    fun encodeConfig(config: WatchConfig): ByteArray = json.encodeToString(config).encodeToByteArray()
 
-    fun encodeG7Setup(command: G7SetupCommand): ByteArray =
-        json.encodeToString(command).encodeToByteArray()
+    fun encodeRuntimeStatus(status: WatchRuntimeStatus): ByteArray = json.encodeToString(status).encodeToByteArray()
 
-    fun encodeG7ReadingBatch(batch: G7ReadingBatch): ByteArray =
-        json.encodeToString(batch).encodeToByteArray()
+    fun encodeG7Setup(command: G7SetupCommand): ByteArray = json.encodeToString(command).encodeToByteArray()
+
+    fun encodeG7ReadingBatch(batch: G7ReadingBatch): ByteArray = json.encodeToString(batch).encodeToByteArray()
 
     fun decodeG7ReadingBatch(bytes: ByteArray): G7ReadingBatch {
         val decoded = json.decodeFromString<G7ReadingBatch>(bytes.decodeToString())
@@ -278,8 +322,7 @@ object WearProtocol {
         return decoded.copy(readings = decoded.readings.distinctBy(CgmReading::id))
     }
 
-    fun encodeG7ReadingAck(ack: G7ReadingAck): ByteArray =
-        json.encodeToString(ack).encodeToByteArray()
+    fun encodeG7ReadingAck(ack: G7ReadingAck): ByteArray = json.encodeToString(ack).encodeToByteArray()
 
     fun decodeG7ReadingAck(bytes: ByteArray): G7ReadingAck {
         val decoded = json.decodeFromString<G7ReadingAck>(bytes.decodeToString())
@@ -289,8 +332,7 @@ object WearProtocol {
         return decoded.copy(acknowledgedIds = decoded.acknowledgedIds.filter { it.isNotBlank() }.toSet())
     }
 
-    fun encodeWatchColorSync(sync: WatchColorSync): ByteArray =
-        json.encodeToString(sync).encodeToByteArray()
+    fun encodeWatchColorSync(sync: WatchColorSync): ByteArray = json.encodeToString(sync).encodeToByteArray()
 
     fun decodeWatchColorSync(bytes: ByteArray): WatchColorSync {
         val decoded = json.decodeFromString<WatchColorSync>(bytes.decodeToString())
@@ -298,11 +340,9 @@ object WearProtocol {
         return decoded
     }
 
-    fun decodeG7Setup(bytes: ByteArray): G7SetupCommand =
-        json.decodeFromString<G7SetupCommand>(bytes.decodeToString())
+    fun decodeG7Setup(bytes: ByteArray): G7SetupCommand = json.decodeFromString<G7SetupCommand>(bytes.decodeToString())
 
-    fun encodeDiagnostics(batch: DiagnosticBatch): ByteArray =
-        json.encodeToString(batch).encodeToByteArray()
+    fun encodeDiagnostics(batch: DiagnosticBatch): ByteArray = json.encodeToString(batch).encodeToByteArray()
 
     fun decodeDiagnostics(bytes: ByteArray): DiagnosticBatch {
         val decoded = json.decodeFromString<DiagnosticBatch>(bytes.decodeToString())
@@ -322,10 +362,11 @@ object WearProtocol {
         val decoded = json.decodeFromString<WatchConfig>(bytes.decodeToString())
         return decoded.copy(
             graphHours = decoded.graphHours.takeIf { it in listOf(1, 2, 3, 6, 12, 24) } ?: 3,
-            graphStyle = decoded.graphStyle.copy(
-                cgmDotRadiusDp = decoded.graphStyle.cgmDotRadiusDp.coerceIn(1.5f, 6.0f),
-                cgmDotOutlineWidthDp = decoded.graphStyle.cgmDotOutlineWidthDp.coerceIn(0.25f, 3.0f),
-            ),
+            graphStyle =
+                decoded.graphStyle.copy(
+                    cgmDotRadiusDp = decoded.graphStyle.cgmDotRadiusDp.coerceIn(1.5f, 6.0f),
+                    cgmDotOutlineWidthDp = decoded.graphStyle.cgmDotOutlineWidthDp.coerceIn(0.25f, 3.0f),
+                ),
         )
     }
 

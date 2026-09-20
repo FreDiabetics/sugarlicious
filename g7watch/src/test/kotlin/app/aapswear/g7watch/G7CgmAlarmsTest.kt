@@ -4,18 +4,18 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.g7.CgmAlarmType
 import app.aapswear.g7.CgmAlarmSettings
+import app.aapswear.g7.CgmAlarmType
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
 import org.junit.After
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -32,16 +32,17 @@ class G7CgmAlarmsTest {
 
     @Test
     fun `every collector alarm keeps its dedicated bundled sound`() {
-        val expected = mapOf(
-            CgmAlarmType.VERY_HIGH to R.raw.alerts_sounds_high_alert,
-            CgmAlarmType.HIGH to R.raw.alerts_sounds_high,
-            CgmAlarmType.LOW to R.raw.alerts_sounds_low,
-            CgmAlarmType.VERY_LOW to R.raw.alerts_sounds_urgent_low_alarm,
-            CgmAlarmType.RAPID_RISE to R.raw.alerts_sounds_rise_rate,
-            CgmAlarmType.RAPID_FALL to R.raw.alerts_sounds_fall_rate,
-            CgmAlarmType.SIGNAL_LOSS to R.raw.alerts_sounds_signal_loss_alert,
-            CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
-        )
+        val expected =
+            mapOf(
+                CgmAlarmType.VERY_HIGH to R.raw.alerts_sounds_high_alert,
+                CgmAlarmType.HIGH to R.raw.alerts_sounds_high,
+                CgmAlarmType.LOW to R.raw.alerts_sounds_low,
+                CgmAlarmType.VERY_LOW to R.raw.alerts_sounds_urgent_low_alarm,
+                CgmAlarmType.RAPID_RISE to R.raw.alerts_sounds_rise_rate,
+                CgmAlarmType.RAPID_FALL to R.raw.alerts_sounds_fall_rate,
+                CgmAlarmType.SIGNAL_LOSS to R.raw.alerts_sounds_signal_loss_alert,
+                CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
+            )
         assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundResource))
     }
 
@@ -88,8 +89,16 @@ class G7CgmAlarmsTest {
 
     @Before
     fun setUp() {
-        context.getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE).edit().clear().commit()
-        context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        context
+            .getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         G7AlertPolicyStore.setPolicy(context, true)
         notificationManager.cancelAll()
     }
@@ -140,7 +149,8 @@ class G7CgmAlarmsTest {
 
     @Test
     fun `urgent low threshold uses canonical default despite stale legacy alarm preference`() {
-        context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_low", 30f)
             .commit()
@@ -179,7 +189,11 @@ class G7CgmAlarmsTest {
 
     @Test
     fun `direct numeric threshold editing preserves strict alarm ordering`() {
-        val settings = G7AlarmSettingsStore.read(context).copy(veryHighThreshold = 250.0, highThreshold = 180.0, lowThreshold = 80.0, veryLowThreshold = 50.0)
+        val settings =
+            G7AlarmSettingsStore
+                .read(
+                    context,
+                ).copy(veryHighThreshold = 250.0, highThreshold = 180.0, lowThreshold = 80.0, veryLowThreshold = 50.0)
 
         assertEquals(170.0, withThreshold(settings, CgmAlarmType.HIGH, 170.0)?.highThreshold)
         assertEquals(70.0, withThreshold(settings, CgmAlarmType.LOW, 70.0)?.lowThreshold)
@@ -191,7 +205,8 @@ class G7CgmAlarmsTest {
 
     @Test
     fun `corrupt alarm thresholds are normalized before engine construction`() {
-        context.getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("g7_cgm_alarm_settings", Context.MODE_PRIVATE)
             .edit()
             .putFloat("very_high", 100f)
             .putFloat("high", 900f)
@@ -241,16 +256,19 @@ class G7CgmAlarmsTest {
         assertNotNull(shadowOf(notificationManager).getNotification(LOW_NOTIFICATION_ID))
     }
 
-    private fun reading(sensorId: String, sessionId: String, glucose: Double) =
-        CgmReading(
-            id = "$sensorId-$sessionId-$glucose",
-            source = DataSourceId.DEXCOM_G7_WATCH,
-            sensorId = sensorId,
-            sessionId = sessionId,
-            glucoseMgDl = glucose,
-            timestampEpochMs = NOW,
-            receivedAtEpochMs = NOW,
-        )
+    private fun reading(
+        sensorId: String,
+        sessionId: String,
+        glucose: Double,
+    ) = CgmReading(
+        id = "$sensorId-$sessionId-$glucose",
+        source = DataSourceId.DEXCOM_G7_WATCH,
+        sensorId = sensorId,
+        sessionId = sessionId,
+        glucoseMgDl = glucose,
+        timestampEpochMs = NOW,
+        receivedAtEpochMs = NOW,
+    )
 
     private companion object {
         const val NOW = 1_800_000_000_000L

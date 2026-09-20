@@ -1,4 +1,7 @@
-plugins { kotlin("jvm"); application }
+plugins {
+    kotlin("jvm")
+    application
+}
 dependencies {
     implementation(project(":tools:aaps-cwf-parser"))
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")

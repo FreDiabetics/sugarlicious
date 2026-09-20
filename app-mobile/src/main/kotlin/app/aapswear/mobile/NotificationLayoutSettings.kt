@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import app.aapswear.model.GlucoseTrendSizing
 
 internal data class NotificationLayoutSettings(
@@ -12,14 +13,16 @@ internal data class NotificationLayoutSettings(
     val trendYPercent: Int = 0,
     val metaScalePercent: Int = 100,
 ) {
-    fun resolvedTrendPercent(systemPercent: Int): Int =
-        (trendScalePercent ?: systemPercent).coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+    fun resolvedTrendPercent(systemPercent: Int): Int = (trendScalePercent ?: systemPercent).coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
 }
 
 internal object NotificationLayoutSettingsStore {
     private const val PREFIX = "notification.layout."
 
-    fun read(preferences: SharedPreferences, profile: NotificationGraphProfile): NotificationLayoutSettings {
+    fun read(
+        preferences: SharedPreferences,
+        profile: NotificationGraphProfile,
+    ): NotificationLayoutSettings {
         val p = PREFIX + profile.name.lowercase() + "."
         return NotificationLayoutSettings(
             glucoseScalePercent = preferences.getInt(p + "glucoseScale", 100).coerceIn(70, 200),
@@ -32,9 +35,13 @@ internal object NotificationLayoutSettingsStore {
         )
     }
 
-    fun save(preferences: SharedPreferences, profile: NotificationGraphProfile, value: NotificationLayoutSettings) {
+    fun save(
+        preferences: SharedPreferences,
+        profile: NotificationGraphProfile,
+        value: NotificationLayoutSettings,
+    ) {
         val p = PREFIX + profile.name.lowercase() + "."
-        preferences.edit().apply {
+        preferences.edit {
             putInt(p + "glucoseScale", value.glucoseScalePercent.coerceIn(70, 200))
             putInt(p + "glucoseX", value.glucoseXPercent.coerceIn(-40, 40))
             putInt(p + "glucoseY", value.glucoseYPercent.coerceIn(-40, 40))
@@ -42,6 +49,6 @@ internal object NotificationLayoutSettingsStore {
             putInt(p + "trendX", value.trendXPercent.coerceIn(-40, 40))
             putInt(p + "trendY", value.trendYPercent.coerceIn(-40, 40))
             putInt(p + "metaScale", value.metaScalePercent.coerceIn(70, 160))
-        }.apply()
+        }
     }
 }

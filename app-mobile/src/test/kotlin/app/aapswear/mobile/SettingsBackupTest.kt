@@ -17,11 +17,12 @@ import java.io.ByteArrayOutputStream
 @RunWith(RobolectricTestRunner::class)
 class SettingsBackupTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
-    private val exportedPreferenceFiles = listOf(
-        "dashboard_ui",
-        "complication_setup",
-        "sugarlicious_watchface_presets",
-    )
+    private val exportedPreferenceFiles =
+        listOf(
+            "dashboard_ui",
+            "complication_setup",
+            "sugarlicious_watchface_presets",
+        )
 
     @Before
     fun setUp() = clearPreferences()
@@ -31,7 +32,9 @@ class SettingsBackupTest {
 
     @Test
     fun `backup round trip preserves supported values and excludes private runtime data`() {
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+            .edit()
             .putBoolean("enabled", true)
             .putInt("hours", 3)
             .putLong("timestamp", 123456789L)
@@ -39,13 +42,19 @@ class SettingsBackupTest {
             .putString("themeMode", "DARK")
             .putStringSet("visible", setOf("cgm", "iob"))
             .commit()
-        context.getSharedPreferences("complication_setup", Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("complication_setup", Context.MODE_PRIVATE)
+            .edit()
             .putString("selected_ids", "101,202")
             .commit()
-        context.getSharedPreferences("diagnostics", Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+            .edit()
             .putString("private_error", "must-not-leave-device")
             .commit()
-        context.getSharedPreferences("nightscout_treatment_secret", Context.MODE_PRIVATE).edit()
+        context
+            .getSharedPreferences("nightscout_treatment_secret", Context.MODE_PRIVATE)
+            .edit()
             .putString("value", "encrypted-nightscout-secret-must-not-leave-device")
             .commit()
 
@@ -71,7 +80,8 @@ class SettingsBackupTest {
         assertEquals(setOf("cgm", "iob"), restored.getStringSet("visible", emptySet()))
         assertEquals(
             "101,202",
-            context.getSharedPreferences("complication_setup", Context.MODE_PRIVATE)
+            context
+                .getSharedPreferences("complication_setup", Context.MODE_PRIVATE)
                 .getString("selected_ids", null),
         )
     }
@@ -106,8 +116,15 @@ class SettingsBackupTest {
     }
 
     private fun clearPreferences() {
-        (exportedPreferenceFiles + listOf("diagnostics", "nightscout_treatment_secret", "nightscout_treatment_history", "nightscout_treatment_config")).forEach { name ->
-            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().commit()
+        (
+            exportedPreferenceFiles +
+                listOf("diagnostics", "nightscout_treatment_secret", "nightscout_treatment_history", "nightscout_treatment_config")
+        ).forEach { name ->
+            context
+                .getSharedPreferences(name, Context.MODE_PRIVATE)
+                .edit()
+                .clear()
+                .commit()
         }
     }
 }

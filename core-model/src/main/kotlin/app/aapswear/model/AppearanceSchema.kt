@@ -63,11 +63,12 @@ data class TrendArrowStyle(
     val sizePercent: Int,
     val alpha: Float,
 ) {
-    fun normalized(): TrendArrowStyle = copy(
-        outlineThicknessDp = outlineThicknessDp.coerceIn(MIN_OUTLINE_DP, MAX_OUTLINE_DP),
-        sizePercent = sizePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
-        alpha = alpha.coerceIn(0f, 1f),
-    )
+    fun normalized(): TrendArrowStyle =
+        copy(
+            outlineThicknessDp = outlineThicknessDp.coerceIn(MIN_OUTLINE_DP, MAX_OUTLINE_DP),
+            sizePercent = sizePercent.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
+            alpha = alpha.coerceIn(0f, 1f),
+        )
 
     fun renderSpec(): TrendArrowRenderSpec {
         val value = normalized()
@@ -83,14 +84,18 @@ data class TrendArrowStyle(
         const val MIN_OUTLINE_DP = 0.25f
         const val MAX_OUTLINE_DP = 4f
 
-        fun defaults(mode: AppearanceMode, fillColor: Int): TrendArrowStyle = TrendArrowStyle(
-            fillColor = fillColor,
-            outlineEnabled = mode == AppearanceMode.DARK,
-            outlineColor = 0xAE000000.toInt(),
-            outlineThicknessDp = 0.65f,
-            sizePercent = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
-            alpha = 1f,
-        )
+        fun defaults(
+            mode: AppearanceMode,
+            fillColor: Int,
+        ): TrendArrowStyle =
+            TrendArrowStyle(
+                fillColor = fillColor,
+                outlineEnabled = mode == AppearanceMode.DARK,
+                outlineColor = 0xAE000000.toInt(),
+                outlineThicknessDp = 0.65f,
+                sizePercent = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+                alpha = 1f,
+            )
     }
 }
 
@@ -110,17 +115,24 @@ data class TrendArrowStyleOverride(
     val sizePercent: Int? = null,
     val alpha: Float? = null,
 ) {
-    fun resolve(parent: TrendArrowStyle): TrendArrowStyle = parent.copy(
-        fillColor = fillColor ?: parent.fillColor,
-        outlineEnabled = outlineEnabled ?: parent.outlineEnabled,
-        outlineColor = outlineColor ?: parent.outlineColor,
-        outlineThicknessDp = outlineThicknessDp ?: parent.outlineThicknessDp,
-        sizePercent = sizePercent ?: parent.sizePercent,
-        alpha = alpha ?: parent.alpha,
-    ).normalized()
+    fun resolve(parent: TrendArrowStyle): TrendArrowStyle =
+        parent
+            .copy(
+                fillColor = fillColor ?: parent.fillColor,
+                outlineEnabled = outlineEnabled ?: parent.outlineEnabled,
+                outlineColor = outlineColor ?: parent.outlineColor,
+                outlineThicknessDp = outlineThicknessDp ?: parent.outlineThicknessDp,
+                sizePercent = sizePercent ?: parent.sizePercent,
+                alpha = alpha ?: parent.alpha,
+            ).normalized()
 
-    val isEmpty: Boolean get() = fillColor == null && outlineEnabled == null && outlineColor == null &&
-        outlineThicknessDp == null && sizePercent == null && alpha == null
+    val isEmpty: Boolean get() =
+        fillColor == null &&
+            outlineEnabled == null &&
+            outlineColor == null &&
+            outlineThicknessDp == null &&
+            sizePercent == null &&
+            alpha == null
 }
 
 /** Platform-independent ARGB conversion used by every color editor. */
@@ -137,19 +149,34 @@ object ArgbColor {
         }
     }
 
-    fun withAlpha(argb: Int, alpha: Float): Int =
-        ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24) or (argb and 0x00FFFFFF)
+    fun withAlpha(
+        argb: Int,
+        alpha: Float,
+    ): Int = ((alpha.coerceIn(0f, 1f) * 255f).toInt() shl 24) or (argb and 0x00FFFFFF)
 }
 
 object AppearanceSchema {
     /** Version of the shared definition catalog; persistence versions advance only with migrations. */
     const val VERSION = 1
-    val trendArrow = listOf(
-        AppearanceSettingDefinition("trend.fill", AppearanceValueType.COLOR_ARGB, "#FFFFFFFF"),
-        AppearanceSettingDefinition("trend.outline.enabled", AppearanceValueType.BOOLEAN, "false"),
-        AppearanceSettingDefinition("trend.outline.color", AppearanceValueType.COLOR_ARGB, "#AE000000"),
-        AppearanceSettingDefinition("trend.outline.thicknessDp", AppearanceValueType.FLOAT, "0.65", TrendArrowStyle.MIN_OUTLINE_DP, TrendArrowStyle.MAX_OUTLINE_DP),
-        AppearanceSettingDefinition("trend.sizePercent", AppearanceValueType.INTEGER, "100", GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(), GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat()),
-        AppearanceSettingDefinition("trend.alpha", AppearanceValueType.FLOAT, "1.0", 0f, 1f),
-    )
+    val trendArrow =
+        listOf(
+            AppearanceSettingDefinition("trend.fill", AppearanceValueType.COLOR_ARGB, "#FFFFFFFF"),
+            AppearanceSettingDefinition("trend.outline.enabled", AppearanceValueType.BOOLEAN, "false"),
+            AppearanceSettingDefinition("trend.outline.color", AppearanceValueType.COLOR_ARGB, "#AE000000"),
+            AppearanceSettingDefinition(
+                "trend.outline.thicknessDp",
+                AppearanceValueType.FLOAT,
+                "0.65",
+                TrendArrowStyle.MIN_OUTLINE_DP,
+                TrendArrowStyle.MAX_OUTLINE_DP,
+            ),
+            AppearanceSettingDefinition(
+                "trend.sizePercent",
+                AppearanceValueType.INTEGER,
+                "100",
+                GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
+                GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
+            ),
+            AppearanceSettingDefinition("trend.alpha", AppearanceValueType.FLOAT, "1.0", 0f, 1f),
+        )
 }

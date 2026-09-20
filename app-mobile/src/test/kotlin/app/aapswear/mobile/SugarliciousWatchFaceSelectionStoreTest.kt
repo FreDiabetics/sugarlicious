@@ -20,7 +20,11 @@ class SugarliciousWatchFaceSelectionStoreTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test
@@ -37,7 +41,8 @@ class SugarliciousWatchFaceSelectionStoreTest {
 
     @Test
     fun `legacy collector source preference is ignored by AndroidAPS-only Mobile policy`() {
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        context
+            .getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
             .edit()
             .putString("dataSource", DataSourcePreference.DEXCOM_G7_WATCH.name)
             .commit()

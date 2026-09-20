@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.TherapyDisplayState
 
@@ -14,7 +15,10 @@ internal object SugarliciousWatchFaceSelectionStore {
     private const val KEY_FACE_CATALOG_VERSION = "watchFaceCatalogVersion"
     private const val FACE_CATALOG_VERSION = 2
 
-    fun read(context: Context, fallback: Int = 0): Int {
+    fun read(
+        context: Context,
+        fallback: Int = 0,
+    ): Int {
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = preferences.getInt(KEY_FACE_INDEX, fallback)
         if (preferences.getInt(KEY_FACE_CATALOG_VERSION, 1) < FACE_CATALOG_VERSION) {
@@ -25,12 +29,14 @@ internal object SugarliciousWatchFaceSelectionStore {
         return stored.coerceIn(sugarliciousWatchFaceCards.indices)
     }
 
-    fun write(context: Context, faceIndex: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putInt(KEY_FACE_INDEX, faceIndex.coerceIn(sugarliciousWatchFaceCards.indices))
-            .putInt(KEY_FACE_CATALOG_VERSION, FACE_CATALOG_VERSION)
-            .apply()
+    fun write(
+        context: Context,
+        faceIndex: Int,
+    ) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putInt(KEY_FACE_INDEX, faceIndex.coerceIn(sugarliciousWatchFaceCards.indices))
+            putInt(KEY_FACE_CATALOG_VERSION, FACE_CATALOG_VERSION)
+        }
     }
 
     fun isDirectToWatchRelevant(

@@ -9,7 +9,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
 import android.media.AudioAttributes
-import android.net.Uri
+import androidx.core.content.edit
+import androidx.core.net.toUri
 import app.aapswear.g7.G7CollectorError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,14 +23,13 @@ internal data class G7AcknowledgedError(
     val acknowledgedAtEpochMs: Long,
 )
 
-internal fun g7ErrorSignature(error: G7CollectorError): String =
-    "${error.code}|${error.safeMessage}"
+internal fun g7ErrorSignature(error: G7CollectorError): String = "${error.code}|${error.safeMessage}"
 
 /** High-priority surface reserved for an actually actionable direct-Watch problem. */
 internal object G7ErrorNotifier {
     private const val CHANNEL_ID = "direct_watch_collector_errors_v2"
     private const val LEGACY_CHANNEL_ID = "g7_collector_errors_v1"
-    private const val CHANNEL_NAME = "Direct-to-Watch-Fehler"
+    private const val CHANNEL_NAME = "SugarWear-Fehler"
     private const val NOTIFICATION_ID = 7002
     private const val PREFS = "g7_error_notifications"
     private const val KEY_ACTIVE_SIGNATURE = "active_signature"
@@ -43,14 +43,15 @@ internal object G7ErrorNotifier {
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
-        val sound = Uri.parse("android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}")
+        val sound = "android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}".toUri()
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
-                description = "Dringende Fehler von Direct to Watch"
+                description = "Dringende Fehler von SugarWear"
                 enableVibration(true)
                 setSound(
                     sound,
-                    AudioAttributes.Builder()
+                    AudioAttributes
+                        .Builder()
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build(),
@@ -61,31 +62,35 @@ internal object G7ErrorNotifier {
         )
     }
 
-    fun show(context: Context, error: G7CollectorError) {
+    fun show(
+        context: Context,
+        error: G7CollectorError,
+    ) {
         ensureChannel(context)
         val app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val signature = g7ErrorSignature(error)
         val previousSignature = prefs.getString(KEY_ACTIVE_SIGNATURE, null)
         val sameActiveError = signature == previousSignature
-        val firstOccurredAt = if (sameActiveError) {
-            prefs.getLong(KEY_FIRST_OCCURRED_AT, error.occurredAtEpochMs)
-        } else {
-            error.occurredAtEpochMs
+        val firstOccurredAt =
+            if (sameActiveError) {
+                prefs.getLong(KEY_FIRST_OCCURRED_AT, error.occurredAtEpochMs)
+            } else {
+                error.occurredAtEpochMs
+            }
+        prefs.edit {
+            putString(KEY_ACTIVE_SIGNATURE, signature)
+            putString(KEY_ACTIVE_CODE, error.code)
+            putString(KEY_ACTIVE_MESSAGE, error.safeMessage)
+            putLong(KEY_FIRST_OCCURRED_AT, firstOccurredAt)
+            putLong(KEY_LAST_POSTED_AT, System.currentTimeMillis())
         }
-        prefs.edit()
-            .putString(KEY_ACTIVE_SIGNATURE, signature)
-            .putString(KEY_ACTIVE_CODE, error.code)
-            .putString(KEY_ACTIVE_MESSAGE, error.safeMessage)
-            .putLong(KEY_FIRST_OCCURRED_AT, firstOccurredAt)
-            .putLong(KEY_LAST_POSTED_AT, System.currentTimeMillis())
-            .apply()
 
         app.getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID,
             buildNotification(
                 context = app,
-                title = if (error.code == "G7-SIGNAL-LOSS") "Signalverlust" else "Direct-to-Watch-Fehler ${error.code}",
+                title = if (error.code == "G7-SIGNAL-LOSS") "Signalverlust" else "SugarWear-Fehler ${error.code}",
                 body = error.safeMessage,
                 occurredAtEpochMs = firstOccurredAt,
                 onlyAlertOnce = sameActiveError,
@@ -100,14 +105,13 @@ internal object G7ErrorNotifier {
 
     fun clearActive(context: Context) {
         val app = context.applicationContext
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .remove(KEY_ACTIVE_SIGNATURE)
-            .remove(KEY_ACTIVE_CODE)
-            .remove(KEY_ACTIVE_MESSAGE)
-            .remove(KEY_FIRST_OCCURRED_AT)
-            .remove(KEY_LAST_POSTED_AT)
-            .apply()
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            remove(KEY_ACTIVE_SIGNATURE)
+            remove(KEY_ACTIVE_CODE)
+            remove(KEY_ACTIVE_MESSAGE)
+            remove(KEY_FIRST_OCCURRED_AT)
+            remove(KEY_LAST_POSTED_AT)
+        }
         app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
@@ -116,15 +120,15 @@ internal object G7ErrorNotifier {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val signature = prefs.getString(KEY_ACTIVE_SIGNATURE, null) ?: return null
         val acknowledgedAt = System.currentTimeMillis()
-        prefs.edit()
-            .putString(KEY_LAST_ACK_SIGNATURE, signature)
-            .putLong(KEY_LAST_ACK_AT, acknowledgedAt)
-            .remove(KEY_ACTIVE_SIGNATURE)
-            .remove(KEY_ACTIVE_CODE)
-            .remove(KEY_ACTIVE_MESSAGE)
-            .remove(KEY_FIRST_OCCURRED_AT)
-            .remove(KEY_LAST_POSTED_AT)
-            .apply()
+        prefs.edit {
+            putString(KEY_LAST_ACK_SIGNATURE, signature)
+            putLong(KEY_LAST_ACK_AT, acknowledgedAt)
+            remove(KEY_ACTIVE_SIGNATURE)
+            remove(KEY_ACTIVE_CODE)
+            remove(KEY_ACTIVE_MESSAGE)
+            remove(KEY_FIRST_OCCURRED_AT)
+            remove(KEY_LAST_POSTED_AT)
+        }
         app.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         return G7AcknowledgedError(signature, acknowledgedAt)
     }
@@ -136,25 +140,26 @@ internal object G7ErrorNotifier {
         occurredAtEpochMs: Long,
         onlyAlertOnce: Boolean,
     ): Notification {
-        val openIntent = Intent(context, G7WatchActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val openApp = PendingIntent.getActivity(
-            context,
-            7002,
-            openIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
-        val acknowledge = PendingIntent.getBroadcast(
-            context,
-            7002,
-            Intent(context, G7ErrorAcknowledgeReceiver::class.java).setAction(G7ErrorAcknowledgeReceiver.ACTION_ACKNOWLEDGE),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        val openIntent = g7OpenAppIntent(context)
+        val openApp =
+            PendingIntent.getActivity(
+                context,
+                7002,
+                openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
+        val acknowledge =
+            PendingIntent.getBroadcast(
+                context,
+                7002,
+                Intent(context, G7ErrorAcknowledgeReceiver::class.java).setAction(G7ErrorAcknowledgeReceiver.ACTION_ACKNOWLEDGE),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
         val errorTime = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(occurredAtEpochMs))
         val detail = "$body\nAufgetreten: $errorTime"
         val actionIcon = Icon.createWithResource(context, R.drawable.ic_g7_notification)
-        return Notification.Builder(context, CHANNEL_ID)
+        return Notification
+            .Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_g7_notification)
             .setColor(0xFFFF5D6C.toInt())
             .setContentTitle(title)
@@ -163,7 +168,6 @@ internal object G7ErrorNotifier {
             .setContentIntent(openApp)
             .setCategory(Notification.CATEGORY_ERROR)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setPriority(Notification.PRIORITY_MAX)
             .setWhen(occurredAtEpochMs)
             .setShowWhen(true)
             .setOngoing(true)
@@ -175,7 +179,10 @@ internal object G7ErrorNotifier {
 }
 
 class G7ErrorAcknowledgeReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
         if (intent.action != ACTION_ACKNOWLEDGE) return
         val acknowledged = G7ErrorNotifier.acknowledge(context) ?: return
         val pendingResult = goAsync()
@@ -184,10 +191,11 @@ class G7ErrorAcknowledgeReceiver : BroadcastReceiver() {
                 context.applicationContext.recordG7Diagnostic(
                     code = "G7-ALERT-ACK",
                     message = "Collector error notification acknowledged",
-                    metadata = mapOf(
-                        "signature" to acknowledged.signature,
-                        "acknowledgedAtEpochMs" to acknowledged.acknowledgedAtEpochMs,
-                    ),
+                    metadata =
+                        mapOf(
+                            "signature" to acknowledged.signature,
+                            "acknowledgedAtEpochMs" to acknowledged.acknowledgedAtEpochMs,
+                        ),
                 )
             } finally {
                 pendingResult.finish()

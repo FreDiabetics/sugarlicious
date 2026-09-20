@@ -9,12 +9,13 @@ class RelativeGraphTimeAxisTest {
 
     @Test
     fun `standard graph windows use relative hour labels`() {
-        val cases = mapOf(
-            3 to listOf("3h", "2h", "1h", "jetzt"),
-            6 to listOf("6h", "4h", "2h", "jetzt"),
-            12 to listOf("12h", "8h", "4h", "jetzt"),
-            24 to listOf("24h", "18h", "12h", "6h", "jetzt"),
-        )
+        val cases =
+            mapOf(
+                3 to listOf("3h", "2h", "1h", "jetzt"),
+                6 to listOf("6h", "4h", "2h", "jetzt"),
+                12 to listOf("12h", "8h", "4h", "jetzt"),
+                24 to listOf("24h", "18h", "12h", "6h", "jetzt"),
+            )
 
         cases.forEach { (hours, expected) ->
             val ticks = RelativeGraphTimeAxis.ticks(now - hours * RelativeGraphTimeAxis.HOUR_MS, now, now)
@@ -35,11 +36,12 @@ class RelativeGraphTimeAxisTest {
 
     @Test
     fun `panned history stays relative to now and never renders clock text`() {
-        val ticks = RelativeGraphTimeAxis.ticks(
-            startEpochMs = now - 7 * RelativeGraphTimeAxis.HOUR_MS,
-            endEpochMs = now - 3 * RelativeGraphTimeAxis.HOUR_MS,
-            nowEpochMs = now,
-        )
+        val ticks =
+            RelativeGraphTimeAxis.ticks(
+                startEpochMs = now - 7 * RelativeGraphTimeAxis.HOUR_MS,
+                endEpochMs = now - 3 * RelativeGraphTimeAxis.HOUR_MS,
+                nowEpochMs = now,
+            )
 
         assertEquals(listOf("6h", "4h"), ticks.map { it.label })
         assertFalse(ticks.any { ':' in it.label })
@@ -48,11 +50,12 @@ class RelativeGraphTimeAxisTest {
 
     @Test
     fun `prediction future space keeps now as last history label`() {
-        val ticks = RelativeGraphTimeAxis.ticks(
-            startEpochMs = now - 3 * RelativeGraphTimeAxis.HOUR_MS,
-            endEpochMs = now + RelativeGraphTimeAxis.HOUR_MS,
-            nowEpochMs = now,
-        )
+        val ticks =
+            RelativeGraphTimeAxis.ticks(
+                startEpochMs = now - 3 * RelativeGraphTimeAxis.HOUR_MS,
+                endEpochMs = now + RelativeGraphTimeAxis.HOUR_MS,
+                nowEpochMs = now,
+            )
 
         assertEquals(listOf("3h", "2h", "1h", "jetzt"), ticks.map { it.label })
     }

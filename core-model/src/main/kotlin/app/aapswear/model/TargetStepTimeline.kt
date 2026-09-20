@@ -11,20 +11,20 @@ object TargetStepTimeline {
         continuityToleranceMs: Long = 90_000L,
     ): List<List<Pair<Long, Double>>> {
         if (end <= start || continuityToleranceMs < 0L) return emptyList()
-        val normalized = samples
-            .asSequence()
-            .filter { it.valueMgDl.isFinite() && it.endsAtEpochMs >= start && it.startedAtEpochMs <= end }
-            .sortedBy(TargetSample::startedAtEpochMs)
-            .map { sample ->
-                Segment(
-                    from = sample.startedAtEpochMs.coerceIn(start, end),
-                    to = sample.endsAtEpochMs.coerceIn(start, end),
-                    value = sample.valueMgDl,
-                    temporary = sample.temporary,
-                )
-            }
-            .filter { it.to >= it.from }
-            .toList()
+        val normalized =
+            samples
+                .asSequence()
+                .filter { it.valueMgDl.isFinite() && it.endsAtEpochMs >= start && it.startedAtEpochMs <= end }
+                .sortedBy(TargetSample::startedAtEpochMs)
+                .map { sample ->
+                    Segment(
+                        from = sample.startedAtEpochMs.coerceIn(start, end),
+                        to = sample.endsAtEpochMs.coerceIn(start, end),
+                        value = sample.valueMgDl,
+                        temporary = sample.temporary,
+                    )
+                }.filter { it.to >= it.from }
+                .toList()
         if (normalized.isEmpty()) return emptyList()
 
         val paths = mutableListOf<MutableList<Pair<Long, Double>>>()

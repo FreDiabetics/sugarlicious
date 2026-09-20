@@ -7,4 +7,27 @@
     <string name="widget_metabolic_description">IOB, COB und Basal im Sugarlicious-Stil</string>
     <string name="widget_activity_description">Schritte, Puls, Aktivzeit und Kalorien aus Health Connect</string>
     <string name="widget_glucose_graph_description">Glukosewert, Trend und kanonischer CGM-Graph</string>
+    <string name="screen_watch">Watch</string>
+    <string name="screen_settings">Einstellungen</string>
+    <string name="health_connect_data_title">Health Connect Daten</string>
+    <string name="health_connect_not_synchronized">noch nicht synchronisiert</string>
+    <string name="health_connect_sync_summary">Leserechte %1$d/%2$d · Letzte Synchronisierung: %3$s</string>
+    <string name="navigate_back">Zurück</string>
+    <string name="widget_loading">Daten werden geladen …</string>
+    <string name="widget_preview_steps_label">SCHRITTE</string>
+    <string name="widget_preview_steps_value">8.426</string>
+    <string name="widget_preview_heart_rate_label">PULS</string>
+    <string name="widget_preview_heart_rate_value">78 bpm</string>
+    <string name="widget_preview_active_value">AKTIV  42 min</string>
+    <string name="widget_preview_calories_value">KCAL  518</string>
+    <string name="widget_preview_glucose_graph_value">125  →\nmg/dL</string>
+    <string name="widget_preview_glucose_value">123</string>
+    <string name="widget_preview_current">AKTUELL</string>
+    <string name="widget_preview_iob_label">IOB</string>
+    <string name="widget_preview_iob_value">1.2 U</string>
+    <string name="widget_preview_cob_label">COB</string>
+    <string name="widget_preview_cob_value">15 g</string>
+    <string name="widget_preview_basal_label">BASAL</string>
+    <string name="widget_preview_basal_value">0.70</string>
+    <string name="widget_preview_source_age">AndroidAPS · 3 min</string>
 </resources>

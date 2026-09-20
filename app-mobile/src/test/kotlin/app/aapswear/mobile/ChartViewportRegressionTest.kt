@@ -78,8 +78,51 @@ class ChartViewportRegressionTest {
 
         assertNotEquals(first.startEpochMs, second.startEpochMs)
         assertNotEquals(firstTicks.map { it.timestampEpochMs }, secondTicks.map { it.timestampEpochMs })
-        assertEquals(second.liveEdgeEpochMs, second.endEpochMs - viewport.futureWindowMs)
+        assertEquals(now, second.liveEdgeEpochMs)
+        assertNotEquals(
+            first.xFor(now, 600f),
+            second.xFor(now, 600f),
+        )
     }
+
+    @Test
+    fun `clock boundary scrolls out of the viewport and returns only on explicit follow now`() {
+        val viewport = ChartViewport(6).apply { setAvailablePastWindow(24L * hour, now) }
+
+        viewport.pan(100_000f, 600f, now)
+        val historical = viewport.snapshot(now)
+        assertTrue(historical.xFor(now, 600f) > 600f)
+        assertEquals(ChartViewport.Mode.USER_NAVIGATING, viewport.mode)
+
+        viewport.returnToNow()
+        val following = viewport.snapshot(now)
+        assertEquals(600f, following.xFor(now, 600f), 0.001f)
+        assertEquals(ChartViewport.Mode.LIVE_FOLLOW, viewport.mode)
+    }
+
+    @Test
+    fun `scroll zoom scroll and return preserve one shared time transform`() {
+        val viewport = ChartViewport(12).apply { setAvailablePastWindow(24L * hour, now) }
+        viewport.pan(120f, 600f, now)
+        viewport.zoom(2f, 0.4f, now)
+        viewport.pan(-45f, 600f, now)
+
+        val navigated = viewport.snapshot(now)
+        val boundaryX = navigated.xFor(now, 600f)
+        assertTrue(boundaryX.isFinite())
+        assertEquals(boundaryX, navigated.xFor(navigated.liveEdgeEpochMs, 600f), 0f)
+
+        viewport.returnToNow()
+        viewport.zoom(0.5f, 0.5f, now)
+        val restored = viewport.snapshot(now)
+        assertEquals(now, restored.liveEdgeEpochMs)
+        assertEquals(ChartViewport.Mode.LIVE_FOLLOW, viewport.mode)
+    }
+
+    private fun GraphViewportSnapshot.xFor(
+        timestamp: Long,
+        width: Float,
+    ): Float = (timestamp - startEpochMs).toFloat() / durationMs.toFloat() * width
 
     @Test
     fun `new data keeps a historical viewport stable`() {
@@ -95,15 +138,17 @@ class ChartViewportRegressionTest {
 
     @Test
     fun `semantic restore preserves historical time window and clamps duration`() {
-        val original = ChartViewport(8).apply {
-            setAvailablePastWindow(24L * hour, now)
-            pan(150f, 600f, now)
-        }
+        val original =
+            ChartViewport(8).apply {
+                setAvailablePastWindow(24L * hour, now)
+                pan(150f, 600f, now)
+            }
         val saved = original.savedState(now)
-        val restored = ChartViewport(3).apply {
-            setAvailablePastWindow(24L * hour, now)
-            restore(saved, now)
-        }
+        val restored =
+            ChartViewport(3).apply {
+                setAvailablePastWindow(24L * hour, now)
+                restore(saved, now)
+            }
 
         assertEquals(original.snapshot(now).startEpochMs, restored.snapshot(now).startEpochMs)
         assertEquals(original.snapshot(now).endEpochMs, restored.snapshot(now).endEpochMs)
@@ -116,14 +161,16 @@ class ChartViewportRegressionTest {
 
     @Test
     fun `saved state retains requested duration while history is temporarily short`() {
-        val viewport = ChartViewport(6).apply {
-            setAvailablePastWindow(1L * hour, now)
-        }
+        val viewport =
+            ChartViewport(6).apply {
+                setAvailablePastWindow(1L * hour, now)
+            }
 
-        val restored = ChartViewport(1).apply {
-            restore(viewport.savedState(now), now)
-            setAvailablePastWindow(8L * hour, now)
-        }
+        val restored =
+            ChartViewport(1).apply {
+                restore(viewport.savedState(now), now)
+                setAvailablePastWindow(8L * hour, now)
+            }
 
         assertEquals(6f, restored.hours, 0.0001f)
     }
