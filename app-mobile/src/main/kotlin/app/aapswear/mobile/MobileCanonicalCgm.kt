@@ -3,7 +3,6 @@ package app.aapswear.mobile
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
-import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
@@ -20,24 +19,8 @@ import kotlinx.coroutines.flow.first
  */
 private val Context.mobileG7HistoryDataStore by preferencesDataStore("mobile_g7_backfill")
 
-internal class MobileG7BackfillStore(
-    private val context: Context,
-) {
-    suspend fun snapshot(): List<CgmReading> = emptyList()
-
-    suspend fun merge(
-        incoming: List<CgmReading>,
-        nowEpochMs: Long,
-    ): Set<String> {
-        // Deliberately reject Watch-direct history. Clear any legacy payload at the same time so it
-        // cannot reappear after process restart or widget/Watch rehydration.
-        if (incoming.isNotEmpty() || nowEpochMs >= 0L) clear()
-        return emptySet()
-    }
-
-    suspend fun clear() {
-        context.mobileG7HistoryDataStore.edit { it.clear() }
-    }
+private suspend fun clearLegacyMobileG7History(context: Context) {
+    context.mobileG7HistoryDataStore.edit { it.clear() }
 }
 
 internal object MobileWatchCgmMigration {
@@ -50,7 +33,7 @@ internal object MobileWatchCgmMigration {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getInt(KEY_VERSION, 0) >= VERSION) return false
 
-        MobileG7BackfillStore(app).clear()
+        clearLegacyMobileG7History(app)
         app
             .getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE)
             .edit()
@@ -130,22 +113,6 @@ internal object MobileCanonicalStateCoordinator {
         val committed = canonicalStore.commit(mergedPhone)
         dispatchCanonicalDataChanged(context, committed)
         return committed to committed
-    }
-
-    /** Legacy compatibility entry point. No Watch history is read or merged. */
-    suspend fun refreshFromWatchBackfill(
-        context: Context,
-        nowEpochMs: Long,
-    ): TherapyDisplayState? {
-        MobileWatchCgmMigration.runOnce(context)
-        if (nowEpochMs < 0L) return null
-        val phone =
-            PhoneTherapyStateStore(context).state.first()
-                ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
-        val sanitized = phone?.withoutDirectWatchCgm() ?: return null
-        val committed = CanonicalStateStore(context).commit(sanitized)
-        dispatchCanonicalDataChanged(context, committed)
-        return committed
     }
 }
 

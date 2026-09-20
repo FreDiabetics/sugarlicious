@@ -8,8 +8,6 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.DiagnosticSeverity
-import app.aapswear.protocol.G7ReadingAck
-import app.aapswear.protocol.G7ReadingBatch
 import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchConfig
@@ -114,22 +112,6 @@ class MobileDataLayerService : WearableListenerService() {
                     }
             }
 
-            WearProtocol.G7_READING_BATCH_PATH -> {
-                scope.launch {
-                    val batch =
-                        runCatching { WearProtocol.decodeG7ReadingBatch(event.data) }.getOrElse {
-                            applicationContext.recordMobileDiagnostic(
-                                "G7",
-                                "G7-SYNC-401",
-                                "Invalid G7 Watch history batch rejected",
-                                DiagnosticSeverity.WARNING,
-                            )
-                            return@launch
-                        }
-                    acceptG7Batch(batch, event.sourceNodeId)
-                }
-            }
-
             WearProtocol.DIAGNOSTICS_BATCH_PATH -> {
                 scope.launch {
                     runCatching { WearProtocol.decodeDiagnostics(event.data) }
@@ -157,30 +139,6 @@ class MobileDataLayerService : WearableListenerService() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
-    }
-
-    private suspend fun acceptG7Batch(
-        batch: G7ReadingBatch,
-        sourceNodeId: String,
-    ) {
-        MobileG7BackfillStore(this).clear()
-        val ignoredIds = batch.readings.mapNotNull { it.id.takeIf(String::isNotBlank) }.toSet()
-        val ack =
-            G7ReadingAck(
-                batchId = batch.batchId,
-                acknowledgedIds = ignoredIds,
-                acknowledgedAtEpochMs = System.currentTimeMillis(),
-            )
-        Wearable
-            .getMessageClient(this)
-            .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
-            .await()
-        applicationContext.recordMobileDiagnostic(
-            "G7",
-            "G7-SYNC-204",
-            "SugarWear history ignored by AndroidAPS-only Mobile policy",
-            metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
-        )
     }
 }
 
