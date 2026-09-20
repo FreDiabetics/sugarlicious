@@ -6,7 +6,7 @@ on:
 
 jobs:
   secret-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -15,10 +15,12 @@ jobs:
           fetch-depth: 0
       - name: Reject committed secrets
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   dependency-review:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -30,7 +32,7 @@ jobs:
           fail-on-severity: moderate
 
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -44,7 +46,8 @@ jobs:
           packages: ''
           cmdline-tools-version: '15859902'
 
-      - run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - name: Install Android API 37
+        run: android sdk install "platforms;android-37" "build-tools;37.0.0" --canary
 
       - name: Validate branch protection helper with PowerShell 7
         shell: pwsh
