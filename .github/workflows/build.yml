@@ -75,33 +75,8 @@ jobs:
         run: >-
           ./gradlew test assembleDebug
           :watchfaces:test-wff:assembleRelease
-          :watchfaces:aaps-v4:assembleRelease
-          :watchfaces:aaps-v2:assembleRelease
-          :watchfaces:aaps-circle:assembleRelease
-          :watchfaces:aaps-digital-style:assembleRelease
-          :watchfaces:aaps-standard:assembleRelease
-          :watchfaces:aaps-big-chart:assembleRelease
-          :watchfaces:aaps-large:assembleRelease
-          :watchfaces:aaps-no-chart:assembleRelease
-          :watchfaces:aaps-cockpit:assembleRelease
-          :watchfaces:aaps-v2-tt-dark:assembleRelease
-          :watchfaces:aaps-community:assembleRelease
-          :watchfaces:aimico:assembleRelease
-          :watchfaces:analog-g-watch:assembleRelease
-          :watchfaces:blue-ring:assembleRelease
-          :watchfaces:digital-big-graph:assembleRelease
-          :watchfaces:digital-g-watch:assembleRelease
-          :watchfaces:gears:assembleRelease
-          :watchfaces:gota:assembleRelease
-          :watchfaces:lucky-loop-koeln:assembleRelease
-          :watchfaces:p-zero:assembleRelease
-          :watchfaces:robby:assembleRelease
-          :watchfaces:simple-digital:assembleRelease
-          :watchfaces:sugarlicious-analog:assembleRelease
-          :watchfaces:sugarlicious-graph:assembleRelease
-          :watchfaces:sugarlicious-orbit:assembleRelease
-          :watchfaces:sugarlicious-rings:assembleRelease
-          :watchfaces:steam-punk:assembleRelease
+          :watchfaces:sugarlicious-digital:assembleRelease
+          :watchfaces:sugarlicious-direct-to-watch:assembleRelease
 
       - name: Upload G7 Collector visual QA previews
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

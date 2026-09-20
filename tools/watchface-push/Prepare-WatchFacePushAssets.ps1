@@ -15,7 +15,7 @@ $gradle =
 
 Write-Host 'Building Sugarlicious Watch Face Push packages...'
 
-$buildTasks = @($ALL_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
+$buildTasks = @($ACTIVE_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
 $buildTasks += 'prepareWatchFaceValidatorCli'
 & $gradle @buildTasks
 
@@ -37,7 +37,7 @@ Remove-Item (Split-Path $generatedValues -Parent) -Recurse -Force -ErrorAction S
 New-Item -ItemType Directory -Path $generated -Force | Out-Null
 New-Item -ItemType Directory -Path $generatedValues -Force | Out-Null
 
-foreach ($face in $ALL_WATCHFACES) {
+foreach ($face in $ACTIVE_WATCHFACES) {
     $apk =
         Get-ChildItem (Join-Path $root "watchfaces/$($face.Module)/build/outputs/apk/release") -Filter '*.apk' |
             Sort-Object LastWriteTime -Descending |
@@ -47,12 +47,8 @@ foreach ($face in $ALL_WATCHFACES) {
         throw "APK missing for $($face.Module)"
     }
 
-    $isActive = $ACTIVE_WATCHFACES.Module -contains $face.Module
-    $validationApk = $apk.FullName
-    if ($isActive) {
-        $validationApk = Join-Path $generated "$($face.Out).apk"
-        Copy-Item $apk.FullName $validationApk -Force
-    }
+    $validationApk = Join-Path $generated "$($face.Out).apk"
+    Copy-Item $apk.FullName $validationApk -Force
 
     Write-Host "Validating $($face.Module)..."
 
@@ -65,11 +61,6 @@ foreach ($face in $ALL_WATCHFACES) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host $validatorOutput
         throw "Watch Face Push validation failed for $($face.Module)"
-    }
-
-    if (-not $isActive) {
-        Write-Host "Validated legacy-only $($face.Module)"
-        continue
     }
 
     $match =

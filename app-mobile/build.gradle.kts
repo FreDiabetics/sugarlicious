@@ -7,12 +7,7 @@ plugins {
 val generatedAnalogPreviewRes = layout.buildDirectory.dir("generated/sugarliciousAnalogPreviewRes")
 val generatedVigilPreviewRes = layout.buildDirectory.dir("generated/vigilPreviewRes")
 val syncSugarliciousAnalogPreviewAssets =
-    tasks.register<Copy>("syncSugarliciousAnalogPreviewAssets") {
-        from(
-            rootProject.file(
-                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png",
-            ),
-        )
+    tasks.register<Sync>("syncSugarliciousAnalogPreviewAssets") {
         from(
             rootProject.file(
                 "watchfaces/sugarlicious-shared/res/drawable-nodpi/second_hand.xml",

@@ -58,9 +58,13 @@ if (-not (Test-Path $validatorJar)) {
 }
 
 if (-not $WatchfaceFiles) {
-    $WatchfaceFiles = Get-ChildItem (Join-Path $projectRoot "watchfaces") -Recurse -Filter watchface.xml |
-        Where-Object { $_.FullName -match "[\\/]src[\\/]main[\\/]res[\\/]raw[\\/]watchface\.xml$" } |
-        ForEach-Object { $_.FullName }
+    . (Join-Path $projectRoot 'tools/watchface-catalog.ps1')
+    $modules = @($ACTIVE_WATCHFACES.Module) + @('test-wff')
+    $WatchfaceFiles = @(
+        foreach ($module in $modules) {
+            Join-Path $projectRoot "watchfaces/$module/src/main/res/raw/watchface.xml"
+        }
+    )
 }
 if (-not $WatchfaceFiles) { throw "No WFF watchface.xml files found" }
 

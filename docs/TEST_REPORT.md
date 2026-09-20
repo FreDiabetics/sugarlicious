@@ -5,8 +5,8 @@
 - Repositoryzustand vor der Nachprüfung: `main` entsprach `origin/main` bei
   `1919ace0995cbae245353319556926fb667b4272`; Arbeitsbaum sauber, keine offenen
   Pull Requests und keine offenen GitHub-Issues.
-- Die aktuelle Matrix umfasst 29 Produkt-WFFs plus das technische Testface,
-  insgesamt 30 Module. Historische Zahlen in den nachfolgenden
+- Die aktuelle Produktmatrix umfasst Digital und Vigil plus das technische
+  Testface, insgesamt drei Module. Historische Zahlen in den nachfolgenden
   versionsbezogenen Abschnitten bleiben als damalige Prüfergebnisse erhalten
   und beschreiben nicht den heutigen Umfang.
 - Noch nicht als bestanden behauptet werden Sensorwechsel, BLE-Reconnect,
@@ -16,10 +16,10 @@
   ktlintCheck`) war nach 2.120 Tasks erfolgreich. 148 JUnit-Suites mit 823
   Tests liefen ohne Fehler oder Auslassung; 38 Lint-Berichte enthalten null
   Findings. Detekt und Ktlint sind ebenfalls grün.
-- Die abschließende Matrix nach der Katalogkorrektur umfasste 3.336 Tasks und
-  baute zusätzlich sämtliche App- und WFF-Releasevarianten erfolgreich. Der
-  offizielle WFF-Validator akzeptierte 30/30 XML-Dateien; der APK-Check
-  bestätigte 30/30 Pakete als DEX-frei.
+- Der damalige Abschlusslauf vor Entfernung der ausgemusterten Module umfasste
+  3.336 Tasks und 30/30 historische WFF-Artefakte. Diese Zahl ist keine
+  aktuelle Produktanforderung. Die aktive Matrix validiert und prüft jetzt
+  Digital, Vigil und das technische Testface (3/3).
 - Android Lint schreibt beim vollständigen sauberen Lauf für acht unveränderte
   MP4-Alarmressourcen je zwei rohe XML-Parserdiagnosen auf stderr. Sie sind
   keinem Lint-Check oder Finding zugeordnet; die 38 maschinenlesbaren Berichte

@@ -78,38 +78,6 @@ internal val sugarliciousWatchFaceCards =
         ),
     )
 
-internal data class LegacyWatchFaceCard(
-    val name: String,
-    val previewRes: Int,
-)
-
-internal val legacyWatchFaceCards =
-    listOf(
-        LegacyWatchFaceCard("AAPS BigChart", R.drawable.legacy_aaps_big_chart),
-        LegacyWatchFaceCard("AAPS Circle", R.drawable.legacy_aaps_circle),
-        LegacyWatchFaceCard("AAPS Cockpit", R.drawable.legacy_aaps_cockpit),
-        LegacyWatchFaceCard("AAPS Community", R.drawable.legacy_aaps_community),
-        LegacyWatchFaceCard("AAPS Digital Style", R.drawable.legacy_aaps_digital_style),
-        LegacyWatchFaceCard("AAPS Large", R.drawable.legacy_aaps_large),
-        LegacyWatchFaceCard("AAPS NoChart", R.drawable.legacy_aaps_no_chart),
-        LegacyWatchFaceCard("AAPS Standard", R.drawable.legacy_aaps_standard),
-        LegacyWatchFaceCard("AAPS V2", R.drawable.legacy_aaps_v2),
-        LegacyWatchFaceCard("AAPS V2 TT DarkOnly", R.drawable.legacy_aaps_v2_tt_dark),
-        LegacyWatchFaceCard("AAPS V4", R.drawable.legacy_aaps_v4),
-        LegacyWatchFaceCard("AIMICO", R.drawable.legacy_aimico),
-        LegacyWatchFaceCard("Analog G-Watch", R.drawable.legacy_analog_g_watch),
-        LegacyWatchFaceCard("Blue Ring", R.drawable.legacy_blue_ring),
-        LegacyWatchFaceCard("Digital Big Graph", R.drawable.legacy_digital_big_graph),
-        LegacyWatchFaceCard("Digital G-Watch", R.drawable.legacy_digital_g_watch),
-        LegacyWatchFaceCard("Gears", R.drawable.legacy_gears),
-        LegacyWatchFaceCard("Gota", R.drawable.legacy_gota),
-        LegacyWatchFaceCard("LuckyLoopKoeln", R.drawable.legacy_lucky_loop_koeln),
-        LegacyWatchFaceCard("P-Zero", R.drawable.legacy_p_zero),
-        LegacyWatchFaceCard("Robby", R.drawable.legacy_robby),
-        LegacyWatchFaceCard("Simple Digital", R.drawable.legacy_simple_digital),
-        LegacyWatchFaceCard("AAPS SteamPunk", R.drawable.legacy_steam_punk),
-    )
-
 @Composable
 internal fun SugarliciousWatchScreen(
     state: TherapyDisplayState?,

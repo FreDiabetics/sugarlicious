@@ -7,7 +7,7 @@
 - [x] versioniertes Modell, Capability-Erkennung und Payloadvalidierung
 - [x] DataClient/MessageClient/CapabilityClient und Watch-DataStore
 - [x] 35 Complication-Provider mit jeweils genau einem Ausgabetyp
-- [x] 29 Produkt-WFFs plus technisches Testface: 30/30 codefrei und offiziell validiert
+- [x] Digital und Vigil plus technisches Testface: 3/3 codefrei und offiziell validiert
 - [x] AOD-Emulator-Goldens für den bis 0.5.1 veröffentlichten Stand
 - [x] 19 offizielle Community-Quellen inventarisiert und zugeordnet
 - [x] AGPL-/MIT-Nachweise, Datenschutz, Installationsanleitung, CI

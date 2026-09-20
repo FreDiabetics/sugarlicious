@@ -62,9 +62,11 @@ historische Prüfergebnisse stehen in `TEST_REPORT.md`.
 - Die Provider-App muss vor separaten WFF-Paketen installiert werden. Bei
   umgekehrter Reihenfolge können bestehende Favoriten `NoDataSource` behalten
   und müssen erneut angelegt werden.
-- Alle 29 Produkt-WFFs und das technische Testface werden separat gebaut,
-  offiziell validiert und auf DEX-Freiheit geprüft. Diese automatischen Gates
-  ersetzen keine optische Abnahme auf realer Hardware.
+- Die zwei aktiven Produkt-WFFs Digital und Vigil sowie das technische
+  Testface werden separat gebaut, offiziell validiert und auf DEX-Freiheit
+  geprüft. Ausgemusterte Watchfaces sind keine aktiven Build- oder
+  Release-Abhängigkeiten mehr. Diese automatischen Gates ersetzen keine
+  optische Abnahme auf realer Hardware.
 - `galaxy_watch_ultra_mockup_exact.svg` enthält ein eingebettetes Rasterbild.
   Sehr starke Vergrößerung erzeugt deshalb keine zusätzliche Vektorauflösung;
   Herkunft und Freigabe sind in `LICENSES/USER_SUPPLIED_ASSETS.md` dokumentiert.

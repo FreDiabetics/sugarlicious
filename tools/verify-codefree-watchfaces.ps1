@@ -3,7 +3,7 @@ param([string]$Configuration = "release")
 $ErrorActionPreference = "Stop"
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 . (Join-Path $PSScriptRoot "watchface-catalog.ps1")
-$expectedModules = @($ALL_WATCHFACES.Module) + @('test-wff')
+$expectedModules = @($ACTIVE_WATCHFACES.Module) + @('test-wff')
 $apks = @(
     foreach ($module in $expectedModules) {
         $outputDirectory = Join-Path $projectRoot "watchfaces/$module/build/outputs/apk/$Configuration"
