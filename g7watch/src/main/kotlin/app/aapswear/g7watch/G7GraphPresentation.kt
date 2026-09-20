@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseSample
 import app.aapswear.uishared.SharedWearCgmGraphInput
@@ -41,7 +42,12 @@ internal fun g7SharedGraphInput(
         )
     val hours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
     return SharedWearCgmGraphInput(
-        history = normalizeG7LocalHistory(readings).map(CgmReading::toG7GraphSample),
+        history =
+            CanonicalCgmHistory.merge(
+                samples = normalizeG7LocalHistory(readings).map(CgmReading::toG7GraphSample),
+                nowEpochMs = nowEpochMs,
+                windowMs = hours * 60L * 60_000L,
+            ),
         timeWindow = g7CollectorGraphWindow(nowEpochMs, hours),
         nowEpochMs = nowEpochMs,
         thresholds = settings.thresholds(),
@@ -85,14 +91,8 @@ internal fun normalizeG7LocalHistory(source: List<CgmReading>): List<CgmReading>
             }.orEmpty()
 
     return sameSession
-        .groupBy { reading ->
-            G7LocalReadingIdentity(
-                reading.sensorId,
-                reading.sessionId,
-                reading.sequenceNumber,
-                if (reading.sequenceNumber == null) reading.timestampEpochMs / G7_FALLBACK_BUCKET_MS else 0L,
-            )
-        }.values
+        .groupBy { reading -> Triple(reading.sensorId, reading.sessionId, reading.timestampEpochMs) }
+        .values
         .map { duplicates ->
             duplicates.maxWithOrNull(
                 compareBy<CgmReading> { if (it.origin == CgmReadingOrigin.LIVE) 1 else 0 }
@@ -112,12 +112,3 @@ private fun CgmReading.toG7GraphSample() =
         receivedAtEpochMs = receivedAtEpochMs,
         quality = CgmQuality.VALID,
     )
-
-private data class G7LocalReadingIdentity(
-    val sensorId: String,
-    val sessionId: String,
-    val sequenceNumber: Long?,
-    val fallbackMinuteBucket: Long,
-)
-
-private const val G7_FALLBACK_BUCKET_MS = 60_000L

@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Outline
-import android.graphics.Paint
 import android.util.AttributeSet
 import android.util.TypedValue
 import android.view.View
@@ -69,15 +68,11 @@ internal class G7CollectorGraphView
             palette: G7AppearancePalette,
             graphHours: Int,
             nowEpochMs: Long? = null,
-            targetLowMgDl: Double = 80.0,
-            targetHighMgDl: Double = 160.0,
         ) {
             // The in-app graph belongs to SugarWear and therefore follows SugarWear's appearance
             // palette. Direct-to-Watch settings remain exclusive to Vigil.
             boundPalette = palette
             boundGraphHours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
-            targetLowMgDl.hashCode()
-            targetHighMgDl.hashCode()
             this.readings = readings
             this.nowOverrideEpochMs = nowEpochMs
             invalidateOutline()
@@ -99,33 +94,3 @@ internal class G7CollectorGraphView
             )
         }
     }
-
-/** Compatibility helpers kept for the older pure geometry tests. New rendering uses ui-shared. */
-internal object G7GraphLayout {
-    fun timeX(
-        timestamp: Long,
-        start: Long,
-        now: Long,
-        left: Float,
-        right: Float,
-    ): Float = left + ((timestamp - start).toDouble() / (now - start).coerceAtLeast(1L)).coerceIn(0.0, 1.0).toFloat() * (right - left)
-
-    fun predictionX(
-        mappedX: Float,
-        dividerX: Float,
-        outerRadius: Float,
-        safetyGap: Float,
-    ): Float = maxOf(mappedX, dividerX + outerRadius + safetyGap)
-
-    fun highLabelBaseline(
-        lineY: Float,
-        metrics: Paint.FontMetrics,
-        gap: Float,
-    ): Float = lineY - gap - metrics.descent
-
-    fun lowLabelBaseline(
-        lineY: Float,
-        metrics: Paint.FontMetrics,
-        gap: Float,
-    ): Float = lineY + gap - metrics.ascent
-}

@@ -7,6 +7,7 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
+import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,9 +15,11 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class G7GraphTileTest {
     private val context =
         androidx.test.core.app.ApplicationProvider
@@ -58,6 +61,22 @@ class G7GraphTileTest {
 
         assertEquals(1, normalized.size)
         assertEquals(CgmReadingOrigin.LIVE, normalized.single().origin)
+    }
+
+    @Test fun `sequence metadata cannot create a second graph point for one measurement`() {
+        val backfill = reading("sensor", "session", 7, now - 5 * 60_000L, CgmReadingOrigin.BACKFILL)
+        val live = backfill.copy(id = "live", sequenceNumber = 7007, origin = CgmReadingOrigin.LIVE, receivedAtEpochMs = now)
+
+        val input =
+            g7SharedGraphInput(
+                readings = listOf(backfill, live),
+                palette = G7AppearanceStore(context).load(),
+                settings = G7DirectToWatchSettingsStore(context),
+                graphHours = 3,
+                nowEpochMs = now,
+            )
+
+        assertEquals(1, input.history.size)
     }
 
     @Test fun `graph empty states are explicit and history remains visible while stale`() {
@@ -107,6 +126,47 @@ class G7GraphTileTest {
                 .data
                 .isNotEmpty(),
         )
+        service.onDestroy()
+    }
+
+    @Test fun `stored history produces visible graph dots at small and Galaxy round sizes`() {
+        val palette = G7AppearanceStore(context).load()
+        val snapshot =
+            G7GraphTileSnapshot(
+                readings =
+                    listOf(
+                        reading("sensor", "session", 1, now - 10 * 60_000L, CgmReadingOrigin.BACKFILL),
+                        reading("sensor", "session", 2, now - 5 * 60_000L, CgmReadingOrigin.LIVE),
+                        reading("sensor", "session", 3, now - 60_000L, CgmReadingOrigin.LIVE),
+                    ),
+                palette = palette,
+                pillState = G7StatusPillState.CONNECTED,
+                graphHours = 3,
+                nowEpochMs = now,
+            )
+        val service = Robolectric.buildService(G7GraphTileService::class.java).create().get()
+
+        listOf(192 to 112, 454 to 220).forEach { (width, height) ->
+            val bitmap = service.renderGraphBitmap(snapshot, width, height, 1f)
+            val input =
+                g7SharedGraphInput(
+                    snapshot.readings,
+                    snapshot.palette,
+                    G7DirectToWatchSettingsStore(context),
+                    snapshot.graphHours,
+                    snapshot.nowEpochMs,
+                )
+            val metrics = SharedWearCgmGraphRenderer.metrics(width, height, 1f, input.thresholds, input.style)
+            assertTrue(
+                input.history.any { sample ->
+                    val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs).toInt().coerceIn(0, bitmap.width - 1)
+                    val y = metrics.yFor(sample.valueMgDl).toInt().coerceIn(0, bitmap.height - 1)
+                    val referenceX = (x - 15).coerceAtLeast(0)
+                    bitmap.getPixel(x, y) != bitmap.getPixel(referenceX, y)
+                },
+            )
+            bitmap.recycle()
+        }
         service.onDestroy()
     }
 

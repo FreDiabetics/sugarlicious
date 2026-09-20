@@ -220,7 +220,21 @@ class G7GraphTileService : TileService() {
     ): ByteArray {
         val widthPx = (widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density).toInt().coerceAtLeast(1)
-        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = renderGraphBitmap(snapshot, widthPx, heightPx, density)
+        return ByteArrayOutputStream().use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+            bitmap.recycle()
+            output.toByteArray()
+        }
+    }
+
+    internal fun renderGraphBitmap(
+        snapshot: G7GraphTileSnapshot,
+        widthPx: Int,
+        heightPx: Int,
+        density: Float,
+    ): Bitmap {
+        val bitmap = createBitmap(widthPx.coerceAtLeast(1), heightPx.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val settings = G7DirectToWatchSettingsStore(this)
         SharedWearCgmGraphRenderer.render(
             Canvas(bitmap),
@@ -237,11 +251,7 @@ class G7GraphTileService : TileService() {
                 emptyLabel = g7GraphEmptyLabel(snapshot.pillState, normalizeG7LocalHistory(snapshot.readings).isNotEmpty()),
             ),
         )
-        return ByteArrayOutputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            bitmap.recycle()
-            output.toByteArray()
-        }
+        return bitmap
     }
 
     private fun label(
