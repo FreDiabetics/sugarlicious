@@ -305,3 +305,10 @@ G7 crypto module; its required elliptic-curve primitives remain supplied by
 `bcprov`. A full `test assembleDebug lint` run completed 1,865 tasks, and the
 follow-up affected-module gate passed. All 38 current Lint reports contain zero
 issues.
+
+Detekt now uses `2.0.0-alpha.6`, the release built and tested against this
+project's exact Gradle 9.6.1, Kotlin 2.4.10, AGP 9.3.1 and JDK 25 toolchain.
+Its configuration was migrated to the v2 schema with strict validation, and the
+full analysis passes without the former Gradle-10 deprecation warning. CI now
+installs API/build-tools 37, pins every third-party action to a commit and adds a
+full-history Gitleaks secret scan.

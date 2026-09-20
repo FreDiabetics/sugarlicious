@@ -1,5 +1,6 @@
-build:
-  maxIssues: 0
+config:
+  validation: true
+  warningsAsErrors: true
 
 complexity:
   CyclomaticComplexMethod:
@@ -10,8 +11,8 @@ complexity:
     # Line count is formatter-sensitive and does not represent runtime risk.
     active: false
   LongParameterList:
-    functionThreshold: 12
-    constructorThreshold: 12
+    allowedFunctionParameters: 12
+    allowedConstructorParameters: 12
     ignoreDefaultParameters: true
     excludes:
       - '**/test/**'
@@ -60,7 +61,13 @@ style:
   ThrowsCount:
     # Parsers deliberately report distinct validation failures.
     active: false
-  UnusedPrivateMember:
+  UnusedPrivateClass:
+    excludes:
+      - '**/*Preview.kt'
+  UnusedPrivateFunction:
+    excludes:
+      - '**/*Preview.kt'
+  UnusedPrivateProperty:
     excludes:
       - '**/*Preview.kt'
   UnusedParameter:
