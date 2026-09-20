@@ -98,11 +98,11 @@ foreach ($face in $ALL_WATCHFACES) {
 # Wear OS registers this representative face in the system picker when the marketplace app is
 # installed. Once the user activates it, all later variants can replace the same active Push slot.
 $defaultApk = Join-Path $generatedRoot 'default_watchface.apk'
-$defaultToken = Get-Content (Join-Path $generated 'sugarlicious_analog_token.txt') -Raw
+$defaultToken = Get-Content (Join-Path $generated 'sugarlicious_digital_token.txt') -Raw
 $escapedDefaultToken = [System.Security.SecurityElement]::Escape($defaultToken.Trim())
 $defaultTokenResource = Join-Path $generatedValues 'default_watchface_token.xml'
 
-Copy-Item (Join-Path $generated 'sugarlicious_analog.apk') $defaultApk -Force
+Copy-Item (Join-Path $generated 'sugarlicious_digital.apk') $defaultApk -Force
 [System.IO.File]::WriteAllText(
     $defaultTokenResource,
     "<resources>`n    <string name=`"default_wf_token`" translatable=`"false`">$escapedDefaultToken</string>`n</resources>`n",

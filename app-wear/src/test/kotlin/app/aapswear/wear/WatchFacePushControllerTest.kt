@@ -89,21 +89,28 @@ class WatchFacePushControllerTest {
         }
 
         val pickerApk = context.assets.open("default_watchface.apk").use { it.readBytes() }
-        val selectableApk = context.assets.open("watchfaces/sugarlicious_analog.apk").use { it.readBytes() }
+        val selectableApk = context.assets.open("watchfaces/sugarlicious_digital.apk").use { it.readBytes() }
         assertArrayEquals(
-            "The picker and the selectable ApeX asset must be the same freshly built WFF",
+            "The picker and the selectable Digital asset must be the same freshly built WFF",
             pickerApk,
             selectableApk,
         )
     }
 
     @Test
-    fun `only ApeX and Vigil are exposed while all legacy definitions remain retained`() {
+    fun `only Digital and Vigil are exposed while all legacy definitions remain retained`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
         val legacy = SugarliciousWatchFacePush.legacyFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(2, active.size)
+        assertEquals(
+            setOf(
+                "app.aapswear.watchfacepush.digital",
+                "app.aapswear.watchfacepush.g6style",
+            ),
+            active.map { it.packageName }.toSet(),
+        )
         assertEquals(23, legacy.size)
         assertTrue(
             active

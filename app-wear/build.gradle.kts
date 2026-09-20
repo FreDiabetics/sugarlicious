@@ -115,7 +115,7 @@ val generatedWatchFaceAssets = layout.buildDirectory.dir("generated/watchfacePus
 val generatedWatchFaceResources = layout.buildDirectory.dir("generated/watchfacePushRes")
 val defaultWatchFaceApk =
     rootProject.layout.projectDirectory.file(
-        "watchfaces/sugarlicious-analog/build/outputs/apk/release/sugarlicious-analog-release.apk",
+        "watchfaces/sugarlicious-digital/build/outputs/apk/release/sugarlicious-digital-release.apk",
     )
 val directToWatchFaceApk =
     rootProject.layout.projectDirectory.file(
@@ -126,7 +126,7 @@ val validatorDirectory = rootProject.layout.buildDirectory.dir("watchface-push/t
 val prepareDefaultWatchFace =
     tasks.register<PrepareDefaultWatchFaceTask>("prepareDefaultWatchFace") {
         dependsOn(
-            ":watchfaces:sugarlicious-analog:assembleRelease",
+            ":watchfaces:sugarlicious-digital:assembleRelease",
             ":prepareWatchFaceValidatorCli",
         )
 
@@ -138,10 +138,10 @@ val prepareDefaultWatchFace =
         )
         outputApk.set(generatedWatchFaceAssets.map { it.file("default_watchface.apk") })
         selectableApk.set(
-            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog.apk") },
+            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_digital.apk") },
         )
         selectableToken.set(
-            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog_token.txt") },
+            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_digital_token.txt") },
         )
         outputTokenResource.set(
             generatedWatchFaceResources.map {
