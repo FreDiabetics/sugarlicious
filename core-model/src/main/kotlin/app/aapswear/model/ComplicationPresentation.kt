@@ -189,6 +189,7 @@ object ComplicationPresentationFormatter {
                         Freshness.CURRENT -> null
                         Freshness.DELAYED -> "verzögert"
                         Freshness.STALE -> "veraltet"
+                        Freshness.SIGNAL_LOSS -> "Signalverlust"
                         Freshness.ERROR -> "Sensorfehler"
                         Freshness.NO_DATA -> if (state == null) "keine Quelle" else "keine aktuellen CGM-Daten"
                     }

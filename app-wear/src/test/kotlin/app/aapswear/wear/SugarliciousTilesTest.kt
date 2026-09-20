@@ -54,13 +54,13 @@ class SugarliciousTilesTest {
     }
 
     @Test
-    fun `stale tile preserves last validated values and labels them stale`() {
+    fun `signal loss tile preserves last validated values and labels signal loss`() {
         val stale = wearGlucoseTilePresentation(state(123.0, now - 20 * 60_000L), colors, now)
         val therapy = wearTherapyTilePresentation(state(123.0, now - 20 * 60_000L), now)
 
         assertEquals("123", stale.value)
         assertNull(stale.trend)
-        assertEquals("VERALTET", stale.status)
+        assertEquals("SIGNALVERLUST", stale.status)
         assertTrue(therapy.displayable)
         assertEquals("1.2 U", therapy.iob)
         assertEquals("18 g", therapy.cob)

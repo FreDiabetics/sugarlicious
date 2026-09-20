@@ -92,12 +92,13 @@ internal fun wearGlucoseTilePresentation(
         when (freshness) {
             Freshness.CURRENT -> colors.accent
             Freshness.DELAYED -> colors.glucoseHigh
-            Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> colors.glucoseLow
+            Freshness.STALE, Freshness.SIGNAL_LOSS, Freshness.ERROR, Freshness.NO_DATA -> colors.glucoseLow
         }
     if (!displayable) {
         val message =
             when (freshness) {
                 Freshness.STALE -> "KEINE AKTUELLEN CGM-DATEN"
+                Freshness.SIGNAL_LOSS -> "SIGNALVERLUST"
                 Freshness.ERROR -> "G7 SENSORFEHLER"
                 Freshness.NO_DATA -> "KEINE CGM-DATEN"
                 else -> TherapyDisplayFormatter.freshnessLabel(freshness)
@@ -167,6 +168,7 @@ internal fun wearTherapyTilePresentation(
             } else {
                 when (freshness) {
                     Freshness.STALE -> "THERAPIEDATEN AUSGEBLENDET"
+                    Freshness.SIGNAL_LOSS -> "SIGNALVERLUST"
                     Freshness.ERROR -> "SENSORFEHLER"
                     Freshness.NO_DATA -> "KEINE THERAPIEDATEN"
                     else -> TherapyDisplayFormatter.freshnessLabel(freshness)

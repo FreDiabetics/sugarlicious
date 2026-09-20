@@ -1,5 +1,8 @@
 package app.aapswear.g7
 
+import app.aapswear.model.CgmPresentationPolicy
+import app.aapswear.model.CgmPresentationStatus
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.StateFlow
@@ -138,6 +141,8 @@ data class CgmAlarm(
     val snoozedUntilEpochMs: Long? = null,
     val lastNotifiedAtEpochMs: Long? = null,
     val acknowledgedAtEpochMs: Long? = null,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
 )
 
 @Serializable
@@ -179,7 +184,12 @@ object CgmAlarmEngine {
         settings: CgmAlarmSettings,
         nowEpochMs: Long,
     ): Map<CgmAlarmType, CgmAlarm> {
-        val next = current.toMutableMap()
+        val next =
+            current
+                .filterValues { alarm ->
+                    reading == null ||
+                        (alarm.sensorId == reading.sensorId && alarm.sessionId == reading.sessionId)
+                }.toMutableMap()
 
         fun update(
             type: CgmAlarmType,
@@ -187,7 +197,15 @@ object CgmAlarmEngine {
         ) {
             val old = next[type]
             if (active && old?.state !in setOf(CgmAlarmState.ACTIVE, CgmAlarmState.ACKNOWLEDGED, CgmAlarmState.SNOOZED)) {
-                next[type] = CgmAlarm(type, CgmAlarmState.ACTIVE, nowEpochMs, reading?.id)
+                next[type] =
+                    CgmAlarm(
+                        type = type,
+                        state = CgmAlarmState.ACTIVE,
+                        triggeredAtEpochMs = nowEpochMs,
+                        readingId = reading?.id,
+                        sensorId = reading?.sensorId,
+                        sessionId = reading?.sessionId,
+                    )
             } else if (!active && old != null && old.state != CgmAlarmState.RESOLVED) {
                 next[type] = old.copy(state = CgmAlarmState.RESOLVED)
             }
@@ -257,17 +275,24 @@ object CgmAlarmEngine {
                 settings.rapidFallEnabled && validReading.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true,
             )
         }
-        update(
-            CgmAlarmType.SIGNAL_LOSS,
-            settings.signalLossEnabled &&
-                reading != null &&
-                nowEpochMs - reading.timestampEpochMs >= signalLossMs,
-        )
-        val freshSensorStatus = reading?.takeIf { nowEpochMs - it.timestampEpochMs in 0L until signalLossMs }
-        if (freshSensorStatus != null) {
+        val presentationStatus =
+            reading?.let {
+                CgmPresentationPolicy.classify(
+                    measuredAtEpochMs = it.timestampEpochMs,
+                    quality =
+                        when (it.status) {
+                            CgmReadingStatus.VALID -> CgmQuality.VALID
+                            CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+                            CgmReadingStatus.INVALID -> CgmQuality.INVALID
+                        },
+                    nowEpochMs = nowEpochMs,
+                )
+            }
+        update(CgmAlarmType.SIGNAL_LOSS, settings.signalLossEnabled && presentationStatus == CgmPresentationStatus.SIGNAL_LOSS)
+        if (reading != null) {
             update(
                 CgmAlarmType.SENSOR_ERROR,
-                settings.sensorErrorEnabled && freshSensorStatus.status == CgmReadingStatus.SENSOR_ERROR,
+                settings.sensorErrorEnabled && presentationStatus == CgmPresentationStatus.SENSOR_ERROR,
             )
         }
         return next

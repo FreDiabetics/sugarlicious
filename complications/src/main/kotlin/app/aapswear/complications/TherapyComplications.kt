@@ -917,6 +917,7 @@ abstract class TherapyComplicationService(
             Freshness.CURRENT -> "live"
             Freshness.DELAYED -> "delayed"
             Freshness.STALE -> "stale"
+            Freshness.SIGNAL_LOSS -> "signal_loss"
             Freshness.ERROR -> "sensor error"
             Freshness.NO_DATA -> "no data"
         }

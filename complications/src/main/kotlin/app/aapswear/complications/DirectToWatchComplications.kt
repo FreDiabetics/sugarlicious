@@ -24,6 +24,8 @@ import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUp
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.CgmPresentationPolicy
+import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmSourceState
 import app.aapswear.model.CgmThresholds
@@ -72,12 +74,16 @@ internal data class DirectToWatchGraphStatusPresentation(
 
 internal fun isVigilSensorDisconnected(state: TherapyDisplayState?): Boolean = state == null || G7LocalReadingResolver.directSensorState(state) in setOf("UNKNOWN", "ENDED", "NOT_ACTIVE")
 
-internal fun vigilSensorStatusPillText(state: TherapyDisplayState?): String? =
+internal fun vigilSensorStatusPillText(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long = System.currentTimeMillis(),
+): String? =
     when {
         isVigilSensorDisconnected(state) -> "Kein Sensor verbunden"
-        G7LocalReadingResolver.sourceState(state) == CgmSourceState.NO_SOURCE ||
-            TherapyDisplayFormatter.freshness(state, System.currentTimeMillis()) == Freshness.STALE ->
-            "Signalverlust"
+        CgmPresentationPolicy.classify(
+            state,
+            nowEpochMs = nowEpochMs,
+        ) == CgmPresentationStatus.SIGNAL_LOSS -> "Signalverlust"
         else -> null
     }
 

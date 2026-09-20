@@ -62,8 +62,8 @@ class CgmAlarmEngineTest {
                 settings,
                 now,
             )
-        assertEquals(CgmAlarmState.ACTIVE, state(staleSensorError, CgmAlarmType.SIGNAL_LOSS))
-        assertNull(state(staleSensorError, CgmAlarmType.SENSOR_ERROR))
+        assertNull(state(staleSensorError, CgmAlarmType.SIGNAL_LOSS))
+        assertEquals(CgmAlarmState.ACTIVE, state(staleSensorError, CgmAlarmType.SENSOR_ERROR))
     }
 
     @Test
@@ -153,6 +153,19 @@ class CgmAlarmEngineTest {
         assertTrue(CgmAlarmEngine.shouldRepeat(retriggered, settings, now + 30 * minute))
     }
 
+    @Test
+    fun `acknowledged alarm from an old sensor session cannot suppress the new session`() {
+        val old = CgmAlarmEngine.evaluate(reading(65.0), emptyMap(), settings, now)
+        val acknowledged = CgmAlarmEngine.acknowledge(old.getValue(CgmAlarmType.LOW), now + minute)
+        val nextSessionReading = reading(64.0, sensorId = "sensor-b", sessionId = "session-b")
+
+        val next = CgmAlarmEngine.evaluate(nextSessionReading, mapOf(CgmAlarmType.LOW to acknowledged), settings, now + 2 * minute)
+
+        assertEquals(CgmAlarmState.ACTIVE, next.getValue(CgmAlarmType.LOW).state)
+        assertEquals("sensor-b", next.getValue(CgmAlarmType.LOW).sensorId)
+        assertEquals("session-b", next.getValue(CgmAlarmType.LOW).sessionId)
+    }
+
     private fun state(
         alarms: Map<CgmAlarmType, CgmAlarm>,
         type: CgmAlarmType,
@@ -163,11 +176,13 @@ class CgmAlarmEngineTest {
         timestamp: Long = now,
         rate: Double? = null,
         status: CgmReadingStatus = CgmReadingStatus.VALID,
+        sensorId: String = "sensor",
+        sessionId: String = "session",
     ) = CgmReading(
         id = "reading-$glucose-$timestamp-$rate-$status",
         source = DataSourceId.DEXCOM_G7_WATCH,
-        sensorId = "sensor",
-        sessionId = "session",
+        sensorId = sensorId,
+        sessionId = sessionId,
         glucoseMgDl = glucose,
         timestampEpochMs = timestamp,
         receivedAtEpochMs = timestamp,

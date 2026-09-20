@@ -212,7 +212,7 @@ class DirectToWatchComplicationsTest {
                 sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ACTIVE",
             )
 
-        assertEquals("Signalverlust", vigilSensorStatusPillText(stale))
+        assertEquals("Signalverlust", vigilSensorStatusPillText(stale, now))
         assertTrue(DirectToWatchPresentationFormatter.samples(stale, now, 3).isNotEmpty())
     }
 

@@ -21,6 +21,7 @@ class FreshnessPolicyTest {
                 now,
             ),
         )
+        assertEquals(Freshness.SIGNAL_LOSS, FreshnessPolicy.classify(now - 16 * 60_000L, now))
     }
 
     @Test fun implausibleFutureMeasurementIsNotCurrent() {

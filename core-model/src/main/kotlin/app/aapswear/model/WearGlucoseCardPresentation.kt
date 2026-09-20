@@ -64,6 +64,7 @@ fun wearGlucoseCardPresentation(
             Freshness.CURRENT -> age
             Freshness.DELAYED -> age
             Freshness.STALE -> "Keine aktuellen CGM-Daten"
+            Freshness.SIGNAL_LOSS -> "Signalverlust"
             Freshness.ERROR -> "Sensorfehler"
             Freshness.NO_DATA -> "Keine CGM-Daten"
         }

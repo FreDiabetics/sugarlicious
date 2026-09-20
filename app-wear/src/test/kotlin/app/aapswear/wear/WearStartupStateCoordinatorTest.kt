@@ -34,7 +34,7 @@ class WearStartupStateCoordinatorTest {
         assertEquals(eventAt, restored.state?.glucose?.measuredAtEpochMs)
         assertEquals(receivedAt, restored.state?.glucose?.receivedAtEpochMs)
         assertEquals(receivedAt, restored.state?.receivedAtEpochMs)
-        assertEquals(Freshness.STALE, restored.freshness)
+        assertEquals(Freshness.SIGNAL_LOSS, restored.freshness)
     }
 
     @Test fun `rehydration keeps explicit no data instead of inventing defaults`() {

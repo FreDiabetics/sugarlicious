@@ -576,7 +576,7 @@ private fun statusColor(
             when (freshness) {
                 Freshness.CURRENT -> WidgetColorRole.IN_RANGE
                 Freshness.DELAYED -> WidgetColorRole.HIGH
-                Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> WidgetColorRole.URGENT_LOW
+                Freshness.STALE, Freshness.SIGNAL_LOSS, Freshness.ERROR, Freshness.NO_DATA -> WidgetColorRole.URGENT_LOW
             },
         ),
     )

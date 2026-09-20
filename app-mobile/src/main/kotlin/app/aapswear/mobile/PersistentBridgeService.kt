@@ -30,6 +30,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -306,6 +307,7 @@ class PersistentBridgeService :
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
+        val presentationStatus = TherapyDisplayFormatter.presentationStatus(state, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null)
         }
@@ -323,12 +325,13 @@ class PersistentBridgeService :
                 .ifBlank { "—" }
         val age = ((now - glucose.measuredAtEpochMs).coerceAtLeast(0L) / 60_000L)
         val prefix =
-            when (freshness) {
-                Freshness.CURRENT -> ""
-                Freshness.DELAYED -> "Verzögert · "
-                Freshness.STALE -> "Signalverlust · "
-                Freshness.ERROR -> "Sensorfehler · "
-                Freshness.NO_DATA -> "Keine Quelle · "
+            when (presentationStatus) {
+                CgmPresentationStatus.CURRENT -> ""
+                CgmPresentationStatus.AGING -> "Verzögert · "
+                CgmPresentationStatus.STALE -> "Veraltet · "
+                CgmPresentationStatus.SIGNAL_LOSS -> "Signalverlust · "
+                CgmPresentationStatus.SENSOR_ERROR -> "Sensorfehler · "
+                CgmPresentationStatus.NO_SOURCE -> "Keine Quelle · "
             }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
         val unit = if (selectedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
