@@ -87,6 +87,9 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".G7ReconnectReceiver" android:exported="false" />
+        <receiver android:name=".G7BluetoothStateReceiver" android:exported="false">
+            <intent-filter><action android:name="android.bluetooth.adapter.action.STATE_CHANGED" /></intent-filter>
+        </receiver>
         <receiver android:name=".G7SensorWindowWatchdogReceiver" android:exported="false" />
         <receiver android:name=".G7AdvertisementWakeReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
