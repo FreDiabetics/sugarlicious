@@ -153,6 +153,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class TherapyDisplayState(
     val schemaVersion: Int = CURRENT_SCHEMA,
+    /** Monotonic Mobile commit revision; zero denotes a legacy unrevisioned payload. */
+    val canonicalRevision: Long = 0L,
     val source: DataSourceId = DataSourceId.ANDROID_APS,
     val sourceVersion: String? = null,
     val sourceContract: String? = null,
@@ -174,7 +176,7 @@ import kotlinx.serialization.Serializable
     val capabilities: Set<DataCapability> = emptySet(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 8
+        const val CURRENT_SCHEMA = 9
     }
 }
 

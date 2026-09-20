@@ -18,9 +18,8 @@ import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WearProtocol
+import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.DiagnosticEventStore
-import app.aapswear.storage.PhoneTherapyStateStore
-import app.aapswear.storage.TherapyStateStore
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
@@ -29,7 +28,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -46,14 +44,7 @@ class MobileDataLayerService : WearableListenerService() {
             WearProtocol.REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-WATCH-100", "Watch requested current state")
-                    val phoneState =
-                        PhoneTherapyStateStore(this@MobileDataLayerService)
-                            .state
-                            .first()
-                            ?: TherapyStateStore(this@MobileDataLayerService)
-                                .state
-                                .first()
-                                ?.withoutDirectWatchCgm()
+                    val phoneState = CanonicalStateStore(this@MobileDataLayerService).reconcile()
                     runCatching {
                         phoneState?.let { publishState(this@MobileDataLayerService, it) }
                         publishWatchConfig(this@MobileDataLayerService)
