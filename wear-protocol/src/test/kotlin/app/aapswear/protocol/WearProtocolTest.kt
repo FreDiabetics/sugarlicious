@@ -32,6 +32,13 @@ class WearProtocolTest {
         assertTrue(envelope.eventId.contains(":1:2"))
     }
 
+    @Test fun `event identity changes for therapy only canonical revisions`() {
+        val first = TherapyDisplayState(receivedAtEpochMs = 2L, canonicalRevision = 7L)
+        val second = first.copy(canonicalRevision = 8L, sourceContract = "therapy-only")
+
+        assertNotEquals(WearEnvelope.eventIdFor(first), WearEnvelope.eventIdFor(second))
+    }
+
     @Test fun `transport payload is bounded and retains newest state`() {
         val now = 2_000_000_000L
         val state =

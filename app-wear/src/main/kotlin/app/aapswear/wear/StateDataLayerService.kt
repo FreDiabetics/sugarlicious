@@ -46,6 +46,9 @@ internal fun shouldAcceptPhoneState(
     incoming: TherapyDisplayState,
 ): Boolean {
     if (previous == null) return true
+    if (previous.canonicalRevision > 0L || incoming.canonicalRevision > 0L) {
+        return incoming.canonicalRevision > previous.canonicalRevision
+    }
     if (incoming.receivedAtEpochMs >= previous.receivedAtEpochMs) return true
 
     val previousGlucoseAt = previous.glucose?.measuredAtEpochMs ?: Long.MIN_VALUE
@@ -620,7 +623,10 @@ class StateDataLayerService : WearableListenerService() {
                 requestComplicationUpdates(
                     ComplicationUpdatePlanner.affectedProviders(old, merged),
                 )
-                requestSugarliciousTileUpdates(this@StateDataLayerService)
+                requestSugarliciousTileUpdates(
+                    this@StateDataLayerService,
+                    affectedSugarliciousTiles(old, merged),
+                )
                 applicationContext.recordWatchDiagnostic(
                     "SYNC",
                     if (transport == "message") "SYNC-PHONE-201" else "SYNC-PHONE-200",

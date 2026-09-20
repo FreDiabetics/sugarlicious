@@ -35,9 +35,23 @@ class StateDeliveryPolicyTest {
         )
     }
 
-    @Test fun `duplicate transport copy remains idempotently acceptable`() {
-        val value = state(receivedAt = 20_000L, glucoseAt = 19_000L)
-        assertTrue(shouldAcceptPhoneState(value, value))
+    @Test fun `duplicate committed revision is rejected before processing`() {
+        val value = state(receivedAt = 20_000L, glucoseAt = 19_000L).copy(canonicalRevision = 4L)
+        assertFalse(shouldAcceptPhoneState(value, value))
+    }
+
+    @Test fun `newer committed revision accepts therapy-only change with unchanged timestamps`() {
+        val previous = state(receivedAt = 20_000L, glucoseAt = 19_000L).copy(canonicalRevision = 4L)
+        val incoming = previous.copy(canonicalRevision = 5L, sourceContract = "therapy-update")
+
+        assertTrue(shouldAcceptPhoneState(previous, incoming))
+    }
+
+    @Test fun `older committed revision cannot overwrite newer state despite later legacy timestamp`() {
+        val previous = state(receivedAt = 20_000L, glucoseAt = 19_000L).copy(canonicalRevision = 5L)
+        val incoming = state(receivedAt = 30_000L, glucoseAt = 29_000L).copy(canonicalRevision = 4L)
+
+        assertFalse(shouldAcceptPhoneState(previous, incoming))
     }
 
     @Test fun `second transport copy is not applied twice`() {

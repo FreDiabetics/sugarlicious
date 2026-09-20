@@ -575,7 +575,39 @@ private fun tileText(
         ).build()
 
 internal fun requestSugarliciousTileUpdates(context: Context) {
+    requestSugarliciousTileUpdates(context, setOf(GlucoseTileService::class.java, TherapyTileService::class.java))
+}
+
+internal fun affectedSugarliciousTiles(
+    old: TherapyDisplayState?,
+    new: TherapyDisplayState,
+): Set<Class<out TileService>> {
+    if (old == null) return setOf(GlucoseTileService::class.java, TherapyTileService::class.java)
+    val affected = linkedSetOf<Class<out TileService>>()
+    if (
+        old.glucose != new.glucose ||
+        old.glucoseHistory != new.glucoseHistory ||
+        old.glucosePredictions != new.glucosePredictions ||
+        old.target != new.target ||
+        old.source != new.source
+    ) {
+        affected += GlucoseTileService::class.java
+    }
+    if (
+        old.insulin != new.insulin ||
+        old.carbs != new.carbs ||
+        old.basal != new.basal ||
+        old.therapyHistory != new.therapyHistory
+    ) {
+        affected += TherapyTileService::class.java
+    }
+    return affected
+}
+
+internal fun requestSugarliciousTileUpdates(
+    context: Context,
+    services: Set<Class<out TileService>>,
+) {
     val updater = TileService.getUpdater(context)
-    updater.requestUpdate(GlucoseTileService::class.java)
-    updater.requestUpdate(TherapyTileService::class.java)
+    services.forEach(updater::requestUpdate)
 }

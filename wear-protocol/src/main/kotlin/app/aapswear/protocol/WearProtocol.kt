@@ -27,6 +27,7 @@ data class WearEnvelope(
                 state.glucose?.sessionId.orEmpty(),
                 state.glucose?.measuredAtEpochMs ?: 0L,
                 state.receivedAtEpochMs,
+                state.canonicalRevision,
             ).joinToString(":")
     }
 }
