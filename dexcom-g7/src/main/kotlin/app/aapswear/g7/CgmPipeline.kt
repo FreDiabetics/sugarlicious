@@ -85,64 +85,6 @@ object CgmTrendMapper {
     fun fromG7(value: G7Trend): Trend = Trend.valueOf(value.name)
 }
 
-enum class CgmFreshness { CURRENT, STALE, NO_DATA, SIGNAL_LOSS, SENSOR_ERROR }
-
-object CgmFreshnessEvaluator {
-    fun evaluate(
-        reading: CgmReading?,
-        nowEpochMs: Long,
-        staleAfterMs: Long = 12 * 60_000L,
-    ): CgmFreshness =
-        when {
-            reading == null -> CgmFreshness.NO_DATA
-            reading.status == CgmReadingStatus.SENSOR_ERROR -> CgmFreshness.SENSOR_ERROR
-            reading.status != CgmReadingStatus.VALID -> CgmFreshness.NO_DATA
-            nowEpochMs - reading.timestampEpochMs > staleAfterMs -> CgmFreshness.SIGNAL_LOSS
-            nowEpochMs - reading.timestampEpochMs > 6 * 60_000L -> CgmFreshness.STALE
-            else -> CgmFreshness.CURRENT
-        }
-}
-
-data class CgmGap(
-    val afterReadingId: String,
-    val beforeReadingId: String,
-    val durationMs: Long,
-)
-
-object CgmGapDetector {
-    fun detect(
-        readings: List<CgmReading>,
-        expectedIntervalMs: Long = 5 * 60_000L,
-        toleranceMs: Long = 90_000L,
-    ): List<CgmGap> =
-        readings.groupBy { it.sensorId to it.sessionId }.values.flatMap { stream ->
-            stream.sortedBy(CgmReading::timestampEpochMs).zipWithNext().mapNotNull { (before, after) ->
-                val duration = after.timestampEpochMs - before.timestampEpochMs
-                duration.takeIf { it > expectedIntervalMs + toleranceMs }?.let { CgmGap(before.id, after.id, it) }
-            }
-        }
-}
-
-data class CgmSourceCandidate(
-    val source: DataSourceId,
-    val reading: CgmReading?,
-    val enabled: Boolean = true,
-)
-
-object CgmSourceResolver {
-    fun resolve(
-        candidates: List<CgmSourceCandidate>,
-        nowEpochMs: Long,
-    ): CgmReading? {
-        val valid = candidates.filter { it.enabled }.mapNotNull(CgmSourceCandidate::reading)
-        return valid.firstOrNull {
-            it.source == DataSourceId.DEXCOM_G7_WATCH && CgmFreshnessEvaluator.evaluate(it, nowEpochMs) == CgmFreshness.CURRENT
-        } ?: valid
-            .filter { CgmFreshnessEvaluator.evaluate(it, nowEpochMs) in setOf(CgmFreshness.CURRENT, CgmFreshness.STALE) }
-            .maxByOrNull(CgmReading::timestampEpochMs)
-    }
-}
-
 fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
     val status =
         when {

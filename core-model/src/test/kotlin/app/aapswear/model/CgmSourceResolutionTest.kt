@@ -241,7 +241,7 @@ class CgmSourceResolutionTest {
     }
 
     @Test
-    fun `partial unknown identity uses timestamp and near glucose fallback when known ids do not conflict`() {
+    fun `partial unknown identity is not enough for cross source deduplication`() {
         val measured = now - 60_000L
         val mobile = identified(CgmCanonicalSource.MOBILE_AAPS, measured, 104.0, "sensor", null)
         val watch = identified(CgmCanonicalSource.WATCH_G7_DIRECT, measured, 104.8, "sensor", "session")
@@ -253,7 +253,20 @@ class CgmSourceResolutionTest {
                 nowEpochMs = now,
             )
 
-        assertTrue(result.deduplicatedSameMeasurement)
+        assertFalse(result.deduplicatedSameMeasurement)
+    }
+
+    @Test
+    fun `unknown cross source identity is never treated as one measurement`() {
+        val measured = now - 60_000L
+        val result =
+            CanonicalCgmSourceResolver.resolve(
+                mobile = identified(CgmCanonicalSource.MOBILE_AAPS, measured, 104.0, null, null),
+                watch = identified(CgmCanonicalSource.WATCH_G7_DIRECT, measured, 104.0, null, null),
+                nowEpochMs = now,
+            )
+
+        assertFalse(result.deduplicatedSameMeasurement)
     }
 
     @Test

@@ -94,23 +94,10 @@ object CanonicalCgmHistory {
         if (sameKnownSensor && sameKnownSession && timeDifference <= SAME_MEASUREMENT_TOLERANCE_MS) {
             return true
         }
-        if (
-            sensorId != null &&
-            sessionId != null &&
-            sequenceNumber != null &&
-            other.sensorId != null &&
-            other.sessionId != null &&
-            other.sequenceNumber != null
-        ) {
-            return sensorId == other.sensorId &&
-                sessionId == other.sessionId &&
-                sequenceNumber == other.sequenceNumber
-        }
         if (sensorId != null && other.sensorId != null && sensorId != other.sensorId) return false
         if (sessionId != null && other.sessionId != null && sessionId != other.sessionId) return false
 
         if (timeDifference == 0L && source == other.source) return true
-        return timeDifference <= SAME_MEASUREMENT_TOLERANCE_MS &&
-            abs(valueMgDl - other.valueMgDl) <= 5.0
+        return false
     }
 }

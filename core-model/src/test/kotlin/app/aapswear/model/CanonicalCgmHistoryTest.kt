@@ -104,6 +104,22 @@ class CanonicalCgmHistoryTest {
     }
 
     @Test
+    fun `same sequence at different measurement times remains distinct`() {
+        val previous = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 42L, 121.0, now - 5 * 60_000L)
+        val current = previous.copy(valueMgDl = 122.0, measuredAtEpochMs = now, receivedAtEpochMs = now)
+
+        assertEquals(listOf(previous, current), CanonicalCgmHistory.merge(listOf(previous, current), now))
+    }
+
+    @Test
+    fun `unknown cross source identities remain distinct`() {
+        val phone = sample(DataSourceId.ANDROID_APS, "sensor", "session", null, 121.0, now - 60_000L).copy(sensorId = null, sessionId = null)
+        val watch = phone.copy(source = DataSourceId.DEXCOM_G7_WATCH)
+
+        assertEquals(2, CanonicalCgmHistory.merge(listOf(phone, watch), now).size)
+    }
+
+    @Test
     fun `delivery order cannot change canonical live backfill result`() {
         val older = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 10L, 110.0, now - 5 * 60_000L)
         val backfillCopy = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 11L, 120.0, now - 60_000L)
