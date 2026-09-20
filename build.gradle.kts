@@ -12,8 +12,8 @@ import org.gradle.process.ExecOperations
 plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
 
-    id("com.android.application") version "9.3.1" apply false
-    id("com.android.library") version "9.3.1" apply false
+    id("com.android.application") version "9.4.1" apply false
+    id("com.android.library") version "9.4.1" apply false
     kotlin("android") version "2.4.10" apply false
     kotlin("jvm") version "2.4.10" apply false
     kotlin("plugin.serialization") version "2.4.10" apply false
@@ -37,6 +37,17 @@ subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") { enableKotlinQualityGates() }
     pluginManager.withPlugin("com.android.application") { enableKotlinQualityGates() }
     pluginManager.withPlugin("com.android.library") { enableKotlinQualityGates() }
+
+    pluginManager.withPlugin("com.android.application") {
+        extensions.configure<ApplicationExtension>("android") {
+            packaging.jniLibs.keepDebugSymbols.addAll(
+                listOf(
+                    "**/libandroidx.graphics.path.so",
+                    "**/libdatastore_shared_counter.so",
+                ),
+            )
+        }
+    }
 
     if (path.startsWith(":watchfaces:")) {
         pluginManager.withPlugin("com.android.application") {

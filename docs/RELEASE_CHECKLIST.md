@@ -7,7 +7,7 @@
 - [x] versioniertes Modell, Capability-Erkennung und Payloadvalidierung
 - [x] DataClient/MessageClient/CapabilityClient und Watch-DataStore
 - [x] 35 Complication-Provider mit jeweils genau einem Ausgabetyp
-- [x] 28 codefreie WFF-Pakete und offizieller Validator
+- [x] 29 Produkt-WFFs plus technisches Testface: 30/30 codefrei und offiziell validiert
 - [x] AOD-Emulator-Goldens für den bis 0.5.1 veröffentlichten Stand
 - [x] 19 offizielle Community-Quellen inventarisiert und zugeordnet
 - [x] AGPL-/MIT-Nachweise, Datenschutz, Installationsanleitung, CI
@@ -21,9 +21,13 @@
 
 - [ ] Bluetooth-Unterbrechung/Reconnect und mehrere gekoppelte Uhren
 - [ ] mindestens ein reales Nicht-Samsung-Wear-OS-Gerät
+- [ ] Sensorwechsel Galaxy Watch ↔ Pixel Watch mit erhaltener Historie
+- [ ] LIVE-/Backfill-SLA auf realer Hardware einschließlich Prozessneustart
 - [ ] Original-vs.-Port-Goldens mit kontrollierter identischer Testmatrix
-- [ ] neuer aktiver/AOD-Bildlauf für Sugarlicious Orbit, Rings und Graph
+- [ ] neuer aktiver/AOD-Bildlauf aller aktuellen Sugarlicious-Watchfaces
 - [ ] eigener Produktionssignierschlüssel und reproduzierbarer signierter Build
+- [ ] Crash-/ANR-Telemetrie, gestaffelter Rollout und Rollback-Probe
+- [ ] Play-Console-Deklaration für den Foreground-Service-Typ `specialUse`
 - [ ] Community-Review
 
 ## Bewusst ausgeschlossen

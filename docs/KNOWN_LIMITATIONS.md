@@ -1,100 +1,70 @@
 # Known Limitations
 
-- Der Foreground-Service erhöht mit einer sichtbaren laufenden Benachrichtigung
-  die Hintergrundpriorität und fordert nach Neustart beziehungsweise App-Update
-  einen Wiederanlauf an. Android kann den Prozess bei Systemdruck trotzdem
-  beenden; ein erzwungener App-Stopp durch den Nutzer verhindert den Neustart.
-  Die Funktion ist daher kein absolutes „unkillable“-Versprechen.
-- Der Live-Status verwendet die offizielle Android-16-Promoted-Ongoing-
-  Schnittstelle und einen Standardstil mit Glukosewert und Minigraph. Ob One UI
-  ihn tatsächlich als Live-Benachrichtigung hervorhebt und wo der Minigraph
-  angeordnet wird, entscheidet System/OEM. Die Logik ist per API-36-Test
-  abgedeckt, aber in diesem Arbeitspaket nicht visuell auf realer
-  One-UI-8.5-Hardware abgenommen.
-- Der Foreground-Service-Typ `specialUse` benötigt bei einer späteren
-  Google-Play-Veröffentlichung eine passende Deklaration und Überprüfung in der
-  Play Console. Das lokale DIY-/ADB-Paket ist davon nicht blockiert.
+Stand: 2026-09-20. Diese Datei beschreibt ausschließlich den aktuellen Stand;
+historische Prüfergebnisse stehen in `TEST_REPORT.md`.
+
+## Plattform und Veröffentlichung
+
+- Der Foreground-Service erhöht mit einer sichtbaren Benachrichtigung die
+  Hintergrundpriorität und fordert nach Neustart oder App-Update einen
+  Wiederanlauf an. Android darf den Prozess bei Systemdruck trotzdem beenden;
+  nach einem erzwungenen App-Stopp ist kein automatischer Neustart erlaubt.
+- Darstellung und Hervorhebung der Android-16-Live-Benachrichtigung liegen
+  teilweise beim System beziehungsweise OEM. Die Logik ist automatisiert
+  geprüft, die aktuelle One-UI-Darstellung aber noch nicht als visueller
+  Realgerätetest dokumentiert.
+- Der Foreground-Service-Typ `specialUse` benötigt für eine Veröffentlichung
+  eine passende Play-Console-Deklaration. Das lokale DIY-/ADB-Paket ist davon
+  nicht blockiert.
+- Die Release-Artefakte besitzen noch keine Produktionssignatur. Store-Rollout,
+  Rollback-Probe und Crash-/ANR-Telemetrie benötigen externe Konten,
+  Zugangsdaten und eine Datenschutzentscheidung.
+- PinkFloydTheWall wird wegen ungeklärter Rechte an Drittmotiven und Marke nicht
+  gebaut oder verteilt.
+
+## Datenquellen
 
 - Der öffentliche AAPS-Broadcast liefert Zielgrenzen, aber keinen verlässlich
   gekennzeichneten temporären Zielzustand und keinen vollständigen
   offen/geschlossen/pausiert-Loopmodus. Suggested/Enacted wird nur angezeigt.
-- Der Broadcast besitzt keine kryptografische Absenderauthentisierung. Die App
-  prüft Paketinstallation, Wertebereiche, Pflichtfelder und Zeitstempel, kann
-  aber einen lokal absichtlich gefälschten Broadcast nicht sicher unterscheiden.
-- Eine echte gekoppelte Telefon-Uhr-Data-Layer-Verbindung wurde auf Samsung-
-  Hardware mit One UI Watch 8 erfolgreich geprüft. Gezielter Bluetooth-Ausfall,
-  Wiederverbindung und mehrere gleichzeitig gekoppelte Uhren sind noch offen.
-- Wear OS 6 im runden 454×454-Emulator und One UI Watch 8 auf einer Samsung
-  SM-L705F sind installiert getestet. Ein zweites reales Nicht-Samsung-Gerät
-  war nicht verfügbar und wird nicht als bestanden behauptet.
-- 25 Watchfaces besitzen aktive und echte Doze/AOD-Goldens mit synthetischen
-  Daten. Das belegt Rendering und Daten-Slots, aber noch keinen pixelgenauen
-  1:1-Vergleich mit jedem Original auf identischer Hardware.
-- WFF unterstützt höchstens acht Complication-Slots. CWF-`dynPref`, `dynData`,
-  Twin-View und manche analogen/animierten Logiken sind nur bestmöglich ersetzt;
-  Details stehen in der Paritätsmatrix.
-- Die Provider-App muss vor den separaten WFF-Paketen installiert werden. Bei
-  umgekehrter Reihenfolge können bereits angelegte Favoriten `NoDataSource`
-  behalten; das Watchface muss dann entfernt und erneut installiert werden.
-- PinkFloydTheWall wird wegen ungeklärter Rechte an Drittmotiven/Marke nicht
-  gebaut oder verteilt.
-- Das DIY-Vorschaupaket ist entwicklersigniert, nicht für Store-Veröffentlichung
-  produktionssigniert und deshalb noch kein freigegebenes Version-1-Release.
-- Stock-AAPS und xDrip+ liefern in den verwendeten öffentlichen Broadcasts
-  keinen vollständigen historischen Graphen. Sugarlicious verwendet bewusst
-  keinen Nightscout-Backfill und baut den lokalen Verlauf aus neu empfangenen
-  Statusmeldungen auf. Fehlende CGM-Werte werden niemals erfunden oder
-  interpoliert.
+- Der AAPS-Broadcast besitzt keine kryptografische Absenderauthentisierung. Die
+  App prüft Paketinstallation, Pflichtfelder, Wertebereiche und Zeitstempel,
+  kann einen lokal absichtlich gefälschten Broadcast aber nicht sicher
+  unterscheiden.
+- Stock-AAPS und xDrip+ liefern über die verwendeten öffentlichen Broadcasts
+  keinen vollständigen historischen Graphen. Fehlende Werte werden weder
+  erfunden noch interpoliert.
 - xDrip+ muss seine lokale Broadcast-Ausgabe ausdrücklich aktiviert haben. Der
-  Vertrag liefert Glukose, Trend und Messzeit, aber keine verlässlichen AAPS-
-  Therapieinformationen. In `Automatisch` bleibt ein aktueller AAPS-Zustand
-  deshalb vorrangig; die explizite xDrip+-Auswahl unterdrückt AAPS-Glukose.
-- Der öffentliche AAPS-Vertrag liefert keine verlässliche, vollständige
-  Insulinaktivitätskurve. Die gelbe Kurve im Zielband ist ausschließlich
-  eine Display-Schätzung aus dem positiven IOB-Abfall benachbarter Messpunkte;
-  der zukünftige Abschnitt ist gestrichelt. Bei unzureichender Datenbasis wird
-  sie nicht gezeichnet. Sie darf nicht für Therapieentscheidungen verwendet
+  Vertrag enthält keine verlässlichen vollständigen AAPS-Therapiedaten.
+- Der öffentliche AAPS-Vertrag liefert keine vollständige Insulinaktivitätskurve.
+  Die dargestellte Aktivität ist eine gekennzeichnete Display-Schätzung aus
+  vorhandenen IOB-Punkten und darf nicht für Therapieentscheidungen verwendet
   werden.
-- Der öffentliche Enacted-Status kann eine einzelne abgegebene SMB-Menge samt
-  Zeit enthalten. Sugarlicious sammelt daraus lokale Marker ab Empfang; nach
-  einer Neuinstallation entsteht daraus keine vollständige historische SMB-
-  Reihe und fehlende Marker werden nicht rekonstruiert.
-- `galaxy_watch_ultra_mockup_exact.svg` ist technisch eine SVG-Hülle mit einem
-  eingebetteten, C2PA-signierten Rasterbild und kein Pfad-Vektor. Im Projekt
-  wird nur diese SVG gespeichert; ihre Rasterdaten werden offline asynchron
-  dekodiert. Sehr starke Vergrößerung gewinnt deshalb keine echte
-  Vektorauflösung. Herkunft und Veröffentlichungsprüfung stehen in
-  `LICENSES/USER_SUPPLIED_ASSETS.md`.
-- AAPS-`predBGs` werden nur dargestellt, wenn sie im Suggested-/Enacted-Payload
-  vorhanden und gültig sind. Die App berechnet bewusst keine Ersatzprognosen.
-- Die Bildvorlage zeigt einen 24-Stunden-Insulin-Gesamtwert und einen Uhrenakku.
-  Beides ist im verwendeten öffentlichen Broadcast nicht zuverlässig
-  verfügbar; die App zeigt stattdessen Profil beziehungsweise belegten
-  Verbindungs-/Telefonstatus und erfindet keine Werte.
-- Der aktuelle 0.4.0-Build wurde auf dem physischen Smartphone installiert.
-  Der visuelle Vergleich auf genau diesem Gerät war blockiert, weil es während
-  der Aufnahme gesperrt war. Die Oberfläche wurde stattdessen vollständig auf
-  einem API-35-Phone-Emulator mit 1080×2400 Pixeln und 420 dpi geprüft; das
-  ersetzt nicht den noch offenen physischen Vergleich.
-- Die beiden Sugarlicious-0.5.0-Watchfaces wurden aktiv und in Doze/AOD auf
-  Wear OS 6 (480×480 rund) geprüft. Der erneute visuelle Realgerätetest dieser
-  neuen Designs auf One UI Watch 8 ist noch offen und wird nicht behauptet.
-- Die drei neuen 0.6.0-Varianten Orbit, Rings und Graph sowie das überarbeitete
-  Analog-Watchface bauen, validieren und sind codefrei. Ein neuer aktiver/AOD-
-  Screenshotlauf auf der realen Galaxy Watch Ultra wurde in diesem
-  Arbeitspaket noch nicht ausgeführt und wird nicht behauptet.
-- Die Analogzeiger sind bewusst eigenständig gezeichnet. Eine exakte Kopie von
-  Apple-Watch-Ressourcen oder Apple-Trade-Dress ist weder enthalten noch als
-  Zielparität deklariert.
+- Historische SMB-Marker entstehen aus empfangenen Enacted-Daten. Nach einer
+  Neuinstallation werden zuvor fehlende Marker nicht rekonstruiert.
+- AAPS-`predBGs` werden nur bei vorhandenem und gültigem Payload dargestellt;
+  Sugarlicious berechnet keine Ersatzprognosen.
+- Der vollständige, geräteübergreifende Abgleich lokal auf der Standalone-Uhr
+  gespeicherter G7-Historie mit Mobile/AAPS ist noch ein Hardware- und
+  Integrationstestpunkt.
 
-## Sugarlicious-WFF-Installation 0.6.2
+## Wear OS und Watchfaces
 
-- Analog, Orbit, Rings und Graph sind vier eigenständige WFF-Anwendungen und
-  werden nicht durch die Wear-Provider-App mitinstalliert. Für den DIY-Build
-  müssen die vier Release-APKs separat auf die Uhr übertragen werden.
-- Der automatisierte Build, WFF-Validator und codefreie APK-Check sind grün;
-  die konkrete Sichtbarkeit in Galaxy Wearable 8.x wurde in diesem Arbeitspaket
-  mangels verbundener Watch nicht erneut real geprüft.
-- Bei fremden Watchfaces bestimmt weiterhin deren Renderer Dicke, Position und
-  Typografie einer Ranged-Value-Complication. Die neue kontrollierte Geometrie
-  gilt für die mobile Vorschau und die eigenen Sugarlicious-WFF-Slots.
+- Der Telefon-Uhr-Data-Layer wurde auf Samsung-Hardware geprüft. Gezielte
+  Bluetooth-Unterbrechung, anschließende Wiederverbindung, Sensorwechsel
+  zwischen Galaxy Watch und Pixel Watch sowie zwei konkurrierende Uhren sind
+  noch nicht durch einen aktuellen Abschlusslauf belegt.
+- Für die aktuelle Version fehlen dokumentierte aktive/AOD-Goldens auf Galaxy
+  Watch Ultra und Pixel Watch sowie ein identischer Original-vs.-Port-Vergleich.
+- WFF unterstützt höchstens acht Complication-Slots. CWF-`dynPref`, `dynData`,
+  Twin-View und einige analoge oder animierte Funktionen sind deshalb nur
+  bestmöglich abgebildet; Details stehen in der Paritätsmatrix.
+- Die Provider-App muss vor separaten WFF-Paketen installiert werden. Bei
+  umgekehrter Reihenfolge können bestehende Favoriten `NoDataSource` behalten
+  und müssen erneut angelegt werden.
+- Alle 29 Produkt-WFFs und das technische Testface werden separat gebaut,
+  offiziell validiert und auf DEX-Freiheit geprüft. Diese automatischen Gates
+  ersetzen keine optische Abnahme auf realer Hardware.
+- `galaxy_watch_ultra_mockup_exact.svg` enthält ein eingebettetes Rasterbild.
+  Sehr starke Vergrößerung erzeugt deshalb keine zusätzliche Vektorauflösung;
+  Herkunft und Freigabe sind in `LICENSES/USER_SUPPLIED_ASSETS.md` dokumentiert.

@@ -28,7 +28,36 @@ $LEGACY_WATCHFACES = @(
     [pscustomobject]@{ Name = 'P-Zero'; Module = 'p-zero'; Out = 'p_zero'; Asset = 'p_zero.apk' }
     [pscustomobject]@{ Name = 'Robby'; Module = 'robby'; Out = 'robby'; Asset = 'robby.apk' }
     [pscustomobject]@{ Name = 'Simple Digital'; Module = 'simple-digital'; Out = 'simple_digital'; Asset = 'simple_digital.apk' }
+    [pscustomobject]@{ Name = 'Sugarlicious Analog'; Module = 'sugarlicious-analog'; Out = 'sugarlicious_analog'; Asset = 'sugarlicious_analog.apk' }
+    [pscustomobject]@{ Name = 'Sugarlicious Graph'; Module = 'sugarlicious-graph'; Out = 'sugarlicious_graph'; Asset = 'sugarlicious_graph.apk' }
+    [pscustomobject]@{ Name = 'Sugarlicious Orbit'; Module = 'sugarlicious-orbit'; Out = 'sugarlicious_orbit'; Asset = 'sugarlicious_orbit.apk' }
+    [pscustomobject]@{ Name = 'Sugarlicious Rings'; Module = 'sugarlicious-rings'; Out = 'sugarlicious_rings'; Asset = 'sugarlicious_rings.apk' }
     [pscustomobject]@{ Name = 'AAPS SteamPunk'; Module = 'steam-punk'; Out = 'steam_punk'; Asset = 'steam_punk.apk' }
 )
 
 $ALL_WATCHFACES = @($ACTIVE_WATCHFACES) + @($LEGACY_WATCHFACES)
+
+# Keep every production WFF module inside the release and validation matrix. test-wff is a
+# purpose-built validator fixture, not a distributable watchface.
+$catalogModules = @($ALL_WATCHFACES.Module)
+$uniqueCatalogModules = @($catalogModules | Sort-Object -Unique)
+if ($uniqueCatalogModules.Count -ne $catalogModules.Count) {
+    throw 'Duplicate module in watchface catalog.'
+}
+
+$repositoryRoot = Split-Path $PSScriptRoot -Parent
+$watchfacesRoot = Join-Path $repositoryRoot 'watchfaces'
+$productionModules = @(
+    Get-ChildItem $watchfacesRoot -Directory |
+        Where-Object {
+            $_.Name -ne 'test-wff' -and
+            (Test-Path (Join-Path $_.FullName 'build.gradle.kts'))
+        } |
+        ForEach-Object Name |
+        Sort-Object
+)
+$missingModules = @($productionModules | Where-Object { $_ -notin $catalogModules })
+$unknownModules = @($catalogModules | Where-Object { $_ -notin $productionModules })
+if ($missingModules.Count -gt 0 -or $unknownModules.Count -gt 0) {
+    throw "Watchface catalog mismatch. Missing: $($missingModules -join ', '); unknown: $($unknownModules -join ', ')."
+}

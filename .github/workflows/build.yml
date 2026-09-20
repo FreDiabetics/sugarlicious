@@ -97,6 +97,10 @@ jobs:
           :watchfaces:p-zero:assembleRelease
           :watchfaces:robby:assembleRelease
           :watchfaces:simple-digital:assembleRelease
+          :watchfaces:sugarlicious-analog:assembleRelease
+          :watchfaces:sugarlicious-graph:assembleRelease
+          :watchfaces:sugarlicious-orbit:assembleRelease
+          :watchfaces:sugarlicious-rings:assembleRelease
           :watchfaces:steam-punk:assembleRelease
 
       - name: Upload G7 Collector visual QA previews
