@@ -223,6 +223,6 @@ The following must be verified with the official Dexcom G7 app actively connecte
 
 Until that validation is complete, the implementation intentionally keeps explicit collector activation as the safety boundary while allowing the canonical resolver to consume a direct stream whenever one already exists.
 
-## 11. Known remaining limitation
+## 11. History ownership boundary
 
-The Watch database already contains unsynced/synced bookkeeping and a `G7ReadingSyncManager` abstraction, but a complete end-to-end batch history upload from the standalone G7 Watch app back into the Mobile/AAPS history path is not yet proven by this implementation. The local database prevents loss on the Watch; cross-device backfill must be validated separately before claiming complete offline-history reconciliation.
+The Watch database is the durable source for direct-sensor LIVE and BACKFILL history. Mobile reads that canonical history through the read-only provider; there is no separate acknowledgement queue or second history-upload protocol. The retired unsynced/synced bookkeeping was removed because no production sender consumed it and its acknowledgement state could diverge from the canonical reading history. Cross-device recovery still requires hardware validation before claiming complete offline-history reconciliation.

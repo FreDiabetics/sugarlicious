@@ -94,27 +94,11 @@ class G7ReadingProvider : ContentProvider() {
                 "origin",
             )
         val cursor = MatrixCursor(columns)
-        val limit =
-            if (uri.lastPathSegment == "latest") {
-                1
-            } else if (uri.lastPathSegment == "unsynced") {
-                100
-            } else {
-                300
-            }
+        val limit = if (uri.lastPathSegment == "latest") 1 else 300
         val readings =
             G7ReadingDatabase(requireNotNull(context)).let { database ->
                 try {
-                    if (uri.lastPathSegment == "unsynced") {
-                        database.query(
-                            selection = "synced=0 AND status=?",
-                            args = arrayOf("VALID"),
-                            limit = limit,
-                            ascending = true,
-                        )
-                    } else {
-                        database.query(limit = limit)
-                    }
+                    database.query(limit = limit)
                 } finally {
                     database.close()
                 }
@@ -156,7 +140,6 @@ class G7ReadingProvider : ContentProvider() {
             "latest" -> "vnd.android.cursor.item/vnd.sugarlicious.g7"
             "diagnostics" -> "vnd.android.cursor.dir/vnd.sugarlicious.diagnostics"
             "state" -> "vnd.android.cursor.item/vnd.sugarlicious.g7.state"
-            "unsynced" -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
             else -> "vnd.android.cursor.dir/vnd.sugarlicious.g7"
         }
 

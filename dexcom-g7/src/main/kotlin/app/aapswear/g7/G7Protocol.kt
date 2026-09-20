@@ -95,29 +95,3 @@ interface G7Scanner {
 interface G7ConnectionManager {
     suspend fun collectNextReading(sensor: G7Sensor): G7Reading
 }
-
-interface G7WatchSyncTransport {
-    suspend fun sendReadings(readings: List<CgmReading>): G7SyncDispatch
-}
-
-data class G7SyncDispatch(
-    val batchId: String,
-    val readingIds: Set<String>,
-)
-
-class G7ReadingSyncManager(
-    private val repository: CgmReadingRepository,
-    private val transport: G7WatchSyncTransport,
-) {
-    suspend fun sendPending(batchSize: Int = 100): G7SyncDispatch? {
-        val pending = repository.getUnsynced(batchSize)
-        if (pending.isEmpty()) return null
-        return transport.sendReadings(pending)
-    }
-
-    suspend fun acknowledge(ids: Set<String>): Int {
-        if (ids.isEmpty()) return 0
-        repository.markSynced(ids)
-        return ids.size
-    }
-}

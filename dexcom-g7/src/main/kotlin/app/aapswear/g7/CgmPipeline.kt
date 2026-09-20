@@ -26,10 +26,6 @@ interface CgmReadingRepository {
         fromEpochMs: Long,
         toEpochMs: Long,
     ): List<CgmReading>
-
-    suspend fun getUnsynced(limit: Int = 100): List<CgmReading>
-
-    suspend fun markSynced(ids: Set<String>)
 }
 
 object CgmReadingIdentity {

@@ -109,12 +109,6 @@
             <intent-filter><action android:name="app.aapswear.g7watch.SET_SOURCE" /></intent-filter>
         </receiver>
         <receiver
-            android:name=".G7SyncControlReceiver"
-            android:exported="true"
-            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
-            <intent-filter><action android:name="app.aapswear.g7watch.ACK_SYNC" /></intent-filter>
-        </receiver>
-        <receiver
             android:name=".G7ColorSyncReceiver"
             android:exported="true"
             android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">

@@ -125,7 +125,6 @@ class G7ReadingDatabaseTest {
             database.insert(sensorError)
             database.insert(valid)
 
-            assertEquals(listOf(valid, newerValid), database.getUnsynced())
             assertEquals(sensorError, database.getLatest())
             assertEquals(newerValid, database.getLatestValid())
         }
@@ -335,13 +334,11 @@ class G7ReadingDatabaseTest {
                 )
 
             assertEquals(true, database.insert(backfill))
-            database.markSynced(setOf(backfill.id))
             assertEquals(true, database.insert(live))
             val stored = database.query()
             assertEquals(1, stored.size)
             assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
             assertEquals(2_423L, stored.single().sequenceNumber)
-            assertEquals(emptyList<CgmReading>(), database.getUnsynced())
         }
 
     @Test
@@ -499,7 +496,6 @@ class G7ReadingDatabaseTest {
             assertEquals(1, stored.size)
             assertEquals(CgmReadingOrigin.LIVE, stored.single().origin)
             assertEquals(2_423L, stored.single().sequenceNumber)
-            assertEquals(emptyList<CgmReading>(), database.getUnsynced())
         }
 
     @Test
