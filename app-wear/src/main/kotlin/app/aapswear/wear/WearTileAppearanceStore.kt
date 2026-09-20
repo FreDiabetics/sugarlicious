@@ -16,10 +16,78 @@ enum class WearTileContent(
 ) {
     GLUCOSE("Glukose"),
     GRAPH("Graph"),
+}
+
+enum class TherapyTileMetric(
+    val label: String,
+) {
     IOB("IOB"),
     COB("COB"),
     BASAL("Basal"),
-    PUMP("Pumpe"),
+}
+
+data class TherapyTileSelection(
+    val metrics: List<TherapyTileMetric>,
+) {
+    init {
+        require(metrics.isNotEmpty())
+        require(metrics.distinct().size == metrics.size)
+    }
+
+    val canonical: List<TherapyTileMetric>
+        get() = TherapyTileMetric.entries.filter(metrics::contains)
+}
+
+data class TherapyTilePlacement(
+    val metric: TherapyTileMetric,
+    val row: Int,
+    val column: Int,
+)
+
+internal fun therapyTilePlacements(selection: TherapyTileSelection): List<TherapyTilePlacement> {
+    val metrics = selection.canonical
+    return when (metrics.size) {
+        1 -> listOf(TherapyTilePlacement(metrics.single(), 0, 0))
+        2 -> metrics.mapIndexed { index, metric -> TherapyTilePlacement(metric, 0, index) }
+        else ->
+            listOf(
+                TherapyTilePlacement(TherapyTileMetric.IOB, 0, 0),
+                TherapyTilePlacement(TherapyTileMetric.COB, 0, 1),
+                TherapyTilePlacement(TherapyTileMetric.BASAL, 1, 0),
+            )
+    }
+}
+
+internal object TherapyTileSelectionStore {
+    private const val PREFERENCES = "wear_tile_content"
+    private const val KEY = "therapy.metrics.v1"
+
+    fun read(context: Context): TherapyTileSelection {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val stored = preferences.getStringSet(KEY, null)
+        if (stored == null) {
+            val legacy = preferences.getString(WearTileKind.THERAPY.name, null)
+            val migrated = TherapyTileMetric.entries.firstOrNull { it.name == legacy }
+            if (migrated != null) {
+                write(context, setOf(migrated))
+                return TherapyTileSelection(listOf(migrated))
+            }
+        }
+        val metrics = stored?.mapNotNull { raw -> TherapyTileMetric.entries.firstOrNull { it.name == raw } }.orEmpty()
+        return TherapyTileSelection(TherapyTileMetric.entries.filter(metrics::contains).ifEmpty { TherapyTileMetric.entries })
+    }
+
+    fun write(
+        context: Context,
+        metrics: Set<TherapyTileMetric>,
+    ) {
+        require(metrics.isNotEmpty())
+        context
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putStringSet(KEY, metrics.mapTo(linkedSetOf(), TherapyTileMetric::name))
+            .apply()
+    }
 }
 
 /** The two system tile slots keep their own content choice; no global fake tile state. */
@@ -30,7 +98,7 @@ internal object WearTileContentStore {
         context: Context,
         kind: WearTileKind,
     ): WearTileContent {
-        val fallback = if (kind == WearTileKind.GLUCOSE) WearTileContent.GLUCOSE else WearTileContent.IOB
+        val fallback = WearTileContent.GLUCOSE
         val raw =
             context
                 .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)

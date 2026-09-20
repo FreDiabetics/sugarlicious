@@ -79,6 +79,42 @@ class SugarliciousTilesTest {
     }
 
     @Test
+    fun `therapy tile renders every valid one two and three metric selection`() {
+        val selections =
+            listOf(
+                setOf(TherapyTileMetric.IOB),
+                setOf(TherapyTileMetric.COB),
+                setOf(TherapyTileMetric.BASAL),
+                setOf(TherapyTileMetric.IOB, TherapyTileMetric.COB),
+                setOf(TherapyTileMetric.IOB, TherapyTileMetric.BASAL),
+                setOf(TherapyTileMetric.COB, TherapyTileMetric.BASAL),
+                TherapyTileMetric.entries.toSet(),
+            )
+        val device =
+            DeviceParameters
+                .Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
+        selections.forEach { selected ->
+            TherapyTileSelectionStore.write(context, selected)
+            val service = Robolectric.buildService(TherapyTileService::class.java).create().get()
+            val tile =
+                service
+                    .onTileRequest(
+                        RequestBuilders.TileRequest
+                            .Builder()
+                            .setDeviceConfiguration(device)
+                            .build(),
+                    ).get()
+            assertTrue(tile.resourcesVersion.contains("therapy"))
+            assertEquals(selected.size, TherapyTileSelectionStore.read(context).metrics.size)
+            service.onDestroy()
+        }
+    }
+
+    @Test
     fun `graph tile positions every dot by measured time and advances with the minute clock`() {
         val measuredAt = now - 5 * 60_000L
         val oldReceivedNow = GlucoseSample(110.0, measuredAt, receivedAtEpochMs = now)
