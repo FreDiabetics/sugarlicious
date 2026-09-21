@@ -3,6 +3,7 @@ package app.aapswear.mobile
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.RectF
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -492,6 +493,42 @@ class DashboardChartsTest {
         assertTrue(first.activity.bounds != second.activity.bounds)
     }
 
+    @Test fun `configured iob maximum also controls the regular iob graph`() {
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = listOf(TherapyHistorySample(1_000L, totalIob = 1.0)),
+                visiblePoints = listOf(TherapyHistorySample(1_000L, totalIob = 1.0)),
+                iobMaximumUnits = 12.0,
+            )
+
+        assertTrue(scales.iob.bounds.maximum >= 12.0)
+    }
+
+    @Test fun `dynamic cob maximum includes relevant meal plus fifty grams but ignores expired meals`() {
+        val now = 12 * 60 * 60_000L
+        val start = now - 3 * 60 * 60_000L
+        val events =
+            listOf(
+                TherapyEvent("relevant", TherapyEventKind.MEAL_CARBS, start - 60 * 60_000L, 80.0, carbsGrams = 80.0),
+                TherapyEvent("expired", TherapyEventKind.MEAL_CARBS, start - 8 * 60 * 60_000L, 300.0, carbsGrams = 300.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = listOf(TherapyHistorySample(now, cobGrams = 20.0)),
+                visiblePoints = listOf(TherapyHistorySample(now, cobGrams = 20.0)),
+                therapyEvents = events,
+                viewportStartEpochMs = start,
+                viewportEndEpochMs = now,
+            )
+
+        assertTrue(scales.cob.bounds.maximum >= 130.0)
+        assertTrue(scales.cob.bounds.maximum < 350.0)
+    }
+
     @Test fun `static axis bounds survive graph session recreation`() {
         val preferences = context.getSharedPreferences("static_graph_scales", android.content.Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
@@ -739,6 +776,37 @@ class DashboardChartsTest {
         assertEquals(0f, contentAnchoredDashPhase(100f, 6f), 0.0001f)
         assertEquals(0f, contentAnchoredDashPhase(108f, 6f), 0.0001f)
         assertEquals(0f, contentAnchoredDashPhase(98f, 6f), 0.0001f)
+    }
+
+    @Test
+    fun `upper graph scale uses the rounded corner tangent`() {
+        assertEquals(28f, roundedPlotTopTangentY(plotTop = 10f, cornerRadius = 18f), 0.0001f)
+    }
+
+    @Test
+    fun `time mapping reserves the complete current dot inside the rounded plot`() {
+        val plot = RectF(30f, 0f, 400f, 180f)
+        val timeBounds = graphTimeBounds(plot, pointRadius = 7f, outlineWidth = 2f)
+
+        assertEquals(391f, timeBounds.right, 0.0001f)
+        assertEquals(391f, mapGraphTimeX(time = 1_000L, start = 0L, end = 1_000L, timeBounds), 0.0001f)
+        assertTrue(mapGraphTimeX(1_000L, 0L, 1_000L, timeBounds) + 9f <= plot.right)
+    }
+
+    @Test
+    fun `target cgm and now share one horizontal transform while panning`() {
+        val bounds = graphTimeBounds(RectF(30f, 0f, 400f, 180f), pointRadius = 6f, outlineWidth = 1f)
+        val targetAt = 700L
+        val cgmAt = 700L
+
+        val initialTargetX = mapGraphTimeX(targetAt, 0L, 1_000L, bounds)
+        val initialCgmX = mapGraphTimeX(cgmAt, 0L, 1_000L, bounds)
+        val pannedTargetX = mapGraphTimeX(targetAt, 200L, 1_200L, bounds)
+        val pannedCgmX = mapGraphTimeX(cgmAt, 200L, 1_200L, bounds)
+
+        assertEquals(initialCgmX, initialTargetX, 0.0001f)
+        assertEquals(pannedCgmX, pannedTargetX, 0.0001f)
+        assertEquals(pannedCgmX - initialCgmX, pannedTargetX - initialTargetX, 0.0001f)
     }
 
     @Test

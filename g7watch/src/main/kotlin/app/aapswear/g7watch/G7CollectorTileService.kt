@@ -38,6 +38,8 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
 import app.aapswear.model.PresentationSurface
+import app.aapswear.model.SugarWearTypography
+import app.aapswear.model.SugarWearTypographyRole
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisualAsset
@@ -151,7 +153,7 @@ internal fun g7TileStatusPresentation(
 internal fun tileForegroundFor(backgroundArgb: Int): Int = if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
 /** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
-internal fun sugarWearTileWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+internal fun sugarWearTileWeight(emphasized: Boolean): Int = SugarWearTypography.protoWeight(emphasized)
 
 class G7CollectorTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -232,7 +234,7 @@ class G7CollectorTileService : TileService() {
                         addContent(
                             text(
                                 presentation.meta,
-                                WearGlucoseCardStyle.META_TEXT_SP,
+                                SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.GLUCOSE_DELTA),
                                 bold = true,
                             ),
@@ -242,7 +244,7 @@ class G7CollectorTileService : TileService() {
                         addContent(
                             text(
                                 presentation.age,
-                                WearGlucoseCardStyle.META_TEXT_SP,
+                                SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                                 bold = true,
                             ),

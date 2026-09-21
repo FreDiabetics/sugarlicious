@@ -28,6 +28,8 @@ import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import app.aapswear.g7.CgmReading
+import app.aapswear.model.SugarWearTypography
+import app.aapswear.model.SugarWearTypographyRole
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
@@ -157,8 +159,13 @@ class G7GraphTileService : TileService() {
                         .Builder()
                         .setPadding(Padding.Builder().setStart(dp(square.cornerRadiusDp)).build())
                         .build(),
-                ).addContent(label("Gewebeglukose-Verlauf", 11f, titleColor))
-                .build()
+                ).addContent(
+                    label(
+                        "Gewebeglukose-Verlauf",
+                        SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp,
+                        titleColor,
+                    ),
+                ).build()
         val content =
             Column
                 .Builder()

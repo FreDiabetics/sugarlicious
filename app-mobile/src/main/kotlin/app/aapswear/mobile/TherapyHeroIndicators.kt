@@ -28,6 +28,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.BasalState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyProgressSemantics
 import java.util.Locale
 
 internal data class TherapyIndicatorPresentation(
@@ -44,6 +45,7 @@ internal fun therapyIndicatorPresentations(
     state: TherapyDisplayState?,
     iobMaximumUnits: Float,
     nowEpochMs: Long,
+    cobMaximumGrams: Float = 300f,
 ): List<TherapyIndicatorPresentation> {
     val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
     val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
@@ -69,18 +71,19 @@ internal fun therapyIndicatorPresentations(
             current.copy(percent = current.percent ?: historicalBasal?.percent)
         } ?: historicalBasal
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
+    val safeCobMaximum = cobMaximumGrams.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
             label = "IOB",
             value = iob?.let { "${compactValue(it, 2)}U" } ?: "—",
-            progress = safeIobMaximum?.let { maximum -> iob?.div(maximum)?.toFloat()?.coerceIn(0f, 1f) },
+            progress = TherapyProgressSemantics.scaled(iob, safeIobMaximum),
             iconRes = R.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
             value = cob?.let { "${compactValue(it, 0)}g" } ?: "—",
-            progress = cob?.div(300.0)?.toFloat()?.coerceIn(0f, 1f),
+            progress = TherapyProgressSemantics.scaled(cob, safeCobMaximum),
             iconRes = R.drawable.ic_carbs,
             iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
@@ -104,11 +107,7 @@ internal fun basalIconResource(percent: Int?): Int =
     }
 
 internal fun basalProgress(percent: Int): Float =
-    if (percent <= 100) {
-        percent.coerceAtLeast(0) / 200f
-    } else {
-        0.5f + (percent.coerceAtMost(500) - 100) / 800f
-    }
+    requireNotNull(TherapyProgressSemantics.basal(percent))
 
 internal data class EffectiveBasalPresentation(
     val unitsPerHour: Double,

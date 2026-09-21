@@ -659,6 +659,19 @@ internal class GlucoseDashboardChart
             val contentBounds = bounds.content
             if (plot.width() <= 24f || plot.height() <= 24f) return
             val radius = GRAPH_CORNER_RADIUS_DP.dp
+            val maximumPointExtent =
+                maxOf(
+                    cgmDotRadiusDp.dp + if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp / 2f else 0f,
+                    predictionDotRadiusDp.dp + predictionDotOutlineWidthDp.dp / 2f,
+                )
+            val timeBounds = graphTimeBounds(plot, maximumPointExtent, 0f)
+            val dataPlot =
+                RectF(
+                    timeBounds.left,
+                    roundedPlotTopTangentY(plot.top, radius),
+                    timeBounds.right,
+                    plot.bottom,
+                )
             val contentClip = Path().apply { addRoundRect(contentBounds, radius + outlineInset, radius + outlineInset, Path.Direction.CW) }
 
             canvas.withClip(contentClip) {
@@ -741,8 +754,8 @@ internal class GlucoseDashboardChart
                         requiredValuesMgDl = listOf(targetLow, targetHigh),
                     )
                 val yScale = stableCgmScale(renderedYScale, proposedYScale).also { renderedYScale = it }
-                val targetTop = mapGlucoseY(targetHigh, plot, yScale)
-                val targetBottom = mapGlucoseY(targetLow, plot, yScale)
+                val targetTop = mapGlucoseY(targetHigh, dataPlot, yScale)
+                val targetBottom = mapGlucoseY(targetLow, dataPlot, yScale)
                 // Signal loss changes freshness only. The last confirmed range excursion remains
                 // active until a new validated CGM value performs a real range transition.
                 val excursion = sustainedRangeExcursion(allHistory, targetLow, targetHigh)
@@ -767,7 +780,7 @@ internal class GlucoseDashboardChart
                         state
                             ?.glucose
                             ?.measuredAtEpochMs
-                            ?.let { mapX(it, start, end, plot) }
+                            ?.let { mapGraphTimeX(it, start, end, timeBounds) }
                             ?.coerceIn(plot.left, plot.right) ?: plot.left
                     if (signalStart < plot.right) {
                         fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_SIGNAL_LOSS)
@@ -850,25 +863,25 @@ internal class GlucoseDashboardChart
                     linePaint.strokeWidth = 1.35f.dp
                     targetStepPaths(targetSegments, start, end).forEach { points ->
                         val dashLength = 3f.dp
-                        val firstX = points.firstOrNull()?.let { mapX(it.first, start, end, plot) } ?: plot.left
+                        val firstX = points.firstOrNull()?.let { mapGraphTimeX(it.first, start, end, timeBounds) } ?: timeBounds.left
                         linePaint.pathEffect =
                             DashPathEffect(
                                 floatArrayOf(dashLength, dashLength),
                                 contentAnchoredDashPhase(firstX, dashLength * 2f),
                             )
                         canvas.drawPath(
-                            valuePath(points, start, end, plot) { value -> mapGlucoseY(value, plot, yScale) },
+                            valuePath(points, start, end, timeBounds) { value -> mapGlucoseY(value, dataPlot, yScale) },
                             linePaint,
                         )
                     }
                     linePaint.pathEffect = null
                 }
 
-                if (showBasal) drawBasal(canvas, plot, start, end, state?.therapyHistory.orEmpty())
+                if (showBasal) drawBasal(canvas, dataPlot, start, end, state?.therapyHistory.orEmpty())
                 if (showActivity) {
                     drawInsulinActivity(
                         canvas,
-                        plot,
+                        dataPlot,
                         start,
                         end,
                         now,
@@ -880,29 +893,18 @@ internal class GlucoseDashboardChart
                 // The live marker belongs to the clock, not to the last packet. A delayed packet must
                 // remain at its measurement timestamp while the whole history keeps moving left.
                 val liveTimestamp = timeWindow.liveEdgeEpochMs
-                val liveX = timeWindow.plotX(liveTimestamp, plot.left, plot.width())
+                val liveX = mapGraphTimeX(liveTimestamp, start, end, timeBounds)
                 // This is a data-space timestamp, not a sticky viewport overlay. It may leave the plot.
-                val dividerX = liveX
                 val futureLaneVisible = end > now && now in start..end
-                val hasCgmOverlay = showTargetValue || showBasal || showActivity || visiblePredictions.isNotEmpty()
-                if (now in start..end && hasCgmOverlay) {
-                    linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_NOW_LINE)
-                    linePaint.strokeWidth = 1f.dp
-                    linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
-                    canvas.drawLine(dividerX, plot.top, dividerX, plot.bottom, linePaint)
-                    linePaint.pathEffect = null
-                }
 
                 history.forEachIndexed { index, point ->
-                    val mappedX = timeWindow.plotX(point.measuredAtEpochMs, plot.left, plot.width())
-                    val y = mapGlucoseY(point.valueMgDl, plot, yScale)
+                    val mappedX = mapGraphTimeX(point.measuredAtEpochMs, start, end, timeBounds)
+                    val y = mapGlucoseY(point.valueMgDl, dataPlot, yScale)
                     val current = index == history.lastIndex
                     val dotRadius = (cgmDotRadiusDp + if (current) 0.1f else 0f).dp
                     val outlineWidth = if (cgmDotOutlineEnabled) cgmDotOutlineWidthDp.dp else 0f
-                    // Never collapse timestamp positions onto a radius-dependent edge. The rounded
-                    // plot clip owns edge clipping; X remains a pure function of timestamp + viewport.
-                    // "Current" changes only the dot styling. Its position still belongs to the
-                    // reading timestamp, so the gap to the clock grows naturally between readings.
+                    // Every time-based layer uses the same inset data viewport. The inset is derived
+                    // from the largest rendered dot, so the current value remains fully visible.
                     val x = mappedX
                     fillPaint.color = dotColor(point.valueMgDl, thresholds)
                     canvas.drawCircle(x, y, dotRadius, fillPaint)
@@ -915,12 +917,12 @@ internal class GlucoseDashboardChart
 
                 if (visiblePredictions.isNotEmpty() && futureLaneVisible) {
                     visiblePredictions.forEach {
-                        drawPrediction(canvas, it, plot, start, end, yScale)
+                        drawPrediction(canvas, it, dataPlot, start, end, yScale)
                     }
                 }
 
                 canvas.restoreToCount(graphSave)
-                drawGrid(canvas, plot, scaleContainer.bottom, start, end, liveTimestamp, liveX)
+                drawGrid(canvas, plot, timeBounds, scaleContainer.bottom, start, end, liveTimestamp, liveX)
 
                 if (showTargetRange && targetLeft < targetRight) {
                     drawTargetScale(
@@ -933,7 +935,7 @@ internal class GlucoseDashboardChart
                         targetScaleOnRight,
                     )
                 }
-                drawGraphMaximumScale(canvas, plot, targetScaleOnRight, yScale.maximumMgDl)
+                drawGraphMaximumScale(canvas, plot, dataPlot.top, targetScaleOnRight, yScale.maximumMgDl)
 
                 if (history.size < 2) {
                     drawText(
@@ -953,6 +955,7 @@ internal class GlucoseDashboardChart
         private fun drawGrid(
             canvas: Canvas,
             plot: RectF,
+            timeBounds: RectF,
             axisBottom: Float,
             start: Long,
             end: Long,
@@ -965,7 +968,7 @@ internal class GlucoseDashboardChart
             linePaint.pathEffect = null
             ticks.forEach { tick ->
                 val isNow = tick.hoursBack == 0
-                val x = if (isNow) nowLineX else mapX(tick.timestampEpochMs, start, end, plot)
+                val x = if (isNow) nowLineX else mapGraphTimeX(tick.timestampEpochMs, start, end, timeBounds)
                 if (x < plot.left || x > plot.right) return@forEach
                 val align =
                     when {
@@ -1034,6 +1037,7 @@ internal class GlucoseDashboardChart
         private fun drawGraphMaximumScale(
             canvas: Canvas,
             plot: RectF,
+            tickY: Float,
             onRight: Boolean,
             maximumMgDl: Double,
         ) {
@@ -1046,8 +1050,7 @@ internal class GlucoseDashboardChart
                 }
             val tickGap = 2f.dp
             val tickLength = 5f.dp
-            val baseline = plot.top - paint.fontMetrics.ascent + 2f.dp
-            val tickY = baseline + paint.fontMetrics.ascent
+            val baseline = tickY - paint.fontMetrics.ascent / 2f - paint.fontMetrics.descent / 2f
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_AXIS_TICK)
             linePaint.strokeWidth = 1f.dp
             linePaint.pathEffect = null
@@ -1235,6 +1238,7 @@ internal class MetabolicDashboardChart
         private var scaleOnRight = false
         private var showTimeAxis = false
         private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
+        private var iobMaximumUnits = 10f
         private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
         private val axisScaleSession = GraphScaleSession().also(staticScaleStore::restore)
 
@@ -1245,6 +1249,7 @@ internal class MetabolicDashboardChart
             scaleOnRight: Boolean = false,
             showTimeAxis: Boolean = false,
             graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+            iobMaximumUnits: Float = 10f,
             clockEpochMs: Long = System.currentTimeMillis(),
         ) {
             val clockBucket = clockEpochMs / 30_000L
@@ -1257,6 +1262,7 @@ internal class MetabolicDashboardChart
                     scaleOnRight,
                     showTimeAxis,
                     graphScaleMode,
+                    iobMaximumUnits,
                     clockBucket,
                 )
             if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
@@ -1267,6 +1273,7 @@ internal class MetabolicDashboardChart
             this.scaleOnRight = scaleOnRight
             this.showTimeAxis = showTimeAxis
             this.graphScaleMode = graphScaleMode
+            this.iobMaximumUnits = iobMaximumUnits
             renderNowEpochMs = clockEpochMs
             if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
             invalidate()
@@ -1301,7 +1308,17 @@ internal class MetabolicDashboardChart
                 val cobPlot = RectF(cobLanePlot.left, cobLanePlot.top + markerHeadroom, cobLanePlot.right, cobLanePlot.bottom)
                 // AndroidAPS calculates IOB/COB samples at five-minute timestamps and draws those
                 // actual samples. Sugarlicious must not fabricate a future decay from two observations.
-                val scales = resolveMetabolicScales(axisScaleSession, graphScaleMode, allPoints, points)
+                val scales =
+                    resolveMetabolicScales(
+                        session = axisScaleSession,
+                        mode = graphScaleMode,
+                        allPoints = allPoints,
+                        visiblePoints = points,
+                        iobMaximumUnits = iobMaximumUnits.toDouble(),
+                        therapyEvents = state?.therapyEvents.orEmpty(),
+                        viewportStartEpochMs = start,
+                        viewportEndEpochMs = end,
+                    )
                 staticScaleStore.persist(GraphAxis.IOB, scales.iob)
                 staticScaleStore.persist(GraphAxis.COB, scales.cob)
                 staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, scales.activity)
@@ -1761,6 +1778,10 @@ internal fun resolveMetabolicScales(
     mode: CgmGraphScaleMode,
     allPoints: List<TherapyHistorySample>,
     visiblePoints: List<TherapyHistorySample>,
+    iobMaximumUnits: Double? = null,
+    therapyEvents: List<app.aapswear.model.TherapyEvent> = emptyList(),
+    viewportStartEpochMs: Long = Long.MIN_VALUE,
+    viewportEndEpochMs: Long = Long.MAX_VALUE,
 ): MobileMetabolicScales =
     MobileMetabolicScales(
         iob =
@@ -1772,6 +1793,7 @@ internal fun resolveMetabolicScales(
                 fallbackBounds = GraphBounds(0.0, 1.0),
                 minimumSpan = 0.1,
                 maxTickCount = 3,
+                requiredValues = listOfNotNull(iobMaximumUnits?.takeIf { it.isFinite() && it > 0.0 }),
             ),
         cob =
             session.resolve(
@@ -1782,6 +1804,12 @@ internal fun resolveMetabolicScales(
                 fallbackBounds = GraphBounds(0.0, 10.0),
                 minimumSpan = 1.0,
                 maxTickCount = 5,
+                requiredValues =
+                    if (mode == CgmGraphScaleMode.DYNAMIC || mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) {
+                        listOfNotNull(relevantCarbScaleFloor(therapyEvents, viewportStartEpochMs, viewportEndEpochMs))
+                    } else {
+                        emptyList()
+                    },
             ),
         activity =
             session.resolve(
@@ -1794,6 +1822,25 @@ internal fun resolveMetabolicScales(
                 maxTickCount = 5,
             ),
     )
+
+internal fun relevantCarbScaleFloor(
+    events: List<app.aapswear.model.TherapyEvent>,
+    viewportStartEpochMs: Long,
+    viewportEndEpochMs: Long,
+): Double? =
+    events
+        .asSequence()
+        .filter { it.kind == TherapyEventKind.MEAL_CARBS || it.kind == TherapyEventKind.ECARBS }
+        .filter { it.validated && it.timestampEpochMs <= viewportEndEpochMs }
+        .filter { event ->
+            val activeMinutes = event.durationMinutes?.takeIf { it > 0 } ?: DEFAULT_CARB_RELEVANCE_MINUTES
+            event.timestampEpochMs + activeMinutes * 60_000L >= viewportStartEpochMs
+        }.mapNotNull { event -> (event.carbsGrams ?: event.amount).takeIf { it.isFinite() && it > 0.0 } }
+        .maxOrNull()
+        ?.plus(COB_SCALE_HEADROOM_GRAMS)
+
+private const val DEFAULT_CARB_RELEVANCE_MINUTES = 6 * 60
+private const val COB_SCALE_HEADROOM_GRAMS = 50.0
 
 internal fun toolkitSmbMarkerSide(units: Double): Float = bolusMarkerSide(units)
 
@@ -1885,6 +1932,28 @@ internal data class MobileCgmGraphBounds(
     val timeAxis: RectF,
     val valueAxis: RectF,
 )
+
+internal fun roundedPlotTopTangentY(
+    plotTop: Float,
+    cornerRadius: Float,
+): Float = plotTop + cornerRadius.coerceAtLeast(0f)
+
+internal fun graphTimeBounds(
+    plot: RectF,
+    pointRadius: Float,
+    outlineWidth: Float,
+): RectF {
+    val requestedInset = (pointRadius + outlineWidth).coerceAtLeast(0f)
+    val inset = requestedInset.coerceAtMost(plot.width().coerceAtLeast(0f) / 2f)
+    return RectF(plot.left + inset, plot.top, plot.right - inset, plot.bottom)
+}
+
+internal fun mapGraphTimeX(
+    time: Long,
+    start: Long,
+    end: Long,
+    timeBounds: RectF,
+): Float = timeBounds.left + timeToXFraction(time, start, end) * timeBounds.width()
 
 internal fun mobileCgmGraphBounds(
     width: Float,

@@ -57,6 +57,7 @@ data class DashboardUiPreferences(
     val showDetails: Boolean = true,
     val glucoseTileDetailMode: GlucoseTileDetailMode = GlucoseTileDetailMode.TIR,
     val iobProgressMaximumUnits: Float = 10f,
+    val cobProgressMaximumGrams: Float = 300f,
     val showCgmGraph: Boolean = true,
     val showCgmTargetValue: Boolean = true,
     val showCgmBasal: Boolean = false,
@@ -120,6 +121,7 @@ data class DashboardUiPreferences(
                         GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)!!)
                     }.getOrDefault(GlucoseTileDetailMode.TIR),
                 iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
+                cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
                 showCgmBasal = preferences.getBoolean("cgm.basal", false),
@@ -172,6 +174,7 @@ data class DashboardUiPreferences(
         const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
         const val GLUCOSE_TILE_DETAIL_MODE_KEY = "overview.glucoseTileDetailMode"
         const val IOB_PROGRESS_MAXIMUM_KEY = "overview.iobProgressMaximumUnits"
+        const val COB_PROGRESS_MAXIMUM_KEY = "overview.cobProgressMaximumGrams"
         const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
         const val GRAPH_MINIMUM_KEY = "graph.minimumMgDl"
         const val GRAPH_SCALE_MODE_KEY = "graph.scaleMode"
@@ -596,6 +599,16 @@ class DashboardViewFactory(
                                 maximum = 30f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) } },
+                        )
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "COB Progressbar Maximum",
+                                value = preferences.cobProgressMaximumGrams,
+                                minimum = 10f,
+                                maximum = 500f,
+                                valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
+                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, it) } },
                         )
                     }
                     addView(divider())

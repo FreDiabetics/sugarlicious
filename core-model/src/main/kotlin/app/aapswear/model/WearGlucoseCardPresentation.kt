@@ -34,6 +34,27 @@ object WearGlucoseCardStyle {
     const val TREND_GAP_DP = 6
 }
 
+enum class SugarWearTypographyRole { GLUCOSE_VALUE, META, TILE_TITLE, STATUS }
+
+data class SugarWearTypographySpec(
+    val sizeSp: Float,
+    val appBold: Boolean,
+    val protoWeight: Int,
+)
+
+/** Semantic type tokens shared by the SugarWear app and its ProtoLayout tiles. */
+object SugarWearTypography {
+    fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
+        when (role) {
+            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 500)
+            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 500)
+            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 500)
+            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 500)
+        }
+
+    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+}
+
 fun wearGlucoseCardPresentation(
     input: WearGlucoseCardInput,
     thresholds: CgmThresholds,

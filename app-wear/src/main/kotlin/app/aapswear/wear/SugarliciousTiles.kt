@@ -4,10 +4,13 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.wear.protolayout.ColorBuilders.argb
+import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
 import androidx.wear.protolayout.DimensionBuilders.sp
 import androidx.wear.protolayout.LayoutElementBuilders
+import androidx.wear.protolayout.LayoutElementBuilders.Arc
+import androidx.wear.protolayout.LayoutElementBuilders.ArcLine
 import androidx.wear.protolayout.LayoutElementBuilders.Box
 import androidx.wear.protolayout.LayoutElementBuilders.ColorFilter
 import androidx.wear.protolayout.LayoutElementBuilders.Column
@@ -39,6 +42,7 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisualAsset
 import app.aapswear.model.TrendVisuals
@@ -533,7 +537,7 @@ private fun therapyTileContent(
     val placements = therapyTilePlacements(selection)
     val compact = placements.size > 1
 
-    fun card(metric: TherapyTileMetric): Box = therapyMetricCard(metric, presentation, state, colors, compact)
+    fun card(metric: TherapyTileMetric): Box = therapyMetricCard(metric, presentation, state, colors, compact, now)
     val group =
         when (placements.size) {
             1 -> card(placements.single().metric)
@@ -570,6 +574,7 @@ private fun therapyMetricCard(
     state: TherapyDisplayState?,
     colors: WatchUiColors,
     compact: Boolean,
+    nowEpochMs: Long,
 ): Box {
     val value =
         when (metric) {
@@ -577,99 +582,92 @@ private fun therapyMetricCard(
             TherapyTileMetric.COB -> presentation.cob
             TherapyTileMetric.BASAL -> presentation.basal
         }
-    val raw =
-        when (metric) {
-            TherapyTileMetric.IOB -> state?.insulin?.totalIob
-            TherapyTileMetric.COB -> state?.carbs?.cobGrams
-            TherapyTileMetric.BASAL -> state?.basal?.currentUnitsPerHour
-        }
-    val maximum =
-        when (metric) {
-            TherapyTileMetric.IOB -> 10.0
-            TherapyTileMetric.COB -> 100.0
-            TherapyTileMetric.BASAL -> 3.0
-        }
+    val progress = wearTherapyProgress(metric, state, nowEpochMs) ?: 0f
     val accent =
         when (metric) {
             TherapyTileMetric.IOB -> colors.iob
             TherapyTileMetric.COB -> colors.cob
             TherapyTileMetric.BASAL -> colors.basal
         }
-    val width = if (compact) 70f else 112f
-    val progressWidth = width - 18f
-    val fillWidth = (progressWidth * ((raw ?: 0.0) / maximum).coerceIn(0.0, 1.0)).toFloat()
-    val progress =
-        Box
+    val ring = therapyRingLayoutSpec(if (compact) 2 else 1)
+    val backgroundArc =
+        ArcLine
             .Builder()
-            .setWidth(dp(progressWidth))
-            .setHeight(dp(4f))
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-            .setModifiers(
-                Modifiers
-                    .Builder()
-                    .setBackground(
-                        Background
-                            .Builder()
-                            .setColor(argb(colors.tileBorder))
-                            .setCorner(Corner.Builder().setRadius(dp(2f)).build())
-                            .build(),
-                    ).build(),
-            ).apply {
-                if (fillWidth > 0f) {
-                    addContent(
-                        Box
-                            .Builder()
-                            .setWidth(dp(fillWidth))
-                            .setHeight(dp(4f))
-                            .setModifiers(
-                                Modifiers
-                                    .Builder()
-                                    .setBackground(
-                                        Background
-                                            .Builder()
-                                            .setColor(argb(accent))
-                                            .setCorner(Corner.Builder().setRadius(dp(2f)).build())
-                                            .build(),
-                                    ).build(),
-                            ).build(),
-                    )
-                }
-            }.build()
+            .setLength(degrees(ring.sweepDegrees))
+            .setThickness(dp(ring.strokeWidthDp))
+            .setColor(argb(colors.tileBorder))
+            .build()
+    val progressArc =
+        ArcLine
+            .Builder()
+            .setLength(degrees(ring.sweepDegrees * progress))
+            .setThickness(dp(ring.strokeWidthDp))
+            .setColor(argb(accent))
+            .build()
+    val backgroundRing =
+        Arc
+            .Builder()
+            .setAnchorAngle(degrees(ring.startDegrees))
+            .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
+            .addContent(backgroundArc)
+            .build()
+    val progressRing =
+        Arc
+            .Builder()
+            .setAnchorAngle(degrees(ring.startDegrees))
+            .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
+            .addContent(progressArc)
+            .build()
     val column =
         Column
             .Builder()
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .addContent(tileText(metric.label.uppercase(Locale.GERMAN), if (compact) 10f else 13f, accent, bold = true))
-            .addContent(Spacer.Builder().setHeight(dp(if (compact) 2f else 5f)).build())
-            .addContent(tileText(value, if (compact) 20f else 34f, colors.textPrimary, bold = true))
-            .addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            .addContent(progress)
+            .addContent(Spacer.Builder().setHeight(dp(if (compact) 1f else 3f)).build())
+            .addContent(tileText(value, if (compact) 18f else 30f, colors.textPrimary, bold = true))
             .build()
     return Box
         .Builder()
-        .setWidth(dp(width))
-        .setHeight(dp(if (compact) 62f else 96f))
+        .setWidth(dp(ring.diameterDp))
+        .setHeight(dp(ring.diameterDp))
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
         .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-        .setModifiers(
-            Modifiers
-                .Builder()
-                .setBackground(
-                    Background
-                        .Builder()
-                        .setColor(argb(colors.tileBackground))
-                        .setCorner(Corner.Builder().setRadius(dp(18f)).build())
-                        .build(),
-                ).setBorder(
-                    Border
-                        .Builder()
-                        .setWidth(dp(1f))
-                        .setColor(argb(colors.tileBorder))
-                        .build(),
-                ).build(),
-        ).addContent(column)
+        .addContent(backgroundRing)
+        .addContent(progressRing)
+        .addContent(column)
         .build()
 }
+
+internal data class TherapyRingLayoutSpec(
+    val diameterDp: Float,
+    val strokeWidthDp: Float = 7f,
+    val startDegrees: Float = 130f,
+    val sweepDegrees: Float = 280f,
+)
+
+internal fun therapyRingLayoutSpec(metricCount: Int): TherapyRingLayoutSpec =
+    TherapyRingLayoutSpec(diameterDp = if (metricCount == 1) 112f else 70f)
+
+internal fun wearTherapyProgress(
+    metric: TherapyTileMetric,
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+): Float? =
+    when (metric) {
+        TherapyTileMetric.IOB -> TherapyProgressSemantics.scaled(state?.insulin?.totalIob, 10.0)
+        TherapyTileMetric.COB -> TherapyProgressSemantics.scaled(state?.carbs?.cobGrams, 300.0)
+        TherapyTileMetric.BASAL -> {
+            val basal = state?.basal ?: return null
+            val tempEndsAt = basal.tempEndsAtEpochMs
+            val percent =
+                if (tempEndsAt == null || tempEndsAt > nowEpochMs) {
+                    basal.tempPercent ?: 100
+                } else {
+                    100
+                }
+            TherapyProgressSemantics.basal(percent)
+        }
+    }
 
 internal fun affectedSugarliciousTiles(
     old: TherapyDisplayState?,

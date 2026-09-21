@@ -44,6 +44,19 @@ class TherapyHeroIndicatorsTest {
     }
 
     @Test
+    fun `cob ring uses its independently configured maximum`() {
+        val values =
+            therapyIndicatorPresentations(
+                state = state(carbs = CarbState(cobGrams = 75.0)),
+                iobMaximumUnits = 10f,
+                nowEpochMs = 1_000L,
+                cobMaximumGrams = 150f,
+            )
+
+        assertEquals(0.5f, values[1].progress!!, 0.0001f)
+    }
+
+    @Test
     fun `basal icon follows standard lower and higher temp basal`() {
         assertEquals(R.drawable.ic_basal, basalIconResource(100))
         assertEquals(R.drawable.ic_basalless, basalIconResource(80))

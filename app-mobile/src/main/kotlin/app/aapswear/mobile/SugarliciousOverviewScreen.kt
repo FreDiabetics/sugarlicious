@@ -232,7 +232,13 @@ internal fun SugarliciousOverviewScreen(
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
             detailMode = preferences.glucoseTileDetailMode,
-            therapyIndicators = therapyIndicatorPresentations(state.takeIf { displayable }, preferences.iobProgressMaximumUnits, now),
+            therapyIndicators =
+                therapyIndicatorPresentations(
+                    state = state.takeIf { displayable },
+                    iobMaximumUnits = preferences.iobProgressMaximumUnits,
+                    nowEpochMs = now,
+                    cobMaximumGrams = preferences.cobProgressMaximumGrams,
+                ),
             visualSpec =
                 GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
                     preferences.glucoseScalePercent,
@@ -796,6 +802,7 @@ private fun MetabolicGraphSurface(
                         !preferences.anyCgmPredictionEnabled,
                 showTimeAxis = !preferences.showCgmGraph,
                 graphScaleMode = preferences.graphScaleMode,
+                iobMaximumUnits = preferences.iobProgressMaximumUnits,
                 clockEpochMs = now,
             )
         },

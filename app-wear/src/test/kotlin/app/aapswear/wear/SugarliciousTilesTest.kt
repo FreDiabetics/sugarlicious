@@ -115,6 +115,18 @@ class SugarliciousTilesTest {
     }
 
     @Test
+    fun `therapy rings keep equal bounds and the mobile stroke geometry`() {
+        val single = therapyRingLayoutSpec(1)
+        val pair = therapyRingLayoutSpec(2)
+        val triple = therapyRingLayoutSpec(3)
+
+        assertEquals(7f, single.strokeWidthDp, 0f)
+        assertEquals(280f, single.sweepDegrees, 0f)
+        assertEquals(pair.diameterDp, triple.diameterDp, 0f)
+        assertEquals(pair.strokeWidthDp, triple.strokeWidthDp, 0f)
+    }
+
+    @Test
     fun `graph tile positions every dot by measured time and advances with the minute clock`() {
         val measuredAt = now - 5 * 60_000L
         val oldReceivedNow = GlucoseSample(110.0, measuredAt, receivedAtEpochMs = now)
