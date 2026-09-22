@@ -25,12 +25,9 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
-    fun `target scale moves right only for a pure cgm graph`() {
-        assertTrue(targetScaleOnRight(false, false, false, false))
-        assertFalse(targetScaleOnRight(true, false, false, false))
-        assertFalse(targetScaleOnRight(false, true, false, false))
-        assertFalse(targetScaleOnRight(false, false, true, false))
-        assertFalse(targetScaleOnRight(false, false, false, true))
+    fun `target scale side follows actually visible predictions only`() {
+        assertTrue(targetScaleOnRight(hasVisiblePredictions = false))
+        assertFalse(targetScaleOnRight(hasVisiblePredictions = true))
     }
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()

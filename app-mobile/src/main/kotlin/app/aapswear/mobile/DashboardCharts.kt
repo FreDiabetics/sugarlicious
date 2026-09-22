@@ -644,7 +644,28 @@ internal class GlucoseDashboardChart
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val outlineInset = 0.5f.dp
-            val targetScaleOnRight = targetScaleOnRight(showPredictions, showTargetValue, showBasal, showActivity)
+            val now = renderNowEpochMs
+            val predictions =
+                if (showPredictions) {
+                    state?.glucosePredictions.orEmpty().filter { predictionEnabled(it.kind) }
+                } else {
+                    emptyList()
+                }
+            val viewportSnapshot = viewport.snapshot(now)
+            val timeWindow =
+                GraphTimeWindow(
+                    startEpochMs = viewportSnapshot.startEpochMs,
+                    liveEdgeEpochMs = viewportSnapshot.liveEdgeEpochMs,
+                    endEpochMs = viewportSnapshot.endEpochMs,
+                )
+            val start = timeWindow.startEpochMs
+            val end = timeWindow.endEpochMs
+            val visiblePredictions =
+                PredictionDisplayTimeline
+                    .anchor(predictions, now)
+                    .map { series -> series.copy(samples = series.samples.filter { it.measuredAtEpochMs in start..end }) }
+                    .filter { it.samples.isNotEmpty() }
+            val targetScaleOnRight = targetScaleOnRight(visiblePredictions.isNotEmpty())
             val bounds =
                 mobileCgmGraphBounds(
                     width.toFloat(),
@@ -680,34 +701,13 @@ internal class GlucoseDashboardChart
                 fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
                 canvas.drawRoundRect(plot, radius, radius, fillPaint)
 
-                val now = renderNowEpochMs
                 val thresholds = CgmThresholdPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
                 val targetLow = thresholds.lowMgDl
                 val targetHigh = thresholds.highMgDl
                 val freshness = FreshnessPolicy.classify(state?.glucose?.measuredAtEpochMs, now)
                 val signalLost = !TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
-                val predictions =
-                    if (showPredictions) {
-                        state?.glucosePredictions.orEmpty().filter {
-                            predictionEnabled(
-                                it.kind,
-                            )
-                        }
-                    } else {
-                        emptyList()
-                    }
                 // Like AAPS, the viewport is tied to real current time. A new CGM therefore advances
                 // the same time axis instead of pinning the latest point while neighbours get squeezed.
-                val liveEdge = now
-                val viewportSnapshot = viewport.snapshot(liveEdge)
-                val timeWindow =
-                    GraphTimeWindow(
-                        startEpochMs = viewportSnapshot.startEpochMs,
-                        liveEdgeEpochMs = viewportSnapshot.liveEdgeEpochMs,
-                        endEpochMs = viewportSnapshot.endEpochMs,
-                    )
-                val start = timeWindow.startEpochMs
-                val end = timeWindow.endEpochMs
                 val allHistory =
                     CanonicalCgmHistory.merge(
                         samples =
@@ -732,11 +732,6 @@ internal class GlucoseDashboardChart
                         preferredSource = state?.source,
                     )
                 val history = allHistory.filter { it.measuredAtEpochMs in start..min(end, now) }
-                val visiblePredictions =
-                    PredictionDisplayTimeline
-                        .anchor(predictions, now)
-                        .map { series -> series.copy(samples = series.samples.filter { it.measuredAtEpochMs in start..end }) }
-                        .filter { it.samples.isNotEmpty() }
                 // Range classification is a Y-axis background, not a time series. AndroidAPS keeps
                 // the complete visible axis classified, including the prediction side.
                 val targetLeft = plot.left
@@ -2158,11 +2153,8 @@ internal fun timeToXFraction(
 ): Float = ((time - start).toDouble() / (end - start).coerceAtLeast(1L)).toFloat()
 
 internal fun targetScaleOnRight(
-    showPredictions: Boolean,
-    showTargetValue: Boolean,
-    showBasal: Boolean,
-    showActivity: Boolean,
-): Boolean = !showPredictions && !showTargetValue && !showBasal && !showActivity
+    hasVisiblePredictions: Boolean,
+): Boolean = !hasVisiblePredictions
 
 private fun roundedDownTriangle(
     cx: Float,
