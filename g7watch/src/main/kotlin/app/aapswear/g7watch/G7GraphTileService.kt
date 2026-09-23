@@ -47,10 +47,21 @@ internal data class G7GraphTileSnapshot(
     val nowEpochMs: Long,
 ) {
     val resourceVersion: String
-        get() = "g7-graph-3-${readings.maxOfOrNull(
-            CgmReading::timestampEpochMs,
-        ) ?: 0L}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${pillState.name}"
+        get() = "g7-graph-4-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${pillState.name}"
 }
+
+/** Cache identity covers the complete canonical graph, including late BACKFILL rows. */
+internal fun g7GraphHistoryFingerprint(readings: List<CgmReading>): String =
+    normalizeG7LocalHistory(readings)
+        .fold(1L) { hash, reading ->
+            var next = hash * 31L + reading.sensorId.hashCode()
+            next = next * 31L + reading.sessionId.hashCode()
+            next = next * 31L + reading.timestampEpochMs
+            next = next * 31L + reading.glucoseMgDl.toBits()
+            next = next * 31L + reading.status.ordinal
+            next
+        }.toULong()
+        .toString(16)
 
 internal fun g7GraphEmptyLabel(
     state: G7StatusPillState,
@@ -277,7 +288,7 @@ class G7GraphTileService : TileService() {
                         androidx.wear.protolayout.DimensionBuilders
                             .sp(sizeSp),
                     ).setColor(argb(color))
-                    .setPreferredFontFamilies("sans-serif")
+                    .setPreferredFontFamilies(SugarWearTypography.FONT_FAMILY)
                     .setWeight(sugarWearTileWeight(emphasized = true))
                     .build(),
             ).build()

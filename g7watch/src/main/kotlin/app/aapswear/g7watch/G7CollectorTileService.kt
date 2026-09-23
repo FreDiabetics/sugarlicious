@@ -152,7 +152,6 @@ internal fun g7TileStatusPresentation(
 
 internal fun tileForegroundFor(backgroundArgb: Int): Int = if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
-/** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
 internal fun sugarWearTileWeight(emphasized: Boolean): Int = SugarWearTypography.protoWeight(emphasized)
 
 class G7CollectorTileService : TileService() {
@@ -416,13 +415,13 @@ class G7CollectorTileService : TileService() {
                     .Builder()
                     .setSize(sp(size))
                     .setColor(argb(color))
-                    .setPreferredFontFamilies("sans-serif")
+                    .setPreferredFontFamilies(SugarWearTypography.FONT_FAMILY)
                     .setWeight(sugarWearTileWeight(bold))
                     .build(),
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
+        private const val RESOURCES_VERSION = "g7-collector-9-app-type-parity"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

@@ -2,9 +2,11 @@ package app.aapswear.mobile
 
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
+import app.aapswear.model.EffectiveBasalPresentation
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyHistorySample
+import app.aapswear.model.effectiveBasalPresentation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -58,9 +60,9 @@ class TherapyHeroIndicatorsTest {
 
     @Test
     fun `basal icon follows standard lower and higher temp basal`() {
-        assertEquals(R.drawable.ic_basal, basalIconResource(100))
-        assertEquals(R.drawable.ic_basalless, basalIconResource(80))
-        assertEquals(R.drawable.ic_basalmore, basalIconResource(120))
+        assertEquals(app.aapswear.uishared.R.drawable.ic_basal, basalIconResource(100))
+        assertEquals(app.aapswear.uishared.R.drawable.ic_basalless, basalIconResource(80))
+        assertEquals(app.aapswear.uishared.R.drawable.ic_basalmore, basalIconResource(120))
     }
 
     @Test
@@ -76,7 +78,7 @@ class TherapyHeroIndicatorsTest {
         val basal = therapyIndicatorPresentations(state, 10f, 1_000L)[2]
         assertEquals("0.75U/h", basal.value)
         assertEquals("@150%", basal.secondary)
-        assertEquals(R.drawable.ic_basalmore, basal.iconRes)
+        assertEquals(app.aapswear.uishared.R.drawable.ic_basalmore, basal.iconRes)
     }
 
     @Test

@@ -40,19 +40,22 @@ data class SugarWearTypographySpec(
     val sizeSp: Float,
     val appBold: Boolean,
     val protoWeight: Int,
+    val fontFamily: String,
 )
 
 /** Semantic type tokens shared by the SugarWear app and its ProtoLayout tiles. */
 object SugarWearTypography {
+    const val FONT_FAMILY = "sans-serif"
+
     fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
         when (role) {
-            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 500)
-            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 500)
-            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 500)
-            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 500)
+            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 700, FONT_FAMILY)
+            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 700, FONT_FAMILY)
+            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 700, FONT_FAMILY)
+            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 700, FONT_FAMILY)
         }
 
-    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 700 else 400
 }
 
 fun wearGlucoseCardPresentation(

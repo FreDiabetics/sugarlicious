@@ -26,10 +26,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
-import app.aapswear.model.BasalState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.TherapyProgressSemantics
+import app.aapswear.model.TherapyRingGeometry
+import app.aapswear.model.basalIndicatorIcon
+import app.aapswear.model.effectiveBasalPresentation
 import java.util.Locale
+import app.aapswear.uishared.R as SharedUiR
 
 internal data class TherapyIndicatorPresentation(
     val label: String,
@@ -49,27 +53,7 @@ internal fun therapyIndicatorPresentations(
 ): List<TherapyIndicatorPresentation> {
     val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
     val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
-    val historicalBasal =
-        state
-            ?.therapyHistory
-            .orEmpty()
-            .asSequence()
-            .filter { it.measuredAtEpochMs <= nowEpochMs }
-            .sortedByDescending { it.measuredAtEpochMs }
-            .mapNotNull { sample ->
-                val rate = sample.tempBasalUnitsPerHour ?: sample.basalUnitsPerHour ?: sample.baseBasalUnitsPerHour
-                rate?.takeIf { it.isFinite() && it >= 0.0 }?.let {
-                    val percent =
-                        sample.baseBasalUnitsPerHour
-                            ?.takeIf { base -> base.isFinite() && base > 0.0 }
-                            ?.let { base -> (it / base * 100.0).toInt().coerceIn(0, 500) }
-                    EffectiveBasalPresentation(it, percent)
-                }
-            }.firstOrNull()
-    val basal =
-        effectiveBasalPresentation(state?.basal, nowEpochMs)?.let { current ->
-            current.copy(percent = current.percent ?: historicalBasal?.percent)
-        } ?: historicalBasal
+    val basal = effectiveBasalPresentation(state, nowEpochMs)
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     val safeCobMaximum = cobMaximumGrams.takeIf { it > 0f }?.toDouble()
     return listOf(
@@ -77,14 +61,14 @@ internal fun therapyIndicatorPresentations(
             label = "IOB",
             value = iob?.let { "${compactValue(it, 2)}U" } ?: "—",
             progress = TherapyProgressSemantics.scaled(iob, safeIobMaximum),
-            iconRes = R.drawable.ic_iob,
+            iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
             value = cob?.let { "${compactValue(it, 0)}g" } ?: "—",
             progress = TherapyProgressSemantics.scaled(cob, safeCobMaximum),
-            iconRes = R.drawable.ic_carbs,
+            iconRes = SharedUiR.drawable.ic_carbs,
             iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
@@ -100,39 +84,15 @@ internal fun therapyIndicatorPresentations(
 }
 
 internal fun basalIconResource(percent: Int?): Int =
-    when {
-        percent == null || percent == 100 -> R.drawable.ic_basal
-        percent < 100 -> R.drawable.ic_basalless
-        else -> R.drawable.ic_basalmore
+    when (basalIndicatorIcon(percent)) {
+        TherapyIndicatorIcon.BASAL -> SharedUiR.drawable.ic_basal
+        TherapyIndicatorIcon.BASAL_LESS -> SharedUiR.drawable.ic_basalless
+        TherapyIndicatorIcon.BASAL_MORE -> SharedUiR.drawable.ic_basalmore
+        TherapyIndicatorIcon.IOB, TherapyIndicatorIcon.COB -> error("Basal icon expected")
     }
 
 internal fun basalProgress(percent: Int): Float =
     requireNotNull(TherapyProgressSemantics.basal(percent))
-
-internal data class EffectiveBasalPresentation(
-    val unitsPerHour: Double,
-    val percent: Int?,
-)
-
-internal fun effectiveBasalPresentation(
-    basal: BasalState?,
-    nowEpochMs: Long,
-): EffectiveBasalPresentation? {
-    basal ?: return null
-    val explicitEnd =
-        basal.tempEndsAtEpochMs
-            ?: basal.tempStartedAtEpochMs?.let { start -> basal.tempDurationMinutes?.let { start + it * 60_000L } }
-    val tempActive =
-        (basal.tempAbsoluteUnitsPerHour != null || basal.tempPercent != null) &&
-            (explicitEnd == null || explicitEnd > nowEpochMs)
-    val units =
-        (if (tempActive) basal.tempAbsoluteUnitsPerHour else null)
-            ?: basal.currentUnitsPerHour
-            ?: return null
-    if (!units.isFinite() || units < 0.0) return null
-    val percent = if (tempActive) basal.tempPercent?.takeIf { it in 0..500 } else 100
-    return EffectiveBasalPresentation(units, percent)
-}
 
 private fun compactValue(
     value: Double,
@@ -183,13 +143,14 @@ private fun TherapyCircularIndicator(
     ) {
         Box(Modifier.size(66.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
-                val stroke = 7.dp.toPx()
+                val geometry = TherapyRingGeometry()
+                val stroke = geometry.strokeWidthDp.dp.toPx()
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(
                     color = accent.copy(alpha = 0.30f),
-                    startAngle = 130f,
-                    sweepAngle = 280f,
+                    startAngle = geometry.composeStartDegrees,
+                    sweepAngle = geometry.sweepDegrees,
                     useCenter = false,
                     topLeft = Offset(inset, inset),
                     size = arcSize,
@@ -198,8 +159,8 @@ private fun TherapyCircularIndicator(
                 indicator.progress?.takeIf { it > 0f }?.let { progress ->
                     drawArc(
                         color = accent,
-                        startAngle = 130f,
-                        sweepAngle = 280f * progress,
+                        startAngle = geometry.composeStartDegrees,
+                        sweepAngle = geometry.sweepDegrees * progress,
                         useCenter = false,
                         topLeft = Offset(inset, inset),
                         size = arcSize,

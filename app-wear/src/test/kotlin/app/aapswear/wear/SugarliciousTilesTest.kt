@@ -12,6 +12,7 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
@@ -100,16 +101,25 @@ class SugarliciousTilesTest {
         selections.forEach { selected ->
             TherapyTileSelectionStore.write(context, selected)
             val service = Robolectric.buildService(TherapyTileService::class.java).create().get()
+            val request =
+                RequestBuilders.TileRequest
+                    .Builder()
+                    .setDeviceConfiguration(device)
+                    .build()
             val tile =
                 service
-                    .onTileRequest(
-                        RequestBuilders.TileRequest
-                            .Builder()
-                            .setDeviceConfiguration(device)
-                            .build(),
-                    ).get()
+                    .onTileRequest(request)
+                    .get()
             assertTrue(tile.resourcesVersion.contains("therapy"))
             assertEquals(selected.size, TherapyTileSelectionStore.read(context).metrics.size)
+            val resourceIds =
+                request.scope
+                    .collectResources()
+                    .idToImageMapping.keys
+            selected.forEach { metric ->
+                val expectedPrefix = if (metric == TherapyTileMetric.BASAL) "therapy_basal" else "therapy_${metric.name.lowercase()}"
+                assertTrue(resourceIds.any { it.startsWith(expectedPrefix) })
+            }
             service.onDestroy()
         }
     }
@@ -121,9 +131,31 @@ class SugarliciousTilesTest {
         val triple = therapyRingLayoutSpec(3)
 
         assertEquals(7f, single.strokeWidthDp, 0f)
+        assertEquals(220f, single.protoLayoutStartDegrees, 0f)
         assertEquals(280f, single.sweepDegrees, 0f)
         assertEquals(pair.diameterDp, triple.diameterDp, 0f)
         assertEquals(pair.strokeWidthDp, triple.strokeWidthDp, 0f)
+    }
+
+    @Test
+    fun `therapy rings use the shared mobile icon states`() {
+        assertEquals(TherapyIndicatorIcon.IOB, wearTherapyIcon(TherapyTileMetric.IOB, null, now))
+        assertEquals(TherapyIndicatorIcon.COB, wearTherapyIcon(TherapyTileMetric.COB, null, now))
+        assertEquals(
+            TherapyIndicatorIcon.BASAL_LESS,
+            wearTherapyIcon(TherapyTileMetric.BASAL, state(123.0, now).copy(basal = BasalState(currentUnitsPerHour = 0.7, tempPercent = 80)), now),
+        )
+        assertEquals(
+            TherapyIndicatorIcon.BASAL_MORE,
+            wearTherapyIcon(TherapyTileMetric.BASAL, state(123.0, now).copy(basal = BasalState(currentUnitsPerHour = 0.7, tempPercent = 120)), now),
+        )
+    }
+
+    @Test
+    fun `therapy ring background precomposites the mobile thirty percent accent`() {
+        assertEquals(0xFF000000.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0f))
+        assertEquals(0xFFFFFFFF.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 1f))
+        assertEquals(0xFF4C4C4C.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0.30f))
     }
 
     @Test

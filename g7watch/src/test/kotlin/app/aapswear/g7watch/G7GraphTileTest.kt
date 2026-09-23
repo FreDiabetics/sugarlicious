@@ -117,7 +117,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-3-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-4-"))
         assertTrue(request.scope.hasResources())
         assertTrue(
             resources.idToImageMapping
@@ -127,6 +127,24 @@ class G7GraphTileTest {
                 .isNotEmpty(),
         )
         service.onDestroy()
+    }
+
+    @Test fun `backfill changes graph resource version even when latest reading is unchanged`() {
+        val latest = reading("sensor", "session", 3, now - 60_000L, CgmReadingOrigin.LIVE)
+        val base =
+            G7GraphTileSnapshot(
+                readings = listOf(latest),
+                palette = G7AppearanceStore(context).load(),
+                pillState = G7StatusPillState.CONNECTED,
+                graphHours = 3,
+                nowEpochMs = now,
+            )
+        val withBackfill =
+            base.copy(
+                readings = base.readings + reading("sensor", "session", 2, now - 6 * 60_000L, CgmReadingOrigin.BACKFILL),
+            )
+
+        assertTrue(base.resourceVersion != withBackfill.resourceVersion)
     }
 
     @Test fun `stored history produces visible graph dots at small and Galaxy round sizes`() {

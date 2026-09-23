@@ -523,7 +523,7 @@ private fun QuickStatsRow(
         CombinedIobCobCard(Modifier.weight(1f), state, heightDp)
         QuickStatCard(
             Modifier.weight(1f),
-            R.drawable.ic_basal,
+            app.aapswear.uishared.R.drawable.ic_basal,
             "BASAL",
             formatNumber(state?.basal?.currentUnitsPerHour, 2),
             "IE/h",
@@ -602,8 +602,8 @@ private fun CombinedIobCobCard(
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            QuickMetricHeader(R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
-            QuickMetricHeader(R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
+            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
+            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             InlineMetricValue(formatNumber(state?.insulin?.totalIob, 2), "IE")
