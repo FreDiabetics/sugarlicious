@@ -342,7 +342,10 @@ internal class G7CollectorDiagnosticStore(
 
     private fun saveHistory(attempts: List<CollectorDiagnosticAttempt>) {
         historyPreferences.edit {
-            putString(KEY_HISTORY, json.encodeToString(serializer, attempts.takeLast(MAX_ATTEMPTS)))
+            putString(
+                KEY_HISTORY,
+                json.encodeToString(serializer, attempts.takeLast(MAX_ATTEMPTS).map(::compactCompletedAttempt)),
+            )
         }
     }
 
@@ -450,17 +453,25 @@ internal class G7CollectorDiagnosticStore(
         const val KEY_PENDING_CYCLE = "pending_cycle_v2"
 
         // 192 five-minute attempts retain roughly 16 hours, enough to preserve a complete
-        // overnight test plus the morning recovery while remaining bounded on Wear OS storage.
-        const val MAX_ATTEMPTS = 2_304
+        // overnight test plus the morning recovery while avoiding multi-megabyte preference
+        // rewrites on every completed BLE cycle.
+        const val MAX_ATTEMPTS = 192
 
         // Normally only one cycle is active. A small bound also preserves rare overlap/process-death
         // evidence without allowing interrupted attempts to grow unbounded.
         const val MAX_ACTIVE_ATTEMPTS = 8
-        const val MAX_SLOT_SUMMARIES = G7_SLOT_RETENTION_COUNT
+        const val MAX_SLOT_SUMMARIES = 192
         const val MAX_EVENTS_PER_ATTEMPT = 40
         const val STALE_ATTEMPT_AGE_MS = 4L * 60_000L
         val lock = Any()
     }
+}
+
+private fun compactCompletedAttempt(attempt: CollectorDiagnosticAttempt): CollectorDiagnosticAttempt {
+    if (attempt.completedAtEpochMs == null || attempt.events.size <= 4) return attempt
+    // Retain entry context and the terminal path. Detailed timing remains in cycle and the compact
+    // slot record, so completed attempts do not need forty verbose callback messages forever.
+    return attempt.copy(events = attempt.events.take(1) + attempt.events.takeLast(3))
 }
 
 internal const val G7_SLOT_RETENTION_COUNT = 2_304

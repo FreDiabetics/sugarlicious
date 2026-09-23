@@ -20,6 +20,8 @@ internal class G7ReadingDatabase(
     CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
+    private var publishSuppressionDepth = 0
+    private var publishPending = false
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
 
     init {
@@ -177,6 +179,14 @@ internal class G7ReadingDatabase(
         }
 
     private fun publishChanged() {
+        if (publishSuppressionDepth > 0) {
+            publishPending = true
+            return
+        }
+        publishChangedNow()
+    }
+
+    private fun publishChangedNow() {
         mutableLatest.value = query(limit = 1).firstOrNull()
         appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
         appContext.sendBroadcast(
@@ -184,6 +194,20 @@ internal class G7ReadingDatabase(
             READ_G7_PERMISSION,
         )
         G7CollectorTileService.requestUpdate(appContext)
+    }
+
+    /** Coalesces a history transaction into one provider/broadcast/tile fanout. */
+    suspend fun <T> coalesceChangeNotifications(block: suspend G7ReadingDatabase.() -> T): T {
+        publishSuppressionDepth += 1
+        return try {
+            block()
+        } finally {
+            publishSuppressionDepth -= 1
+            if (publishSuppressionDepth == 0 && publishPending) {
+                publishPending = false
+                publishChangedNow()
+            }
+        }
     }
 
     /** Replaces only values derived from the temporal predecessor after history was backfilled. */

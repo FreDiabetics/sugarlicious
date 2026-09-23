@@ -78,7 +78,7 @@ class G7CollectorDiagnosticsTest {
     }
 
     @Test
-    fun `attempt ids survive recreation across the former overnight limit`() {
+    fun `attempt ids survive recreation while history stays at the overnight bound`() {
         repeat(517) { index ->
             val store = G7CollectorDiagnosticStore(context)
             val attempt = store.begin(manual = index % 2 == 0, restart = index % 3 == 0, nowEpochMs = index.toLong())
@@ -92,9 +92,9 @@ class G7CollectorDiagnosticsTest {
         }
 
         val restored = G7CollectorDiagnosticStore(context).snapshot()
-        assertEquals(517, restored.size)
+        assertEquals(192, restored.size)
         assertEquals(517L, restored.first().attemptId)
-        assertEquals(1L, restored.last().attemptId)
+        assertEquals(326L, restored.last().attemptId)
         assertTrue(restored.all { it.completedAtEpochMs != null })
     }
 
@@ -329,6 +329,26 @@ class G7CollectorDiagnosticsTest {
         assertFalse(text.contains("AA:BB:CC:DD:EE:FF"))
         assertTrue(text.contains("[REDACTED]"))
         assertTrue(text.contains("••:••:••:••:EE:FF"))
+    }
+
+    @Test
+    fun `completed attempt keeps compact evidence while active attempt keeps callback detail`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(manual = true, restart = false, nowEpochMs = 0L)
+        repeat(30) { index ->
+            store.record(attempt.attemptId, CollectorDiagnosticStage.SCANNING, message = "event=$index", nowEpochMs = index + 1L)
+        }
+        store.record(
+            attempt.attemptId,
+            CollectorDiagnosticStage.COMPLETE,
+            CollectorDiagnosticResult.SUCCESS,
+            "SUCCESS_FRESH",
+            nowEpochMs = 100L,
+        )
+
+        val restored = G7CollectorDiagnosticStore(context).snapshot().single()
+        assertEquals(4, restored.events.size)
+        assertEquals("SUCCESS_FRESH", restored.events.last().message)
     }
 
     @Test

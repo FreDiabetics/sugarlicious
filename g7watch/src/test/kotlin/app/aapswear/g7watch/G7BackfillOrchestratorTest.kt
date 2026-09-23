@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.CollectorExpectedWindow
 import app.aapswear.g7.G7GapRecoveryState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
@@ -44,6 +45,31 @@ class G7BackfillOrchestratorTest {
 
         assertEquals(older.expectedWindowId, selected?.expectedWindowId)
         assertNotNull(ledger.window(older.expectedWindowId)?.gapDetectedAt)
+    }
+
+    @Test fun `ledger retains only technically recoverable open windows and recent closed evidence`() {
+        val values =
+            (0 until 400).map { index ->
+                CollectorExpectedWindow(
+                    expectedWindowId = "open-$index",
+                    expectedAt = index.toLong(),
+                    recoveryRequired = true,
+                )
+            } +
+                (0 until 250).map { index ->
+                    CollectorExpectedWindow(
+                        expectedWindowId = "closed-$index",
+                        expectedAt = (1_000 + index).toLong(),
+                        recoveryRequired = false,
+                    )
+                }
+
+        val retained = retainExpectedWindows(values)
+
+        assertEquals(MAX_RECOVERABLE_OPEN_WINDOWS, retained.count(CollectorExpectedWindow::recoveryRequired))
+        assertEquals(MAX_CLOSED_WINDOWS, retained.count { !it.recoveryRequired })
+        assertNull(retained.firstOrNull { it.expectedWindowId == "open-0" })
+        assertNotNull(retained.firstOrNull { it.expectedWindowId == "open-399" })
     }
 
     @Test fun `closed gap and another sensor session are never selected`() {

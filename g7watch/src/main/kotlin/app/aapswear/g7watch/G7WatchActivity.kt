@@ -612,7 +612,8 @@ class G7WatchActivity : Activity() {
 
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
-        content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
+        val graphReadings = G7ReadingDatabase(this).use { it.query(limit = 300) }
+        content.addView(graphTile(graphReadings, palette), cardParams(top = 7))
         content.addView(header(palette, pillState))
 
         content.addView(
@@ -817,8 +818,9 @@ class G7WatchActivity : Activity() {
                     append(hours).append('h')
                     if (ageMinutes != null) append(" • ").append(ageMinutes).append('m')
                 }
+            val readings = G7ReadingDatabase(this).use { it.query(limit = 300) }
             graphView.bind(
-                readings = G7ReadingDatabase(this).query(limit = 300),
+                readings = readings,
                 palette = palette,
                 graphHours = hours,
             )
