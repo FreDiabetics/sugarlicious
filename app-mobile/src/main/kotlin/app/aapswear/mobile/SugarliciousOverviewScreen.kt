@@ -119,34 +119,34 @@ internal fun SugarliciousOverviewScreen(
     val metabolicChartViewport = cgmChartViewport
     var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
 
+    val enabledPredictions =
+        if (preferences.showCgmGraph && preferences.anyCgmPredictionEnabled) {
+            state
+                ?.glucosePredictions
+                .orEmpty()
+                .filter { series ->
+                    when (series.kind) {
+                        app.aapswear.model.PredictionKind.IOB -> preferences.showCgmPredictionIob
+                        app.aapswear.model.PredictionKind.COB,
+                        app.aapswear.model.PredictionKind.ACOB,
+                        -> preferences.showCgmPredictionCob
+                        app.aapswear.model.PredictionKind.UAM -> preferences.showCgmPredictionUam
+                        app.aapswear.model.PredictionKind.ZERO_TEMP -> preferences.showCgmPredictionZeroTemp
+                    }
+                }
+        } else {
+            emptyList()
+        }
+    val sharedScaleOnRight =
+        targetScaleOnRight(
+            PredictionDisplayTimeline.anchor(enabledPredictions, now).any { it.samples.isNotEmpty() },
+        )
+
     val predictionFutureWindowMs =
         if (
             preferences.showCgmGraph &&
             preferences.anyCgmPredictionEnabled
         ) {
-            val enabledPredictions =
-                state
-                    ?.glucosePredictions
-                    .orEmpty()
-                    .filter { series ->
-                        when (
-                            series.kind
-                        ) {
-                            app.aapswear.model.PredictionKind.IOB ->
-                                preferences.showCgmPredictionIob
-
-                            app.aapswear.model.PredictionKind.COB,
-                            app.aapswear.model.PredictionKind.ACOB,
-                            ->
-                                preferences.showCgmPredictionCob
-
-                            app.aapswear.model.PredictionKind.UAM ->
-                                preferences.showCgmPredictionUam
-
-                            app.aapswear.model.PredictionKind.ZERO_TEMP ->
-                                preferences.showCgmPredictionZeroTemp
-                        }
-                    }
             maxOf(PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now), 60L * 60_000L)
         } else {
             0L
@@ -272,6 +272,7 @@ internal fun SugarliciousOverviewScreen(
                 viewport = metabolicChartViewport,
                 chartHeightDp = metabolicGraphHeightDp,
                 now = now,
+                scaleOnRight = sharedScaleOnRight,
             )
         }
     }
@@ -775,6 +776,7 @@ private fun MetabolicGraphSurface(
     viewport: ChartViewport,
     chartHeightDp: Int,
     now: Long,
+    scaleOnRight: Boolean,
 ) {
     AndroidView(
         modifier = Modifier.fillMaxWidth().height(chartHeightDp.dp),
@@ -795,11 +797,7 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                scaleOnRight =
-                    !preferences.showCgmTargetValue &&
-                        !preferences.showCgmBasal &&
-                        !preferences.showCgmActivity &&
-                        !preferences.anyCgmPredictionEnabled,
+                scaleOnRight = scaleOnRight,
                 showTimeAxis = !preferences.showCgmGraph,
                 graphScaleMode = preferences.graphScaleMode,
                 iobMaximumUnits = preferences.iobProgressMaximumUnits,

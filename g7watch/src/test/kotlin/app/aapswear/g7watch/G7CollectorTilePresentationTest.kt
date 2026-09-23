@@ -35,7 +35,7 @@ class G7CollectorTilePresentationTest {
         assertEquals(44f, SugarWearTypography.spec(SugarWearTypographyRole.GLUCOSE_VALUE).sizeSp, 0f)
         assertEquals(14f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
         assertEquals(11f, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp, 0f)
-        assertEquals("sans-serif", SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).fontFamily)
+        assertEquals("roboto", SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).fontFamily)
         assertEquals(700, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).protoWeight)
     }
 

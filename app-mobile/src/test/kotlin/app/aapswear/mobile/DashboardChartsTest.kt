@@ -442,11 +442,71 @@ class DashboardChartsTest {
                     ),
             )
         val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L) }
-        val bitmap = render(MetabolicDashboardChart(context, sharedViewport = viewport).apply { bind(state, 6) }, 260)
-        val scaleEnd = (38f * context.resources.displayMetrics.density).toInt()
-        val dividerX = (scaleEnd + (bitmap.width - scaleEnd) * 5f / 6f).toInt()
-        assertTrue("scaleEnd=$scaleEnd width=${bitmap.width}", scaleEnd < bitmap.width)
-        assertTrue("dividerX=$dividerX scaleEnd=$scaleEnd", dividerX > scaleEnd)
+        val bitmap =
+            render(
+                MetabolicDashboardChart(context, sharedViewport = viewport).apply {
+                    bind(state, 6, scaleOnRight = true)
+                },
+                260,
+            )
+        val density = context.resources.displayMetrics.density
+        val plotLeft = 0.5f * density
+        val plotRight = bitmap.width - 0.5f * density - 38f * density
+        val dividerX = (plotLeft + (plotRight - plotLeft) * 6f / 7f).toInt()
+        val divider = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
+        val dividerPixels = countNearColumn(bitmap, dividerX, divider, tolerance = 96)
+
+        assertTrue("dividerX=$dividerX pixels=$dividerPixels", dividerPixels > 8)
+    }
+
+    @Test fun `metabolic value streams reach now but never enter prediction space`() {
+        val now = 40_000_000L
+        val history =
+            listOf(
+                TherapyHistorySample(now - 10 * 60_000L, totalIob = 1.4, cobGrams = 24.0, insulinActivityUnitsPerMinute = 0.018),
+                TherapyHistorySample(now - 5 * 60_000L, totalIob = 1.2, cobGrams = 18.0, insulinActivityUnitsPerMinute = 0.014),
+            )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                insulin = InsulinState(totalIob = 1.2),
+                carbs = CarbState(cobGrams = 18.0),
+                therapyHistory = history,
+            )
+        val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L) }
+        val bitmap =
+            render(
+                MetabolicDashboardChart(context, sharedViewport = viewport).apply {
+                    bind(state, 6, scaleOnRight = true, clockEpochMs = now)
+                },
+                260,
+            )
+        val density = context.resources.displayMetrics.density
+        val plotLeft = 0.5f * density
+        val plotRight = bitmap.width - 0.5f * density - 38f * density
+        val nowX = (plotLeft + (plotRight - plotLeft) * 6f / 7f).toInt()
+        val streamColors =
+            listOf(
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB),
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB),
+                Color.rgb(242, 201, 76),
+            )
+
+        streamColors.forEach { color ->
+            assertTrue("stream ${color.toUInt().toString(16)} does not reach now", countNearColumn(bitmap, nowX, color, 30) > 0)
+        }
+    }
+
+    @Test fun `metabolic series carries its last real value only to the live edge`() {
+        val actual =
+            extendSeriesToLiveEdge(
+                values = listOf(100L to 1.4, 200L to 1.2, 450L to 99.0),
+                liveEdge = 300L,
+                viewportStart = 0L,
+                viewportEnd = 500L,
+            )
+
+        assertEquals(listOf(100L to 1.4, 200L to 1.2, 300L to 1.2), actual)
     }
 
     @Test fun `metabolic markers retain their AndroidAPS size thresholds`() {
@@ -845,6 +905,28 @@ class DashboardChartsTest {
     ): Int {
         var result = 0
         for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) if (predicate(bitmap.getPixel(x, y))) result++
+        return result
+    }
+
+    private fun countNearColumn(
+        bitmap: Bitmap,
+        centerX: Int,
+        expected: Int,
+        tolerance: Int,
+    ): Int {
+        var result = 0
+        for (y in 0 until bitmap.height) {
+            for (x in (centerX - 2).coerceAtLeast(0)..(centerX + 2).coerceAtMost(bitmap.width - 1)) {
+                val actual = bitmap.getPixel(x, y)
+                if (
+                    kotlin.math.abs(Color.red(actual) - Color.red(expected)) <= tolerance &&
+                    kotlin.math.abs(Color.green(actual) - Color.green(expected)) <= tolerance &&
+                    kotlin.math.abs(Color.blue(actual) - Color.blue(expected)) <= tolerance
+                ) {
+                    result += 1
+                }
+            }
+        }
         return result
     }
 }

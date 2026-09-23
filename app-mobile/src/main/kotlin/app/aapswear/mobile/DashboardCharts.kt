@@ -1329,10 +1329,10 @@ internal class MetabolicDashboardChart
                         addRoundRect(cobLanePlot, radius, radius, Path.Direction.CW)
                     },
                 ) {
-                    drawLane(canvas, iobDataPlot, points, start, end, iob = true, range = iobRange, drawScale = false)
-                    drawInsulinActivity(canvas, iobDataPlot, points, start, end, scales.activity)
-                    drawLane(canvas, cobPlot, points, start, end, iob = false, range = cobRange, drawScale = false)
-                    if (!scaleOnRight && dividerTimestamp in start..end) {
+                    drawLane(canvas, iobDataPlot, points, start, end, dividerTimestamp, iob = true, range = iobRange, drawScale = false)
+                    drawInsulinActivity(canvas, iobDataPlot, points, start, end, dividerTimestamp, scales.activity)
+                    drawLane(canvas, cobPlot, points, start, end, dividerTimestamp, iob = false, range = cobRange, drawScale = false)
+                    if (dividerTimestamp in start..end) {
                         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
                         linePaint.strokeWidth = 1f.dp
                         linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
@@ -1429,15 +1429,21 @@ internal class MetabolicDashboardChart
             points: List<TherapyHistorySample>,
             start: Long,
             end: Long,
+            liveEdge: Long,
             iob: Boolean,
             range: GraphAxisScale,
             drawScale: Boolean = true,
         ) {
             val actual =
+                extendSeriesToLiveEdge(
                 points
                     .mapNotNull { point ->
                         (if (iob) point.totalIob else point.cobGrams)?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it }
-                    }.sortedBy { it.first }
+                    },
+                    liveEdge,
+                    start,
+                    end,
+                )
             if (actual.isEmpty()) return
 
             fun y(value: Double) = mapAxisY(value, range, plot)
@@ -1526,13 +1532,19 @@ internal class MetabolicDashboardChart
             visiblePoints: List<TherapyHistorySample>,
             start: Long,
             end: Long,
+            liveEdge: Long,
             activityScale: GraphAxisScale,
         ) {
             val actual =
+                extendSeriesToLiveEdge(
                 visiblePoints
                     .mapNotNull { point ->
                         point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
-                    }.sortedBy { it.first }
+                    },
+                    liveEdge,
+                    start,
+                    end,
+                )
             if (actual.size < 2) return
 
             fun y(value: Double) = plot.bottom - activityScale.ratio(value).toFloat() * plot.height() * ACTIVITY_HEIGHT_FRACTION
@@ -2088,6 +2100,28 @@ private fun valuePath(
             if (index == 0) moveTo(x, y) else lineTo(x, y)
         }
     }
+
+/**
+ * Carries the last measured metabolic value to the live edge. This closes the
+ * five-minute sampling gap without inventing values inside the prediction lane.
+ */
+internal fun extendSeriesToLiveEdge(
+    values: List<Pair<Long, Double>>,
+    liveEdge: Long,
+    viewportStart: Long,
+    viewportEnd: Long,
+): List<Pair<Long, Double>> {
+    val actual =
+        values
+            .asSequence()
+            .filter { (time, value) -> time in viewportStart..liveEdge && value.isFinite() }
+            .distinctBy { it.first }
+            .sortedBy { it.first }
+            .toMutableList()
+    if (actual.isEmpty() || liveEdge !in viewportStart..viewportEnd) return actual
+    if (actual.last().first < liveEdge) actual += liveEdge to actual.last().second
+    return actual
+}
 
 private fun valuePathClosedAt(
     values: List<Pair<Long, Double>>,

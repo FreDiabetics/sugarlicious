@@ -964,7 +964,7 @@ class G7WatchActivity : Activity() {
         setTextColor(color)
         gravity = Gravity.CENTER
         setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-        typeface = Typeface.create(app.aapswear.model.SugarWearTypography.FONT_FAMILY, if (bold) Typeface.BOLD else Typeface.NORMAL)
+        typeface = Typeface.create(app.aapswear.model.SugarWearTypography.APP_FONT_FAMILY, if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
     private fun rounded(

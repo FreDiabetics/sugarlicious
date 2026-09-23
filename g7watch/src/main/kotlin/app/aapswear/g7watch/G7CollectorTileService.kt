@@ -415,13 +415,13 @@ class G7CollectorTileService : TileService() {
                     .Builder()
                     .setSize(sp(size))
                     .setColor(argb(color))
-                    .setPreferredFontFamilies(SugarWearTypography.FONT_FAMILY)
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .setWeight(sugarWearTileWeight(bold))
                     .build(),
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-9-app-type-parity"
+        private const val RESOURCES_VERSION = "g7-collector-10-roboto-parity"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

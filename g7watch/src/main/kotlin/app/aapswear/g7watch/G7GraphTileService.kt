@@ -47,7 +47,7 @@ internal data class G7GraphTileSnapshot(
     val nowEpochMs: Long,
 ) {
     val resourceVersion: String
-        get() = "g7-graph-4-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${pillState.name}"
+        get() = "g7-graph-5-roboto-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${pillState.name}"
 }
 
 /** Cache identity covers the complete canonical graph, including late BACKFILL rows. */
@@ -288,7 +288,7 @@ class G7GraphTileService : TileService() {
                         androidx.wear.protolayout.DimensionBuilders
                             .sp(sizeSp),
                     ).setColor(argb(color))
-                    .setPreferredFontFamilies(SugarWearTypography.FONT_FAMILY)
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .setWeight(sugarWearTileWeight(emphasized = true))
                     .build(),
             ).build()
