@@ -2,6 +2,7 @@ package app.aapswear.g7watch
 
 import android.content.Intent
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.tiles.RequestBuilders
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
@@ -119,13 +120,11 @@ class G7GraphTileTest {
 
         assertTrue(tile.resourcesVersion.startsWith("g7-graph-6-app-weight-parity-"))
         assertTrue(request.scope.hasResources())
-        assertTrue(
-            resources.idToImageMapping
-                .getValue("sugarwear_graph")
-                .inlineResource!!
-                .data
-                .isNotEmpty(),
-        )
+        val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
+        assertEquals(IMAGE_FORMAT_RGB_565, inline.format)
+        assertTrue(inline.widthPx > 0)
+        assertTrue(inline.heightPx > 0)
+        assertEquals(inline.widthPx * inline.heightPx * 2, inline.data.size)
         service.onDestroy()
     }
 

@@ -23,6 +23,7 @@ import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.InlineImageResource
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
@@ -37,7 +38,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 internal data class G7GraphTileSnapshot(
     val readings: List<CgmReading>,
@@ -117,13 +119,17 @@ class G7GraphTileService : TileService() {
         val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
         val graphHeight = cardHeight - square.innerPaddingDp * 2f
         val density = device.screenDensity.takeIf { it > 0f } ?: resources.displayMetrics.density
+        val graphPixels = renderGraph(snapshot, graphWidth, graphHeight, density)
         val graphResource =
             ImageResource
                 .Builder()
                 .setInlineResource(
                     InlineImageResource
                         .Builder()
-                        .setData(renderGraph(snapshot, graphWidth, graphHeight, density))
+                        .setData(graphPixels.data)
+                        .setWidthPx(graphPixels.widthPx)
+                        .setHeightPx(graphPixels.heightPx)
+                        .setFormat(IMAGE_FORMAT_RGB_565)
                         .build(),
                 ).build()
         val graphImage =
@@ -230,19 +236,35 @@ class G7GraphTileService : TileService() {
         )
     }
 
+    private data class InlineGraphPixels(
+        val data: ByteArray,
+        val widthPx: Int,
+        val heightPx: Int,
+    )
+
     private fun renderGraph(
         snapshot: G7GraphTileSnapshot,
         widthDp: Float,
         heightDp: Float,
         density: Float,
-    ): ByteArray {
+    ): InlineGraphPixels {
         val widthPx = (widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density).toInt().coerceAtLeast(1)
         val bitmap = renderGraphBitmap(snapshot, widthPx, heightPx, density)
-        return ByteArrayOutputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        return try {
+            val colors = IntArray(widthPx * heightPx)
+            bitmap.getPixels(colors, 0, widthPx, 0, 0, widthPx, heightPx)
+            val bytes = ByteBuffer.allocate(colors.size * 2).order(ByteOrder.nativeOrder())
+            colors.forEach { color ->
+                val rgb565 =
+                    ((android.graphics.Color.red(color) shr 3) shl 11) or
+                        ((android.graphics.Color.green(color) shr 2) shl 5) or
+                        (android.graphics.Color.blue(color) shr 3)
+                bytes.putShort(rgb565.toShort())
+            }
+            InlineGraphPixels(bytes.array(), widthPx, heightPx)
+        } finally {
             bitmap.recycle()
-            output.toByteArray()
         }
     }
 
