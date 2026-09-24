@@ -864,10 +864,15 @@ class DashboardChartsTest {
         assertEquals("24h", formatVisibleGraphHours(120f))
     }
 
-    @Test fun `target dash phase stays anchored to graph content while path moves`() {
-        assertEquals(0f, contentAnchoredDashPhase(100f, 6f), 0.0001f)
-        assertEquals(0f, contentAnchoredDashPhase(108f, 6f), 0.0001f)
-        assertEquals(0f, contentAnchoredDashPhase(98f, 6f), 0.0001f)
+    @Test fun `target dash phase follows the same pan and zoom transform as graph content`() {
+        val initial = contentAnchoredDashPhase(viewportStartEpochMs = 0L, viewportDurationMs = 1_000L, plotWidthPx = 100f, periodPx = 12f)
+        val panned = contentAnchoredDashPhase(viewportStartEpochMs = 200L, viewportDurationMs = 1_000L, plotWidthPx = 100f, periodPx = 12f)
+        val zoomed = contentAnchoredDashPhase(viewportStartEpochMs = 200L, viewportDurationMs = 500L, plotWidthPx = 100f, periodPx = 12f)
+
+        assertEquals(0f, initial, 0.0001f)
+        assertEquals(8f, panned, 0.0001f)
+        assertEquals(4f, zoomed, 0.0001f)
+        assertTrue(initial != panned)
     }
 
     @Test

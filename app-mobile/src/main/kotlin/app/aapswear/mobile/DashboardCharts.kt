@@ -862,11 +862,15 @@ internal class GlucoseDashboardChart
                     linePaint.strokeWidth = 1.35f.dp
                     targetStepPaths(targetSegments, start, end).forEach { points ->
                         val dashLength = 3f.dp
-                        val firstX = points.firstOrNull()?.let { mapGraphTimeX(it.first, start, end, timeBounds) } ?: timeBounds.left
                         linePaint.pathEffect =
                             DashPathEffect(
                                 floatArrayOf(dashLength, dashLength),
-                                contentAnchoredDashPhase(firstX, dashLength * 2f),
+                                contentAnchoredDashPhase(
+                                    viewportStartEpochMs = start,
+                                    viewportDurationMs = end - start,
+                                    plotWidthPx = timeBounds.width(),
+                                    periodPx = dashLength * 2f,
+                                ),
                             )
                         canvas.drawPath(
                             valuePath(points, start, end, timeBounds) { value -> mapGlucoseY(value, dataPlot, yScale) },
@@ -2101,9 +2105,15 @@ internal fun targetStepPaths(
 ): List<List<Pair<Long, Double>>> = TargetStepTimeline.build(samples, start, end, continuityToleranceMs)
 
 internal fun contentAnchoredDashPhase(
-    pathStartX: Float,
-    period: Float,
-): Float = 0f
+    viewportStartEpochMs: Long,
+    viewportDurationMs: Long,
+    plotWidthPx: Float,
+    periodPx: Float,
+): Float {
+    if (viewportDurationMs <= 0L || plotWidthPx <= 0f || periodPx <= 0f) return 0f
+    val pixelsFromEpoch = viewportStartEpochMs.toDouble() * plotWidthPx.toDouble() / viewportDurationMs.toDouble()
+    return ((pixelsFromEpoch % periodPx + periodPx) % periodPx).toFloat()
+}
 
 internal fun currentTimeLabelAnchor(
     dividerX: Float,
