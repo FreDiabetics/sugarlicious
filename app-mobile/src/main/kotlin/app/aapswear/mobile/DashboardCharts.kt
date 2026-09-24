@@ -493,7 +493,8 @@ internal class GlucoseDashboardChart
         private var showPredictions = false
         private var showTargetRange = true
         private var showTargetValue = false
-        private var showBasal = false
+        private var showCurrentBasal = false
+        private var showBaseBasal = false
         private var showActivity = false
         private var showPredictionIob = false
         private var showPredictionCob = false
@@ -522,7 +523,8 @@ internal class GlucoseDashboardChart
             durationHours: Int,
             showTargetRange: Boolean = true,
             showTargetValue: Boolean = false,
-            showBasal: Boolean = false,
+            showCurrentBasal: Boolean = false,
+            showBaseBasal: Boolean = false,
             showActivity: Boolean = false,
             showPredictionIob: Boolean = false,
             showPredictionCob: Boolean = false,
@@ -583,7 +585,7 @@ internal class GlucoseDashboardChart
                         )
                         add(it.target)
                         add(it.targetHistory)
-                        if (showBasal || showActivity) add(it.therapyHistory)
+                        if (showCurrentBasal || showBaseBasal || showActivity) add(it.therapyHistory)
                     }
                 }
             val durationChanged = boundDurationHours != resolvedDurationHours
@@ -593,7 +595,8 @@ internal class GlucoseDashboardChart
                     this.unit != unit ||
                     this.showPredictions != showPredictions ||
                     this.showTargetValue != showTargetValue ||
-                    this.showBasal != showBasal ||
+                    this.showCurrentBasal != showCurrentBasal ||
+                    this.showBaseBasal != showBaseBasal ||
                     this.showActivity != showActivity ||
                     this.showPredictionIob != showPredictionIob ||
                     this.showPredictionCob != showPredictionCob ||
@@ -620,7 +623,8 @@ internal class GlucoseDashboardChart
             // retained for binary/source compatibility with older callers, but is intentionally ignored.
             this.showTargetRange = true
             this.showTargetValue = showTargetValue
-            this.showBasal = showBasal
+            this.showCurrentBasal = showCurrentBasal
+            this.showBaseBasal = showBaseBasal
             this.showActivity = showActivity
             this.showPredictionIob = showPredictionIob
             this.showPredictionCob = showPredictionCob
@@ -872,7 +876,17 @@ internal class GlucoseDashboardChart
                     linePaint.pathEffect = null
                 }
 
-                if (showBasal) drawBasal(canvas, dataPlot, start, end, state?.therapyHistory.orEmpty())
+                if (showCurrentBasal || showBaseBasal) {
+                    drawBasal(
+                        canvas,
+                        dataPlot,
+                        start,
+                        end,
+                        state?.therapyHistory.orEmpty(),
+                        showCurrentBasal,
+                        showBaseBasal,
+                    )
+                }
                 if (showActivity) {
                     drawInsulinActivity(
                         canvas,
@@ -881,7 +895,6 @@ internal class GlucoseDashboardChart
                         end,
                         now,
                         state?.therapyHistory.orEmpty(),
-                        graphScaleMode,
                     )
                 }
 
@@ -1064,6 +1077,8 @@ internal class GlucoseDashboardChart
             start: Long,
             end: Long,
             points: List<TherapyHistorySample>,
+            showCurrent: Boolean,
+            showBase: Boolean,
         ) {
             val sorted =
                 points
@@ -1072,11 +1087,17 @@ internal class GlucoseDashboardChart
                     }.sortedBy { it.measuredAtEpochMs }
             val visible = windowedStepSamples(sorted, start, end)
             if (visible.size < 2) return
+            val selectedValues =
+                visible.flatMap { sample ->
+                    buildList {
+                        if (showBase) add(sample.baseBasalUnitsPerHour ?: sample.basalUnitsPerHour ?: 0.0)
+                        if (showCurrent) add(effectiveBasal(sample))
+                    }
+                }
             val maxBasal =
                 max(
                     0.1,
-                    visible.flatMap { listOfNotNull(it.baseBasalUnitsPerHour ?: it.basalUnitsPerHour, effectiveBasal(it)) }.maxOrNull()
-                        ?: 0.1,
+                    selectedValues.maxOrNull() ?: 0.1,
                 )
 
             fun basalY(value: Double): Float = plot.top + (value.coerceIn(0.0, maxBasal) / maxBasal).toFloat() * plot.height() * BASAL_HEIGHT_FRACTION
@@ -1085,16 +1106,21 @@ internal class GlucoseDashboardChart
             val base = visible.map { it.measuredAtEpochMs to (it.baseBasalUnitsPerHour ?: it.basalUnitsPerHour ?: 0.0) }
             val clip = Path().apply { addRoundRect(plot, 14f.dp, 14f.dp, Path.Direction.CW) }
             canvas.withClip(clip) {
-                val area = stepPath(effective, start, end, plot, ::basalY, closeAt = plot.top)
-                fillPaint.color = withAlpha(cyan, 76)
-                drawPath(area, fillPaint)
-                linePaint.color = cyan
-                linePaint.strokeWidth = 1.2f.dp
-                linePaint.pathEffect = null
-                drawPath(stepPath(effective, start, end, plot, ::basalY), linePaint)
-                linePaint.strokeWidth = 1f.dp
-                linePaint.pathEffect = DashPathEffect(floatArrayOf(1f.dp, 2f.dp), 0f)
-                drawPath(stepPath(base, start, end, plot, ::basalY), linePaint)
+                if (showCurrent) {
+                    val area = stepPath(effective, start, end, plot, ::basalY, closeAt = plot.top)
+                    fillPaint.color = withAlpha(cyan, 76)
+                    drawPath(area, fillPaint)
+                    linePaint.color = cyan
+                    linePaint.strokeWidth = 1.2f.dp
+                    linePaint.pathEffect = null
+                    drawPath(stepPath(effective, start, end, plot, ::basalY), linePaint)
+                }
+                if (showBase) {
+                    linePaint.color = cyan
+                    linePaint.strokeWidth = 1f.dp
+                    linePaint.pathEffect = DashPathEffect(floatArrayOf(1f.dp, 2f.dp), 0f)
+                    drawPath(stepPath(base, start, end, plot, ::basalY), linePaint)
+                }
                 linePaint.pathEffect = null
             }
         }
@@ -1106,7 +1132,6 @@ internal class GlucoseDashboardChart
             end: Long,
             now: Long,
             points: List<TherapyHistorySample>,
-            scaleMode: CgmGraphScaleMode,
         ) {
             val allActual =
                 points
@@ -1115,18 +1140,9 @@ internal class GlucoseDashboardChart
                     }.sortedBy { it.first }
             val actual = allActual.filter { it.first in start..min(end, now) }
             if (actual.size < 2) return
-            val activityScale =
-                axisScaleSession.resolve(
-                    axis = GraphAxis.INSULIN_ACTIVITY,
-                    mode = scaleMode,
-                    seedValues = allActual.map { it.second },
-                    visibleValues = actual.map { it.second },
-                    fallbackBounds = GraphBounds(0.0, 0.01),
-                    minimumSpan = 0.001,
-                )
-            staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, activityScale)
-
-            fun activityY(value: Double): Float = band.bottom - activityScale.ratio(value).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
+            val maximum = allActual.maxOf { it.second }.coerceAtLeast(0.000001)
+            fun activityY(value: Double): Float =
+                band.bottom - (value / maximum).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
             val yellow = Color.rgb(242, 201, 76)
             linePaint.color = yellow
             linePaint.strokeWidth = 1.35f.dp

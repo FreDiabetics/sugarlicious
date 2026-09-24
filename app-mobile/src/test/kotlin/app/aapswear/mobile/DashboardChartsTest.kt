@@ -722,6 +722,12 @@ class DashboardChartsTest {
 
     @Test fun `CGM insulin activity uses AndroidAPS eighty percent of full graph height`() {
         val now = System.currentTimeMillis()
+        val scalePreferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        scalePreferences
+            .edit()
+            .putLong("graph.static.insulin_activity.minimum", 0.0.toBits())
+            .putLong("graph.static.insulin_activity.maximum", 1.0.toBits())
+            .commit()
         val history =
             (0..4).map { index ->
                 TherapyHistorySample(
@@ -738,12 +744,16 @@ class DashboardChartsTest {
                 target = TargetState(80.0, 160.0),
             )
         val bitmap =
-            render(
-                GlucoseDashboardChart(context).apply {
-                    bind(state, GlucoseUnit.MG_DL, false, 3, showActivity = true, clockEpochMs = now)
-                },
-                230,
-            )
+            try {
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(state, GlucoseUnit.MG_DL, false, 3, showActivity = true, clockEpochMs = now)
+                    },
+                    230,
+                )
+            } finally {
+                scalePreferences.edit().clear().commit()
+            }
         val activityTop =
             (0 until bitmap.height).firstOrNull { y ->
                 (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }

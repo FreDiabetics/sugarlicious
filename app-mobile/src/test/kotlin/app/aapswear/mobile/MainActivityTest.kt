@@ -223,6 +223,21 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
+    @Test fun `current and base basal graph streams persist independently`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putBoolean("cgm.basal.current", true)
+            .putBoolean("cgm.basal.base", false)
+            .commit()
+
+        val ui = DashboardUiPreferences.read(preferences)
+        assertTrue(ui.showCgmCurrentBasal)
+        assertFalse(ui.showCgmBaseBasal)
+    }
+
     @Test fun `saving carousel position does not rebuild the visible dashboard`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)

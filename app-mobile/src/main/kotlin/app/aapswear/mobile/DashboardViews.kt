@@ -60,7 +60,8 @@ data class DashboardUiPreferences(
     val cobProgressMaximumGrams: Float = 300f,
     val showCgmGraph: Boolean = true,
     val showCgmTargetValue: Boolean = true,
-    val showCgmBasal: Boolean = false,
+    val showCgmCurrentBasal: Boolean = false,
+    val showCgmBaseBasal: Boolean = false,
     val showCgmActivity: Boolean = false,
     val showCgmPredictionIob: Boolean = false,
     val showCgmPredictionCob: Boolean = false,
@@ -100,6 +101,8 @@ data class DashboardUiPreferences(
                 showCgmPredictionCob ||
                 showCgmPredictionUam ||
                 showCgmPredictionZeroTemp
+    val showCgmBasal: Boolean
+        get() = showCgmCurrentBasal || showCgmBaseBasal
 
     fun unitFor(state: TherapyDisplayState?): GlucoseUnit =
         when (unit) {
@@ -124,7 +127,8 @@ data class DashboardUiPreferences(
                 cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
-                showCgmBasal = preferences.getBoolean("cgm.basal", false),
+                showCgmCurrentBasal = preferences.getBoolean(CGM_CURRENT_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
+                showCgmBaseBasal = preferences.getBoolean(CGM_BASE_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
                 showCgmActivity = preferences.getBoolean("cgm.activity", false),
                 showCgmPredictionIob = preferences.getBoolean("cgm.prediction.iob", false),
                 showCgmPredictionCob = preferences.getBoolean("cgm.prediction.cob", false),
@@ -178,6 +182,8 @@ data class DashboardUiPreferences(
         const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
         const val GRAPH_MINIMUM_KEY = "graph.minimumMgDl"
         const val GRAPH_SCALE_MODE_KEY = "graph.scaleMode"
+        const val CGM_CURRENT_BASAL_KEY = "cgm.basal.current"
+        const val CGM_BASE_BASAL_KEY = "cgm.basal.base"
     }
 }
 
@@ -692,10 +698,18 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(
                             switchRowCompact(
-                                "Basal",
-                                preferences.showCgmBasal,
+                                "Aktuelle BR/TBR",
+                                preferences.showCgmCurrentBasal,
                                 View.generateViewId(),
-                            ) { callbacks.setCgmStream("cgm.basal", it) },
+                            ) { callbacks.setCgmStream(DashboardUiPreferences.CGM_CURRENT_BASAL_KEY, it) },
+                        )
+                        addView(divider())
+                        addView(
+                            switchRowCompact(
+                                "Basis-BR",
+                                preferences.showCgmBaseBasal,
+                                View.generateViewId(),
+                            ) { callbacks.setCgmStream(DashboardUiPreferences.CGM_BASE_BASAL_KEY, it) },
                         )
                         addView(divider())
                         addView(
