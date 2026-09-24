@@ -566,6 +566,28 @@ class DashboardChartsTest {
         assertTrue(scales.iob.bounds.maximum >= 12.0)
     }
 
+    @Test fun `configured IOB and COB graph maxima use independent axes and retain negative IOB`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, totalIob = -2.0, cobGrams = 20.0),
+                TherapyHistorySample(2_000L, totalIob = 3.0, cobGrams = 240.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.STATIC,
+                allPoints = points,
+                visiblePoints = points,
+                iobMaximumUnits = 12.0,
+                cobMaximumGrams = 180.0,
+            )
+
+        assertTrue(scales.iob.bounds.minimum <= -2.0)
+        assertTrue(scales.iob.bounds.maximum >= 12.0)
+        assertTrue(scales.cob.bounds.maximum >= 240.0)
+        assertTrue(scales.iob.ratio(3.0) != scales.cob.ratio(20.0))
+    }
+
     @Test fun `dynamic cob maximum includes relevant meal plus fifty grams but ignores expired meals`() {
         val now = 12 * 60 * 60_000L
         val start = now - 3 * 60 * 60_000L

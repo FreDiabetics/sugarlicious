@@ -238,6 +238,42 @@ class MainActivityTest {
         assertFalse(ui.showCgmBaseBasal)
     }
 
+    @Test fun `IOB and COB graph maxima persist independently from progress rings`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, 9f)
+            .putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, 250f)
+            .putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, 12f)
+            .putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, 180f)
+            .commit()
+
+        val firstRead = DashboardUiPreferences.read(preferences)
+        val afterRestart = DashboardUiPreferences.read(preferences)
+
+        assertEquals(9f, firstRead.iobProgressMaximumUnits, 0f)
+        assertEquals(250f, firstRead.cobProgressMaximumGrams, 0f)
+        assertEquals(12f, firstRead.iobGraphMaximumUnits, 0f)
+        assertEquals(180f, firstRead.cobGraphMaximumGrams, 0f)
+        assertEquals(firstRead.iobGraphMaximumUnits, afterRestart.iobGraphMaximumUnits, 0f)
+        assertEquals(firstRead.cobGraphMaximumGrams, afterRestart.cobGraphMaximumGrams, 0f)
+    }
+
+    @Test fun `IOB and COB graph maximum controls are visible in mobile settings`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
+
+        assertTrue(settingsText.contains("IOB Graph Maximum"))
+        assertTrue(settingsText.contains("COB Graph Maximum"))
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `saving carousel position does not rebuild the visible dashboard`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)

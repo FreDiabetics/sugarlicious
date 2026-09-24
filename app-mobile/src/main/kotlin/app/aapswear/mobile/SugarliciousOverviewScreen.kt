@@ -801,7 +801,8 @@ private fun MetabolicGraphSurface(
                 scaleOnRight = scaleOnRight,
                 showTimeAxis = !preferences.showCgmGraph,
                 graphScaleMode = preferences.graphScaleMode,
-                iobMaximumUnits = preferences.iobProgressMaximumUnits,
+                iobMaximumUnits = preferences.iobGraphMaximumUnits,
+                cobMaximumGrams = preferences.cobGraphMaximumGrams,
                 clockEpochMs = now,
             )
         },

@@ -1250,6 +1250,7 @@ internal class MetabolicDashboardChart
         private var showTimeAxis = false
         private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
         private var iobMaximumUnits = 10f
+        private var cobMaximumGrams = 300f
         private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
         private val axisScaleSession = GraphScaleSession().also(staticScaleStore::restore)
 
@@ -1261,6 +1262,7 @@ internal class MetabolicDashboardChart
             showTimeAxis: Boolean = false,
             graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
             iobMaximumUnits: Float = 10f,
+            cobMaximumGrams: Float = 300f,
             clockEpochMs: Long = System.currentTimeMillis(),
         ) {
             val clockBucket = clockEpochMs / 30_000L
@@ -1274,6 +1276,7 @@ internal class MetabolicDashboardChart
                     showTimeAxis,
                     graphScaleMode,
                     iobMaximumUnits,
+                    cobMaximumGrams,
                     clockBucket,
                 )
             if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
@@ -1284,7 +1287,10 @@ internal class MetabolicDashboardChart
             this.scaleOnRight = scaleOnRight
             this.showTimeAxis = showTimeAxis
             this.graphScaleMode = graphScaleMode
+            if (this.iobMaximumUnits != iobMaximumUnits) axisScaleSession.clear(GraphAxis.IOB)
+            if (this.cobMaximumGrams != cobMaximumGrams) axisScaleSession.clear(GraphAxis.COB)
             this.iobMaximumUnits = iobMaximumUnits
+            this.cobMaximumGrams = cobMaximumGrams
             renderNowEpochMs = clockEpochMs
             if (!isAttachedToWindow) viewport.setHours(durationHours.toFloat())
             invalidate()
@@ -1326,6 +1332,7 @@ internal class MetabolicDashboardChart
                         allPoints = allPoints,
                         visiblePoints = points,
                         iobMaximumUnits = iobMaximumUnits.toDouble(),
+                        cobMaximumGrams = cobMaximumGrams.toDouble(),
                         therapyEvents = state?.therapyEvents.orEmpty(),
                         viewportStartEpochMs = start,
                         viewportEndEpochMs = end,
@@ -1802,6 +1809,7 @@ internal fun resolveMetabolicScales(
     allPoints: List<TherapyHistorySample>,
     visiblePoints: List<TherapyHistorySample>,
     iobMaximumUnits: Double? = null,
+    cobMaximumGrams: Double? = null,
     therapyEvents: List<app.aapswear.model.TherapyEvent> = emptyList(),
     viewportStartEpochMs: Long = Long.MIN_VALUE,
     viewportEndEpochMs: Long = Long.MAX_VALUE,
@@ -1828,10 +1836,11 @@ internal fun resolveMetabolicScales(
                 minimumSpan = 1.0,
                 maxTickCount = 5,
                 requiredValues =
-                    if (mode == CgmGraphScaleMode.DYNAMIC || mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) {
-                        listOfNotNull(relevantCarbScaleFloor(therapyEvents, viewportStartEpochMs, viewportEndEpochMs))
-                    } else {
-                        emptyList()
+                    buildList {
+                        cobMaximumGrams?.takeIf { it.isFinite() && it > 0.0 }?.let(::add)
+                        if (mode == CgmGraphScaleMode.DYNAMIC || mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) {
+                            relevantCarbScaleFloor(therapyEvents, viewportStartEpochMs, viewportEndEpochMs)?.let(::add)
+                        }
                     },
             ),
         activity =
