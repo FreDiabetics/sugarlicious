@@ -26,7 +26,7 @@ class G7CollectorTilePresentationTest {
 
     @Test
     fun `tile emphasis is calibrated to match the in app system font`() {
-        assertEquals(700, sugarWearTileWeight(true))
+        assertEquals(500, sugarWearTileWeight(true))
         assertEquals(400, sugarWearTileWeight(false))
     }
 
@@ -36,7 +36,7 @@ class G7CollectorTilePresentationTest {
         assertEquals(14f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
         assertEquals(11f, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp, 0f)
         assertEquals("roboto", SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).fontFamily)
-        assertEquals(700, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).protoWeight)
+        assertEquals(500, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).protoWeight)
     }
 
     @Test

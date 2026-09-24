@@ -117,7 +117,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-5-roboto-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-6-app-weight-parity-"))
         assertTrue(request.scope.hasResources())
         assertTrue(
             resources.idToImageMapping
