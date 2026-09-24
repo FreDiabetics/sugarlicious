@@ -79,7 +79,7 @@ internal class StaticGraphScaleStore(
     private val preferences: SharedPreferences,
 ) {
     fun restore(session: GraphScaleSession) {
-        listOf(GraphAxis.IOB, GraphAxis.COB, GraphAxis.INSULIN_ACTIVITY).forEach { axis ->
+        listOf(GraphAxis.IOB, GraphAxis.COB).forEach { axis ->
             val minimumKey = key(axis, "minimum")
             val maximumKey = key(axis, "maximum")
             if (!preferences.contains(minimumKey) || !preferences.contains(maximumKey)) return@forEach
@@ -1343,7 +1343,6 @@ internal class MetabolicDashboardChart
                     )
                 staticScaleStore.persist(GraphAxis.IOB, scales.iob)
                 staticScaleStore.persist(GraphAxis.COB, scales.cob)
-                staticScaleStore.persist(GraphAxis.INSULIN_ACTIVITY, scales.activity)
                 val iobRange = scales.iob
                 val cobRange = scales.cob
                 val dividerTimestamp = viewportSnapshot.liveEdgeEpochMs
@@ -1848,14 +1847,17 @@ internal fun resolveMetabolicScales(
                     },
             ),
         activity =
-            session.resolve(
-                axis = GraphAxis.INSULIN_ACTIVITY,
-                mode = mode,
-                seedValues = allPoints.mapNotNull { it.insulinActivityUnitsPerMinute },
-                visibleValues = visiblePoints.mapNotNull { it.insulinActivityUnitsPerMinute },
-                fallbackBounds = GraphBounds(0.0, 0.01),
-                minimumSpan = 0.001,
-                maxTickCount = 5,
+            GraphAxisScale(
+                mode = CgmGraphScaleMode.DYNAMIC,
+                bounds =
+                    GraphBounds(
+                        minimum = 0.0,
+                        maximum =
+                            visiblePoints
+                                .mapNotNull { it.insulinActivityUnitsPerMinute?.takeIf { value -> value.isFinite() && value > 0.0 } }
+                                .maxOrNull()
+                                ?.coerceAtLeast(0.000001) ?: 0.01,
+                    ),
             ),
     )
 
