@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.tiles.RequestBuilders
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
@@ -80,6 +81,25 @@ class SugarliciousTilesTest {
     }
 
     @Test
+    fun `therapy rings expose values without duplicate metric headings`() {
+        val presentation = wearTherapyTilePresentation(state(123.0, now - 60_000L), now)
+
+        assertEquals("1.2 U", therapyMetricValue(TherapyTileMetric.IOB, presentation))
+        assertEquals("18 g", therapyMetricValue(TherapyTileMetric.COB, presentation))
+        assertEquals("0.70", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
+    }
+
+    @Test
+    fun `three ring group is derived and centered as one square composition`() {
+        val geometry = therapyTileGroupGeometry(192f, 3)
+
+        assertEquals(geometry.ringDiameterDp * 2f + geometry.gapDp, geometry.widthDp, 0.001f)
+        assertEquals(geometry.widthDp, geometry.heightDp, 0.001f)
+        assertEquals((192f - geometry.widthDp) / 2f, geometry.originXDp, 0.001f)
+        assertEquals((192f - geometry.heightDp) / 2f, geometry.originYDp, 0.001f)
+    }
+
+    @Test
     fun `therapy tile renders every valid one two and three metric selection`() {
         val selections =
             listOf(
@@ -126,9 +146,9 @@ class SugarliciousTilesTest {
 
     @Test
     fun `therapy rings keep equal bounds and the mobile stroke geometry`() {
-        val single = therapyRingLayoutSpec(1)
-        val pair = therapyRingLayoutSpec(2)
-        val triple = therapyRingLayoutSpec(3)
+        val single = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 1).ringDiameterDp)
+        val pair = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 2).ringDiameterDp)
+        val triple = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 3).ringDiameterDp)
 
         assertEquals(7f, single.strokeWidthDp, 0f)
         assertEquals(220f, single.protoLayoutStartDegrees, 0f)
@@ -196,13 +216,11 @@ class SugarliciousTilesTest {
         val resources = request.scope.collectResources()
 
         assertTrue(request.scope.hasResources())
-        assertTrue(
-            resources.idToImageMapping
-                .getValue("live_cgm_graph")
-                .inlineResource!!
-                .data
-                .isNotEmpty(),
-        )
+        val inline = resources.idToImageMapping.getValue("live_cgm_graph").inlineResource!!
+        assertEquals(IMAGE_FORMAT_RGB_565, inline.format)
+        assertTrue(inline.widthPx > 0)
+        assertTrue(inline.heightPx > 0)
+        assertEquals(inline.widthPx * inline.heightPx * 2, inline.data.size)
         service.onDestroy()
     }
 

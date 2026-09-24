@@ -32,14 +32,14 @@ import app.aapswear.g7.CgmReading
 import app.aapswear.model.SugarWearTypography
 import app.aapswear.model.SugarWearTypographyRole
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
+import app.aapswear.uishared.Rgb565Image
+import app.aapswear.uishared.toRgb565Image
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 internal data class G7GraphTileSnapshot(
     val readings: List<CgmReading>,
@@ -236,33 +236,17 @@ class G7GraphTileService : TileService() {
         )
     }
 
-    private data class InlineGraphPixels(
-        val data: ByteArray,
-        val widthPx: Int,
-        val heightPx: Int,
-    )
-
     private fun renderGraph(
         snapshot: G7GraphTileSnapshot,
         widthDp: Float,
         heightDp: Float,
         density: Float,
-    ): InlineGraphPixels {
+    ): Rgb565Image {
         val widthPx = (widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density).toInt().coerceAtLeast(1)
         val bitmap = renderGraphBitmap(snapshot, widthPx, heightPx, density)
         return try {
-            val colors = IntArray(widthPx * heightPx)
-            bitmap.getPixels(colors, 0, widthPx, 0, 0, widthPx, heightPx)
-            val bytes = ByteBuffer.allocate(colors.size * 2).order(ByteOrder.nativeOrder())
-            colors.forEach { color ->
-                val rgb565 =
-                    ((android.graphics.Color.red(color) shr 3) shl 11) or
-                        ((android.graphics.Color.green(color) shr 2) shl 5) or
-                        (android.graphics.Color.blue(color) shr 3)
-                bytes.putShort(rgb565.toShort())
-            }
-            InlineGraphPixels(bytes.array(), widthPx, heightPx)
+            bitmap.toRgb565Image()
         } finally {
             bitmap.recycle()
         }
