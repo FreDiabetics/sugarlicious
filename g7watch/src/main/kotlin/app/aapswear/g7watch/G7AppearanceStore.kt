@@ -11,6 +11,8 @@ import app.aapswear.model.SettingsSchemaVersions
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.uishared.DirectToWatchGraphDefaults
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 enum class G7AppearanceSection(
     val label: String,
@@ -270,12 +272,87 @@ class G7AppearanceStore(
         return next
     }
 
+    fun tileGraphHours(): Int =
+        preferences.getInt(KEY_TILE_GRAPH_HOURS, DEFAULT_GRAPH_HOURS).takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS
+
+    fun setTileGraphHours(hours: Int) {
+        preferences.edit { putInt(KEY_TILE_GRAPH_HOURS, hours.takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS) }
+        notifyTileChanged()
+    }
+
+    fun inAppGraphStyle(): SharedWearCgmGraphStyle =
+        DirectToWatchGraphDefaults.style().copy(
+            historicalDotOutlineEnabled = historicalDotOutlineEnabled(),
+            currentDotOutlineEnabled = currentDotOutlineEnabled(),
+        )
+
+    fun tileGraphStyle(defaultCornerRadiusDp: Float = DirectToWatchGraphDefaults.style().cornerRadiusDp): SharedWearCgmGraphStyle {
+        val defaults = DirectToWatchGraphDefaults.style().copy(cornerRadiusDp = defaultCornerRadiusDp)
+        return defaults.copy(
+            dotRadiusDp = preferences.getFloat(KEY_TILE_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
+            historicalDotOutlineEnabled = preferences.getBoolean(KEY_TILE_HISTORY_OUTLINE, defaults.historicalDotOutlineEnabled),
+            currentDotOutlineEnabled = preferences.getBoolean(KEY_TILE_CURRENT_OUTLINE, defaults.currentDotOutlineEnabled),
+            dotOutlineWidthDp = preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
+            cornerRadiusDp = preferences.getFloat(KEY_TILE_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
+            borderEnabled = true,
+            timeAxisEnabled = preferences.getBoolean(KEY_TILE_TIME_AXIS, defaults.timeAxisEnabled),
+            scaleLaneOpacityPercent = preferences.getInt(KEY_TILE_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
+        )
+    }
+
+    fun saveTileGraphStyle(style: SharedWearCgmGraphStyle) {
+        preferences.edit {
+            putFloat(KEY_TILE_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
+            putBoolean(KEY_TILE_HISTORY_OUTLINE, style.historicalDotOutlineEnabled)
+            putBoolean(KEY_TILE_CURRENT_OUTLINE, style.currentDotOutlineEnabled)
+            putFloat(KEY_TILE_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_TILE_CORNER_RADIUS, style.cornerRadiusDp.coerceIn(0f, 40f))
+            putBoolean(KEY_TILE_TIME_AXIS, style.timeAxisEnabled)
+            putInt(KEY_TILE_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
+        }
+        notifyTileChanged()
+    }
+
+    fun tileGraphPalette(mode: AppearanceMode = activeMode()): G7AppearancePalette {
+        val base = load(mode)
+        return G7AppearancePalette(
+            G7AppearanceRole.entries.associateWith { role ->
+                if (role.section == G7AppearanceSection.GRAPH) preferences.getInt(tileColorKey(mode, role), base.argb(role)) else base.argb(role)
+            },
+            mode,
+        )
+    }
+
+    fun saveTileGraphColor(
+        role: G7AppearanceRole,
+        argb: Int,
+        mode: AppearanceMode = activeMode(),
+    ) {
+        require(role.section == G7AppearanceSection.GRAPH)
+        preferences.edit { putInt(tileColorKey(mode, role), argb) }
+        notifyTileChanged()
+    }
+
+    fun resetTileGraph() {
+        preferences.edit {
+            preferences.all.keys
+                .filter { it.startsWith("tile_graph.") }
+                .forEach(::remove)
+        }
+        notifyTileChanged()
+    }
+
     private fun colorKey(role: G7AppearanceRole): String = "color.${role.key}"
 
     private fun colorKey(
         mode: AppearanceMode,
         role: G7AppearanceRole,
     ): String = "color.${mode.storageKey}.${role.key}"
+
+    private fun tileColorKey(
+        mode: AppearanceMode,
+        role: G7AppearanceRole,
+    ): String = "tile_graph.color.${mode.storageKey}.${role.key}"
 
     private fun notifyTileChanged() {
         G7CollectorTileService.requestUpdate(appContext)
@@ -305,5 +382,13 @@ class G7AppearanceStore(
         private const val KEY_GRAPH_HOURS = "graph_hours"
         private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_historical_dot_outline_enabled"
         private const val KEY_CURRENT_DOT_OUTLINE = "graph_current_dot_outline_enabled"
+        private const val KEY_TILE_GRAPH_HOURS = "tile_graph.hours"
+        private const val KEY_TILE_DOT_RADIUS = "tile_graph.dot_radius"
+        private const val KEY_TILE_HISTORY_OUTLINE = "tile_graph.history_outline"
+        private const val KEY_TILE_CURRENT_OUTLINE = "tile_graph.current_outline"
+        private const val KEY_TILE_OUTLINE_WIDTH = "tile_graph.outline_width"
+        private const val KEY_TILE_CORNER_RADIUS = "tile_graph.corner_radius"
+        private const val KEY_TILE_TIME_AXIS = "tile_graph.time_axis"
+        private const val KEY_TILE_SCALE_LANE_OPACITY = "tile_graph.scale_lane_opacity"
     }
 }

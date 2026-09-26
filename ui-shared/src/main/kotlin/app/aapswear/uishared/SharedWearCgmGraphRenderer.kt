@@ -86,6 +86,7 @@ data class SharedWearCgmGraphInput(
     val palette: SharedWearCgmGraphPalette,
     val style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
     val emptyLabel: String = "",
+    val outsideClipColor: Int = palette.background,
 )
 
 data class SharedWearCgmGraphMetrics(
@@ -172,10 +173,9 @@ object SharedWearCgmGraphRenderer {
         val visual = metrics.visualBounds
         if (plot.width() <= 0f || plot.height() <= 0f) return null
 
-        // RGB_565 tile resources have no alpha channel. Fill the complete image before applying
-        // the rounded content clip so its corners resolve to the canonical graph background
-        // instead of opaque black on the device renderer.
-        canvas.drawColor(palette.background)
+        // RGB_565 tile resources have no alpha channel. Matte only the pixels outside the graph
+        // contour with the surrounding surface; all pixels inside the contour belong to the graph.
+        canvas.drawColor(input.outsideClipColor)
         val cornerRadius = dp(input.style.cornerRadiusDp).coerceAtLeast(0f)
         val canvasState = canvas.save()
         canvas.clipPath(

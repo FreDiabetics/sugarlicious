@@ -8,6 +8,7 @@ import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseSample
 import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 /** Shared SugarWear adapter. Both the in-app Canvas and Graph Tile use this exact input. */
 internal fun g7SharedGraphInput(
@@ -17,6 +18,8 @@ internal fun g7SharedGraphInput(
     graphHours: Int,
     nowEpochMs: Long,
     emptyLabel: String = "",
+    styleOverride: SharedWearCgmGraphStyle? = null,
+    outsideClipColor: Int? = null,
 ): SharedWearCgmGraphInput {
     val colors =
         settings.graphColors().copy(
@@ -76,8 +79,9 @@ internal fun g7SharedGraphInput(
                 targetText = colors.targetValue,
                 emptyText = colors.signalLoss,
             ),
-        style = settings.graphStyle(),
+        style = styleOverride ?: settings.graphStyle(),
         emptyLabel = emptyLabel,
+        outsideClipColor = outsideClipColor ?: colors.graphBackground,
     )
 }
 

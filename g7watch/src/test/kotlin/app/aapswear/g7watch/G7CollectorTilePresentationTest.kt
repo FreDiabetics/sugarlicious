@@ -5,8 +5,8 @@ import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.SugarWearTypography
 import app.aapswear.model.SugarWearTypographyRole
-import app.aapswear.model.sugarWearTypographyParitySamples
 import app.aapswear.model.Trend
+import app.aapswear.model.sugarWearTypographyParitySamples
 import app.aapswear.protocol.WatchGraphColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

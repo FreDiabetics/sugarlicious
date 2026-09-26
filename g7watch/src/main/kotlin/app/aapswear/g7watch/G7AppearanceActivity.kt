@@ -154,6 +154,68 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
 
+        val tileStyle = store.tileGraphStyle()
+        content.addView(sectionTitle("WearOS-Tile Graph", palette))
+        content.addView(tileHoursRow(palette), params(top = 5))
+        content.addView(
+            scaleRow("Punktgröße", (tileStyle.dotRadiusDp * 100).roundToInt(), palette, {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(dotRadiusDp = it / 100f))
+            }, min = 150, max = 600, format = { "Punktgröße · ${it / 100f} dp" }),
+            params(top = 5),
+        )
+        content.addView(
+            toggleRow("Kontur · bisherige Punkte", tileStyle.historicalDotOutlineEnabled, palette) {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(historicalDotOutlineEnabled = it))
+            },
+            params(top = 5),
+        )
+        content.addView(
+            toggleRow("Kontur · aktueller Wert", tileStyle.currentDotOutlineEnabled, palette) {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(currentDotOutlineEnabled = it))
+            },
+            params(top = 5),
+        )
+        content.addView(
+            scaleRow("Konturdicke", (tileStyle.dotOutlineWidthDp * 100).roundToInt(), palette, {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(dotOutlineWidthDp = it / 100f))
+            }, min = 25, max = 300, format = { "Konturdicke · ${it / 100f} dp" }),
+            params(top = 5),
+        )
+        content.addView(
+            toggleRow("Zeitachse", tileStyle.timeAxisEnabled, palette) {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(timeAxisEnabled = it))
+            },
+            params(top = 5),
+        )
+        content.addView(
+            scaleRow("Eckenradius", (tileStyle.cornerRadiusDp * 10).roundToInt(), palette, {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(cornerRadiusDp = it / 10f))
+            }, min = 0, max = 400, format = { "Eckenradius · ${it / 10f} dp" }),
+            params(top = 5),
+        )
+        content.addView(
+            scaleRow("Skalenbereich-Deckkraft", tileStyle.scaleLaneOpacityPercent, palette, {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(scaleLaneOpacityPercent = it))
+            }, min = 0, max = 100, format = { "Skalenbereich-Deckkraft · $it %" }),
+            params(top = 5),
+        )
+        G7AppearanceRole.entries.filter { it.section == G7AppearanceSection.GRAPH }.forEach { role ->
+            val tilePalette = store.tileGraphPalette(selectedMode)
+            content.addView(
+                simpleColorRow(role.label, tilePalette.argb(role), palette) {
+                    openTileColorEditor(role)
+                },
+                params(top = 5),
+            )
+        }
+        content.addView(
+            pill("TILE-GRAPH RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+                store.resetTileGraph()
+                render()
+            },
+            params(top = 5),
+        )
+
         G7AppearanceSection.entries.forEach { section ->
             content.addView(
                 label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
@@ -189,6 +251,33 @@ class G7AppearanceActivity : Activity() {
     }
 
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Farben & Darstellung", palette)
+
+    private fun sectionTitle(
+        title: String,
+        palette: G7AppearancePalette,
+    ) = label(title.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+        letterSpacing = 0.10f
+        setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+    }
+
+    private fun tileHoursRow(palette: G7AppearancePalette) =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            G7AppearanceStore.ALLOWED_GRAPH_HOURS.forEach { hours ->
+                val active = store.tileGraphHours() == hours
+                addView(
+                    pill(
+                        "${hours}h",
+                        if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                        if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                    ) {
+                        store.setTileGraphHours(hours)
+                        render()
+                    },
+                    LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
+                )
+            }
+        }
 
     private fun colorRow(
         role: G7AppearanceRole,
@@ -359,6 +448,25 @@ class G7AppearanceActivity : Activity() {
             onChange = { store.save(selectedMode, role, it) },
             onReset = {
                 store.reset(selectedMode, role)
+                render()
+            },
+        )
+    }
+
+    private fun openTileColorEditor(role: G7AppearanceRole) {
+        val palette = store.load(selectedMode)
+        val initial = store.tileGraphPalette(selectedMode).argb(role)
+        SharedColorEditor.show(
+            this,
+            "WearOS-Tile · ${role.label}",
+            initial,
+            palette.argb(G7AppearanceRole.MENU_SURFACE),
+            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            palette.argb(G7AppearanceRole.MENU_BORDER),
+            palette.argb(role),
+            onChange = { store.saveTileGraphColor(role, it, selectedMode) },
+            onReset = {
+                store.saveTileGraphColor(role, palette.argb(role), selectedMode)
                 render()
             },
         )

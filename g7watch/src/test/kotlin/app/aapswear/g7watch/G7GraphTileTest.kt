@@ -119,12 +119,13 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-8-system-font-parity-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-9-contour-fill-"))
         assertTrue(request.scope.hasResources())
         val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
+        val content = g7GraphTileContentSpec(192, 192)
         assertEquals(IMAGE_FORMAT_RGB_565, inline.format)
-        assertTrue(inline.widthPx > 0)
-        assertTrue(inline.heightPx > 0)
+        assertEquals((content.widthDp * 2f).toInt(), inline.widthPx)
+        assertEquals((content.heightDp * 2f).toInt(), inline.heightPx)
         assertEquals(inline.widthPx * inline.heightPx * 2, inline.data.size)
         service.onDestroy()
     }
@@ -188,7 +189,36 @@ class G7GraphTileTest {
         service.onDestroy()
     }
 
-    @Test fun `graph image corners use the shared graph background instead of transparent black`() {
+    @Test fun `graph fills the existing tile contour without an inner surface`() {
+        listOf(192 to 192, 227 to 227, 240 to 240, 220 to 180).forEach { (width, height) ->
+            val square = g7SquareTileSpec(width, height)
+            val graph = g7GraphTileContentSpec(width, height)
+            assertEquals(square.sideDp, graph.widthDp, 0.01f)
+            assertEquals(square.sideDp - 21f, graph.heightDp, 0.01f)
+            assertEquals(square.cornerRadiusDp, graph.cornerRadiusDp, 0.01f)
+            assertEquals(0f, graph.outerPaddingDp, 0f)
+        }
+    }
+
+    @Test fun `tile graph settings and colors are independent from in app graph`() {
+        val appearance = G7AppearanceStore(context)
+        val inApp = G7DirectToWatchSettingsStore(context)
+        appearance.resetTileGraph()
+        inApp.saveGraphHours(3)
+
+        appearance.setTileGraphHours(12)
+        appearance.saveTileGraphStyle(appearance.tileGraphStyle().copy(dotRadiusDp = 5f, timeAxisEnabled = true))
+        appearance.saveTileGraphColor(G7AppearanceRole.GRAPH_BACKGROUND, Color.MAGENTA)
+
+        assertEquals(12, appearance.tileGraphHours())
+        assertEquals(3, inApp.graphHours())
+        assertEquals(5f, appearance.tileGraphStyle().dotRadiusDp, 0f)
+        assertTrue(appearance.tileGraphStyle().timeAxisEnabled)
+        assertEquals(Color.MAGENTA, appearance.tileGraphPalette().argb(G7AppearanceRole.GRAPH_BACKGROUND))
+        assertTrue(Color.MAGENTA != appearance.load().argb(G7AppearanceRole.GRAPH_BACKGROUND))
+    }
+
+    @Test fun `outside the graph contour matches the tile while graph fills the contour`() {
         val palette = G7AppearanceStore(context).load()
         val snapshot =
             G7GraphTileSnapshot(
@@ -202,7 +232,11 @@ class G7GraphTileTest {
 
         val bitmap = service.renderGraphBitmap(snapshot, 300, 180, 1f)
 
-        assertEquals(palette.argb(G7AppearanceRole.GRAPH_BACKGROUND), bitmap.getPixel(0, 0))
+        assertEquals(palette.argb(G7AppearanceRole.MENU_BACKGROUND), bitmap.getPixel(0, 0))
+        assertTrue(
+            bitmap.getPixel(bitmap.width / 2, bitmap.height / 2) !=
+                palette.argb(G7AppearanceRole.MENU_BACKGROUND),
+        )
         assertEquals(Color.alpha(bitmap.getPixel(0, 0)), 255)
         bitmap.recycle()
         service.onDestroy()

@@ -27,6 +27,7 @@ internal class G7CollectorGraphView
     ) : View(context, attrs) {
         private val density = resources.displayMetrics.density
         private val directSettings by lazy { G7DirectToWatchSettingsStore(context) }
+        private val appearanceStore by lazy { G7AppearanceStore(context) }
         private var readings: List<CgmReading> = emptyList()
         private var nowOverrideEpochMs: Long? = null
         private var boundGraphHours: Int = 3
@@ -90,7 +91,14 @@ internal class G7CollectorGraphView
                 height,
                 density,
                 TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 1f, resources.displayMetrics),
-                g7SharedGraphInput(readings, palette, directSettings, graphHours, now),
+                g7SharedGraphInput(
+                    readings,
+                    palette,
+                    directSettings,
+                    graphHours,
+                    now,
+                    styleOverride = appearanceStore.inAppGraphStyle(),
+                ),
             )
         }
     }

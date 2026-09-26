@@ -323,10 +323,24 @@ internal object AapsAlgorithmActivityParser {
         if (payload.isNullOrBlank()) return null
         val reason =
             runCatching {
-                json.parseToJsonElement(payload).jsonObject["reason"]?.jsonPrimitive?.content
+                json
+                    .parseToJsonElement(payload)
+                    .jsonObject["reason"]
+                    ?.jsonPrimitive
+                    ?.content
             }.getOrNull() ?: return null
-        val bgi = bgiPattern.find(reason)?.groupValues?.getOrNull(1)?.toDoubleOrNull() ?: return null
-        val isf = isfPattern.find(reason)?.groupValues?.getOrNull(1)?.toDoubleOrNull() ?: return null
+        val bgi =
+            bgiPattern
+                .find(reason)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toDoubleOrNull() ?: return null
+        val isf =
+            isfPattern
+                .find(reason)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toDoubleOrNull() ?: return null
         if (!bgi.isFinite() || !isf.isFinite() || bgi > 0.0 || bgi < -1_000.0 || isf !in 1.0..1_000.0) return null
         return (-bgi / (isf * AAPS_MINUTES_PER_STEP)).takeIf { it.isFinite() && it in 0.0..10.0 }
     }
