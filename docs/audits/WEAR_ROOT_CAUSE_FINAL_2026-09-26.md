@@ -1,39 +1,49 @@
 # Wear Root-Cause Final — 2026-09-26
 
-## Baseline and architecture
+## Analysezeitraum und Baseline
 
-- Base: local `main` `d588a266`; `origin/main` `1919ace0` is contained in it.
-- Continued candidate: `feature/master-system-stability`, based exactly on the same local `main`.
-- Runtime paths traced: Mobile canonical state → bounded Wear protocol → Message/DataItem → persisted Wear state → resolver → targeted complications/tiles; shared CGM graph input → shared renderer → App/Tile surface.
+- Analyse und Umsetzung: 2026-09-20 bis 2026-09-26.
+- Basis: `origin/main` `1919ace0`; Abschluss: `b696dcfe` auf `codex/wear-root-cause-final`, 40 Commits voraus, keine Divergenz und sauberer Working Tree.
+- Produktiver Pfad: AAPS-Payload → kanonischer Mobile-State → persistierter Wear-State/Resolver → App, Tile, Complications und Watchfaces; G7-BLE → persistente Historie/Gap-Ledger → Resolver → dieselben Oberflächen.
 
-## Root causes
+## Architektur
 
-- Typography: ProtoLayout uses the platform system face; previous source-string parity was insufficient. The candidate calibrates supported real weights against the app system face and covers glucose/meta/status text.
-- Insulin activity: scale selection previously did not consistently derive from the visible activity stream. The candidate uses the independent `INSULIN_ACTIVITY` axis and visible history/prediction values across all four modes.
-- Graph Tile: unsupported/incorrect inline-pixel delivery and divergent container geometry caused visible mismatch. The candidate uses the shared model/renderer, supported encoded inline pixels and one clipped full-surface geometry.
-- Startup/reconnect: the same payload is intentionally sent through two transports, but the Wear callback decoded the complete payload synchronously before revision deduplication. It now rejects an already committed byte-identical payload before decode, and decode/merge/persistence/fan-out execute in one IO mutex.
+- Eine kanonische Daten-, Freshness- und Resolver-Schicht bleibt die Quelle aller Darstellungen.
+- App- und Graph-Tile verwenden denselben `SharedWearCgmGraphRenderer`; das Tile besitzt davon unabhängige persistente Darstellungswerte.
+- LIVE/BACKFILL, Sensor/Session, Mess- und Empfangszeit bleiben getrennt. Reconnect, Neustart und Backfill verwenden das persistente erwartete Zeitfenster und deterministische Deduplizierung.
 
-## Quantitative code evidence
+## Root Causes und historische Probleme
 
-| Operation per identical dual delivery | Before | After |
-|---|---:|---:|
-| Callback-thread full JSON decodes | 2 | 0 |
-| Total full JSON decodes | 2 | 1 |
-| History merges/persistence/fan-out | 1 | 1 |
-| Durable and immediate delivery guarantees | 2 transports | unchanged |
+- **Tile-Schrift — vorher nicht behoben, jetzt CODE-VALIDIERT:** App und ProtoLayout lösten trotz gleicher Bezeichnung unterschiedliche Standardschriften auf. Beide Pfade verwenden nun explizit Roboto und gemeinsame semantische Gewichte; echte Glukose-, Trend-, Meta- und Statustexte sind abgedeckt.
+- **Insulinaktivität — vorher nicht behoben, jetzt CODE-VALIDIERT:** Produktionsbroadcasts enthalten üblicherweise kein Feld `insulinActivity`; Tests hatten es künstlich geliefert. Die Aktivität wird nun aus den von AAPS berechneten `BGI`- und `ISF`-Werten gemäß `activity = -BGI / (ISF * 5)` übernommen. Unvollständige/unphysikalische Daten scheitern geschlossen; es gibt keine IOB-Schätzung.
+- **Graph-Tile — vorher nicht behoben, jetzt CODE-VALIDIERT:** ProtoLayout-Card, Padding und Renderer-Kontur bildeten doppelte Hintergründe. Die äußere Card wurde entfernt; der Graph wird exakt in der endgültigen Bitmapgröße erzeugt und füllt die bestehende Tile-Kontur ohne Skalierung oder Verzerrung. Nur Pixel außerhalb der Rundung tragen die umgebende Tile-Farbe.
+- **Fehlende Tile-Einstellungen — vorher offen, jetzt CODE-VALIDIERT:** `Farben & Darstellung` enthält `WEAROS-TILE GRAPH` mit Zeitraum, Punktgröße, beiden Konturen, Konturstärke, Zeitachse, Rundung, Skalenfeld-Deckkraft und allen Graphfarben; Änderungen invalidieren das Tile.
+- **App vor dem Update nicht startbar — durch den Versions-/Schema-Fix behoben:** monotone Versionen und Downgrade-Schutz verhindern die frühere inkompatible Datenbankschema-Installation.
+- Collector-, Gap-, Restart-, Background-, Sensorwechsel-, Freshness-, Alarm-, Resolver-, Complication- und Ressourcenpfade wurden in den Master-Phasen geprüft; die Änderungen erhalten diese Grenzen und führen kein Polling, keine Restart-Schleife und keine zweite Datenarchitektur ein.
 
-The regression payload is 90,000 bytes, matching the protocol ceiling. Hardware wall-clock, heap, reboot, crash and long-run measurements remain open until the watch is reachable.
+## Tests und Quality Gate
 
-## Quality gate
+- Aktuell betroffene Module: **535 Tests**, 535 bestanden, 0 Fehler, 0 übersprungen (`ui-shared` 6, `data-source-aaps` 25, `app-mobile` 269, `g7watch` 235).
+- Vorheriger vollständiger Branchlauf: **853 Tests**, 853 bestanden.
+- Erfolgreich: `assembleDebug`, G7/Mobile `assembleRelease`, G7/Mobile `lint`, `detekt`, `ktlintCheck`, fokussierte Render-/Persistenz-/Payload-Tests und `git diff --check`.
+- Ein paralleler JBR-JIT-Lauf und ein paralleler Lint-Lauf scheiterten an JVM-Codecache/VM-Fehlern. Beide Gates wurden ohne deaktivierte Regeln isoliert erfolgreich wiederholt.
 
-- 853 tests: 853 passed, 0 failures, 0 errors, 0 skipped across 150 reports.
-- `test`, `assembleDebug`, Mobile/Wear/G7 Release assemblies, `lint`, `detekt` and `ktlintCheck`: successful in the final 1,103-task run (43 executed, 1,060 up-to-date).
-- `git diff --check`: clean; line-ending notices are repository configuration notices, not whitespace errors.
+## Hardwarevalidierung
 
-## Hardware boundary
+- **HARDWARE-TEST OFFEN.** ADB erkennt aktuell ausschließlich `SM-S948B`; die Galaxy Watch `SM-L705F` erscheint weder unter `adb devices` noch per mDNS.
+- Der sichere Kombi-Installer baute alle APKs, stoppte aber mit `Genau eine Wear-OS-Watch wird erwartet, gefunden: 0`. Daher wurde nichts auf das falsche Gerät installiert.
+- Offen bleiben Sichtprüfung von Schrift/Kontur, Live-CGM/Insulinaktivität, Kaltstart, Process-Kill, Reboot, längerer Offline-Zeitraum und Akku-/Speicherbeobachtung auf echter Hardware.
 
-The Galaxy Watch was not present in the final ADB or mDNS inventory. No APK was installed and no cold-start, reboot, process-kill, heap, ANR, typography-on-device or live-CGM claim is made for this candidate. Those checks remain **HARDWARE-TEST OPEN**.
+## Restrisiken
 
-## Integrity and recovery
+- Das AAPS-`reason`-Format ist extern und textuell; die Auswertung liefert bei Formatänderung keine Aktivitätskurve statt erfundener Werte.
+- RGB565 unterstützt keine Transparenz; außerhalb der gerundeten Graphkontur wird deshalb bewusst die umgebende Tile-Hintergrundfarbe gemattet.
 
-The fingerprint is written only after canonical persistence. Revision ordering, bounded history, LIVE/backfill identity, resolver freshness, boot receivers, sticky services and Bluetooth recovery remain intact. No polling, restart loop or history deletion was added.
+## Geänderte Dateien dieser sichtbaren Korrektur
+
+- `core-model/.../WearGlucoseCardPresentation.kt`
+- `data-source-aaps/.../AapsPayloadAdapter.kt` und Tests
+- `app-mobile/.../DashboardChartsTest.kt`
+- `g7watch/.../G7AppearanceActivity.kt`, `G7AppearanceStore.kt`, `G7CollectorGraphView.kt`, `G7GraphPresentation.kt`, `G7GraphTileService.kt`, beide Tile-Services und zugehörige Tests
+- `ui-shared/.../SharedWearCgmGraphRenderer.kt`
+- Root-/G7-Buildversionen und diese Dokumentation
