@@ -119,7 +119,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-10-medium-weight-parity-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-11-visible-axes-"))
         assertTrue(request.scope.hasResources())
         val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
         val content = g7GraphTileContentSpec(192, 192)
@@ -204,6 +204,7 @@ class G7GraphTileTest {
         val appearance = G7AppearanceStore(context)
         val inApp = G7DirectToWatchSettingsStore(context)
         appearance.resetTileGraph()
+        assertTrue(appearance.tileGraphStyle().timeAxisEnabled)
         inApp.saveGraphHours(3)
 
         appearance.setTileGraphHours(12)

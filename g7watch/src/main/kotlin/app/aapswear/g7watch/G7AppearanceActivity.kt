@@ -135,6 +135,112 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
 
+        content.addView(sectionTitle("WearOS-Tile Glukose", palette))
+        content.addView(
+            scaleRow("Glukosewert", store.tileGlucoseScalePercent(), palette, store::setTileGlucoseScalePercent),
+            params(top = 5),
+        )
+        val tileTrendStyle = store.tileTrendArrowStyle(selectedMode)
+        content.addView(
+            scaleRow("Trendpfeil", tileTrendStyle.sizePercent, palette, {
+                store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(sizePercent = it))
+            }),
+            params(top = 5),
+        )
+        content.addView(
+            simpleColorRow("Trendpfeil · Füllfarbe", tileTrendStyle.fillColor, palette) {
+                SharedColorEditor.show(
+                    this,
+                    "Tile-Trendpfeil · Füllfarbe",
+                    tileTrendStyle.fillColor,
+                    palette.argb(G7AppearanceRole.MENU_SURFACE),
+                    palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                    palette.argb(G7AppearanceRole.MENU_BORDER),
+                    TrendArrowStyle.defaults(selectedMode, store.tileGlucosePalette(selectedMode).argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
+                    onChange = { store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(fillColor = it)) },
+                    onReset = {
+                        store.resetTileTrendArrowStyle(selectedMode)
+                        render()
+                    },
+                )
+            },
+            params(top = 5),
+        )
+        content.addView(
+            toggleRow("Trendpfeil-Kontur", tileTrendStyle.outlineEnabled, palette) {
+                store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(outlineEnabled = it))
+                render()
+            },
+            params(top = 5),
+        )
+        if (tileTrendStyle.outlineEnabled) {
+            content.addView(
+                simpleColorRow("Trendpfeil · Konturfarbe", tileTrendStyle.outlineColor, palette) {
+                    SharedColorEditor.show(
+                        this,
+                        "Tile-Trendpfeil · Konturfarbe",
+                        tileTrendStyle.outlineColor,
+                        palette.argb(G7AppearanceRole.MENU_SURFACE),
+                        palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                        palette.argb(G7AppearanceRole.MENU_BORDER),
+                        TrendArrowStyle.defaults(selectedMode, tileTrendStyle.fillColor).outlineColor,
+                        onChange = { store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(outlineColor = it)) },
+                        onReset = {
+                            store.saveTileTrendArrowStyle(
+                                selectedMode,
+                                tileTrendStyle.copy(outlineColor = TrendArrowStyle.defaults(selectedMode, tileTrendStyle.fillColor).outlineColor),
+                            )
+                            render()
+                        },
+                    )
+                },
+                params(top = 5),
+            )
+            content.addView(
+                scaleRow("Konturdicke", (tileTrendStyle.outlineThicknessDp * 100).roundToInt(), palette, {
+                    store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(outlineThicknessDp = it / 100f))
+                }, min = 25, max = 400, format = { "Konturdicke · ${it / 100f} dp" }),
+                params(top = 5),
+            )
+        }
+        content.addView(
+            scaleRow("Deckkraft", (tileTrendStyle.alpha * 100).roundToInt(), palette, {
+                store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(alpha = it / 100f))
+            }, min = 0, max = 100, format = { "Deckkraft · $it %" }),
+            params(top = 5),
+        )
+        G7AppearanceRole.entries
+            .filter { it.section == G7AppearanceSection.GLUCOSE && it != G7AppearanceRole.GLUCOSE_TREND }
+            .forEach { role ->
+                content.addView(
+                    simpleColorRow(role.label, store.tileGlucosePalette(selectedMode).argb(role), palette) {
+                        val current = store.tileGlucosePalette(selectedMode).argb(role)
+                        SharedColorEditor.show(
+                            this,
+                            "Tile · ${role.label}",
+                            current,
+                            palette.argb(G7AppearanceRole.MENU_SURFACE),
+                            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                            palette.argb(G7AppearanceRole.MENU_BORDER),
+                            store.load(selectedMode).argb(role),
+                            onChange = { store.saveTileGlucoseColor(selectedMode, role, it) },
+                            onReset = {
+                                store.saveTileGlucoseColor(selectedMode, role, store.load(selectedMode).argb(role))
+                                render()
+                            },
+                        )
+                    },
+                    params(top = 5),
+                )
+            }
+        content.addView(
+            pill("TILE-GLUKOSE RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+                store.resetTileGlucoseAppearance(selectedMode)
+                render()
+            },
+            params(top = 5),
+        )
+
         content.addView(
             label("GRAPH · PUNKTKONTUREN", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
                 letterSpacing = 0.10f

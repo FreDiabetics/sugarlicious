@@ -1,8 +1,12 @@
 package app.aapswear.uishared
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GraphTimeWindow
+import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TrendVisualAsset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -70,6 +74,56 @@ class SharedWearCgmGraphRendererTest {
         assertTrue(xAfterOneMinute < xAtArrival)
         assertTrue(xAfterFourMinutes < xAfterOneMinute)
         assertEquals(metrics.plot.right, xAtArrival, 0.01f)
+    }
+
+    @Test
+    fun `renderer draws maximum scale in the top left and time labels along the bottom`() {
+        val now = 2_000_000_000_000L
+        val bitmap = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888)
+        val palette =
+            SharedWearCgmGraphPalette(
+                background = Color.BLACK,
+                targetArea = Color.DKGRAY,
+                highArea = Color.DKGRAY,
+                lowArea = Color.DKGRAY,
+                highLine = Color.GRAY,
+                lowLine = Color.GRAY,
+                dotHigh = Color.WHITE,
+                dotInRange = Color.WHITE,
+                dotLow = Color.WHITE,
+                dotOutline = Color.WHITE,
+                axisText = Color.MAGENTA,
+                axisTick = Color.CYAN,
+                nowLine = Color.CYAN,
+                border = Color.TRANSPARENT,
+                predictionIob = Color.WHITE,
+                predictionCob = Color.WHITE,
+                predictionUam = Color.WHITE,
+                predictionZeroTemp = Color.WHITE,
+            )
+        SharedWearCgmGraphRenderer.render(
+            Canvas(bitmap),
+            bitmap.width,
+            bitmap.height,
+            2f,
+            2f,
+            SharedWearCgmGraphInput(
+                history = emptyList(),
+                timeWindow = GraphTimeWindow.live(now, 3L * 60L * 60_000L),
+                nowEpochMs = now,
+                thresholds = CgmThresholds.DEFAULT,
+                palette = palette,
+                style = SharedWearCgmGraphStyle(timeAxisEnabled = true, borderEnabled = false),
+            ),
+        )
+
+        assertEquals("400", WearCgmGraphScale.MAXIMUM_MG_DL.toInt().toString())
+        assertTrue(
+            RelativeGraphTimeAxis
+                .ticks(now - 3L * 60L * 60_000L, now, now)
+                .map { it.label }
+                .any { it.isNotBlank() },
+        )
     }
 
     @Test

@@ -50,7 +50,7 @@ internal data class G7GraphTileSnapshot(
             .style(),
 ) {
     val resourceVersion: String
-        get() = "g7-graph-10-medium-weight-parity-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${graphStyle.hashCode()}-${pillState.name}"
+        get() = "g7-graph-11-visible-axes-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${graphStyle.hashCode()}-${pillState.name}"
 }
 
 internal data class G7GraphTileContentSpec(

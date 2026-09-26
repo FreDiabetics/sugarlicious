@@ -74,6 +74,8 @@ object DirectToWatchGraphDefaults {
 
 /** One canonical glucose Y scale for Mobile, SugarWear, Wear, complications and previews. */
 object WearCgmGraphScale {
+    const val MAXIMUM_MG_DL = 400.0
+
     fun ratio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
 }
 
@@ -328,6 +330,7 @@ object SharedWearCgmGraphRenderer {
             }
         }
 
+        drawMaximumScale(canvas, input, dp(1f), axisText, line)
         if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty() && input.emptyLabel.isNotBlank()) {
             emptyText.color = palette.emptyText
@@ -438,5 +441,27 @@ object SharedWearCgmGraphRenderer {
                 val baseline = tickEnd + spec.tickToLabelGapDp * oneDp - text.ascent()
                 canvas.drawText(tick.label, labelX, minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline), text)
             }
+    }
+
+    private fun drawMaximumScale(
+        canvas: Canvas,
+        input: SharedWearCgmGraphInput,
+        oneDp: Float,
+        text: Paint,
+        line: Paint,
+    ) {
+        val label = WearCgmGraphScale.MAXIMUM_MG_DL.toInt().toString()
+        val cornerRadiusPx = input.style.cornerRadiusDp * oneDp
+        val x = maxOf(3f * oneDp, cornerRadiusPx * 0.7f)
+        val labelCenterY = maxOf(6f * oneDp, cornerRadiusPx * 0.55f)
+        val baseline = labelCenterY - (text.ascent() + text.descent()) / 2f
+        text.color = input.palette.axisText
+        text.textAlign = Paint.Align.LEFT
+        canvas.drawText(label, x, baseline, text)
+        val tickStart = x + text.measureText(label) + 2f * oneDp
+        line.color = input.palette.axisTick
+        line.strokeWidth = 0.8f * oneDp
+        line.pathEffect = null
+        canvas.drawLine(tickStart, labelCenterY, tickStart + 5f * oneDp, labelCenterY, line)
     }
 }

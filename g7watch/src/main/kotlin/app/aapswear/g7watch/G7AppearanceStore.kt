@@ -119,9 +119,17 @@ class G7AppearanceStore(
     private val appContext = context.applicationContext
     private val preferences: SharedPreferences =
         appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val tileGlucosePreferences: SharedPreferences =
+        appContext.getSharedPreferences(TILE_GLUCOSE_PREFERENCES, Context.MODE_PRIVATE)
 
     init {
         preferences.ensureSettingsSchema(SettingsSchemaVersions.COLLECTOR)
+        if (!preferences.getBoolean(KEY_TILE_VISIBLE_AXES_MIGRATED, false)) {
+            preferences.edit {
+                putBoolean(KEY_TILE_TIME_AXIS, true)
+                putBoolean(KEY_TILE_VISIBLE_AXES_MIGRATED, true)
+            }
+        }
     }
 
     fun activeMode(): AppearanceMode =
@@ -186,6 +194,71 @@ class G7AppearanceStore(
                 value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             )
         }
+        notifyTileChanged()
+    }
+
+    fun tileGlucoseScalePercent(): Int =
+        tileGlucosePreferences
+            .getInt(KEY_TILE_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+            .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun setTileGlucoseScalePercent(value: Int) {
+        tileGlucosePreferences.edit {
+            putInt(KEY_TILE_GLUCOSE_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
+        }
+        notifyTileChanged()
+    }
+
+    fun tileTrendArrowStyle(mode: AppearanceMode = activeMode()): TrendArrowStyle =
+        TrendArrowStylePreferences.read(
+            tileGlucosePreferences,
+            mode,
+            tileGlucosePalette(mode).argb(G7AppearanceRole.GLUCOSE_TREND),
+        )
+
+    fun saveTileTrendArrowStyle(
+        mode: AppearanceMode,
+        style: TrendArrowStyle,
+    ) {
+        TrendArrowStylePreferences.write(tileGlucosePreferences, mode, style)
+        notifyTileChanged()
+    }
+
+    fun resetTileTrendArrowStyle(mode: AppearanceMode) {
+        TrendArrowStylePreferences.reset(tileGlucosePreferences, mode)
+        notifyTileChanged()
+    }
+
+    fun tileGlucosePalette(mode: AppearanceMode = activeMode()): G7AppearancePalette {
+        val base = load(mode)
+        return G7AppearancePalette(
+            G7AppearanceRole.entries.associateWith { role ->
+                if (role.section == G7AppearanceSection.GLUCOSE) {
+                    tileGlucosePreferences.getInt(colorKey(mode, role), base.argb(role))
+                } else {
+                    base.argb(role)
+                }
+            },
+            mode,
+        )
+    }
+
+    fun saveTileGlucoseColor(
+        mode: AppearanceMode,
+        role: G7AppearanceRole,
+        argb: Int,
+    ) {
+        require(role.section == G7AppearanceSection.GLUCOSE)
+        tileGlucosePreferences.edit { putInt(colorKey(mode, role), argb) }
+        notifyTileChanged()
+    }
+
+    fun resetTileGlucoseAppearance(mode: AppearanceMode) {
+        tileGlucosePreferences.edit {
+            remove(KEY_TILE_GLUCOSE_SCALE)
+            G7AppearanceRole.entries.filter { it.section == G7AppearanceSection.GLUCOSE }.forEach { remove(colorKey(mode, it)) }
+        }
+        TrendArrowStylePreferences.reset(tileGlucosePreferences, mode)
         notifyTileChanged()
     }
 
@@ -287,7 +360,13 @@ class G7AppearanceStore(
         )
 
     fun tileGraphStyle(defaultCornerRadiusDp: Float = DirectToWatchGraphDefaults.style().cornerRadiusDp): SharedWearCgmGraphStyle {
-        val defaults = DirectToWatchGraphDefaults.style().copy(cornerRadiusDp = defaultCornerRadiusDp)
+        val defaults =
+            DirectToWatchGraphDefaults
+                .style()
+                .copy(
+                    cornerRadiusDp = defaultCornerRadiusDp,
+                    timeAxisEnabled = true,
+                )
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_TILE_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             historicalDotOutlineEnabled = preferences.getBoolean(KEY_TILE_HISTORY_OUTLINE, defaults.historicalDotOutlineEnabled),
@@ -376,6 +455,8 @@ class G7AppearanceStore(
         val ALLOWED_GRAPH_HOURS = listOf(1, 2, 3, 6, 12, 24)
         const val DEFAULT_GRAPH_HOURS = 3
         private const val PREFERENCES = "g7_appearance"
+        private const val TILE_GLUCOSE_PREFERENCES = "g7_tile_glucose_appearance"
+        private const val KEY_TILE_GLUCOSE_SCALE = "tile_glucose.scale"
         private const val KEY_ACTIVE_MODE = "active_mode"
         private const val KEY_GLUCOSE_SCALE = "glucose_scale_percent"
         private const val KEY_TREND_SCALE = "trend_scale_percent"
@@ -389,6 +470,7 @@ class G7AppearanceStore(
         private const val KEY_TILE_OUTLINE_WIDTH = "tile_graph.outline_width"
         private const val KEY_TILE_CORNER_RADIUS = "tile_graph.corner_radius"
         private const val KEY_TILE_TIME_AXIS = "tile_graph.time_axis"
+        private const val KEY_TILE_VISIBLE_AXES_MIGRATED = "tile_graph.visible_axes_migrated_v1"
         private const val KEY_TILE_SCALE_LANE_OPACITY = "tile_graph.scale_lane_opacity"
     }
 }

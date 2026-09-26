@@ -748,6 +748,9 @@ class G7WatchActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
+                // Baseline alignment lifts non-text children relative to the glucose glyphs.
+                // Center both render boxes instead so the arrow's visual midpoint matches the value.
+                isBaselineAligned = false
                 addView(
                     label(
                         presentation.value,

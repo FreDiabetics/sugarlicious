@@ -192,10 +192,10 @@ class G7CollectorTileService : TileService() {
         val pillState = deriveG7StatusPillState(persistedState, credentialsPresent)
         val colorStore = G7GraphColorStore(this)
         val appearanceStore = G7AppearanceStore(this)
-        val palette = appearanceStore.load()
+        val palette = appearanceStore.tileGlucosePalette()
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
         val statusPresentation = g7TileStatusPresentation(pillState, palette)
-        val configuredTrendStyle = appearanceStore.trendArrowStyle()
+        val configuredTrendStyle = appearanceStore.tileTrendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =
             GlucoseVisualSpec(
@@ -203,7 +203,7 @@ class G7CollectorTileService : TileService() {
                 glucoseTextSize = WearGlucoseCardStyle.VALUE_TEXT_SP,
                 trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(WearGlucoseCardStyle.VALUE_TEXT_SP),
                 spacing = 8f,
-            ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
+            ).scaled(appearanceStore.tileGlucoseScalePercent(), configuredTrendStyle.sizePercent)
         val device = requestParams.deviceConfiguration
         val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
         val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
@@ -421,7 +421,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-14-medium-weight-parity"
+        private const val RESOURCES_VERSION = "g7-collector-15-tile-glucose-appearance"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f
