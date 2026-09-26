@@ -214,7 +214,7 @@ class MainActivityTest {
         assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
         assertFalse(ui.showCgmBasal)
-        assertFalse(ui.showCgmActivity)
+        assertTrue(ui.showCgmActivity)
         assertFalse(ui.anyCgmPredictionEnabled)
         assertFalse(ui.showMetabolicGraph)
         assertTrue(ui.notificationGraphEnabled)

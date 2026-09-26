@@ -217,7 +217,7 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showMetabolicGraph", false)
                 putBoolean("showPredictions", false)
                 putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", false)
+                putBoolean("cgm.activity", true)
                 putBoolean("cgm.prediction.iob", false)
                 putBoolean("cgm.prediction.cob", false)
                 putBoolean("cgm.prediction.uam", false)
@@ -232,7 +232,7 @@ class MainActivity : ComponentActivity() {
                 putBoolean("showMetabolicGraph", false)
                 putBoolean("cgm.targetValue", false)
                 putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", false)
+                putBoolean("cgm.activity", true)
                 putBoolean("cgm.prediction.iob", false)
                 putBoolean("cgm.prediction.cob", false)
                 putBoolean("cgm.prediction.uam", false)
@@ -247,6 +247,14 @@ class MainActivity : ComponentActivity() {
             uiPreferences.edit {
                 putBoolean("cgm.targetValue", true)
                 putBoolean("targetStepLineDefaultMigratedV3", true)
+            }
+        }
+        if (!uiPreferences.getBoolean("insulinActivityVisibleMigratedV4", false)) {
+            // Earlier defaults persisted this stream as disabled, so the renderer and valid AAPS
+            // activity samples could both be present while no activity pixels were ever drawn.
+            uiPreferences.edit {
+                putBoolean("cgm.activity", true)
+                putBoolean("insulinActivityVisibleMigratedV4", true)
             }
         }
         content = findViewById(R.id.dashboard_content)

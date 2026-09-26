@@ -48,18 +48,18 @@ object SugarWearTypography {
     /** Android Typeface family used by the in-app canvas/view renderer. */
     const val APP_FONT_FAMILY = "sans-serif"
 
-    /** ProtoLayout only guarantees its canonical Roboto family name. */
-    const val PROTO_FONT_FAMILY = "roboto"
+    /** Empty means ProtoLayout's default system family, matching Android's sans-serif. */
+    const val PROTO_FONT_FAMILY = ""
 
     fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
         when (role) {
-            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 500, PROTO_FONT_FAMILY)
-            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 500, PROTO_FONT_FAMILY)
-            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 500, PROTO_FONT_FAMILY)
-            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 500, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 700, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 700, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 700, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 700, PROTO_FONT_FAMILY)
         }
 
-    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 700 else 400
 }
 
 fun wearGlucoseCardPresentation(

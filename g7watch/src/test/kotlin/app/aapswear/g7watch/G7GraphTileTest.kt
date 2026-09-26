@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Intent
+import android.graphics.Color
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
 import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.tiles.RequestBuilders
@@ -118,7 +119,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-6-app-weight-parity-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-8-system-font-parity-"))
         assertTrue(request.scope.hasResources())
         val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
         assertEquals(IMAGE_FORMAT_RGB_565, inline.format)
@@ -184,6 +185,26 @@ class G7GraphTileTest {
             )
             bitmap.recycle()
         }
+        service.onDestroy()
+    }
+
+    @Test fun `graph image corners use the shared graph background instead of transparent black`() {
+        val palette = G7AppearanceStore(context).load()
+        val snapshot =
+            G7GraphTileSnapshot(
+                readings = emptyList(),
+                palette = palette,
+                pillState = G7StatusPillState.SIGNAL_LOSS,
+                graphHours = 3,
+                nowEpochMs = now,
+            )
+        val service = Robolectric.buildService(G7GraphTileService::class.java).create().get()
+
+        val bitmap = service.renderGraphBitmap(snapshot, 300, 180, 1f)
+
+        assertEquals(palette.argb(G7AppearanceRole.GRAPH_BACKGROUND), bitmap.getPixel(0, 0))
+        assertEquals(Color.alpha(bitmap.getPixel(0, 0)), 255)
+        bitmap.recycle()
         service.onDestroy()
     }
 
