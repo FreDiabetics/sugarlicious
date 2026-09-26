@@ -52,6 +52,42 @@ class AapsPayloadAdapterTest {
         assertNull(absent.therapyHistory.single().insulinActivityUnitsPerMinute)
     }
 
+    @Test fun `derives productive activity from AAPS own BGI and ISF when broadcast has no activity field`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf(
+                        "glucoseMgdl" to 156.0,
+                        "glucoseTimeStamp" to 1_776_926_453_834L,
+                        "iob" to 5.145,
+                        "suggested" to
+                            """{"algorithm":"SMB","reason":"COB: 28.6, Dev: 222, BGI: -26, ISF: 120, CR: 5.8, Target: 80"}""",
+                    ),
+                    1_776_926_455_000L,
+                ),
+            )
+
+        assertEquals(26.0 / (120.0 * 5.0), state.therapyHistory.single().insulinActivityUnitsPerMinute!!, 0.0000001)
+    }
+
+    @Test fun `AAPS algorithm activity fails closed for incomplete or non physical inputs`() {
+        listOf(
+            """{"reason":"BGI: -26"}""",
+            """{"reason":"BGI: -26, ISF: 0"}""",
+            """{"reason":"BGI: 26, ISF: 120"}""",
+            """{"reason":"BGI: nonsense, ISF: 120"}""",
+        ).forEach { suggested ->
+            val state =
+                assertNotNull(
+                    AapsPayloadAdapter.parse(
+                        mapOf("glucoseMgdl" to 123.0, "glucoseTimeStamp" to 900_000L, "iob" to 1.25, "suggested" to suggested),
+                        1_000_000L,
+                    ),
+                )
+            assertNull(state.therapyHistory.single().insulinActivityUnitsPerMinute, suggested)
+        }
+    }
+
     @Test fun rejectsMissingAndWrongTypes() {
         assertNull(AapsPayloadAdapter.parse(emptyMap(), 1))
         assertNull(

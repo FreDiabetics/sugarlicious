@@ -6,11 +6,13 @@ import android.graphics.Color
 import android.graphics.RectF
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.datasource.aaps.AapsPayloadAdapter
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -804,6 +806,51 @@ class DashboardChartsTest {
                 (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
             } ?: bitmap.height
         assertTrue("activityTop=$activityTop", activityTop < bitmap.height * 0.35)
+    }
+
+    @Test fun `productive AAPS activity remains visible in every graph scale mode`() {
+        val now = System.currentTimeMillis()
+        val states =
+            listOf(-8.0, -14.0, -20.0, -11.0).mapIndexed { index, bgi ->
+                val measuredAt = now - (3 - index) * 5L * 60_000L
+                requireNotNull(
+                    AapsPayloadAdapter.parse(
+                        mapOf(
+                            "glucoseMgdl" to 120.0 + index,
+                            "glucoseTimeStamp" to measuredAt,
+                            "iob" to 2.0 - index * 0.1,
+                            "suggested" to """{"reason":"Dev: 1, BGI: $bgi, ISF: 100, Target: 100"}""",
+                        ),
+                        measuredAt + 1_000L,
+                    ),
+                )
+            }
+        val state =
+            states.last().copy(
+                glucoseHistory = states.mapNotNull { it.glucose?.let { glucose -> GlucoseSample(glucose.valueMgDl, glucose.measuredAtEpochMs) } },
+                therapyHistory = states.flatMap(TherapyDisplayState::therapyHistory),
+                target = TargetState(80.0, 160.0),
+            )
+
+        CgmGraphScaleMode.entries.forEach { mode ->
+            val bitmap =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(
+                            state,
+                            GlucoseUnit.MG_DL,
+                            showPredictions = false,
+                            durationHours = 3,
+                            showActivity = true,
+                            graphScaleMode = mode,
+                            clockEpochMs = now,
+                        )
+                    },
+                    230,
+                )
+            val activityPixels = count(bitmap) { it == Color.rgb(242, 201, 76) }
+            assertTrue("mode=$mode activity=$activityPixels", activityPixels > 4)
+        }
     }
 
     @Test fun `glucose dots use alert color outside display range`() {
