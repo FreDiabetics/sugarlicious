@@ -421,7 +421,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-13-system-font-parity"
+        private const val RESOURCES_VERSION = "g7-collector-14-medium-weight-parity"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f
