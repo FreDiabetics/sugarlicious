@@ -104,13 +104,21 @@ class TherapyHeroIndicatorsTest {
     }
 
     @Test
-    fun `missing values remain unknown instead of zero or normal basal`() {
+    fun `missing IOB and COB render zero while basal remains unknown`() {
         val values = therapyIndicatorPresentations(null, 10f, 1_000L)
-        values.forEach { value ->
-            assertEquals("—", value.value)
-            assertNull(value.progress)
-        }
+        assertEquals("0.00U", values[0].value)
+        assertEquals("0g", values[1].value)
+        assertEquals("—", values[2].value)
+        assertEquals(0f, values[0].progress!!, 0f)
+        assertEquals(0f, values[1].progress!!, 0f)
         assertNull(values[2].secondary)
+    }
+
+    @Test
+    fun `negative IOB is displayed instead of replaced by a dash`() {
+        val values = therapyIndicatorPresentations(state(insulin = InsulinState(totalIob = -0.65)), 10f, 1_000L)
+
+        assertEquals("-0.65U", values[0].value)
     }
 
     @Test

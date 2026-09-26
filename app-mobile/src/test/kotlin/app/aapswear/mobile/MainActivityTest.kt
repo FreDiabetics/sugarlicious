@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
+import app.aapswear.model.CgmGraphScaleMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -261,6 +262,22 @@ class MainActivityTest {
         assertEquals(firstRead.cobGraphMaximumGrams, afterRestart.cobGraphMaximumGrams, 0f)
     }
 
+    @Test fun `IOB and COB graph scale modes persist independently`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.DYNAMIC.name)
+            .putString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC.name)
+            .commit()
+
+        val ui = DashboardUiPreferences.read(preferences)
+
+        assertEquals(CgmGraphScaleMode.DYNAMIC, ui.iobGraphScaleMode)
+        assertEquals(CgmGraphScaleMode.LOGARITHMIC_DYNAMIC, ui.cobGraphScaleMode)
+    }
+
     @Test fun `IOB and COB graph maximum controls are visible in mobile settings`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
@@ -271,6 +288,8 @@ class MainActivityTest {
 
         assertTrue(settingsText.contains("IOB Graph Maximum"))
         assertTrue(settingsText.contains("COB Graph Maximum"))
+        assertTrue(settingsText.contains("IOB-Skalierung"))
+        assertTrue(settingsText.contains("COB-Skalierung"))
         controller.pause().stop().destroy()
     }
 

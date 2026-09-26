@@ -800,9 +800,11 @@ private fun MetabolicGraphSurface(
                 ),
                 scaleOnRight = scaleOnRight,
                 showTimeAxis = !preferences.showCgmGraph,
-                graphScaleMode = preferences.graphScaleMode,
+                iobGraphScaleMode = preferences.iobGraphScaleMode,
+                cobGraphScaleMode = preferences.cobGraphScaleMode,
                 iobMaximumUnits = preferences.iobGraphMaximumUnits,
                 cobMaximumGrams = preferences.cobGraphMaximumGrams,
+                showPredictionDivider = preferences.anyCgmPredictionEnabled,
                 clockEpochMs = now,
             )
         },

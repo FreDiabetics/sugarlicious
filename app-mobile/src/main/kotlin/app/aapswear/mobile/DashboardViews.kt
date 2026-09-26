@@ -83,6 +83,8 @@ data class DashboardUiPreferences(
     val compact: Boolean = true,
     val graphHours: Int = 3,
     val graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+    val iobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
+    val cobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
     val graphMinimumMgDl: Double = 40.0,
     val graphMaximumMgDl: Double = 400.0,
     val liveNotification: Boolean = false,
@@ -155,6 +157,8 @@ data class DashboardUiPreferences(
                     runCatching {
                         CgmGraphScaleMode.valueOf(preferences.getString(GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC.name)!!)
                     }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC),
+                iobGraphScaleMode = readScaleMode(preferences, IOB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
+                cobGraphScaleMode = readScaleMode(preferences, COB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
                 graphMinimumMgDl = preferences.getFloat(GRAPH_MINIMUM_KEY, 40f).toDouble().coerceIn(20.0, 300.0),
                 graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
@@ -188,10 +192,31 @@ data class DashboardUiPreferences(
         const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
         const val GRAPH_MINIMUM_KEY = "graph.minimumMgDl"
         const val GRAPH_SCALE_MODE_KEY = "graph.scaleMode"
+        const val IOB_GRAPH_SCALE_MODE_KEY = "graph.iobScaleMode"
+        const val COB_GRAPH_SCALE_MODE_KEY = "graph.cobScaleMode"
         const val CGM_CURRENT_BASAL_KEY = "cgm.basal.current"
         const val CGM_BASE_BASAL_KEY = "cgm.basal.base"
     }
 }
+
+private fun readScaleMode(
+    preferences: SharedPreferences,
+    key: String,
+    legacyKey: String,
+): CgmGraphScaleMode =
+    runCatching {
+        CgmGraphScaleMode.valueOf(
+            preferences.getString(key, preferences.getString(legacyKey, CgmGraphScaleMode.LOGARITHMIC.name))!!,
+        )
+    }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC)
+
+private fun graphScaleModeLabel(mode: CgmGraphScaleMode): String =
+    when (mode) {
+        CgmGraphScaleMode.STATIC -> "Statisch"
+        CgmGraphScaleMode.DYNAMIC -> "Dynamisch"
+        CgmGraphScaleMode.LOGARITHMIC -> "Logarithmisch"
+        CgmGraphScaleMode.LOGARITHMIC_DYNAMIC -> "Logarithmisch-dynamisch"
+    }
 
 data class DiagnosticsSnapshot(
     val sourceVersion: String?,
@@ -734,6 +759,19 @@ class DashboardViewFactory(
                         )
                         addView(divider())
                         addView(
+                            choiceRow(
+                                "IOB-Skalierung",
+                                CgmGraphScaleMode.entries.map { mode ->
+                                    Triple(graphScaleModeLabel(mode), preferences.iobGraphScaleMode == mode) {
+                                        dashboardPreferences.edit {
+                                            putString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, mode.name)
+                                        }
+                                    }
+                                },
+                            ),
+                        )
+                        addView(divider())
+                        addView(
                             sugarliciousSliderRow(
                                 title = "IOB Graph Maximum",
                                 value = preferences.iobGraphMaximumUnits,
@@ -741,6 +779,19 @@ class DashboardViewFactory(
                                 maximum = 30f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, it) } },
+                        )
+                        addView(divider())
+                        addView(
+                            choiceRow(
+                                "COB-Skalierung",
+                                CgmGraphScaleMode.entries.map { mode ->
+                                    Triple(graphScaleModeLabel(mode), preferences.cobGraphScaleMode == mode) {
+                                        dashboardPreferences.edit {
+                                            putString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, mode.name)
+                                        }
+                                    }
+                                },
+                            ),
                         )
                         addView(divider())
                         addView(

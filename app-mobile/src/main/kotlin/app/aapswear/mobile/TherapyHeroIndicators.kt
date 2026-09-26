@@ -51,22 +51,22 @@ internal fun therapyIndicatorPresentations(
     nowEpochMs: Long,
     cobMaximumGrams: Float = 300f,
 ): List<TherapyIndicatorPresentation> {
-    val iob = state?.insulin?.totalIob?.takeIf { it.isFinite() && it >= 0.0 }
-    val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 }
+    val iob = state?.insulin?.totalIob?.takeIf(Double::isFinite) ?: 0.0
+    val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
     val basal = effectiveBasalPresentation(state, nowEpochMs)
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     val safeCobMaximum = cobMaximumGrams.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
             label = "IOB",
-            value = iob?.let { "${compactValue(it, 2)}U" } ?: "—",
+            value = "${compactValue(iob, 2)}U",
             progress = TherapyProgressSemantics.scaled(iob, safeIobMaximum),
             iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
-            value = cob?.let { "${compactValue(it, 0)}g" } ?: "—",
+            value = "${compactValue(cob, 0)}g",
             progress = TherapyProgressSemantics.scaled(cob, safeCobMaximum),
             iconRes = SharedUiR.drawable.ic_carbs,
             iconSizeDp = 17,

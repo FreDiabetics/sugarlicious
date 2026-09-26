@@ -357,7 +357,13 @@ class G7AppearanceStore(
         DirectToWatchGraphDefaults.style().copy(
             historicalDotOutlineEnabled = historicalDotOutlineEnabled(),
             currentDotOutlineEnabled = currentDotOutlineEnabled(),
+            timeAxisEnabled = preferences.getBoolean(KEY_IN_APP_TIME_AXIS, true),
         )
+
+    fun setInAppGraphTimeAxisEnabled(value: Boolean) {
+        preferences.edit { putBoolean(KEY_IN_APP_TIME_AXIS, value) }
+        notifyTileChanged()
+    }
 
     fun tileGraphStyle(defaultCornerRadiusDp: Float = DirectToWatchGraphDefaults.style().cornerRadiusDp): SharedWearCgmGraphStyle {
         val defaults =
@@ -464,6 +470,7 @@ class G7AppearanceStore(
         private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_historical_dot_outline_enabled"
         private const val KEY_CURRENT_DOT_OUTLINE = "graph_current_dot_outline_enabled"
         private const val KEY_TILE_GRAPH_HOURS = "tile_graph.hours"
+        private const val KEY_IN_APP_TIME_AXIS = "in_app_graph.time_axis"
         private const val KEY_TILE_DOT_RADIUS = "tile_graph.dot_radius"
         private const val KEY_TILE_HISTORY_OUTLINE = "tile_graph.history_outline"
         private const val KEY_TILE_CURRENT_OUTLINE = "tile_graph.current_outline"

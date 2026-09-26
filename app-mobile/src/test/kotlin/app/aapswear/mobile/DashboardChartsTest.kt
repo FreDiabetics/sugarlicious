@@ -447,7 +447,7 @@ class DashboardChartsTest {
         val bitmap =
             render(
                 MetabolicDashboardChart(context, sharedViewport = viewport).apply {
-                    bind(state, 6, scaleOnRight = true)
+                    bind(state, 6, scaleOnRight = true, showPredictionDivider = true)
                 },
                 260,
             )
@@ -611,6 +611,27 @@ class DashboardChartsTest {
         assertTrue(scales.iob.bounds.maximum >= 12.0)
         assertTrue(scales.cob.bounds.maximum >= 240.0)
         assertTrue(scales.iob.ratio(3.0) != scales.cob.ratio(20.0))
+    }
+
+    @Test fun `IOB and COB resolve with independent scale modes`() {
+        val points = listOf(TherapyHistorySample(1_000L, totalIob = 1.0, cobGrams = 20.0))
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                iobMode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                cobMode = app.aapswear.model.CgmGraphScaleMode.LOGARITHMIC,
+                allPoints = points,
+                visiblePoints = points,
+            )
+
+        assertEquals(app.aapswear.model.CgmGraphScaleMode.DYNAMIC, scales.iob.mode)
+        assertEquals(app.aapswear.model.CgmGraphScaleMode.LOGARITHMIC, scales.cob.mode)
+    }
+
+    @Test fun `basal overlay uses the complete graph plot`() {
+        val plot = RectF(12f, 8f, 420f, 210f)
+
+        assertEquals(plot, cgmBasalOverlayBounds(plot))
     }
 
     @Test fun `dynamic cob maximum includes relevant meal plus fifty grams but ignores expired meals`() {

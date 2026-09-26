@@ -922,6 +922,7 @@ private fun ColorRoleExample(
 
             SugarliciousColorRole.GRAPH_IOB,
             SugarliciousColorRole.GRAPH_COB,
+            SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY,
             -> {
                 Canvas(Modifier.fillMaxSize()) {
                     val points =

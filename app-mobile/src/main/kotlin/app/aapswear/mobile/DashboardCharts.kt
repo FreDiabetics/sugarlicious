@@ -883,7 +883,7 @@ internal class GlucoseDashboardChart
                 if (showCurrentBasal || showBaseBasal) {
                     drawBasal(
                         canvas,
-                        dataPlot,
+                        cgmBasalOverlayBounds(plot),
                         start,
                         end,
                         state?.therapyHistory.orEmpty(),
@@ -1148,8 +1148,7 @@ internal class GlucoseDashboardChart
 
             fun activityY(value: Double): Float =
                 band.bottom - (value / maximum).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
-            val yellow = Color.rgb(242, 201, 76)
-            linePaint.color = yellow
+            linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.35f.dp
             linePaint.pathEffect = null
             canvas.drawPath(valuePath(actual, start, end, band, ::activityY), linePaint)
@@ -1253,7 +1252,9 @@ internal class MetabolicDashboardChart
         private var renderNowEpochMs: Long = System.currentTimeMillis()
         private var scaleOnRight = false
         private var showTimeAxis = false
-        private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
+        private var iobGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC
+        private var cobGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC
+        private var showPredictionDivider = false
         private var iobMaximumUnits = 10f
         private var cobMaximumGrams = 300f
         private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
@@ -1265,9 +1266,11 @@ internal class MetabolicDashboardChart
             markerVisibility: TreatmentMarkerVisibility = TreatmentMarkerVisibility(),
             scaleOnRight: Boolean = false,
             showTimeAxis: Boolean = false,
-            graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+            iobGraphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+            cobGraphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
             iobMaximumUnits: Float = 10f,
             cobMaximumGrams: Float = 300f,
+            showPredictionDivider: Boolean = false,
             clockEpochMs: Long = System.currentTimeMillis(),
         ) {
             val clockBucket = clockEpochMs / 30_000L
@@ -1279,9 +1282,11 @@ internal class MetabolicDashboardChart
                     markerVisibility,
                     scaleOnRight,
                     showTimeAxis,
-                    graphScaleMode,
+                    iobGraphScaleMode,
+                    cobGraphScaleMode,
                     iobMaximumUnits,
                     cobMaximumGrams,
+                    showPredictionDivider,
                     clockBucket,
                 )
             if (stateSignature == newStateSignature && boundDurationHours == durationHours) return
@@ -1291,7 +1296,9 @@ internal class MetabolicDashboardChart
             this.markerVisibility = markerVisibility
             this.scaleOnRight = scaleOnRight
             this.showTimeAxis = showTimeAxis
-            this.graphScaleMode = graphScaleMode
+            this.iobGraphScaleMode = iobGraphScaleMode
+            this.cobGraphScaleMode = cobGraphScaleMode
+            this.showPredictionDivider = showPredictionDivider
             if (this.iobMaximumUnits != iobMaximumUnits) axisScaleSession.clear(GraphAxis.IOB)
             if (this.cobMaximumGrams != cobMaximumGrams) axisScaleSession.clear(GraphAxis.COB)
             this.iobMaximumUnits = iobMaximumUnits
@@ -1333,7 +1340,8 @@ internal class MetabolicDashboardChart
                 val scales =
                     resolveMetabolicScales(
                         session = axisScaleSession,
-                        mode = graphScaleMode,
+                        iobMode = iobGraphScaleMode,
+                        cobMode = cobGraphScaleMode,
                         allPoints = allPoints,
                         visiblePoints = points,
                         iobMaximumUnits = iobMaximumUnits.toDouble(),
@@ -1359,7 +1367,7 @@ internal class MetabolicDashboardChart
                     drawLane(canvas, iobDataPlot, points, start, end, dividerTimestamp, iob = true, range = iobRange, drawScale = false)
                     drawInsulinActivity(canvas, iobDataPlot, points, start, end, dividerTimestamp, scales.activity)
                     drawLane(canvas, cobPlot, points, start, end, dividerTimestamp, iob = false, range = cobRange, drawScale = false)
-                    if (dividerTimestamp in start..end) {
+                    if (showPredictionDivider && dividerTimestamp in start..end) {
                         linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
                         linePaint.strokeWidth = 1f.dp
                         linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
@@ -1394,6 +1402,8 @@ internal class MetabolicDashboardChart
                 }
                 drawMetabolicScale(canvas, iobDataPlot, iobRange, scaleOnRight)
                 drawMetabolicScale(canvas, cobPlot, cobRange, scaleOnRight)
+                drawMetabolicZeroLine(canvas, iobDataPlot, iobRange, scaleOnRight, "0 U")
+                drawMetabolicZeroLine(canvas, cobPlot, cobRange, scaleOnRight, "0 g")
                 if (showTimeAxis) {
                     drawSharedGrid(canvas, iobDataPlot, cobPlot, outer.bottom, start, end, chartNow, dividerX)
                 }
@@ -1553,6 +1563,32 @@ internal class MetabolicDashboardChart
             }
         }
 
+        private fun drawMetabolicZeroLine(
+            canvas: Canvas,
+            plot: RectF,
+            range: GraphAxisScale,
+            onRight: Boolean,
+            label: String,
+        ) {
+            val zeroY = mapAxisY(0.0, range, plot).coerceIn(plot.top, plot.bottom)
+            linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_GRID)
+            linePaint.strokeWidth = 0.8f.dp
+            linePaint.pathEffect = null
+            canvas.drawLine(plot.left, zeroY, plot.right, zeroY, linePaint)
+            val labelX = if (onRight) plot.right + 9f.dp else plot.left - 9f.dp
+            val baseline = (zeroY - 2f.dp).coerceIn(plot.top + 10f.dp, plot.bottom - 2f.dp)
+            drawText(
+                canvas,
+                label,
+                labelX,
+                baseline,
+                9f,
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
+                if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT,
+                bold = true,
+            )
+        }
+
         private fun drawInsulinActivity(
             canvas: Canvas,
             plot: RectF,
@@ -1575,7 +1611,7 @@ internal class MetabolicDashboardChart
             if (actual.size < 2) return
 
             fun y(value: Double) = plot.bottom - activityScale.ratio(value).toFloat() * plot.height() * ACTIVITY_HEIGHT_FRACTION
-            linePaint.color = Color.rgb(242, 201, 76)
+            linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.6f.dp
             linePaint.pathEffect = null
             canvas.drawPath(valuePath(actual, start, end, plot, ::y), linePaint)
@@ -1809,9 +1845,11 @@ internal data class MobileMetabolicScales(
 /** Resolves every secondary axis through the same active mode without mixing their units. */
 internal fun resolveMetabolicScales(
     session: GraphScaleSession,
-    mode: CgmGraphScaleMode,
+    mode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
     allPoints: List<TherapyHistorySample>,
     visiblePoints: List<TherapyHistorySample>,
+    iobMode: CgmGraphScaleMode = mode,
+    cobMode: CgmGraphScaleMode = mode,
     iobMaximumUnits: Double? = null,
     cobMaximumGrams: Double? = null,
     therapyEvents: List<app.aapswear.model.TherapyEvent> = emptyList(),
@@ -1822,7 +1860,7 @@ internal fun resolveMetabolicScales(
         iob =
             session.resolve(
                 axis = GraphAxis.IOB,
-                mode = mode,
+                mode = iobMode,
                 seedValues = allPoints.mapNotNull { it.totalIob },
                 visibleValues = visiblePoints.mapNotNull { it.totalIob },
                 fallbackBounds = GraphBounds(0.0, 1.0),
@@ -1833,7 +1871,7 @@ internal fun resolveMetabolicScales(
         cob =
             session.resolve(
                 axis = GraphAxis.COB,
-                mode = mode,
+                mode = cobMode,
                 seedValues = allPoints.mapNotNull { it.cobGrams },
                 visibleValues = visiblePoints.mapNotNull { it.cobGrams },
                 fallbackBounds = GraphBounds(0.0, 10.0),
@@ -1842,7 +1880,7 @@ internal fun resolveMetabolicScales(
                 requiredValues =
                     buildList {
                         cobMaximumGrams?.takeIf { it.isFinite() && it > 0.0 }?.let(::add)
-                        if (mode == CgmGraphScaleMode.DYNAMIC || mode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) {
+                        if (cobMode == CgmGraphScaleMode.DYNAMIC || cobMode == CgmGraphScaleMode.LOGARITHMIC_DYNAMIC) {
                             relevantCarbScaleFloor(therapyEvents, viewportStartEpochMs, viewportEndEpochMs)?.let(::add)
                         }
                     },
@@ -1861,6 +1899,8 @@ internal fun resolveMetabolicScales(
                     ),
             ),
     )
+
+internal fun cgmBasalOverlayBounds(plot: RectF): RectF = RectF(plot)
 
 internal fun relevantCarbScaleFloor(
     events: List<app.aapswear.model.TherapyEvent>,

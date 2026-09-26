@@ -259,6 +259,12 @@ class G7AppearanceActivity : Activity() {
             },
             params(top = 5),
         )
+        content.addView(
+            toggleRow("Zeitachse · In-App-Graph", store.inAppGraphStyle().timeAxisEnabled, palette) {
+                store.setInAppGraphTimeAxisEnabled(it)
+            },
+            params(top = 5),
+        )
 
         val tileStyle = store.tileGraphStyle()
         content.addView(sectionTitle("WearOS-Tile Graph", palette))
