@@ -21,8 +21,8 @@ import app.aapswear.g7.CollectorDiagnosticStage
 import app.aapswear.g7.CollectorSlotStrategy
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7CollectorHealth
-import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7ConnectionState
+import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7ReconnectScheduler

@@ -25,6 +25,7 @@ class CgmGraphYScaleTest {
         assertEquals(20.0, logarithmic.minimumMgDl, 0.0)
         assertTrue(dynamic.minimumMgDl < 65.0)
     }
+
     @Test
     fun `all modes map equal boundary values to equal pixels`() {
         CgmGraphScaleMode.entries.forEach { mode ->

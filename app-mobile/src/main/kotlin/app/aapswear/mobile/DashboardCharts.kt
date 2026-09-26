@@ -1145,6 +1145,7 @@ internal class GlucoseDashboardChart
             val actual = allActual.filter { it.first in start..min(end, now) }
             if (actual.size < 2) return
             val maximum = allActual.maxOf { it.second }.coerceAtLeast(0.000001)
+
             fun activityY(value: Double): Float =
                 band.bottom - (value / maximum).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
             val yellow = Color.rgb(242, 201, 76)
@@ -1462,10 +1463,10 @@ internal class MetabolicDashboardChart
         ) {
             val actual =
                 extendSeriesToLiveEdge(
-                points
-                    .mapNotNull { point ->
-                        (if (iob) point.totalIob else point.cobGrams)?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it }
-                    },
+                    points
+                        .mapNotNull { point ->
+                            (if (iob) point.totalIob else point.cobGrams)?.takeIf { it.isFinite() }?.let { point.measuredAtEpochMs to it }
+                        },
                     liveEdge,
                     start,
                     end,
@@ -1563,10 +1564,10 @@ internal class MetabolicDashboardChart
         ) {
             val actual =
                 extendSeriesToLiveEdge(
-                visiblePoints
-                    .mapNotNull { point ->
-                        point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
-                    },
+                    visiblePoints
+                        .mapNotNull { point ->
+                            point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
+                        },
                     liveEdge,
                     start,
                     end,

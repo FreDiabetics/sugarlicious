@@ -21,9 +21,9 @@ import androidx.wear.protolayout.ModifiersBuilders.Clickable
 import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.InlineImageResource
-import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
@@ -31,8 +31,8 @@ import androidx.wear.tiles.TileService
 import app.aapswear.g7.CgmReading
 import app.aapswear.model.SugarWearTypography
 import app.aapswear.model.SugarWearTypographyRole
-import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.Rgb565Image
+import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.toRgb565Image
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope

@@ -6,6 +6,7 @@ import app.aapswear.model.TherapyDisplayState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.MessageDigest
 
 class StateDeliveryPolicyTest {
     @Test fun `newer message state is accepted`() {
@@ -66,6 +67,16 @@ class StateDeliveryPolicyTest {
         val updated = previous.copy(receivedAtEpochMs = 21_000L, sourceContract = "therapy-update")
 
         assertTrue(hasMeaningfulPhoneStateChange(previous, updated))
+    }
+
+    @Test fun `identical second transport payload is rejected before JSON decoding`() {
+        val payload = ByteArray(90_000) { index -> (index % 251).toByte() }
+        val committed = statePayloadFingerprint(payload)
+
+        assertTrue(isCommittedStatePayload(payload, committed))
+        assertFalse(isCommittedStatePayload(payload.copyOf().also { it[it.lastIndex]++ }, committed))
+        val expected = MessageDigest.getInstance("SHA-256").digest(payload).joinToString("") { "%02x".format(it) }
+        assertTrue(committed.sha256Hex == expected)
     }
 
     private fun state(

@@ -554,9 +554,10 @@ class DashboardChartsTest {
     }
 
     @Test fun `metabolic insulin activity ignores stale persisted scale and fills eighty percent at current maximum`() {
-        val session = app.aapswear.model.GraphScaleSession().apply {
-            useConfiguredBounds(app.aapswear.model.GraphAxis.INSULIN_ACTIVITY, app.aapswear.model.GraphBounds(0.0, 1.0))
-        }
+        val session =
+            app.aapswear.model.GraphScaleSession().apply {
+                useConfiguredBounds(app.aapswear.model.GraphAxis.INSULIN_ACTIVITY, app.aapswear.model.GraphBounds(0.0, 1.0))
+            }
         val points =
             listOf(
                 TherapyHistorySample(1_000L, insulinActivityUnitsPerMinute = 0.01),

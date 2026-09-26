@@ -221,16 +221,18 @@ internal object G7GattCallbackDispatcher {
     private var runtime: Pair<HandlerThread, Handler>? = null
 
     val handler: Handler
-        get() = synchronized(lock) {
-            runtime?.second ?: createRuntime().also { runtime = it }.second
-        }
+        get() =
+            synchronized(lock) {
+                runtime?.second ?: createRuntime().also { runtime = it }.second
+            }
 
     /** Rotates only the app-owned callback looper after a completed degraded cycle. */
-    fun reset(): Boolean = synchronized(lock) {
-        val previous = runtime ?: return@synchronized false
-        runtime = null
-        previous.first.quitSafely()
-    }
+    fun reset(): Boolean =
+        synchronized(lock) {
+            val previous = runtime ?: return@synchronized false
+            runtime = null
+            previous.first.quitSafely()
+        }
 
     private fun createRuntime(): Pair<HandlerThread, Handler> {
         generation += 1

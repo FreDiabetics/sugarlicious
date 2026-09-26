@@ -40,6 +40,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
+import java.security.MessageDigest
 
 internal fun shouldAcceptPhoneState(
     previous: TherapyDisplayState?,
@@ -60,6 +61,22 @@ internal fun hasMeaningfulPhoneStateChange(
     previous: TherapyDisplayState?,
     incoming: TherapyDisplayState,
 ): Boolean = previous?.copy(receivedAtEpochMs = incoming.receivedAtEpochMs) != incoming
+
+internal data class StatePayloadFingerprint(
+    val size: Int,
+    val sha256Hex: String,
+)
+
+internal fun statePayloadFingerprint(payload: ByteArray): StatePayloadFingerprint =
+    StatePayloadFingerprint(
+        payload.size,
+        MessageDigest.getInstance("SHA-256").digest(payload).joinToString("") { "%02x".format(it) },
+    )
+
+internal fun isCommittedStatePayload(
+    payload: ByteArray,
+    committed: StatePayloadFingerprint?,
+): Boolean = committed != null && statePayloadFingerprint(payload) == committed
 
 class StateDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -491,31 +508,34 @@ class StateDataLayerService : WearableListenerService() {
         payload: ByteArray?,
         transport: String,
     ) {
-        val receivedAt = System.currentTimeMillis()
-        getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
-            .edit()
-            .putLong("wearReceivedAt", receivedAt)
-            .apply()
-        val envelope =
-            runCatching {
-                WearProtocol.decodeEnvelope(payload ?: return)
-            }.getOrNull()
-        if (envelope == null) {
-            scope.launch {
-                applicationContext.recordWatchDiagnostic(
-                    "SOURCE",
-                    "SRC-PHONE-401",
-                    "Invalid phone state payload",
-                    DiagnosticSeverity.WARNING,
-                    mapOf("transport" to transport),
-                )
-            }
-            return
-        }
-        val incoming = envelope.state
-
+        val bytes = payload ?: return
         scope.launch {
             stateSyncMutex.withLock {
+                val delivery = getSharedPreferences(STATE_DELIVERY_PREFS, Context.MODE_PRIVATE)
+                val fingerprint = statePayloadFingerprint(bytes)
+                val committed =
+                    StatePayloadFingerprint(
+                        size = delivery.getInt(STATE_PAYLOAD_SIZE, -1),
+                        sha256Hex = delivery.getString(STATE_PAYLOAD_SHA256, null).orEmpty(),
+                    ).takeIf { it.size >= 0 && it.sha256Hex.isNotEmpty() }
+                if (fingerprint == committed) return@withLock
+
+                getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+                    .edit()
+                    .putLong("wearReceivedAt", System.currentTimeMillis())
+                    .apply()
+                val envelope = runCatching { WearProtocol.decodeEnvelope(bytes) }.getOrNull()
+                if (envelope == null) {
+                    applicationContext.recordWatchDiagnostic(
+                        "SOURCE",
+                        "SRC-PHONE-401",
+                        "Invalid phone state payload",
+                        DiagnosticSeverity.WARNING,
+                        mapOf("transport" to transport),
+                    )
+                    return@withLock
+                }
+                val incoming = envelope.state
                 val store =
                     TherapyStateStore(
                         this@StateDataLayerService,
@@ -613,6 +633,11 @@ class StateDataLayerService : WearableListenerService() {
                         ),
                 )
                 store.save(merged)
+                delivery
+                    .edit()
+                    .putInt(STATE_PAYLOAD_SIZE, fingerprint.size)
+                    .putString(STATE_PAYLOAD_SHA256, fingerprint.sha256Hex)
+                    .apply()
                 getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
                     .edit()
                     .putLong("wearCommittedAt", System.currentTimeMillis())
@@ -773,6 +798,9 @@ class StateDataLayerService : WearableListenerService() {
         private const val COMPLICATION_GRAPH_HOURS_KEY =
             "graph_hours"
         private const val MAX_PRESET_ITEMS = 4
+        private const val STATE_DELIVERY_PREFS = "wear_state_delivery"
+        private const val STATE_PAYLOAD_SIZE = "committed_payload_size"
+        private const val STATE_PAYLOAD_SHA256 = "committed_payload_sha256"
     }
 }
 
