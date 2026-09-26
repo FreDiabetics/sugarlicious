@@ -295,6 +295,7 @@ class G7GraphTileService : TileService() {
                             .sp(sizeSp),
                     ).setColor(argb(color))
                     .setWeight(sugarWearTileWeight(emphasized = true))
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 

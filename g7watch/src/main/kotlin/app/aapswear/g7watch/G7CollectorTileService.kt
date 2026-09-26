@@ -416,6 +416,7 @@ class G7CollectorTileService : TileService() {
                     .setSize(sp(size))
                     .setColor(argb(color))
                     .setWeight(sugarWearTileWeight(bold))
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 

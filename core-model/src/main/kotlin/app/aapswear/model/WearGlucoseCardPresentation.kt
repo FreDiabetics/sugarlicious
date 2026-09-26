@@ -45,11 +45,10 @@ data class SugarWearTypographySpec(
 
 /** Semantic type tokens shared by the SugarWear app and its ProtoLayout tiles. */
 object SugarWearTypography {
-    /** Android Typeface family used by the in-app canvas/view renderer. */
-    const val APP_FONT_FAMILY = "sans-serif"
+    /** Explicit system family supported by both Android Views and Wear ProtoLayout. */
+    const val APP_FONT_FAMILY = "roboto"
 
-    /** Empty means ProtoLayout's default system family, matching Android's sans-serif. */
-    const val PROTO_FONT_FAMILY = ""
+    const val PROTO_FONT_FAMILY = APP_FONT_FAMILY
 
     fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
         when (role) {
@@ -61,6 +60,10 @@ object SugarWearTypography {
 
     fun protoWeight(emphasized: Boolean): Int = if (emphasized) 700 else 400
 }
+
+/** Hardware parity probe strings. They remain real text in both renderers. */
+fun sugarWearTypographyParitySamples(): List<String> =
+    listOf("188", "→", "-3 mg/dL · 2m", "VERBUNDEN")
 
 fun wearGlucoseCardPresentation(
     input: WearGlucoseCardInput,
