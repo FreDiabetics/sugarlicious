@@ -1151,7 +1151,7 @@ internal class GlucoseDashboardChart
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.35f.dp
             linePaint.pathEffect = null
-            canvas.drawPath(valuePath(actual, start, end, band, ::activityY), linePaint)
+            canvas.drawPath(smoothValuePath(actual, start, end, band, ::activityY), linePaint)
         }
 
         private fun predictionEnabled(kind: PredictionKind): Boolean =
@@ -1614,7 +1614,7 @@ internal class MetabolicDashboardChart
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.6f.dp
             linePaint.pathEffect = null
-            canvas.drawPath(valuePath(actual, start, end, plot, ::y), linePaint)
+            canvas.drawPath(smoothValuePath(actual, start, end, plot, ::y), linePaint)
         }
 
         private fun drawTreatmentMarkers(
@@ -2178,6 +2178,82 @@ private fun valuePath(
             if (index == 0) moveTo(x, y) else lineTo(x, y)
         }
     }
+
+internal data class MonotoneCurveSegment(
+    val startX: Float,
+    val startY: Float,
+    val control1X: Float,
+    val control1Y: Float,
+    val control2X: Float,
+    val control2Y: Float,
+    val endX: Float,
+    val endY: Float,
+)
+
+/** Monotone cubic Hermite interpolation: smooth at samples without inventing extrema. */
+internal fun monotoneCurveSegments(points: List<Pair<Float, Float>>): List<MonotoneCurveSegment> {
+    val values = points.distinctBy { it.first }.sortedBy { it.first }
+    if (values.size < 2) return emptyList()
+    val intervals = FloatArray(values.lastIndex) { index -> values[index + 1].first - values[index].first }
+    val slopes = FloatArray(values.lastIndex) { index -> (values[index + 1].second - values[index].second) / intervals[index] }
+    val tangents = FloatArray(values.size)
+    tangents[0] = slopes.first()
+    tangents[tangents.lastIndex] = slopes.last()
+    for (index in 1 until tangents.lastIndex) {
+        val previous = slopes[index - 1]
+        val next = slopes[index]
+        tangents[index] =
+            if (previous == 0f || next == 0f || previous * next <= 0f) {
+                0f
+            } else {
+                val previousInterval = intervals[index - 1]
+                val nextInterval = intervals[index]
+                val firstWeight = 2f * nextInterval + previousInterval
+                val secondWeight = nextInterval + 2f * previousInterval
+                (firstWeight + secondWeight) / (firstWeight / previous + secondWeight / next)
+            }
+    }
+    return intervals.indices.map { index ->
+        val (startX, startY) = values[index]
+        val (endX, endY) = values[index + 1]
+        val third = intervals[index] / 3f
+        MonotoneCurveSegment(
+            startX = startX,
+            startY = startY,
+            control1X = startX + third,
+            control1Y = startY + tangents[index] * third,
+            control2X = endX - third,
+            control2Y = endY - tangents[index + 1] * third,
+            endX = endX,
+            endY = endY,
+        )
+    }
+}
+
+private fun smoothValuePath(
+    values: List<Pair<Long, Double>>,
+    start: Long,
+    end: Long,
+    plot: RectF,
+    mapValue: (Double) -> Float,
+): Path {
+    val points = values.map { (time, value) -> mapX(time, start, end, plot) to mapValue(value) }
+    val segments = monotoneCurveSegments(points)
+    return Path().apply {
+        if (segments.isEmpty()) return@apply
+        moveTo(segments.first().startX, segments.first().startY)
+        segments.forEach { segment ->
+            cubicTo(
+                segment.control1X,
+                segment.control1Y,
+                segment.control2X,
+                segment.control2Y,
+                segment.endX,
+                segment.endY,
+            )
+        }
+    }
+}
 
 /**
  * Carries the last measured metabolic value to the live edge. This closes the

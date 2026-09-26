@@ -41,6 +41,46 @@ import org.robolectric.annotation.GraphicsMode
 class DashboardChartsTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
+    @Test fun `insulin activity smoothing passes through samples without overshoot`() {
+        val segments =
+            monotoneCurveSegments(
+                listOf(
+                    0f to 10f,
+                    10f to 4f,
+                    30f to 7f,
+                    50f to 2f,
+                ),
+            )
+
+        assertEquals(3, segments.size)
+        assertEquals(0f, segments.first().startX)
+        assertEquals(10f, segments.first().startY)
+        assertEquals(50f, segments.last().endX)
+        assertEquals(2f, segments.last().endY)
+        segments.forEach { segment ->
+            val low = minOf(segment.startY, segment.endY)
+            val high = maxOf(segment.startY, segment.endY)
+            assertTrue(segment.control1Y in low..high)
+            assertTrue(segment.control2Y in low..high)
+        }
+    }
+
+    @Test fun `insulin activity smoothing ignores duplicate timestamps deterministically`() {
+        val segments =
+            monotoneCurveSegments(
+                listOf(
+                    0f to 10f,
+                    10f to 8f,
+                    10f to 99f,
+                    20f to 6f,
+                ),
+            )
+
+        assertEquals(2, segments.size)
+        assertEquals(8f, segments.first().endY)
+        assertEquals(8f, segments.last().startY)
+    }
+
     @Test fun `glucose chart renders source target and prediction streams`() {
         val now = System.currentTimeMillis()
         val state =
