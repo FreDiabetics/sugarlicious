@@ -4,6 +4,7 @@ import java.time.DayOfWeek
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ComplicationPresentationTest {
     @Test
@@ -40,18 +41,22 @@ class ComplicationPresentationTest {
         assertNull(p.title)
     }
 
-    @Test fun `unavailable trend uses a visible placeholder instead of an empty slot`() {
+    @Test fun `stale and signal loss retain the last glucose trend delta and age`() {
         val stale = state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 20 * 60_000L))
 
         val trendOnly = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.TREND_ONLY, stale, now)
-        assertEquals("—", trendOnly.text)
-        assertNull(trendOnly.trend)
+        assertEquals("", trendOnly.text)
+        assertEquals(Trend.FORTY_FIVE_UP, trendOnly.trend)
 
         val ranged = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED, stale, now)
-        assertEquals("—", ranged.text)
-        assertEquals("—", ranged.title)
-        assertNull(ranged.trend)
-        assertEquals("Glukose —, Trend nicht verfügbar", ranged.contentDescription)
+        assertEquals(Trend.FORTY_FIVE_UP, ranged.trend)
+        assertTrue(ranged.text.contains('\u0336'))
+        assertNull(ranged.title)
+
+        val combined = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND_DELTA_AGE, stale, now)
+        assertTrue(combined.text.contains('\u0336'))
+        assertEquals("+5 · 20m", combined.title)
+        assertEquals(Trend.FORTY_FIVE_UP, combined.trend)
     }
 
     @Test fun `glucose delta uses title instead of concatenating`() {

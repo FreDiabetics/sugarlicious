@@ -286,6 +286,12 @@ class WearSettingsActivity : Activity() {
                 switchRow("IOB / COB / Basal anzeigen", current.showTherapyStats) { save(current.copy(showTherapyStats = it)) },
                 cardParams(),
             )
+            root.addView(
+                switchRow("Graphkontur", current.graphStyle.borderEnabled) {
+                    save(current.copy(graphStyle = current.graphStyle.copy(borderEnabled = it)))
+                },
+                cardParams(),
+            )
 
             section("CGM-PUNKTE")
             root.addView(
@@ -396,6 +402,7 @@ class WearSettingsActivity : Activity() {
             }
             colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
             colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
+            colorRow(AppearanceTerminology.GRAPH_BORDER, current.graphColors.border) { updateGraphColors { c -> c.copy(border = it) } }
             colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) {
                 updateGraphColors { c ->
                     c.copy(outline = it)

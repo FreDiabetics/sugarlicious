@@ -15,6 +15,7 @@ import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
+import app.aapswear.model.TherapyHistorySample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -125,6 +126,33 @@ class DisplayHistoryAccumulatorTest {
         val replaced = DisplayHistoryAccumulator.merge(second, state(now, 125.0), now)
         assertEquals(listOf(125.0), replaced.glucoseHistory.map { it.valueMgDl })
         assertEquals(1.25, replaced.therapyHistory.single().totalIob!!, 0.001)
+    }
+
+    @Test
+    fun `retains every minute of therapy data across the complete twenty four hour window`() {
+        val minute = 60_000L
+        val now = 3 * DisplayHistoryAccumulator.WINDOW_MS
+        val history =
+            (0..(24 * 60)).map { minuteOffset ->
+                TherapyHistorySample(
+                    measuredAtEpochMs = now - (24 * 60 - minuteOffset) * minute,
+                    totalIob = minuteOffset.toDouble(),
+                    cobGrams = minuteOffset.toDouble(),
+                    basalUnitsPerHour = 0.8,
+                    insulinActivityUnitsPerMinute = 0.01,
+                )
+            }
+
+        val merged =
+            DisplayHistoryAccumulator.merge(
+                previous = null,
+                current = TherapyDisplayState(receivedAtEpochMs = now, therapyHistory = history),
+                nowEpochMs = now,
+            )
+
+        assertEquals(24 * 60 + 1, merged.therapyHistory.size)
+        assertEquals(now - DisplayHistoryAccumulator.WINDOW_MS, merged.therapyHistory.first().measuredAtEpochMs)
+        assertEquals(now, merged.therapyHistory.last().measuredAtEpochMs)
     }
 
     @Test

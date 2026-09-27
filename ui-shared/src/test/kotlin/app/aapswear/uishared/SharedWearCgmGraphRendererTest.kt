@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseGraphScale
+import app.aapswear.model.GraphAxisLayoutSpec
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TrendVisualAsset
@@ -77,7 +78,20 @@ class SharedWearCgmGraphRendererTest {
     }
 
     @Test
-    fun `renderer draws maximum scale in the top left and time labels along the bottom`() {
+    fun `maximum scale aligns with target labels and has no tick`() {
+        val metrics = SharedWearCgmGraphRenderer.metrics(200, 160, 1f, CgmThresholds.DEFAULT)
+        val layout = wearMaximumScaleLayout(metrics, 200, 1f, 18f, SharedWearCgmGraphStyle())
+        assertTrue(layout.labelX >= metrics.axisLeftPx)
+        val expected =
+            minOf(
+                metrics.axisLeftPx + GraphAxisLayoutSpec.COMPACT.plotToTickGapDp + 1.5f,
+                200f - GraphAxisLayoutSpec.COMPACT.outerEdgePaddingDp - 18f,
+            )
+        assertEquals(expected, layout.labelX, 0.01f)
+    }
+
+    @Test
+    fun `renderer draws maximum scale and time labels`() {
         val now = 2_000_000_000_000L
         val bitmap = Bitmap.createBitmap(320, 180, Bitmap.Config.ARGB_8888)
         val palette =

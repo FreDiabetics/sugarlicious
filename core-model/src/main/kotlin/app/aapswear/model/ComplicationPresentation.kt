@@ -142,9 +142,10 @@ object ComplicationPresentationFormatter {
     ): ComplicationPresentation {
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
-        val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
-        val liveGlucose = glucose.takeIf { displayable }
-        val glucoseText = liveGlucose?.let(TherapyDisplayFormatter::glucose) ?: DASH
+        val retained = freshness in setOf(Freshness.CURRENT, Freshness.DELAYED, Freshness.STALE, Freshness.SIGNAL_LOSS)
+        val liveGlucose = glucose.takeIf { retained }
+        val rawGlucoseText = liveGlucose?.let(TherapyDisplayFormatter::glucose) ?: DASH
+        val glucoseText = if (freshness == Freshness.SIGNAL_LOSS && liveGlucose != null) strikeThrough(rawGlucoseText) else rawGlucoseText
         val delta = liveGlucose?.let { TherapyDisplayFormatter.signedDelta(it.deltaMgDl, it.displayUnit) }.orEmpty()
         val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, nowEpochMs)
         val trend = liveGlucose?.trend?.takeUnless { it == Trend.UNKNOWN }
@@ -268,6 +269,8 @@ object ComplicationPresentationFormatter {
             else -> p(DASH, desc = "Keine Daten")
         }
     }
+
+    internal fun strikeThrough(value: String): String = value.flatMap { listOf(it, '\u0336') }.joinToString("")
 
     fun tirPercent(
         state: TherapyDisplayState?,

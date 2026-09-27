@@ -69,6 +69,7 @@ data class WatchGraphColors(
     val cgmVeryLow: Int = cgmLow,
     val cgmVeryHigh: Int = cgmHigh,
     val divider: Int = 0xFF969696.toInt(),
+    val border: Int = divider,
     val highLine: Int = rangeHigh,
     val lowLine: Int = rangeLow,
     val axisLabel: Int = divider,
@@ -142,6 +143,7 @@ data class WatchGraphStyle(
     val cgmCurrentDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
     val scaleLaneOpacityPercent: Int = 30,
+    val borderEnabled: Boolean = false,
 )
 
 @Serializable

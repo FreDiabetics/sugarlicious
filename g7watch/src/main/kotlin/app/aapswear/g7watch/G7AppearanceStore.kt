@@ -102,7 +102,7 @@ enum class G7AppearanceRole(
     GRAPH_DOT_OUTLINE("graph_dot_outline", AppearanceTerminology.GRAPH_DOT_OUTLINE, G7AppearanceSection.GRAPH, 0xFF000000.toInt()),
     GRAPH_AXIS_TEXT("graph_axis_text", AppearanceTerminology.GRAPH_AXIS_TEXT, G7AppearanceSection.GRAPH, 0xFFD2D2D2.toInt()),
     GRAPH_GRID("graph_grid", "Grid / Divider", G7AppearanceSection.GRAPH, 0xFF464646.toInt()),
-    GRAPH_TILE_BORDER("graph_tile_border", "Graph-Tile-Kontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
+    GRAPH_TILE_BORDER("graph_tile_border", "Graphkontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
     GRAPH_PREDICTION("graph_prediction", "Prediction", G7AppearanceSection.GRAPH, 0xFFF4DE00.toInt()),
 }
 
@@ -358,10 +358,16 @@ class G7AppearanceStore(
             historicalDotOutlineEnabled = historicalDotOutlineEnabled(),
             currentDotOutlineEnabled = currentDotOutlineEnabled(),
             timeAxisEnabled = preferences.getBoolean(KEY_IN_APP_TIME_AXIS, true),
+            borderEnabled = preferences.getBoolean(KEY_IN_APP_BORDER, true),
         )
 
     fun setInAppGraphTimeAxisEnabled(value: Boolean) {
         preferences.edit { putBoolean(KEY_IN_APP_TIME_AXIS, value) }
+        notifyTileChanged()
+    }
+
+    fun setInAppGraphBorderEnabled(value: Boolean) {
+        preferences.edit { putBoolean(KEY_IN_APP_BORDER, value) }
         notifyTileChanged()
     }
 
@@ -379,7 +385,7 @@ class G7AppearanceStore(
             currentDotOutlineEnabled = preferences.getBoolean(KEY_TILE_CURRENT_OUTLINE, defaults.currentDotOutlineEnabled),
             dotOutlineWidthDp = preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_TILE_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
-            borderEnabled = true,
+            borderEnabled = preferences.getBoolean(KEY_TILE_BORDER, true),
             timeAxisEnabled = preferences.getBoolean(KEY_TILE_TIME_AXIS, defaults.timeAxisEnabled),
             scaleLaneOpacityPercent = preferences.getInt(KEY_TILE_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
         )
@@ -393,6 +399,7 @@ class G7AppearanceStore(
             putFloat(KEY_TILE_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(.25f, 3f))
             putFloat(KEY_TILE_CORNER_RADIUS, style.cornerRadiusDp.coerceIn(0f, 40f))
             putBoolean(KEY_TILE_TIME_AXIS, style.timeAxisEnabled)
+            putBoolean(KEY_TILE_BORDER, style.borderEnabled)
             putInt(KEY_TILE_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
         }
         notifyTileChanged()
@@ -471,12 +478,14 @@ class G7AppearanceStore(
         private const val KEY_CURRENT_DOT_OUTLINE = "graph_current_dot_outline_enabled"
         private const val KEY_TILE_GRAPH_HOURS = "tile_graph.hours"
         private const val KEY_IN_APP_TIME_AXIS = "in_app_graph.time_axis"
+        private const val KEY_IN_APP_BORDER = "in_app_graph.border"
         private const val KEY_TILE_DOT_RADIUS = "tile_graph.dot_radius"
         private const val KEY_TILE_HISTORY_OUTLINE = "tile_graph.history_outline"
         private const val KEY_TILE_CURRENT_OUTLINE = "tile_graph.current_outline"
         private const val KEY_TILE_OUTLINE_WIDTH = "tile_graph.outline_width"
         private const val KEY_TILE_CORNER_RADIUS = "tile_graph.corner_radius"
         private const val KEY_TILE_TIME_AXIS = "tile_graph.time_axis"
+        private const val KEY_TILE_BORDER = "tile_graph.border"
         private const val KEY_TILE_VISIBLE_AXES_MIGRATED = "tile_graph.visible_axes_migrated_v1"
         private const val KEY_TILE_SCALE_LANE_OPACITY = "tile_graph.scale_lane_opacity"
     }

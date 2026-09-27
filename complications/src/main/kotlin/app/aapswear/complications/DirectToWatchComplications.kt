@@ -66,6 +66,7 @@ internal data class DirectToWatchHeaderPresentation(
     val sensorError: Boolean = false,
     val trendUnavailable: Boolean = false,
     val sensorDisconnected: Boolean = false,
+    val signalLoss: Boolean = false,
 )
 
 internal data class DirectToWatchGraphStatusPresentation(
@@ -110,7 +111,8 @@ internal object DirectToWatchPresentationFormatter {
             "ERROR" -> return DirectToWatchHeaderPresentation("-", "Sensorfehler", sensorError = true)
         }
         val freshness = TherapyDisplayFormatter.freshness(state, nowEpochMs)
-        if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
+        val retained = freshness in setOf(Freshness.CURRENT, Freshness.DELAYED, Freshness.STALE, Freshness.SIGNAL_LOSS)
+        if (!isDirect(state) || state?.glucose == null || !retained) {
             if (activeSessionWithoutData(state)) {
                 return DirectToWatchHeaderPresentation(
                     glucose = "-",
@@ -133,6 +135,7 @@ internal object DirectToWatchPresentationFormatter {
                 glucose = boundary.label,
                 secondary = "",
                 trend = null,
+                signalLoss = freshness == Freshness.SIGNAL_LOSS,
             )
         }
         val resolvedUnit = displayUnit ?: glucose.displayUnit
@@ -148,6 +151,7 @@ internal object DirectToWatchPresentationFormatter {
             secondary = listOf(delta, unit).filter(String::isNotBlank).joinToString(" "),
             trend = glucose.trend.takeIf { TherapyDisplayFormatter.trendArrow(it).isNotBlank() },
             trendUnavailable = TherapyDisplayFormatter.trendArrow(glucose.trend).isBlank(),
+            signalLoss = freshness == Freshness.SIGNAL_LOSS,
         )
     }
 
@@ -159,7 +163,7 @@ internal object DirectToWatchPresentationFormatter {
         if (isVigilSensorDisconnected(state)) {
             return DirectToWatchGraphStatusPresentation("${graphHours}h")
         }
-        if (!isDirect(state) || !TherapyDisplayFormatter.isGlucoseDisplayable(state, nowEpochMs)) {
+        if (!isDirect(state) || state?.glucose == null) {
             return DirectToWatchGraphStatusPresentation("")
         }
         val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
@@ -337,6 +341,7 @@ object DirectToWatchPreferences {
             cgmVeryLow = p.getInt("graph_color_cgm_very_low", defaults.cgmVeryLow),
             cgmVeryHigh = p.getInt("graph_color_cgm_very_high", defaults.cgmVeryHigh),
             divider = p.getInt("graph_color_divider", defaults.divider),
+            border = p.getInt("graph_color_border", defaults.border),
             highLine = p.getInt("graph_color_high_line", defaults.highLine),
             lowLine = p.getInt("graph_color_low_line", defaults.lowLine),
             axisLabel = p.getInt("graph_color_axis_label", defaults.axisLabel),
@@ -369,6 +374,7 @@ object DirectToWatchPreferences {
             .putInt("graph_color_cgm_very_low", colors.cgmVeryLow)
             .putInt("graph_color_cgm_very_high", colors.cgmVeryHigh)
             .putInt("graph_color_divider", colors.divider)
+            .putInt("graph_color_border", colors.border)
             .putInt("graph_color_high_line", colors.highLine)
             .putInt("graph_color_low_line", colors.lowLine)
             .putInt("graph_color_axis_label", colors.axisLabel)
@@ -663,11 +669,14 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         val valueCenterY = valueBaseline + (valueBounds.top + valueBounds.bottom) / 2f
         val contentLeft = 6f
         canvas.drawText(presentation.glucose, contentLeft, valueBaseline, valuePaint)
+        if (presentation.signalLoss) {
+            canvas.drawLine(contentLeft, valueCenterY, contentLeft + valueWidth, valueCenterY, Paint(valuePaint).apply { strokeWidth = 4f })
+        }
         arrow?.let {
             val arrowTop = valueCenterY - it.height / 2f
             canvas.drawBitmap(it, contentLeft + valueWidth + gap, arrowTop, null)
         }
-        if (arrow == null && presentation.trendUnavailable) {
+        if (arrow == null && presentation.trendUnavailable && !presentation.signalLoss) {
             canvas.drawText("-", contentLeft + valueWidth + 8f, valueBaseline, secondaryPaint)
         }
         canvas.drawText(presentation.secondary, contentLeft, 96f, secondaryPaint)
@@ -919,7 +928,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
             axisText = axisLabel,
             axisTick = axisTick,
             nowLine = nowLine,
-            border = divider,
+            border = border,
             predictionIob = predictionIob,
             predictionCob = predictionCob,
             predictionUam = predictionUam,

@@ -167,6 +167,7 @@ class G7DirectToWatchSettingsStore(
             cgmVeryLow = color("graph_color_cgm_very_low", d.cgmVeryLow),
             cgmVeryHigh = color("graph_color_cgm_very_high", d.cgmVeryHigh),
             divider = color("graph_color_divider", d.divider),
+            border = color("graph_color_border", d.border),
             highLine = color("graph_color_high_line", d.highLine),
             lowLine = color("graph_color_low_line", d.lowLine),
             axisLabel = color("graph_color_axis_label", d.axisLabel),
@@ -194,6 +195,7 @@ class G7DirectToWatchSettingsStore(
             putInt("graph_color_cgm_very_low", value.cgmVeryLow)
             putInt("graph_color_cgm_very_high", value.cgmVeryHigh)
             putInt("graph_color_divider", value.divider)
+            putInt("graph_color_border", value.border)
             putInt("graph_color_high_line", value.highLine)
             putInt("graph_color_low_line", value.lowLine)
             putInt("graph_color_axis_label", value.axisLabel)

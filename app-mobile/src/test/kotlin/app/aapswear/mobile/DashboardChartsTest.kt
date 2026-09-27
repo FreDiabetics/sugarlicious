@@ -1054,6 +1054,35 @@ class DashboardChartsTest {
         assertEquals(7L * 60L * 60_000L, availableGlucoseHistoryWindowMs(state, now))
     }
 
+    @Test
+    fun `overview graph window includes the oldest visible data stream`() {
+        val hour = 60L * 60_000L
+        val now = 50L * hour
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(110.0, now - 6L * hour)),
+                therapyHistory = listOf(TherapyHistorySample(now - 24L * hour, totalIob = 1.0)),
+            )
+
+        assertEquals(24L * hour, availableOverviewHistoryWindowMs(state, now, requestedHours = 24))
+    }
+
+    @Test
+    fun `twenty four hour zoom remains available while history is still loading`() {
+        val hour = 60L * 60_000L
+        val now = 50L * hour
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(118.0, now - hour)),
+            )
+
+        assertEquals(24L * hour, availableOverviewHistoryWindowMs(state, now, requestedHours = 24))
+    }
+
     private fun render(
         view: View,
         height: Int,

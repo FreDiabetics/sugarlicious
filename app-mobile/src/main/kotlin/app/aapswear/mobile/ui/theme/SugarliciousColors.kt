@@ -261,6 +261,7 @@ enum class SugarliciousColorRole(
         0xFF747474.toInt(),
         true,
     ),
+    GRAPH_BORDER("graph_border", AppearanceTerminology.GRAPH_BORDER, SugarliciousColorGroup.GRAPH, 0xFF969696.toInt()),
     GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0x46FF5C69, 0x38D11A2A, true),
     GRAPH_CURRENT_OUTLINE("graph_current_outline", "Aktueller Punkt · Kontur", SugarliciousColorGroup.GRAPH, 0xFF000000.toInt()),
     ;

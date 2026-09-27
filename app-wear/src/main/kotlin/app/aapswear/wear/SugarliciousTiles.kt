@@ -427,7 +427,7 @@ internal fun renderWearTileGraph(
                         axisText = graphColors.axisLabel,
                         axisTick = graphColors.axisTick,
                         nowLine = graphColors.nowLine,
-                        border = graphColors.divider,
+                        border = graphColors.border,
                         predictionIob = graphColors.predictionIob,
                         predictionCob = graphColors.predictionCob,
                         predictionUam = graphColors.predictionUam,

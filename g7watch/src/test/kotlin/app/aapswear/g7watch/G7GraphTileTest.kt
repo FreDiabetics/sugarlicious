@@ -23,6 +23,11 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class G7GraphTileTest {
+    @Test fun `graph tile overlay contains scale and latest CGM age`() {
+        assertEquals("2h • 3m", g7GraphScaleAgeLabel(2, now - 3 * 60_000L, now))
+        assertEquals("2h", g7GraphScaleAgeLabel(2, null, now))
+    }
+
     private val context =
         androidx.test.core.app.ApplicationProvider
             .getApplicationContext<android.content.Context>()

@@ -516,6 +516,7 @@ private val cgmGraphColorRoles =
         SugarliciousColorRole.CGM_DOT_IN_RANGE,
         SugarliciousColorRole.CGM_DOT_HIGH,
         SugarliciousColorRole.GRAPH_DIVIDER,
+        SugarliciousColorRole.GRAPH_BORDER,
         SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
     )
 
@@ -957,6 +958,7 @@ private fun ColorRoleExample(
 
             SugarliciousColorRole.GRAPH_MUTED,
             SugarliciousColorRole.GRAPH_DIVIDER,
+            SugarliciousColorRole.GRAPH_BORDER,
             SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
             -> {
                 Row(

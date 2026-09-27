@@ -125,6 +125,26 @@ internal fun availableGlucoseHistoryWindowMs(
     return (nowEpochMs - earliest).coerceIn(0L, 24L * HOUR_MS)
 }
 
+internal fun availableOverviewHistoryWindowMs(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+    requestedHours: Int,
+): Long {
+    val oldestVisibleTimestamp =
+        buildList {
+            state?.glucoseHistory.orEmpty().forEach { add(it.measuredAtEpochMs) }
+            state?.glucose?.let { add(it.measuredAtEpochMs) }
+            state?.therapyHistory.orEmpty().forEach { add(it.measuredAtEpochMs) }
+            state?.therapyEvents.orEmpty().forEach { add(it.timestampEpochMs) }
+            state?.targetHistory.orEmpty().forEach { add(it.startedAtEpochMs) }
+        }.asSequence()
+            .filter { it <= nowEpochMs }
+            .minOrNull()
+    val actualWindowMs = oldestVisibleTimestamp?.let { nowEpochMs - it } ?: 0L
+    val requestedWindowMs = requestedHours.coerceIn(1, 24) * HOUR_MS
+    return maxOf(actualWindowMs, requestedWindowMs).coerceAtMost(24L * HOUR_MS)
+}
+
 internal fun resolveOverviewGraphHoursPreference(
     preferences: SharedPreferences,
     durationHours: Int,
@@ -547,7 +567,10 @@ internal class GlucoseDashboardChart
             val resolvedGraphMaximum = graphMaximumMgDl.coerceIn(180.0, 600.0)
             val resolvedGraphMinimum = graphMinimumMgDl.coerceIn(20.0, resolvedGraphMaximum - 20.0)
             val resolvedClockBucket = clockEpochMs / CLOCK_REFRESH_MS
-            viewport.setAvailablePastWindow(availableGlucoseHistoryWindowMs(state, clockEpochMs), clockEpochMs)
+            viewport.setAvailablePastWindow(
+                availableOverviewHistoryWindowMs(state, clockEpochMs, resolvedDurationHours),
+                clockEpochMs,
+            )
             val newStateSignature =
                 state?.let {
                     buildList {

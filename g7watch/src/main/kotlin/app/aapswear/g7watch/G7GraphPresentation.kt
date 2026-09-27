@@ -20,6 +20,7 @@ internal fun g7SharedGraphInput(
     emptyLabel: String = "",
     styleOverride: SharedWearCgmGraphStyle? = null,
     outsideClipColor: Int? = null,
+    topLeftLabel: String = "",
 ): SharedWearCgmGraphInput {
     val colors =
         settings.graphColors().copy(
@@ -33,6 +34,7 @@ internal fun g7SharedGraphInput(
             cgmVeryLow = palette.argb(G7AppearanceRole.GLUCOSE_VERY_LOW),
             cgmVeryHigh = palette.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH),
             divider = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
+            border = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
             highLine = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE),
             lowLine = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE),
             axisLabel = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
@@ -71,7 +73,7 @@ internal fun g7SharedGraphInput(
                 axisText = colors.axisLabel,
                 axisTick = colors.axisTick,
                 nowLine = colors.nowLine,
-                border = colors.divider,
+                border = colors.border,
                 predictionIob = colors.predictionIob,
                 predictionCob = colors.predictionCob,
                 predictionUam = colors.predictionUam,
@@ -81,6 +83,7 @@ internal fun g7SharedGraphInput(
             ),
         style = styleOverride ?: settings.graphStyle(),
         emptyLabel = emptyLabel,
+        topLeftLabel = topLeftLabel,
         outsideClipColor = outsideClipColor ?: colors.graphBackground,
     )
 }

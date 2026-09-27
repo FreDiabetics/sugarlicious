@@ -88,6 +88,7 @@ data class SharedWearCgmGraphInput(
     val palette: SharedWearCgmGraphPalette,
     val style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
     val emptyLabel: String = "",
+    val topLeftLabel: String = "",
     val outsideClipColor: Int = palette.background,
 )
 
@@ -105,6 +106,32 @@ data class SharedWearCgmGraphMetrics(
     ): Float = window.plotX(timestampEpochMs, plot.left, plot.width())
 
     fun yFor(valueMgDl: Double): Float = plot.bottom - WearCgmGraphScale.ratio(valueMgDl).toFloat() * plot.height()
+}
+
+internal data class WearMaximumScaleLayout(
+    val labelX: Float,
+    val centerY: Float,
+)
+
+internal fun wearMaximumScaleLayout(
+    metrics: SharedWearCgmGraphMetrics,
+    widthPx: Int,
+    density: Float,
+    textWidth: Float,
+    style: SharedWearCgmGraphStyle,
+): WearMaximumScaleLayout {
+    val spec = GraphAxisLayoutSpec.COMPACT
+    val centerY = 7f * density
+    val labelX =
+        if (style.targetLabelsInsidePlot) {
+            metrics.plot.right + 2f * density
+        } else {
+            minOf(
+                metrics.axisLeftPx + spec.plotToTickGapDp * density + 1.5f * density,
+                widthPx - spec.outerEdgePaddingDp * density - textWidth,
+            )
+        }
+    return WearMaximumScaleLayout(labelX, centerY)
 }
 
 /**
@@ -330,7 +357,12 @@ object SharedWearCgmGraphRenderer {
             }
         }
 
-        drawMaximumScale(canvas, input, dp(1f), axisText, line)
+        drawMaximumScale(canvas, input, metrics, widthPx, dp(1f), axisText)
+        if (input.topLeftLabel.isNotBlank()) {
+            axisText.color = input.palette.axisText
+            axisText.textAlign = Paint.Align.LEFT
+            canvas.drawText(input.topLeftLabel, maxOf(3f * density, input.style.cornerRadiusDp * density * 0.7f), 7f * density - (axisText.ascent() + axisText.descent()) / 2f, axisText)
+        }
         if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty() && input.emptyLabel.isNotBlank()) {
             emptyText.color = palette.emptyText
@@ -446,22 +478,16 @@ object SharedWearCgmGraphRenderer {
     private fun drawMaximumScale(
         canvas: Canvas,
         input: SharedWearCgmGraphInput,
+        metrics: SharedWearCgmGraphMetrics,
+        widthPx: Int,
         oneDp: Float,
         text: Paint,
-        line: Paint,
     ) {
         val label = WearCgmGraphScale.MAXIMUM_MG_DL.toInt().toString()
-        val cornerRadiusPx = input.style.cornerRadiusDp * oneDp
-        val x = maxOf(3f * oneDp, cornerRadiusPx * 0.7f)
-        val labelCenterY = maxOf(6f * oneDp, cornerRadiusPx * 0.55f)
-        val baseline = labelCenterY - (text.ascent() + text.descent()) / 2f
+        val layout = wearMaximumScaleLayout(metrics, widthPx, oneDp, text.measureText(label), input.style)
+        val baseline = layout.centerY - (text.ascent() + text.descent()) / 2f
         text.color = input.palette.axisText
         text.textAlign = Paint.Align.LEFT
-        canvas.drawText(label, x, baseline, text)
-        val tickStart = x + text.measureText(label) + 2f * oneDp
-        line.color = input.palette.axisTick
-        line.strokeWidth = 0.8f * oneDp
-        line.pathEffect = null
-        canvas.drawLine(tickStart, labelCenterY, tickStart + 5f * oneDp, labelCenterY, line)
+        canvas.drawText(label, layout.labelX, baseline, text)
     }
 }

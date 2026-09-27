@@ -93,6 +93,11 @@ internal fun g7GraphEmptyLabel(
         else -> "Wird geladen"
     }
 
+internal fun g7GraphScaleAgeLabel(graphHours: Int, measuredAtEpochMs: Long?, nowEpochMs: Long): String {
+    val age = measuredAtEpochMs?.let { ((nowEpochMs - it).coerceAtLeast(0L) / 60_000L).toString() + "m" }
+    return listOfNotNull("${graphHours}h", age).joinToString(" • ")
+}
+
 class G7GraphTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -277,6 +282,7 @@ class G7GraphTileService : TileService() {
                 emptyLabel = g7GraphEmptyLabel(snapshot.pillState, normalizeG7LocalHistory(snapshot.readings).isNotEmpty()),
                 styleOverride = snapshot.graphStyle,
                 outsideClipColor = snapshot.palette.argb(G7AppearanceRole.MENU_BACKGROUND),
+                topLeftLabel = g7GraphScaleAgeLabel(snapshot.graphHours, normalizeG7LocalHistory(snapshot.readings).lastOrNull()?.timestampEpochMs, snapshot.nowEpochMs),
             ),
         )
         return bitmap

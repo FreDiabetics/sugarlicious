@@ -265,6 +265,12 @@ class G7AppearanceActivity : Activity() {
             },
             params(top = 5),
         )
+        content.addView(
+            toggleRow("Graphkontur · In-App-Graph", store.inAppGraphStyle().borderEnabled, palette) {
+                store.setInAppGraphBorderEnabled(it)
+            },
+            params(top = 5),
+        )
 
         val tileStyle = store.tileGraphStyle()
         content.addView(sectionTitle("WearOS-Tile Graph", palette))
@@ -296,6 +302,12 @@ class G7AppearanceActivity : Activity() {
         content.addView(
             toggleRow("Zeitachse", tileStyle.timeAxisEnabled, palette) {
                 store.saveTileGraphStyle(store.tileGraphStyle().copy(timeAxisEnabled = it))
+            },
+            params(top = 5),
+        )
+        content.addView(
+            toggleRow("Graphkontur", tileStyle.borderEnabled, palette) {
+                store.saveTileGraphStyle(store.tileGraphStyle().copy(borderEnabled = it))
             },
             params(top = 5),
         )
