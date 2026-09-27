@@ -8,9 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Icon
-import android.media.AudioAttributes
 import androidx.core.content.edit
-import androidx.core.net.toUri
+import app.aapswear.g7.CgmAlarmType
 import app.aapswear.g7.G7CollectorError
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +26,8 @@ internal fun g7ErrorSignature(error: G7CollectorError): String = "${error.code}|
 
 /** High-priority surface reserved for an actually actionable direct-Watch problem. */
 internal object G7ErrorNotifier {
-    private const val CHANNEL_ID = "direct_watch_collector_errors_v2"
-    private const val LEGACY_CHANNEL_ID = "g7_collector_errors_v1"
+    private const val CHANNEL_ID = "direct_watch_collector_errors_v3"
+    private val LEGACY_CHANNEL_IDS = listOf("g7_collector_errors_v1", "direct_watch_collector_errors_v2")
     private const val CHANNEL_NAME = "SugarWear-Fehler"
     private const val NOTIFICATION_ID = 7002
     private const val PREFS = "g7_error_notifications"
@@ -42,20 +41,12 @@ internal object G7ErrorNotifier {
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
-        val sound = "android.resource://${context.packageName}/${R.raw.alerts_sounds_beep}".toUri()
+        LEGACY_CHANNEL_IDS.forEach(manager::deleteNotificationChannel)
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Dringende Fehler von SugarWear"
                 enableVibration(true)
-                setSound(
-                    sound,
-                    AudioAttributes
-                        .Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build(),
-                )
+                setSound(null, null)
                 setBypassDnd(G7AlarmNotificationPolicy.isAccessGranted(context))
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },
@@ -85,6 +76,8 @@ internal object G7ErrorNotifier {
             putLong(KEY_FIRST_OCCURRED_AT, firstOccurredAt)
             putLong(KEY_LAST_POSTED_AT, System.currentTimeMillis())
         }
+
+        if (!sameActiveError) G7AlarmSoundPlayer.play(app, CgmAlarmType.SENSOR_ERROR)
 
         app.getSystemService(NotificationManager::class.java).notify(
             NOTIFICATION_ID,
