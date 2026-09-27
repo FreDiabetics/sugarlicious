@@ -1,5 +1,31 @@
 # Test Report
 
+## Main-Hardening-Nachprüfung, 2026-09-20
+
+- Repositoryzustand vor der Nachprüfung: `main` entsprach `origin/main` bei
+  `1919ace0995cbae245353319556926fb667b4272`; Arbeitsbaum sauber, keine offenen
+  Pull Requests und keine offenen GitHub-Issues.
+- Die aktuelle Produktmatrix umfasst Digital und Vigil plus das technische
+  Testface, insgesamt drei Module. Historische Zahlen in den nachfolgenden
+  versionsbezogenen Abschnitten bleiben als damalige Prüfergebnisse erhalten
+  und beschreiben nicht den heutigen Umfang.
+- Noch nicht als bestanden behauptet werden Sensorwechsel, BLE-Reconnect,
+  Backfill-SLA, Akku-Langzeitverhalten, aktive/AOD-Goldens und gleichzeitige
+  Kopplung mehrerer realer Uhren. Diese Punkte benötigen neue Hardwarebelege.
+- Der saubere Gesamtgate-Lauf (`clean test assembleDebug lint detekt
+  ktlintCheck`) war nach 2.120 Tasks erfolgreich. 148 JUnit-Suites mit 823
+  Tests liefen ohne Fehler oder Auslassung; 38 Lint-Berichte enthalten null
+  Findings. Detekt und Ktlint sind ebenfalls grün.
+- Der damalige Abschlusslauf vor Entfernung der ausgemusterten Module umfasste
+  3.336 Tasks und 30/30 historische WFF-Artefakte. Diese Zahl ist keine
+  aktuelle Produktanforderung. Die aktive Matrix validiert und prüft jetzt
+  Digital, Vigil und das technische Testface (3/3).
+- Android Lint schreibt beim vollständigen sauberen Lauf für acht unveränderte
+  MP4-Alarmressourcen je zwei rohe XML-Parserdiagnosen auf stderr. Sie sind
+  keinem Lint-Check oder Finding zugeordnet; die 38 maschinenlesbaren Berichte
+  bleiben leer. Breites Unterdrücken oder Umkodieren der Alarmdateien wurde
+  deshalb bewusst nicht als vermeintlicher Quellcode-Fix übernommen.
+
 ## Sugarlicious 0.6.1, 2026-08-09
 
 - Carousel-Nachprüfung auf Samsung SM-S948B, 1440×3120: Rahmen und Zifferblatt

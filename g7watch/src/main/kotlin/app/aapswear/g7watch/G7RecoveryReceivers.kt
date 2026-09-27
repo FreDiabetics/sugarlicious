@@ -1,5 +1,6 @@
 package app.aapswear.g7watch
 
+import android.bluetooth.BluetoothAdapter
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -14,6 +15,39 @@ internal fun shouldRestoreG7Collector(
 ): Boolean =
     collectorEnabled &&
         (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED)
+
+internal fun shouldRecoverG7AfterBluetoothState(
+    action: String?,
+    adapterState: Int,
+    collectorEnabled: Boolean,
+    hasSensor: Boolean,
+): Boolean =
+    action == BluetoothAdapter.ACTION_STATE_CHANGED &&
+        adapterState == BluetoothAdapter.STATE_ON &&
+        collectorEnabled &&
+        hasSensor
+
+class G7BluetoothStateReceiver : BroadcastReceiver() {
+    override fun onReceive(
+        context: Context,
+        intent: Intent,
+    ) {
+        val state = G7SensorStateStore(context).read()
+        if (
+            !shouldRecoverG7AfterBluetoothState(
+                intent.action,
+                intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR),
+                state.collectorEnabled,
+                state.sensor != null,
+            )
+        ) {
+            return
+        }
+        AndroidG7Scanner.forceCleanup()
+        G7RuntimeReconciler.reconcile(context, G7RuntimeEntryPoint.RECONNECT_RECEIVER)
+        G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, G7SensorStateStore(context).read())
+    }
+}
 
 /**
  * Very short alarm→FGS CPU handoff. The normal bounded cycle WakeLock in G7CollectorService takes

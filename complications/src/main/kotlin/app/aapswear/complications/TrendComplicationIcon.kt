@@ -144,13 +144,20 @@ internal object TrendComplicationIcon {
         }
     }
 
-    /** Wear OS treats monochromatic complication icons as square masks. Supplying the intrinsic
-     * 125:60 double-arrow bitmap can clip one half on several slot renderers, so normalize only
-     * the provider payload while retaining both vector paths and the configured style. */
+    /** Wear OS treats monochromatic complication icons as square masks. Letterbox wide glyphs
+     * instead of scaling them into a square: non-uniform scaling compresses the two arrow paths
+     * horizontally and makes them appear to be pushed together. */
     internal fun normalizeComplicationCanvas(bitmap: Bitmap): Bitmap {
         if (bitmap.width == bitmap.height) return bitmap
-        val side = bitmap.height.coerceAtLeast(1)
-        return Bitmap.createScaledBitmap(bitmap, side, side, true)
+        val side = maxOf(bitmap.width, bitmap.height).coerceAtLeast(1)
+        val normalized = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        Canvas(normalized).drawBitmap(
+            bitmap,
+            (side - bitmap.width) / 2f,
+            (side - bitmap.height) / 2f,
+            null,
+        )
+        return normalized
     }
 
     fun render(

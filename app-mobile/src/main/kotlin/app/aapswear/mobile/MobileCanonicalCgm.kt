@@ -3,12 +3,12 @@ package app.aapswear.mobile
 import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
-import app.aapswear.g7.CgmReading
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
+import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.flow.first
@@ -19,24 +19,8 @@ import kotlinx.coroutines.flow.first
  */
 private val Context.mobileG7HistoryDataStore by preferencesDataStore("mobile_g7_backfill")
 
-internal class MobileG7BackfillStore(
-    private val context: Context,
-) {
-    suspend fun snapshot(): List<CgmReading> = emptyList()
-
-    suspend fun merge(
-        incoming: List<CgmReading>,
-        nowEpochMs: Long,
-    ): Set<String> {
-        // Deliberately reject Watch-direct history. Clear any legacy payload at the same time so it
-        // cannot reappear after process restart or widget/Watch rehydration.
-        if (incoming.isNotEmpty() || nowEpochMs >= 0L) clear()
-        return emptySet()
-    }
-
-    suspend fun clear() {
-        context.mobileG7HistoryDataStore.edit { it.clear() }
-    }
+private suspend fun clearLegacyMobileG7History(context: Context) {
+    context.mobileG7HistoryDataStore.edit { it.clear() }
 }
 
 internal object MobileWatchCgmMigration {
@@ -49,7 +33,7 @@ internal object MobileWatchCgmMigration {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (prefs.getInt(KEY_VERSION, 0) >= VERSION) return false
 
-        MobileG7BackfillStore(app).clear()
+        clearLegacyMobileG7History(app)
         app
             .getSharedPreferences("mobile_canonical_cgm_resolver", Context.MODE_PRIVATE)
             .edit()
@@ -58,8 +42,6 @@ internal object MobileWatchCgmMigration {
 
         val phoneStore = PhoneTherapyStateStore(app)
         val phone = phoneStore.state.first()?.withoutDirectWatchCgm()
-        phone?.let { phoneStore.save(it) }
-
         val displayStore = TherapyStateStore(app)
         val current = displayStore.state.first()
         val replacement =
@@ -68,7 +50,7 @@ internal object MobileWatchCgmMigration {
                 current != null -> current.withoutDirectWatchCgm()
                 else -> null
             }
-        replacement?.let { displayStore.save(it) }
+        replacement?.let { CanonicalStateStore(app).commit(it) }
 
         prefs.edit().putInt(KEY_VERSION, VERSION).apply()
         app.recordMobileDiagnostic(
@@ -104,10 +86,8 @@ internal object MobileCanonicalStateCoordinator {
             "SugarWear input is not a Sugarlicious Mobile CGM source"
         }
 
-        val phoneStore = PhoneTherapyStateStore(context)
-        val priorPhone =
-            phoneStore.state.first()
-                ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
+        val canonicalStore = CanonicalStateStore(context)
+        val priorPhone = canonicalStore.reconcile()
 
         var mergedPhone =
             DisplayHistoryAccumulator
@@ -130,26 +110,9 @@ internal object MobileCanonicalStateCoordinator {
                 )
         }
 
-        phoneStore.save(mergedPhone)
-        TherapyStateStore(context).save(mergedPhone)
-        dispatchCanonicalDataChanged(context, mergedPhone)
-        return mergedPhone to mergedPhone
-    }
-
-    /** Legacy compatibility entry point. No Watch history is read or merged. */
-    suspend fun refreshFromWatchBackfill(
-        context: Context,
-        nowEpochMs: Long,
-    ): TherapyDisplayState? {
-        MobileWatchCgmMigration.runOnce(context)
-        if (nowEpochMs < 0L) return null
-        val phone =
-            PhoneTherapyStateStore(context).state.first()
-                ?: TherapyStateStore(context).state.first()?.withoutDirectWatchCgm()
-        val sanitized = phone?.withoutDirectWatchCgm() ?: return null
-        TherapyStateStore(context).save(sanitized)
-        dispatchCanonicalDataChanged(context, sanitized)
-        return sanitized
+        val committed = canonicalStore.commit(mergedPhone)
+        dispatchCanonicalDataChanged(context, committed)
+        return committed to committed
     }
 }
 
@@ -189,11 +152,5 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
 internal fun TherapyDisplayState.mobileAndroidApsOnly(): TherapyDisplayState =
     withoutDirectWatchCgm().copy(
         sourceContract = "MOBILE_ANDROIDAPS_ONLY",
-        glucoseHistory =
-            glucoseHistory
-                .filter { it.source == DataSourceId.ANDROID_APS }
-                .distinctBy { sample ->
-                    sample.sequenceNumber?.let { "${sample.sensorId}:${sample.sessionId}:$it" }
-                        ?: "${sample.measuredAtEpochMs}:${sample.valueMgDl}"
-                }.sortedBy(GlucoseSample::measuredAtEpochMs),
+        glucoseHistory = glucoseHistory.filter { it.source == DataSourceId.ANDROID_APS }.sortedBy(GlucoseSample::measuredAtEpochMs),
     )

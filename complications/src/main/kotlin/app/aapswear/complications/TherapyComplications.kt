@@ -178,12 +178,21 @@ abstract class TherapyComplicationService(
         val thresholds = readCgmThresholds()
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, now)
-        val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+        val fresh = freshness in setOf(Freshness.CURRENT, Freshness.DELAYED, Freshness.STALE, Freshness.SIGNAL_LOSS)
         val displayable = TherapyDisplayFormatter.isGlucoseKnown(state)
         val therapyState = state
 
         val glucoseText =
-            if (displayable && glucose != null) glucose(glucose) else DASH
+            if (displayable && glucose != null) {
+                val value = glucose(glucose)
+                if (freshness == Freshness.SIGNAL_LOSS) {
+                    value.flatMap { listOf(it, '\u0336') }.joinToString("")
+                } else {
+                    value
+                }
+            } else {
+                DASH
+            }
         val trendText =
             if (fresh && glucose != null) arrow(glucose.trend) else ""
         val deltaText =
@@ -583,7 +592,7 @@ abstract class TherapyComplicationService(
 
         val glucose = state?.glucose
         if (valueOnly) {
-            drawValueImage(canvas, glucose, height, now)
+            drawValueImage(canvas, glucose, TherapyDisplayFormatter.freshness(state, now), height, now)
             return bitmap
         }
 
@@ -607,6 +616,7 @@ abstract class TherapyComplicationService(
     private fun drawValueImage(
         canvas: Canvas,
         glucose: GlucoseState?,
+        freshness: Freshness,
         height: Int,
         now: Long,
     ) {
@@ -626,8 +636,16 @@ abstract class TherapyComplicationService(
                 textSize = 28f
             }
 
-        val value = glucose?.let { glucose(it) + arrow(it.trend) } ?: DASH
+        val glucoseValue = glucose?.let(::glucose) ?: DASH
+        val arrowValue = glucose?.let { arrow(it.trend) }.orEmpty()
+        val value = glucoseValue + arrowValue
         canvas.drawText(value, width / 2f, height * 0.58f, valuePaint)
+        if (glucose != null && freshness == Freshness.SIGNAL_LOSS) {
+            val totalWidth = valuePaint.measureText(value)
+            val glucoseWidth = valuePaint.measureText(glucoseValue)
+            val left = width / 2f - totalWidth / 2f
+            canvas.drawLine(left, height * 0.48f, left + glucoseWidth, height * 0.48f, Paint(valuePaint).apply { strokeWidth = 5f })
+        }
 
         val meta =
             glucose?.let {
@@ -702,7 +720,7 @@ abstract class TherapyComplicationService(
                             axisText = colors.axisLabel,
                             axisTick = colors.axisTick,
                             nowLine = colors.nowLine,
-                            border = colors.divider,
+                            border = colors.border,
                             predictionIob = colors.predictionIob,
                             predictionCob = colors.predictionCob,
                             predictionUam = colors.predictionUam,
@@ -742,6 +760,7 @@ abstract class TherapyComplicationService(
             cgmInRange = preferences.getInt("graph_color_cgm_in", defaults.cgmInRange),
             cgmHigh = preferences.getInt("graph_color_cgm_high", defaults.cgmHigh),
             divider = preferences.getInt("graph_color_divider", defaults.divider),
+            border = preferences.getInt("graph_color_border", defaults.border),
             highLine = preferences.getInt("graph_color_high_line", defaults.highLine),
             lowLine = preferences.getInt("graph_color_low_line", defaults.lowLine),
             axisLabel = preferences.getInt("graph_color_axis_label", defaults.axisLabel),
@@ -917,6 +936,7 @@ abstract class TherapyComplicationService(
             Freshness.CURRENT -> "live"
             Freshness.DELAYED -> "delayed"
             Freshness.STALE -> "stale"
+            Freshness.SIGNAL_LOSS -> "signal_loss"
             Freshness.ERROR -> "sensor error"
             Freshness.NO_DATA -> "no data"
         }

@@ -286,6 +286,12 @@ class WearSettingsActivity : Activity() {
                 switchRow("IOB / COB / Basal anzeigen", current.showTherapyStats) { save(current.copy(showTherapyStats = it)) },
                 cardParams(),
             )
+            root.addView(
+                switchRow("Graphkontur", current.graphStyle.borderEnabled) {
+                    save(current.copy(graphStyle = current.graphStyle.copy(borderEnabled = it)))
+                },
+                cardParams(),
+            )
 
             section("CGM-PUNKTE")
             root.addView(
@@ -396,6 +402,7 @@ class WearSettingsActivity : Activity() {
             }
             colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
             colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
+            colorRow(AppearanceTerminology.GRAPH_BORDER, current.graphColors.border) { updateGraphColors { c -> c.copy(border = it) } }
             colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) {
                 updateGraphColors { c ->
                     c.copy(outline = it)
@@ -524,8 +531,23 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun tileContentRows(kind: WearTileKind) {
+        if (kind == WearTileKind.THERAPY) {
+            val selected = TherapyTileSelectionStore.read(this).canonical.toSet()
+            TherapyTileMetric.entries.forEach { metric ->
+                root.addView(
+                    switchRow(metric.label, metric in selected) { enabled ->
+                        val next = if (enabled) selected + metric else selected - metric
+                        if (next.isNotEmpty()) TherapyTileSelectionStore.write(this, next)
+                        requestSugarliciousTileUpdates(this, setOf(TherapyTileService::class.java))
+                        buildUi()
+                    },
+                    cardParams(),
+                )
+            }
+            return
+        }
         val selected = WearTileContentStore.read(this, kind)
-        WearTileContent.entries.chunked(3).forEach { rowItems ->
+        listOf(WearTileContent.GLUCOSE, WearTileContent.GRAPH).chunked(3).forEach { rowItems ->
             root.addView(
                 choiceRow(rowItems.map { it.label to it }, selected) { content ->
                     WearTileContentStore.write(this, kind, content)

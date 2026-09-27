@@ -250,7 +250,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         add("Achsentext", c.axisLabel) { x, v -> x.copy(axisLabel = v) }
         add("Achsenmarken", c.axisTick) { x, v -> x.copy(axisTick = v) }
         add("Jetzt-Linie", c.nowLine) { x, v -> x.copy(nowLine = v) }
-        add("Rahmen", c.divider) { x, v -> x.copy(divider = v) }
+        add("Graph-Trennlinie", c.divider) { x, v -> x.copy(divider = v) }
+        add("Graphkontur", c.border) { x, v -> x.copy(border = v) }
         add("Zielwert", c.targetValue) { x, v -> x.copy(targetValue = v) }
         add("Signalverlust", c.signalLoss) { x, v -> x.copy(signalLoss = v) }
         add("Prognose · IOB", c.predictionIob) { x, v -> x.copy(predictionIob = v) }

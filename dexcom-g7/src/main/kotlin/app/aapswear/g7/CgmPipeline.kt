@@ -1,5 +1,8 @@
 package app.aapswear.g7
 
+import app.aapswear.model.CgmPresentationPolicy
+import app.aapswear.model.CgmPresentationStatus
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import kotlinx.coroutines.flow.StateFlow
@@ -23,10 +26,6 @@ interface CgmReadingRepository {
         fromEpochMs: Long,
         toEpochMs: Long,
     ): List<CgmReading>
-
-    suspend fun getUnsynced(limit: Int = 100): List<CgmReading>
-
-    suspend fun markSynced(ids: Set<String>)
 }
 
 object CgmReadingIdentity {
@@ -85,64 +84,6 @@ object CgmTrendMapper {
     fun fromG7(value: G7Trend): Trend = Trend.valueOf(value.name)
 }
 
-enum class CgmFreshness { CURRENT, STALE, NO_DATA, SIGNAL_LOSS, SENSOR_ERROR }
-
-object CgmFreshnessEvaluator {
-    fun evaluate(
-        reading: CgmReading?,
-        nowEpochMs: Long,
-        staleAfterMs: Long = 12 * 60_000L,
-    ): CgmFreshness =
-        when {
-            reading == null -> CgmFreshness.NO_DATA
-            reading.status == CgmReadingStatus.SENSOR_ERROR -> CgmFreshness.SENSOR_ERROR
-            reading.status != CgmReadingStatus.VALID -> CgmFreshness.NO_DATA
-            nowEpochMs - reading.timestampEpochMs > staleAfterMs -> CgmFreshness.SIGNAL_LOSS
-            nowEpochMs - reading.timestampEpochMs > 6 * 60_000L -> CgmFreshness.STALE
-            else -> CgmFreshness.CURRENT
-        }
-}
-
-data class CgmGap(
-    val afterReadingId: String,
-    val beforeReadingId: String,
-    val durationMs: Long,
-)
-
-object CgmGapDetector {
-    fun detect(
-        readings: List<CgmReading>,
-        expectedIntervalMs: Long = 5 * 60_000L,
-        toleranceMs: Long = 90_000L,
-    ): List<CgmGap> =
-        readings.groupBy { it.sensorId to it.sessionId }.values.flatMap { stream ->
-            stream.sortedBy(CgmReading::timestampEpochMs).zipWithNext().mapNotNull { (before, after) ->
-                val duration = after.timestampEpochMs - before.timestampEpochMs
-                duration.takeIf { it > expectedIntervalMs + toleranceMs }?.let { CgmGap(before.id, after.id, it) }
-            }
-        }
-}
-
-data class CgmSourceCandidate(
-    val source: DataSourceId,
-    val reading: CgmReading?,
-    val enabled: Boolean = true,
-)
-
-object CgmSourceResolver {
-    fun resolve(
-        candidates: List<CgmSourceCandidate>,
-        nowEpochMs: Long,
-    ): CgmReading? {
-        val valid = candidates.filter { it.enabled }.mapNotNull(CgmSourceCandidate::reading)
-        return valid.firstOrNull {
-            it.source == DataSourceId.DEXCOM_G7_WATCH && CgmFreshnessEvaluator.evaluate(it, nowEpochMs) == CgmFreshness.CURRENT
-        } ?: valid
-            .filter { CgmFreshnessEvaluator.evaluate(it, nowEpochMs) in setOf(CgmFreshness.CURRENT, CgmFreshness.STALE) }
-            .maxByOrNull(CgmReading::timestampEpochMs)
-    }
-}
-
 fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {
     val status =
         when {
@@ -196,6 +137,8 @@ data class CgmAlarm(
     val snoozedUntilEpochMs: Long? = null,
     val lastNotifiedAtEpochMs: Long? = null,
     val acknowledgedAtEpochMs: Long? = null,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
 )
 
 @Serializable
@@ -237,7 +180,12 @@ object CgmAlarmEngine {
         settings: CgmAlarmSettings,
         nowEpochMs: Long,
     ): Map<CgmAlarmType, CgmAlarm> {
-        val next = current.toMutableMap()
+        val next =
+            current
+                .filterValues { alarm ->
+                    reading == null ||
+                        (alarm.sensorId == reading.sensorId && alarm.sessionId == reading.sessionId)
+                }.toMutableMap()
 
         fun update(
             type: CgmAlarmType,
@@ -245,7 +193,15 @@ object CgmAlarmEngine {
         ) {
             val old = next[type]
             if (active && old?.state !in setOf(CgmAlarmState.ACTIVE, CgmAlarmState.ACKNOWLEDGED, CgmAlarmState.SNOOZED)) {
-                next[type] = CgmAlarm(type, CgmAlarmState.ACTIVE, nowEpochMs, reading?.id)
+                next[type] =
+                    CgmAlarm(
+                        type = type,
+                        state = CgmAlarmState.ACTIVE,
+                        triggeredAtEpochMs = nowEpochMs,
+                        readingId = reading?.id,
+                        sensorId = reading?.sensorId,
+                        sessionId = reading?.sessionId,
+                    )
             } else if (!active && old != null && old.state != CgmAlarmState.RESOLVED) {
                 next[type] = old.copy(state = CgmAlarmState.RESOLVED)
             }
@@ -315,17 +271,24 @@ object CgmAlarmEngine {
                 settings.rapidFallEnabled && validReading.trendRateMgDlPerMinute?.let { it <= -abs(settings.rapidFallThreshold) } == true,
             )
         }
-        update(
-            CgmAlarmType.SIGNAL_LOSS,
-            settings.signalLossEnabled &&
-                reading != null &&
-                nowEpochMs - reading.timestampEpochMs >= signalLossMs,
-        )
-        val freshSensorStatus = reading?.takeIf { nowEpochMs - it.timestampEpochMs in 0L until signalLossMs }
-        if (freshSensorStatus != null) {
+        val presentationStatus =
+            reading?.let {
+                CgmPresentationPolicy.classify(
+                    measuredAtEpochMs = it.timestampEpochMs,
+                    quality =
+                        when (it.status) {
+                            CgmReadingStatus.VALID -> CgmQuality.VALID
+                            CgmReadingStatus.SENSOR_ERROR -> CgmQuality.SENSOR_ERROR
+                            CgmReadingStatus.INVALID -> CgmQuality.INVALID
+                        },
+                    nowEpochMs = nowEpochMs,
+                )
+            }
+        update(CgmAlarmType.SIGNAL_LOSS, settings.signalLossEnabled && presentationStatus == CgmPresentationStatus.SIGNAL_LOSS)
+        if (reading != null) {
             update(
                 CgmAlarmType.SENSOR_ERROR,
-                settings.sensorErrorEnabled && freshSensorStatus.status == CgmReadingStatus.SENSOR_ERROR,
+                settings.sensorErrorEnabled && presentationStatus == CgmPresentationStatus.SENSOR_ERROR,
             )
         }
         return next

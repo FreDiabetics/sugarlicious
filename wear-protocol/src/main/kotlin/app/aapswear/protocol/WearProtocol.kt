@@ -1,6 +1,5 @@
 package app.aapswear.protocol
 
-import app.aapswear.g7.CgmReading
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticBatch
@@ -28,6 +27,7 @@ data class WearEnvelope(
                 state.glucose?.sessionId.orEmpty(),
                 state.glucose?.measuredAtEpochMs ?: 0L,
                 state.receivedAtEpochMs,
+                state.canonicalRevision,
             ).joinToString(":")
     }
 }
@@ -69,6 +69,7 @@ data class WatchGraphColors(
     val cgmVeryLow: Int = cgmLow,
     val cgmVeryHigh: Int = cgmHigh,
     val divider: Int = 0xFF969696.toInt(),
+    val border: Int = divider,
     val highLine: Int = rangeHigh,
     val lowLine: Int = rangeLow,
     val axisLabel: Int = divider,
@@ -115,31 +116,6 @@ data class WatchAppearanceProfile(
 )
 
 @Serializable
-data class G7ReadingBatch(
-    val schemaVersion: Int = CURRENT_SCHEMA,
-    val batchId: String,
-    val readings: List<CgmReading>,
-    val sentAtEpochMs: Long,
-) {
-    companion object {
-        const val CURRENT_SCHEMA = 1
-        const val MAX_READINGS = 100
-    }
-}
-
-@Serializable
-data class G7ReadingAck(
-    val schemaVersion: Int = CURRENT_SCHEMA,
-    val batchId: String,
-    val acknowledgedIds: Set<String>,
-    val acknowledgedAtEpochMs: Long,
-) {
-    companion object {
-        const val CURRENT_SCHEMA = 1
-    }
-}
-
-@Serializable
 data class WatchUiColors(
     val background: Int = 0xFF181818.toInt(),
     val tileBackground: Int = 0xFF242424.toInt(),
@@ -167,6 +143,7 @@ data class WatchGraphStyle(
     val cgmCurrentDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
     val scaleLaneOpacityPercent: Int = 30,
+    val borderEnabled: Boolean = false,
 )
 
 @Serializable
@@ -208,10 +185,6 @@ object WearProtocol {
     const val WATCH_RUNTIME_STATUS_PATH = "/aaps-display/v1/watch-runtime-status"
     const val WATCH_RUNTIME_REQUEST_PATH = "/aaps-display/v1/watch-runtime-request"
     const val G7_SETUP_PATH = "/aaps-display/v1/g7-setup"
-    const val G7_READING_PATH = "/aaps-display/v1/g7-reading"
-    const val G7_READING_BATCH_PATH = "/aaps-display/v1/g7-reading-batch"
-    const val G7_READING_ACK_PATH = "/aaps-display/v1/g7-reading-ack"
-    const val G7_SYNC_REQUEST_PATH = "/aaps-display/v1/g7-sync-request"
     const val WATCH_COLOR_SYNC_PATH = "/aaps-display/v1/watch-color-sync"
     const val DIAGNOSTICS_REQUEST_PATH = "/aaps-display/v1/diagnostics-request"
     const val DIAGNOSTICS_BATCH_PATH = "/aaps-display/v1/diagnostics-batch"
@@ -310,27 +283,6 @@ object WearProtocol {
     fun encodeRuntimeStatus(status: WatchRuntimeStatus): ByteArray = json.encodeToString(status).encodeToByteArray()
 
     fun encodeG7Setup(command: G7SetupCommand): ByteArray = json.encodeToString(command).encodeToByteArray()
-
-    fun encodeG7ReadingBatch(batch: G7ReadingBatch): ByteArray = json.encodeToString(batch).encodeToByteArray()
-
-    fun decodeG7ReadingBatch(bytes: ByteArray): G7ReadingBatch {
-        val decoded = json.decodeFromString<G7ReadingBatch>(bytes.decodeToString())
-        require(decoded.schemaVersion in 1..G7ReadingBatch.CURRENT_SCHEMA)
-        require(decoded.batchId.isNotBlank() && decoded.batchId.length <= 80)
-        require(decoded.readings.size <= G7ReadingBatch.MAX_READINGS)
-        require(decoded.readings.all { it.source == DataSourceId.DEXCOM_G7_WATCH })
-        return decoded.copy(readings = decoded.readings.distinctBy(CgmReading::id))
-    }
-
-    fun encodeG7ReadingAck(ack: G7ReadingAck): ByteArray = json.encodeToString(ack).encodeToByteArray()
-
-    fun decodeG7ReadingAck(bytes: ByteArray): G7ReadingAck {
-        val decoded = json.decodeFromString<G7ReadingAck>(bytes.decodeToString())
-        require(decoded.schemaVersion in 1..G7ReadingAck.CURRENT_SCHEMA)
-        require(decoded.batchId.isNotBlank() && decoded.batchId.length <= 80)
-        require(decoded.acknowledgedIds.size <= G7ReadingBatch.MAX_READINGS)
-        return decoded.copy(acknowledgedIds = decoded.acknowledgedIds.filter { it.isNotBlank() }.toSet())
-    }
 
     fun encodeWatchColorSync(sync: WatchColorSync): ByteArray = json.encodeToString(sync).encodeToByteArray()
 

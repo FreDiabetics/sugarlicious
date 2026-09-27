@@ -612,7 +612,8 @@ class G7WatchActivity : Activity() {
 
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
-        content.addView(graphTile(G7ReadingDatabase(this).query(limit = 300), palette), cardParams(top = 7))
+        val graphReadings = G7ReadingDatabase(this).use { it.query(limit = 300) }
+        content.addView(graphTile(graphReadings, palette), cardParams(top = 7))
         content.addView(header(palette, pillState))
 
         content.addView(
@@ -747,6 +748,9 @@ class G7WatchActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
+                // Baseline alignment lifts non-text children relative to the glucose glyphs.
+                // Center both render boxes instead so the arrow's visual midpoint matches the value.
+                isBaselineAligned = false
                 addView(
                     label(
                         presentation.value,
@@ -817,8 +821,9 @@ class G7WatchActivity : Activity() {
                     append(hours).append('h')
                     if (ageMinutes != null) append(" • ").append(ageMinutes).append('m')
                 }
+            val readings = G7ReadingDatabase(this).use { it.query(limit = 300) }
             graphView.bind(
-                readings = G7ReadingDatabase(this).query(limit = 300),
+                readings = readings,
                 palette = palette,
                 graphHours = hours,
             )
@@ -962,7 +967,7 @@ class G7WatchActivity : Activity() {
         setTextColor(color)
         gravity = Gravity.CENTER
         setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        typeface = Typeface.create(app.aapswear.model.SugarWearTypography.APP_FONT_FAMILY, if (bold) Typeface.BOLD else Typeface.NORMAL)
     }
 
     private fun rounded(

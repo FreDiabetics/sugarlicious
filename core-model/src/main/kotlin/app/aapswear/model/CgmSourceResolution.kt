@@ -279,12 +279,10 @@ object CanonicalCgmSourceResolver {
         if (mobile == null || watch == null) return false
         if (mobile.measuredAtEpochMs != watch.measuredAtEpochMs) return false
 
-        if (mobile.sensorId != null && watch.sensorId != null && mobile.sensorId != watch.sensorId) {
-            return false
-        }
-        if (mobile.sessionId != null && watch.sessionId != null && mobile.sessionId != watch.sessionId) {
-            return false
-        }
+        // Cross-source equality is only safe with a complete matching sensor/session identity.
+        // Sequence numbers and glucose values are transport metadata, not measurement identity.
+        if (mobile.sensorId == null || watch.sensorId == null || mobile.sensorId != watch.sensorId) return false
+        if (mobile.sessionId == null || watch.sessionId == null || mobile.sessionId != watch.sessionId) return false
 
         return abs(mobile.glucoseMgDl - watch.glucoseMgDl) <= 1.0
     }

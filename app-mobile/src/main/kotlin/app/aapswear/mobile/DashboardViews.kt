@@ -57,10 +57,14 @@ data class DashboardUiPreferences(
     val showDetails: Boolean = true,
     val glucoseTileDetailMode: GlucoseTileDetailMode = GlucoseTileDetailMode.TIR,
     val iobProgressMaximumUnits: Float = 10f,
+    val cobProgressMaximumGrams: Float = 300f,
+    val iobGraphMaximumUnits: Float = 10f,
+    val cobGraphMaximumGrams: Float = 300f,
     val showCgmGraph: Boolean = true,
     val showCgmTargetValue: Boolean = true,
-    val showCgmBasal: Boolean = false,
-    val showCgmActivity: Boolean = false,
+    val showCgmCurrentBasal: Boolean = false,
+    val showCgmBaseBasal: Boolean = false,
+    val showCgmActivity: Boolean = true,
     val showCgmPredictionIob: Boolean = false,
     val showCgmPredictionCob: Boolean = false,
     val showCgmPredictionUam: Boolean = false,
@@ -79,6 +83,8 @@ data class DashboardUiPreferences(
     val compact: Boolean = true,
     val graphHours: Int = 3,
     val graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+    val iobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
+    val cobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
     val graphMinimumMgDl: Double = 40.0,
     val graphMaximumMgDl: Double = 400.0,
     val liveNotification: Boolean = false,
@@ -99,6 +105,8 @@ data class DashboardUiPreferences(
                 showCgmPredictionCob ||
                 showCgmPredictionUam ||
                 showCgmPredictionZeroTemp
+    val showCgmBasal: Boolean
+        get() = showCgmCurrentBasal || showCgmBaseBasal
 
     fun unitFor(state: TherapyDisplayState?): GlucoseUnit =
         when (unit) {
@@ -120,10 +128,14 @@ data class DashboardUiPreferences(
                         GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)!!)
                     }.getOrDefault(GlucoseTileDetailMode.TIR),
                 iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
+                cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
+                iobGraphMaximumUnits = preferences.getFloat(IOB_GRAPH_MAXIMUM_KEY, 10f).coerceIn(1f, 30f),
+                cobGraphMaximumGrams = preferences.getFloat(COB_GRAPH_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
-                showCgmBasal = preferences.getBoolean("cgm.basal", false),
-                showCgmActivity = preferences.getBoolean("cgm.activity", false),
+                showCgmCurrentBasal = preferences.getBoolean(CGM_CURRENT_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
+                showCgmBaseBasal = preferences.getBoolean(CGM_BASE_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
+                showCgmActivity = preferences.getBoolean("cgm.activity", true),
                 showCgmPredictionIob = preferences.getBoolean("cgm.prediction.iob", false),
                 showCgmPredictionCob = preferences.getBoolean("cgm.prediction.cob", false),
                 showCgmPredictionUam = preferences.getBoolean("cgm.prediction.uam", false),
@@ -145,6 +157,8 @@ data class DashboardUiPreferences(
                     runCatching {
                         CgmGraphScaleMode.valueOf(preferences.getString(GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC.name)!!)
                     }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC),
+                iobGraphScaleMode = readScaleMode(preferences, IOB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
+                cobGraphScaleMode = readScaleMode(preferences, COB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
                 graphMinimumMgDl = preferences.getFloat(GRAPH_MINIMUM_KEY, 40f).toDouble().coerceIn(20.0, 300.0),
                 graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
@@ -172,11 +186,37 @@ data class DashboardUiPreferences(
         const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
         const val GLUCOSE_TILE_DETAIL_MODE_KEY = "overview.glucoseTileDetailMode"
         const val IOB_PROGRESS_MAXIMUM_KEY = "overview.iobProgressMaximumUnits"
+        const val COB_PROGRESS_MAXIMUM_KEY = "overview.cobProgressMaximumGrams"
+        const val IOB_GRAPH_MAXIMUM_KEY = "graph.iobMaximumUnits"
+        const val COB_GRAPH_MAXIMUM_KEY = "graph.cobMaximumGrams"
         const val GRAPH_MAXIMUM_KEY = "graph.maximumMgDl"
         const val GRAPH_MINIMUM_KEY = "graph.minimumMgDl"
         const val GRAPH_SCALE_MODE_KEY = "graph.scaleMode"
+        const val IOB_GRAPH_SCALE_MODE_KEY = "graph.iobScaleMode"
+        const val COB_GRAPH_SCALE_MODE_KEY = "graph.cobScaleMode"
+        const val CGM_CURRENT_BASAL_KEY = "cgm.basal.current"
+        const val CGM_BASE_BASAL_KEY = "cgm.basal.base"
     }
 }
+
+private fun readScaleMode(
+    preferences: SharedPreferences,
+    key: String,
+    legacyKey: String,
+): CgmGraphScaleMode =
+    runCatching {
+        CgmGraphScaleMode.valueOf(
+            preferences.getString(key, preferences.getString(legacyKey, CgmGraphScaleMode.LOGARITHMIC.name))!!,
+        )
+    }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC)
+
+private fun graphScaleModeLabel(mode: CgmGraphScaleMode): String =
+    when (mode) {
+        CgmGraphScaleMode.STATIC -> "Statisch"
+        CgmGraphScaleMode.DYNAMIC -> "Dynamisch"
+        CgmGraphScaleMode.LOGARITHMIC -> "Logarithmisch"
+        CgmGraphScaleMode.LOGARITHMIC_DYNAMIC -> "Logarithmisch-dynamisch"
+    }
 
 data class DiagnosticsSnapshot(
     val sourceVersion: String?,
@@ -597,6 +637,16 @@ class DashboardViewFactory(
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) } },
                         )
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "COB Progressbar Maximum",
+                                value = preferences.cobProgressMaximumGrams,
+                                minimum = 10f,
+                                maximum = 500f,
+                                valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
+                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, it) } },
+                        )
                     }
                     addView(divider())
                     addView(
@@ -679,10 +729,18 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(
                             switchRowCompact(
-                                "Basal",
-                                preferences.showCgmBasal,
+                                "Aktuelle BR/TBR",
+                                preferences.showCgmCurrentBasal,
                                 View.generateViewId(),
-                            ) { callbacks.setCgmStream("cgm.basal", it) },
+                            ) { callbacks.setCgmStream(DashboardUiPreferences.CGM_CURRENT_BASAL_KEY, it) },
+                        )
+                        addView(divider())
+                        addView(
+                            switchRowCompact(
+                                "Basis-BR",
+                                preferences.showCgmBaseBasal,
+                                View.generateViewId(),
+                            ) { callbacks.setCgmStream(DashboardUiPreferences.CGM_BASE_BASAL_KEY, it) },
                         )
                         addView(divider())
                         addView(
@@ -698,6 +756,52 @@ class DashboardViewFactory(
                                 View.generateViewId(),
                                 callbacks.setShowMetabolicGraph,
                             ),
+                        )
+                        addView(divider())
+                        addView(
+                            choiceRow(
+                                "IOB-Skalierung",
+                                CgmGraphScaleMode.entries.map { mode ->
+                                    Triple(graphScaleModeLabel(mode), preferences.iobGraphScaleMode == mode) {
+                                        dashboardPreferences.edit {
+                                            putString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, mode.name)
+                                        }
+                                    }
+                                },
+                            ),
+                        )
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "IOB Graph Maximum",
+                                value = preferences.iobGraphMaximumUnits,
+                                minimum = 1f,
+                                maximum = 30f,
+                                valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
+                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, it) } },
+                        )
+                        addView(divider())
+                        addView(
+                            choiceRow(
+                                "COB-Skalierung",
+                                CgmGraphScaleMode.entries.map { mode ->
+                                    Triple(graphScaleModeLabel(mode), preferences.cobGraphScaleMode == mode) {
+                                        dashboardPreferences.edit {
+                                            putString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, mode.name)
+                                        }
+                                    }
+                                },
+                            ),
+                        )
+                        addView(divider())
+                        addView(
+                            sugarliciousSliderRow(
+                                title = "COB Graph Maximum",
+                                value = preferences.cobGraphMaximumGrams,
+                                minimum = 10f,
+                                maximum = 500f,
+                                valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
+                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, it) } },
                         )
                         addView(divider())
                         addView(

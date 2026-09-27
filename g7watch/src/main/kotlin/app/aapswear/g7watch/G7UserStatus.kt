@@ -6,6 +6,9 @@ import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7SensorAvailability
 import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
+import app.aapswear.model.CgmPresentationPolicy
+import app.aapswear.model.CgmPresentationStatus
+import app.aapswear.model.CgmQuality
 
 internal enum class G7StatusPillState(
     val title: String,
@@ -28,11 +31,17 @@ internal fun deriveG7StatusPillState(
     if (sensor.state == G7SensorState.ERROR || state.lastReading?.status == CgmReadingStatus.SENSOR_ERROR) {
         return G7StatusPillState.SENSOR_ERROR
     }
-    val readingAgeMs = state.lastReading?.timestampEpochMs?.let { (nowEpochMs - it).coerceAtLeast(0L) }
-    return if (readingAgeMs != null && readingAgeMs < G7_SIGNAL_LOSS_AFTER_MS) {
-        G7StatusPillState.CONNECTED
-    } else {
-        G7StatusPillState.SIGNAL_LOSS
+    val reading = state.lastReading
+    return when (
+        CgmPresentationPolicy.classify(
+            reading?.timestampEpochMs,
+            if (reading?.status == CgmReadingStatus.SENSOR_ERROR) CgmQuality.SENSOR_ERROR else CgmQuality.VALID,
+            nowEpochMs = nowEpochMs,
+        )
+    ) {
+        CgmPresentationStatus.SENSOR_ERROR -> G7StatusPillState.SENSOR_ERROR
+        CgmPresentationStatus.SIGNAL_LOSS, CgmPresentationStatus.NO_SOURCE -> G7StatusPillState.SIGNAL_LOSS
+        else -> G7StatusPillState.CONNECTED
     }
 }
 

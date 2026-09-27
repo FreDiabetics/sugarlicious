@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
+import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
@@ -118,35 +120,44 @@ internal fun SugarliciousOverviewScreen(
         ) { ChartViewport(preferences.graphHours) }
     val metabolicChartViewport = cgmChartViewport
     var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
+    var sharedViewportSnapshot by remember(cgmChartViewport, now) {
+        mutableStateOf(cgmChartViewport.snapshot(now))
+    }
+    DisposableEffect(cgmChartViewport, now) {
+        val listener = { sharedViewportSnapshot = cgmChartViewport.snapshot(now) }
+        cgmChartViewport.addListener(listener)
+        listener()
+        onDispose { cgmChartViewport.removeListener(listener) }
+    }
+
+    val enabledPredictions =
+        if (preferences.showCgmGraph && preferences.anyCgmPredictionEnabled) {
+            state
+                ?.glucosePredictions
+                .orEmpty()
+                .filter { series ->
+                    when (series.kind) {
+                        app.aapswear.model.PredictionKind.IOB -> preferences.showCgmPredictionIob
+                        app.aapswear.model.PredictionKind.COB,
+                        app.aapswear.model.PredictionKind.ACOB,
+                        -> preferences.showCgmPredictionCob
+                        app.aapswear.model.PredictionKind.UAM -> preferences.showCgmPredictionUam
+                        app.aapswear.model.PredictionKind.ZERO_TEMP -> preferences.showCgmPredictionZeroTemp
+                    }
+                }
+        } else {
+            emptyList()
+        }
+    val sharedScaleOnRight =
+        targetScaleOnRight(
+            hasVisiblePredictions(enabledPredictions, now, sharedViewportSnapshot),
+        )
 
     val predictionFutureWindowMs =
         if (
             preferences.showCgmGraph &&
             preferences.anyCgmPredictionEnabled
         ) {
-            val enabledPredictions =
-                state
-                    ?.glucosePredictions
-                    .orEmpty()
-                    .filter { series ->
-                        when (
-                            series.kind
-                        ) {
-                            app.aapswear.model.PredictionKind.IOB ->
-                                preferences.showCgmPredictionIob
-
-                            app.aapswear.model.PredictionKind.COB,
-                            app.aapswear.model.PredictionKind.ACOB,
-                            ->
-                                preferences.showCgmPredictionCob
-
-                            app.aapswear.model.PredictionKind.UAM ->
-                                preferences.showCgmPredictionUam
-
-                            app.aapswear.model.PredictionKind.ZERO_TEMP ->
-                                preferences.showCgmPredictionZeroTemp
-                        }
-                    }
             maxOf(PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now), 60L * 60_000L)
         } else {
             0L
@@ -232,7 +243,13 @@ internal fun SugarliciousOverviewScreen(
             unitLabel = unitLabel(unit),
             tirStats = tirStats,
             detailMode = preferences.glucoseTileDetailMode,
-            therapyIndicators = therapyIndicatorPresentations(state.takeIf { displayable }, preferences.iobProgressMaximumUnits, now),
+            therapyIndicators =
+                therapyIndicatorPresentations(
+                    state = state.takeIf { displayable },
+                    iobMaximumUnits = preferences.iobProgressMaximumUnits,
+                    nowEpochMs = now,
+                    cobMaximumGrams = preferences.cobProgressMaximumGrams,
+                ),
             visualSpec =
                 GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
                     preferences.glucoseScalePercent,
@@ -266,10 +283,22 @@ internal fun SugarliciousOverviewScreen(
                 viewport = metabolicChartViewport,
                 chartHeightDp = metabolicGraphHeightDp,
                 now = now,
+                scaleOnRight = sharedScaleOnRight,
             )
         }
     }
 }
+
+internal fun hasVisiblePredictions(
+    predictions: List<GlucosePrediction>,
+    now: Long,
+    viewport: GraphViewportSnapshot,
+): Boolean =
+    PredictionDisplayTimeline
+        .anchor(predictions, now)
+        .any { series ->
+            series.samples.any { it.measuredAtEpochMs in viewport.startEpochMs..viewport.endEpochMs }
+        }
 
 @Composable
 private fun GlucoseHeroCard(
@@ -517,7 +546,7 @@ private fun QuickStatsRow(
         CombinedIobCobCard(Modifier.weight(1f), state, heightDp)
         QuickStatCard(
             Modifier.weight(1f),
-            R.drawable.ic_basal,
+            app.aapswear.uishared.R.drawable.ic_basal,
             "BASAL",
             formatNumber(state?.basal?.currentUnitsPerHour, 2),
             "IE/h",
@@ -596,8 +625,8 @@ private fun CombinedIobCobCard(
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            QuickMetricHeader(R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
-            QuickMetricHeader(R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
+            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
+            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             InlineMetricValue(formatNumber(state?.insulin?.totalIob, 2), "IE")
@@ -746,7 +775,8 @@ internal fun GlucoseDashboardChart.bindOverview(
         durationHours = preferences.graphHours,
         showTargetRange = true,
         showTargetValue = preferences.showCgmTargetValue,
-        showBasal = preferences.showCgmBasal,
+        showCurrentBasal = preferences.showCgmCurrentBasal,
+        showBaseBasal = preferences.showCgmBaseBasal,
         showActivity = preferences.showCgmActivity,
         showPredictionIob = preferences.showCgmPredictionIob,
         showPredictionCob = preferences.showCgmPredictionCob,
@@ -769,6 +799,7 @@ private fun MetabolicGraphSurface(
     viewport: ChartViewport,
     chartHeightDp: Int,
     now: Long,
+    scaleOnRight: Boolean,
 ) {
     AndroidView(
         modifier = Modifier.fillMaxWidth().height(chartHeightDp.dp),
@@ -789,13 +820,13 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                scaleOnRight =
-                    !preferences.showCgmTargetValue &&
-                        !preferences.showCgmBasal &&
-                        !preferences.showCgmActivity &&
-                        !preferences.anyCgmPredictionEnabled,
+                scaleOnRight = scaleOnRight,
                 showTimeAxis = !preferences.showCgmGraph,
-                graphScaleMode = preferences.graphScaleMode,
+                iobGraphScaleMode = preferences.iobGraphScaleMode,
+                cobGraphScaleMode = preferences.cobGraphScaleMode,
+                iobMaximumUnits = preferences.iobGraphMaximumUnits,
+                cobMaximumGrams = preferences.cobGraphMaximumGrams,
+                showPredictionDivider = preferences.anyCgmPredictionEnabled,
                 clockEpochMs = now,
             )
         },

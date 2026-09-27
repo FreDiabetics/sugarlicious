@@ -8,8 +8,6 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.DiagnosticSeverity
-import app.aapswear.protocol.G7ReadingAck
-import app.aapswear.protocol.G7ReadingBatch
 import app.aapswear.protocol.WatchAppearanceProfile
 import app.aapswear.protocol.WatchColorSync
 import app.aapswear.protocol.WatchConfig
@@ -18,9 +16,8 @@ import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.protocol.WearProtocol
+import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.DiagnosticEventStore
-import app.aapswear.storage.PhoneTherapyStateStore
-import app.aapswear.storage.TherapyStateStore
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
@@ -29,7 +26,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -46,14 +42,7 @@ class MobileDataLayerService : WearableListenerService() {
             WearProtocol.REQUEST_PATH -> {
                 scope.launch {
                     applicationContext.recordMobileDiagnostic("SYNC", "SYNC-WATCH-100", "Watch requested current state")
-                    val phoneState =
-                        PhoneTherapyStateStore(this@MobileDataLayerService)
-                            .state
-                            .first()
-                            ?: TherapyStateStore(this@MobileDataLayerService)
-                                .state
-                                .first()
-                                ?.withoutDirectWatchCgm()
+                    val phoneState = CanonicalStateStore(this@MobileDataLayerService).reconcile()
                     runCatching {
                         phoneState?.let { publishState(this@MobileDataLayerService, it) }
                         publishWatchConfig(this@MobileDataLayerService)
@@ -123,22 +112,6 @@ class MobileDataLayerService : WearableListenerService() {
                     }
             }
 
-            WearProtocol.G7_READING_BATCH_PATH -> {
-                scope.launch {
-                    val batch =
-                        runCatching { WearProtocol.decodeG7ReadingBatch(event.data) }.getOrElse {
-                            applicationContext.recordMobileDiagnostic(
-                                "G7",
-                                "G7-SYNC-401",
-                                "Invalid G7 Watch history batch rejected",
-                                DiagnosticSeverity.WARNING,
-                            )
-                            return@launch
-                        }
-                    acceptG7Batch(batch, event.sourceNodeId)
-                }
-            }
-
             WearProtocol.DIAGNOSTICS_BATCH_PATH -> {
                 scope.launch {
                     runCatching { WearProtocol.decodeDiagnostics(event.data) }
@@ -166,30 +139,6 @@ class MobileDataLayerService : WearableListenerService() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
-    }
-
-    private suspend fun acceptG7Batch(
-        batch: G7ReadingBatch,
-        sourceNodeId: String,
-    ) {
-        MobileG7BackfillStore(this).clear()
-        val ignoredIds = batch.readings.mapNotNull { it.id.takeIf(String::isNotBlank) }.toSet()
-        val ack =
-            G7ReadingAck(
-                batchId = batch.batchId,
-                acknowledgedIds = ignoredIds,
-                acknowledgedAtEpochMs = System.currentTimeMillis(),
-            )
-        Wearable
-            .getMessageClient(this)
-            .sendMessage(sourceNodeId, WearProtocol.G7_READING_ACK_PATH, WearProtocol.encodeG7ReadingAck(ack))
-            .await()
-        applicationContext.recordMobileDiagnostic(
-            "G7",
-            "G7-SYNC-204",
-            "SugarWear history ignored by AndroidAPS-only Mobile policy",
-            metadata = mapOf("batchId" to batch.batchId, "received" to batch.readings.size, "acknowledgedAsIgnored" to ignoredIds.size),
-        )
     }
 }
 
@@ -239,6 +188,7 @@ internal fun readWatchConfig(context: Context): WatchConfig {
                 cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
                 cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
                 divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
+                border = palette.argb(SugarliciousColorRole.GRAPH_BORDER),
                 highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
                 lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
                 axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),
@@ -295,6 +245,7 @@ internal fun readWatchAppearanceProfile(
                 cgmVeryLow = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_LOW),
                 cgmVeryHigh = palette.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
                 divider = palette.argb(SugarliciousColorRole.GRAPH_DIVIDER),
+                border = palette.argb(SugarliciousColorRole.GRAPH_BORDER),
                 highLine = palette.argb(SugarliciousColorRole.GRAPH_HIGH_LINE),
                 lowLine = palette.argb(SugarliciousColorRole.GRAPH_LOW_LINE),
                 axisLabel = palette.argb(SugarliciousColorRole.GRAPH_LABEL),

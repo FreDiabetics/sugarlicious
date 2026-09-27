@@ -19,6 +19,33 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7LifecyclePolicyTest {
+    @Test fun `Bluetooth restart recovers only an enabled configured collector`() {
+        assertTrue(
+            shouldRecoverG7AfterBluetoothState(
+                android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED,
+                android.bluetooth.BluetoothAdapter.STATE_ON,
+                collectorEnabled = true,
+                hasSensor = true,
+            ),
+        )
+        assertFalse(
+            shouldRecoverG7AfterBluetoothState(
+                android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED,
+                android.bluetooth.BluetoothAdapter.STATE_OFF,
+                collectorEnabled = true,
+                hasSensor = true,
+            ),
+        )
+        assertFalse(
+            shouldRecoverG7AfterBluetoothState(
+                android.bluetooth.BluetoothAdapter.ACTION_STATE_CHANGED,
+                android.bluetooth.BluetoothAdapter.STATE_ON,
+                collectorEnabled = false,
+                hasSensor = true,
+            ),
+        )
+    }
+
     @Test fun `pairing attempt gets one absolute deadline and rehydration preserves it`() {
         val initial = G7PersistedState(sensor = G7Sensor("sensor"), collectorEnabled = true)
         val started = ensureG7PairingAttempt(initial, 1_000L)

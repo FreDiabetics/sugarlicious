@@ -414,7 +414,7 @@ class G7SystemStatusActivity : Activity() {
         )
         if (state.sensor != null) {
             target.addView(
-                pill("Sensor für andere Uhr freigeben", palette, danger = true) {
+                pill("Sensor vollständig trennen", palette, danger = true) {
                     showReleaseSensorDialog(palette)
                 },
                 buttonParams(),
@@ -443,7 +443,7 @@ class G7SystemStatusActivity : Activity() {
                             LinearLayout.LayoutParams(48.dp, 48.dp),
                         )
                         addView(
-                            label("Sensor freigeben", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                            label("Sensor trennen", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
                                 gravity = Gravity.CENTER_VERTICAL
                                 setPadding(8.dp, 0, 0, 0)
                             },
@@ -469,10 +469,9 @@ class G7SystemStatusActivity : Activity() {
                             LinearLayout.LayoutParams(54.dp, ViewGroup.LayoutParams.WRAP_CONTENT),
                         )
                         addView(
-                            ImageView(this@G7SystemStatusActivity).apply {
-                                setImageResource(R.drawable.ic_watch_device)
-                                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                                contentDescription = "Andere Smartwatch"
+                            label("×", 36f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                                gravity = Gravity.CENTER
+                                contentDescription = "Verbindung vollständig getrennt"
                             },
                             LinearLayout.LayoutParams(52.dp, 52.dp),
                         )
@@ -484,29 +483,39 @@ class G7SystemStatusActivity : Activity() {
                         ).apply { topMargin = 16.dp },
                 )
                 addView(
-                    label("Sensor auf eine andere Uhr umziehen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                    label("Sensor vollständig trennen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
                         gravity = Gravity.CENTER
                         setPadding(4.dp, 18.dp, 4.dp, 6.dp)
                     },
                 )
                 addView(
                     label(
-                        "SugarWear beendet auf dieser Uhr die direkte Verbindung und entfernt den lokalen Sensor-Bond. Messhistorie und Einstellungen bleiben erhalten.",
+                        "SugarWear beendet die direkte Verbindung und entfernt den Bluetooth-Bond vollständig. Messhistorie und Einstellungen bleiben erhalten; danach kann ein anderer Sensor verbunden werden.",
                         11f,
                         palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                     ).apply { gravity = Gravity.CENTER },
                 )
                 addView(
-                    pill("Für andere Uhr freigeben", palette, danger = true) {
-                        val result = unlinkG7Sensor(this@G7SystemStatusActivity)
+                    pill("Sensor endgültig trennen", palette, danger = true) {
                         dialog.dismiss()
-                        Toast
-                            .makeText(
-                                this@G7SystemStatusActivity,
-                                if (result.bondRemovalRequested) "Sensor ist für eine andere Uhr freigegeben" else "Lokale Verbindung entfernt – Bluetooth-Bond bitte prüfen",
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        render()
+                        Toast.makeText(this@G7SystemStatusActivity, "Sensor wird getrennt …", Toast.LENGTH_SHORT).show()
+                        diagnosticScope.launch {
+                            val result = unlinkG7Sensor(this@G7SystemStatusActivity)
+                            runOnUiThread {
+                                if (isFinishing || isDestroyed) return@runOnUiThread
+                                Toast
+                                    .makeText(
+                                        this@G7SystemStatusActivity,
+                                        if (result.detached) {
+                                            "Sensor vollständig getrennt – Messhistorie bleibt erhalten"
+                                        } else {
+                                            "Bluetooth-Bond konnte nicht entfernt werden – Sensorzuordnung bleibt für erneuten Versuch erhalten"
+                                        },
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                render()
+                            }
+                        }
                     },
                     buttonParams().apply { topMargin = 18.dp },
                 )
@@ -557,9 +566,23 @@ class G7SystemStatusActivity : Activity() {
                         input.error = "4 Ziffern erforderlich"
                         return@pill
                     }
-                    moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode)
-                    showPairingEditor = false
-                    render()
+                    diagnosticScope.launch {
+                        val result = runCatching { moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode) }
+                        runOnUiThread {
+                            if (isFinishing || isDestroyed) return@runOnUiThread
+                            if (result.isSuccess) {
+                                showPairingEditor = false
+                                render()
+                            } else {
+                                Toast
+                                    .makeText(
+                                        this@G7SystemStatusActivity,
+                                        "Alter Sensor konnte nicht vollständig getrennt werden",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                            }
+                        }
+                    }
                 },
                 buttonParams(),
             )

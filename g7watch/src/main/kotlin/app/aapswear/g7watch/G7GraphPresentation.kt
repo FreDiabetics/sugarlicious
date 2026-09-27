@@ -3,10 +3,12 @@ package app.aapswear.g7watch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseSample
 import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 /** Shared SugarWear adapter. Both the in-app Canvas and Graph Tile use this exact input. */
 internal fun g7SharedGraphInput(
@@ -16,6 +18,9 @@ internal fun g7SharedGraphInput(
     graphHours: Int,
     nowEpochMs: Long,
     emptyLabel: String = "",
+    styleOverride: SharedWearCgmGraphStyle? = null,
+    outsideClipColor: Int? = null,
+    topLeftLabel: String = "",
 ): SharedWearCgmGraphInput {
     val colors =
         settings.graphColors().copy(
@@ -29,6 +34,7 @@ internal fun g7SharedGraphInput(
             cgmVeryLow = palette.argb(G7AppearanceRole.GLUCOSE_VERY_LOW),
             cgmVeryHigh = palette.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH),
             divider = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
+            border = palette.argb(G7AppearanceRole.GRAPH_TILE_BORDER),
             highLine = palette.argb(G7AppearanceRole.GRAPH_HIGH_LINE),
             lowLine = palette.argb(G7AppearanceRole.GRAPH_LOW_LINE),
             axisLabel = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
@@ -41,7 +47,12 @@ internal fun g7SharedGraphInput(
         )
     val hours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
     return SharedWearCgmGraphInput(
-        history = normalizeG7LocalHistory(readings).map(CgmReading::toG7GraphSample),
+        history =
+            CanonicalCgmHistory.merge(
+                samples = normalizeG7LocalHistory(readings).map(CgmReading::toG7GraphSample),
+                nowEpochMs = nowEpochMs,
+                windowMs = hours * 60L * 60_000L,
+            ),
         timeWindow = g7CollectorGraphWindow(nowEpochMs, hours),
         nowEpochMs = nowEpochMs,
         thresholds = settings.thresholds(),
@@ -62,7 +73,7 @@ internal fun g7SharedGraphInput(
                 axisText = colors.axisLabel,
                 axisTick = colors.axisTick,
                 nowLine = colors.nowLine,
-                border = colors.divider,
+                border = colors.border,
                 predictionIob = colors.predictionIob,
                 predictionCob = colors.predictionCob,
                 predictionUam = colors.predictionUam,
@@ -70,8 +81,10 @@ internal fun g7SharedGraphInput(
                 targetText = colors.targetValue,
                 emptyText = colors.signalLoss,
             ),
-        style = settings.graphStyle(),
+        style = styleOverride ?: settings.graphStyle(),
         emptyLabel = emptyLabel,
+        topLeftLabel = topLeftLabel,
+        outsideClipColor = outsideClipColor ?: colors.graphBackground,
     )
 }
 
@@ -85,14 +98,8 @@ internal fun normalizeG7LocalHistory(source: List<CgmReading>): List<CgmReading>
             }.orEmpty()
 
     return sameSession
-        .groupBy { reading ->
-            G7LocalReadingIdentity(
-                reading.sensorId,
-                reading.sessionId,
-                reading.sequenceNumber,
-                if (reading.sequenceNumber == null) reading.timestampEpochMs / G7_FALLBACK_BUCKET_MS else 0L,
-            )
-        }.values
+        .groupBy { reading -> Triple(reading.sensorId, reading.sessionId, reading.timestampEpochMs) }
+        .values
         .map { duplicates ->
             duplicates.maxWithOrNull(
                 compareBy<CgmReading> { if (it.origin == CgmReadingOrigin.LIVE) 1 else 0 }
@@ -112,12 +119,3 @@ private fun CgmReading.toG7GraphSample() =
         receivedAtEpochMs = receivedAtEpochMs,
         quality = CgmQuality.VALID,
     )
-
-private data class G7LocalReadingIdentity(
-    val sensorId: String,
-    val sessionId: String,
-    val sequenceNumber: Long?,
-    val fallbackMinuteBucket: Long,
-)
-
-private const val G7_FALLBACK_BUCKET_MS = 60_000L

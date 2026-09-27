@@ -43,6 +43,21 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
     @Test
+    fun `notification revision changes only with a new glucose measurement`() {
+        val measuredAt = 1_000L
+        val initial =
+            TherapyDisplayState(
+                receivedAtEpochMs = 2_000L,
+                glucose = GlucoseState(valueMgDl = 120.0, displayUnit = GlucoseUnit.MG_DL, measuredAtEpochMs = measuredAt),
+            )
+
+        assertEquals(measuredAt, notificationGlucoseRevision(initial))
+        assertEquals(measuredAt, notificationGlucoseRevision(initial.copy(receivedAtEpochMs = 9_000L)))
+        assertEquals(1_001L, notificationGlucoseRevision(initial.copy(glucose = initial.glucose?.copy(measuredAtEpochMs = 1_001L))))
+        assertNull(notificationGlucoseRevision(initial.copy(glucose = null)))
+    }
+
+    @Test
     fun `external surfaces refresh on the next aligned minute boundary`() {
         assertEquals(60_000L, delayUntilNextExternalSurfaceMinute(120_000L))
         assertEquals(45_000L, delayUntilNextExternalSurfaceMinute(135_000L))

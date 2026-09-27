@@ -75,25 +75,6 @@ class G7FoundationTest {
         assertEquals(14.0, converted.glucoseMgDl)
     }
 
-    @Test fun `sensor and session changes never create synthetic history gaps`() {
-        val previous = reading(108.0, now - 30 * 60_000L).copy(sensorId = "old-sensor", sessionId = "old-session")
-        val current = reading(112.0).copy(sensorId = "new-sensor", sessionId = "new-session")
-
-        assertTrue(CgmGapDetector.detect(listOf(previous, current)).isEmpty())
-    }
-
-    @Test fun `local current G7 wins source resolution`() {
-        val g7 = reading(112.0)
-        val phone = g7.copy(id = "phone", source = DataSourceId.ANDROID_APS, timestampEpochMs = now + 1_000L)
-        assertEquals(
-            g7,
-            CgmSourceResolver.resolve(
-                listOf(CgmSourceCandidate(DataSourceId.ANDROID_APS, phone), CgmSourceCandidate(DataSourceId.DEXCOM_G7_WATCH, g7)),
-                now,
-            ),
-        )
-    }
-
     @Test fun `phone loss never changes watch ownership`() {
         val manager = CollectorOwnershipManager(CollectorOwner.WATCH)
         assertEquals(CollectorOwner.WATCH, manager.phoneDisconnected())

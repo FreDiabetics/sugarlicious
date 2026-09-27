@@ -1,7 +1,6 @@
 package app.aapswear.complications
 
 import android.content.Context
-import android.net.Uri
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CanonicalCgmSourceResolver
 import app.aapswear.model.CgmCanonicalSource
@@ -17,7 +16,6 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayState
-import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchDataSource
 
 /**
@@ -29,8 +27,6 @@ import app.aapswear.protocol.WatchDataSource
  * is 15 minutes, and returning Mobile data must pass recovery hysteresis.
  */
 object G7LocalReadingResolver {
-    private val readingsUri = Uri.parse("content://app.aapswear.g7watch.readings/readings")
-    private val stateUri = Uri.parse("content://app.aapswear.g7watch.readings/state")
     private const val PREFS = "canonical_cgm_resolver"
     private const val KEY_STATE = "state"
     private const val KEY_RECOVERY_COUNT = "recovery_count"
@@ -44,6 +40,21 @@ object G7LocalReadingResolver {
         fallback: TherapyDisplayState?,
         nowEpochMs: Long = System.currentTimeMillis(),
         dataSource: WatchDataSource? = null,
+    ): TherapyDisplayState? =
+        resolve(
+            context = context,
+            fallback = fallback,
+            nowEpochMs = nowEpochMs,
+            dataSource = dataSource,
+            provider = AndroidDirectCgmProvider(context.applicationContext),
+        )
+
+    internal fun resolve(
+        context: Context,
+        fallback: TherapyDisplayState?,
+        nowEpochMs: Long,
+        dataSource: WatchDataSource?,
+        provider: DirectCgmProvider,
     ): TherapyDisplayState? {
         val selectedSource =
             dataSource ?: runCatching {
@@ -54,9 +65,12 @@ object G7LocalReadingResolver {
                 )
             }.getOrDefault(WatchDataSource.AUTOMATIC)
 
-        val directRows = readDirectRows(context)
-        val directStatus = readDirectStatus(context)
-        val latestDirectEvent = directRows.maxByOrNull(LocalReading::measuredAt)
+        val providerOutcome = provider.read()
+        recordProviderOutcome(context, providerOutcome, nowEpochMs)
+        val snapshot = (providerOutcome as? DirectProviderOutcome.Success)?.snapshot
+        val directRows = snapshot?.readings.orEmpty()
+        val directStatus = snapshot?.status
+        val latestDirectEvent = directRows.maxByOrNull(DirectReading::measuredAt)
         val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
         val mobileCandidate =
             fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
@@ -158,7 +172,7 @@ object G7LocalReadingResolver {
             source = chosenSource,
             sourceVersion = sourceVersion,
             sourceContract =
-                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${directStatus?.sessionState ?: "UNINITIALIZED"}",
+                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${directStatus?.sessionState ?: "UNINITIALIZED"}:PROVIDER_${providerOutcome.code}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
                     ?: chosenGlucose?.receivedAtEpochMs
@@ -215,72 +229,9 @@ object G7LocalReadingResolver {
             ?.takeIf(String::isNotBlank)
             ?.substringBefore(':')
 
-    private fun readDirectStatus(context: Context): DirectStatus? =
-        runCatching {
-            context.contentResolver.query(stateUri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    DirectStatus(
-                        sensorState = cursor.getString(cursor.getColumnIndexOrThrow("sensor_state")),
-                        sessionState = cursor.getString(cursor.getColumnIndexOrThrow("session_state")),
-                    )
-                } else {
-                    null
-                }
-            }
-        }.getOrNull()
-
-    private data class DirectStatus(
-        val sensorState: String,
-        val sessionState: String,
-    )
-
-    private fun readDirectRows(context: Context): List<LocalReading> =
-        runCatching {
-            context.contentResolver
-                .query(readingsUri, null, null, null, null)
-                ?.use { cursor ->
-                    buildList {
-                        while (cursor.moveToNext()) {
-                            val quality =
-                                when (cursor.getString(cursor.getColumnIndexOrThrow("status"))) {
-                                    "VALID" -> CgmQuality.VALID
-                                    "SENSOR_ERROR" -> CgmQuality.SENSOR_ERROR
-                                    else -> continue
-                                }
-                            val value = cursor.getDouble(cursor.getColumnIndexOrThrow("glucose"))
-                            if (quality == CgmQuality.VALID && (!value.isFinite() || value !in 20.0..1_000.0)) continue
-                            add(
-                                LocalReading(
-                                    sensorId = cursor.getString(cursor.getColumnIndexOrThrow("sensor_id")),
-                                    sessionId = cursor.getString(cursor.getColumnIndexOrThrow("session_id")),
-                                    sequenceNumber =
-                                        cursor.getColumnIndexOrThrow("sequence_number").let {
-                                            if (cursor.isNull(it)) null else cursor.getLong(it)
-                                        },
-                                    value = value,
-                                    measuredAt = cursor.getLong(cursor.getColumnIndexOrThrow("measured_at")),
-                                    receivedAt = cursor.getLong(cursor.getColumnIndexOrThrow("received_at")),
-                                    delta =
-                                        cursor.getColumnIndexOrThrow("delta").let {
-                                            if (cursor.isNull(it)) null else cursor.getDouble(it)
-                                        },
-                                    trend =
-                                        runCatching {
-                                            Trend.valueOf(
-                                                cursor.getString(cursor.getColumnIndexOrThrow("trend")),
-                                            )
-                                        }.getOrDefault(Trend.UNKNOWN),
-                                    quality = quality,
-                                ),
-                            )
-                        }
-                    }
-                }.orEmpty()
-        }.getOrDefault(emptyList())
-
     private fun mergeHistory(
         phone: List<GlucoseSample>,
-        direct: List<LocalReading>,
+        direct: List<DirectReading>,
         nowEpochMs: Long,
         watchIsCanonical: Boolean,
         preferredSource: DataSourceId,
@@ -352,7 +303,7 @@ object G7LocalReadingResolver {
             WatchDataSource.DEXCOM_G7_WATCH -> CgmSourceMode.WATCH_ONLY
         }
 
-    private fun LocalReading.toCandidate(): CgmSourceCandidate =
+    private fun DirectReading.toCandidate(): CgmSourceCandidate =
         CgmSourceCandidate(
             source = CgmCanonicalSource.WATCH_G7_DIRECT,
             glucoseMgDl = value,
@@ -363,7 +314,7 @@ object G7LocalReadingResolver {
             sequenceNumber = sequenceNumber,
         )
 
-    private fun LocalReading.isRecent(
+    private fun DirectReading.isRecent(
         nowEpochMs: Long,
         policy: CgmSourcePolicy,
     ): Boolean =
@@ -372,7 +323,7 @@ object G7LocalReadingResolver {
             receivedAt <= nowEpochMs + policy.futureToleranceMs &&
             (nowEpochMs - measuredAt).coerceAtLeast(0L) <= policy.watchFreshAfterMs
 
-    private fun LocalReading.toGlucoseState(): GlucoseState =
+    private fun DirectReading.toGlucoseState(): GlucoseState =
         GlucoseState(
             valueMgDl = value,
             displayUnit = GlucoseUnit.MG_DL,
@@ -386,18 +337,31 @@ object G7LocalReadingResolver {
             receivedAtEpochMs = receivedAt,
             quality = quality,
         )
+}
 
-    private data class LocalReading(
-        val sensorId: String,
-        val sessionId: String,
-        val sequenceNumber: Long?,
-        val value: Double,
-        val measuredAt: Long,
-        val receivedAt: Long,
-        val delta: Double?,
-        val trend: Trend,
-        val quality: CgmQuality,
-    )
+private val DirectProviderOutcome.code: String
+    get() =
+        when (this) {
+            is DirectProviderOutcome.Success -> "SUCCESS"
+            DirectProviderOutcome.Empty -> "EMPTY"
+            is DirectProviderOutcome.Failure -> kind.name
+        }
+
+private fun recordProviderOutcome(
+    context: Context,
+    outcome: DirectProviderOutcome,
+    nowEpochMs: Long,
+) {
+    val prefs = context.getSharedPreferences("direct_provider_diagnostics", Context.MODE_PRIVATE)
+    val code = outcome.code
+    val previousCode = prefs.getString("last_code", null)
+    val previousAt = prefs.getLong("last_at", Long.MIN_VALUE)
+    if (code == previousCode && nowEpochMs - previousAt < 5 * 60_000L) return
+    prefs
+        .edit()
+        .putString("last_code", code)
+        .putLong("last_at", nowEpochMs)
+        .apply()
 }
 
 /** Keeps collector persistence independent from the one canonical history exposed to Wear UI. */

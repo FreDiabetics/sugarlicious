@@ -5,6 +5,27 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CgmGraphYScaleTest {
+    @Test fun `static CGM scale always maps forty to its lower boundary`() {
+        val scale =
+            CgmGraphYScale.resolve(
+                mode = CgmGraphScaleMode.STATIC,
+                visibleValuesMgDl = listOf(80.0, 120.0),
+                staticMinimumMgDl = 20.0,
+                staticMaximumMgDl = 400.0,
+            )
+
+        assertEquals(40.0, scale.minimumMgDl, 0.0)
+        assertEquals(0.0, scale.ratio(40.0), 0.0)
+    }
+
+    @Test fun `custom logarithmic and dynamic CGM lower bounds remain unchanged`() {
+        val logarithmic = CgmGraphYScale.resolve(CgmGraphScaleMode.LOGARITHMIC, listOf(80.0, 120.0), 20.0, 400.0)
+        val dynamic = CgmGraphYScale.resolve(CgmGraphScaleMode.DYNAMIC, listOf(65.0, 120.0), 20.0, 400.0)
+
+        assertEquals(20.0, logarithmic.minimumMgDl, 0.0)
+        assertTrue(dynamic.minimumMgDl < 65.0)
+    }
+
     @Test
     fun `all modes map equal boundary values to equal pixels`() {
         CgmGraphScaleMode.entries.forEach { mode ->

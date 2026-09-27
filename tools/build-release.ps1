@@ -10,7 +10,7 @@ $gradle = Join-Path $projectRoot "gradlew.bat"
 
 if (-not $SkipBuild) {
     $tasks = @("test", "assembleDebug", ":app-mobile:assembleRelease", ":app-wear:assembleRelease", ":watchfaces:test-wff:assembleRelease") +
-        ($ALL_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
+        ($ACTIVE_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
     & $gradle @tasks
     if ($LASTEXITCODE -ne 0) { throw "Gradle verification failed" }
 
@@ -57,9 +57,8 @@ $report = [ordered]@{
     generatedAt = (Get-Date).ToString("o")
     androidApsDevCommit = "59ace5777a2a4ab5452d2f974b4f178993c12e9c"
     watchfaceCount = $ACTIVE_WATCHFACES.Count
-    validatedWatchfaceCount = $ALL_WATCHFACES.Count
-    legacyWatchfaceCount = $LEGACY_WATCHFACES.Count
-    legacyDeploymentEnabled = $false
+    validatedWatchfaceCount = $ACTIVE_WATCHFACES.Count + 1
+    validatorFixtureCount = 1
     applicationSigning = "debug/development signing only"
     publishingReady = $false
     excluded = @("PinkFloydTheWall: protected third-party motif/brand rights not cleared")

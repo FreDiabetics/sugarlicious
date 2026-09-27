@@ -1,5 +1,6 @@
 package app.aapswear.g7watch
 
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
@@ -31,19 +32,22 @@ class G7CgmAlarmsTest {
     private val notificationManager by lazy { context.getSystemService(NotificationManager::class.java) }
 
     @Test
-    fun `every collector alarm keeps its dedicated bundled sound`() {
+    fun `every collector alarm keeps its dedicated bundled asset`() {
         val expected =
             mapOf(
-                CgmAlarmType.VERY_HIGH to R.raw.alerts_sounds_high_alert,
-                CgmAlarmType.HIGH to R.raw.alerts_sounds_high,
-                CgmAlarmType.LOW to R.raw.alerts_sounds_low,
-                CgmAlarmType.VERY_LOW to R.raw.alerts_sounds_urgent_low_alarm,
-                CgmAlarmType.RAPID_RISE to R.raw.alerts_sounds_rise_rate,
-                CgmAlarmType.RAPID_FALL to R.raw.alerts_sounds_fall_rate,
-                CgmAlarmType.SIGNAL_LOSS to R.raw.alerts_sounds_signal_loss_alert,
-                CgmAlarmType.SENSOR_ERROR to R.raw.alerts_sounds_beep,
+                CgmAlarmType.VERY_HIGH to "alarms/alerts_sounds_high_alert.mp4",
+                CgmAlarmType.HIGH to "alarms/alerts_sounds_high.mp4",
+                CgmAlarmType.LOW to "alarms/alerts_sounds_low.mp4",
+                CgmAlarmType.VERY_LOW to "alarms/alerts_sounds_urgent_low_alarm.mp4",
+                CgmAlarmType.RAPID_RISE to "alarms/alerts_sounds_rise_rate.mp4",
+                CgmAlarmType.RAPID_FALL to "alarms/alerts_sounds_fall_rate.mp4",
+                CgmAlarmType.SIGNAL_LOSS to "alarms/alerts_sounds_signal_loss_alert.mp4",
+                CgmAlarmType.SENSOR_ERROR to "alarms/alerts_sounds_beep.mp4",
             )
-        assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundResource))
+        assertEquals(expected, CgmAlarmType.entries.associateWith(::g7AlarmSoundAsset))
+        expected.values.forEach { asset ->
+            context.assets.openFd(asset).use { descriptor -> assertTrue(descriptor.length > 0L) }
+        }
     }
 
     @Test
@@ -59,6 +63,18 @@ class G7CgmAlarmsTest {
             assertNull(channel.sound)
         }
         assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v4_") })
+    }
+
+    @Test
+    fun `collector error channel migrates away from removed raw sound resource`() {
+        notificationManager.createNotificationChannel(
+            NotificationChannel("direct_watch_collector_errors_v2", "legacy", NotificationManager.IMPORTANCE_HIGH),
+        )
+
+        G7ErrorNotifier.ensureChannel(context)
+
+        assertNull(notificationManager.getNotificationChannel("direct_watch_collector_errors_v2"))
+        assertNull(notificationManager.getNotificationChannel("direct_watch_collector_errors_v3").sound)
     }
 
     @Test

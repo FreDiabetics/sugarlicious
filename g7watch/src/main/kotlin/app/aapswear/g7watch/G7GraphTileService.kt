@@ -16,11 +16,10 @@ import androidx.wear.protolayout.LayoutElementBuilders.Image
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
 import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders.Background
-import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Clickable
-import androidx.wear.protolayout.ModifiersBuilders.Corner
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.protolayout.ResourceBuilders.ImageResource
 import androidx.wear.protolayout.ResourceBuilders.InlineImageResource
 import androidx.wear.protolayout.TimelineBuilders.Timeline
@@ -28,14 +27,17 @@ import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import app.aapswear.g7.CgmReading
+import app.aapswear.model.SugarWearTypography
+import app.aapswear.model.SugarWearTypographyRole
+import app.aapswear.uishared.Rgb565Image
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
+import app.aapswear.uishared.toRgb565Image
 import com.google.common.util.concurrent.SettableFuture
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
 
 internal data class G7GraphTileSnapshot(
     val readings: List<CgmReading>,
@@ -43,12 +45,41 @@ internal data class G7GraphTileSnapshot(
     val pillState: G7StatusPillState,
     val graphHours: Int,
     val nowEpochMs: Long,
+    val graphStyle: app.aapswear.uishared.SharedWearCgmGraphStyle =
+        app.aapswear.uishared.DirectToWatchGraphDefaults
+            .style(),
 ) {
     val resourceVersion: String
-        get() = "g7-graph-3-${readings.maxOfOrNull(
-            CgmReading::timestampEpochMs,
-        ) ?: 0L}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${pillState.name}"
+        get() = "g7-graph-11-visible-axes-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${graphStyle.hashCode()}-${pillState.name}"
 }
+
+internal data class G7GraphTileContentSpec(
+    val widthDp: Float,
+    val heightDp: Float,
+    val cornerRadiusDp: Float,
+    val outerPaddingDp: Float = 0f,
+)
+
+internal fun g7GraphTileContentSpec(
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+): G7GraphTileContentSpec {
+    val square = g7SquareTileSpec(screenWidthDp, screenHeightDp)
+    return G7GraphTileContentSpec(square.sideDp, square.sideDp - 21f, square.cornerRadiusDp)
+}
+
+/** Cache identity covers the complete canonical graph, including late BACKFILL rows. */
+internal fun g7GraphHistoryFingerprint(readings: List<CgmReading>): String =
+    normalizeG7LocalHistory(readings)
+        .fold(1L) { hash, reading ->
+            var next = hash * 31L + reading.sensorId.hashCode()
+            next = next * 31L + reading.sessionId.hashCode()
+            next = next * 31L + reading.timestampEpochMs
+            next = next * 31L + reading.glucoseMgDl.toBits()
+            next = next * 31L + reading.status.ordinal
+            next
+        }.toULong()
+        .toString(16)
 
 internal fun g7GraphEmptyLabel(
     state: G7StatusPillState,
@@ -61,6 +92,11 @@ internal fun g7GraphEmptyLabel(
         state == G7StatusPillState.SIGNAL_LOSS -> "Signalverlust"
         else -> "Wird geladen"
     }
+
+internal fun g7GraphScaleAgeLabel(graphHours: Int, measuredAtEpochMs: Long?, nowEpochMs: Long): String {
+    val age = measuredAtEpochMs?.let { ((nowEpochMs - it).coerceAtLeast(0L) / 60_000L).toString() + "m" }
+    return listOfNotNull("${graphHours}h", age).joinToString(" • ")
+}
 
 class G7GraphTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -100,17 +136,23 @@ class G7GraphTileService : TileService() {
                 G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
                 G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
             }
-        val graphWidth = square.sideDp - square.innerPaddingDp * 2f
-        val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
-        val graphHeight = cardHeight - square.innerPaddingDp * 2f
+        val contentSpec = g7GraphTileContentSpec(device.screenWidthDp, device.screenHeightDp)
+        val effectiveGraphStyle = G7AppearanceStore(this).tileGraphStyle(contentSpec.cornerRadiusDp)
+        val graphWidth = contentSpec.widthDp
+        val cardHeight = contentSpec.heightDp
+        val graphHeight = contentSpec.heightDp
         val density = device.screenDensity.takeIf { it > 0f } ?: resources.displayMetrics.density
+        val graphPixels = renderGraph(snapshot.copy(graphStyle = effectiveGraphStyle), graphWidth, graphHeight, density)
         val graphResource =
             ImageResource
                 .Builder()
                 .setInlineResource(
                     InlineImageResource
                         .Builder()
-                        .setData(renderGraph(snapshot, graphWidth, graphHeight, density))
+                        .setData(graphPixels.data)
+                        .setWidthPx(graphPixels.widthPx)
+                        .setHeightPx(graphPixels.heightPx)
+                        .setFormat(IMAGE_FORMAT_RGB_565)
                         .build(),
                 ).build()
         val graphImage =
@@ -127,24 +169,7 @@ class G7GraphTileService : TileService() {
                 .setHeight(dp(cardHeight))
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .setModifiers(
-                    Modifiers
-                        .Builder()
-                        .setBackground(
-                            Background
-                                .Builder()
-                                .setColor(argb(palette.argb(G7AppearanceRole.MENU_SURFACE)))
-                                .setCorner(Corner.Builder().setRadius(dp(square.cornerRadiusDp)).build())
-                                .build(),
-                        ).setBorder(
-                            Border
-                                .Builder()
-                                .setColor(argb(palette.argb(G7AppearanceRole.MENU_BORDER)))
-                                .setWidth(dp(1f))
-                                .build(),
-                        ).setPadding(Padding.Builder().setAll(dp(square.innerPaddingDp)).build())
-                        .build(),
-                ).addContent(graphImage)
+                .addContent(graphImage)
                 .build()
 
         val header =
@@ -157,8 +182,13 @@ class G7GraphTileService : TileService() {
                         .Builder()
                         .setPadding(Padding.Builder().setStart(dp(square.cornerRadiusDp)).build())
                         .build(),
-                ).addContent(label("Gewebeglukose-Verlauf", 11f, titleColor))
-                .build()
+                ).addContent(
+                    label(
+                        "Gewebeglukose-Verlauf",
+                        SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp,
+                        titleColor,
+                    ),
+                ).build()
         val content =
             Column
                 .Builder()
@@ -192,8 +222,8 @@ class G7GraphTileService : TileService() {
 
     private suspend fun snapshot(): G7GraphTileSnapshot {
         val now = System.currentTimeMillis()
-        val settings = G7DirectToWatchSettingsStore(this)
-        val hours = settings.graphHours()
+        val appearance = G7AppearanceStore(this)
+        val hours = appearance.tileGraphHours()
         val readings =
             G7ReadingDatabase(this).let { database ->
                 try {
@@ -205,10 +235,11 @@ class G7GraphTileService : TileService() {
         val state = G7SensorStateStore(this).read()
         return G7GraphTileSnapshot(
             readings = readings,
-            palette = G7AppearanceStore(this).load(),
+            palette = appearance.tileGraphPalette(),
             pillState = deriveG7StatusPillState(state, G7CredentialStore(this).read() != null, now),
             graphHours = hours,
             nowEpochMs = now,
+            graphStyle = appearance.tileGraphStyle(),
         )
     }
 
@@ -217,10 +248,24 @@ class G7GraphTileService : TileService() {
         widthDp: Float,
         heightDp: Float,
         density: Float,
-    ): ByteArray {
+    ): Rgb565Image {
         val widthPx = (widthDp * density).toInt().coerceAtLeast(1)
         val heightPx = (heightDp * density).toInt().coerceAtLeast(1)
-        val bitmap = createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val bitmap = renderGraphBitmap(snapshot, widthPx, heightPx, density)
+        return try {
+            bitmap.toRgb565Image()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    internal fun renderGraphBitmap(
+        snapshot: G7GraphTileSnapshot,
+        widthPx: Int,
+        heightPx: Int,
+        density: Float,
+    ): Bitmap {
+        val bitmap = createBitmap(widthPx.coerceAtLeast(1), heightPx.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val settings = G7DirectToWatchSettingsStore(this)
         SharedWearCgmGraphRenderer.render(
             Canvas(bitmap),
@@ -235,13 +280,12 @@ class G7GraphTileService : TileService() {
                 graphHours = snapshot.graphHours,
                 nowEpochMs = snapshot.nowEpochMs,
                 emptyLabel = g7GraphEmptyLabel(snapshot.pillState, normalizeG7LocalHistory(snapshot.readings).isNotEmpty()),
+                styleOverride = snapshot.graphStyle,
+                outsideClipColor = snapshot.palette.argb(G7AppearanceRole.MENU_BACKGROUND),
+                topLeftLabel = g7GraphScaleAgeLabel(snapshot.graphHours, normalizeG7LocalHistory(snapshot.readings).lastOrNull()?.timestampEpochMs, snapshot.nowEpochMs),
             ),
         )
-        return ByteArrayOutputStream().use { output ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
-            bitmap.recycle()
-            output.toByteArray()
-        }
+        return bitmap
     }
 
     private fun label(
@@ -260,8 +304,8 @@ class G7GraphTileService : TileService() {
                         androidx.wear.protolayout.DimensionBuilders
                             .sp(sizeSp),
                     ).setColor(argb(color))
-                    .setPreferredFontFamilies("sans-serif")
                     .setWeight(sugarWearTileWeight(emphasized = true))
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 

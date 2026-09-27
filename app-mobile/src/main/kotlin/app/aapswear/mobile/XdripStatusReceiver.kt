@@ -63,8 +63,9 @@ class XdripStatusReceiver : BroadcastReceiver() {
                         ?: previous?.takeUnless { it.source == DataSourceId.DEXCOM_G7_WATCH }
                 val aapsIsCurrent =
                     previousPhone?.source == DataSourceId.ANDROID_APS &&
-                        FreshnessPolicy.classify(previousPhone.glucose?.measuredAtEpochMs, now) != Freshness.STALE &&
-                        FreshnessPolicy.classify(previousPhone.glucose?.measuredAtEpochMs, now) != Freshness.NO_DATA
+                        aapsReadingBlocksAutomaticFallback(
+                            FreshnessPolicy.classify(previousPhone.glucose?.measuredAtEpochMs, now),
+                        )
                 if (preference == DataSourcePreference.AUTOMATIC && aapsIsCurrent) {
                     app.recordMobileDiagnostic("SOURCE", "SRC-XDRIP-103", "xDrip payload deferred to current AAPS reading")
                     return@launch
@@ -113,3 +114,6 @@ class XdripStatusReceiver : BroadcastReceiver() {
         }
     }
 }
+
+internal fun aapsReadingBlocksAutomaticFallback(freshness: Freshness): Boolean =
+    freshness == Freshness.CURRENT || freshness == Freshness.DELAYED

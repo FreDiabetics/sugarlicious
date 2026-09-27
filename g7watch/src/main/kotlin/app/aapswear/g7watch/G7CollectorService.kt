@@ -20,7 +20,9 @@ import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
 import app.aapswear.g7.CollectorSlotStrategy
 import app.aapswear.g7.G7CollectorError
+import app.aapswear.g7.G7CollectorHealth
 import app.aapswear.g7.G7ConnectionState
+import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7ReconnectScheduler
@@ -614,18 +616,20 @@ class G7CollectorService : Service() {
                                 )
                             var acceptedCount = 0
                             val committed = mutableListOf<Long>()
-                            result.backfillReadings
-                                .sortedBy { it.sensorTimestampEpochMs }
-                                .forEach { historical ->
-                                    val converted = historical.toCgm(predecessor)
-                                    if (database.insertOrIgnore(converted)) acceptedCount += 1
-                                    if (converted.status == CgmReadingStatus.VALID) predecessor = converted
-                                    if (database.validReadingNear(converted.sensorId, converted.sessionId, converted.timestampEpochMs) !=
-                                        null
-                                    ) {
-                                        committed += converted.timestampEpochMs
+                            database.coalesceChangeNotifications {
+                                result.backfillReadings
+                                    .sortedBy { it.sensorTimestampEpochMs }
+                                    .forEach { historical ->
+                                        val converted = historical.toCgm(predecessor)
+                                        if (database.insertOrIgnore(converted)) acceptedCount += 1
+                                        if (converted.status == CgmReadingStatus.VALID) predecessor = converted
+                                        if (database.validReadingNear(converted.sensorId, converted.sessionId, converted.timestampEpochMs) !=
+                                            null
+                                        ) {
+                                            committed += converted.timestampEpochMs
+                                        }
                                     }
-                                }
+                            }
                             acceptedCount to committed
                         } finally {
                             database.close()
@@ -904,10 +908,11 @@ class G7CollectorService : Service() {
         val softWindowFailure = error.recoverable && error.code in SOFT_WINDOW_ERRORS
         val sensorAdvertisementSeen = (cycle?.scanNamedG7Results ?: 0) > 0 || (cycle?.scanExactAddressResults ?: 0) > 0
         val foreignAdvertisementsSeen = (cycle?.scanTotalResults ?: 0) > 0 && !sensorAdvertisementSeen
+        val failureClass = g7FailureClass(error.code, sensorAdvertisementSeen, foreignAdvertisementsSeen)
         val reliability =
             G7CollectorReliability.failed(
                 health = state.health,
-                failure = g7FailureClass(error.code, sensorAdvertisementSeen, foreignAdvertisementsSeen),
+                failure = failureClass,
                 sensorAdvertisementSeen = sensorAdvertisementSeen,
                 foreignAdvertisementsSeen = foreignAdvertisementsSeen,
                 now = System.currentTimeMillis(),
@@ -944,7 +949,11 @@ class G7CollectorService : Service() {
             }
         G7ExpectedWindowLedger(this).markFinal(cycle?.expectedWindowId, classification, recoveryRequired = true)
         if (isCompleteRadioFailure(classification, cycle)) {
-            val streak = 1 + consecutiveRadioFailures(attemptStore.snapshot(), attemptId)
+            // Attempt-shape counting used to reset on the direct-only cycle between two fallback
+            // cycles. A watch could therefore spend days in NO_CALLBACK while always reporting
+            // radioFailureStreak=1. The persisted health state is the canonical cross-cycle
+            // counter and survives process/service recreation.
+            val streak = nextRadioFailureStreak(state.health, failureClass)
             val degraded = streak >= RADIO_DEGRADED_CLUSTER_THRESHOLD
             attemptStore.updateCycle(attemptId) {
                 it.copy(
@@ -955,11 +964,12 @@ class G7CollectorService : Service() {
             }
             if (degraded) {
                 val staleScannerStopped = AndroidG7Scanner.forceCleanup()
+                val callbackRuntimeReset = G7GattCallbackDispatcher.reset()
                 attemptStore.record(
                     attemptId,
                     CollectorDiagnosticStage.RECOVERY,
                     CollectorDiagnosticResult.INFO,
-                    "RADIO_DEGRADED_CLUSTER · streak=$streak · staleScannerStopped=$staleScannerStopped · nächster Zyklus erhält frische BLE-Laufzeitobjekte",
+                    "RADIO_DEGRADED_CLUSTER · streak=$streak · staleScannerStopped=$staleScannerStopped · callbackRuntimeReset=$callbackRuntimeReset · nächster Zyklus erhält frische BLE-Laufzeitobjekte",
                     errorCode = "G7-RADIO-CLUSTER",
                 )
             }
@@ -1363,6 +1373,26 @@ internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
 private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
 
 internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
+
+private val RADIO_FAILURE_CLASSES =
+    setOf(
+        G7FailureClass.DIRECT_NO_CALLBACK,
+        G7FailureClass.DIRECT_GATT_133,
+        G7FailureClass.DIRECT_OTHER_GATT_ERROR,
+        G7FailureClass.SCAN_RADIO_FAILURE,
+        G7FailureClass.SENSOR_NOT_ADVERTISING,
+        G7FailureClass.SENSOR_UNREACHABLE,
+    )
+
+internal fun nextRadioFailureStreak(
+    previous: G7CollectorHealth,
+    current: G7FailureClass,
+): Int =
+    if (current in RADIO_FAILURE_CLASSES && previous.lastFailureClass in RADIO_FAILURE_CLASSES) {
+        previous.consecutiveFailures + 1
+    } else {
+        1
+    }
 
 internal fun consecutiveRadioFailures(
     attempts: List<CollectorDiagnosticAttempt>,

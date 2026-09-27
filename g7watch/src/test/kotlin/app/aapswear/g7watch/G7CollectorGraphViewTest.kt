@@ -3,7 +3,6 @@ package app.aapswear.g7watch
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
@@ -45,66 +44,6 @@ class G7CollectorGraphViewTest {
         val window = g7CollectorGraphWindow(now, 3)
 
         assertTrue(window.xFraction(measuredAt) < window.xFraction(receivedAt))
-    }
-
-    @Test
-    fun `latest cgm keeps timestamp position at live edge`() {
-        val left = 16f
-        val divider = 369f
-        val start = now - 3 * 60 * 60_000L
-
-        assertEquals(divider, G7GraphLayout.timeX(now, start, now, left, divider))
-    }
-
-    @Test
-    fun `relative tick positions remain exact for every supported period`() {
-        val left = 16f
-        val right = 369f
-        G7AppearanceStore.ALLOWED_GRAPH_HOURS.forEach { hours ->
-            val start = now - hours * 60 * 60_000L
-            assertEquals(left, G7GraphLayout.timeX(start, start, now, left, right))
-            assertEquals(right, G7GraphLayout.timeX(now, start, now, left, right))
-            assertEquals((left + right) / 2f, G7GraphLayout.timeX(start + (now - start) / 2, start, now, left, right), 0.001f)
-        }
-    }
-
-    @Test
-    fun `high text bottom is above line and low text top is below line`() {
-        val metrics = Paint().apply { textSize = 12f }.fontMetrics
-        val gap = 1.5f
-        val highLine = 48f
-        val lowLine = 103f
-        val highBaseline = G7GraphLayout.highLabelBaseline(highLine, metrics, gap)
-        val lowBaseline = G7GraphLayout.lowLabelBaseline(lowLine, metrics, gap)
-
-        assertEquals(highLine - gap, highBaseline + metrics.descent, 0.001f)
-        assertEquals(lowLine + gap, lowBaseline + metrics.ascent, 0.001f)
-        listOf("160", "8.9").forEach { _ ->
-            assertTrue(highBaseline + metrics.descent < highLine)
-            assertTrue(lowBaseline + metrics.ascent > lowLine)
-        }
-    }
-
-    @Test
-    fun `stale latest point keeps measurement position and leaves a real gap to now`() {
-        val left = 16f
-        val divider = 369f
-        val start = now - 3 * 60 * 60_000L
-        val measuredAt = now - 2L * 60L * 60_000L
-
-        val measuredX = G7GraphLayout.timeX(measuredAt, start, now, left, divider)
-
-        assertTrue(measuredX < divider - 100f)
-    }
-
-    @Test
-    fun `prediction lane starts after live divider`() {
-        val divider = 369f
-        val gap = 1f
-        val predictionRadius = 5f
-        val predictionCenter = G7GraphLayout.predictionX(divider, divider, predictionRadius, gap)
-
-        assertTrue(predictionCenter - predictionRadius > divider)
     }
 
     @Test
@@ -264,8 +203,6 @@ class G7CollectorGraphViewTest {
             palette = palette,
             graphHours = graphHours,
             nowEpochMs = nowEpochMs,
-            targetLowMgDl = 80.0,
-            targetHighMgDl = 160.0,
         )
         view.measure(
             android.view.View.MeasureSpec

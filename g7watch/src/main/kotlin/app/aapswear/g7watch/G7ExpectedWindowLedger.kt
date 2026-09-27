@@ -398,8 +398,7 @@ internal class G7ExpectedWindowLedger(
             (load() + window)
                 .associateBy(CollectorExpectedWindow::expectedWindowId)
                 .values
-                .sortedBy(CollectorExpectedWindow::expectedAt)
-                .takeLast(MAX_WINDOWS)
+                .let(::retainExpectedWindows)
         saveAll(values)
     }
 
@@ -407,7 +406,7 @@ internal class G7ExpectedWindowLedger(
         preferences.edit {
             putString(
                 KEY_WINDOWS,
-                json.encodeToString(serializer, values.sortedBy { it.expectedAt }.takeLast(MAX_WINDOWS)),
+                json.encodeToString(serializer, retainExpectedWindows(values)),
             )
         }
     }
@@ -426,11 +425,23 @@ internal class G7ExpectedWindowLedger(
     private companion object {
         const val PREFERENCES = "g7_expected_window_ledger"
         const val KEY_WINDOWS = "windows_v1"
-        const val MAX_WINDOWS = 2_304
         const val WINDOW_CANONICAL_TOLERANCE_MS = 60_000L
         val lock = Any()
     }
 }
+
+internal fun retainExpectedWindows(values: Collection<CollectorExpectedWindow>): List<CollectorExpectedWindow> {
+    val ordered = values.sortedBy(CollectorExpectedWindow::expectedAt)
+    // A sensor exposes at most 300 five-minute history records. Older open windows are no longer
+    // technically recoverable and keeping thousands of them in SharedPreferences caused a full
+    // megabyte-scale XML rewrite on every callback.
+    val open = ordered.filter(CollectorExpectedWindow::recoveryRequired).takeLast(MAX_RECOVERABLE_OPEN_WINDOWS)
+    val closed = ordered.filterNot(CollectorExpectedWindow::recoveryRequired).takeLast(MAX_CLOSED_WINDOWS)
+    return (open + closed).distinctBy(CollectorExpectedWindow::expectedWindowId).sortedBy(CollectorExpectedWindow::expectedAt)
+}
+
+internal const val MAX_RECOVERABLE_OPEN_WINDOWS = 300
+internal const val MAX_CLOSED_WINDOWS = 192
 
 private fun CollectorCycleClassification.toTerminalState(): CollectorWindowTerminalState =
     when (this) {

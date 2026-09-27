@@ -50,12 +50,14 @@ class TrendComplicationIconTest {
     }
 
     @Test
-    fun `double arrows use a square complication payload so neither glyph is clipped`() {
+    fun `double arrows are letterboxed into a square payload without horizontal compression`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
             val wide = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
             val normalized = TrendComplicationIcon.normalizeComplicationCanvas(wide)
             assertEquals(normalized.height, normalized.width)
+            assertEquals(wide.width, normalized.width)
+            assertEquals(nonTransparentAspectRatio(wide), nonTransparentAspectRatio(normalized), 0.02f)
             assertTrue(
                 (0 until normalized.height).any { y ->
                     android.graphics.Color.alpha(normalized.getPixel(normalized.width / 4, y)) > 0
@@ -117,5 +119,13 @@ class TrendComplicationIconTest {
                 (0 until bitmap.width).any { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
             }
         return if (rows.isEmpty()) 0 else rows.last() - rows.first() + 1
+    }
+
+    private fun nonTransparentAspectRatio(bitmap: android.graphics.Bitmap): Float {
+        val xs =
+            (0 until bitmap.width).filter { x ->
+                (0 until bitmap.height).any { y -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
+            }
+        return if (xs.isEmpty()) 0f else (xs.last() - xs.first() + 1).toFloat() / nonTransparentHeight(bitmap)
     }
 }

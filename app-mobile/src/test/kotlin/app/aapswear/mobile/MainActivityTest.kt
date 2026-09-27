@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
+import app.aapswear.model.CgmGraphScaleMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -214,12 +215,81 @@ class MainActivityTest {
         assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
         assertFalse(ui.showCgmBasal)
-        assertFalse(ui.showCgmActivity)
+        assertTrue(ui.showCgmActivity)
         assertFalse(ui.anyCgmPredictionEnabled)
         assertFalse(ui.showMetabolicGraph)
         assertTrue(ui.notificationGraphEnabled)
         assertEquals(3, ui.notificationGraphHours)
 
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `current and base basal graph streams persist independently`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putBoolean("cgm.basal.current", true)
+            .putBoolean("cgm.basal.base", false)
+            .commit()
+
+        val ui = DashboardUiPreferences.read(preferences)
+        assertTrue(ui.showCgmCurrentBasal)
+        assertFalse(ui.showCgmBaseBasal)
+    }
+
+    @Test fun `IOB and COB graph maxima persist independently from progress rings`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, 9f)
+            .putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, 250f)
+            .putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, 12f)
+            .putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, 180f)
+            .commit()
+
+        val firstRead = DashboardUiPreferences.read(preferences)
+        val afterRestart = DashboardUiPreferences.read(preferences)
+
+        assertEquals(9f, firstRead.iobProgressMaximumUnits, 0f)
+        assertEquals(250f, firstRead.cobProgressMaximumGrams, 0f)
+        assertEquals(12f, firstRead.iobGraphMaximumUnits, 0f)
+        assertEquals(180f, firstRead.cobGraphMaximumGrams, 0f)
+        assertEquals(firstRead.iobGraphMaximumUnits, afterRestart.iobGraphMaximumUnits, 0f)
+        assertEquals(firstRead.cobGraphMaximumGrams, afterRestart.cobGraphMaximumGrams, 0f)
+    }
+
+    @Test fun `IOB and COB graph scale modes persist independently`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.DYNAMIC.name)
+            .putString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC.name)
+            .commit()
+
+        val ui = DashboardUiPreferences.read(preferences)
+
+        assertEquals(CgmGraphScaleMode.DYNAMIC, ui.iobGraphScaleMode)
+        assertEquals(CgmGraphScaleMode.LOGARITHMIC_DYNAMIC, ui.cobGraphScaleMode)
+    }
+
+    @Test fun `IOB and COB graph maximum controls are visible in mobile settings`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
+
+        assertTrue(settingsText.contains("IOB Graph Maximum"))
+        assertTrue(settingsText.contains("COB Graph Maximum"))
+        assertTrue(settingsText.contains("IOB-Skalierung"))
+        assertTrue(settingsText.contains("COB-Skalierung"))
         controller.pause().stop().destroy()
     }
 

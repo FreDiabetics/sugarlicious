@@ -89,8 +89,24 @@ object TherapyDisplayFormatter {
             Freshness.CURRENT -> "AKTUELL"
             Freshness.DELAYED -> "VERZÖGERT"
             Freshness.STALE -> "VERALTET"
+            Freshness.SIGNAL_LOSS -> "SIGNALVERLUST"
             Freshness.ERROR -> "SENSORFEHLER"
             Freshness.NO_DATA -> "KEINE DATEN"
+        }
+
+    fun presentationStatus(
+        state: TherapyDisplayState?,
+        nowEpochMs: Long,
+    ): CgmPresentationStatus = CgmPresentationPolicy.classify(state, nowEpochMs)
+
+    fun presentationStatusLabel(status: CgmPresentationStatus): String =
+        when (status) {
+            CgmPresentationStatus.CURRENT -> "AKTUELL"
+            CgmPresentationStatus.AGING -> "VERZÖGERT"
+            CgmPresentationStatus.STALE -> "VERALTET"
+            CgmPresentationStatus.SIGNAL_LOSS -> "SIGNALVERLUST"
+            CgmPresentationStatus.SENSOR_ERROR -> "SENSORFEHLER"
+            CgmPresentationStatus.NO_SOURCE -> "KEINE QUELLE"
         }
 
     fun isGlucoseDisplayable(
@@ -100,7 +116,7 @@ object TherapyDisplayFormatter {
         if (!isGlucoseKnown(state)) return false
         return when (freshness(state, nowEpochMs)) {
             Freshness.CURRENT, Freshness.DELAYED -> true
-            Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> false
+            Freshness.STALE, Freshness.SIGNAL_LOSS, Freshness.ERROR, Freshness.NO_DATA -> false
         }
     }
 

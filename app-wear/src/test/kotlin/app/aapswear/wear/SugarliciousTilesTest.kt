@@ -2,6 +2,7 @@ package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.protolayout.DeviceParametersBuilders.DeviceParameters
+import androidx.wear.protolayout.ResourceBuilders.IMAGE_FORMAT_RGB_565
 import androidx.wear.tiles.RequestBuilders
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
@@ -12,6 +13,7 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
@@ -54,13 +56,13 @@ class SugarliciousTilesTest {
     }
 
     @Test
-    fun `stale tile preserves last validated values and labels them stale`() {
+    fun `signal loss tile preserves last validated values and labels signal loss`() {
         val stale = wearGlucoseTilePresentation(state(123.0, now - 20 * 60_000L), colors, now)
         val therapy = wearTherapyTilePresentation(state(123.0, now - 20 * 60_000L), now)
 
         assertEquals("123", stale.value)
         assertNull(stale.trend)
-        assertEquals("VERALTET", stale.status)
+        assertEquals("SIGNALVERLUST", stale.status)
         assertTrue(therapy.displayable)
         assertEquals("1.2 U", therapy.iob)
         assertEquals("18 g", therapy.cob)
@@ -76,6 +78,104 @@ class SugarliciousTilesTest {
         assertEquals("1.2 U", presentation.iob)
         assertEquals("18 g", presentation.cob)
         assertEquals("0.70", presentation.basal)
+    }
+
+    @Test
+    fun `therapy rings expose values without duplicate metric headings`() {
+        val presentation = wearTherapyTilePresentation(state(123.0, now - 60_000L), now)
+
+        assertEquals("1.2 U", therapyMetricValue(TherapyTileMetric.IOB, presentation))
+        assertEquals("18 g", therapyMetricValue(TherapyTileMetric.COB, presentation))
+        assertEquals("0.70", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
+    }
+
+    @Test
+    fun `three ring group is derived and centered as one square composition`() {
+        val geometry = therapyTileGroupGeometry(192f, 3)
+
+        assertEquals(geometry.ringDiameterDp * 2f + geometry.gapDp, geometry.widthDp, 0.001f)
+        assertEquals(geometry.widthDp, geometry.heightDp, 0.001f)
+        assertEquals((192f - geometry.widthDp) / 2f, geometry.originXDp, 0.001f)
+        assertEquals((192f - geometry.heightDp) / 2f, geometry.originYDp, 0.001f)
+    }
+
+    @Test
+    fun `therapy tile renders every valid one two and three metric selection`() {
+        val selections =
+            listOf(
+                setOf(TherapyTileMetric.IOB),
+                setOf(TherapyTileMetric.COB),
+                setOf(TherapyTileMetric.BASAL),
+                setOf(TherapyTileMetric.IOB, TherapyTileMetric.COB),
+                setOf(TherapyTileMetric.IOB, TherapyTileMetric.BASAL),
+                setOf(TherapyTileMetric.COB, TherapyTileMetric.BASAL),
+                TherapyTileMetric.entries.toSet(),
+            )
+        val device =
+            DeviceParameters
+                .Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
+        selections.forEach { selected ->
+            TherapyTileSelectionStore.write(context, selected)
+            val service = Robolectric.buildService(TherapyTileService::class.java).create().get()
+            val request =
+                RequestBuilders.TileRequest
+                    .Builder()
+                    .setDeviceConfiguration(device)
+                    .build()
+            val tile =
+                service
+                    .onTileRequest(request)
+                    .get()
+            assertTrue(tile.resourcesVersion.contains("therapy"))
+            assertEquals(selected.size, TherapyTileSelectionStore.read(context).metrics.size)
+            val resourceIds =
+                request.scope
+                    .collectResources()
+                    .idToImageMapping.keys
+            selected.forEach { metric ->
+                val expectedPrefix = if (metric == TherapyTileMetric.BASAL) "therapy_basal" else "therapy_${metric.name.lowercase()}"
+                assertTrue(resourceIds.any { it.startsWith(expectedPrefix) })
+            }
+            service.onDestroy()
+        }
+    }
+
+    @Test
+    fun `therapy rings keep equal bounds and the mobile stroke geometry`() {
+        val single = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 1).ringDiameterDp)
+        val pair = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 2).ringDiameterDp)
+        val triple = TherapyRingLayoutSpec(therapyTileGroupGeometry(192f, 3).ringDiameterDp)
+
+        assertEquals(7f, single.strokeWidthDp, 0f)
+        assertEquals(220f, single.protoLayoutStartDegrees, 0f)
+        assertEquals(280f, single.sweepDegrees, 0f)
+        assertEquals(pair.diameterDp, triple.diameterDp, 0f)
+        assertEquals(pair.strokeWidthDp, triple.strokeWidthDp, 0f)
+    }
+
+    @Test
+    fun `therapy rings use the shared mobile icon states`() {
+        assertEquals(TherapyIndicatorIcon.IOB, wearTherapyIcon(TherapyTileMetric.IOB, null, now))
+        assertEquals(TherapyIndicatorIcon.COB, wearTherapyIcon(TherapyTileMetric.COB, null, now))
+        assertEquals(
+            TherapyIndicatorIcon.BASAL_LESS,
+            wearTherapyIcon(TherapyTileMetric.BASAL, state(123.0, now).copy(basal = BasalState(currentUnitsPerHour = 0.7, tempPercent = 80)), now),
+        )
+        assertEquals(
+            TherapyIndicatorIcon.BASAL_MORE,
+            wearTherapyIcon(TherapyTileMetric.BASAL, state(123.0, now).copy(basal = BasalState(currentUnitsPerHour = 0.7, tempPercent = 120)), now),
+        )
+    }
+
+    @Test
+    fun `therapy ring background precomposites the mobile thirty percent accent`() {
+        assertEquals(0xFF000000.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0f))
+        assertEquals(0xFFFFFFFF.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 1f))
+        assertEquals(0xFF4C4C4C.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0.30f))
     }
 
     @Test
@@ -116,13 +216,11 @@ class SugarliciousTilesTest {
         val resources = request.scope.collectResources()
 
         assertTrue(request.scope.hasResources())
-        assertTrue(
-            resources.idToImageMapping
-                .getValue("live_cgm_graph")
-                .inlineResource!!
-                .data
-                .isNotEmpty(),
-        )
+        val inline = resources.idToImageMapping.getValue("live_cgm_graph").inlineResource!!
+        assertEquals(IMAGE_FORMAT_RGB_565, inline.format)
+        assertTrue(inline.widthPx > 0)
+        assertTrue(inline.heightPx > 0)
+        assertEquals(inline.widthPx * inline.heightPx * 2, inline.data.size)
         service.onDestroy()
     }
 

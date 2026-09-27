@@ -3,7 +3,10 @@ package app.aapswear.g7watch
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.SugarWearTypography
+import app.aapswear.model.SugarWearTypographyRole
 import app.aapswear.model.Trend
+import app.aapswear.model.sugarWearTypographyParitySamples
 import app.aapswear.protocol.WatchGraphColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -26,6 +29,27 @@ class G7CollectorTilePresentationTest {
     fun `tile emphasis is calibrated to match the in app system font`() {
         assertEquals(500, sugarWearTileWeight(true))
         assertEquals(400, sugarWearTileWeight(false))
+    }
+
+    @Test
+    fun `collector and graph tiles use shared SugarWear typography roles`() {
+        assertEquals(44f, SugarWearTypography.spec(SugarWearTypographyRole.GLUCOSE_VALUE).sizeSp, 0f)
+        assertEquals(14f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
+        assertEquals(11f, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp, 0f)
+        assertEquals("roboto", SugarWearTypography.APP_FONT_FAMILY)
+        assertEquals(SugarWearTypography.APP_FONT_FAMILY, SugarWearTypography.PROTO_FONT_FAMILY)
+        SugarWearTypographyRole.entries.forEach { role ->
+            assertEquals("role=$role", "roboto", SugarWearTypography.spec(role).fontFamily)
+        }
+        assertEquals(500, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).protoWeight)
+    }
+
+    @Test
+    fun `required parity strings remain real text supported by the shared family`() {
+        assertEquals(
+            listOf("188", "→", "-3 mg/dL · 2m", "VERBUNDEN"),
+            sugarWearTypographyParitySamples(),
+        )
     }
 
     @Test

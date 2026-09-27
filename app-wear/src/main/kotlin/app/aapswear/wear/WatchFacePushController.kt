@@ -59,46 +59,6 @@ internal object SugarliciousWatchFacePush {
             ),
         )
 
-    /** Retained for compilation and WFF validation, but never exposed or deployed. */
-    internal val legacyFaceSpecs =
-        listOf(
-            FaceSpec("app.aapswear.watchfacepush.aapsbigchart", "watchfaces/aaps_big_chart.apk", "watchfaces/aaps_big_chart_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapscircle", "watchfaces/aaps_circle.apk", "watchfaces/aaps_circle_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapscockpit", "watchfaces/aaps_cockpit.apk", "watchfaces/aaps_cockpit_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapscommunity", "watchfaces/aaps_community.apk", "watchfaces/aaps_community_token.txt"),
-            FaceSpec(
-                "app.aapswear.watchfacepush.aapsdigitalstyle",
-                "watchfaces/aaps_digital_style.apk",
-                "watchfaces/aaps_digital_style_token.txt",
-            ),
-            FaceSpec("app.aapswear.watchfacepush.aapslarge", "watchfaces/aaps_large.apk", "watchfaces/aaps_large_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsnochart", "watchfaces/aaps_no_chart.apk", "watchfaces/aaps_no_chart_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsstandard", "watchfaces/aaps_standard.apk", "watchfaces/aaps_standard_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsv2", "watchfaces/aaps_v2.apk", "watchfaces/aaps_v2_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsv2ttdark", "watchfaces/aaps_v2_tt_dark.apk", "watchfaces/aaps_v2_tt_dark_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aapsv4", "watchfaces/aaps_v4.apk", "watchfaces/aaps_v4_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.aimico", "watchfaces/aimico.apk", "watchfaces/aimico_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.analoggwatch", "watchfaces/analog_g_watch.apk", "watchfaces/analog_g_watch_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.bluering", "watchfaces/blue_ring.apk", "watchfaces/blue_ring_token.txt"),
-            FaceSpec(
-                "app.aapswear.watchfacepush.digitalbiggraph",
-                "watchfaces/digital_big_graph.apk",
-                "watchfaces/digital_big_graph_token.txt",
-            ),
-            FaceSpec("app.aapswear.watchfacepush.digitalgwatch", "watchfaces/digital_g_watch.apk", "watchfaces/digital_g_watch_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.gears", "watchfaces/gears.apk", "watchfaces/gears_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.gota", "watchfaces/gota.apk", "watchfaces/gota_token.txt"),
-            FaceSpec(
-                "app.aapswear.watchfacepush.luckyloopkoeln",
-                "watchfaces/lucky_loop_koeln.apk",
-                "watchfaces/lucky_loop_koeln_token.txt",
-            ),
-            FaceSpec("app.aapswear.watchfacepush.pzero", "watchfaces/p_zero.apk", "watchfaces/p_zero_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.robby", "watchfaces/robby.apk", "watchfaces/robby_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.simpledigital", "watchfaces/simple_digital.apk", "watchfaces/simple_digital_token.txt"),
-            FaceSpec("app.aapswear.watchfacepush.steampunk", "watchfaces/steam_punk.apk", "watchfaces/steam_punk_token.txt"),
-        )
-
     private val faces = activeFaceSpecs
 
     fun isSupported(): Boolean =

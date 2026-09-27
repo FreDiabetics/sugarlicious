@@ -38,6 +38,8 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
 import app.aapswear.model.PresentationSurface
+import app.aapswear.model.SugarWearTypography
+import app.aapswear.model.SugarWearTypographyRole
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendVisualAsset
@@ -150,8 +152,7 @@ internal fun g7TileStatusPresentation(
 
 internal fun tileForegroundFor(backgroundArgb: Int): Int = if (ArgbContrast.isLight(backgroundArgb, threshold = 0.50)) G7_TILE_TEXT_DARK else G7_TILE_TEXT_PRIMARY
 
-/** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
-internal fun sugarWearTileWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+internal fun sugarWearTileWeight(emphasized: Boolean): Int = SugarWearTypography.protoWeight(emphasized)
 
 class G7CollectorTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -191,10 +192,10 @@ class G7CollectorTileService : TileService() {
         val pillState = deriveG7StatusPillState(persistedState, credentialsPresent)
         val colorStore = G7GraphColorStore(this)
         val appearanceStore = G7AppearanceStore(this)
-        val palette = appearanceStore.load()
+        val palette = appearanceStore.tileGlucosePalette()
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
         val statusPresentation = g7TileStatusPresentation(pillState, palette)
-        val configuredTrendStyle = appearanceStore.trendArrowStyle()
+        val configuredTrendStyle = appearanceStore.tileTrendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =
             GlucoseVisualSpec(
@@ -202,7 +203,7 @@ class G7CollectorTileService : TileService() {
                 glucoseTextSize = WearGlucoseCardStyle.VALUE_TEXT_SP,
                 trendHeight = GlucoseTrendSizing.arrowHeightForGlucoseHeight(WearGlucoseCardStyle.VALUE_TEXT_SP),
                 spacing = 8f,
-            ).scaled(appearanceStore.glucoseScalePercent(), configuredTrendStyle.sizePercent)
+            ).scaled(appearanceStore.tileGlucoseScalePercent(), configuredTrendStyle.sizePercent)
         val device = requestParams.deviceConfiguration
         val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
         val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
@@ -232,7 +233,7 @@ class G7CollectorTileService : TileService() {
                         addContent(
                             text(
                                 presentation.meta,
-                                WearGlucoseCardStyle.META_TEXT_SP,
+                                SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.GLUCOSE_DELTA),
                                 bold = true,
                             ),
@@ -242,7 +243,7 @@ class G7CollectorTileService : TileService() {
                         addContent(
                             text(
                                 presentation.age,
-                                WearGlucoseCardStyle.META_TEXT_SP,
+                                SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                                 bold = true,
                             ),
@@ -414,13 +415,13 @@ class G7CollectorTileService : TileService() {
                     .Builder()
                     .setSize(sp(size))
                     .setColor(argb(color))
-                    .setPreferredFontFamilies("sans-serif")
                     .setWeight(sugarWearTileWeight(bold))
+                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-8-shared-card-type"
+        private const val RESOURCES_VERSION = "g7-collector-15-tile-glucose-appearance"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

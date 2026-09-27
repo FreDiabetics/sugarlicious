@@ -516,6 +516,7 @@ private val cgmGraphColorRoles =
         SugarliciousColorRole.CGM_DOT_IN_RANGE,
         SugarliciousColorRole.CGM_DOT_HIGH,
         SugarliciousColorRole.GRAPH_DIVIDER,
+        SugarliciousColorRole.GRAPH_BORDER,
         SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
     )
 
@@ -922,6 +923,7 @@ private fun ColorRoleExample(
 
             SugarliciousColorRole.GRAPH_IOB,
             SugarliciousColorRole.GRAPH_COB,
+            SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY,
             -> {
                 Canvas(Modifier.fillMaxSize()) {
                     val points =
@@ -956,6 +958,7 @@ private fun ColorRoleExample(
 
             SugarliciousColorRole.GRAPH_MUTED,
             SugarliciousColorRole.GRAPH_DIVIDER,
+            SugarliciousColorRole.GRAPH_BORDER,
             SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
             -> {
                 Row(

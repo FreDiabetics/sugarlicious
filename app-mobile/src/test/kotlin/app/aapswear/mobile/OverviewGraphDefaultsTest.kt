@@ -36,12 +36,14 @@ class OverviewGraphDefaultsTest {
             .putString(DashboardUiPreferences.GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC.name)
             .putFloat(DashboardUiPreferences.GRAPH_MINIMUM_KEY, 55f)
             .putFloat(DashboardUiPreferences.GRAPH_MAXIMUM_KEY, 350f)
+            .putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, 180f)
             .commit()
 
         val preferences = DashboardUiPreferences.read(storage)
         assertEquals(CgmGraphScaleMode.LOGARITHMIC_DYNAMIC, preferences.graphScaleMode)
         assertEquals(55.0, preferences.graphMinimumMgDl, 0.0)
         assertEquals(350.0, preferences.graphMaximumMgDl, 0.0)
+        assertEquals(180f, preferences.cobProgressMaximumGrams, 0f)
     }
 
     @Test

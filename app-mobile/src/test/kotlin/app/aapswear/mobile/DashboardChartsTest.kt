@@ -3,13 +3,16 @@ package app.aapswear.mobile
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.RectF
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.datasource.aaps.AapsPayloadAdapter
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -37,6 +40,46 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DashboardChartsTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    @Test fun `insulin activity smoothing passes through samples without overshoot`() {
+        val segments =
+            monotoneCurveSegments(
+                listOf(
+                    0f to 10f,
+                    10f to 4f,
+                    30f to 7f,
+                    50f to 2f,
+                ),
+            )
+
+        assertEquals(3, segments.size)
+        assertEquals(0f, segments.first().startX)
+        assertEquals(10f, segments.first().startY)
+        assertEquals(50f, segments.last().endX)
+        assertEquals(2f, segments.last().endY)
+        segments.forEach { segment ->
+            val low = minOf(segment.startY, segment.endY)
+            val high = maxOf(segment.startY, segment.endY)
+            assertTrue(segment.control1Y in low..high)
+            assertTrue(segment.control2Y in low..high)
+        }
+    }
+
+    @Test fun `insulin activity smoothing ignores duplicate timestamps deterministically`() {
+        val segments =
+            monotoneCurveSegments(
+                listOf(
+                    0f to 10f,
+                    10f to 8f,
+                    10f to 99f,
+                    20f to 6f,
+                ),
+            )
+
+        assertEquals(2, segments.size)
+        assertEquals(8f, segments.first().endY)
+        assertEquals(8f, segments.last().startY)
+    }
 
     @Test fun `glucose chart renders source target and prediction streams`() {
         val now = System.currentTimeMillis()
@@ -441,11 +484,71 @@ class DashboardChartsTest {
                     ),
             )
         val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L) }
-        val bitmap = render(MetabolicDashboardChart(context, sharedViewport = viewport).apply { bind(state, 6) }, 260)
-        val scaleEnd = (38f * context.resources.displayMetrics.density).toInt()
-        val dividerX = (scaleEnd + (bitmap.width - scaleEnd) * 5f / 6f).toInt()
-        assertTrue("scaleEnd=$scaleEnd width=${bitmap.width}", scaleEnd < bitmap.width)
-        assertTrue("dividerX=$dividerX scaleEnd=$scaleEnd", dividerX > scaleEnd)
+        val bitmap =
+            render(
+                MetabolicDashboardChart(context, sharedViewport = viewport).apply {
+                    bind(state, 6, scaleOnRight = true, showPredictionDivider = true)
+                },
+                260,
+            )
+        val density = context.resources.displayMetrics.density
+        val plotLeft = 0.5f * density
+        val plotRight = bitmap.width - 0.5f * density - 38f * density
+        val dividerX = (plotLeft + (plotRight - plotLeft) * 6f / 7f).toInt()
+        val divider = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_DIVIDER)
+        val dividerPixels = countNearColumn(bitmap, dividerX, divider, tolerance = 96)
+
+        assertTrue("dividerX=$dividerX pixels=$dividerPixels", dividerPixels > 8)
+    }
+
+    @Test fun `metabolic value streams reach now but never enter prediction space`() {
+        val now = 40_000_000L
+        val history =
+            listOf(
+                TherapyHistorySample(now - 10 * 60_000L, totalIob = 1.4, cobGrams = 24.0, insulinActivityUnitsPerMinute = 0.018),
+                TherapyHistorySample(now - 5 * 60_000L, totalIob = 1.2, cobGrams = 18.0, insulinActivityUnitsPerMinute = 0.014),
+            )
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                insulin = InsulinState(totalIob = 1.2),
+                carbs = CarbState(cobGrams = 18.0),
+                therapyHistory = history,
+            )
+        val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L) }
+        val bitmap =
+            render(
+                MetabolicDashboardChart(context, sharedViewport = viewport).apply {
+                    bind(state, 6, scaleOnRight = true, clockEpochMs = now)
+                },
+                260,
+            )
+        val density = context.resources.displayMetrics.density
+        val plotLeft = 0.5f * density
+        val plotRight = bitmap.width - 0.5f * density - 38f * density
+        val nowX = (plotLeft + (plotRight - plotLeft) * 6f / 7f).toInt()
+        val streamColors =
+            listOf(
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB),
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB),
+                Color.rgb(242, 201, 76),
+            )
+
+        streamColors.forEach { color ->
+            assertTrue("stream ${color.toUInt().toString(16)} does not reach now", countNearColumn(bitmap, nowX, color, 30) > 0)
+        }
+    }
+
+    @Test fun `metabolic series carries its last real value only to the live edge`() {
+        val actual =
+            extendSeriesToLiveEdge(
+                values = listOf(100L to 1.4, 200L to 1.2, 450L to 99.0),
+                liveEdge = 300L,
+                viewportStart = 0L,
+                viewportEnd = 500L,
+            )
+
+        assertEquals(listOf(100L to 1.4, 200L to 1.2, 300L to 1.2), actual)
     }
 
     @Test fun `metabolic markers retain their AndroidAPS size thresholds`() {
@@ -490,6 +593,108 @@ class DashboardChartsTest {
 
         assertTrue(first.cob.bounds != second.cob.bounds)
         assertTrue(first.activity.bounds != second.activity.bounds)
+    }
+
+    @Test fun `metabolic insulin activity ignores stale persisted scale and fills eighty percent at current maximum`() {
+        val session =
+            app.aapswear.model.GraphScaleSession().apply {
+                useConfiguredBounds(app.aapswear.model.GraphAxis.INSULIN_ACTIVITY, app.aapswear.model.GraphBounds(0.0, 1.0))
+            }
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, insulinActivityUnitsPerMinute = 0.01),
+                TherapyHistorySample(2_000L, insulinActivityUnitsPerMinute = 0.05),
+            )
+
+        val scales =
+            resolveMetabolicScales(
+                session = session,
+                mode = app.aapswear.model.CgmGraphScaleMode.STATIC,
+                allPoints = points,
+                visiblePoints = points,
+            )
+
+        assertEquals(1.0, scales.activity.ratio(0.05), 0.000001)
+        assertEquals(0.8, scales.activity.ratio(0.04), 0.000001)
+    }
+
+    @Test fun `configured iob maximum also controls the regular iob graph`() {
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = listOf(TherapyHistorySample(1_000L, totalIob = 1.0)),
+                visiblePoints = listOf(TherapyHistorySample(1_000L, totalIob = 1.0)),
+                iobMaximumUnits = 12.0,
+            )
+
+        assertTrue(scales.iob.bounds.maximum >= 12.0)
+    }
+
+    @Test fun `configured IOB and COB graph maxima use independent axes and retain negative IOB`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, totalIob = -2.0, cobGrams = 20.0),
+                TherapyHistorySample(2_000L, totalIob = 3.0, cobGrams = 240.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.STATIC,
+                allPoints = points,
+                visiblePoints = points,
+                iobMaximumUnits = 12.0,
+                cobMaximumGrams = 180.0,
+            )
+
+        assertTrue(scales.iob.bounds.minimum <= -2.0)
+        assertTrue(scales.iob.bounds.maximum >= 12.0)
+        assertTrue(scales.cob.bounds.maximum >= 240.0)
+        assertTrue(scales.iob.ratio(3.0) != scales.cob.ratio(20.0))
+    }
+
+    @Test fun `IOB and COB resolve with independent scale modes`() {
+        val points = listOf(TherapyHistorySample(1_000L, totalIob = 1.0, cobGrams = 20.0))
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                iobMode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                cobMode = app.aapswear.model.CgmGraphScaleMode.LOGARITHMIC,
+                allPoints = points,
+                visiblePoints = points,
+            )
+
+        assertEquals(app.aapswear.model.CgmGraphScaleMode.DYNAMIC, scales.iob.mode)
+        assertEquals(app.aapswear.model.CgmGraphScaleMode.LOGARITHMIC, scales.cob.mode)
+    }
+
+    @Test fun `basal overlay uses the complete graph plot`() {
+        val plot = RectF(12f, 8f, 420f, 210f)
+
+        assertEquals(plot, cgmBasalOverlayBounds(plot))
+    }
+
+    @Test fun `dynamic cob maximum includes relevant meal plus fifty grams but ignores expired meals`() {
+        val now = 12 * 60 * 60_000L
+        val start = now - 3 * 60 * 60_000L
+        val events =
+            listOf(
+                TherapyEvent("relevant", TherapyEventKind.MEAL_CARBS, start - 60 * 60_000L, 80.0, carbsGrams = 80.0),
+                TherapyEvent("expired", TherapyEventKind.MEAL_CARBS, start - 8 * 60 * 60_000L, 300.0, carbsGrams = 300.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = listOf(TherapyHistorySample(now, cobGrams = 20.0)),
+                visiblePoints = listOf(TherapyHistorySample(now, cobGrams = 20.0)),
+                therapyEvents = events,
+                viewportStartEpochMs = start,
+                viewportEndEpochMs = now,
+            )
+
+        assertTrue(scales.cob.bounds.maximum >= 130.0)
+        assertTrue(scales.cob.bounds.maximum < 350.0)
     }
 
     @Test fun `static axis bounds survive graph session recreation`() {
@@ -625,6 +830,12 @@ class DashboardChartsTest {
 
     @Test fun `CGM insulin activity uses AndroidAPS eighty percent of full graph height`() {
         val now = System.currentTimeMillis()
+        val scalePreferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        scalePreferences
+            .edit()
+            .putLong("graph.static.insulin_activity.minimum", 0.0.toBits())
+            .putLong("graph.static.insulin_activity.maximum", 1.0.toBits())
+            .commit()
         val history =
             (0..4).map { index ->
                 TherapyHistorySample(
@@ -641,17 +852,66 @@ class DashboardChartsTest {
                 target = TargetState(80.0, 160.0),
             )
         val bitmap =
-            render(
-                GlucoseDashboardChart(context).apply {
-                    bind(state, GlucoseUnit.MG_DL, false, 3, showActivity = true, clockEpochMs = now)
-                },
-                230,
-            )
+            try {
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(state, GlucoseUnit.MG_DL, false, 3, showActivity = true, clockEpochMs = now)
+                    },
+                    230,
+                )
+            } finally {
+                scalePreferences.edit().clear().commit()
+            }
         val activityTop =
             (0 until bitmap.height).firstOrNull { y ->
                 (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
             } ?: bitmap.height
         assertTrue("activityTop=$activityTop", activityTop < bitmap.height * 0.35)
+    }
+
+    @Test fun `productive AAPS activity remains visible in every graph scale mode`() {
+        val now = System.currentTimeMillis()
+        val states =
+            listOf(-8.0, -14.0, -20.0, -11.0).mapIndexed { index, bgi ->
+                val measuredAt = now - (3 - index) * 5L * 60_000L
+                requireNotNull(
+                    AapsPayloadAdapter.parse(
+                        mapOf(
+                            "glucoseMgdl" to 120.0 + index,
+                            "glucoseTimeStamp" to measuredAt,
+                            "iob" to 2.0 - index * 0.1,
+                            "suggested" to """{"reason":"Dev: 1, BGI: $bgi, ISF: 100, Target: 100"}""",
+                        ),
+                        measuredAt + 1_000L,
+                    ),
+                )
+            }
+        val state =
+            states.last().copy(
+                glucoseHistory = states.mapNotNull { it.glucose?.let { glucose -> GlucoseSample(glucose.valueMgDl, glucose.measuredAtEpochMs) } },
+                therapyHistory = states.flatMap(TherapyDisplayState::therapyHistory),
+                target = TargetState(80.0, 160.0),
+            )
+
+        CgmGraphScaleMode.entries.forEach { mode ->
+            val bitmap =
+                render(
+                    GlucoseDashboardChart(context).apply {
+                        bind(
+                            state,
+                            GlucoseUnit.MG_DL,
+                            showPredictions = false,
+                            durationHours = 3,
+                            showActivity = true,
+                            graphScaleMode = mode,
+                            clockEpochMs = now,
+                        )
+                    },
+                    230,
+                )
+            val activityPixels = count(bitmap) { it == Color.rgb(242, 201, 76) }
+            assertTrue("mode=$mode activity=$activityPixels", activityPixels > 4)
+        }
     }
 
     @Test fun `glucose dots use alert color outside display range`() {
@@ -735,10 +995,46 @@ class DashboardChartsTest {
         assertEquals("24h", formatVisibleGraphHours(120f))
     }
 
-    @Test fun `target dash phase stays anchored to graph content while path moves`() {
-        assertEquals(0f, contentAnchoredDashPhase(100f, 6f), 0.0001f)
-        assertEquals(0f, contentAnchoredDashPhase(108f, 6f), 0.0001f)
-        assertEquals(0f, contentAnchoredDashPhase(98f, 6f), 0.0001f)
+    @Test fun `target dash phase follows the same pan and zoom transform as graph content`() {
+        val initial = contentAnchoredDashPhase(viewportStartEpochMs = 0L, viewportDurationMs = 1_000L, plotWidthPx = 100f, periodPx = 12f)
+        val panned = contentAnchoredDashPhase(viewportStartEpochMs = 200L, viewportDurationMs = 1_000L, plotWidthPx = 100f, periodPx = 12f)
+        val zoomed = contentAnchoredDashPhase(viewportStartEpochMs = 200L, viewportDurationMs = 500L, plotWidthPx = 100f, periodPx = 12f)
+
+        assertEquals(0f, initial, 0.0001f)
+        assertEquals(8f, panned, 0.0001f)
+        assertEquals(4f, zoomed, 0.0001f)
+        assertTrue(initial != panned)
+    }
+
+    @Test
+    fun `upper graph scale uses the rounded corner tangent`() {
+        assertEquals(28f, roundedPlotTopTangentY(plotTop = 10f, cornerRadius = 18f), 0.0001f)
+    }
+
+    @Test
+    fun `time mapping reserves the complete current dot inside the rounded plot`() {
+        val plot = RectF(30f, 0f, 400f, 180f)
+        val timeBounds = graphTimeBounds(plot, pointRadius = 7f, outlineWidth = 2f)
+
+        assertEquals(391f, timeBounds.right, 0.0001f)
+        assertEquals(391f, mapGraphTimeX(time = 1_000L, start = 0L, end = 1_000L, timeBounds), 0.0001f)
+        assertTrue(mapGraphTimeX(1_000L, 0L, 1_000L, timeBounds) + 9f <= plot.right)
+    }
+
+    @Test
+    fun `target cgm and now share one horizontal transform while panning`() {
+        val bounds = graphTimeBounds(RectF(30f, 0f, 400f, 180f), pointRadius = 6f, outlineWidth = 1f)
+        val targetAt = 700L
+        val cgmAt = 700L
+
+        val initialTargetX = mapGraphTimeX(targetAt, 0L, 1_000L, bounds)
+        val initialCgmX = mapGraphTimeX(cgmAt, 0L, 1_000L, bounds)
+        val pannedTargetX = mapGraphTimeX(targetAt, 200L, 1_200L, bounds)
+        val pannedCgmX = mapGraphTimeX(cgmAt, 200L, 1_200L, bounds)
+
+        assertEquals(initialCgmX, initialTargetX, 0.0001f)
+        assertEquals(pannedCgmX, pannedTargetX, 0.0001f)
+        assertEquals(pannedCgmX - initialCgmX, pannedTargetX - initialTargetX, 0.0001f)
     }
 
     @Test
@@ -756,6 +1052,35 @@ class DashboardChartsTest {
             )
 
         assertEquals(7L * 60L * 60_000L, availableGlucoseHistoryWindowMs(state, now))
+    }
+
+    @Test
+    fun `overview graph window includes the oldest visible data stream`() {
+        val hour = 60L * 60_000L
+        val now = 50L * hour
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(110.0, now - 6L * hour)),
+                therapyHistory = listOf(TherapyHistorySample(now - 24L * hour, totalIob = 1.0)),
+            )
+
+        assertEquals(24L * hour, availableOverviewHistoryWindowMs(state, now, requestedHours = 24))
+    }
+
+    @Test
+    fun `twenty four hour zoom remains available while history is still loading`() {
+        val hour = 60L * 60_000L
+        val now = 50L * hour
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(118.0, now - hour)),
+            )
+
+        assertEquals(24L * hour, availableOverviewHistoryWindowMs(state, now, requestedHours = 24))
     }
 
     private fun render(
@@ -777,6 +1102,28 @@ class DashboardChartsTest {
     ): Int {
         var result = 0
         for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) if (predicate(bitmap.getPixel(x, y))) result++
+        return result
+    }
+
+    private fun countNearColumn(
+        bitmap: Bitmap,
+        centerX: Int,
+        expected: Int,
+        tolerance: Int,
+    ): Int {
+        var result = 0
+        for (y in 0 until bitmap.height) {
+            for (x in (centerX - 2).coerceAtLeast(0)..(centerX + 2).coerceAtMost(bitmap.width - 1)) {
+                val actual = bitmap.getPixel(x, y)
+                if (
+                    kotlin.math.abs(Color.red(actual) - Color.red(expected)) <= tolerance &&
+                    kotlin.math.abs(Color.green(actual) - Color.green(expected)) <= tolerance &&
+                    kotlin.math.abs(Color.blue(actual) - Color.blue(expected)) <= tolerance
+                ) {
+                    result += 1
+                }
+            }
+        }
         return result
     }
 }

@@ -36,6 +36,7 @@ object AppearanceTerminology {
     const val GRAPH_AXIS_TICK = "Achsenstriche"
     const val GRAPH_NOW_LINE = "Jetzt-Linie"
     const val GRAPH_DIVIDER = "Graph-Trennlinie"
+    const val GRAPH_BORDER = "Graphkontur"
     const val GRAPH_TARGET_VALUE = "Zielwertlinie"
 
     const val PREDICTION_IOB = "IOB-Prognose"

@@ -34,6 +34,7 @@ internal class G7GraphColorStore(
             cgmVeryLow = preferences.getInt(prefix + "cgm_very_low", defaults.cgmVeryLow),
             cgmVeryHigh = preferences.getInt(prefix + "cgm_very_high", defaults.cgmVeryHigh),
             divider = preferences.getInt(prefix + "divider", defaults.divider),
+            border = preferences.getInt(prefix + "border", defaults.border),
             highLine = preferences.getInt(prefix + "high_line", defaults.highLine),
             lowLine = preferences.getInt(prefix + "low_line", defaults.lowLine),
             axisLabel = preferences.getInt(prefix + "axis_label", defaults.axisLabel),
@@ -95,6 +96,7 @@ internal class G7GraphColorStore(
         putInt(prefix + "cgm_very_low", colors.cgmVeryLow)
         putInt(prefix + "cgm_very_high", colors.cgmVeryHigh)
         putInt(prefix + "divider", colors.divider)
+        putInt(prefix + "border", colors.border)
         putInt(prefix + "high_line", colors.highLine)
         putInt(prefix + "low_line", colors.lowLine)
         putInt(prefix + "axis_label", colors.axisLabel)

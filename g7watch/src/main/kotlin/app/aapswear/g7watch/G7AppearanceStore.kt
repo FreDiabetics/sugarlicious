@@ -11,6 +11,8 @@ import app.aapswear.model.SettingsSchemaVersions
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.storage.TrendArrowStylePreferences
 import app.aapswear.storage.ensureSettingsSchema
+import app.aapswear.uishared.DirectToWatchGraphDefaults
+import app.aapswear.uishared.SharedWearCgmGraphStyle
 
 enum class G7AppearanceSection(
     val label: String,
@@ -100,7 +102,7 @@ enum class G7AppearanceRole(
     GRAPH_DOT_OUTLINE("graph_dot_outline", AppearanceTerminology.GRAPH_DOT_OUTLINE, G7AppearanceSection.GRAPH, 0xFF000000.toInt()),
     GRAPH_AXIS_TEXT("graph_axis_text", AppearanceTerminology.GRAPH_AXIS_TEXT, G7AppearanceSection.GRAPH, 0xFFD2D2D2.toInt()),
     GRAPH_GRID("graph_grid", "Grid / Divider", G7AppearanceSection.GRAPH, 0xFF464646.toInt()),
-    GRAPH_TILE_BORDER("graph_tile_border", "Graph-Tile-Kontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
+    GRAPH_TILE_BORDER("graph_tile_border", "Graphkontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
     GRAPH_PREDICTION("graph_prediction", "Prediction", G7AppearanceSection.GRAPH, 0xFFF4DE00.toInt()),
 }
 
@@ -117,9 +119,17 @@ class G7AppearanceStore(
     private val appContext = context.applicationContext
     private val preferences: SharedPreferences =
         appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+    private val tileGlucosePreferences: SharedPreferences =
+        appContext.getSharedPreferences(TILE_GLUCOSE_PREFERENCES, Context.MODE_PRIVATE)
 
     init {
         preferences.ensureSettingsSchema(SettingsSchemaVersions.COLLECTOR)
+        if (!preferences.getBoolean(KEY_TILE_VISIBLE_AXES_MIGRATED, false)) {
+            preferences.edit {
+                putBoolean(KEY_TILE_TIME_AXIS, true)
+                putBoolean(KEY_TILE_VISIBLE_AXES_MIGRATED, true)
+            }
+        }
     }
 
     fun activeMode(): AppearanceMode =
@@ -184,6 +194,71 @@ class G7AppearanceStore(
                 value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             )
         }
+        notifyTileChanged()
+    }
+
+    fun tileGlucoseScalePercent(): Int =
+        tileGlucosePreferences
+            .getInt(KEY_TILE_GLUCOSE_SCALE, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+            .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT)
+
+    fun setTileGlucoseScalePercent(value: Int) {
+        tileGlucosePreferences.edit {
+            putInt(KEY_TILE_GLUCOSE_SCALE, value.coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT))
+        }
+        notifyTileChanged()
+    }
+
+    fun tileTrendArrowStyle(mode: AppearanceMode = activeMode()): TrendArrowStyle =
+        TrendArrowStylePreferences.read(
+            tileGlucosePreferences,
+            mode,
+            tileGlucosePalette(mode).argb(G7AppearanceRole.GLUCOSE_TREND),
+        )
+
+    fun saveTileTrendArrowStyle(
+        mode: AppearanceMode,
+        style: TrendArrowStyle,
+    ) {
+        TrendArrowStylePreferences.write(tileGlucosePreferences, mode, style)
+        notifyTileChanged()
+    }
+
+    fun resetTileTrendArrowStyle(mode: AppearanceMode) {
+        TrendArrowStylePreferences.reset(tileGlucosePreferences, mode)
+        notifyTileChanged()
+    }
+
+    fun tileGlucosePalette(mode: AppearanceMode = activeMode()): G7AppearancePalette {
+        val base = load(mode)
+        return G7AppearancePalette(
+            G7AppearanceRole.entries.associateWith { role ->
+                if (role.section == G7AppearanceSection.GLUCOSE) {
+                    tileGlucosePreferences.getInt(colorKey(mode, role), base.argb(role))
+                } else {
+                    base.argb(role)
+                }
+            },
+            mode,
+        )
+    }
+
+    fun saveTileGlucoseColor(
+        mode: AppearanceMode,
+        role: G7AppearanceRole,
+        argb: Int,
+    ) {
+        require(role.section == G7AppearanceSection.GLUCOSE)
+        tileGlucosePreferences.edit { putInt(colorKey(mode, role), argb) }
+        notifyTileChanged()
+    }
+
+    fun resetTileGlucoseAppearance(mode: AppearanceMode) {
+        tileGlucosePreferences.edit {
+            remove(KEY_TILE_GLUCOSE_SCALE)
+            G7AppearanceRole.entries.filter { it.section == G7AppearanceSection.GLUCOSE }.forEach { remove(colorKey(mode, it)) }
+        }
+        TrendArrowStylePreferences.reset(tileGlucosePreferences, mode)
         notifyTileChanged()
     }
 
@@ -270,12 +345,106 @@ class G7AppearanceStore(
         return next
     }
 
+    fun tileGraphHours(): Int =
+        preferences.getInt(KEY_TILE_GRAPH_HOURS, DEFAULT_GRAPH_HOURS).takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS
+
+    fun setTileGraphHours(hours: Int) {
+        preferences.edit { putInt(KEY_TILE_GRAPH_HOURS, hours.takeIf { it in ALLOWED_GRAPH_HOURS } ?: DEFAULT_GRAPH_HOURS) }
+        notifyTileChanged()
+    }
+
+    fun inAppGraphStyle(): SharedWearCgmGraphStyle =
+        DirectToWatchGraphDefaults.style().copy(
+            historicalDotOutlineEnabled = historicalDotOutlineEnabled(),
+            currentDotOutlineEnabled = currentDotOutlineEnabled(),
+            timeAxisEnabled = preferences.getBoolean(KEY_IN_APP_TIME_AXIS, true),
+            borderEnabled = preferences.getBoolean(KEY_IN_APP_BORDER, true),
+        )
+
+    fun setInAppGraphTimeAxisEnabled(value: Boolean) {
+        preferences.edit { putBoolean(KEY_IN_APP_TIME_AXIS, value) }
+        notifyTileChanged()
+    }
+
+    fun setInAppGraphBorderEnabled(value: Boolean) {
+        preferences.edit { putBoolean(KEY_IN_APP_BORDER, value) }
+        notifyTileChanged()
+    }
+
+    fun tileGraphStyle(defaultCornerRadiusDp: Float = DirectToWatchGraphDefaults.style().cornerRadiusDp): SharedWearCgmGraphStyle {
+        val defaults =
+            DirectToWatchGraphDefaults
+                .style()
+                .copy(
+                    cornerRadiusDp = defaultCornerRadiusDp,
+                    timeAxisEnabled = true,
+                )
+        return defaults.copy(
+            dotRadiusDp = preferences.getFloat(KEY_TILE_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
+            historicalDotOutlineEnabled = preferences.getBoolean(KEY_TILE_HISTORY_OUTLINE, defaults.historicalDotOutlineEnabled),
+            currentDotOutlineEnabled = preferences.getBoolean(KEY_TILE_CURRENT_OUTLINE, defaults.currentDotOutlineEnabled),
+            dotOutlineWidthDp = preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
+            cornerRadiusDp = preferences.getFloat(KEY_TILE_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
+            borderEnabled = preferences.getBoolean(KEY_TILE_BORDER, true),
+            timeAxisEnabled = preferences.getBoolean(KEY_TILE_TIME_AXIS, defaults.timeAxisEnabled),
+            scaleLaneOpacityPercent = preferences.getInt(KEY_TILE_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
+        )
+    }
+
+    fun saveTileGraphStyle(style: SharedWearCgmGraphStyle) {
+        preferences.edit {
+            putFloat(KEY_TILE_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
+            putBoolean(KEY_TILE_HISTORY_OUTLINE, style.historicalDotOutlineEnabled)
+            putBoolean(KEY_TILE_CURRENT_OUTLINE, style.currentDotOutlineEnabled)
+            putFloat(KEY_TILE_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_TILE_CORNER_RADIUS, style.cornerRadiusDp.coerceIn(0f, 40f))
+            putBoolean(KEY_TILE_TIME_AXIS, style.timeAxisEnabled)
+            putBoolean(KEY_TILE_BORDER, style.borderEnabled)
+            putInt(KEY_TILE_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
+        }
+        notifyTileChanged()
+    }
+
+    fun tileGraphPalette(mode: AppearanceMode = activeMode()): G7AppearancePalette {
+        val base = load(mode)
+        return G7AppearancePalette(
+            G7AppearanceRole.entries.associateWith { role ->
+                if (role.section == G7AppearanceSection.GRAPH) preferences.getInt(tileColorKey(mode, role), base.argb(role)) else base.argb(role)
+            },
+            mode,
+        )
+    }
+
+    fun saveTileGraphColor(
+        role: G7AppearanceRole,
+        argb: Int,
+        mode: AppearanceMode = activeMode(),
+    ) {
+        require(role.section == G7AppearanceSection.GRAPH)
+        preferences.edit { putInt(tileColorKey(mode, role), argb) }
+        notifyTileChanged()
+    }
+
+    fun resetTileGraph() {
+        preferences.edit {
+            preferences.all.keys
+                .filter { it.startsWith("tile_graph.") }
+                .forEach(::remove)
+        }
+        notifyTileChanged()
+    }
+
     private fun colorKey(role: G7AppearanceRole): String = "color.${role.key}"
 
     private fun colorKey(
         mode: AppearanceMode,
         role: G7AppearanceRole,
     ): String = "color.${mode.storageKey}.${role.key}"
+
+    private fun tileColorKey(
+        mode: AppearanceMode,
+        role: G7AppearanceRole,
+    ): String = "tile_graph.color.${mode.storageKey}.${role.key}"
 
     private fun notifyTileChanged() {
         G7CollectorTileService.requestUpdate(appContext)
@@ -299,11 +468,25 @@ class G7AppearanceStore(
         val ALLOWED_GRAPH_HOURS = listOf(1, 2, 3, 6, 12, 24)
         const val DEFAULT_GRAPH_HOURS = 3
         private const val PREFERENCES = "g7_appearance"
+        private const val TILE_GLUCOSE_PREFERENCES = "g7_tile_glucose_appearance"
+        private const val KEY_TILE_GLUCOSE_SCALE = "tile_glucose.scale"
         private const val KEY_ACTIVE_MODE = "active_mode"
         private const val KEY_GLUCOSE_SCALE = "glucose_scale_percent"
         private const val KEY_TREND_SCALE = "trend_scale_percent"
         private const val KEY_GRAPH_HOURS = "graph_hours"
         private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_historical_dot_outline_enabled"
         private const val KEY_CURRENT_DOT_OUTLINE = "graph_current_dot_outline_enabled"
+        private const val KEY_TILE_GRAPH_HOURS = "tile_graph.hours"
+        private const val KEY_IN_APP_TIME_AXIS = "in_app_graph.time_axis"
+        private const val KEY_IN_APP_BORDER = "in_app_graph.border"
+        private const val KEY_TILE_DOT_RADIUS = "tile_graph.dot_radius"
+        private const val KEY_TILE_HISTORY_OUTLINE = "tile_graph.history_outline"
+        private const val KEY_TILE_CURRENT_OUTLINE = "tile_graph.current_outline"
+        private const val KEY_TILE_OUTLINE_WIDTH = "tile_graph.outline_width"
+        private const val KEY_TILE_CORNER_RADIUS = "tile_graph.corner_radius"
+        private const val KEY_TILE_TIME_AXIS = "tile_graph.time_axis"
+        private const val KEY_TILE_BORDER = "tile_graph.border"
+        private const val KEY_TILE_VISIBLE_AXES_MIGRATED = "tile_graph.visible_axes_migrated_v1"
+        private const val KEY_TILE_SCALE_LANE_OPACITY = "tile_graph.scale_lane_opacity"
     }
 }

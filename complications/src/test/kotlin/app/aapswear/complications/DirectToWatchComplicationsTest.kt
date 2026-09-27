@@ -119,11 +119,13 @@ class DirectToWatchComplicationsTest {
         assertEquals(null, header(401.0).trend)
     }
 
-    @Test fun `stale direct value is not rendered as current`() {
+    @Test fun `signal loss retains last value and trend and marks only glucose`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
-        assertEquals("-", header.glucose)
-        assertEquals("Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar", header.secondary)
-        assertEquals("", DirectToWatchPresentationFormatter.graphStatus(directState(now - 16 * 60_000L), now, 3).text)
+        assertEquals("152", header.glucose)
+        assertEquals("+1 mg/dL", header.secondary)
+        assertEquals(Trend.FLAT, header.trend)
+        assertTrue(header.signalLoss)
+        assertEquals("3h • 16m", DirectToWatchPresentationFormatter.graphStatus(directState(now - 16 * 60_000L), now, 3).text)
     }
 
     @Test fun `mobile fresh is never shown as direct`() {
@@ -212,7 +214,7 @@ class DirectToWatchComplicationsTest {
                 sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ACTIVE",
             )
 
-        assertEquals("Signalverlust", vigilSensorStatusPillText(stale))
+        assertEquals("Signalverlust", vigilSensorStatusPillText(stale, now))
         assertTrue(DirectToWatchPresentationFormatter.samples(stale, now, 3).isNotEmpty())
     }
 

@@ -6,6 +6,8 @@ import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.CollectorDiagnosticAttempt
 import app.aapswear.g7.DirectConnectResult
+import app.aapswear.g7.G7CollectorHealth
+import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import org.junit.Assert.assertEquals
@@ -145,6 +147,26 @@ class G7BlePolicyTest {
         assertEquals(2, consecutiveRadioFailures(attempts, 4))
         assertEquals(RADIO_DEGRADED_CLUSTER_THRESHOLD, 1 + consecutiveRadioFailures(attempts, 4))
         assertEquals(0, consecutiveRadioFailures(attempts, 2))
+    }
+
+    @Test fun `no callback streak uses durable health instead of alternating attempt shapes`() {
+        val health =
+            G7CollectorHealth(
+                consecutiveFailures = 8,
+                lastFailureClass = G7FailureClass.DIRECT_NO_CALLBACK,
+            )
+
+        assertEquals(9, nextRadioFailureStreak(health, G7FailureClass.SCAN_RADIO_FAILURE))
+    }
+
+    @Test fun `non radio failure starts a new radio streak`() {
+        val health =
+            G7CollectorHealth(
+                consecutiveFailures = 8,
+                lastFailureClass = G7FailureClass.AUTH_FAILURE,
+            )
+
+        assertEquals(1, nextRadioFailureStreak(health, G7FailureClass.DIRECT_NO_CALLBACK))
     }
 
     @Test fun `confirmed fallback sensor permits one final bounded status 133 retry`() {

@@ -39,7 +39,12 @@ data class CgmGraphYScale(
             staticMaximumMgDl: Double = DEFAULT_MAXIMUM_MG_DL,
             requiredValuesMgDl: Iterable<Double> = emptyList(),
         ): CgmGraphYScale {
-            val staticMin = staticMinimumMgDl.coerceIn(20.0, 300.0)
+            val staticMin =
+                if (mode == CgmGraphScaleMode.STATIC) {
+                    DEFAULT_MINIMUM_MG_DL
+                } else {
+                    staticMinimumMgDl.coerceIn(20.0, 300.0)
+                }
             val staticMax = staticMaximumMgDl.coerceIn(staticMin + 20.0, 1_000.0)
             if (mode == CgmGraphScaleMode.STATIC || mode == CgmGraphScaleMode.LOGARITHMIC) {
                 return CgmGraphYScale(mode, staticMin, staticMax)

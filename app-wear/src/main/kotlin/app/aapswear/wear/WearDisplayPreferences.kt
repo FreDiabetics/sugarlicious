@@ -61,6 +61,7 @@ internal data class WearDisplayPreferences(
         private const val STYLE_CURRENT_OUTLINE_ENABLED = "cgm_current_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
         private const val STYLE_SCALE_LANE_OPACITY = "scale_lane_opacity_percent"
+        private const val STYLE_BORDER_ENABLED = "graph_border_enabled"
         private const val THRESHOLD_VERY_HIGH = "threshold_very_high"
         private const val THRESHOLD_HIGH = "threshold_high"
         private const val THRESHOLD_LOW = "threshold_low"
@@ -173,6 +174,7 @@ internal data class WearDisplayPreferences(
                         cgmVeryLow = preferences.getInt(prefix + COLOR_PREFIX + "cgm_very_low", graphDefaults.cgmVeryLow),
                         cgmVeryHigh = preferences.getInt(prefix + COLOR_PREFIX + "cgm_very_high", graphDefaults.cgmVeryHigh),
                         divider = preferences.getInt(prefix + COLOR_PREFIX + "divider", graphDefaults.divider),
+                        border = preferences.getInt(prefix + COLOR_PREFIX + "border", graphDefaults.border),
                         highLine = preferences.getInt(prefix + COLOR_PREFIX + "high_line", graphDefaults.highLine),
                         lowLine = preferences.getInt(prefix + COLOR_PREFIX + "low_line", graphDefaults.lowLine),
                         axisLabel = preferences.getInt(prefix + COLOR_PREFIX + "axis_label", graphDefaults.axisLabel),
@@ -218,6 +220,7 @@ internal data class WearDisplayPreferences(
                                     prefix + STYLE_SCALE_LANE_OPACITY,
                                     styleDefaults.scaleLaneOpacityPercent,
                                 ).coerceIn(0, 100),
+                        borderEnabled = preferences.getBoolean(prefix + STYLE_BORDER_ENABLED, styleDefaults.borderEnabled),
                     ),
                 uiColors =
                     WatchUiColors(
@@ -383,6 +386,7 @@ internal data class WearDisplayPreferences(
             putInt(prefix + COLOR_PREFIX + "cgm_very_low", colors.cgmVeryLow)
             putInt(prefix + COLOR_PREFIX + "cgm_very_high", colors.cgmVeryHigh)
             putInt(prefix + COLOR_PREFIX + "divider", colors.divider)
+            putInt(prefix + COLOR_PREFIX + "border", colors.border)
             putInt(prefix + COLOR_PREFIX + "high_line", colors.highLine)
             putInt(prefix + COLOR_PREFIX + "low_line", colors.lowLine)
             putInt(prefix + COLOR_PREFIX + "axis_label", colors.axisLabel)
@@ -401,6 +405,7 @@ internal data class WearDisplayPreferences(
             putBoolean(prefix + STYLE_CURRENT_OUTLINE_ENABLED, profile.graphStyle.cgmCurrentDotOutlineEnabled)
             putFloat(prefix + STYLE_OUTLINE_WIDTH, profile.graphStyle.cgmDotOutlineWidthDp)
             putInt(prefix + STYLE_SCALE_LANE_OPACITY, profile.graphStyle.scaleLaneOpacityPercent.coerceIn(0, 100))
+            putBoolean(prefix + STYLE_BORDER_ENABLED, profile.graphStyle.borderEnabled)
             val ui = profile.uiColors
             putInt(prefix + UI_PREFIX + "background", ui.background)
             putInt(prefix + UI_PREFIX + "tile_background", ui.tileBackground)
@@ -434,6 +439,7 @@ internal data class WearDisplayPreferences(
                                 STYLE_HISTORICAL_OUTLINE_ENABLED,
                                 STYLE_CURRENT_OUTLINE_ENABLED,
                                 STYLE_OUTLINE_WIDTH,
+                                STYLE_BORDER_ENABLED,
                             )
                         ) {
                             return@forEach

@@ -9,9 +9,7 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyEventSource
-import app.aapswear.storage.PhoneTherapyStateStore
-import app.aapswear.storage.TherapyStateStore
-import kotlinx.coroutines.flow.first
+import app.aapswear.storage.CanonicalStateStore
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -359,9 +357,8 @@ internal object NightscoutTreatmentSync {
     suspend fun applyConfigurationState(context: Context) {
         val app = context.applicationContext
         if (NightscoutConfigurationStore.read(app).enabled) return
-        val phoneStore = PhoneTherapyStateStore(app)
-        val displayStore = TherapyStateStore(app)
-        val current = phoneStore.state.first() ?: displayStore.state.first() ?: return
+        val canonicalStore = CanonicalStateStore(app)
+        val current = canonicalStore.reconcile() ?: return
         val aapsOnly =
             current.copy(
                 therapyEvents =
@@ -373,23 +370,20 @@ internal object NightscoutTreatmentSync {
                         }
                     },
             )
-        phoneStore.save(aapsOnly)
-        displayStore.save(aapsOnly)
-        dispatchCanonicalDataChanged(app, aapsOnly)
+        val committed = canonicalStore.commit(aapsOnly)
+        dispatchCanonicalDataChanged(app, committed)
     }
 
     private suspend fun enrichPersistedState(
         context: Context,
         nightscout: List<TherapyEvent>,
     ) {
-        val phoneStore = PhoneTherapyStateStore(context)
-        val displayStore = TherapyStateStore(context)
-        val current = phoneStore.state.first() ?: displayStore.state.first() ?: return
+        val canonicalStore = CanonicalStateStore(context)
+        val current = canonicalStore.reconcile() ?: return
         val aaps = current.therapyEvents.filter { it.source != TherapyEventSource.NIGHTSCOUT_ONLY }
         val enriched = current.copy(therapyEvents = CanonicalTreatments.merge(aaps, nightscout))
-        phoneStore.save(enriched)
-        displayStore.save(enriched)
-        dispatchCanonicalDataChanged(context, enriched)
+        val committed = canonicalStore.commit(enriched)
+        dispatchCanonicalDataChanged(context, committed)
     }
 
     private fun failure(

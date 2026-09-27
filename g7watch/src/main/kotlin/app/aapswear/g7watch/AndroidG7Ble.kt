@@ -215,10 +215,29 @@ internal fun copyG7NotificationValue(value: ByteArray): ByteArray = value.copyOf
 @Suppress("DEPRECATION")
 private fun BluetoothGattCharacteristic.copyLegacyG7NotificationValue(): ByteArray = copyG7NotificationValue(value ?: ByteArray(0))
 
-private object G7GattCallbackDispatcher {
-    val handler: Handler by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        val thread = HandlerThread("G7-Gatt-Callbacks").apply { start() }
-        Handler(thread.looper)
+internal object G7GattCallbackDispatcher {
+    private val lock = Any()
+    private var generation = 0L
+    private var runtime: Pair<HandlerThread, Handler>? = null
+
+    val handler: Handler
+        get() =
+            synchronized(lock) {
+                runtime?.second ?: createRuntime().also { runtime = it }.second
+            }
+
+    /** Rotates only the app-owned callback looper after a completed degraded cycle. */
+    fun reset(): Boolean =
+        synchronized(lock) {
+            val previous = runtime ?: return@synchronized false
+            runtime = null
+            previous.first.quitSafely()
+        }
+
+    private fun createRuntime(): Pair<HandlerThread, Handler> {
+        generation += 1
+        val thread = HandlerThread("G7-Gatt-Callbacks-$generation").apply { start() }
+        return thread to Handler(thread.looper)
     }
 }
 

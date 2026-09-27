@@ -98,9 +98,8 @@ class WatchFacePushControllerTest {
     }
 
     @Test
-    fun `only Digital and Vigil are exposed while all legacy definitions remain retained`() {
+    fun `only Digital and Vigil remain in the deployment catalog`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
-        val legacy = SugarliciousWatchFacePush.legacyFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(2, active.size)
@@ -110,14 +109,6 @@ class WatchFacePushControllerTest {
                 "app.aapswear.watchfacepush.g6style",
             ),
             active.map { it.packageName }.toSet(),
-        )
-        assertEquals(23, legacy.size)
-        assertTrue(
-            active
-                .map { it.packageName }
-                .toSet()
-                .intersect(legacy.map { it.packageName }.toSet())
-                .isEmpty(),
         )
         active.forEach { spec ->
             context.assets.open(spec.apkAsset).use { apk ->

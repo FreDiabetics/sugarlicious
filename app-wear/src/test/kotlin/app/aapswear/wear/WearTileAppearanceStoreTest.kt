@@ -5,6 +5,7 @@ import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,10 +17,48 @@ class WearTileAppearanceStoreTest {
     fun `each system tile persists its content independently`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GRAPH)
-        WearTileContentStore.write(context, WearTileKind.THERAPY, WearTileContent.PUMP)
 
         assertEquals(WearTileContent.GRAPH, WearTileContentStore.read(context, WearTileKind.GLUCOSE))
-        assertEquals(WearTileContent.PUMP, WearTileContentStore.read(context, WearTileKind.THERAPY))
+    }
+
+    @Test
+    fun `therapy selection persists in canonical order and rejects empty state`() {
+        TherapyTileSelectionStore.write(context, setOf(TherapyTileMetric.BASAL, TherapyTileMetric.IOB))
+
+        assertEquals(listOf(TherapyTileMetric.IOB, TherapyTileMetric.BASAL), TherapyTileSelectionStore.read(context).metrics)
+        assertThrows(IllegalArgumentException::class.java) { TherapyTileSelectionStore.write(context, emptySet()) }
+    }
+
+    @Test
+    fun `legacy singleton therapy choice migrates without changing user selection`() {
+        context
+            .getSharedPreferences("wear_tile_content", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString(WearTileKind.THERAPY.name, "COB")
+            .commit()
+
+        assertEquals(listOf(TherapyTileMetric.COB), TherapyTileSelectionStore.read(context).canonical)
+        assertEquals(setOf("COB"), context.getSharedPreferences("wear_tile_content", 0).getStringSet("therapy.metrics.v1", null))
+    }
+
+    @Test
+    fun `therapy layout is deterministic for one two and three metrics`() {
+        assertEquals(
+            listOf(TherapyTilePlacement(TherapyTileMetric.COB, 0, 0)),
+            therapyTilePlacements(TherapyTileSelection(listOf(TherapyTileMetric.COB))),
+        )
+        assertEquals(
+            listOf(TherapyTilePlacement(TherapyTileMetric.IOB, 0, 0), TherapyTilePlacement(TherapyTileMetric.COB, 0, 1)),
+            therapyTilePlacements(TherapyTileSelection(listOf(TherapyTileMetric.COB, TherapyTileMetric.IOB))),
+        )
+        assertEquals(
+            listOf(
+                TherapyTilePlacement(TherapyTileMetric.IOB, 0, 0),
+                TherapyTilePlacement(TherapyTileMetric.COB, 0, 1),
+                TherapyTilePlacement(TherapyTileMetric.BASAL, 1, 0),
+            ),
+            therapyTilePlacements(TherapyTileSelection(TherapyTileMetric.entries)),
+        )
     }
 
     private val context
@@ -27,6 +66,11 @@ class WearTileAppearanceStoreTest {
 
     @Before
     fun clearPreferences() {
+        context
+            .getSharedPreferences("wear_tile_content", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
         WearTileKind.entries.forEach { kind ->
             context
                 .getSharedPreferences(kind.preferenceName, android.content.Context.MODE_PRIVATE)

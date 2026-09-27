@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.AppearanceMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -115,5 +117,45 @@ class G7AppearanceStoreTest {
         }
         assertEquals(200, G7AppearanceStore(context).glucoseScalePercent())
         assertEquals(125, G7AppearanceStore(context).trendScalePercent())
+    }
+
+    @Test fun `tile glucose appearance persists independently from in app appearance`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        val store = G7AppearanceStore(context)
+        store.setGlucoseScalePercent(110)
+        store.setTileGlucoseScalePercent(175)
+        store.saveTileGlucoseColor(AppearanceMode.DARK, G7AppearanceRole.GLUCOSE_IN_RANGE, 0xFF12AB34.toInt())
+        store.saveTileTrendArrowStyle(
+            AppearanceMode.DARK,
+            store.tileTrendArrowStyle(AppearanceMode.DARK).copy(sizePercent = 140, fillColor = 0xFFABCDEF.toInt()),
+        )
+
+        val recreated = G7AppearanceStore(context)
+        assertEquals(110, recreated.glucoseScalePercent())
+        assertEquals(175, recreated.tileGlucoseScalePercent())
+        assertEquals(0xFF12AB34.toInt(), recreated.tileGlucosePalette(AppearanceMode.DARK).argb(G7AppearanceRole.GLUCOSE_IN_RANGE))
+        assertEquals(140, recreated.tileTrendArrowStyle(AppearanceMode.DARK).sizePercent)
+        assertEquals(0xFFABCDEF.toInt(), recreated.tileTrendArrowStyle(AppearanceMode.DARK).fillColor)
+    }
+
+    @Test fun `in app graph time axis setting reaches the renderer style and persists`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context
+            .getSharedPreferences("g7_appearance", Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        val store = G7AppearanceStore(context)
+
+        assertTrue(store.inAppGraphStyle().timeAxisEnabled)
+        store.setInAppGraphTimeAxisEnabled(false)
+        assertFalse(G7AppearanceStore(context).inAppGraphStyle().timeAxisEnabled)
+        store.setInAppGraphTimeAxisEnabled(true)
+        assertTrue(G7AppearanceStore(context).inAppGraphStyle().timeAxisEnabled)
     }
 }

@@ -9,6 +9,9 @@ import androidx.core.content.edit
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7SessionState
+import app.aapswear.model.CgmPresentationPolicy
+import app.aapswear.model.CgmPresentationStatus
+import app.aapswear.model.CgmQuality
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,14 +55,14 @@ internal object G7AlertPolicyStore {
     }
 }
 
-internal const val G7_SIGNAL_LOSS_AFTER_MS = 16L * 60_000L
+internal const val G7_SIGNAL_LOSS_AFTER_MS = CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS
 
 internal fun isG7SignalLoss(
     lastReadingEpochMs: Long?,
     nowEpochMs: Long,
 ): Boolean =
-    lastReadingEpochMs != null &&
-        nowEpochMs - lastReadingEpochMs >= G7_SIGNAL_LOSS_AFTER_MS
+    CgmPresentationPolicy.classify(lastReadingEpochMs, CgmQuality.VALID, nowEpochMs) ==
+        CgmPresentationStatus.SIGNAL_LOSS
 
 internal fun shouldPostImmediateCollectorAlert(
     alarmsEnabled: Boolean,

@@ -39,6 +39,26 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class G7WatchActivityLayoutTest {
     @Test
+    fun `appearance exposes a complete independent WearOS tile graph section`() {
+        val activity = Robolectric.buildActivity(G7AppearanceActivity::class.java).setup().get()
+        val text = mutableListOf<String>()
+        collectText(activity.window.decorView, text)
+
+        assertTrue(text.contains("WEAROS-TILE GRAPH"))
+        assertTrue(text.any { it.startsWith("Punktgröße") })
+        assertTrue(text.contains("Kontur · bisherige Punkte"))
+        assertTrue(text.contains("Kontur · aktueller Wert"))
+        assertTrue(text.any { it.startsWith("Konturdicke") })
+        assertTrue(text.contains("Zeitachse"))
+        assertTrue(text.any { it.startsWith("Eckenradius") })
+        assertTrue(text.any { it.startsWith("Skalenbereich-Deckkraft") })
+        assertTrue(text.contains("TILE-GRAPH RESET"))
+        G7AppearanceRole.entries.filter { it.section == G7AppearanceSection.GRAPH }.forEach { role ->
+            assertTrue("missing ${role.label}", text.contains(role.label))
+        }
+    }
+
+    @Test
     fun `collector updates cannot advance an unstarted pairing flow`() {
         val backgroundPairing = G7PersistedState(sensor = G7Sensor("old"), collectorEnabled = true)
         assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, backgroundPairing))

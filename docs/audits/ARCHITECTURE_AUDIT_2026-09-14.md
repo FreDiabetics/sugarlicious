@@ -25,7 +25,8 @@ Evidence:
 - `StateDataLayerService` still invokes these no-ops at service startup, peer reconnect, explicit sync request, and acknowledgement receipt.
 - `WearProtocol` still exposes G7 reading, batch, acknowledgement, and sync paths and serializable batch types.
 - `MobileDataLayerService` still decodes incoming G7 batches, clears the retired Mobile backfill store, constructs an acknowledgement, transmits it, and records an ignored-batch diagnostic.
-- `MobileG7BackfillStore` remains as a clearing-only compatibility class.
+- Superseded 2026-09-20: the clearing-only `MobileG7BackfillStore` and its retired
+  batch/ack protocol were removed after the one-time migration was retained directly.
 
 Required resolution:
 

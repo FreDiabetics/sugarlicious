@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable enum class Trend { DOUBLE_DOWN, SINGLE_DOWN, FORTY_FIVE_DOWN, FLAT, FORTY_FIVE_UP, SINGLE_UP, DOUBLE_UP, UNKNOWN }
 
-@Serializable enum class Freshness { CURRENT, DELAYED, STALE, ERROR, NO_DATA }
+@Serializable enum class Freshness { CURRENT, DELAYED, STALE, SIGNAL_LOSS, ERROR, NO_DATA }
 
 @Serializable enum class CgmQuality { VALID, SENSOR_ERROR, INVALID }
 
@@ -153,6 +153,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class TherapyDisplayState(
     val schemaVersion: Int = CURRENT_SCHEMA,
+    /** Monotonic Mobile commit revision; zero denotes a legacy unrevisioned payload. */
+    val canonicalRevision: Long = 0L,
     val source: DataSourceId = DataSourceId.ANDROID_APS,
     val sourceVersion: String? = null,
     val sourceContract: String? = null,
@@ -174,7 +176,7 @@ import kotlinx.serialization.Serializable
     val capabilities: Set<DataCapability> = emptySet(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 8
+        const val CURRENT_SCHEMA = 9
     }
 }
 
@@ -192,6 +194,7 @@ object FreshnessPolicy {
             measuredAtEpochMs > nowEpochMs + FUTURE_TOLERANCE_MS -> Freshness.NO_DATA
             nowEpochMs - measuredAtEpochMs <= CURRENT_MAX_MS -> Freshness.CURRENT
             nowEpochMs - measuredAtEpochMs <= DELAYED_MAX_MS -> Freshness.DELAYED
-            else -> Freshness.STALE
+            nowEpochMs - measuredAtEpochMs < CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS -> Freshness.STALE
+            else -> Freshness.SIGNAL_LOSS
         }
 }

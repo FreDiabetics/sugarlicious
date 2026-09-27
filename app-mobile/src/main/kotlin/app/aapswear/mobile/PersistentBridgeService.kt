@@ -30,6 +30,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -63,27 +64,27 @@ internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
     return (EXTERNAL_SURFACE_MINUTE_MS - remainder).coerceAtLeast(1L)
 }
 
+internal fun notificationGlucoseRevision(state: TherapyDisplayState?): Long? = state?.glucose?.measuredAtEpochMs
+
 class PersistentBridgeService :
     Service(),
     SharedPreferences.OnSharedPreferenceChangeListener {
     private lateinit var uiPreferences: SharedPreferences
-    private lateinit var diagnostics: SharedPreferences
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var latestState: TherapyDisplayState? = null
+    private var notifiedGlucoseRevision: Long? = null
     private var foregroundStarted = false
     private var externalSurfaceClockJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
         uiPreferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
-        diagnostics = getSharedPreferences(DIAGNOSTICS_NAME, MODE_PRIVATE)
         uiPreferences.registerOnSharedPreferenceChangeListener(this)
-        diagnostics.registerOnSharedPreferenceChangeListener(this)
         createNotificationChannel()
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
                 latestState = it
-                if (foregroundStarted) {
+                if (foregroundStarted && notificationGlucoseRevision(it) != notifiedGlucoseRevision) {
                     notifyUpdated()
                 }
             }
@@ -93,10 +94,8 @@ class PersistentBridgeService :
                 while (isActive) {
                     delay(delayUntilNextExternalSurfaceMinute(System.currentTimeMillis()))
                     if (foregroundStarted) {
-                        // Age/freshness and the live graph edge change without a new AAPS broadcast.
-                        // Refresh the external surfaces on the aligned minute boundary so widgets and
-                        // the notification do not freeze when the Activity is closed or signal is lost.
-                        notifyUpdated()
+                        // Widget age and its live graph edge are time-sensitive. The foreground
+                        // notification intentionally changes only for a new glucose measurement.
                         runCatching { SugarliciousWidgets.update(applicationContext) }
                     }
                 }
@@ -112,6 +111,7 @@ class PersistentBridgeService :
             uiPreferences.edit { putBoolean(PREFERENCE_LIVE_NOTIFICATION, false) }
         }
         promoteToForeground(buildNotification())
+        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
         foregroundStarted = true
         return START_STICKY
     }
@@ -125,7 +125,6 @@ class PersistentBridgeService :
 
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
-        diagnostics.unregisterOnSharedPreferenceChangeListener(this)
         externalSurfaceClockJob?.cancel()
         scope.cancel()
         super.onDestroy()
@@ -135,6 +134,7 @@ class PersistentBridgeService :
 
     private fun notifyUpdated() {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
+        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
     }
 
     private fun promoteToForeground(notification: Notification) {
@@ -306,6 +306,7 @@ class PersistentBridgeService :
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
+        val presentationStatus = TherapyDisplayFormatter.presentationStatus(state, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null)
         }
@@ -323,12 +324,13 @@ class PersistentBridgeService :
                 .ifBlank { "—" }
         val age = ((now - glucose.measuredAtEpochMs).coerceAtLeast(0L) / 60_000L)
         val prefix =
-            when (freshness) {
-                Freshness.CURRENT -> ""
-                Freshness.DELAYED -> "Verzögert · "
-                Freshness.STALE -> "Signalverlust · "
-                Freshness.ERROR -> "Sensorfehler · "
-                Freshness.NO_DATA -> "Keine Quelle · "
+            when (presentationStatus) {
+                CgmPresentationStatus.CURRENT -> ""
+                CgmPresentationStatus.AGING -> "Verzögert · "
+                CgmPresentationStatus.STALE -> "Veraltet · "
+                CgmPresentationStatus.SIGNAL_LOSS -> "Signalverlust · "
+                CgmPresentationStatus.SENSOR_ERROR -> "Sensorfehler · "
+                CgmPresentationStatus.NO_SOURCE -> "Keine Quelle · "
             }
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
         val unit = if (selectedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
@@ -387,7 +389,6 @@ class PersistentBridgeService :
         const val CHANNEL_ID = "sugarlicious_background"
         const val NOTIFICATION_ID = 4101
         private const val PREFERENCES_NAME = "dashboard_ui"
-        private const val DIAGNOSTICS_NAME = "diagnostics"
         private const val ACTION_REFRESH = "app.aapswear.action.REFRESH_PERSISTENT_NOTIFICATION"
         private const val ACTION_DISABLE_LIVE = "app.aapswear.action.DISABLE_LIVE_NOTIFICATION"
 

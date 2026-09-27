@@ -87,6 +87,9 @@
             </intent-filter>
         </receiver>
         <receiver android:name=".G7ReconnectReceiver" android:exported="false" />
+        <receiver android:name=".G7BluetoothStateReceiver" android:exported="false">
+            <intent-filter><action android:name="android.bluetooth.adapter.action.STATE_CHANGED" /></intent-filter>
+        </receiver>
         <receiver android:name=".G7SensorWindowWatchdogReceiver" android:exported="false" />
         <receiver android:name=".G7AdvertisementWakeReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
@@ -104,12 +107,6 @@
             android:exported="true"
             android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
             <intent-filter><action android:name="app.aapswear.g7watch.SET_SOURCE" /></intent-filter>
-        </receiver>
-        <receiver
-            android:name=".G7SyncControlReceiver"
-            android:exported="true"
-            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
-            <intent-filter><action android:name="app.aapswear.g7watch.ACK_SYNC" /></intent-filter>
         </receiver>
         <receiver
             android:name=".G7ColorSyncReceiver"

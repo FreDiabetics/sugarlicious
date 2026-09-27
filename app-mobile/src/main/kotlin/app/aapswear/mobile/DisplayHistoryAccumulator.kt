@@ -12,7 +12,10 @@ import app.aapswear.storage.PersistentPredictionCache
 /** Keeps a bounded graph cache inside the single latest display state. */
 internal object DisplayHistoryAccumulator {
     const val WINDOW_MS = 24 * 60 * 60_000L
-    const val MAX_POINTS = 300
+
+    // The cache is already bounded by WINDOW_MS. Keep enough room for sources that publish
+    // therapy/basal/activity values every minute; 300 points truncated those streams after 5 h.
+    const val MAX_POINTS = 2_000
     const val GAP_THRESHOLD_MS = 7 * 60_000L + 30_000L
 
     /** True when two persisted CGM points are farther apart than a normal 5-minute cycle. */

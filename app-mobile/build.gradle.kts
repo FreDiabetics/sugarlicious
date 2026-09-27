@@ -7,12 +7,7 @@ plugins {
 val generatedAnalogPreviewRes = layout.buildDirectory.dir("generated/sugarliciousAnalogPreviewRes")
 val generatedVigilPreviewRes = layout.buildDirectory.dir("generated/vigilPreviewRes")
 val syncSugarliciousAnalogPreviewAssets =
-    tasks.register<Copy>("syncSugarliciousAnalogPreviewAssets") {
-        from(
-            rootProject.file(
-                "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/sugarlicious_analog_template.png",
-            ),
-        )
+    tasks.register<Sync>("syncSugarliciousAnalogPreviewAssets") {
         from(
             rootProject.file(
                 "watchfaces/sugarlicious-shared/res/drawable-nodpi/second_hand.xml",
@@ -89,7 +84,6 @@ dependencies {
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
     implementation(project(":ui-shared"))
-    implementation(project(":dexcom-g7"))
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

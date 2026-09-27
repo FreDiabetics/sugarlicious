@@ -211,6 +211,14 @@ enum class SugarliciousColorRole(
     ),
     GRAPH_IOB("graph_iob", "IOB", SugarliciousColorGroup.GRAPH, 0xFF64BFFF.toInt(), 0xFF2479B7.toInt(), true),
     GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
+    GRAPH_INSULIN_ACTIVITY(
+        "graph_insulin_activity",
+        "Insulinaktivität",
+        SugarliciousColorGroup.GRAPH,
+        0xFFF2C94C.toInt(),
+        0xFFB17D00.toInt(),
+        true,
+    ),
     GRAPH_GRID("graph_grid", "Graph-Gitter", SugarliciousColorGroup.GRAPH, 0xFF464646.toInt(), 0xFFD5D5D5.toInt()),
     GRAPH_LABEL("graph_label", AppearanceTerminology.GRAPH_AXIS_TEXT, SugarliciousColorGroup.GRAPH, 0xFFD2D2D2.toInt(), 0xFF575757.toInt()),
     GRAPH_AXIS_TICK(
@@ -253,6 +261,7 @@ enum class SugarliciousColorRole(
         0xFF747474.toInt(),
         true,
     ),
+    GRAPH_BORDER("graph_border", AppearanceTerminology.GRAPH_BORDER, SugarliciousColorGroup.GRAPH, 0xFF969696.toInt()),
     GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0x46FF5C69, 0x38D11A2A, true),
     GRAPH_CURRENT_OUTLINE("graph_current_outline", "Aktueller Punkt · Kontur", SugarliciousColorGroup.GRAPH, 0xFF000000.toInt()),
     ;

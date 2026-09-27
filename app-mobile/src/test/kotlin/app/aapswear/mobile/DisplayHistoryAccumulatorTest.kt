@@ -15,6 +15,7 @@ import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
+import app.aapswear.model.TherapyHistorySample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -128,6 +129,33 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
+    fun `retains every minute of therapy data across the complete twenty four hour window`() {
+        val minute = 60_000L
+        val now = 3 * DisplayHistoryAccumulator.WINDOW_MS
+        val history =
+            (0..(24 * 60)).map { minuteOffset ->
+                TherapyHistorySample(
+                    measuredAtEpochMs = now - (24 * 60 - minuteOffset) * minute,
+                    totalIob = minuteOffset.toDouble(),
+                    cobGrams = minuteOffset.toDouble(),
+                    basalUnitsPerHour = 0.8,
+                    insulinActivityUnitsPerMinute = 0.01,
+                )
+            }
+
+        val merged =
+            DisplayHistoryAccumulator.merge(
+                previous = null,
+                current = TherapyDisplayState(receivedAtEpochMs = now, therapyHistory = history),
+                nowEpochMs = now,
+            )
+
+        assertEquals(24 * 60 + 1, merged.therapyHistory.size)
+        assertEquals(now - DisplayHistoryAccumulator.WINDOW_MS, merged.therapyHistory.first().measuredAtEpochMs)
+        assertEquals(now, merged.therapyHistory.last().measuredAtEpochMs)
+    }
+
+    @Test
     fun `incoming history samples close an existing graph gap`() {
         val minute = 60_000L
         val now = 1000 * minute
@@ -165,7 +193,7 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
-    fun `AndroidAPS wins over a nearby xDrip reading`() {
+    fun `AndroidAPS is current without deleting an unidentified nearby xDrip reading`() {
         val now = 2_000_000L
         val state =
             TherapyDisplayState(
@@ -178,9 +206,9 @@ class DisplayHistoryAccumulatorTest {
                     ),
             )
         val merged = DisplayHistoryAccumulator.merge(null, state, now)
-        assertEquals(1, merged.glucoseHistory.size)
-        assertEquals(DataSourceId.ANDROID_APS, merged.glucoseHistory.single().source)
-        assertEquals(123.0, merged.glucoseHistory.single().valueMgDl, 0.0)
+        assertEquals(2, merged.glucoseHistory.size)
+        assertEquals(DataSourceId.ANDROID_APS, merged.source)
+        assertEquals(setOf(DataSourceId.ANDROID_APS, DataSourceId.XDRIP_PLUS), merged.glucoseHistory.map { it.source }.toSet())
     }
 
     @Test

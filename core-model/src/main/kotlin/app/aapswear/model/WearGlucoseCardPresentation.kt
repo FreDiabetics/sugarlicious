@@ -34,6 +34,37 @@ object WearGlucoseCardStyle {
     const val TREND_GAP_DP = 6
 }
 
+enum class SugarWearTypographyRole { GLUCOSE_VALUE, META, TILE_TITLE, STATUS }
+
+data class SugarWearTypographySpec(
+    val sizeSp: Float,
+    val appBold: Boolean,
+    val protoWeight: Int,
+    val fontFamily: String,
+)
+
+/** Semantic type tokens shared by the SugarWear app and its ProtoLayout tiles. */
+object SugarWearTypography {
+    /** Explicit system family supported by both Android Views and Wear ProtoLayout. */
+    const val APP_FONT_FAMILY = "roboto"
+
+    const val PROTO_FONT_FAMILY = APP_FONT_FAMILY
+
+    fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
+        when (role) {
+            SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, 500, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, 500, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, 500, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, 500, PROTO_FONT_FAMILY)
+        }
+
+    fun protoWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+}
+
+/** Hardware parity probe strings. They remain real text in both renderers. */
+fun sugarWearTypographyParitySamples(): List<String> =
+    listOf("188", "→", "-3 mg/dL · 2m", "VERBUNDEN")
+
 fun wearGlucoseCardPresentation(
     input: WearGlucoseCardInput,
     thresholds: CgmThresholds,
@@ -64,6 +95,7 @@ fun wearGlucoseCardPresentation(
             Freshness.CURRENT -> age
             Freshness.DELAYED -> age
             Freshness.STALE -> "Keine aktuellen CGM-Daten"
+            Freshness.SIGNAL_LOSS -> "Signalverlust"
             Freshness.ERROR -> "Sensorfehler"
             Freshness.NO_DATA -> "Keine CGM-Daten"
         }

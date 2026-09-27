@@ -2,6 +2,9 @@ package app.aapswear.datasource.aaps
 
 import android.os.Bundle
 import app.aapswear.model.*
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 
 object AapsPayloadAdapter {
     const val ACTION = "info.nightscout.androidaps.status"
@@ -38,7 +41,7 @@ object AapsPayloadAdapter {
         val iob = values.number("iob")
         val bolusIob = values.number("bolusIob")
         val basalIob = values.number("basalIob")
-        val insulinActivity =
+        val explicitInsulinActivity =
             sequenceOf("insulinActivity", "iobActivity", "activity")
                 .mapNotNull { key -> values.number(key) }
                 .firstOrNull()
@@ -60,6 +63,10 @@ object AapsPayloadAdapter {
         val enactedAt = values.number("enactedTimeStamp")?.toLong()?.takeIf { it > 0 }
         val suggestedPayload = values["suggested"] as? String
         val enactedPayload = values["enacted"] as? String
+        val insulinActivity =
+            explicitInsulinActivity
+                ?: AapsAlgorithmActivityParser.parse(suggestedPayload)
+                ?: AapsAlgorithmActivityParser.parse(enactedPayload)
         val explicitLoopEnabled = values.boolean("loopEnabled")
         val explicitLoopStatus = (values["loopStatus"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         val parsedTarget = AapsTargetParser.parseTarget(suggestedPayload) ?: AapsTargetParser.parseTarget(enactedPayload)
@@ -304,4 +311,39 @@ object AapsPayloadAdapter {
                 }
             else -> null
         }
+}
+
+/** Reads AAPS' own calculated activity inputs; never estimates activity from sparse IOB history. */
+internal object AapsAlgorithmActivityParser {
+    private val json = Json { ignoreUnknownKeys = true }
+    private val bgiPattern = Regex("(?:^|[,;]\\s*)BGI:\\s*([+-]?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE)
+    private val isfPattern = Regex("(?:^|[,;]\\s*)ISF:\\s*([+-]?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE)
+
+    fun parse(payload: String?): Double? {
+        if (payload.isNullOrBlank()) return null
+        val reason =
+            runCatching {
+                json
+                    .parseToJsonElement(payload)
+                    .jsonObject["reason"]
+                    ?.jsonPrimitive
+                    ?.content
+            }.getOrNull() ?: return null
+        val bgi =
+            bgiPattern
+                .find(reason)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toDoubleOrNull() ?: return null
+        val isf =
+            isfPattern
+                .find(reason)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toDoubleOrNull() ?: return null
+        if (!bgi.isFinite() || !isf.isFinite() || bgi > 0.0 || bgi < -1_000.0 || isf !in 1.0..1_000.0) return null
+        return (-bgi / (isf * AAPS_MINUTES_PER_STEP)).takeIf { it.isFinite() && it in 0.0..10.0 }
+    }
+
+    private const val AAPS_MINUTES_PER_STEP = 5.0
 }

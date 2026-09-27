@@ -6,6 +6,7 @@ local.properties
 *.iml
 captures/
 dist/
+.worktrees/
 
 # Local signing material and secrets
 *.jks

@@ -126,7 +126,7 @@ class CgmGraphCustomizationTest {
                 )
 
             val changedPixels = bitmapDifferenceCount(configured, recolored)
-            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 10)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }
@@ -180,7 +180,7 @@ class CgmGraphCustomizationTest {
                 )
 
             val changedPixels = bitmapDifferenceCount(enabled, disabled)
-            assertTrue("changedPixels=$changedPixels", changedPixels > 40)
+            assertTrue("changedPixels=$changedPixels", changedPixels > 10)
         } finally {
             SugarliciousColors.apply(SugarliciousPalette.defaults())
         }

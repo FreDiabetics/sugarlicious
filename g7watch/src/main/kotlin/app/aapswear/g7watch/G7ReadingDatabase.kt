@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
-import androidx.core.database.sqlite.transaction
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingRepository
@@ -17,10 +16,12 @@ import kotlinx.coroutines.flow.StateFlow
 
 internal class G7ReadingDatabase(
     context: Context,
-) : SQLiteOpenHelper(context, "g7_readings.db", null, 6),
+) : SQLiteOpenHelper(context, "g7_readings.db", null, 7),
     CgmReadingRepository {
     private val appContext = context.applicationContext
     private val mutableLatest = MutableStateFlow<CgmReading?>(null)
+    private var publishSuppressionDepth = 0
+    private var publishPending = false
     override val latestReading: StateFlow<CgmReading?> = mutableLatest
 
     init {
@@ -29,10 +30,9 @@ internal class G7ReadingDatabase(
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
-            "CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE', synced INTEGER NOT NULL DEFAULT 0)",
+            "CREATE TABLE readings (id TEXT PRIMARY KEY, sensor_id TEXT NOT NULL, session_id TEXT NOT NULL, glucose REAL NOT NULL, measured_at INTEGER NOT NULL, received_at INTEGER NOT NULL, delta REAL, trend TEXT NOT NULL, trend_rate REAL, predicted REAL, sensor_age INTEGER, status TEXT NOT NULL, sequence_number INTEGER, display_only INTEGER NOT NULL DEFAULT 0, sensor_clock INTEGER, sensor_start INTEGER, sensor_end INTEGER, grace_end INTEGER, protocol_status INTEGER, calibration_state INTEGER, reserved_field INTEGER, origin TEXT NOT NULL DEFAULT 'LIVE')",
         )
         db.execSQL("CREATE INDEX readings_measured_at ON readings(measured_at DESC)")
-        db.execSQL("CREATE INDEX readings_pending ON readings(synced, measured_at)")
         db.execSQL("CREATE INDEX readings_identity ON readings(sensor_id, session_id, status, measured_at)")
     }
 
@@ -116,6 +116,9 @@ internal class G7ReadingDatabase(
             )
             db.execSQL("CREATE INDEX IF NOT EXISTS readings_sensor_clock ON readings(sensor_id, session_id, status, sensor_clock)")
         }
+        if (oldVersion < 7) {
+            db.execSQL("DROP INDEX IF EXISTS readings_pending")
+        }
     }
 
     override suspend fun insert(reading: CgmReading): Boolean {
@@ -176,6 +179,14 @@ internal class G7ReadingDatabase(
         }
 
     private fun publishChanged() {
+        if (publishSuppressionDepth > 0) {
+            publishPending = true
+            return
+        }
+        publishChangedNow()
+    }
+
+    private fun publishChangedNow() {
         mutableLatest.value = query(limit = 1).firstOrNull()
         appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
         appContext.sendBroadcast(
@@ -183,6 +194,20 @@ internal class G7ReadingDatabase(
             READ_G7_PERMISSION,
         )
         G7CollectorTileService.requestUpdate(appContext)
+    }
+
+    /** Coalesces a history transaction into one provider/broadcast/tile fanout. */
+    suspend fun <T> coalesceChangeNotifications(block: suspend G7ReadingDatabase.() -> T): T {
+        publishSuppressionDepth += 1
+        return try {
+            block()
+        } finally {
+            publishSuppressionDepth -= 1
+            if (publishSuppressionDepth == 0 && publishPending) {
+                publishPending = false
+                publishChangedNow()
+            }
+        }
     }
 
     /** Replaces only values derived from the temporal predecessor after history was backfilled. */
@@ -388,39 +413,6 @@ internal class G7ReadingDatabase(
         fromEpochMs: Long,
         toEpochMs: Long,
     ): List<CgmReading> = query("measured_at BETWEEN ? AND ?", arrayOf(fromEpochMs.toString(), toEpochMs.toString()))
-
-    override suspend fun getUnsynced(limit: Int): List<CgmReading> =
-        query(
-            selection = "synced=0 AND status=?",
-            args = arrayOf(CgmReadingStatus.VALID.name),
-            limit = limit,
-            ascending = true,
-        )
-
-    override suspend fun markSynced(ids: Set<String>) {
-        if (ids.isEmpty()) return
-        var updated = 0
-        writableDatabase.transaction {
-            ids.forEach {
-                updated +=
-                    update(
-                        "readings",
-                        ContentValues().apply { put("synced", 1) },
-                        "id=? AND synced=0",
-                        arrayOf(it),
-                    )
-            }
-        }
-        if (updated > 0) {
-            appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
-            // The Wear bridge reacts only after the transaction committed, so batches larger
-            // than the protocol limit continue without racing the acknowledgement write.
-            appContext.sendBroadcast(
-                Intent(ACTION_G7_READING_UPDATED).setPackage(SUGARLICIOUS_PACKAGE),
-                READ_G7_PERMISSION,
-            )
-        }
-    }
 
     fun query(
         selection: String? = null,

@@ -471,13 +471,18 @@ internal object G7AlarmSoundPlayer {
                 .build()
         player =
             runCatching {
-                MediaPlayer.create(context.applicationContext, g7AlarmSoundResource(type), attributes, 0)?.also { mediaPlayer ->
+                MediaPlayer().also { mediaPlayer ->
+                    mediaPlayer.setAudioAttributes(attributes)
+                    context.applicationContext.assets.openFd(g7AlarmSoundAsset(type)).use { sound ->
+                        mediaPlayer.setDataSource(sound.fileDescriptor, sound.startOffset, sound.length)
+                    }
                     playingType = type
                     mediaPlayer.setOnCompletionListener { synchronized(this) { if (player === it) release() } }
                     mediaPlayer.setOnErrorListener { failed, _, _ ->
                         synchronized(this) { if (player === failed) release() }
                         true
                     }
+                    mediaPlayer.prepare()
                     mediaPlayer.start()
                 }
             }.getOrNull()
@@ -515,16 +520,16 @@ internal object G7AlarmNotificationPolicy {
     }
 }
 
-internal fun g7AlarmSoundResource(type: CgmAlarmType): Int =
+internal fun g7AlarmSoundAsset(type: CgmAlarmType): String =
     when (type) {
-        CgmAlarmType.VERY_HIGH -> R.raw.alerts_sounds_high_alert
-        CgmAlarmType.HIGH -> R.raw.alerts_sounds_high
-        CgmAlarmType.LOW -> R.raw.alerts_sounds_low
-        CgmAlarmType.VERY_LOW -> R.raw.alerts_sounds_urgent_low_alarm
-        CgmAlarmType.RAPID_RISE -> R.raw.alerts_sounds_rise_rate
-        CgmAlarmType.RAPID_FALL -> R.raw.alerts_sounds_fall_rate
-        CgmAlarmType.SIGNAL_LOSS -> R.raw.alerts_sounds_signal_loss_alert
-        CgmAlarmType.SENSOR_ERROR -> R.raw.alerts_sounds_beep
+        CgmAlarmType.VERY_HIGH -> "alarms/alerts_sounds_high_alert.mp4"
+        CgmAlarmType.HIGH -> "alarms/alerts_sounds_high.mp4"
+        CgmAlarmType.LOW -> "alarms/alerts_sounds_low.mp4"
+        CgmAlarmType.VERY_LOW -> "alarms/alerts_sounds_urgent_low_alarm.mp4"
+        CgmAlarmType.RAPID_RISE -> "alarms/alerts_sounds_rise_rate.mp4"
+        CgmAlarmType.RAPID_FALL -> "alarms/alerts_sounds_fall_rate.mp4"
+        CgmAlarmType.SIGNAL_LOSS -> "alarms/alerts_sounds_signal_loss_alert.mp4"
+        CgmAlarmType.SENSOR_ERROR -> "alarms/alerts_sounds_beep.mp4"
     }
 
 internal fun g7AlarmTitle(type: CgmAlarmType): String =
