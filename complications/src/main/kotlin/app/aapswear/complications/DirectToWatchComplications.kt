@@ -129,7 +129,7 @@ internal object DirectToWatchPresentationFormatter {
                     },
             )
         }
-        val glucose = requireNotNull(state?.glucose)
+        val glucose = requireNotNull(state.glucose)
         cgmBoundaryDisplay(glucose.valueMgDl)?.let { boundary ->
             return DirectToWatchHeaderPresentation(
                 glucose = boundary.label,
@@ -166,7 +166,8 @@ internal object DirectToWatchPresentationFormatter {
         if (!isDirect(state) || state?.glucose == null) {
             return DirectToWatchGraphStatusPresentation("")
         }
-        val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
+        val glucose = requireNotNull(state.glucose)
+        val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
         return DirectToWatchGraphStatusPresentation("${graphHours}h • $age")
     }
 
