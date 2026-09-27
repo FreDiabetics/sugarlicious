@@ -6,8 +6,6 @@ Sie zeigt lokal von AndroidAPS gesendete Glukose-, Trend-, Delta-, IOB-, COB-,
 Basal-, Profil-, Pumpen- und Batteriedaten auf Wear OS an. Sie kann keine
 Therapie auslösen oder ändern. Die 35 Provider lassen sich auch in fremden
 Watchfaces verwenden; deren Layout wird dann vom jeweiligen Watchface bestimmt.
-xDrip+ kann alternativ lokale Glukose-, Trend- und Zeitdaten liefern;
-Therapieinformationen bleiben ausschließlich AndroidAPS-Daten.
 
 ## Voraussetzungen
 
@@ -51,12 +49,6 @@ der Sugarlicious-Auswahl freigegeben, sobald die Dexcom-G7-Watch-Datenquelle
 aktiviert oder als aktive Quelle erkannt ist. Falls Galaxy Wearable die Liste
 noch zwischengespeichert hat, die Auswahl auf der Uhr durch langes Drücken des
 Zifferblatts öffnen oder Galaxy Wearable neu starten.
-
-Alternativ oder als Glukose-Fallback in xDrip+ die Ausgabe von Daten über lokale
-Intents aktivieren und in Sugarlicious unter **Einstellungen → Anzeige →
-Datenquelle** `Automatisch` oder `xDrip+` wählen. `Automatisch` verwendet einen
-aktuellen AndroidAPS-Wert zuerst und wechselt erst bei fehlendem/veraltetem
-AAPS zu xDrip+.
 
 Beim ersten Öffnen fragt Sugarlicious ab Android 13 nach der Erlaubnis für
 Benachrichtigungen. Sie sollte zugelassen werden, damit die normale laufende

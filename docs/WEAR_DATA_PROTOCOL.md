@@ -26,8 +26,7 @@ bleiben Zustände aus Schema 1/2 lesbar. Die Mobile-App hält höchstens 24 Stun
 und 300 Messzeitpunkte; es entsteht keine separate Therapiedatenbank. Der
 Empfänger erzeugt weder Prognosen noch fehlende Zwischenwerte.
 
-Schema 4 ergänzt die Quellenkennung `XDRIP_PLUS`, die Herkunft einzelner
-Glukosepunkte, getrennte Basis-/TBR-Raten und eine optionale, rein visuelle
+Schema 4 ergänzt die Herkunft einzelner Glukosepunkte, getrennte Basis-/TBR-Raten und eine optionale, rein visuelle
 Insulinaktivitäts-Schätzung. Protokoll 5 transportiert diese Felder sowie die
 Watch-Konfiguration 2. Letztere enthält getrennte Graphrollen für Hintergrund,
 Zielbereiche, CGM-Punkte, Trennlinie und Punktkontur. Alte Konfigurationen

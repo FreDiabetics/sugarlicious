@@ -59,7 +59,7 @@ function Draw-ProviderGlyph([System.Drawing.Graphics]$graphics, [string]$icon, [
     $brush = [System.Drawing.SolidBrush]::new($white)
     try {
         switch ($icon) {
-            "Xdrip" {
+            "Glucose" {
                 $path = [System.Drawing.Drawing2D.GraphicsPath]::new()
                 try {
                     $path.AddBezier($centerX, $centerY - $size * 0.55, $centerX - $size * 0.35, $centerY - $size * 0.15, $centerX - $size * 0.42, $centerY + $size * 0.12, $centerX, $centerY + $size * 0.48)
@@ -229,9 +229,9 @@ function Render-ProviderIcon([hashtable]$spec) {
 }
 
 $specs = @(
-    @{ Name = "01a"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
-    @{ Name = "01b"; Kind = "Text"; Text = "123"; Icon = "Xdrip" },
-    @{ Name = "01c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Icon = "Xdrip" },
+    @{ Name = "01a"; Kind = "Text"; Text = "123"; Icon = "Glucose" },
+    @{ Name = "01b"; Kind = "Text"; Text = "123"; Icon = "Glucose" },
+    @{ Name = "01c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Icon = "Glucose" },
     @{ Name = "02a"; Kind = "Text"; Text = "123"; Trend = $true },
     @{ Name = "02b"; Kind = "Text"; Text = "123"; Trend = $true },
     @{ Name = "02c"; Kind = "Ranged"; Text = "123"; Progress = 0.377; Trend = $true },

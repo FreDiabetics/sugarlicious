@@ -46,14 +46,11 @@ Standardwerte und fehlen bei älteren Zuständen ohne Fehler.
 Der unveränderte öffentliche AAPS-Broadcast liefert keinen fertigen historischen
 Graphen. Sugarlicious bleibt deshalb vollständig mit Stock-AAPS kompatibel und
 sammelt nacheinander real empfangene Anzeigewerte lokal: maximal 24 Stunden und
-300 Zeitpunkte, dedupliziert innerhalb eines 90-Sekunden-Fensters. Dabei hat
-ein AAPS-Punkt Vorrang vor einem zeitgleichen xDrip+-Punkt. IOB, COB und Basal werden nur dann
+300 Zeitpunkte, dedupliziert innerhalb eines 90-Sekunden-Fensters. IOB, COB und Basal werden nur dann
 als Verlaufspunkt gespeichert, wenn der Broadcast den jeweiligen Wert enthält.
 
 Sugarlicious erweitert oder patcht AndroidAPS ausdrücklich nicht und besitzt
-keinen Nightscout-Backfill. xDrip+ ist ausschließlich eine alternative lokale
-Glukosequelle; es ergänzt keine AAPS-Therapiefelder. Erfunden oder interpoliert
-wird kein CGM-Wert.
+keinen Nightscout-Backfill. Erfunden oder interpoliert wird kein CGM-Wert.
 
 Prognosen werden nicht lokal berechnet. Der Adapter liest optional das
 `predBGs`-Objekt aus dem vorhandenen Suggested-, ersatzweise Enacted-JSON,

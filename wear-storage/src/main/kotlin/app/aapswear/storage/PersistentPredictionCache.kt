@@ -27,7 +27,7 @@ object PersistentPredictionCache {
     ): TherapyDisplayState {
         // Prediction samples carry their own source. Keep a still-valid AAPS forecast when the
         // selected glucose transport temporarily changes (for example Automatic falling back to
-        // xDrip or direct G7). Dropping it solely because TherapyDisplayState.source changed caused
+        // another phone source or direct G7). Dropping it solely because TherapyDisplayState.source changed caused
         // the intermittent disappearing curves reported during short connection gaps.
         val previousSeries = previous?.glucosePredictions.orEmpty()
         val merged =

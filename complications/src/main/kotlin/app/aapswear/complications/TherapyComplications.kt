@@ -261,7 +261,6 @@ abstract class TherapyComplicationService(
                         DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                         DataSourceId.ANDROID_APS -> "AndroidAPS"
                         DataSourceId.NIGHTSCOUT -> "Nightscout"
-                        DataSourceId.XDRIP_PLUS -> "xDrip+"
                         DataSourceId.OTHER -> "Other"
                         null -> "No data"
                     } to freshnessLabel(freshness)
@@ -815,7 +814,7 @@ abstract class TherapyComplicationService(
     ): MonochromaticImage? {
         val resource =
             when (kind) {
-                ProviderKind.GLUCOSE -> R.drawable.ic_complication_xdrip
+                ProviderKind.GLUCOSE -> R.drawable.ic_complication_glucose
                 ProviderKind.BASAL -> basalIconResource(state?.basal)
                 ProviderKind.IOB -> R.drawable.ic_complication_iob
                 ProviderKind.COB -> R.drawable.ic_complication_carbs

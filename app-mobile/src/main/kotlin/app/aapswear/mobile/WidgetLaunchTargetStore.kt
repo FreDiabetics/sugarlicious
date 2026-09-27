@@ -19,7 +19,6 @@ internal object WidgetLaunchTargetStore {
             WidgetLaunchTarget("info.nightscout.androidaps", "AndroidAPS"),
             WidgetLaunchTarget("info.nightscout.androidaps.dev", "AndroidAPS Dev"),
             WidgetLaunchTarget("info.nightscout.aaps", "AndroidAPS"),
-            WidgetLaunchTarget("com.eveningoutpost.dexdrip", "xDrip+"),
             WidgetLaunchTarget("com.dexcom.g7", "Dexcom G7"),
         )
 

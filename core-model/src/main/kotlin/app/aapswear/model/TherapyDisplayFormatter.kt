@@ -125,7 +125,6 @@ object TherapyDisplayFormatter {
             DataSourceId.DEXCOM_G7_WATCH -> "Watch Direct"
             DataSourceId.ANDROID_APS -> "AndroidAPS"
             DataSourceId.NIGHTSCOUT -> "Nightscout"
-            DataSourceId.XDRIP_PLUS -> "xDrip+"
             DataSourceId.OTHER -> "Andere Quelle"
             null -> "Keine Quelle"
         }

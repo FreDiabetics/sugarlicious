@@ -53,7 +53,7 @@ class WidgetInstanceConfigurationTest {
                 false,
                 WidgetScaleMode.LOGARITHMIC,
                 Color.BLACK,
-                "com.eveningoutpost.dexdrip",
+                "com.dexcom.g7",
                 graphCornerRadiusDp = 26,
                 colorOverrides = mapOf(WidgetColorRole.DOT_IN_RANGE to Color.GREEN),
             )
@@ -120,15 +120,15 @@ class WidgetInstanceConfigurationTest {
     @Test
     fun `legacy global tap target is captured independently by each widget`() {
         val sugarlicious = WidgetLaunchTarget("app.aapswear", "Sugarlicious")
-        val xdrip = WidgetLaunchTarget("com.eveningoutpost.dexdrip", "xDrip+")
+        val dexcom = WidgetLaunchTarget("com.dexcom.g7", "Dexcom G7")
         try {
-            WidgetLaunchTargetStore.select(context, xdrip)
+            WidgetLaunchTargetStore.select(context, dexcom)
             val migrated = WidgetInstanceConfigurationStore.read(context, 707)
-            assertEquals(xdrip.packageName, migrated.launchPackage)
+            assertEquals(dexcom.packageName, migrated.launchPackage)
             WidgetInstanceConfigurationStore.save(context, 707, migrated)
 
             WidgetLaunchTargetStore.select(context, sugarlicious)
-            assertEquals(xdrip.packageName, WidgetInstanceConfigurationStore.read(context, 707).launchPackage)
+            assertEquals(dexcom.packageName, WidgetInstanceConfigurationStore.read(context, 707).launchPackage)
             assertEquals(sugarlicious.packageName, WidgetInstanceConfigurationStore.read(context, 808).launchPackage)
         } finally {
             WidgetInstanceConfigurationStore.delete(context, 707)

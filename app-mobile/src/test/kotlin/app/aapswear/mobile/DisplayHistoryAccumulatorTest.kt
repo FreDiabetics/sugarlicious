@@ -193,7 +193,7 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
-    fun `AndroidAPS is current without deleting an unidentified nearby xDrip reading`() {
+    fun `AndroidAPS is current without deleting an unidentified nearby external reading`() {
         val now = 2_000_000L
         val state =
             TherapyDisplayState(
@@ -202,13 +202,13 @@ class DisplayHistoryAccumulatorTest {
                 glucose = GlucoseState(123.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
                 glucoseHistory =
                     listOf(
-                        GlucoseSample(121.0, now - 30_000L, DataSourceId.XDRIP_PLUS),
+                        GlucoseSample(121.0, now - 30_000L, DataSourceId.OTHER),
                     ),
             )
         val merged = DisplayHistoryAccumulator.merge(null, state, now)
         assertEquals(2, merged.glucoseHistory.size)
         assertEquals(DataSourceId.ANDROID_APS, merged.source)
-        assertEquals(setOf(DataSourceId.ANDROID_APS, DataSourceId.XDRIP_PLUS), merged.glucoseHistory.map { it.source }.toSet())
+        assertEquals(setOf(DataSourceId.ANDROID_APS, DataSourceId.OTHER), merged.glucoseHistory.map { it.source }.toSet())
     }
 
     @Test

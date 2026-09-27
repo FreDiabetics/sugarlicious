@@ -45,12 +45,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
             try {
                 val now = System.currentTimeMillis()
                 val sourcePreferences = app.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
-                val configuredSource =
-                    runCatching {
-                        DataSourcePreference.valueOf(
-                            sourcePreferences.getString("dataSource", DataSourcePreference.AUTOMATIC.name)!!,
-                        )
-                    }.getOrDefault(DataSourcePreference.AUTOMATIC)
+                val configuredSource = migrateDataSourcePreference(sourcePreferences.getString("dataSource", null))
                 val migrationDone = sourcePreferences.getBoolean(G7_SOURCE_FALLBACK_MIGRATION_KEY, false)
                 val sourcePreference = migrateLegacyForcedG7Source(configuredSource, migrationDone)
                 if (!migrationDone) {

@@ -80,7 +80,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     implementation(project(":data-source-aaps"))
-    implementation(project(":data-source-xdrip"))
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
     implementation(project(":ui-shared"))
