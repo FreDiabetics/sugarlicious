@@ -25,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -47,6 +48,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
+import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
@@ -118,6 +120,15 @@ internal fun SugarliciousOverviewScreen(
         ) { ChartViewport(preferences.graphHours) }
     val metabolicChartViewport = cgmChartViewport
     var appliedGraphHours by remember { mutableIntStateOf(preferences.graphHours) }
+    var sharedViewportSnapshot by remember(cgmChartViewport, now) {
+        mutableStateOf(cgmChartViewport.snapshot(now))
+    }
+    DisposableEffect(cgmChartViewport, now) {
+        val listener = { sharedViewportSnapshot = cgmChartViewport.snapshot(now) }
+        cgmChartViewport.addListener(listener)
+        listener()
+        onDispose { cgmChartViewport.removeListener(listener) }
+    }
 
     val enabledPredictions =
         if (preferences.showCgmGraph && preferences.anyCgmPredictionEnabled) {
@@ -139,7 +150,7 @@ internal fun SugarliciousOverviewScreen(
         }
     val sharedScaleOnRight =
         targetScaleOnRight(
-            PredictionDisplayTimeline.anchor(enabledPredictions, now).any { it.samples.isNotEmpty() },
+            hasVisiblePredictions(enabledPredictions, now, sharedViewportSnapshot),
         )
 
     val predictionFutureWindowMs =
@@ -277,6 +288,17 @@ internal fun SugarliciousOverviewScreen(
         }
     }
 }
+
+internal fun hasVisiblePredictions(
+    predictions: List<GlucosePrediction>,
+    now: Long,
+    viewport: GraphViewportSnapshot,
+): Boolean =
+    PredictionDisplayTimeline
+        .anchor(predictions, now)
+        .any { series ->
+            series.samples.any { it.measuredAtEpochMs in viewport.startEpochMs..viewport.endEpochMs }
+        }
 
 @Composable
 private fun GlucoseHeroCard(

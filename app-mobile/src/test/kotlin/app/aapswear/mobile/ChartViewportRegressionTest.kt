@@ -1,5 +1,8 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.GlucosePrediction
+import app.aapswear.model.GlucoseSample
+import app.aapswear.model.PredictionKind
 import app.aapswear.model.RelativeGraphTimeAxis
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -9,6 +12,22 @@ import org.junit.Test
 class ChartViewportRegressionTest {
     private val hour = 60L * 60_000L
     private val now = 48L * hour
+
+    @Test
+    fun `prediction axis changes side only while a prediction is in the visible viewport`() {
+        val predictions =
+            listOf(
+                GlucosePrediction(
+                    kind = PredictionKind.IOB,
+                    samples = listOf(GlucoseSample(valueMgDl = 130.0, measuredAtEpochMs = now + 30L * 60_000L)),
+                ),
+            )
+        val live = GraphViewportSnapshot(now - 6L * hour, now, now + hour)
+        val history = GraphViewportSnapshot(now - 12L * hour, now, now - 6L * hour)
+
+        assertTrue(hasVisiblePredictions(predictions, now, live))
+        assertTrue(targetScaleOnRight(hasVisiblePredictions(predictions, now, history)))
+    }
 
     @Test
     fun `twenty four hours is an invariant including prediction space`() {
