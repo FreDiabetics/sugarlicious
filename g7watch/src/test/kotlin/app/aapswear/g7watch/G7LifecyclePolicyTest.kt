@@ -46,21 +46,31 @@ class G7LifecyclePolicyTest {
         )
     }
 
-    @Test fun `pairing attempt gets one absolute deadline and rehydration preserves it`() {
+    @Test fun `pairing request survives while expired scan window is renewed`() {
         val initial = G7PersistedState(sensor = G7Sensor("sensor"), collectorEnabled = true)
         val started = ensureG7PairingAttempt(initial, 1_000L)
         val restored = ensureG7PairingAttempt(started, 20_000L)
+        val renewed = ensureG7PairingAttempt(started, 1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
 
         assertEquals(1_000L, started.pairingStartedAtEpochMs)
         assertEquals(1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS, started.pairingDeadlineEpochMs)
         assertEquals(started.pairingAttemptId, restored.pairingAttemptId)
         assertEquals(started.pairingStartedAtEpochMs, restored.pairingStartedAtEpochMs)
         assertEquals(started.pairingDeadlineEpochMs, restored.pairingDeadlineEpochMs)
+        assertEquals(started.pairingAttemptId, renewed.pairingAttemptId)
+        assertEquals(started.pairingStartedAtEpochMs, renewed.pairingStartedAtEpochMs)
+        assertEquals(
+            1_000L + 2L * G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+            renewed.pairingDeadlineEpochMs,
+        )
 
         val discoveredButNotValidated = started.copy(sensor = G7Sensor("sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"))
         assertEquals(
-            started.pairingDeadlineEpochMs,
-            ensureG7PairingAttempt(discoveredButNotValidated, 30_000L).pairingDeadlineEpochMs,
+            1_000L + 2L * G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+            ensureG7PairingAttempt(
+                discoveredButNotValidated,
+                1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+            ).pairingDeadlineEpochMs,
         )
     }
 

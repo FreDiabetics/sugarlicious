@@ -2,6 +2,7 @@ package app.aapswear.g7
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class G7LifecycleStateTest {
@@ -60,6 +61,10 @@ class G7LifecycleStateTest {
                 ),
             )
 
-        assertFalse(manager.stop().collectorEnabled)
+        val stopped = manager.stop()
+        assertFalse(stopped.collectorEnabled)
+        assertNull(stopped.pairingAttemptId)
+        assertNull(stopped.pairingStartedAtEpochMs)
+        assertNull(stopped.pairingDeadlineEpochMs)
     }
 }

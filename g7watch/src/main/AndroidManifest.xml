@@ -119,5 +119,10 @@
             android:authorities="app.aapswear.g7watch.readings"
             android:exported="true"
             android:readPermission="app.aapswear.g7watch.permission.READ_G7_DATA" />
+        <provider
+            android:name=".G7AlarmSoundProvider"
+            android:authorities="app.aapswear.g7watch.alarm-sounds"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>
