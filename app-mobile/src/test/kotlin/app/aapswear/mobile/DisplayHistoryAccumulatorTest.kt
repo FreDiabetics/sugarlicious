@@ -62,6 +62,32 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
+    fun `base basal update clears the complete obsolete temp basal group`() {
+        val now = 4_000_000L
+        val previous =
+            TherapyDisplayState(
+                receivedAtEpochMs = now - 60_000L,
+                basal =
+                    BasalState(
+                        currentUnitsPerHour = 0.8,
+                        tempAbsoluteUnitsPerHour = 1.2,
+                        tempPercent = 150,
+                        tempStartedAtEpochMs = now - 30 * 60_000L,
+                        tempDurationMinutes = 30,
+                        tempEndsAtEpochMs = now,
+                        displayText = "1.20 U/h",
+                    ),
+            )
+        val current =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                basal = BasalState(currentUnitsPerHour = 0.8),
+            )
+
+        assertEquals(current.basal, DisplayHistoryAccumulator.merge(previous, current, now).basal)
+    }
+
+    @Test
     fun `does not invent insulin activity from IOB and DIA`() {
         val now = 20_000_000L
         val first =

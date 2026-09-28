@@ -246,8 +246,20 @@ internal object DisplayHistoryAccumulator {
             futureCarbsGrams = new.futureCarbsGrams ?: old?.futureCarbsGrams,
         ) ?: old
 
-    private fun mergeBasal(old: BasalState?, new: BasalState?): BasalState? =
-        new?.copy(
+    private fun mergeBasal(old: BasalState?, new: BasalState?): BasalState? {
+        if (new == null) return old
+        val incomingDefinesBasalLifecycle = new.currentUnitsPerHour != null
+        val incomingHasActiveTemp =
+            new.tempAbsoluteUnitsPerHour != null ||
+                new.tempPercent != null ||
+                new.tempStartedAtEpochMs != null ||
+                new.tempDurationMinutes != null ||
+                new.tempEndsAtEpochMs != null ||
+                new.displayText != null
+        if (incomingDefinesBasalLifecycle && !incomingHasActiveTemp) {
+            return new
+        }
+        return new.copy(
             currentUnitsPerHour = new.currentUnitsPerHour ?: old?.currentUnitsPerHour,
             tempAbsoluteUnitsPerHour = new.tempAbsoluteUnitsPerHour ?: old?.tempAbsoluteUnitsPerHour,
             tempPercent = new.tempPercent ?: old?.tempPercent,
@@ -255,7 +267,8 @@ internal object DisplayHistoryAccumulator {
             tempDurationMinutes = new.tempDurationMinutes ?: old?.tempDurationMinutes,
             tempEndsAtEpochMs = new.tempEndsAtEpochMs ?: old?.tempEndsAtEpochMs,
             displayText = new.displayText ?: old?.displayText,
-        ) ?: old
+        )
+    }
 
     private fun mergeTarget(old: TargetState?, new: TargetState?): TargetState? =
         new?.copy(
