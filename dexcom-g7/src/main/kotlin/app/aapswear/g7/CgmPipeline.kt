@@ -1,9 +1,9 @@
 package app.aapswear.g7
 
+import app.aapswear.model.CanonicalTrendPolicy
 import app.aapswear.model.CgmPresentationPolicy
 import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.CgmQuality
-import app.aapswear.model.CanonicalTrendPolicy
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendRateProfile
