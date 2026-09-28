@@ -336,6 +336,7 @@ object G7LocalReadingResolver {
             sequenceNumber = sequenceNumber,
             receivedAtEpochMs = receivedAt,
             quality = quality,
+            trendRateMgDlPerMinute = trendRateMgDlPerMinute,
         )
 }
 

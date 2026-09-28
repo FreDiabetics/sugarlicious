@@ -22,17 +22,7 @@ object AapsPayloadAdapter {
         if (!AapsPayloadValidator().isValid(values, receivedAtEpochMs)) return null
         val value = values.number("glucoseMgdl") ?: return null
         val measured = values.number("glucoseTimeStamp")?.toLong() ?: return null
-        val trend =
-            when ((values["slopeArrow"] as? String)?.trim()) {
-                "⇊", "DoubleDown" -> Trend.DOUBLE_DOWN
-                "↓", "SingleDown" -> Trend.SINGLE_DOWN
-                "↘", "FortyFiveDown" -> Trend.FORTY_FIVE_DOWN
-                "→", "Flat" -> Trend.FLAT
-                "↗", "FortyFiveUp" -> Trend.FORTY_FIVE_UP
-                "↑", "SingleUp" -> Trend.SINGLE_UP
-                "⇈", "DoubleUp" -> Trend.DOUBLE_UP
-                else -> Trend.UNKNOWN
-            }
+        val trend = CanonicalTrendPolicy.fromDirection(values["slopeArrow"] as? String)
         val unit = if ((values["units"] as? String)?.startsWith("mmol", true) == true) GlucoseUnit.MMOL_L else GlucoseUnit.MG_DL
         val delta = values.number("deltaMgdl")
         val averageDelta = values.number("avgDeltaMgdl")

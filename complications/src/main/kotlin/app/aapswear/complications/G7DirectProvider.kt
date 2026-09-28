@@ -16,6 +16,7 @@ internal data class DirectReading(
     val delta: Double?,
     val trend: Trend,
     val quality: CgmQuality,
+    val trendRateMgDlPerMinute: Double? = null,
 )
 
 internal data class DirectStatus(
@@ -96,6 +97,7 @@ internal class AndroidDirectCgmProvider(
                                 measuredAt = cursor.getLong(cursor.requiredIndex("measured_at")),
                                 receivedAt = cursor.getLong(cursor.requiredIndex("received_at")),
                                 delta = cursor.nullableDouble("delta"),
+                                trendRateMgDlPerMinute = cursor.nullableDouble("trend_rate"),
                                 trend = runCatching { Trend.valueOf(cursor.requiredString("trend")) }.getOrDefault(Trend.UNKNOWN),
                                 quality = quality,
                             ),

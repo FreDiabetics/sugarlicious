@@ -72,7 +72,17 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `trend geometry matches mobile overview`() {
-        assertEquals(TrendVisualAsset.FORTY_FIVE_UP, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.asset)
+        val expected =
+            mapOf(
+                Trend.DOUBLE_UP to TrendVisualAsset.DOUBLE_UP,
+                Trend.SINGLE_UP to TrendVisualAsset.UP,
+                Trend.FORTY_FIVE_UP to TrendVisualAsset.FORTY_FIVE_UP,
+                Trend.FLAT to TrendVisualAsset.FLAT,
+                Trend.FORTY_FIVE_DOWN to TrendVisualAsset.FORTY_FIVE_DOWN,
+                Trend.SINGLE_DOWN to TrendVisualAsset.DOWN,
+                Trend.DOUBLE_DOWN to TrendVisualAsset.DOUBLE_DOWN,
+            )
+        expected.forEach { (trend, asset) -> assertEquals(asset, TrendVisuals.spec(trend)?.asset) }
         assertEquals(1f, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.aspectRatio)
         assertEquals(TrendVisualAsset.DOUBLE_DOWN, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.asset)
         assertEquals(125f / 60f, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.aspectRatio)

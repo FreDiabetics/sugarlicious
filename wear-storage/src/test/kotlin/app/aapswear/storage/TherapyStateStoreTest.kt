@@ -39,6 +39,7 @@ class TherapyStateStoreTest {
                             measuredAtEpochMs = 1_200_000L,
                             deltaMgDl = 4.0,
                             averageDeltaMgDl = 3.0,
+                            trendRateMgDlPerMinute = 0.8,
                         ),
                     glucosePredictions =
                         listOf(

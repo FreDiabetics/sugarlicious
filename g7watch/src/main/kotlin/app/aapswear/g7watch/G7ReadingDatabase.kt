@@ -3,14 +3,17 @@ package app.aapswear.g7watch
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingRepository
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
+import app.aapswear.model.TrendDiagnostics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -143,6 +146,23 @@ internal class G7ReadingDatabase(
         val inserted =
             writableDatabase.insertWithOnConflict("readings", null, readingValues(reading), SQLiteDatabase.CONFLICT_IGNORE) != -1L
         if (inserted) {
+            if (appContext.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                Log.d(
+                    "CgmTrendPipeline",
+                    TrendDiagnostics.format(
+                        glucoseMgDl = reading.glucoseMgDl,
+                        deltaMgDl = reading.deltaMgDl,
+                        elapsedMinutes =
+                            reading.trendRateMgDlPerMinute
+                                ?.takeIf { it != 0.0 }
+                                ?.let { reading.deltaMgDl?.div(it) },
+                        rateMgDlPerMinute = reading.trendRateMgDlPerMinute,
+                        sourceTrend = Trend.UNKNOWN,
+                        canonicalTrend = reading.trend,
+                        source = reading.source,
+                    ),
+                )
+            }
             prune()
             publishChanged()
         }

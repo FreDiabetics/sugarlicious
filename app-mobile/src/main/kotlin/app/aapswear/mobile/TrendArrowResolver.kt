@@ -1,7 +1,10 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.CanonicalTrendPolicy
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseState
 import app.aapswear.model.Trend
+import app.aapswear.model.TrendRateProfile
 
 /**
  * AndroidAPS is authoritative whenever its External Companion Apps broadcast contains a trend:
@@ -9,56 +12,41 @@ import app.aapswear.model.Trend
  * reports no usable arrow.
  */
 internal object TrendArrowResolver {
+    data class Resolution(
+        val trend: Trend,
+        val rateMgDlPerMinute: Double? = null,
+    )
+
     fun resolve(
         aapsTrend: Trend,
+        current: GlucoseState,
         history: List<GlucoseSample>,
-        currentTimestamp: Long,
         nightscoutDirection: String? = null,
-    ): Trend {
-        if (aapsTrend != Trend.UNKNOWN) return aapsTrend
+    ): Trend = resolveWithRate(aapsTrend, current, history, nightscoutDirection).trend
 
-        directionToTrend(nightscoutDirection)?.let { return it }
+    fun resolveWithRate(
+        aapsTrend: Trend,
+        current: GlucoseState,
+        history: List<GlucoseSample>,
+        nightscoutDirection: String? = null,
+    ): Resolution {
+        if (aapsTrend != Trend.UNKNOWN) return Resolution(aapsTrend)
 
-        val current =
-            history
-                .filter { it.measuredAtEpochMs <= currentTimestamp }
-                .maxByOrNull { it.measuredAtEpochMs }
-                ?: return Trend.UNKNOWN
-
-        val previous =
-            history
-                .asSequence()
-                .filter { it.measuredAtEpochMs < current.measuredAtEpochMs }
-                .map { sample ->
-                    val minutes = (current.measuredAtEpochMs - sample.measuredAtEpochMs) / 60_000.0
-                    sample to minutes
-                }.filter { (_, minutes) -> minutes in 3.0..12.0 }
-                .minByOrNull { (_, minutes) -> kotlin.math.abs(minutes - 5.0) }
-                ?: return Trend.UNKNOWN
-
-        val rateMgDlPerMinute =
-            (current.valueMgDl - previous.first.valueMgDl) / previous.second
-
-        return when {
-            rateMgDlPerMinute > 3.0 -> Trend.DOUBLE_UP
-            rateMgDlPerMinute > 2.0 -> Trend.SINGLE_UP
-            rateMgDlPerMinute > 1.0 -> Trend.FORTY_FIVE_UP
-            rateMgDlPerMinute >= -1.0 -> Trend.FLAT
-            rateMgDlPerMinute >= -2.0 -> Trend.FORTY_FIVE_DOWN
-            rateMgDlPerMinute >= -3.0 -> Trend.SINGLE_DOWN
-            else -> Trend.DOUBLE_DOWN
-        }
+        CanonicalTrendPolicy.fromDirection(nightscoutDirection).takeUnless { it == Trend.UNKNOWN }?.let { return Resolution(it) }
+        val currentSample =
+            GlucoseSample(
+                valueMgDl = current.valueMgDl,
+                measuredAtEpochMs = current.measuredAtEpochMs,
+                source = current.source,
+                sensorId = current.sensorId,
+                sessionId = current.sessionId,
+                sequenceNumber = current.sequenceNumber,
+                receivedAtEpochMs = current.receivedAtEpochMs,
+                quality = current.quality,
+            )
+        val derived = CanonicalTrendPolicy.derive(currentSample, history, TrendRateProfile.ANDROID_APS)
+        return Resolution(derived?.trend ?: Trend.UNKNOWN, derived?.rateMgDlPerMinute)
     }
 
-    fun directionToTrend(direction: String?): Trend? =
-        when (direction?.trim()) {
-            "DoubleUp", "⇈" -> Trend.DOUBLE_UP
-            "SingleUp", "↑" -> Trend.SINGLE_UP
-            "FortyFiveUp", "↗" -> Trend.FORTY_FIVE_UP
-            "Flat", "→" -> Trend.FLAT
-            "FortyFiveDown", "↘" -> Trend.FORTY_FIVE_DOWN
-            "SingleDown", "↓" -> Trend.SINGLE_DOWN
-            "DoubleDown", "⇊" -> Trend.DOUBLE_DOWN
-            else -> null
-        }
+    fun directionToTrend(direction: String?): Trend? = CanonicalTrendPolicy.fromDirection(direction).takeUnless { it == Trend.UNKNOWN }
 }

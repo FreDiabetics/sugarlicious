@@ -1,6 +1,8 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.GlucoseSample
+import app.aapswear.model.GlucoseState
+import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.Trend
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,8 +13,8 @@ class TrendArrowResolverTest {
         val result =
             TrendArrowResolver.resolve(
                 Trend.SINGLE_UP,
+                current(50.0),
                 listOf(GlucoseSample(100.0, 0L), GlucoseSample(50.0, 5 * 60_000L)),
-                5 * 60_000L,
                 "DoubleDown",
             )
         assertEquals(Trend.SINGLE_UP, result)
@@ -27,7 +29,7 @@ class TrendArrowResolverTest {
             )
         assertEquals(
             Trend.FORTY_FIVE_UP,
-            TrendArrowResolver.resolve(Trend.UNKNOWN, history, 5 * 60_000L),
+            TrendArrowResolver.resolve(Trend.UNKNOWN, current(107.5), history),
         )
     }
 
@@ -42,10 +44,26 @@ class TrendArrowResolverTest {
             Trend.DOUBLE_DOWN,
             TrendArrowResolver.resolve(
                 Trend.UNKNOWN,
+                current(100.0),
                 history,
-                5 * 60_000L,
                 "DoubleDown",
             ),
         )
     }
+
+    @Test
+    fun `fallback reports rate separately from delta`() {
+        val resolution =
+            TrendArrowResolver.resolveWithRate(
+                Trend.UNKNOWN,
+                current(92.0),
+                listOf(GlucoseSample(100.0, 0L)),
+            )
+
+        assertEquals(Trend.FORTY_FIVE_DOWN, resolution.trend)
+        assertEquals(-1.6, resolution.rateMgDlPerMinute ?: 0.0, 0.0)
+    }
+
+    private fun current(value: Double) =
+        GlucoseState(value, GlucoseUnit.MG_DL, measuredAtEpochMs = 5 * 60_000L)
 }

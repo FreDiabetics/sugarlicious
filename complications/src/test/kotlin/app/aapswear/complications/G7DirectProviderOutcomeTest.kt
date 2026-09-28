@@ -25,6 +25,7 @@ class G7DirectProviderOutcomeTest {
 
         assertEquals(DataSourceId.DEXCOM_G7_WATCH, resolved?.source)
         assertEquals(123.0, resolved?.glucose?.valueMgDl ?: 0.0, 0.0)
+        assertEquals(-1.6, resolved?.glucose?.trendRateMgDlPerMinute ?: 0.0, 0.0)
         assertTrue(resolved?.sourceContract?.endsWith("PROVIDER_SUCCESS") == true)
     }
 
@@ -74,7 +75,7 @@ class G7DirectProviderOutcomeTest {
             if (status) {
                 arrayOf("sensor_state", "session_state")
             } else {
-                arrayOf("status", "glucose", "sensor_id", "session_id", "sequence_number", "measured_at", "received_at", "delta", "trend")
+                arrayOf("status", "glucose", "sensor_id", "session_id", "sequence_number", "measured_at", "received_at", "delta", "trend", "trend_rate")
             },
         )
 
@@ -98,5 +99,6 @@ class G7DirectProviderOutcomeTest {
             delta = 1.0,
             trend = Trend.FLAT,
             quality = CgmQuality.VALID,
+            trendRateMgDlPerMinute = -1.6,
         )
 }
