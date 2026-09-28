@@ -4,6 +4,52 @@ import kotlin.test.*
 
 class AapsPayloadAdapterTest {
     @Test
+    fun `attaches the AndroidAPS visible unit and precision contract`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf(
+                        "glucoseMgdl" to 123.0,
+                        "glucoseTimeStamp" to 900_000L,
+                        "units" to "mmol/L",
+                        "iob" to "-0.100",
+                        "cob" to "0",
+                        "baseBasal" to "0.900",
+                    ),
+                    1_000_000L,
+                ),
+            )
+
+        assertEquals(GlucoseUnit.MMOL_L, state.aapsDisplaySemantics?.glucoseUnit)
+        assertEquals(2, state.aapsDisplaySemantics?.insulinDigits)
+        assertEquals(0, state.aapsDisplaySemantics?.carbDigits)
+        assertEquals(2, state.aapsDisplaySemantics?.basalDigits)
+        assertEquals(-0.1, state.insulin?.totalIob)
+        assertEquals(0.0, state.carbs?.cobGrams)
+    }
+
+    @Test
+    fun `preserves signed finite AndroidAPS therapy values without local clamping`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf(
+                        "glucoseMgdl" to 123.0,
+                        "glucoseTimeStamp" to 900_000L,
+                        "cob" to -1.0,
+                        "insulinActivity" to -0.0012,
+                        "baseBasal" to 0.0,
+                    ),
+                    1_000_000L,
+                ),
+            )
+
+        assertEquals(-1.0, state.carbs?.cobGrams)
+        assertEquals(-0.0012, state.therapyHistory.single().insulinActivityUnitsPerMinute)
+        assertEquals(0.0, state.basal?.currentUnitsPerHour)
+    }
+
+    @Test
     fun `preserves negative AndroidAPS IOB exactly`() {
         val state =
             requireNotNull(
@@ -66,7 +112,7 @@ class AapsPayloadAdapterTest {
         assertNull(absent.therapyHistory.single().insulinActivityUnitsPerMinute)
     }
 
-    @Test fun `derives productive activity from AAPS own BGI and ISF when broadcast has no activity field`() {
+    @Test fun `does not derive activity when AndroidAPS did not transmit an activity value`() {
         val state =
             assertNotNull(
                 AapsPayloadAdapter.parse(
@@ -81,7 +127,7 @@ class AapsPayloadAdapterTest {
                 ),
             )
 
-        assertEquals(26.0 / (120.0 * 5.0), state.therapyHistory.single().insulinActivityUnitsPerMinute!!, 0.0000001)
+        assertNull(state.therapyHistory.single().insulinActivityUnitsPerMinute)
     }
 
     @Test fun `AAPS algorithm activity fails closed for incomplete or non physical inputs`() {

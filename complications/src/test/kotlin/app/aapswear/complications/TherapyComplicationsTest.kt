@@ -55,25 +55,25 @@ class TherapyComplicationsTest {
     fun `basal IOB COB shows values without redundant labels`() {
         val service = Robolectric.buildService(IobCobBasalComplication::class.java).create().get()
         val data = service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData
-        assertEquals("1.2 U · 15 g", data.text.getTextAt(service.resources, Instant.now()).toString())
-        assertEquals("0.80 U/h", data.title!!.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("1.20U · 15g", data.text.getTextAt(service.resources, Instant.now()).toString())
+        assertEquals("0.80U/h", data.title!!.getTextAt(service.resources, Instant.now()).toString())
     }
 
     @Test
     fun `IOB COB short and long providers share title text and description semantics`() {
         val shortService = Robolectric.buildService(IobCobComplication::class.java).create().get()
         val short = shortService.getPreviewData(ComplicationType.LONG_TEXT) as ShortTextComplicationData
-        assertEquals("1.2 U", short.title!!.getTextAt(shortService.resources, Instant.now()).toString())
-        assertEquals("15 g", short.text.getTextAt(shortService.resources, Instant.now()).toString())
+        assertEquals("1.20U", short.title!!.getTextAt(shortService.resources, Instant.now()).toString())
+        assertEquals("15g", short.text.getTextAt(shortService.resources, Instant.now()).toString())
         assertEquals(
-            "IOB 1.2 U, COB 15 g",
+            "IOB 1.20U, COB 15g",
             short.contentDescription!!.getTextAt(shortService.resources, Instant.now()).toString(),
         )
 
         val longService = Robolectric.buildService(IobCobLongTextComplication::class.java).create().get()
         val long = longService.getPreviewData(ComplicationType.SHORT_TEXT) as LongTextComplicationData
-        assertEquals("1.2 U", long.title!!.getTextAt(longService.resources, Instant.now()).toString())
-        assertEquals("15 g", long.text.getTextAt(longService.resources, Instant.now()).toString())
+        assertEquals("1.20U", long.title!!.getTextAt(longService.resources, Instant.now()).toString())
+        assertEquals("15g", long.text.getTextAt(longService.resources, Instant.now()).toString())
         assertEquals(
             short.contentDescription!!.getTextAt(shortService.resources, Instant.now()).toString(),
             long.contentDescription!!.getTextAt(longService.resources, Instant.now()).toString(),

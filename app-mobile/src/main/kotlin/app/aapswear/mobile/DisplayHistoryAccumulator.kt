@@ -1,10 +1,17 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.BasalState
 import app.aapswear.model.CanonicalCgmHistory
+import app.aapswear.model.CarbState
 import app.aapswear.model.DataSourceId
+import app.aapswear.model.DeviceState
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
+import app.aapswear.model.InsulinState
+import app.aapswear.model.LoopState
+import app.aapswear.model.PumpState
 import app.aapswear.model.TargetSample
+import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.storage.PersistentPredictionCache
@@ -86,7 +93,7 @@ internal object DisplayHistoryAccumulator {
         val therapyEvents =
             (previous?.therapyEvents.orEmpty() + current.therapyEvents)
                 .asSequence()
-                .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() && it.amount > 0.0 }
+                .filter { it.timestampEpochMs in earliest..latest && it.amount.isFinite() }
                 .distinctBy { it.id }
                 .sortedBy { it.timestampEpochMs }
                 .toList()
@@ -96,14 +103,15 @@ internal object DisplayHistoryAccumulator {
                 // A missing field in a transport update is absence of new information, not a
                 // clinical transition to zero/off/unknown. Explicit values still replace prior ones.
                 glucose = current.glucose ?: previous?.glucose,
-                insulin = current.insulin ?: previous?.insulin,
-                carbs = current.carbs ?: previous?.carbs,
-                basal = current.basal ?: previous?.basal,
-                target = current.target ?: previous?.target,
-                loop = current.loop ?: previous?.loop,
-                pump = current.pump ?: previous?.pump,
-                device = current.device ?: previous?.device,
+                insulin = mergeInsulin(previous?.insulin, current.insulin),
+                carbs = mergeCarbs(previous?.carbs, current.carbs),
+                basal = mergeBasal(previous?.basal, current.basal),
+                target = mergeTarget(previous?.target, current.target),
+                loop = mergeLoop(previous?.loop, current.loop),
+                pump = mergePump(previous?.pump, current.pump),
+                device = mergeDevice(previous?.device, current.device),
                 profile = profile,
+                aapsDisplaySemantics = current.aapsDisplaySemantics ?: previous?.aapsDisplaySemantics,
                 capabilities = current.capabilities + previous?.capabilities.orEmpty(),
             )
 
@@ -224,4 +232,62 @@ internal object DisplayHistoryAccumulator {
         insulinActivityUnitsPerMinute = other.insulinActivityUnitsPerMinute ?: insulinActivityUnitsPerMinute,
         smbUnits = other.smbUnits ?: smbUnits,
     )
+
+    private fun mergeInsulin(old: InsulinState?, new: InsulinState?): InsulinState? =
+        new?.copy(
+            totalIob = new.totalIob ?: old?.totalIob,
+            bolusIob = new.bolusIob ?: old?.bolusIob,
+            basalIob = new.basalIob ?: old?.basalIob,
+        ) ?: old
+
+    private fun mergeCarbs(old: CarbState?, new: CarbState?): CarbState? =
+        new?.copy(
+            cobGrams = new.cobGrams ?: old?.cobGrams,
+            futureCarbsGrams = new.futureCarbsGrams ?: old?.futureCarbsGrams,
+        ) ?: old
+
+    private fun mergeBasal(old: BasalState?, new: BasalState?): BasalState? =
+        new?.copy(
+            currentUnitsPerHour = new.currentUnitsPerHour ?: old?.currentUnitsPerHour,
+            tempAbsoluteUnitsPerHour = new.tempAbsoluteUnitsPerHour ?: old?.tempAbsoluteUnitsPerHour,
+            tempPercent = new.tempPercent ?: old?.tempPercent,
+            tempStartedAtEpochMs = new.tempStartedAtEpochMs ?: old?.tempStartedAtEpochMs,
+            tempDurationMinutes = new.tempDurationMinutes ?: old?.tempDurationMinutes,
+            tempEndsAtEpochMs = new.tempEndsAtEpochMs ?: old?.tempEndsAtEpochMs,
+            displayText = new.displayText ?: old?.displayText,
+        ) ?: old
+
+    private fun mergeTarget(old: TargetState?, new: TargetState?): TargetState? =
+        new?.copy(
+            lowMgDl = new.lowMgDl ?: old?.lowMgDl,
+            highMgDl = new.highMgDl ?: old?.highMgDl,
+            valueMgDl = new.valueMgDl ?: old?.valueMgDl,
+            startedAtEpochMs = new.startedAtEpochMs ?: old?.startedAtEpochMs,
+            endsAtEpochMs = new.endsAtEpochMs ?: old?.endsAtEpochMs,
+        ) ?: old
+
+    private fun mergeLoop(old: LoopState?, new: LoopState?): LoopState? =
+        new?.copy(
+            status = new.status ?: old?.status,
+            lastRunAtEpochMs = new.lastRunAtEpochMs ?: old?.lastRunAtEpochMs,
+            suggestedAtEpochMs = new.suggestedAtEpochMs ?: old?.suggestedAtEpochMs,
+            enactedAtEpochMs = new.enactedAtEpochMs ?: old?.enactedAtEpochMs,
+            suggestedPayload = new.suggestedPayload ?: old?.suggestedPayload,
+            enactedPayload = new.enactedPayload ?: old?.enactedPayload,
+            smbUnits = new.smbUnits ?: old?.smbUnits,
+            smbAtEpochMs = new.smbAtEpochMs ?: old?.smbAtEpochMs,
+        ) ?: old
+
+    private fun mergePump(old: PumpState?, new: PumpState?): PumpState? =
+        new?.copy(
+            status = new.status ?: old?.status,
+            reservoirUnits = new.reservoirUnits ?: old?.reservoirUnits,
+            batteryPercent = new.batteryPercent ?: old?.batteryPercent,
+        ) ?: old
+
+    private fun mergeDevice(old: DeviceState?, new: DeviceState?): DeviceState? =
+        new?.copy(
+            phoneBatteryPercent = new.phoneBatteryPercent ?: old?.phoneBatteryPercent,
+            rigBatteryPercent = new.rigBatteryPercent ?: old?.rigBatteryPercent,
+        ) ?: old
 }

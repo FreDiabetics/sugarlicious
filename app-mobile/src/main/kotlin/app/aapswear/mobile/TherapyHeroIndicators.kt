@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyIndicatorIcon
@@ -33,7 +34,6 @@ import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.basalIndicatorIcon
 import app.aapswear.model.effectiveBasalPresentation
-import java.util.Locale
 import app.aapswear.uishared.R as SharedUiR
 
 internal data class TherapyIndicatorPresentation(
@@ -52,30 +52,30 @@ internal fun therapyIndicatorPresentations(
     nowEpochMs: Long,
     cobMaximumGrams: Float = 300f,
 ): List<TherapyIndicatorPresentation> {
-    val iob = state?.insulin?.totalIob?.takeIf(Double::isFinite) ?: 0.0
-    val cob = state?.carbs?.cobGrams?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+    val iob = state?.insulin?.totalIob?.takeIf(Double::isFinite)
+    val cob = state?.carbs?.cobGrams?.takeIf(Double::isFinite)
     val basal = effectiveBasalPresentation(state, nowEpochMs)
     val safeIobMaximum = iobMaximumUnits.takeIf { it > 0f }?.toDouble()
     val safeCobMaximum = cobMaximumGrams.takeIf { it > 0f }?.toDouble()
     return listOf(
         TherapyIndicatorPresentation(
             label = "IOB",
-            value = TherapyDisplayFormatter.iob(iob, "U", 2),
-            progress = TherapyProgressSemantics.scaled(iob, safeIobMaximum),
+            value = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, iob, state),
+            progress = iob?.let { TherapyProgressSemantics.scaled(it, safeIobMaximum) },
             iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
-            value = "${compactValue(cob, 0)}g",
-            progress = TherapyProgressSemantics.scaled(cob, safeCobMaximum),
+            value = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, cob, state),
+            progress = cob?.let { TherapyProgressSemantics.scaled(it, safeCobMaximum) },
             iconRes = SharedUiR.drawable.ic_carbs,
             iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "Basal",
-            value = basal?.unitsPerHour?.let { "${compactValue(it, 2)}U/h" } ?: "—",
+            value = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basal?.unitsPerHour, state),
             secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
             progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
@@ -94,11 +94,6 @@ internal fun basalIconResource(percent: Int?): Int =
 
 internal fun basalProgress(percent: Int): Float =
     requireNotNull(TherapyProgressSemantics.basal(percent))
-
-private fun compactValue(
-    value: Double,
-    decimals: Int,
-): String = String.format(Locale.US, if (decimals == 0) "%.0f" else "%.${decimals}f", value)
 
 internal fun therapyIndicatorFontSizeSp(value: String): Int =
     when {

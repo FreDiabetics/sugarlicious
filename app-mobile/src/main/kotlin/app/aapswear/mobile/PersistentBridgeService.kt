@@ -22,6 +22,7 @@ import android.os.IBinder
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
+import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.content.edit
@@ -30,7 +31,6 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
-import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -242,7 +242,11 @@ class PersistentBridgeService :
         val trendSizeDp = trendBaseDp * layout.resolvedTrendPercent(systemTrendScale) / 100f
         val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
-            setTextViewText(R.id.notification_value, display.title)
+            val styledTitle = SpannableString(display.title)
+            if (display.strikeTitle) {
+                styledTitle.setSpan(StrikethroughSpan(), 0, styledTitle.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            setTextViewText(R.id.notification_value, styledTitle)
             val styledSubtitle =
                 SpannableString(display.subtitle).apply {
                     display.deltaUnitText?.let { segment ->
@@ -270,7 +274,13 @@ class PersistentBridgeService :
             setFloat(R.id.notification_trend, "setTranslationX", layout.trendXPercent / 100f * 40f * density)
             setFloat(R.id.notification_trend, "setTranslationY", layout.trendYPercent / 100f * 24f * density)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                setViewLayoutWidth(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
+                val trendAspect =
+                    display.trend?.let {
+                        app.aapswear.model.TrendVisuals
+                            .spec(it)
+                            ?.aspectRatio
+                    } ?: 1f
+                setViewLayoutWidth(R.id.notification_trend, trendSizeDp * trendAspect, android.util.TypedValue.COMPLEX_UNIT_DIP)
                 setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
             }
             setTextColor(R.id.notification_value, textPrimary)
@@ -306,9 +316,8 @@ class PersistentBridgeService :
         val glucose = state?.glucose
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-        val presentationStatus = TherapyDisplayFormatter.presentationStatus(state, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
-            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null)
+            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false)
         }
 
         val selectedUnit = DashboardUiPreferences.read(uiPreferences).unitFor(state)
@@ -322,25 +331,17 @@ class PersistentBridgeService :
             TherapyDisplayFormatter
                 .signedDelta(glucose.deltaMgDl, selectedUnit)
                 .ifBlank { "—" }
-        val age = ((now - glucose.measuredAtEpochMs).coerceAtLeast(0L) / 60_000L)
-        val prefix =
-            when (presentationStatus) {
-                CgmPresentationStatus.CURRENT -> ""
-                CgmPresentationStatus.AGING -> "Verzögert · "
-                CgmPresentationStatus.STALE -> "Veraltet · "
-                CgmPresentationStatus.SIGNAL_LOSS -> "Signalverlust · "
-                CgmPresentationStatus.SENSOR_ERROR -> "Sensorfehler · "
-                CgmPresentationStatus.NO_SOURCE -> "Keine Quelle · "
-            }
+        val age = TherapyDisplayFormatter.ageMinutes(glucose.measuredAtEpochMs, now)
         // Delta intentionally replaces the former mg/dL/mmol/L line in both layouts.
         val unit = if (selectedUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
         val deltaUnit = "$delta $unit"
-        val subtitle = "$prefix$deltaUnit · $age min alt"
+        val subtitle = "$deltaUnit · $age"
         return NotificationDisplay(
             value,
             subtitle,
-            glucose.trend.takeIf { freshness == Freshness.CURRENT || freshness == Freshness.DELAYED },
+            glucose.trend.takeUnless { it == app.aapswear.model.Trend.UNKNOWN },
             deltaUnit,
+            freshness == Freshness.SIGNAL_LOSS,
         )
     }
 
@@ -364,6 +365,7 @@ class PersistentBridgeService :
         val subtitle: String,
         val trend: app.aapswear.model.Trend?,
         val deltaUnitText: String?,
+        val strikeTitle: Boolean,
     )
 
     companion object {

@@ -73,7 +73,13 @@ internal object TrendComplicationIcon {
                 )
             } ?: TrendArrowStyleOverride()
         val bitmap = renderScaled(context, trend, sizePx, scale, offsetX, offsetY, override.resolve(parent)) ?: return null
-        return MonochromaticImage.Builder(Icon.createWithBitmap(normalizeComplicationCanvas(bitmap))).build()
+        val hostBitmap =
+            if (trend == Trend.DOUBLE_UP || trend == Trend.DOUBLE_DOWN) {
+                cropTransparentPadding(bitmap)
+            } else {
+                normalizeComplicationCanvas(bitmap)
+            }
+        return MonochromaticImage.Builder(Icon.createWithBitmap(hostBitmap)).build()
     }
 
     /**

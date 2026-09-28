@@ -24,10 +24,10 @@
     <string name="widget_preview_glucose_value">123</string>
     <string name="widget_preview_current">AKTUELL</string>
     <string name="widget_preview_iob_label">IOB</string>
-    <string name="widget_preview_iob_value">1.2 U</string>
+    <string name="widget_preview_iob_value">1.20U</string>
     <string name="widget_preview_cob_label">COB</string>
-    <string name="widget_preview_cob_value">15 g</string>
+    <string name="widget_preview_cob_value">15g</string>
     <string name="widget_preview_basal_label">BASAL</string>
-    <string name="widget_preview_basal_value">0.70</string>
-    <string name="widget_preview_source_age">AndroidAPS · 3 min</string>
+    <string name="widget_preview_basal_value">0.70U/h</string>
+    <string name="widget_preview_source_age">AndroidAPS · 3m</string>
 </resources>

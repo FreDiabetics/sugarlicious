@@ -50,6 +50,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousIconSize
 import app.aapswear.mobile.ui.theme.SugarliciousSpacing
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
@@ -440,7 +441,7 @@ private fun MetabolicWidgetContent(
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
         FlatMetric(
             "IOB",
-            TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1),
+            TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state),
             WidgetIob,
             GlanceModifier.width(width),
             compact,
@@ -545,7 +546,7 @@ private fun widgetStatusLine(
     compact: Boolean,
 ): String {
     val source = TherapyDisplayFormatter.sourceName(state?.source)
-    val age = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, now)?.let { "$it min" }
+    val age = TherapyDisplayFormatter.ageMinutes(state?.glucose?.measuredAtEpochMs, now).takeUnless { it == "—" }
     val parts =
         if (compact) {
             listOf(
@@ -561,7 +562,7 @@ private fun widgetStatusLine(
 internal fun widgetAge(
     state: TherapyDisplayState?,
     now: Long,
-): String = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, now)?.let { "$it min" }.orEmpty()
+): String = TherapyDisplayFormatter.ageMinutes(state?.glucose?.measuredAtEpochMs, now).takeUnless { it == "—" }.orEmpty()
 
 internal fun widgetFreshnessStatus(freshness: Freshness): String = TherapyDisplayFormatter.freshnessLabel(freshness)
 

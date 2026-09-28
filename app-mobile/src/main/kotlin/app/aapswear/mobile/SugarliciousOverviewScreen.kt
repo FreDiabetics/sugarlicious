@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucosePrediction
@@ -215,7 +216,7 @@ internal fun SugarliciousOverviewScreen(
             else -> SugarliciousColors.TextPrimary
         }.let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
-    val age = glucose?.measuredAtEpochMs?.let { "${((now - it).coerceAtLeast(0L) / 60_000L)} min" } ?: "—"
+    val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
     val tirStats = calculateTirStats(state, now)
 
     Column(
@@ -380,7 +381,6 @@ private fun GlucoseHeroCard(
                     Text(
                         text =
                             buildAnnotatedString {
-                                append("Δ ")
                                 withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) {
                                     append("$delta $unitLabel")
                                 }
@@ -549,7 +549,7 @@ private fun QuickStatsRow(
             Modifier.weight(1f),
             app.aapswear.uishared.R.drawable.ic_basal,
             "BASAL",
-            formatNumber(state?.basal?.currentUnitsPerHour, 2),
+            TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, state?.basal?.currentUnitsPerHour, state, includeUnit = false),
             "IE/h",
             SugarliciousColors.Secondary,
             heightDp,
@@ -630,8 +630,8 @@ private fun CombinedIobCobCard(
             QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            InlineMetricValue(TherapyDisplayFormatter.iob(state?.insulin?.totalIob, "", 2), "IE")
-            InlineMetricValue(formatNumber(state?.carbs?.cobGrams, 0), "g")
+            InlineMetricValue(TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state, includeUnit = false), "U")
+            InlineMetricValue(TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state, includeUnit = false), "g")
         }
     }
 }

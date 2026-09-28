@@ -104,13 +104,13 @@ class TherapyHeroIndicatorsTest {
     }
 
     @Test
-    fun `missing IOB and COB render zero while basal remains unknown`() {
+    fun `missing IOB and COB remain unavailable instead of inventing zero`() {
         val values = therapyIndicatorPresentations(null, 10f, 1_000L)
-        assertEquals("0.00U", values[0].value)
-        assertEquals("0g", values[1].value)
+        assertEquals("—", values[0].value)
+        assertEquals("—", values[1].value)
         assertEquals("—", values[2].value)
-        assertEquals(0f, values[0].progress!!, 0f)
-        assertEquals(0f, values[1].progress!!, 0f)
+        assertNull(values[0].progress)
+        assertNull(values[1].progress)
         assertNull(values[2].secondary)
     }
 

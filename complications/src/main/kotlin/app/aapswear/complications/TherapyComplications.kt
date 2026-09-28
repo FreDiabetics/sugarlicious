@@ -25,6 +25,7 @@ import androidx.wear.watchface.complications.data.SmallImageType
 import androidx.wear.watchface.complications.data.WeightedElementsComplicationData
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmThresholds
@@ -240,15 +241,15 @@ abstract class TherapyComplicationService(
             presentation?.let {
                 it.text to (it.title ?: it.contentDescription)
             } ?: when (kind) {
-                ProviderKind.BOLUS_IOB -> units(therapyState?.insulin?.bolusIob, "U", 2) to "Bolus IOB"
-                ProviderKind.BASAL_IOB -> units(therapyState?.insulin?.basalIob, "U", 2) to "Basal IOB"
+                ProviderKind.BOLUS_IOB -> TherapyDisplayFormatter.aaps(AapsDisplayField.BOLUS_IOB, therapyState?.insulin?.bolusIob, therapyState) to "Bolus IOB"
+                ProviderKind.BASAL_IOB -> TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL_IOB, therapyState?.insulin?.basalIob, therapyState) to "Basal IOB"
                 ProviderKind.IOB_COB ->
-                    "${units(therapyState?.insulin?.totalIob, "U", 1)} ${units(therapyState?.carbs?.cobGrams, "g", 0)}" to
+                    "${TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, therapyState?.insulin?.totalIob, therapyState)} ${TherapyDisplayFormatter.aaps(AapsDisplayField.COB, therapyState?.carbs?.cobGrams, therapyState)}" to
                         "IOB · COB"
                 ProviderKind.TEMP_BASAL ->
                     (
                         therapyState?.basal?.displayText ?: therapyState?.basal?.tempPercent?.let { "$it%" }
-                            ?: units(therapyState?.basal?.tempAbsoluteUnitsPerHour, "U/h", 2)
+                            ?: TherapyDisplayFormatter.aaps(AapsDisplayField.TEMP_BASAL, therapyState?.basal?.tempAbsoluteUnitsPerHour, therapyState)
                     ) to
                         "Temp basal"
                 ProviderKind.TEMP_TARGET -> target(therapyState?.target, glucose?.displayUnit ?: GlucoseUnit.MG_DL) to "Target"
@@ -889,8 +890,8 @@ abstract class TherapyComplicationService(
     }
 
     private fun compactTherapyStatus(state: TherapyDisplayState?): String =
-        "${units(state?.insulin?.totalIob, "U", 1)} · " +
-            units(state?.carbs?.cobGrams, "g", 0)
+        "${TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state)} · " +
+            TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state)
 
     private fun longStatus(
         glucoseText: String,
@@ -908,11 +909,11 @@ abstract class TherapyComplicationService(
             append(" · ")
             append(ageText)
             append(" · IOB ")
-            append(units(state?.insulin?.totalIob, "U", 2))
+            append(TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state))
             append(" · COB ")
-            append(units(state?.carbs?.cobGrams, "g", 0))
+            append(TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state))
             append(" · Basal ")
-            append(units(state?.basal?.currentUnitsPerHour, "U/h", 2))
+            append(TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, state?.basal?.currentUnitsPerHour, state))
             append(" · ")
             append(loopLabel(state?.loop?.status))
             append(" · ")
@@ -956,12 +957,6 @@ abstract class TherapyComplicationService(
     ) = TherapyDisplayFormatter.signedDelta(v, u)
 
     private fun arrow(t: Trend) = TherapyDisplayFormatter.trendArrow(t)
-
-    private fun units(
-        v: Double?,
-        suffix: String,
-        digits: Int,
-    ) = TherapyDisplayFormatter.units(v, suffix, digits)
 
     private fun percent(v: Int?) = TherapyDisplayFormatter.percent(v)
 

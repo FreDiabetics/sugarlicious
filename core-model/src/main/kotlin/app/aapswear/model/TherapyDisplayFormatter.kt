@@ -5,6 +5,13 @@ import kotlin.math.roundToInt
 
 /** Pure, deterministic display formatting shared by complications, Tiles, widgets and tests. */
 object TherapyDisplayFormatter {
+    fun aaps(
+        field: AapsDisplayField,
+        value: Double?,
+        state: TherapyDisplayState?,
+        includeUnit: Boolean = true,
+    ): String = AapsDisplayFormatter.format(field, value, state?.aapsDisplaySemantics ?: AapsDisplaySemantics(), includeUnit)
+
     /**
      * Whether a real, validated glucose value is known, independent from its age.
      * Freshness is presentation metadata and must never destroy the last clinical state.

@@ -34,6 +34,7 @@ import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import app.aapswear.complications.G7LocalReadingResolver
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.Freshness
@@ -66,7 +67,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
 private const val TILE_RESOURCES_VERSION = "sugarlicious-10-centered-therapy-values"
@@ -132,7 +132,7 @@ internal fun wearGlucoseTilePresentation(
         }
     val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, glucose.displayUnit).ifBlank { "—" }
     val unit = if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
-    val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, now)?.let { "vor $it min" }.orEmpty()
+    val age = TherapyDisplayFormatter.ageMinutes(glucose.measuredAtEpochMs, now).takeUnless { it == "—" }.orEmpty()
     return WearGlucoseTilePresentation(
         value = TherapyDisplayFormatter.glucose(glucose),
         meta = "$delta  ·  $unit",
@@ -160,9 +160,9 @@ internal fun wearTherapyTilePresentation(
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val displayable = state?.let { it.insulin != null || it.carbs != null || it.basal != null } == true
     return WearTherapyTilePresentation(
-        iob = TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1),
-        cob = state?.carbs?.cobGrams?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
-        basal = effectiveBasalPresentation(state, now)?.unitsPerHour?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
+        iob = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state),
+        cob = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state),
+        basal = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, effectiveBasalPresentation(state, now)?.unitsPerHour, state),
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         footer =
             if (displayable) {
@@ -335,8 +335,8 @@ private fun glucoseTileContent(
                     .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                     .addContent(tileText(presentation.meta.replace("  ·  ", " "), 14f, colors.deltaUnit, bold = true))
                     .apply {
-                        presentation.footer.substringAfterLast("vor ", "").takeIf(String::isNotBlank)?.let {
-                            addContent(tileText(" · ${it.replace(" min", "m")}", 14f, colors.textSecondary, bold = true))
+                        Regex("\\b\\d+m\\b").find(presentation.footer)?.value?.let {
+                            addContent(tileText(" · $it", 14f, colors.textSecondary, bold = true))
                         }
                     }.build(),
             ).addContent(Spacer.Builder().setHeight(dp(4f)).build())

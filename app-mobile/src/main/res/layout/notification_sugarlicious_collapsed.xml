@@ -15,10 +15,10 @@
 
     <LinearLayout
         android:id="@+id/notification_info_block"
-        android:layout_width="wrap_content"
+        android:layout_width="112dp"
         android:layout_height="48dp"
         android:layout_toStartOf="@id/notification_graph"
-        android:layout_marginEnd="6dp"
+        android:layout_marginEnd="2dp"
         android:gravity="center_horizontal|center_vertical"
         android:orientation="vertical">
 
@@ -42,7 +42,7 @@
 
             <ImageView
                 android:id="@+id/notification_trend"
-                android:layout_width="19dp"
+                android:layout_width="40dp"
                 android:layout_height="19dp"
                 android:layout_marginStart="3dp"
                 android:contentDescription="@null"
@@ -59,6 +59,6 @@
             android:includeFontPadding="false"
             android:maxLines="1"
             android:textSize="11sp"
-            tools:text="+5 · 2 min alt" />
+            tools:text="+5 mg/dL · 2m" />
     </LinearLayout>
 </RelativeLayout>

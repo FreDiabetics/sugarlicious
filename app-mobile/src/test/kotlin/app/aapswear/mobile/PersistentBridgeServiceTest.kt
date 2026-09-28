@@ -95,7 +95,7 @@ class PersistentBridgeServiceTest {
                 )
             val digitBounds = Rect()
             value.text = "123"
-            meta.text = "+5 · 2 min alt"
+            meta.text = "+99 mg/dL · 999m"
             trend.visibility = View.VISIBLE
             root.measure(
                 View.MeasureSpec.makeMeasureSpec(
@@ -106,13 +106,14 @@ class PersistentBridgeServiceTest {
             )
             value.paint.getTextBounds("123", 0, 3, digitBounds)
 
-            assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, info.layoutParams.width)
             assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
             assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
             assertEquals(valuePx, value.textSize, 0.5f)
             assertEquals(metaPx, meta.textSize, 0.5f)
-            assertEquals(primary.measuredWidth, info.measuredWidth)
+            assertTrue(info.measuredWidth >= primary.measuredWidth)
             assertEquals(info.measuredWidth, meta.measuredWidth)
+            assertTrue(meta.paint.measureText(meta.text.toString()) <= meta.measuredWidth)
+            assertTrue(trend.layoutParams.width >= trend.layoutParams.height * 2)
             assertTrue(
                 abs(value.textSize * GlucoseTrendSizing.REFERENCE_ARROW_TO_GLUCOSE_HEIGHT - trend.layoutParams.height) <= 3f * density,
             )

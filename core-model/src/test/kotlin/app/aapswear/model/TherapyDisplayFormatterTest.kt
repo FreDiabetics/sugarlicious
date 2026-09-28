@@ -7,6 +7,33 @@ import kotlin.test.assertTrue
 
 class TherapyDisplayFormatterTest {
     @Test
+    fun `formats every AndroidAPS therapy field with one canonical visible contract`() {
+        val semantics = AapsDisplaySemantics()
+
+        assertEquals("-0.10U", AapsDisplayFormatter.format(AapsDisplayField.IOB, -0.1, semantics))
+        assertEquals("0.00U", AapsDisplayFormatter.format(AapsDisplayField.BOLUS_IOB, 0.0, semantics))
+        assertEquals("1.24U", AapsDisplayFormatter.format(AapsDisplayField.BASAL_IOB, 1.235, semantics))
+        assertEquals("12g", AapsDisplayFormatter.format(AapsDisplayField.COB, 12.49, semantics))
+        assertEquals("5g", AapsDisplayFormatter.format(AapsDisplayField.FUTURE_CARBS, 5.0, semantics))
+        assertEquals("0.90U/h", AapsDisplayFormatter.format(AapsDisplayField.BASAL, 0.9, semantics))
+        assertEquals("1.10U/h", AapsDisplayFormatter.format(AapsDisplayField.TEMP_BASAL, 1.1, semantics))
+        assertEquals("0.0120U/min", AapsDisplayFormatter.format(AapsDisplayField.INSULIN_ACTIVITY, 0.012, semantics))
+        assertEquals("5.0h", AapsDisplayFormatter.format(AapsDisplayField.DIA, 5.0, semantics))
+        assertEquals("120U", AapsDisplayFormatter.format(AapsDisplayField.RESERVOIR, 120.4, semantics))
+        assertEquals("75%", AapsDisplayFormatter.format(AapsDisplayField.BATTERY, 75.0, semantics))
+    }
+
+    @Test
+    fun `canonical AndroidAPS formatter preserves finite sign and rejects only unavailable numbers`() {
+        val semantics = AapsDisplaySemantics()
+
+        assertEquals("-0.00U", AapsDisplayFormatter.format(AapsDisplayField.IOB, -0.0, semantics))
+        assertEquals("—", AapsDisplayFormatter.format(AapsDisplayField.IOB, null, semantics))
+        assertEquals("—", AapsDisplayFormatter.format(AapsDisplayField.IOB, Double.NaN, semantics))
+        assertEquals("—", AapsDisplayFormatter.format(AapsDisplayField.IOB, Double.POSITIVE_INFINITY, semantics))
+    }
+
+    @Test
     fun `formats mgdl and mmol without locale-dependent separators`() {
         assertEquals("123", TherapyDisplayFormatter.glucose(glucose(123.4, GlucoseUnit.MG_DL)))
         assertEquals("6.9", TherapyDisplayFormatter.glucose(glucose(124.2, GlucoseUnit.MMOL_L)))

@@ -23,6 +23,45 @@ import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
     @Test
+    fun `retains AndroidAPS display semantics when a partial update omits them`() {
+        val now = 2_000_000L
+        val semantics = app.aapswear.model.AapsDisplaySemantics(glucoseUnit = app.aapswear.model.GlucoseUnit.MMOL_L)
+        val result =
+            DisplayHistoryAccumulator.merge(
+                previous = TherapyDisplayState(receivedAtEpochMs = now - 1_000L, aapsDisplaySemantics = semantics),
+                current = TherapyDisplayState(receivedAtEpochMs = now),
+                nowEpochMs = now,
+            )
+
+        assertEquals(semantics, result.aapsDisplaySemantics)
+    }
+
+    @Test
+    fun `partial AndroidAPS therapy update preserves sibling fields but accepts explicit zero and negative values`() {
+        val now = 3_000_000L
+        val previous =
+            TherapyDisplayState(
+                receivedAtEpochMs = now - 1_000L,
+                insulin = app.aapswear.model.InsulinState(totalIob = 1.2, bolusIob = 0.4, basalIob = 0.8),
+                carbs = app.aapswear.model.CarbState(cobGrams = 20.0, futureCarbsGrams = 7.0),
+            )
+        val current =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                insulin = app.aapswear.model.InsulinState(totalIob = -0.1),
+                carbs = app.aapswear.model.CarbState(cobGrams = 0.0),
+            )
+
+        val result = DisplayHistoryAccumulator.merge(previous, current, now)
+
+        assertEquals(-0.1, result.insulin?.totalIob)
+        assertEquals(0.4, result.insulin?.bolusIob)
+        assertEquals(0.8, result.insulin?.basalIob)
+        assertEquals(0.0, result.carbs?.cobGrams)
+        assertEquals(7.0, result.carbs?.futureCarbsGrams)
+    }
+
+    @Test
     fun `does not invent insulin activity from IOB and DIA`() {
         val now = 20_000_000L
         val first =
@@ -193,7 +232,7 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
-    fun `AndroidAPS is current without deleting an unidentified nearby external reading`() {
+    fun `AndroidAPS is current without deleting an unidentified nearby secondary reading`() {
         val now = 2_000_000L
         val state =
             TherapyDisplayState(

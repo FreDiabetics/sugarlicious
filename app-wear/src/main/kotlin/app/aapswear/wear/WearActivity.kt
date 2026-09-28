@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import app.aapswear.complications.G7LocalReadingResolver
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.BasalState
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.DiagnosticSeverity
@@ -355,11 +356,11 @@ class WearActivity : Activity() {
             findViewById<View>(R.id.wear_basal_card).visibility =
                 if (preferences.showTherapyStats) View.VISIBLE else View.GONE
 
-            iob.text = if (canShowValue) TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 2) else "—"
-            cob.text = if (canShowValue) formatNumber(state?.carbs?.cobGrams, 0, " g") else "—"
+            iob.text = if (canShowValue) TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state) else "—"
+            cob.text = if (canShowValue) TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state) else "—"
             basal.text =
                 if (canShowValue) {
-                    formatNumber(basalDisplayUnitsPerHour(state?.basal), 2, " U/h")
+                    TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basalDisplayUnitsPerHour(state?.basal), state)
                 } else {
                     "—"
                 }

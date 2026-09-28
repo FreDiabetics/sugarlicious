@@ -59,7 +59,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                         app.recordMobileDiagnostic(
                             "SOURCE",
                             "SRC-G7-104",
-                            "Legacy G7-only source migrated to automatic AAPS fallback",
+                            "Legacy Mobile source migrated to AndroidAPS-only input",
                         )
                     }
                 }

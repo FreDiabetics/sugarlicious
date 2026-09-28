@@ -73,6 +73,18 @@ class TrendComplicationIconTest {
     }
 
     @Test
+    fun `double arrow runtime payload can use its full native non square bounds`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
+            val padded = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
+            val cropped = TrendComplicationIcon.cropTransparentPadding(padded)
+
+            assertTrue(cropped.width > cropped.height)
+            assertEquals(125f / 60f, cropped.width.toFloat() / cropped.height, 0.12f)
+        }
+    }
+
+    @Test
     fun complicationScaleUsesMostOfHostIconAtDefaultAndStillGrows() {
         val small = TrendComplicationIcon.glyphFillFraction(70)
         val default = TrendComplicationIcon.glyphFillFraction(100)
