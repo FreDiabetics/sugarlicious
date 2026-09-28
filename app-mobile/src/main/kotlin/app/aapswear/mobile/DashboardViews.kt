@@ -32,6 +32,12 @@ enum class DashboardThemeMode { SYSTEM, LIGHT, DARK }
 
 enum class GlucoseTileDetailMode { TIR, THERAPY }
 
+enum class DataSourcePreference { AUTOMATIC, ANDROID_APS, DEXCOM_G7_WATCH }
+
+internal fun migrateDataSourcePreference(raw: String?): DataSourcePreference =
+    DataSourcePreference.entries.firstOrNull { it.name == raw && it != DataSourcePreference.DEXCOM_G7_WATCH }
+        ?: DataSourcePreference.ANDROID_APS
+
 internal fun thresholdForUi(
     valueMgDl: Double,
     unit: DisplayUnitPreference,

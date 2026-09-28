@@ -4,7 +4,7 @@
 
 | Concern | Canonical location |
 |---|---|
-| CGM source adapters | `data-source-aaps`, `data-source-xdrip`, `dexcom-g7` |
+| CGM source adapters | `data-source-aaps`, `dexcom-g7` |
 | Canonical Mobile resolution | `app-mobile/MobileCanonicalCgm.kt` |
 | Shared domain and presentation policy | `core-model` |
 | Persisted observable therapy state | `wear-storage/TherapyStateStore.kt` |

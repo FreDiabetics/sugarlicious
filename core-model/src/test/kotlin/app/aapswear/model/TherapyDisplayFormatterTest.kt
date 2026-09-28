@@ -76,7 +76,7 @@ class TherapyDisplayFormatterTest {
         assertEquals("Watch Direct", TherapyDisplayFormatter.sourceName(DataSourceId.DEXCOM_G7_WATCH))
         assertEquals("AndroidAPS", TherapyDisplayFormatter.sourceName(DataSourceId.ANDROID_APS))
         assertEquals("Nightscout", TherapyDisplayFormatter.sourceName(DataSourceId.NIGHTSCOUT))
-        assertEquals("xDrip+", TherapyDisplayFormatter.sourceName(DataSourceId.XDRIP_PLUS))
+        assertEquals("Andere Quelle", TherapyDisplayFormatter.sourceName(DataSourceId.OTHER))
         assertEquals("Keine Quelle", TherapyDisplayFormatter.sourceName(null))
     }
 

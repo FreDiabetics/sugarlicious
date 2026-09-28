@@ -216,6 +216,12 @@ class G7SessionManager(
                 protocolState = G7ProtocolState.IDLE,
                 nextReconnectEpochMs = null,
                 retryCount = 0,
+                activeAttemptId = null,
+                scanStartedAtEpochMs = null,
+                scanTimeoutAtEpochMs = null,
+                pairingAttemptId = null,
+                pairingStartedAtEpochMs = null,
+                pairingDeadlineEpochMs = null,
             ),
         )
 

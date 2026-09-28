@@ -41,7 +41,7 @@ class G7AlarmSettingsActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        val granted = G7AlarmNotificationPolicy.isAccessGranted(this)
+        val granted = G7AlarmSystemAccess.isAccessGranted(this)
         if (lastDndState != null && lastDndState != granted) render()
         lastDndState = granted
         G7CgmAlarmNotifier.ensureAllChannels(this, G7AlarmSettingsStore.read(this))
@@ -69,7 +69,8 @@ class G7AlarmSettingsActivity : Activity() {
     }
 
     private fun dndCard(palette: G7AppearancePalette): LinearLayout {
-        val granted = G7AlarmNotificationPolicy.isAccessGranted(this)
+        val status = G7AlarmSystemAccess.snapshot(this)
+        val granted = status.policyAccessGranted
         lastDndState = granted
         return card(palette).apply {
             addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
@@ -83,7 +84,7 @@ class G7AlarmSettingsActivity : Activity() {
             )
             addView(
                 label(
-                    "Damit kritische Glukose- und Sensoralarme auch bei Nicht stören hörbar bleiben.",
+                    "Die Freigabe erlaubt konfigurierten Alarmen, Nicht stören systemkonform zu umgehen. Lautstärke, Stummschaltung und blockierte Benachrichtigungen können die Ausgabe weiterhin verhindern.",
                     8.5f,
                     palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 ),
@@ -91,15 +92,13 @@ class G7AlarmSettingsActivity : Activity() {
             if (!granted) {
                 addView(
                     actionButton("Systemfreigabe öffnen", palette) {
-                        runCatching { startActivity(G7AlarmNotificationPolicy.settingsIntent(this@G7AlarmSettingsActivity)) }
-                            .onFailure {
-                                Toast
-                                    .makeText(
-                                        this@G7AlarmSettingsActivity,
-                                        "Systemfreigabe konnte nicht geöffnet werden",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                            }
+                        when (G7AlarmSystemAccess.openPolicySettings(this@G7AlarmSettingsActivity)) {
+                            G7SettingsOpenResult.OPENED -> Unit
+                            G7SettingsOpenResult.UNAVAILABLE ->
+                                Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_LONG).show()
+                            G7SettingsOpenResult.FAILED ->
+                                Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
+                        }
                     },
                 )
             }

@@ -31,11 +31,9 @@ historische Prüfergebnisse stehen in `TEST_REPORT.md`.
   App prüft Paketinstallation, Pflichtfelder, Wertebereiche und Zeitstempel,
   kann einen lokal absichtlich gefälschten Broadcast aber nicht sicher
   unterscheiden.
-- Stock-AAPS und xDrip+ liefern über die verwendeten öffentlichen Broadcasts
-  keinen vollständigen historischen Graphen. Fehlende Werte werden weder
-  erfunden noch interpoliert.
-- xDrip+ muss seine lokale Broadcast-Ausgabe ausdrücklich aktiviert haben. Der
-  Vertrag enthält keine verlässlichen vollständigen AAPS-Therapiedaten.
+- Stock-AAPS liefert über den verwendeten öffentlichen Broadcast keinen
+  vollständigen historischen Graphen. Fehlende Werte werden weder erfunden
+  noch interpoliert.
 - Der öffentliche AAPS-Vertrag liefert keine vollständige Insulinaktivitätskurve.
   Die dargestellte Aktivität ist eine gekennzeichnete Display-Schätzung aus
   vorhandenen IOB-Punkten und darf nicht für Therapieentscheidungen verwendet

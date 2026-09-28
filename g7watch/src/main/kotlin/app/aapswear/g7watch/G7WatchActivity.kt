@@ -48,13 +48,11 @@ internal fun requiresPairingGate(state: G7PersistedState): Boolean =
         state.sensor?.state == G7SensorState.ENDED ||
         !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)
 
+@Suppress("UNUSED_PARAMETER")
 internal fun isG7PairingAttemptActive(
     state: G7PersistedState,
     nowEpochMs: Long,
-): Boolean {
-    val timedOut = (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { nowEpochMs >= it } == true
-    return state.collectorEnabled && !timedOut && state.lastError?.code != "G7-AUTH-204"
-}
+): Boolean = state.collectorEnabled && state.pairingAttemptId != null && state.lastError?.recoverable != false
 
 internal fun pairingSuccessRemainingMs(
     deadlineEpochMs: Long,
@@ -68,7 +66,10 @@ internal fun initialG7PairingScreenStep(
     restored: G7PairingScreenStep? = null,
 ): G7PairingScreenStep? {
     if (!requiresPairingGate(state)) return null
-    return if (restored == G7PairingScreenStep.CONNECTING && isG7PairingAttemptActive(state, System.currentTimeMillis())) {
+    return if (
+        (restored == G7PairingScreenStep.CONNECTING || state.pairingAttemptId != null) &&
+        isG7PairingAttemptActive(state, System.currentTimeMillis())
+    ) {
         G7PairingScreenStep.CONNECTING
     } else {
         G7PairingScreenStep.NO_SENSOR
@@ -99,16 +100,14 @@ internal fun shouldScheduleG7PairingCompletion(
     alreadyScheduled: Boolean,
 ): Boolean = step == G7PairingScreenStep.CONNECTED && !alreadyScheduled
 
+@Suppress("UNUSED_PARAMETER")
 internal fun isTerminalG7PairingFailure(
     state: G7PersistedState,
     pairingStartedAtEpochMs: Long,
     nowEpochMs: Long,
 ): Boolean {
     val error = state.lastError?.takeIf { it.occurredAtEpochMs >= pairingStartedAtEpochMs }
-    val timedOut =
-        state.pairingStartedAtEpochMs?.let { it >= pairingStartedAtEpochMs } == true &&
-            (state.pairingDeadlineEpochMs ?: state.scanTimeoutAtEpochMs)?.let { nowEpochMs >= it } == true
-    return timedOut || error?.code == "G7-AUTH-204" || error?.recoverable == false
+    return error?.code == "G7-AUTH-204" || error?.recoverable == false
 }
 
 internal fun nextDirectGraphHours(current: Int): Int {
@@ -373,7 +372,7 @@ class G7WatchActivity : Activity() {
                     ) {
                         "Sensor erfolgreich verbunden"
                     } else {
-                        "Dies kann bis zu\n30 Minuten dauern"
+                        "Die Sensorsuche läuft auch bei geschlossenem Display weiter"
                     },
                     16f,
                     palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),

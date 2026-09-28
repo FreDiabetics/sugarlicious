@@ -91,13 +91,15 @@ class G7WatchActivityLayoutTest {
         val rejected =
             G7PersistedState(
                 collectorEnabled = true,
+                pairingAttemptId = "pairing",
                 pairingDeadlineEpochMs = now + 60_000L,
                 lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, now, "rejected"),
             )
 
         assertFalse(isG7PairingAttemptActive(rejected, now))
         assertTrue(isG7PairingAttemptActive(rejected.copy(lastError = null), now))
-        assertFalse(isG7PairingAttemptActive(rejected.copy(lastError = null), now + 60_000L))
+        assertTrue(isG7PairingAttemptActive(rejected.copy(lastError = null), now + 60_000L))
+        assertFalse(isG7PairingAttemptActive(rejected.copy(pairingAttemptId = null, lastError = null), now))
     }
 
     @Before
@@ -244,7 +246,22 @@ class G7WatchActivityLayoutTest {
                 startedAt + 2_000L,
             ),
         )
-        assertTrue(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 60_000L))
+        assertFalse(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 60_000L))
+    }
+
+    @Test
+    fun `reopened activity resumes durable pairing request without saved UI state`() {
+        val state =
+            G7PersistedState(
+                sensor = G7Sensor("pairing"),
+                collectorEnabled = true,
+                pairingAttemptId = "pairing-request",
+                pairingStartedAtEpochMs = 1_000L,
+                pairingDeadlineEpochMs = 2_000L,
+                lastError = app.aapswear.g7.G7CollectorError("G7-BLE-111", true, 2_000L, "retry"),
+            )
+
+        assertEquals(G7PairingScreenStep.CONNECTING, initialG7PairingScreenStep(state))
     }
 
     @Test
@@ -257,6 +274,7 @@ class G7WatchActivityLayoutTest {
             G7PersistedState(
                 sensor = G7Sensor("pairing"),
                 collectorEnabled = true,
+                pairingAttemptId = "pairing-request",
                 pairingStartedAtEpochMs = now,
                 pairingDeadlineEpochMs = now + 60_000L,
             ),

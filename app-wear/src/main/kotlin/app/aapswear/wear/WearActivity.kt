@@ -377,7 +377,6 @@ class WearActivity : Activity() {
                     DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                     DataSourceId.ANDROID_APS -> "AndroidAPS"
                     DataSourceId.NIGHTSCOUT -> "Nightscout"
-                    DataSourceId.XDRIP_PLUS -> state.sourceVersion?.let { "xDrip+ $it" } ?: "xDrip+"
                     DataSourceId.OTHER -> "Other"
                     null -> "Datenquelle nicht verfügbar"
                 }

@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmAlarmSettings
 import app.aapswear.g7.CgmAlarmType
@@ -51,7 +52,7 @@ class G7CgmAlarmsTest {
     }
 
     @Test
-    fun `all eight alarm channels are silent because bundled sounds are app played`() {
+    fun `all eight alarm channels use system managed alarm audio`() {
         val settings = G7AlarmSettingsStore.read(context)
         G7CgmAlarmNotifier.ensureAllChannels(context, settings)
 
@@ -60,9 +61,20 @@ class G7CgmAlarmsTest {
             assertNotNull(channel)
             assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
             assertTrue(channel.shouldVibrate())
-            assertNull(channel.sound)
+            assertNotNull(channel.sound)
+            assertEquals("content", channel.sound.scheme)
+            assertEquals(AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
         }
-        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v4_") })
+        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v5_") })
+    }
+
+    @Test
+    fun `alarm sound provider exposes every bundled sound to the notification service`() {
+        CgmAlarmType.entries.forEach { type ->
+            context.contentResolver.openAssetFileDescriptor(g7AlarmSoundUri(context, type), "r")!!.use {
+                assertTrue(it.length > 0L)
+            }
+        }
     }
 
     @Test
@@ -74,7 +86,8 @@ class G7CgmAlarmsTest {
         G7ErrorNotifier.ensureChannel(context)
 
         assertNull(notificationManager.getNotificationChannel("direct_watch_collector_errors_v2"))
-        assertNull(notificationManager.getNotificationChannel("direct_watch_collector_errors_v3").sound)
+        assertNull(notificationManager.getNotificationChannel("direct_watch_collector_errors_v3"))
+        assertNotNull(notificationManager.getNotificationChannel(G7ErrorNotifier.channelId(context)).sound)
     }
 
     @Test

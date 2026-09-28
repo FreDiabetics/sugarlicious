@@ -78,7 +78,10 @@ internal fun ensureG7PairingAttempt(
     nowEpochMs: Long,
 ): G7PersistedState {
     if (!state.collectorEnabled || state.sensor == null || state.lastReading != null) return state
-    val deadline = state.pairingDeadlineEpochMs ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+    val deadline =
+        state.pairingDeadlineEpochMs
+            ?.takeIf { it > nowEpochMs }
+            ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
     return state.copy(
         pairingAttemptId =
             state.pairingAttemptId ?: java.util.UUID

@@ -71,9 +71,9 @@ class PersistentPredictionCacheTest {
             state(
                 predictions = listOf(prediction(PredictionKind.IOB, now, now + 60 * minute)),
             )
-        val xdrip = state(source = DataSourceId.XDRIP_PLUS)
+        val alternatePhoneSource = state(source = DataSourceId.OTHER)
 
-        val merged = PersistentPredictionCache.merge(previous, xdrip, now)
+        val merged = PersistentPredictionCache.merge(previous, alternatePhoneSource, now)
 
         assertEquals(previous.glucosePredictions, merged.glucosePredictions)
         assertTrue(DataCapability.PREDICTIONS in merged.capabilities)

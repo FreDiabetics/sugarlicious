@@ -1,8 +1,27 @@
 package app.aapswear.model
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
-@Serializable enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, NIGHTSCOUT, XDRIP_PLUS, OTHER }
+@Serializable(with = DataSourceIdSerializer::class)
+enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, NIGHTSCOUT, OTHER }
+
+object DataSourceIdSerializer : KSerializer<DataSourceId> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DataSourceId", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: DataSourceId) = encoder.encodeString(value.name)
+
+    override fun deserialize(decoder: Decoder): DataSourceId =
+        when (val raw = decoder.decodeString()) {
+            "XDRIP_PLUS" -> DataSourceId.OTHER
+            else -> DataSourceId.entries.firstOrNull { it.name == raw } ?: DataSourceId.OTHER
+        }
+}
 
 @Serializable enum class GlucoseUnit { MG_DL, MMOL_L }
 

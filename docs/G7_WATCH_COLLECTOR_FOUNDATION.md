@@ -42,7 +42,7 @@ Only one direct collector should be active for a sensor. Juggluco, xDrip direct 
 
 ## Source selection
 
-`Automatic` prefers a fresh local G7 reading and otherwise retains the selected phone-fed state. `Dexcom G7 Watch` never substitutes a phone glucose value when the local value is absent or stale; non-glucose AndroidAPS therapy context may still be retained for read-only display. `AndroidAPS` and `xDrip+` remain phone sources.
+`Automatic` prefers a fresh local G7 reading and otherwise retains the AndroidAPS phone-fed state. `Dexcom G7 Watch` never substitutes a phone glucose value when the local value is absent or stale; non-glucose AndroidAPS therapy context may still be retained for read-only display. AndroidAPS is the supported phone source.
 
 ## Validation boundary
 
