@@ -72,7 +72,17 @@ class ComplicationPresentationTest {
     }
 
     @Test fun `trend geometry matches mobile overview`() {
-        assertEquals(TrendVisualAsset.FORTY_FIVE_UP, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.asset)
+        val expected =
+            mapOf(
+                Trend.DOUBLE_UP to TrendVisualAsset.DOUBLE_UP,
+                Trend.SINGLE_UP to TrendVisualAsset.UP,
+                Trend.FORTY_FIVE_UP to TrendVisualAsset.FORTY_FIVE_UP,
+                Trend.FLAT to TrendVisualAsset.FLAT,
+                Trend.FORTY_FIVE_DOWN to TrendVisualAsset.FORTY_FIVE_DOWN,
+                Trend.SINGLE_DOWN to TrendVisualAsset.DOWN,
+                Trend.DOUBLE_DOWN to TrendVisualAsset.DOUBLE_DOWN,
+            )
+        expected.forEach { (trend, asset) -> assertEquals(asset, TrendVisuals.spec(trend)?.asset) }
         assertEquals(1f, TrendVisuals.spec(Trend.FORTY_FIVE_UP)!!.aspectRatio)
         assertEquals(TrendVisualAsset.DOUBLE_DOWN, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.asset)
         assertEquals(125f / 60f, TrendVisuals.spec(Trend.DOUBLE_DOWN)!!.aspectRatio)
@@ -81,8 +91,8 @@ class ComplicationPresentationTest {
 
     @Test fun `combined therapy presents values without redundant visible labels`() {
         val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB_BASAL, state, now)
-        assertEquals("0.70 U/h", p.title)
-        assertEquals("1.2 U · 15 g", p.text)
+        assertEquals("0.70U/h", p.title)
+        assertEquals("1.20U · 15g", p.text)
     }
 
     @Test fun `combined therapy never invents zero for missing values`() {
@@ -98,9 +108,9 @@ class ComplicationPresentationTest {
 
     @Test fun `IOB COB maps IOB to title and COB to text`() {
         val p = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, state, now)
-        assertEquals("1.2 U", p.title)
-        assertEquals("15 g", p.text)
-        assertEquals("IOB 1.2 U, COB 15 g", p.contentDescription)
+        assertEquals("1.20U", p.title)
+        assertEquals("15g", p.text)
+        assertEquals("IOB 1.20U, COB 15g", p.contentDescription)
     }
 
     @Test fun `IOB COB preserves either available value without inventing zero`() {
@@ -110,7 +120,7 @@ class ComplicationPresentationTest {
                 state.copy(carbs = null),
                 now,
             )
-        assertEquals("1.2 U", iobOnly.title)
+        assertEquals("1.20U", iobOnly.title)
         assertEquals("—", iobOnly.text)
 
         val cobOnly =
@@ -120,7 +130,7 @@ class ComplicationPresentationTest {
                 now,
             )
         assertEquals("—", cobOnly.title)
-        assertEquals("15 g", cobOnly.text)
+        assertEquals("15g", cobOnly.text)
 
         val neither =
             ComplicationPresentationFormatter.format(
@@ -148,9 +158,9 @@ class ComplicationPresentationTest {
                 state.copy(glucose = state.glucose!!.copy(measuredAtEpochMs = now - 13 * 60_000L)),
                 now,
             )
-        assertEquals("1.2 U", stale.title)
-        assertEquals("15 g", stale.text)
-        assertEquals("veraltet, IOB 1.2 U, COB 15 g", stale.contentDescription)
+        assertEquals("1.20U", stale.title)
+        assertEquals("15g", stale.text)
+        assertEquals("veraltet, IOB 1.20U, COB 15g", stale.contentDescription)
 
         val error =
             ComplicationPresentationFormatter.format(
@@ -158,9 +168,9 @@ class ComplicationPresentationTest {
                 state.copy(glucose = state.glucose.copy(quality = CgmQuality.SENSOR_ERROR)),
                 now,
             )
-        assertEquals("1.2 U", error.title)
-        assertEquals("15 g", error.text)
-        assertEquals("Sensorfehler, IOB 1.2 U, COB 15 g", error.contentDescription)
+        assertEquals("1.20U", error.title)
+        assertEquals("15g", error.text)
+        assertEquals("Sensorfehler, IOB 1.20U, COB 15g", error.contentDescription)
 
         val noSource = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.IOB_COB, null, now)
         assertEquals("—", noSource.title)

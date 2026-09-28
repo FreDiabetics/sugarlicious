@@ -18,6 +18,21 @@ class WearProtocolTest {
         assertEquals(s, WearProtocol.decode(WearProtocol.encode(s)))
     }
 
+    @Test fun `AndroidAPS display semantics and signed values round trip unchanged`() {
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = 2,
+                aapsDisplaySemantics = AapsDisplaySemantics(glucoseUnit = GlucoseUnit.MMOL_L),
+                insulin = InsulinState(totalIob = -0.1, bolusIob = 0.0, basalIob = -0.0),
+                carbs = CarbState(cobGrams = 0.0, futureCarbsGrams = 5.0),
+                basal = BasalState(currentUnitsPerHour = 0.9, tempAbsoluteUnitsPerHour = 1.1),
+                pump = PumpState(status = "OK", reservoirUnits = 120.4, batteryPercent = 75),
+                profile = ProfileState(name = "Default", diaHours = 5.0),
+            )
+
+        assertEquals(state, WearProtocol.decode(WearProtocol.encode(state)))
+    }
+
     @Test fun `state envelope identifies the measurement and transport generation`() {
         val state =
             TherapyDisplayState(

@@ -5,6 +5,13 @@ import kotlin.math.roundToInt
 
 /** Pure, deterministic display formatting shared by complications, Tiles, widgets and tests. */
 object TherapyDisplayFormatter {
+    fun aaps(
+        field: AapsDisplayField,
+        value: Double?,
+        state: TherapyDisplayState?,
+        includeUnit: Boolean = true,
+    ): String = AapsDisplayFormatter.format(field, value, state?.aapsDisplaySemantics ?: AapsDisplaySemantics(), includeUnit)
+
     /**
      * Whether a real, validated glucose value is known, independent from its age.
      * Freshness is presentation metadata and must never destroy the last clinical state.
@@ -55,6 +62,13 @@ object TherapyDisplayFormatter {
         suffix: String,
         digits: Int,
     ): String = value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
+
+    /** Preserves every finite AndroidAPS IOB value, including zero and negative values. */
+    fun iob(
+        value: Double?,
+        suffix: String = "U",
+        digits: Int = 2,
+    ): String = value?.takeIf(Double::isFinite)?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
 
     fun percent(value: Int?): String = value?.let { "$it%" } ?: "—"
 

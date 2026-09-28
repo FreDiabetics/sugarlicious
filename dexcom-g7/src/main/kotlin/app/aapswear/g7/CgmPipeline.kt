@@ -1,10 +1,12 @@
 package app.aapswear.g7
 
+import app.aapswear.model.CanonicalTrendPolicy
 import app.aapswear.model.CgmPresentationPolicy
 import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
+import app.aapswear.model.TrendRateProfile
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.serialization.Serializable
 import kotlin.math.abs
@@ -70,18 +72,19 @@ object CgmTrendRateCalculator {
 
 object CgmTrendMapper {
     fun fromRate(rateMgDlPerMinute: Double?): Trend =
-        when {
-            rateMgDlPerMinute == null -> Trend.UNKNOWN
-            rateMgDlPerMinute <= -3.0 -> Trend.DOUBLE_DOWN
-            rateMgDlPerMinute <= -2.0 -> Trend.SINGLE_DOWN
-            rateMgDlPerMinute <= -1.0 -> Trend.FORTY_FIVE_DOWN
-            rateMgDlPerMinute < 1.0 -> Trend.FLAT
-            rateMgDlPerMinute < 2.0 -> Trend.FORTY_FIVE_UP
-            rateMgDlPerMinute < 3.0 -> Trend.SINGLE_UP
-            else -> Trend.DOUBLE_UP
-        }
+        CanonicalTrendPolicy.fromRate(rateMgDlPerMinute, TrendRateProfile.DEXCOM_G7)
 
-    fun fromG7(value: G7Trend): Trend = Trend.valueOf(value.name)
+    fun fromG7(value: G7Trend): Trend =
+        when (value) {
+            G7Trend.DOUBLE_UP -> Trend.DOUBLE_UP
+            G7Trend.SINGLE_UP -> Trend.SINGLE_UP
+            G7Trend.FORTY_FIVE_UP -> Trend.FORTY_FIVE_UP
+            G7Trend.FLAT -> Trend.FLAT
+            G7Trend.FORTY_FIVE_DOWN -> Trend.FORTY_FIVE_DOWN
+            G7Trend.SINGLE_DOWN -> Trend.SINGLE_DOWN
+            G7Trend.DOUBLE_DOWN -> Trend.DOUBLE_DOWN
+            G7Trend.UNKNOWN -> Trend.UNKNOWN
+        }
 }
 
 fun G7Reading.toCgm(previous: CgmReading? = null): CgmReading {

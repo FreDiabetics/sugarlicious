@@ -262,6 +262,8 @@ class G7FoundationTest {
         assertEquals(7, reading.protocolStatusCode)
         assertEquals(6, reading.calibrationStateCode)
         assertEquals(42, reading.reservedField)
+        val fallingPacket = packet.copyOf().also { it[15] = (-16).toByte() }
+        assertEquals(-1.6, G7GlucosePacketParser().parse(fallingPacket, G7Sensor("sensor", "session"), now).trendRateMgDlPerMinute)
         assertFailsWith<IllegalArgumentException> { G7GlucosePacketParser().parse(byteArrayOf(1), G7Sensor("sensor"), now) }
     }
 

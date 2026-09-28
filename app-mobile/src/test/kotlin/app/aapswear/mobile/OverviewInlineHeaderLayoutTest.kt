@@ -6,6 +6,15 @@ import org.junit.Test
 
 class OverviewInlineHeaderLayoutTest {
     @Test
+    fun `compact glucose age uses the shared two minute form`() {
+        assertEquals(
+            "2m",
+            app.aapswear.model.TherapyDisplayFormatter
+                .ageMinutes(0L, 120_000L),
+        )
+    }
+
+    @Test
     fun `overview icon and wordmark move left as one unit`() {
         assertEquals(2, OverviewHeaderLayout.START_PADDING_DP)
         assertEquals(0, OverviewHeaderLayout.LOGO_X_OFFSET_DP)

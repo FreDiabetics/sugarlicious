@@ -126,6 +126,17 @@ class CgmAlarmEngineTest {
     }
 
     @Test
+    fun `rapid alarms use rate and never raw delta or visual trend`() {
+        val deltaOnly = CgmAlarmEngine.evaluate(reading(120.0, delta = -20.0, rate = null), emptyMap(), settings, now)
+        assertNull(state(deltaOnly, CgmAlarmType.RAPID_FALL))
+        assertNull(state(deltaOnly, CgmAlarmType.RAPID_RISE))
+
+        val rateWins = CgmAlarmEngine.evaluate(reading(120.0, delta = 20.0, rate = -2.1), emptyMap(), settings, now)
+        assertEquals(CgmAlarmState.ACTIVE, state(rateWins, CgmAlarmType.RAPID_FALL))
+        assertNull(state(rateWins, CgmAlarmType.RAPID_RISE))
+    }
+
+    @Test
     fun `acknowledge prevents duplicate activation until recovery and repeat honors interval`() {
         val active =
             CgmAlarmEngine
@@ -175,6 +186,7 @@ class CgmAlarmEngineTest {
         glucose: Double,
         timestamp: Long = now,
         rate: Double? = null,
+        delta: Double? = null,
         status: CgmReadingStatus = CgmReadingStatus.VALID,
         sensorId: String = "sensor",
         sessionId: String = "session",
@@ -187,6 +199,7 @@ class CgmAlarmEngineTest {
         timestampEpochMs = timestamp,
         receivedAtEpochMs = timestamp,
         trendRateMgDlPerMinute = rate,
+        deltaMgDl = delta,
         status = status,
         sequenceNumber = timestamp / minute,
     )

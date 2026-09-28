@@ -880,6 +880,7 @@ class DashboardChartsTest {
                             "glucoseMgdl" to 120.0 + index,
                             "glucoseTimeStamp" to measuredAt,
                             "iob" to 2.0 - index * 0.1,
+                            "insulinActivity" to -bgi / 500.0,
                             "suggested" to """{"reason":"Dev: 1, BGI: $bgi, ISF: 100, Target: 100"}""",
                         ),
                         measuredAt + 1_000L,

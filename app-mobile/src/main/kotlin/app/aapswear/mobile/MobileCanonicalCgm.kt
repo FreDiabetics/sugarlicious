@@ -1,6 +1,8 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
+import android.util.Log
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import app.aapswear.model.DataCapability
@@ -8,6 +10,7 @@ import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
+import app.aapswear.model.TrendDiagnostics
 import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
@@ -92,22 +95,40 @@ internal object MobileCanonicalStateCoordinator {
         var mergedPhone =
             DisplayHistoryAccumulator
                 .merge(priorPhone, incoming, nowEpochMs)
-                .withNightscoutTreatments(context)
                 .withoutDirectWatchCgm()
         val glucose = mergedPhone.glucose
         if (glucose != null && glucose.trend == Trend.UNKNOWN) {
+            val resolution =
+                TrendArrowResolver.resolveWithRate(
+                    glucose.trend,
+                    glucose,
+                    mergedPhone.glucoseHistory,
+                )
             mergedPhone =
                 mergedPhone.copy(
                     glucose =
                         glucose.copy(
-                            trend =
-                                TrendArrowResolver.resolve(
-                                    glucose.trend,
-                                    mergedPhone.glucoseHistory,
-                                    glucose.measuredAtEpochMs,
-                                ),
+                            trend = resolution.trend,
+                            trendRateMgDlPerMinute = resolution.rateMgDlPerMinute,
                         ),
                 )
+            if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                Log.d(
+                    "CgmTrendPipeline",
+                    TrendDiagnostics.format(
+                        glucoseMgDl = glucose.valueMgDl,
+                        deltaMgDl = glucose.deltaMgDl,
+                        elapsedMinutes =
+                            resolution.rateMgDlPerMinute
+                                ?.takeIf { it != 0.0 }
+                                ?.let { glucose.deltaMgDl?.div(it) },
+                        rateMgDlPerMinute = resolution.rateMgDlPerMinute,
+                        sourceTrend = glucose.trend,
+                        canonicalTrend = resolution.trend,
+                        source = glucose.source,
+                    ),
+                )
+            }
         }
 
         val committed = canonicalStore.commit(mergedPhone)

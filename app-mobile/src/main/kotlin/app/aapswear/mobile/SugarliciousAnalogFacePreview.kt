@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.GlucoseGraphScale
 import app.aapswear.model.GlucoseSample
@@ -131,8 +132,8 @@ internal fun SugarliciousAnalogFacePreview(
     val glucoseState = state?.glucose
     val glucose = if (displayable && glucoseState != null) TherapyDisplayFormatter.glucose(glucoseState) else "—"
     val age = TherapyDisplayFormatter.ageMinutes(glucoseState?.measuredAtEpochMs, now)
-    val iob = state?.insulin?.totalIob?.let { TherapyDisplayFormatter.units(it, "U", 1) } ?: "1.2U"
-    val cob = state?.carbs?.cobGrams?.let { TherapyDisplayFormatter.units(it, "g", 0) } ?: "15g"
+    val iob = state?.let { TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, it.insulin?.totalIob, it) } ?: "1.20U"
+    val cob = state?.let { TherapyDisplayFormatter.aaps(AapsDisplayField.COB, it.carbs?.cobGrams, it) } ?: "15g"
     val basal = state?.basal?.displayText?.takeIf { it.isNotBlank() } ?: "0.8U/h"
     val accent = Color(0xFFEB600A)
 

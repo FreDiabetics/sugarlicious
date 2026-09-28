@@ -165,26 +165,26 @@ object ComplicationPresentationFormatter {
                 p(delta.ifBlank { DASH }, desc = "Delta ${delta.ifBlank { DASH }}")
 
             SugarliciousComplicationIds.GLUCOSE_AGE ->
-                p(age, desc = "Glukosewert vor $age")
+                p(age, desc = "Glukosealter $age")
 
             SugarliciousComplicationIds.BASAL -> {
-                val basal = TherapyDisplayFormatter.units(state?.basal?.currentUnitsPerHour, "U/h", 2)
+                val basal = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, state?.basal?.currentUnitsPerHour, state)
                 p(basal, desc = "Basal $basal")
             }
 
             SugarliciousComplicationIds.IOB -> {
-                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, "U", 2)
+                val iob = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state)
                 p(iob, desc = "IOB $iob")
             }
 
             SugarliciousComplicationIds.COB -> {
-                val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, "g", 0)
+                val cob = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state)
                 p(cob, desc = "COB $cob")
             }
 
             SugarliciousComplicationIds.IOB_COB -> {
-                val iob = therapyUnits(state?.insulin?.totalIob, " U", 1)
-                val cob = therapyUnits(state?.carbs?.cobGrams, " g", 0)
+                val iob = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state)
+                val cob = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state)
                 val freshnessLabel =
                     when (freshness) {
                         Freshness.CURRENT -> null
@@ -213,23 +213,23 @@ object ComplicationPresentationFormatter {
                 p(glucoseText, delta.ifBlank { DASH }, desc = "Glukose $glucoseText, Delta ${delta.ifBlank { DASH }}")
 
             SugarliciousComplicationIds.TIME_DELTA ->
-                p(delta.ifBlank { DASH }, age, desc = "Delta ${delta.ifBlank { DASH }}, Wert vor $age")
+                p(delta.ifBlank { DASH }, age, desc = "Delta ${delta.ifBlank { DASH }}, Alter $age")
 
             SugarliciousComplicationIds.GLUCOSE_TREND_AGE ->
-                p(glucoseText, age, trend, "Glukose $glucoseText mit Trend, Wert vor $age")
+                p(glucoseText, age, trend, "Glukose $glucoseText mit Trend, Alter $age")
 
             SugarliciousComplicationIds.GLUCOSE_TREND_DELTA ->
                 p(glucoseText, delta.ifBlank { DASH }, trend, "Glukose $glucoseText mit Trend, Delta ${delta.ifBlank { DASH }}")
 
             SugarliciousComplicationIds.GLUCOSE_TREND_DELTA_AGE -> {
                 val secondary = listOf(delta.ifBlank { DASH }, age).joinToString(" · ")
-                p(glucoseText, secondary, trend, "Glukose $glucoseText mit Trend, Delta ${delta.ifBlank { DASH }}, Wert vor $age")
+                p(glucoseText, secondary, trend, "Glukose $glucoseText mit Trend, Delta ${delta.ifBlank { DASH }}, Alter $age")
             }
 
             SugarliciousComplicationIds.IOB_COB_BASAL -> {
-                val basal = TherapyDisplayFormatter.units(state?.basal?.currentUnitsPerHour, " U/h", 2)
-                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, " U", 1)
-                val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, " g", 0)
+                val basal = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, state?.basal?.currentUnitsPerHour, state)
+                val iob = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state)
+                val cob = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state)
                 p(
                     text = "$iob · $cob",
                     title = basal,
@@ -243,7 +243,7 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.RESERVOIR -> {
-                val reservoir = TherapyDisplayFormatter.units(state?.pump?.reservoirUnits, "U", 0)
+                val reservoir = TherapyDisplayFormatter.aaps(AapsDisplayField.RESERVOIR, state?.pump?.reservoirUnits, state)
                 p(reservoir, state?.pump?.status?.takeIf { it.isNotBlank() }, desc = "Reservoir $reservoir")
             }
 
@@ -296,12 +296,6 @@ object ComplicationPresentationFormatter {
         trend: Trend? = null,
         desc: String,
     ) = ComplicationPresentation(text = text, title = title, trend = trend, contentDescription = desc)
-
-    private fun therapyUnits(
-        value: Double?,
-        suffix: String,
-        digits: Int,
-    ): String = TherapyDisplayFormatter.units(value?.takeIf(Double::isFinite), suffix, digits)
 
     internal fun germanWeekday(dayOfWeek: DayOfWeek): String =
         when (dayOfWeek) {

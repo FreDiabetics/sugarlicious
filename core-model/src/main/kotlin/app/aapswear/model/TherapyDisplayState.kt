@@ -68,6 +68,8 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
     val sequenceNumber: Long? = null,
     val receivedAtEpochMs: Long? = null,
     val quality: CgmQuality = CgmQuality.VALID,
+    /** Canonical rate in mg/dL/min; distinct from the per-reading delta. */
+    val trendRateMgDlPerMinute: Double? = null,
 )
 
 @Serializable data class GlucoseSample(
@@ -177,6 +179,7 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
     val source: DataSourceId = DataSourceId.ANDROID_APS,
     val sourceVersion: String? = null,
     val sourceContract: String? = null,
+    val aapsDisplaySemantics: AapsDisplaySemantics? = null,
     val receivedAtEpochMs: Long,
     val glucose: GlucoseState? = null,
     val glucoseHistory: List<GlucoseSample> = emptyList(),
@@ -195,7 +198,7 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
     val capabilities: Set<DataCapability> = emptySet(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 9
+        const val CURRENT_SCHEMA = 11
     }
 }
 

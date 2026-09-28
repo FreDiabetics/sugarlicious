@@ -64,9 +64,9 @@ class SugarliciousTilesTest {
         assertNull(stale.trend)
         assertEquals("SIGNALVERLUST", stale.status)
         assertTrue(therapy.displayable)
-        assertEquals("1.2 U", therapy.iob)
-        assertEquals("18 g", therapy.cob)
-        assertEquals("0.70", therapy.basal)
+        assertEquals("1.20U", therapy.iob)
+        assertEquals("18g", therapy.cob)
+        assertEquals("0.70U/h", therapy.basal)
         assertTrue(therapy.footer.contains("letzter Stand"))
     }
 
@@ -75,18 +75,27 @@ class SugarliciousTilesTest {
         val presentation = wearTherapyTilePresentation(state(123.0, now - 60_000L), now)
 
         assertTrue(presentation.displayable)
-        assertEquals("1.2 U", presentation.iob)
-        assertEquals("18 g", presentation.cob)
-        assertEquals("0.70", presentation.basal)
+        assertEquals("1.20U", presentation.iob)
+        assertEquals("18g", presentation.cob)
+        assertEquals("0.70U/h", presentation.basal)
+    }
+
+    @Test
+    fun `therapy tile displays negative and zero AndroidAPS IOB instead of a dash`() {
+        val negative = wearTherapyTilePresentation(state(123.0, now).copy(insulin = InsulinState(totalIob = -0.1)), now)
+        val zero = wearTherapyTilePresentation(state(123.0, now).copy(insulin = InsulinState(totalIob = 0.0)), now)
+
+        assertEquals("-0.10U", negative.iob)
+        assertEquals("0.00U", zero.iob)
     }
 
     @Test
     fun `therapy rings expose values without duplicate metric headings`() {
         val presentation = wearTherapyTilePresentation(state(123.0, now - 60_000L), now)
 
-        assertEquals("1.2 U", therapyMetricValue(TherapyTileMetric.IOB, presentation))
-        assertEquals("18 g", therapyMetricValue(TherapyTileMetric.COB, presentation))
-        assertEquals("0.70", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
+        assertEquals("1.20U", therapyMetricValue(TherapyTileMetric.IOB, presentation))
+        assertEquals("18g", therapyMetricValue(TherapyTileMetric.COB, presentation))
+        assertEquals("0.70U/h", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
     }
 
     @Test

@@ -73,6 +73,22 @@ class TrendComplicationIconTest {
     }
 
     @Test
+    fun `double arrow runtime payload preserves native canvas and configured offset`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
+            val centered = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
+            val shifted = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100, offsetXPercent = 25))
+            val centeredHost = TrendComplicationIcon.runtimeHostBitmap(trend, centered)
+            val shiftedHost = TrendComplicationIcon.runtimeHostBitmap(trend, shifted)
+
+            assertEquals(centered.width, centeredHost.width)
+            assertEquals(centered.height, centeredHost.height)
+            assertEquals(shifted.width, shiftedHost.width)
+            assertTrue(nonTransparentCenterX(shiftedHost) > nonTransparentCenterX(centeredHost))
+        }
+    }
+
+    @Test
     fun complicationScaleUsesMostOfHostIconAtDefaultAndStillGrows() {
         val small = TrendComplicationIcon.glyphFillFraction(70)
         val default = TrendComplicationIcon.glyphFillFraction(100)
@@ -127,5 +143,13 @@ class TrendComplicationIconTest {
                 (0 until bitmap.height).any { y -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
             }
         return if (xs.isEmpty()) 0f else (xs.last() - xs.first() + 1).toFloat() / nonTransparentHeight(bitmap)
+    }
+
+    private fun nonTransparentCenterX(bitmap: android.graphics.Bitmap): Float {
+        val xs =
+            (0 until bitmap.width).filter { x ->
+                (0 until bitmap.height).any { y -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
+            }
+        return if (xs.isEmpty()) 0f else (xs.first() + xs.last()) / 2f
     }
 }
