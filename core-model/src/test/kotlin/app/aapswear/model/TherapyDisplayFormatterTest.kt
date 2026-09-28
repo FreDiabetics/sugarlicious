@@ -30,6 +30,16 @@ class TherapyDisplayFormatterTest {
     }
 
     @Test
+    fun `IOB preserves negative zero and positive AndroidAPS values and only hides invalid data`() {
+        assertEquals("-0.10U", TherapyDisplayFormatter.iob(-0.1, "U", 2))
+        assertEquals("0.00U", TherapyDisplayFormatter.iob(0.0, "U", 2))
+        assertEquals("1.25U", TherapyDisplayFormatter.iob(1.25, "U", 2))
+        assertEquals("—", TherapyDisplayFormatter.iob(null, "U", 2))
+        assertEquals("—", TherapyDisplayFormatter.iob(Double.NaN, "U", 2))
+        assertEquals("—", TherapyDisplayFormatter.iob(Double.POSITIVE_INFINITY, "U", 2))
+    }
+
+    @Test
     fun `formats target bounds in selected unit`() {
         val target = TargetState(lowMgDl = 72.0, highMgDl = 180.0)
         assertEquals("72–180", TherapyDisplayFormatter.target(target, GlucoseUnit.MG_DL))

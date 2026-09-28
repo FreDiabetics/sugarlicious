@@ -440,9 +440,7 @@ private fun MetabolicWidgetContent(
     Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Vertical.CenterVertically) {
         FlatMetric(
             "IOB",
-            state?.insulin?.totalIob?.let {
-                String.format(Locale.US, "%.1f U", it)
-            } ?: "–",
+            TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1),
             WidgetIob,
             GlanceModifier.width(width),
             compact,

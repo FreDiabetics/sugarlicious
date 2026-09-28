@@ -160,7 +160,7 @@ internal fun wearTherapyTilePresentation(
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val displayable = state?.let { it.insulin != null || it.carbs != null || it.basal != null } == true
     return WearTherapyTilePresentation(
-        iob = state?.insulin?.totalIob?.let { String.format(Locale.US, "%.1f U", it) } ?: "—",
+        iob = TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1),
         cob = state?.carbs?.cobGrams?.let { String.format(Locale.US, "%.0f g", it) } ?: "—",
         basal = effectiveBasalPresentation(state, now)?.unitsPerHour?.let { String.format(Locale.US, "%.2f", it) } ?: "—",
         status = TherapyDisplayFormatter.freshnessLabel(freshness),

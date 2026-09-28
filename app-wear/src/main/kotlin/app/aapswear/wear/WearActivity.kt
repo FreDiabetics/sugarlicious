@@ -355,7 +355,7 @@ class WearActivity : Activity() {
             findViewById<View>(R.id.wear_basal_card).visibility =
                 if (preferences.showTherapyStats) View.VISIBLE else View.GONE
 
-            iob.text = if (canShowValue) formatNumber(state?.insulin?.totalIob, 2, " U") else "—"
+            iob.text = if (canShowValue) TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 2) else "—"
             cob.text = if (canShowValue) formatNumber(state?.carbs?.cobGrams, 0, " g") else "—"
             basal.text =
                 if (canShowValue) {

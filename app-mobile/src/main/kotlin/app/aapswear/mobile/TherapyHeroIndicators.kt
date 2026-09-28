@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.TherapyProgressSemantics
@@ -59,7 +60,7 @@ internal fun therapyIndicatorPresentations(
     return listOf(
         TherapyIndicatorPresentation(
             label = "IOB",
-            value = "${compactValue(iob, 2)}U",
+            value = TherapyDisplayFormatter.iob(iob, "U", 2),
             progress = TherapyProgressSemantics.scaled(iob, safeIobMaximum),
             iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,

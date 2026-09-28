@@ -173,7 +173,7 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.IOB -> {
-                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, "U", 2)
+                val iob = TherapyDisplayFormatter.iob(state?.insulin?.totalIob, "U", 2)
                 p(iob, desc = "IOB $iob")
             }
 
@@ -183,7 +183,7 @@ object ComplicationPresentationFormatter {
             }
 
             SugarliciousComplicationIds.IOB_COB -> {
-                val iob = therapyUnits(state?.insulin?.totalIob, " U", 1)
+                val iob = TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1)
                 val cob = therapyUnits(state?.carbs?.cobGrams, " g", 0)
                 val freshnessLabel =
                     when (freshness) {
@@ -228,7 +228,7 @@ object ComplicationPresentationFormatter {
 
             SugarliciousComplicationIds.IOB_COB_BASAL -> {
                 val basal = TherapyDisplayFormatter.units(state?.basal?.currentUnitsPerHour, " U/h", 2)
-                val iob = TherapyDisplayFormatter.units(state?.insulin?.totalIob, " U", 1)
+                val iob = TherapyDisplayFormatter.iob(state?.insulin?.totalIob, " U", 1)
                 val cob = TherapyDisplayFormatter.units(state?.carbs?.cobGrams, " g", 0)
                 p(
                     text = "$iob · $cob",

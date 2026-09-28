@@ -56,6 +56,13 @@ object TherapyDisplayFormatter {
         digits: Int,
     ): String = value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
 
+    /** Preserves every finite AndroidAPS IOB value, including zero and negative values. */
+    fun iob(
+        value: Double?,
+        suffix: String = "U",
+        digits: Int = 2,
+    ): String = value?.takeIf(Double::isFinite)?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
+
     fun percent(value: Int?): String = value?.let { "$it%" } ?: "—"
 
     fun ageMinutes(

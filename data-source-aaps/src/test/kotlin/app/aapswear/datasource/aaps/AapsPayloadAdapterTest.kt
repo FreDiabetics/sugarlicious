@@ -3,6 +3,20 @@ import app.aapswear.model.*
 import kotlin.test.*
 
 class AapsPayloadAdapterTest {
+    @Test
+    fun `preserves negative AndroidAPS IOB exactly`() {
+        val state =
+            requireNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf("glucoseMgdl" to 123.0, "glucoseTimeStamp" to 900_000L, "iob" to -0.1),
+                    1_000_000L,
+                ),
+            )
+
+        assertEquals(-0.1, state.insulin?.totalIob)
+        assertEquals(-0.1, state.therapyHistory.single().totalIob)
+    }
+
     @Test fun `explicit loop state is distinct from missing transport data`() {
         val base = mapOf<String, Any?>("glucoseMgdl" to 123.0, "glucoseTimeStamp" to 900_000L)
         assertNull(AapsPayloadAdapter.parse(base, 1_000_000L)?.loop)

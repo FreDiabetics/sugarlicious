@@ -53,6 +53,7 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GlucoseVisualSpec
 import app.aapswear.model.LoopVisualState
+import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.loopPresentation
@@ -629,7 +630,7 @@ private fun CombinedIobCobCard(
             QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            InlineMetricValue(formatNumber(state?.insulin?.totalIob, 2), "IE")
+            InlineMetricValue(TherapyDisplayFormatter.iob(state?.insulin?.totalIob, "", 2), "IE")
             InlineMetricValue(formatNumber(state?.carbs?.cobGrams, 0), "g")
         }
     }

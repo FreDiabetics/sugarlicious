@@ -81,6 +81,15 @@ class SugarliciousTilesTest {
     }
 
     @Test
+    fun `therapy tile displays negative and zero AndroidAPS IOB instead of a dash`() {
+        val negative = wearTherapyTilePresentation(state(123.0, now).copy(insulin = InsulinState(totalIob = -0.1)), now)
+        val zero = wearTherapyTilePresentation(state(123.0, now).copy(insulin = InsulinState(totalIob = 0.0)), now)
+
+        assertEquals("-0.1 U", negative.iob)
+        assertEquals("0.0 U", zero.iob)
+    }
+
+    @Test
     fun `therapy rings expose values without duplicate metric headings`() {
         val presentation = wearTherapyTilePresentation(state(123.0, now - 60_000L), now)
 
