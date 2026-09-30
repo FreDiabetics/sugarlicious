@@ -82,14 +82,59 @@ internal fun isCommittedStatePayload(
 internal data class PendingStateDelivery(
     val payload: ByteArray,
     val transport: String,
-)
+    val state: TherapyDisplayState?,
+    val eventId: String?,
+    val generatedAtEpochMs: Long?,
+) {
+    companion object {
+        fun decode(
+            payload: ByteArray,
+            transport: String,
+        ): PendingStateDelivery {
+            val envelope = runCatching { WearProtocol.decodeEnvelope(payload) }.getOrNull()
+            return PendingStateDelivery(
+                payload = payload,
+                transport = transport,
+                state = envelope?.state,
+                eventId = envelope?.eventId,
+                generatedAtEpochMs = envelope?.generatedAtEpochMs,
+            )
+        }
+    }
+}
 
-internal fun conflatedStateDeliveryChannel(): Channel<PendingStateDelivery> = Channel(Channel.CONFLATED)
+internal class StateDeliveryInbox {
+    val notifications = Channel<Unit>(Channel.CONFLATED)
+    private var pending: PendingStateDelivery? = null
+
+    @Synchronized
+    fun offer(incoming: PendingStateDelivery) {
+        pending = newerDelivery(pending, incoming)
+        notifications.trySend(Unit)
+    }
+
+    @Synchronized
+    fun poll(): PendingStateDelivery? = pending.also { pending = null }
+
+    fun close() = notifications.close()
+
+    private fun newerDelivery(
+        current: PendingStateDelivery?,
+        incoming: PendingStateDelivery,
+    ): PendingStateDelivery =
+        when {
+            current == null -> incoming
+            current.state == null -> incoming
+            incoming.state == null -> current
+            shouldAcceptPhoneState(current.state, incoming.state) -> incoming
+            else -> current
+        }
+}
 
 class StateDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val stateSyncMutex = Mutex()
-    private val pendingStateDeliveries = conflatedStateDeliveryChannel()
+    private val pendingStateDeliveries = StateDeliveryInbox()
     private val wallClockReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(
@@ -110,7 +155,9 @@ class StateDataLayerService : WearableListenerService() {
         )
         requestTimeSensitiveComplicationUpdates()
         scope.launch {
-            for (delivery in pendingStateDeliveries) persistTherapyState(delivery)
+            for (ignored in pendingStateDeliveries.notifications) {
+                while (true) persistTherapyState(pendingStateDeliveries.poll() ?: break)
+            }
         }
         scope.launch {
             runCatching { WearStartupStateCoordinator.rehydrate(this@StateDataLayerService) }
@@ -522,19 +569,19 @@ class StateDataLayerService : WearableListenerService() {
         transport: String,
     ) {
         val bytes = payload ?: return
-        pendingStateDeliveries.trySend(PendingStateDelivery(bytes, transport))
+        pendingStateDeliveries.offer(PendingStateDelivery.decode(bytes, transport))
     }
 
     private suspend fun persistTherapyState(delivery: PendingStateDelivery) {
         val bytes = delivery.payload
         val transport = delivery.transport
         stateSyncMutex.withLock {
-            val delivery = getSharedPreferences(STATE_DELIVERY_PREFS, Context.MODE_PRIVATE)
+            val deliveryPreferences = getSharedPreferences(STATE_DELIVERY_PREFS, Context.MODE_PRIVATE)
             val fingerprint = statePayloadFingerprint(bytes)
             val committed =
                 StatePayloadFingerprint(
-                    size = delivery.getInt(STATE_PAYLOAD_SIZE, -1),
-                    sha256Hex = delivery.getString(STATE_PAYLOAD_SHA256, null).orEmpty(),
+                    size = deliveryPreferences.getInt(STATE_PAYLOAD_SIZE, -1),
+                    sha256Hex = deliveryPreferences.getString(STATE_PAYLOAD_SHA256, null).orEmpty(),
                 ).takeIf { it.size >= 0 && it.sha256Hex.isNotEmpty() }
             if (fingerprint == committed) return@withLock
 
@@ -542,8 +589,8 @@ class StateDataLayerService : WearableListenerService() {
                 .edit()
                 .putLong("wearReceivedAt", System.currentTimeMillis())
                 .apply()
-            val envelope = runCatching { WearProtocol.decodeEnvelope(bytes) }.getOrNull()
-            if (envelope == null) {
+            val incoming = delivery.state
+            if (incoming == null) {
                 applicationContext.recordWatchDiagnostic(
                     "SOURCE",
                     "SRC-PHONE-401",
@@ -553,7 +600,6 @@ class StateDataLayerService : WearableListenerService() {
                 )
                 return@withLock
             }
-            val incoming = envelope.state
             val store =
                 TherapyStateStore(
                     this@StateDataLayerService,
@@ -651,7 +697,7 @@ class StateDataLayerService : WearableListenerService() {
                     ),
             )
             store.save(merged)
-            delivery
+            deliveryPreferences
                 .edit()
                 .putInt(STATE_PAYLOAD_SIZE, fingerprint.size)
                 .putString(STATE_PAYLOAD_SHA256, fingerprint.sha256Hex)
@@ -659,8 +705,8 @@ class StateDataLayerService : WearableListenerService() {
             getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
                 .edit()
                 .putLong("wearCommittedAt", System.currentTimeMillis())
-                .putString("wearEventId", envelope.eventId)
-                .putLong("wearGeneratedAt", envelope.generatedAtEpochMs)
+                .putString("wearEventId", delivery.eventId)
+                .putLong("wearGeneratedAt", delivery.generatedAtEpochMs ?: 0L)
                 .apply()
             WearCanonicalStateEvents.publishLocalReadingUpdate()
             requestComplicationUpdates(

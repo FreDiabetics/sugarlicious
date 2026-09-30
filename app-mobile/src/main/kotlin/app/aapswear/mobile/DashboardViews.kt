@@ -255,7 +255,6 @@ data class DashboardCallbacks(
     val navigate: (DashboardScreen) -> Unit,
     val setUnit: (DisplayUnitPreference) -> Unit,
     val setDataSource: (DataSourcePreference) -> Unit,
-    val openAapsSourceSettings: () -> Unit,
     val openNightscoutTreatments: () -> Unit,
     val openDiagnostics: () -> Unit,
     val setThemeMode: (DashboardThemeMode) -> Unit,
@@ -491,7 +490,6 @@ class DashboardViewFactory(
                         ),
                     )
                     addView(divider())
-                    addView(actionRow("AndroidAPS-Paket festlegen", "Öffnen") { callbacks.openAapsSourceSettings() })
                     addView(divider())
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
                     addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })

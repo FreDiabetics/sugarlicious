@@ -3,6 +3,7 @@ package app.aapswear.wear
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.protocol.WearProtocol
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -79,17 +80,19 @@ class StateDeliveryPolicyTest {
         assertTrue(committed.sha256Hex == expected)
     }
 
-    @Test fun `bursted state deliveries retain only the newest pending payload`() {
-        val deliveries = conflatedStateDeliveryChannel()
-        deliveries.trySend(PendingStateDelivery(byteArrayOf(1), "message"))
-        deliveries.trySend(PendingStateDelivery(byteArrayOf(2), "data_item"))
-        deliveries.trySend(PendingStateDelivery(byteArrayOf(3), "message"))
+    @Test fun `delayed older transport copy cannot displace newest pending revision`() {
+        val inbox = StateDeliveryInbox()
+        val newest = state(receivedAt = 30_000L, glucoseAt = 29_000L).copy(canonicalRevision = 3L)
+        val delayed = state(receivedAt = 20_000L, glucoseAt = 19_000L).copy(canonicalRevision = 2L)
 
-        val pending = deliveries.tryReceive().getOrThrow()
+        inbox.offer(PendingStateDelivery.decode(WearProtocol.encode(newest), "message"))
+        inbox.offer(PendingStateDelivery.decode(WearProtocol.encode(delayed), "data_item"))
 
-        assertTrue(pending.payload.contentEquals(byteArrayOf(3)))
+        val pending = inbox.poll()!!
+        assertTrue(pending.state == newest)
         assertTrue(pending.transport == "message")
-        assertTrue(deliveries.tryReceive().isFailure)
+        assertTrue(inbox.poll() == null)
+        inbox.close()
     }
 
     private fun state(

@@ -3,7 +3,6 @@ package app.aapswear.mobile
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.content.edit
 import app.aapswear.datasource.aaps.AapsCapabilityDetector
 import app.aapswear.datasource.aaps.AapsPayloadAdapter
@@ -42,42 +41,9 @@ class AapsStatusReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val now = System.currentTimeMillis()
-                val bindingStore = AapsSourceBindingStore(app)
-                val binding = bindingStore.read()
-                val sentPackage = if (Build.VERSION.SDK_INT >= 34) sentFromPackage else null
-                val sentUid = if (Build.VERSION.SDK_INT >= 34) sentFromUid else -1
-                val uidPackages =
-                    if (sentUid >= 0) {
-                        app.packageManager
-                            .getPackagesForUid(sentUid)
-                            ?.toSet()
-                            .orEmpty()
-                    } else {
-                        emptySet()
-                    }
-                val trust =
-                    AapsSourceTrustPolicy.evaluate(
-                        binding = binding,
-                        sentFromPackage = sentPackage,
-                        sentFromUidPackages = uidPackages,
-                        installedCertificateSha256 = binding?.let(bindingStore::currentCertificate),
-                    )
-                app.diagnostics().edit {
-                    putString("aapsSourceTrust", trust.name)
-                    putString("configuredSourcePackage", binding?.packageName)
-                    putString("observedSenderPackage", sentPackage)
-                }
-                if (trust !in setOf(AapsSourceTrust.VERIFIED, AapsSourceTrust.LEGACY_COMPATIBILITY)) {
-                    app.recordMobileDiagnostic(
-                        "SOURCE",
-                        "SRC-AAPS-403",
-                        "AndroidAPS broadcast rejected: ${trust.name}",
-                        DiagnosticSeverity.WARNING,
-                    )
-                    return@launch
-                }
-                // Only an accepted AAPS delivery is a recovery signal. Rejected external input must
-                // not start or keep the persistent bridge alive.
+                // External Companion Apps (historically TizenPlugin) is AndroidAPS' public local
+                // broadcast contract. It does not provide a stable authenticated-sender identity,
+                // so acceptance is governed by strict payload, timestamp and range validation.
                 PersistentBridgeService.start(app)
                 val sourcePreferences = app.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
                 val configuredSource = migrateDataSourcePreference(sourcePreferences.getString("dataSource", null))
@@ -107,7 +73,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     app.recordMobileDiagnostic("SOURCE", "SRC-AAPS-401", "AAPS payload could not be decoded", DiagnosticSeverity.WARNING)
                     return@launch
                 }
-                val installation = binding?.let { AapsCapabilityDetector.detectInstallation(app, it.packageName) }
+                val installation = AapsCapabilityDetector.detectInstallation(app, OFFICIAL_AAPS_PACKAGE)
                 val state = parsedState.copy(sourceVersion = installation?.versionName)
                 val store = TherapyStateStore(app)
                 val previous = store.state.first()
@@ -209,5 +175,6 @@ suspend fun publishState(
 }
 
 private const val IMMEDIATE_WATCH_PUSH_TIMEOUT_MS = 1_500L
+private const val OFFICIAL_AAPS_PACKAGE = "info.nightscout.androidaps"
 
 private fun Context.diagnostics() = getSharedPreferences("diagnostics", Context.MODE_PRIVATE)

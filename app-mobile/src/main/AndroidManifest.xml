@@ -43,7 +43,6 @@
  <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">
   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name=".NightscoutTreatmentSettingsActivity" android:exported="false"/>
-  <activity android:name=".AapsSourceSettingsActivity" android:exported="false"/>
   <activity android:name=".DiagnosticActivity" android:exported="false"/>
   <activity android:name=".WidgetConfigurationActivity" android:exported="true" android:theme="@style/AppTheme"/>
   <activity android:name=".HealthConnectRationaleActivity" android:exported="true">
