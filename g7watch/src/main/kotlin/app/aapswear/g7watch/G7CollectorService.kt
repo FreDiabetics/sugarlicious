@@ -106,6 +106,9 @@ internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState
         scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
     )
 
+internal fun clearG7ScanRuntime(state: G7PersistedState): G7PersistedState =
+    state.copy(scanStartedAtEpochMs = null, scanTimeoutAtEpochMs = null)
+
 class G7CollectorService : Service() {
     private val processStartedElapsedMs by lazy { SystemClock.elapsedRealtime() }
     private lateinit var store: G7SensorStateStore
@@ -389,10 +392,31 @@ class G7CollectorService : Service() {
             store.save(store.read().copy(health = G7CollectorReliability.collecting(store.read().health)))
             val sessionId = collectionSensor.sessionId ?: collectionSensor.sensorId
             val ledger = G7ExpectedWindowLedger(this)
-            var recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
+            var recoveryGap: app.aapswear.g7.CollectorExpectedWindow?
             val lastStoredSensorClock =
                 G7ReadingDatabase(this).let { database ->
                     try {
+                        val reconciliation =
+                            ledger.reconcileUnfinished(
+                                sensorId = collectionSensor.sensorId,
+                                sessionId = sessionId,
+                                nowEpochMs = System.currentTimeMillis(),
+                                readingNear = { window ->
+                                    database.validReadingNear(collectionSensor.sensorId, sessionId, window.expectedAt)
+                                },
+                            )
+                        if (reconciliation.satisfiedByReading > 0 || reconciliation.recoverableGaps > 0) {
+                            applicationContext.recordG7Diagnostic(
+                                "G7-LEDGER-RECONCILED",
+                                "Persisted collector windows reconciled against durable readings",
+                                metadata =
+                                    mapOf(
+                                        "satisfiedByReading" to reconciliation.satisfiedByReading,
+                                        "recoverableGaps" to reconciliation.recoverableGaps,
+                                    ),
+                            )
+                        }
+                        recoveryGap = ledger.oldestOpenGap(collectionSensor.sensorId, sessionId)
                         while (recoveryGap != null) {
                             val gap = recoveryGap
                             val presentAt =
@@ -701,7 +725,19 @@ class G7CollectorService : Service() {
                 responseAt = if (backfillRequestedAt != null) now else null,
                 inserted = committedBackfillMeasurements,
             )
-            G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
+            val ledgerUpdated = G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
+            if (scheduledCycle != null && !ledgerUpdated) {
+                applicationContext.recordG7Diagnostic(
+                    "G7-LEDGER-ID-MISMATCH",
+                    "Successful collector cycle could not resolve its expected window",
+                    DiagnosticSeverity.ERROR,
+                    mapOf(
+                        "expectedWindowId" to scheduledCycle.expectedWindowId,
+                        "expectedReadingEpoch" to scheduledCycle.expectedReadingEpoch,
+                        "classification" to CollectorCycleClassification.SUCCESS_FRESH.name,
+                    ),
+                )
+            }
             attemptStore.updateCycle(attemptId) { it.copy(storeCompletedAt = storedAt) }
             attemptStore.record(
                 attemptId,
@@ -727,7 +763,7 @@ class G7CollectorService : Service() {
             val manager = G7SessionManager(store.read().copy(sensor = documentedSensor))
             manager.authenticationSucceeded()
             val next =
-                manager.readingReceived(reading, fresh = fresh, nowEpochMs = storedAt).copy(
+                clearG7ScanRuntime(manager.readingReceived(reading, fresh = fresh, nowEpochMs = storedAt)).copy(
                     sensor = documentedSensor.copy(state = result.reading.sensorState),
                     connectionState = G7ConnectionState.DISCONNECTED,
                     protocolState = G7ProtocolState.WAITING_FOR_NEXT_READING,
@@ -737,7 +773,6 @@ class G7CollectorService : Service() {
                     pairingAttemptId = null,
                     pairingStartedAtEpochMs = null,
                     pairingDeadlineEpochMs = null,
-                    scanTimeoutAtEpochMs = null,
                     health = G7CollectorReliability.succeeded(store.read().health, reading.timestampEpochMs, storedAt),
                 )
             store.save(next)
@@ -921,7 +956,7 @@ class G7CollectorService : Service() {
                 now = System.currentTimeMillis(),
             )
         val next =
-            managed.copy(
+            clearG7ScanRuntime(managed).copy(
                 connectionState = G7ConnectionState.DISCONNECTED,
                 protocolState = if (softWindowFailure) G7ProtocolState.RECOVERING else G7ProtocolState.ERROR,
                 activeAttemptId = null,
@@ -950,7 +985,21 @@ class G7CollectorService : Service() {
                 error.code == "G7-STORE-500" -> CollectorCycleClassification.STORE_FAILED
                 else -> classifyG7CycleFailure(error.code, cycle)
             }
-        G7ExpectedWindowLedger(this).markFinal(cycle?.expectedWindowId, classification, recoveryRequired = true)
+        val ledgerUpdated = G7ExpectedWindowLedger(this).markFinal(cycle?.expectedWindowId, classification, recoveryRequired = true)
+        if (cycle != null && !ledgerUpdated) {
+            scope.launch {
+                applicationContext.recordG7Diagnostic(
+                    "G7-LEDGER-ID-MISMATCH",
+                    "Failed collector cycle could not resolve its expected window",
+                    DiagnosticSeverity.ERROR,
+                    mapOf(
+                        "expectedWindowId" to cycle.expectedWindowId,
+                        "expectedReadingEpoch" to cycle.expectedReadingEpoch,
+                        "classification" to classification.name,
+                    ),
+                )
+            }
+        }
         if (isCompleteRadioFailure(classification, cycle)) {
             // Attempt-shape counting used to reset on the direct-only cycle between two fallback
             // cycles. A watch could therefore spend days in NO_CALLBACK while always reporting

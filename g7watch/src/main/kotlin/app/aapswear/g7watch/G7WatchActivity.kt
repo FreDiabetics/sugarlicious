@@ -176,7 +176,8 @@ class G7WatchActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         G7RuntimeReconciler.reconcile(this, G7RuntimeEntryPoint.WATCH_APP)
-        pairingCodeDraft = savedInstanceState?.getString(KEY_PAIRING_CODE_DRAFT).orEmpty()
+        // Pairing credentials must not be copied into the Activity saved-state bundle.
+        pairingCodeDraft = ""
         val restoredStep =
             savedInstanceState?.getString(KEY_PAIRING_STEP)?.let {
                 runCatching { G7PairingScreenStep.valueOf(it) }.getOrNull()
@@ -190,7 +191,6 @@ class G7WatchActivity : Activity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(KEY_PAIRING_STEP, pairingStep?.name)
-        outState.putString(KEY_PAIRING_CODE_DRAFT, pairingCodeDraft)
         super.onSaveInstanceState(outState)
     }
 
@@ -1080,7 +1080,6 @@ class G7WatchActivity : Activity() {
     private companion object {
         const val PERMISSION_REQUEST = 7
         const val KEY_PAIRING_STEP = "pairing_step"
-        const val KEY_PAIRING_CODE_DRAFT = "pairing_code_draft"
         const val PAIRING_SUCCESS_DURATION_MS = 3_000L
     }
 }

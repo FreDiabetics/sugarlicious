@@ -32,13 +32,9 @@ class AapsCapabilityDetector {
     companion object {
         private val EXTENDED_KEYS =
             setOf("deltaMgdl", "avgDeltaMgdl", "bolusIob", "basalIob", "baseBasal", "pumpStatus", "pumpReservoir", "therapyEvents")
-        private val KNOWN_PACKAGES =
+        val KNOWN_PACKAGES =
             listOf(
                 "info.nightscout.androidaps",
-                "info.nightscout.aapspumpcontrol",
-                "info.nightscout.aapsclient",
-                "info.nightscout.aapsclient2",
-                "info.nightscout.aapsclient3",
             )
 
         fun detectContract(values: Map<String, Any?>) = AapsCapabilityDetector().detect(values)
@@ -46,10 +42,14 @@ class AapsCapabilityDetector {
         @Suppress("DEPRECATION")
         fun detectInstallation(context: Context): AapsInstallation? =
             KNOWN_PACKAGES.firstNotNullOfOrNull { packageName ->
-                runCatching { context.packageManager.getPackageInfo(packageName, 0) }.getOrNull()?.let { info ->
-                    val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)info.longVersionCode else info.versionCode.toLong()
-                    AapsInstallation(packageName, info.versionName, code)
-                }
+                detectInstallation(context, packageName)
+            }
+
+        @Suppress("DEPRECATION")
+        fun detectInstallation(context: Context, packageName: String): AapsInstallation? =
+            runCatching { context.packageManager.getPackageInfo(packageName, 0) }.getOrNull()?.let { info ->
+                val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)info.longVersionCode else info.versionCode.toLong()
+                AapsInstallation(packageName, info.versionName, code)
             }
     }
 }

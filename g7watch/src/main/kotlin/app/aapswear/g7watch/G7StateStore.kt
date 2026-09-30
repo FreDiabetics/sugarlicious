@@ -31,3 +31,9 @@ internal class G7SensorStateStore(
         const val KEY_STATE = "state"
     }
 }
+
+internal fun maskedPairingCode(pairingCode: String?): String =
+    if (pairingCode.isNullOrBlank()) "—" else "•".repeat(pairingCode.length)
+
+internal fun pairingCodeDisplayValue(pairingCode: String?, revealed: Boolean): String =
+    if (revealed) pairingCode ?: "—" else maskedPairingCode(pairingCode)

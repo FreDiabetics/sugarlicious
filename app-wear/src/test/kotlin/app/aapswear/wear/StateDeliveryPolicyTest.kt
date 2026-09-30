@@ -79,6 +79,19 @@ class StateDeliveryPolicyTest {
         assertTrue(committed.sha256Hex == expected)
     }
 
+    @Test fun `bursted state deliveries retain only the newest pending payload`() {
+        val deliveries = conflatedStateDeliveryChannel()
+        deliveries.trySend(PendingStateDelivery(byteArrayOf(1), "message"))
+        deliveries.trySend(PendingStateDelivery(byteArrayOf(2), "data_item"))
+        deliveries.trySend(PendingStateDelivery(byteArrayOf(3), "message"))
+
+        val pending = deliveries.tryReceive().getOrThrow()
+
+        assertTrue(pending.payload.contentEquals(byteArrayOf(3)))
+        assertTrue(pending.transport == "message")
+        assertTrue(deliveries.tryReceive().isFailure)
+    }
+
     private fun state(
         receivedAt: Long,
         glucoseAt: Long,

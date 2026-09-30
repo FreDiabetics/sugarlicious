@@ -12,6 +12,19 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7StateStoreTest {
+    @Test
+    fun `pairing code is masked outside the pairing editor`() {
+        assertEquals("••••", maskedPairingCode("1234"))
+        assertEquals("—", maskedPairingCode(null))
+    }
+
+    @Test
+    fun `pairing code is revealed only for an explicit in-memory reveal state`() {
+        assertEquals("••••", pairingCodeDisplayValue("1234", revealed = false))
+        assertEquals("1234", pairingCodeDisplayValue("1234", revealed = true))
+        assertEquals("—", pairingCodeDisplayValue(null, revealed = true))
+    }
+
     @Test fun `collector state survives process recreation`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         G7SensorStateStore(context).save(G7PersistedState(collectorEnabled = true, collectorOwner = CollectorOwner.WATCH))

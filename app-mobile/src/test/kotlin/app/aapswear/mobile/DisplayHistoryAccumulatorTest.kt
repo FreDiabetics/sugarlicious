@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.BasalState
+import app.aapswear.model.CanonicalDataField
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DataSourceId
@@ -16,12 +17,36 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyHistorySample
+import app.aapswear.model.ValueProvenance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
+    @Test
+    fun `partial updates retain provenance for retained fields and replace incoming fields`() {
+        val now = 2_000_000L
+        val previous =
+            TherapyDisplayState(
+                receivedAtEpochMs = now - 1_000L,
+                fieldProvenance = mapOf(CanonicalDataField.IOB to ValueProvenance.SOURCE),
+            )
+        val current =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                fieldProvenance = mapOf(CanonicalDataField.TREND to ValueProvenance.DERIVED),
+            )
+
+        assertEquals(
+            mapOf(
+                CanonicalDataField.IOB to ValueProvenance.SOURCE,
+                CanonicalDataField.TREND to ValueProvenance.DERIVED,
+            ),
+            DisplayHistoryAccumulator.merge(previous, current, now).fieldProvenance,
+        )
+    }
+
     @Test
     fun `retains AndroidAPS display semantics when a partial update omits them`() {
         val now = 2_000_000L

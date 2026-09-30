@@ -1161,16 +1161,13 @@ internal class GlucoseDashboardChart
             points: List<TherapyHistorySample>,
         ) {
             val allActual =
-                points
-                    .mapNotNull { point ->
-                        point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
-                    }.sortedBy { it.first }
+                finiteInsulinActivitySeries(points)
             val actual = allActual.filter { it.first in start..min(end, now) }
             if (actual.size < 2) return
-            val maximum = allActual.maxOf { it.second }.coerceAtLeast(0.000001)
+            val activityScale = insulinActivityScale(allActual.map { it.second })
 
             fun activityY(value: Double): Float =
-                band.bottom - (value / maximum).coerceIn(0.0, 1.0).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
+                band.bottom - activityScale.ratio(value).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.35f.dp
             linePaint.pathEffect = null
@@ -1623,10 +1620,7 @@ internal class MetabolicDashboardChart
         ) {
             val actual =
                 extendSeriesToLiveEdge(
-                    visiblePoints
-                        .mapNotNull { point ->
-                            point.insulinActivityUnitsPerMinute?.takeIf { it.isFinite() && it >= 0.0 }?.let { point.measuredAtEpochMs to it }
-                        },
+                    finiteInsulinActivitySeries(visiblePoints),
                     liveEdge,
                     start,
                     end,
@@ -1909,19 +1903,26 @@ internal fun resolveMetabolicScales(
                     },
             ),
         activity =
-            GraphAxisScale(
-                mode = CgmGraphScaleMode.DYNAMIC,
-                bounds =
-                    GraphBounds(
-                        minimum = 0.0,
-                        maximum =
-                            visiblePoints
-                                .mapNotNull { it.insulinActivityUnitsPerMinute?.takeIf { value -> value.isFinite() && value > 0.0 } }
-                                .maxOrNull()
-                                ?.coerceAtLeast(0.000001) ?: 0.01,
-                    ),
-            ),
+            insulinActivityScale(visiblePoints.mapNotNull { it.insulinActivityUnitsPerMinute }),
     )
+
+internal fun finiteInsulinActivitySeries(points: List<TherapyHistorySample>): List<Pair<Long, Double>> =
+    points
+        .mapNotNull { point ->
+            point.insulinActivityUnitsPerMinute
+                ?.takeIf(Double::isFinite)
+                ?.let { point.measuredAtEpochMs to it }
+        }.sortedBy { it.first }
+
+private fun insulinActivityScale(values: Iterable<Double>): GraphAxisScale {
+    val finite = values.filter(Double::isFinite)
+    val minimum = min(0.0, finite.minOrNull() ?: 0.0)
+    val maximum = max(0.0, finite.maxOrNull() ?: 0.0)
+    return GraphAxisScale(
+        mode = CgmGraphScaleMode.DYNAMIC,
+        bounds = GraphBounds(minimum, max(maximum, minimum + 0.000001)),
+    )
+}
 
 internal fun cgmBasalOverlayBounds(plot: RectF): RectF = RectF(plot)
 

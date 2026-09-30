@@ -16,6 +16,8 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.Trend
+import app.aapswear.model.ValueProvenance
 import app.aapswear.protocol.WatchDataSource
 
 /**
@@ -337,6 +339,7 @@ object G7LocalReadingResolver {
             receivedAtEpochMs = receivedAt,
             quality = quality,
             trendRateMgDlPerMinute = trendRateMgDlPerMinute,
+            trendOrigin = if (trend == Trend.UNKNOWN) ValueProvenance.UNAVAILABLE else ValueProvenance.DERIVED,
         )
 }
 

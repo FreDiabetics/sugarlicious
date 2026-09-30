@@ -4,6 +4,71 @@ import kotlin.test.*
 
 class AapsPayloadAdapterTest {
     @Test
+    fun `marks every supplied AndroidAPS field as source provenance`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf(
+                        "glucoseMgdl" to 123.0,
+                        "glucoseTimeStamp" to 900_000L,
+                        "deltaMgdl" to -2.0,
+                        "iob" to -0.1,
+                        "cob" to 12.0,
+                        "baseBasal" to 0.9,
+                        "insulinActivity" to 0.001,
+                        "low" to 80.0,
+                        "profile" to "Default",
+                        "pumpStatus" to "connected",
+                        "pumpReservoir" to 100.0,
+                        "phoneBattery" to 80,
+                    ),
+                    1_000_000L,
+                ),
+            )
+
+        listOf(
+            CanonicalDataField.GLUCOSE,
+            CanonicalDataField.DELTA,
+            CanonicalDataField.IOB,
+            CanonicalDataField.COB,
+            CanonicalDataField.BASAL,
+            CanonicalDataField.INSULIN_ACTIVITY,
+            CanonicalDataField.TARGET,
+            CanonicalDataField.PROFILE,
+            CanonicalDataField.PUMP_STATUS,
+            CanonicalDataField.RESERVOIR,
+            CanonicalDataField.PHONE_BATTERY,
+        ).forEach { field -> assertEquals(ValueProvenance.SOURCE, state.provenanceOf(field), field.name) }
+        assertEquals(ValueProvenance.UNAVAILABLE, state.provenanceOf(CanonicalDataField.PREDICTIONS))
+    }
+
+    @Test
+    fun `marks an explicit AndroidAPS trend as source provenance`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf("glucoseMgdl" to 123.0, "glucoseTimeStamp" to 900_000L, "slopeArrow" to "DoubleUp"),
+                    1_000_000L,
+                ),
+            )
+
+        assertEquals(ValueProvenance.SOURCE, state.glucose?.trendOrigin)
+    }
+
+    @Test
+    fun `marks a missing AndroidAPS trend as unavailable provenance`() {
+        val state =
+            assertNotNull(
+                AapsPayloadAdapter.parse(
+                    mapOf("glucoseMgdl" to 123.0, "glucoseTimeStamp" to 900_000L),
+                    1_000_000L,
+                ),
+            )
+
+        assertEquals(ValueProvenance.UNAVAILABLE, state.glucose?.trendOrigin)
+    }
+
+    @Test
     fun `attaches the AndroidAPS visible unit and precision contract`() {
         val state =
             assertNotNull(
@@ -112,7 +177,7 @@ class AapsPayloadAdapterTest {
         assertNull(absent.therapyHistory.single().insulinActivityUnitsPerMinute)
     }
 
-    @Test fun `does not derive activity when AndroidAPS did not transmit an activity value`() {
+    @Test fun `reconstructs AndroidAPS activity from transmitted BGI and ISF`() {
         val state =
             assertNotNull(
                 AapsPayloadAdapter.parse(
@@ -127,7 +192,8 @@ class AapsPayloadAdapterTest {
                 ),
             )
 
-        assertNull(state.therapyHistory.single().insulinActivityUnitsPerMinute)
+        assertEquals(26.0 / (120.0 * 5.0), state.therapyHistory.single().insulinActivityUnitsPerMinute!!, 0.0000001)
+        assertEquals(ValueProvenance.DERIVED, state.fieldProvenance[CanonicalDataField.INSULIN_ACTIVITY])
     }
 
     @Test fun `AAPS algorithm activity fails closed for incomplete or non physical inputs`() {

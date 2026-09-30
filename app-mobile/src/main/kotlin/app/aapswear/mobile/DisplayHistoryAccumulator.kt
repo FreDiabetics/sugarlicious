@@ -113,6 +113,7 @@ internal object DisplayHistoryAccumulator {
                 profile = profile,
                 aapsDisplaySemantics = current.aapsDisplaySemantics ?: previous?.aapsDisplaySemantics,
                 capabilities = current.capabilities + previous?.capabilities.orEmpty(),
+                fieldProvenance = previous?.fieldProvenance.orEmpty() + current.fieldProvenance,
             )
 
         return PersistentPredictionCache.merge(

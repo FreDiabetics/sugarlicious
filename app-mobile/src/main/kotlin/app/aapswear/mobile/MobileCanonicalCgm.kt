@@ -110,6 +110,7 @@ internal object MobileCanonicalStateCoordinator {
                         glucose.copy(
                             trend = resolution.trend,
                             trendRateMgDlPerMinute = resolution.rateMgDlPerMinute,
+                            trendOrigin = resolution.provenance,
                         ),
                 )
             if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {

@@ -31,6 +31,35 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
 
 @Serializable enum class CgmQuality { VALID, SENSOR_ERROR, INVALID }
 
+/** Describes whether a displayed value came from the upstream source or was derived locally. */
+@Serializable enum class ValueProvenance { SOURCE, DERIVED, UNAVAILABLE }
+
+/** Stable field identifiers used to carry origin through persistence and Wear transport. */
+@Serializable
+enum class CanonicalDataField {
+    GLUCOSE,
+    TREND,
+    DELTA,
+    AVERAGE_DELTA,
+    TARGET,
+    IOB,
+    BOLUS_IOB,
+    BASAL_IOB,
+    COB,
+    FUTURE_CARBS,
+    BASAL,
+    TEMP_BASAL,
+    INSULIN_ACTIVITY,
+    LOOP,
+    PROFILE,
+    PUMP_STATUS,
+    RESERVOIR,
+    PUMP_BATTERY,
+    PHONE_BATTERY,
+    PREDICTIONS,
+    THERAPY_EVENTS,
+}
+
 @Serializable enum class DataCapability { GLUCOSE, TREND, DELTA, AVERAGE_DELTA, TARGET, IOB, BOLUS_IOB, BASAL_IOB, SMB, COB, FUTURE_CARBS, TREATMENTS, BASAL, TEMP_BASAL, TEMP_TARGET, PROFILE, LOOP, PUMP, RESERVOIR, PUMP_BATTERY, PHONE_BATTERY, PREDICTIONS }
 
 @Serializable enum class PredictionKind { IOB, COB, ACOB, UAM, ZERO_TEMP }
@@ -70,6 +99,8 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
     val quality: CgmQuality = CgmQuality.VALID,
     /** Canonical rate in mg/dL/min; distinct from the per-reading delta. */
     val trendRateMgDlPerMinute: Double? = null,
+    /** Provenance is part of the value contract and must survive persistence and Wear transport. */
+    val trendOrigin: ValueProvenance = ValueProvenance.UNAVAILABLE,
 )
 
 @Serializable data class GlucoseSample(
@@ -196,11 +227,16 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
     val device: DeviceState? = null,
     val profile: ProfileState? = null,
     val capabilities: Set<DataCapability> = emptySet(),
+    /** Per-field origin; absent entries are deliberately treated as unavailable. */
+    val fieldProvenance: Map<CanonicalDataField, ValueProvenance> = emptyMap(),
 ) {
     companion object {
         const val CURRENT_SCHEMA = 11
     }
 }
+
+fun TherapyDisplayState.provenanceOf(field: CanonicalDataField): ValueProvenance =
+    fieldProvenance[field] ?: ValueProvenance.UNAVAILABLE
 
 object FreshnessPolicy {
     const val CURRENT_MAX_MS = 6 * 60_000L

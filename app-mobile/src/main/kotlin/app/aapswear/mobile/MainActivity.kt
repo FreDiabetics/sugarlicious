@@ -270,6 +270,7 @@ class MainActivity : ComponentActivity() {
                     navigate = ::navigate,
                     setUnit = { uiPreferences.edit { putString("unit", it.name) } },
                     setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
+                    openAapsSourceSettings = { startActivity(Intent(this, AapsSourceSettingsActivity::class.java)) },
                     openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
                     openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
                     setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },

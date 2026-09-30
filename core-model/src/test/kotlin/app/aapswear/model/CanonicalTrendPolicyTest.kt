@@ -6,6 +6,22 @@ import kotlin.test.assertNull
 
 class CanonicalTrendPolicyTest {
     @Test
+    fun `glucose provenance distinguishes source trend from derived trend`() {
+        val source =
+            GlucoseState(
+                valueMgDl = 120.0,
+                displayUnit = GlucoseUnit.MG_DL,
+                trend = Trend.SINGLE_UP,
+                measuredAtEpochMs = 1_000L,
+                trendOrigin = ValueProvenance.SOURCE,
+            )
+        val derived = source.copy(trendOrigin = ValueProvenance.DERIVED)
+
+        assertEquals(ValueProvenance.SOURCE, source.trendOrigin)
+        assertEquals(ValueProvenance.DERIVED, derived.trendOrigin)
+    }
+
+    @Test
     fun `all source directions normalize without ordinal mapping`() {
         val expected =
             mapOf(
