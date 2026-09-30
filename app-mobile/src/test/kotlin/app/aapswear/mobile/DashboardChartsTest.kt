@@ -41,6 +41,17 @@ import org.robolectric.annotation.GraphicsMode
 class DashboardChartsTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
+    @Test fun `insulin activity series preserves finite negative AndroidAPS values`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, insulinActivityUnitsPerMinute = -0.012),
+                TherapyHistorySample(2_000L, insulinActivityUnitsPerMinute = -0.008),
+                TherapyHistorySample(3_000L, insulinActivityUnitsPerMinute = Double.NaN),
+            )
+
+        assertEquals(listOf(1_000L to -0.012, 2_000L to -0.008), finiteInsulinActivitySeries(points))
+    }
+
     @Test fun `insulin activity smoothing passes through samples without overshoot`() {
         val segments =
             monotoneCurveSegments(

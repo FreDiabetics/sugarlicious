@@ -37,13 +37,14 @@ class AapsStatusReceiver : BroadcastReceiver() {
         if (intent.action != AapsPayloadAdapter.ACTION) return
         val pending = goAsync()
         val app = context.applicationContext
-        // A valid AAPS delivery is also a recovery signal. Keep the state bridge alive even when
-        // the Activity was swiped away or Android recreated the process in the background.
-        PersistentBridgeService.start(app)
 
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 val now = System.currentTimeMillis()
+                // External Companion Apps (historically TizenPlugin) is AndroidAPS' public local
+                // broadcast contract. It does not provide a stable authenticated-sender identity,
+                // so acceptance is governed by strict payload, timestamp and range validation.
+                PersistentBridgeService.start(app)
                 val sourcePreferences = app.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
                 val configuredSource = migrateDataSourcePreference(sourcePreferences.getString("dataSource", null))
                 val migrationDone = sourcePreferences.getBoolean(G7_SOURCE_FALLBACK_MIGRATION_KEY, false)
@@ -72,7 +73,7 @@ class AapsStatusReceiver : BroadcastReceiver() {
                     app.recordMobileDiagnostic("SOURCE", "SRC-AAPS-401", "AAPS payload could not be decoded", DiagnosticSeverity.WARNING)
                     return@launch
                 }
-                val installation = AapsCapabilityDetector.detectInstallation(app)
+                val installation = AapsCapabilityDetector.detectInstallation(app, OFFICIAL_AAPS_PACKAGE)
                 val state = parsedState.copy(sourceVersion = installation?.versionName)
                 val store = TherapyStateStore(app)
                 val previous = store.state.first()
@@ -174,5 +175,6 @@ suspend fun publishState(
 }
 
 private const val IMMEDIATE_WATCH_PUSH_TIMEOUT_MS = 1_500L
+private const val OFFICIAL_AAPS_PACKAGE = "info.nightscout.androidaps"
 
 private fun Context.diagnostics() = getSharedPreferences("diagnostics", Context.MODE_PRIVATE)

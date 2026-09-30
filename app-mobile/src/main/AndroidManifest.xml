@@ -1,8 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
  <queries>
   <package android:name="info.nightscout.androidaps"/>
-  <package android:name="info.nightscout.androidaps.dev"/>
-  <package android:name="info.nightscout.aaps"/>
   <package android:name="com.dexcom.g7"/>
  </queries>
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -40,10 +38,6 @@
  <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
  <queries>
   <package android:name="info.nightscout.androidaps"/>
-  <package android:name="info.nightscout.aapspumpcontrol"/>
-  <package android:name="info.nightscout.aapsclient"/>
-  <package android:name="info.nightscout.aapsclient2"/>
-  <package android:name="info.nightscout.aapsclient3"/>
   <package android:name="com.google.android.apps.healthdata"/>
  </queries>
  <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">

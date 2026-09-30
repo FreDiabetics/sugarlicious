@@ -18,6 +18,23 @@ class WearProtocolTest {
         assertEquals(s, WearProtocol.decode(WearProtocol.encode(s)))
     }
 
+    @Test fun `trend provenance survives phone to watch transport`() {
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = 2,
+                glucose =
+                    GlucoseState(
+                        100.0,
+                        GlucoseUnit.MG_DL,
+                        trend = Trend.SINGLE_UP,
+                        measuredAtEpochMs = 1,
+                        trendOrigin = ValueProvenance.DERIVED,
+                    ),
+            )
+
+        assertEquals(ValueProvenance.DERIVED, WearProtocol.decode(WearProtocol.encode(state)).glucose?.trendOrigin)
+    }
+
     @Test fun `AndroidAPS display semantics and signed values round trip unchanged`() {
         val state =
             TherapyDisplayState(

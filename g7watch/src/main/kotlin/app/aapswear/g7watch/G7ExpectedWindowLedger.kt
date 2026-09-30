@@ -133,25 +133,26 @@ internal class G7ExpectedWindowLedger(
     fun markReading(
         id: String?,
         at: Long,
-    ) = update(id) {
-        it.copy(
-            readingReceivedAt = at,
-            finalResult = CollectorCycleClassification.SUCCESS_FRESH,
-            recoveryRequired = false,
-            terminalState = CollectorWindowTerminalState.SUCCESS_FRESH,
-            terminalReason = "validated live reading stored",
-            completedAt = at,
-        )
-    }
+    ): Boolean =
+        update(id) {
+            it.copy(
+                readingReceivedAt = at,
+                finalResult = CollectorCycleClassification.SUCCESS_FRESH,
+                recoveryRequired = false,
+                terminalState = CollectorWindowTerminalState.SUCCESS_FRESH,
+                terminalReason = "validated live reading stored",
+                completedAt = at,
+            )
+        }
 
     fun markFinal(
         id: String?,
         result: CollectorCycleClassification,
         recoveryRequired: Boolean,
         reason: String? = null,
-    ) {
+    ): Boolean {
         val at = System.currentTimeMillis()
-        update(id) {
+        return update(id) {
             it.copy(
                 finalResult = result,
                 recoveryRequired = recoveryRequired,
@@ -363,6 +364,53 @@ internal class G7ExpectedWindowLedger(
 
     fun snapshot(): List<CollectorExpectedWindow> = synchronized(lock) { load().sortedBy { it.expectedAt } }
 
+    fun reconcileUnfinished(
+        sensorId: String,
+        sessionId: String,
+        nowEpochMs: Long,
+        readingNear: (CollectorExpectedWindow) -> Long?,
+    ): G7LedgerReconciliationResult =
+        synchronized(lock) {
+            var satisfiedByReading = 0
+            var recoverableGaps = 0
+            val updated =
+                load().map { window ->
+                    if (
+                        window.sensorId != sensorId ||
+                        window.sessionId != sessionId ||
+                        window.terminalState != null ||
+                        window.expectedAt > nowEpochMs - WINDOW_CANONICAL_TOLERANCE_MS
+                    ) {
+                        return@map window
+                    }
+                    val measuredAt = readingNear(window)
+                    if (measuredAt != null) {
+                        satisfiedByReading += 1
+                        window.copy(
+                            recoveredMeasuredAt = window.recoveredMeasuredAt ?: measuredAt,
+                            finalResult = CollectorCycleClassification.SUCCESS_FRESH,
+                            recoveryRequired = false,
+                            terminalState = CollectorWindowTerminalState.SUCCESS_FRESH,
+                            terminalReason = "reconciled from validated durable reading",
+                            completedAt = window.completedAt ?: nowEpochMs,
+                        )
+                    } else {
+                        recoverableGaps += 1
+                        window.copy(
+                            finalResult = CollectorCycleClassification.MISSED_SENSOR_WINDOW,
+                            recoveryRequired = true,
+                            gapDetectedAt = window.gapDetectedAt ?: nowEpochMs,
+                            gapRecoveryState = G7GapRecoveryState.RECOVERY_REQUIRED,
+                            terminalState = CollectorWindowTerminalState.MISSED_WINDOW,
+                            terminalReason = "unfinished canonical window had no validated reading",
+                            completedAt = window.completedAt ?: nowEpochMs,
+                        )
+                    }
+                }
+            saveAll(updated)
+            G7LedgerReconciliationResult(satisfiedByReading, recoverableGaps)
+        }
+
     fun oldestOpenGap(
         sensorId: String?,
         sessionId: String?,
@@ -387,11 +435,13 @@ internal class G7ExpectedWindowLedger(
     private fun update(
         id: String?,
         transform: (CollectorExpectedWindow) -> CollectorExpectedWindow,
-    ) = synchronized(lock) {
-        val value = id ?: return@synchronized
-        val existing = load().firstOrNull { it.expectedWindowId == value } ?: return@synchronized
-        saveUpsert(transform(existing))
-    }
+    ): Boolean =
+        synchronized(lock) {
+            val value = id ?: return@synchronized false
+            val existing = load().firstOrNull { it.expectedWindowId == value } ?: return@synchronized false
+            saveUpsert(transform(existing))
+            true
+        }
 
     private fun saveUpsert(window: CollectorExpectedWindow) {
         val values =
@@ -429,6 +479,11 @@ internal class G7ExpectedWindowLedger(
         val lock = Any()
     }
 }
+
+internal data class G7LedgerReconciliationResult(
+    val satisfiedByReading: Int,
+    val recoverableGaps: Int,
+)
 
 internal fun retainExpectedWindows(values: Collection<CollectorExpectedWindow>): List<CollectorExpectedWindow> {
     val ordered = values.sortedBy(CollectorExpectedWindow::expectedAt)

@@ -2,6 +2,11 @@ package app.aapswear.datasource.aaps
 import kotlin.test.*
 
 class AndroidApsDataSourceTest {
+    @Test
+    fun `official package catalog contains only standard AndroidAPS`() {
+        assertEquals(listOf("info.nightscout.androidaps"), AapsCapabilityDetector.KNOWN_PACKAGES)
+    }
+
     @Test fun detectsContracts() {
         val d = AapsCapabilityDetector()
         assertEquals(AapsContract.UNSUPPORTED, d.detect(emptyMap()))
@@ -54,5 +59,12 @@ class AndroidApsDataSourceTest {
                 100_000L,
             ),
         )
+    }
+
+    @Test fun `rejects non finite timestamps and glucose values`() {
+        val validator = AapsPayloadValidator()
+
+        assertFalse(validator.isValid(mapOf("glucoseMgdl" to Double.NaN, "glucoseTimeStamp" to 1L), 2L))
+        assertFalse(validator.isValid(mapOf("glucoseMgdl" to 100.0, "glucoseTimeStamp" to Double.POSITIVE_INFINITY), 2L))
     }
 }

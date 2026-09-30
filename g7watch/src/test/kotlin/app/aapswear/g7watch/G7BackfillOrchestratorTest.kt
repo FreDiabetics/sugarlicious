@@ -8,6 +8,7 @@ import app.aapswear.g7.G7GapRecoveryState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -133,6 +134,55 @@ class G7BackfillOrchestratorTest {
         assertEquals(first.expectedWindowId, duplicate.expectedWindowId)
         assertEquals(1, ledger.snapshot().size)
         assertEquals(300_000L, ledger.snapshot().single().expectedAt)
+    }
+
+    @Test fun `scheduled cycle uses ledger canonical id when requested time drifts by milliseconds`() {
+        val state = G7SensorStateStore(context).read().copy(collectorEnabled = true)
+        G7SensorStateStore(context).save(state)
+        val ledger = G7ExpectedWindowLedger(context)
+        val existing = ledger.create(300_000L, 290_000L)
+
+        val cycle =
+            canonicalCollectorCycle(
+                ledger = ledger,
+                requestedReconnectEpochMs = 290_323L,
+                expectedReadingEpochMs = 300_323L,
+                exactScheduled = true,
+            )
+
+        assertEquals(existing.expectedWindowId, cycle.expectedWindowId)
+        assertEquals(existing.expectedAt, cycle.expectedReadingEpoch)
+        assertEquals(1, ledger.snapshot().size)
+    }
+
+    @Test fun `unfinished historical windows reconcile from durable readings or become recoverable gaps`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val stored = ledger.create(300_000L, 290_000L)
+        val missing = ledger.create(600_000L, 590_000L)
+
+        val result =
+            ledger.reconcileUnfinished(
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                nowEpochMs = 1_000_000L,
+                readingNear = { window -> if (window.expectedWindowId == stored.expectedWindowId) 300_500L else null },
+            )
+
+        assertEquals(1, result.satisfiedByReading)
+        assertEquals(1, result.recoverableGaps)
+        assertEquals(false, ledger.window(stored.expectedWindowId)?.recoveryRequired)
+        assertEquals(CollectorCycleClassification.SUCCESS_FRESH, ledger.window(stored.expectedWindowId)?.finalResult)
+        assertEquals(true, ledger.window(missing.expectedWindowId)?.recoveryRequired)
+        assertEquals(CollectorCycleClassification.MISSED_SENSOR_WINDOW, ledger.window(missing.expectedWindowId)?.finalResult)
+    }
+
+    @Test fun `terminal updates report unknown cycle ids instead of failing silently`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val existing = ledger.create(300_000L, 290_000L)
+
+        assertFalse(ledger.markReading("unknown-id", 301_000L))
+        assertFalse(ledger.markFinal("unknown-id", CollectorCycleClassification.MISSED_SENSOR_WINDOW, true))
+        assertTrue(ledger.markReading(existing.expectedWindowId, 301_000L))
     }
 
     @Test fun `second successful contact retries and closes gap inside ten minute SLA`() {

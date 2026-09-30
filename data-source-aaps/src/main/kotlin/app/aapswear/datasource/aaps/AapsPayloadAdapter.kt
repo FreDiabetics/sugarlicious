@@ -49,7 +49,7 @@ object AapsPayloadAdapter {
         val enactedAt = values.number("enactedTimeStamp")?.toLong()?.takeIf { it > 0 }
         val suggestedPayload = values["suggested"] as? String
         val enactedPayload = values["enacted"] as? String
-        val insulinActivity = explicitInsulinActivity
+        val insulinActivity = explicitInsulinActivity ?: reconstructInsulinActivity(suggestedPayload ?: enactedPayload)
         val explicitLoopEnabled = values.boolean("loopEnabled")
         val explicitLoopStatus = (values["loopStatus"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
         val parsedTarget = AapsTargetParser.parseTarget(suggestedPayload) ?: AapsTargetParser.parseTarget(enactedPayload)
@@ -161,6 +161,39 @@ object AapsPayloadAdapter {
                 if (phoneBattery != null)add(DataCapability.PHONE_BATTERY)
             }
         val detectedContract = AapsCapabilityDetector.detectContract(values).id
+        val fieldProvenance =
+            buildMap {
+                fun sourceIf(field: CanonicalDataField, present: Boolean) {
+                    if (present) put(field, ValueProvenance.SOURCE)
+                }
+                put(CanonicalDataField.GLUCOSE, ValueProvenance.SOURCE)
+                sourceIf(CanonicalDataField.TREND, trend != Trend.UNKNOWN)
+                sourceIf(CanonicalDataField.DELTA, delta != null)
+                sourceIf(CanonicalDataField.AVERAGE_DELTA, averageDelta != null)
+                sourceIf(CanonicalDataField.TARGET, low != null || high != null || targetValue != null)
+                sourceIf(CanonicalDataField.IOB, iob != null)
+                sourceIf(CanonicalDataField.BOLUS_IOB, bolusIob != null)
+                sourceIf(CanonicalDataField.BASAL_IOB, basalIob != null)
+                sourceIf(CanonicalDataField.COB, cob != null)
+                sourceIf(CanonicalDataField.FUTURE_CARBS, futureCarbs != null)
+                sourceIf(CanonicalDataField.BASAL, baseBasal != null)
+                sourceIf(CanonicalDataField.TEMP_BASAL, tempStart != null || tempAbsolute != null || tempPercent != null)
+                when {
+                    explicitInsulinActivity != null -> put(CanonicalDataField.INSULIN_ACTIVITY, ValueProvenance.SOURCE)
+                    insulinActivity != null -> put(CanonicalDataField.INSULIN_ACTIVITY, ValueProvenance.DERIVED)
+                }
+                sourceIf(
+                    CanonicalDataField.LOOP,
+                    suggestedAt != null || enactedAt != null || explicitLoopEnabled != null || explicitLoopStatus != null,
+                )
+                sourceIf(CanonicalDataField.PROFILE, profile != null || diaHours != null)
+                sourceIf(CanonicalDataField.PUMP_STATUS, pumpStatus != null)
+                sourceIf(CanonicalDataField.RESERVOIR, reservoir != null)
+                sourceIf(CanonicalDataField.PUMP_BATTERY, pumpBattery != null)
+                sourceIf(CanonicalDataField.PHONE_BATTERY, phoneBattery != null)
+                sourceIf(CanonicalDataField.PREDICTIONS, predictions.isNotEmpty())
+                sourceIf(CanonicalDataField.THERAPY_EVENTS, therapyEvents.isNotEmpty())
+            }
         val loopState =
             if (suggestedAt != null || enactedAt != null || explicitLoopEnabled != null || explicitLoopStatus != null) {
                 LoopState(
@@ -198,6 +231,7 @@ object AapsPayloadAdapter {
                     averageDelta,
                     source = DataSourceId.ANDROID_APS,
                     receivedAtEpochMs = receivedAtEpochMs,
+                    trendOrigin = if (trend == Trend.UNKNOWN) ValueProvenance.UNAVAILABLE else ValueProvenance.SOURCE,
                 ),
             targetHistory =
                 targetValue
@@ -270,6 +304,7 @@ object AapsPayloadAdapter {
             device = if (phoneBattery != null || rigBattery != null) DeviceState(phoneBattery, rigBattery) else null,
             profile = if (profile != null || diaHours != null) ProfileState(profile, diaHours) else null,
             capabilities = caps,
+            fieldProvenance = fieldProvenance,
         )
     }
 
@@ -282,6 +317,32 @@ object AapsPayloadAdapter {
                     else -> null
                 }
             }?.takeIf { it.isFinite() }
+
+    private fun reconstructInsulinActivity(payload: String?): Double? {
+        val reason = payload ?: return null
+        val bgi =
+            BGI_PATTERN
+                .find(reason)
+                ?.groupValues
+                ?.get(1)
+                ?.replace(',', '.')
+                ?.toDoubleOrNull()
+                ?: return null
+        val isf =
+            ISF_PATTERN
+                .find(reason)
+                ?.groupValues
+                ?.get(1)
+                ?.replace(',', '.')
+                ?.toDoubleOrNull()
+                ?: return null
+        if (!bgi.isFinite() || !isf.isFinite() || bgi > 0.0 || isf <= 0.0) return null
+        return (-bgi / (isf * FIVE_MINUTES)).takeIf(Double::isFinite)
+    }
+
+    private const val FIVE_MINUTES = 5.0
+    private val BGI_PATTERN = Regex("""\bBGI:\s*(-?\d+(?:[.,]\d+)?)""", RegexOption.IGNORE_CASE)
+    private val ISF_PATTERN = Regex("""\bISF:\s*(\d+(?:[.,]\d+)?)""", RegexOption.IGNORE_CASE)
 
     private fun Map<String, Any?>.boolean(key: String): Boolean? =
         when (val value = get(key)) {

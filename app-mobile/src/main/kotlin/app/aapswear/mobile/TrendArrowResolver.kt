@@ -5,6 +5,7 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendRateProfile
+import app.aapswear.model.ValueProvenance
 
 /**
  * AndroidAPS is authoritative whenever its External Companion Apps broadcast contains a trend:
@@ -15,6 +16,7 @@ internal object TrendArrowResolver {
     data class Resolution(
         val trend: Trend,
         val rateMgDlPerMinute: Double? = null,
+        val provenance: ValueProvenance = ValueProvenance.UNAVAILABLE,
     )
 
     fun resolve(
@@ -30,9 +32,11 @@ internal object TrendArrowResolver {
         history: List<GlucoseSample>,
         nightscoutDirection: String? = null,
     ): Resolution {
-        if (aapsTrend != Trend.UNKNOWN) return Resolution(aapsTrend)
+        if (aapsTrend != Trend.UNKNOWN) return Resolution(aapsTrend, provenance = ValueProvenance.SOURCE)
 
-        CanonicalTrendPolicy.fromDirection(nightscoutDirection).takeUnless { it == Trend.UNKNOWN }?.let { return Resolution(it) }
+        CanonicalTrendPolicy.fromDirection(nightscoutDirection).takeUnless { it == Trend.UNKNOWN }?.let {
+            return Resolution(it, provenance = ValueProvenance.SOURCE)
+        }
         val currentSample =
             GlucoseSample(
                 valueMgDl = current.valueMgDl,
@@ -45,7 +49,11 @@ internal object TrendArrowResolver {
                 quality = current.quality,
             )
         val derived = CanonicalTrendPolicy.derive(currentSample, history, TrendRateProfile.ANDROID_APS)
-        return Resolution(derived?.trend ?: Trend.UNKNOWN, derived?.rateMgDlPerMinute)
+        return Resolution(
+            derived?.trend ?: Trend.UNKNOWN,
+            derived?.rateMgDlPerMinute,
+            if (derived == null) ValueProvenance.UNAVAILABLE else ValueProvenance.DERIVED,
+        )
     }
 
     fun directionToTrend(direction: String?): Trend? = CanonicalTrendPolicy.fromDirection(direction).takeUnless { it == Trend.UNKNOWN }

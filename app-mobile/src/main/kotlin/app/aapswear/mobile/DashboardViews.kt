@@ -490,6 +490,7 @@ class DashboardViewFactory(
                         ),
                     )
                     addView(divider())
+                    addView(divider())
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
                     addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
                 },

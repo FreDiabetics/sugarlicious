@@ -41,6 +41,7 @@ class G7SystemStatusActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var batteryRequestPending = false
     private var showPairingEditor = false
+    private var showPairingCode = false
     private var hardwareExpanded = false
     private var diagnosticsExpanded = false
     private var scrollView: ScrollView? = null
@@ -69,6 +70,11 @@ class G7SystemStatusActivity : Activity() {
             )
         }
         render()
+    }
+
+    override fun onPause() {
+        showPairingCode = false
+        super.onPause()
     }
 
     private fun render() {
@@ -134,7 +140,15 @@ class G7SystemStatusActivity : Activity() {
                         addView(label("SENSOR", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
                         addView(row("Sensorstatus", state.sensor?.state?.name ?: "—", palette))
                         addView(row("Session", state.sensor?.sessionId ?: state.lastReading?.sessionId ?: "—", palette))
-                        addView(row("Sensorcode", credentials?.pairingCode ?: "—", palette))
+                        addView(row("Sensorcode", pairingCodeDisplayValue(credentials?.pairingCode, showPairingCode), palette))
+                        if (credentials != null) {
+                            addView(
+                                pill(if (showPairingCode) "Sensorcode verbergen" else "Sensorcode anzeigen", palette) {
+                                    showPairingCode = !showPairingCode
+                                    render()
+                                },
+                            )
+                        }
                         addView(row("GTIN", credentials?.gtin ?: "—", palette))
                         addView(row("Seriennummer", credentials?.sensorSerial ?: "—", palette))
                         addView(

@@ -260,4 +260,17 @@ class G7LifecyclePolicyTest {
         assertEquals(91_600L, restarted.pairingDeadlineEpochMs)
         assertEquals(91_600L, restarted.scanTimeoutAtEpochMs)
     }
+
+    @Test fun `terminal collector state clears stale scan timestamps`() {
+        val state =
+            G7PersistedState(
+                scanStartedAtEpochMs = 1_000L,
+                scanTimeoutAtEpochMs = 2_000L,
+            )
+
+        val terminal = clearG7ScanRuntime(state)
+
+        assertNull(terminal.scanStartedAtEpochMs)
+        assertNull(terminal.scanTimeoutAtEpochMs)
+    }
 }
