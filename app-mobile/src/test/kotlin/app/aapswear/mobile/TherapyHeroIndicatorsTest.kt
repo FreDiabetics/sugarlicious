@@ -180,6 +180,19 @@ class TherapyHeroIndicatorsTest {
         assertTrue(!bounds.plot.contains(bounds.valueAxis.centerX(), bounds.valueAxis.centerY()))
     }
 
+    @Test
+    fun `metabolic graph uses one plot region with a minimal square internal separator`() {
+        val bounds = mobileMetabolicGraphBounds(400f, 260f, 1f, 24f, 29f, scaleOnRight = true)
+
+        assertEquals(bounds.plotRegion.right, bounds.valueAxis.left, 0.001f)
+        assertEquals(bounds.plotRegion.bottom, bounds.timeAxis.top, 0.001f)
+        assertEquals(2f, bounds.separator.height(), 0.001f)
+        assertEquals(bounds.iobLane.bottom, bounds.separator.top, 0.001f)
+        assertEquals(bounds.separator.bottom, bounds.cobLane.top, 0.001f)
+        assertTrue(bounds.iobData.height() > bounds.iobLane.height() * 0.65f)
+        assertTrue(bounds.cobData.height() > bounds.cobLane.height() * 0.65f)
+    }
+
     private fun state(
         insulin: InsulinState? = null,
         carbs: CarbState? = null,

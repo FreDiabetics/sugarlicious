@@ -56,7 +56,7 @@ internal object DisplayHistoryAccumulator {
 
         val earliest = nowEpochMs - WINDOW_MS
         val latest = nowEpochMs + 5 * 60_000L
-        val therapy =
+        val therapyCandidates =
             buildList {
                 addAll(previous?.therapyHistory.orEmpty())
                 addAll(current.therapyHistory)
@@ -86,10 +86,7 @@ internal object DisplayHistoryAccumulator {
                     )
                 }
             }.filter { it.measuredAtEpochMs in earliest..latest }
-                .groupBy { it.measuredAtEpochMs }
-                .map { (timestamp, samples) -> samples.reduce { first, second -> first.merge(second, timestamp) } }
-                .sortedBy { it.measuredAtEpochMs }
-                .takeLast(MAX_POINTS)
+        val therapy = retainTherapyHistory(therapyCandidates)
         val therapyEvents =
             (previous?.therapyEvents.orEmpty() + current.therapyEvents)
                 .asSequence()
@@ -233,6 +230,48 @@ internal object DisplayHistoryAccumulator {
         insulinActivityUnitsPerMinute = other.insulinActivityUnitsPerMinute ?: insulinActivityUnitsPerMinute,
         smbUnits = other.smbUnits ?: smbUnits,
     )
+
+    /**
+     * Bounds each independently supplied therapy stream instead of the timestamp union. AAPS can
+     * publish IOB, COB, basal and activity in separate messages; globally truncating that union
+     * allowed a dense stream to evict valid 24-hour history from its siblings.
+     */
+    private fun retainTherapyHistory(values: List<TherapyHistorySample>): List<TherapyHistorySample> {
+        val byTimestamp = sortedMapOf<Long, TherapyHistorySample>()
+
+        fun retain(
+            present: (TherapyHistorySample) -> Boolean,
+            isolate: (TherapyHistorySample) -> TherapyHistorySample,
+        ) {
+            values
+                .asSequence()
+                .filter(present)
+                .sortedBy(TherapyHistorySample::measuredAtEpochMs)
+                .toList()
+                .takeLast(MAX_POINTS)
+                .forEach { sample ->
+                    val timestamp = sample.measuredAtEpochMs
+                    val isolated = isolate(sample)
+                    byTimestamp[timestamp] = byTimestamp[timestamp]?.merge(isolated, timestamp) ?: isolated
+                }
+        }
+
+        retain({ it.totalIob != null }) { TherapyHistorySample(it.measuredAtEpochMs, totalIob = it.totalIob) }
+        retain({ it.cobGrams != null }) { TherapyHistorySample(it.measuredAtEpochMs, cobGrams = it.cobGrams) }
+        retain({ it.basalUnitsPerHour != null }) { TherapyHistorySample(it.measuredAtEpochMs, basalUnitsPerHour = it.basalUnitsPerHour) }
+        retain({ it.baseBasalUnitsPerHour != null }) {
+            TherapyHistorySample(it.measuredAtEpochMs, baseBasalUnitsPerHour = it.baseBasalUnitsPerHour)
+        }
+        retain({ it.tempBasalUnitsPerHour != null }) {
+            TherapyHistorySample(it.measuredAtEpochMs, tempBasalUnitsPerHour = it.tempBasalUnitsPerHour)
+        }
+        retain({ it.insulinActivityUnitsPerMinute != null }) {
+            TherapyHistorySample(it.measuredAtEpochMs, insulinActivityUnitsPerMinute = it.insulinActivityUnitsPerMinute)
+        }
+        retain({ it.smbUnits != null }) { TherapyHistorySample(it.measuredAtEpochMs, smbUnits = it.smbUnits) }
+
+        return byTimestamp.values.toList()
+    }
 
     private fun mergeInsulin(old: InsulinState?, new: InsulinState?): InsulinState? =
         new?.copy(

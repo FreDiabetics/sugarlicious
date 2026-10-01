@@ -29,6 +29,7 @@ import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.CgmGraphYScale
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -124,6 +125,19 @@ internal fun availableGlucoseHistoryWindowMs(
         }.minOrNull() ?: return 0L
     return (nowEpochMs - earliest).coerceIn(0L, 24L * HOUR_MS)
 }
+
+internal fun canonicalMobileGraphHistory(
+    samples: List<GlucoseSample>,
+    nowEpochMs: Long,
+    preferredSource: DataSourceId?,
+): List<GlucoseSample> =
+    CanonicalCgmHistory.merge(
+        samples = samples,
+        nowEpochMs = nowEpochMs,
+        preferredSource = preferredSource,
+        windowMs = DisplayHistoryAccumulator.WINDOW_MS,
+        maxPoints = DisplayHistoryAccumulator.MAX_POINTS,
+    )
 
 internal fun availableOverviewHistoryWindowMs(
     state: TherapyDisplayState?,
@@ -736,7 +750,7 @@ internal class GlucoseDashboardChart
                 // Like AAPS, the viewport is tied to real current time. A new CGM therefore advances
                 // the same time axis instead of pinning the latest point while neighbours get squeezed.
                 val allHistory =
-                    CanonicalCgmHistory.merge(
+                    canonicalMobileGraphHistory(
                         samples =
                             buildList {
                                 addAll(state?.glucoseHistory.orEmpty())

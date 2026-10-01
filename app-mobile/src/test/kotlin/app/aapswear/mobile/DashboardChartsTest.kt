@@ -13,6 +13,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmGraphScaleMode
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -1064,6 +1065,25 @@ class DashboardChartsTest {
             )
 
         assertEquals(7L * 60L * 60_000L, availableGlucoseHistoryWindowMs(state, now))
+    }
+
+    @Test
+    fun `mobile CGM renderer retains overlapping valid sensor streams for the complete twenty four hours`() {
+        val minute = 60_000L
+        val now = 100L * 60L * minute
+        val samples =
+            (0..288).flatMap { index ->
+                val timestamp = now - DisplayHistoryAccumulator.WINDOW_MS + index * 5L * minute
+                listOf(
+                    GlucoseSample(100.0 + index % 10, timestamp, sensorId = "sensor-a", sessionId = "session-a"),
+                    GlucoseSample(110.0 + index % 10, timestamp, sensorId = "sensor-b", sessionId = "session-b"),
+                )
+            }
+
+        val retained = canonicalMobileGraphHistory(samples, now, DataSourceId.ANDROID_APS)
+
+        assertEquals(578, retained.size)
+        assertEquals(now - DisplayHistoryAccumulator.WINDOW_MS, retained.first().measuredAtEpochMs)
     }
 
     @Test
