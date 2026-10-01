@@ -93,6 +93,33 @@ class DashboardChartsTest {
         assertEquals(8f, segments.last().startY)
     }
 
+    @Test
+    fun `insulin activity visual smoothing reduces an isolated peak while retaining endpoints`() {
+        val smoothed =
+            smoothActivitySeries(
+                listOf(
+                    1_000L to 0.0,
+                    2_000L to 1.0,
+                    3_000L to 0.0,
+                ),
+            )
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 0.5, 3_000L to 0.0), smoothed)
+    }
+
+    @Test
+    fun `insulin activity lane is shifted upward with symmetric headroom`() {
+        val plot = RectF(0f, 0f, 100f, 100f)
+        val scale =
+            app.aapswear.model.GraphAxisScale(
+                app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                app.aapswear.model.GraphBounds(0.0, 1.0),
+            )
+
+        assertEquals(90f, mapActivityY(0.0, scale, plot), 0.001f)
+        assertEquals(10f, mapActivityY(1.0, scale, plot), 0.001f)
+    }
+
     @Test fun `glucose chart renders source target and prediction streams`() {
         val now = System.currentTimeMillis()
         val state =
@@ -641,6 +668,26 @@ class DashboardChartsTest {
             )
 
         assertTrue(scales.iob.bounds.maximum >= 12.0)
+    }
+
+    @Test
+    fun `IOB graph never expands below minus two units`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, totalIob = -8.0),
+                TherapyHistorySample(2_000L, totalIob = 3.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = points,
+                visiblePoints = points,
+                iobMaximumUnits = 10.0,
+            )
+
+        assertEquals(-2.0, scales.iob.bounds.minimum, 0.0)
+        assertEquals(0.0, scales.iob.ratio(-8.0), 0.0)
     }
 
     @Test fun `configured IOB and COB graph maxima use independent axes and retain negative IOB`() {

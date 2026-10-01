@@ -63,6 +63,7 @@ internal const val MAX_VISIBLE_GRAPH_HOURS = 24f
 internal const val MIN_VISIBLE_HISTORY_HOURS = 1f
 private const val BASAL_HEIGHT_FRACTION = 0.28f
 private const val ACTIVITY_HEIGHT_FRACTION = 0.80f
+private const val ACTIVITY_VERTICAL_OFFSET_FRACTION = 0.10f
 private const val GRAPH_CORNER_RADIUS_DP = 18f
 private const val GLUCOSE_DISPLAY_MAX = 400.0
 private const val VALUE_AXIS_WIDTH_DP = 29f
@@ -1176,12 +1177,11 @@ internal class GlucoseDashboardChart
         ) {
             val allActual =
                 finiteInsulinActivitySeries(points)
-            val actual = allActual.filter { it.first in start..min(end, now) }
+            val actual = smoothActivitySeries(allActual.filter { it.first in start..min(end, now) })
             if (actual.size < 2) return
             val activityScale = insulinActivityScale(allActual.map { it.second })
 
-            fun activityY(value: Double): Float =
-                band.bottom - activityScale.ratio(value).toFloat() * band.height() * ACTIVITY_HEIGHT_FRACTION
+            fun activityY(value: Double): Float = mapActivityY(value, activityScale, band)
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.35f.dp
             linePaint.pathEffect = null
@@ -1639,15 +1639,17 @@ internal class MetabolicDashboardChart
             activityScale: GraphAxisScale,
         ) {
             val actual =
-                extendSeriesToLiveEdge(
-                    finiteInsulinActivitySeries(visiblePoints),
-                    liveEdge,
-                    start,
-                    end,
+                smoothActivitySeries(
+                    extendSeriesToLiveEdge(
+                        finiteInsulinActivitySeries(visiblePoints),
+                        liveEdge,
+                        start,
+                        end,
+                    ),
                 )
             if (actual.size < 2) return
 
-            fun y(value: Double) = plot.bottom - activityScale.ratio(value).toFloat() * plot.height() * ACTIVITY_HEIGHT_FRACTION
+            fun y(value: Double) = mapActivityY(value, activityScale, plot)
             linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
             linePaint.strokeWidth = 1.6f.dp
             linePaint.pathEffect = null
@@ -1895,15 +1897,17 @@ internal fun resolveMetabolicScales(
 ): MobileMetabolicScales =
     MobileMetabolicScales(
         iob =
-            session.resolve(
-                axis = GraphAxis.IOB,
-                mode = iobMode,
-                seedValues = allPoints.mapNotNull { it.totalIob },
-                visibleValues = visiblePoints.mapNotNull { it.totalIob },
-                fallbackBounds = GraphBounds(0.0, 1.0),
-                minimumSpan = 0.1,
-                maxTickCount = 3,
-                requiredValues = listOfNotNull(iobMaximumUnits?.takeIf { it.isFinite() && it > 0.0 }),
+            limitIobNegativeBounds(
+                session.resolve(
+                    axis = GraphAxis.IOB,
+                    mode = iobMode,
+                    seedValues = allPoints.mapNotNull { it.totalIob },
+                    visibleValues = visiblePoints.mapNotNull { it.totalIob },
+                    fallbackBounds = GraphBounds(0.0, 1.0),
+                    minimumSpan = 0.1,
+                    maxTickCount = 3,
+                    requiredValues = listOfNotNull(iobMaximumUnits?.takeIf { it.isFinite() && it > 0.0 }),
+                ),
             ),
         cob =
             session.resolve(
@@ -1933,6 +1937,25 @@ internal fun finiteInsulinActivitySeries(points: List<TherapyHistorySample>): Li
                 ?.takeIf(Double::isFinite)
                 ?.let { point.measuredAtEpochMs to it }
         }.sortedBy { it.first }
+
+internal fun smoothActivitySeries(values: List<Pair<Long, Double>>): List<Pair<Long, Double>> {
+    val ordered = values.distinctBy { it.first }.sortedBy { it.first }
+    if (ordered.size < 3) return ordered
+    return ordered.mapIndexed { index, point ->
+        if (index == 0 || index == ordered.lastIndex) {
+            point
+        } else {
+            val smoothed = (ordered[index - 1].second + 2.0 * point.second + ordered[index + 1].second) / 4.0
+            point.first to smoothed
+        }
+    }
+}
+
+private fun limitIobNegativeBounds(scale: GraphAxisScale): GraphAxisScale {
+    val minimum = max(-2.0, scale.bounds.minimum)
+    val maximum = maxOf(scale.bounds.maximum, 0.0, minimum + 0.1)
+    return scale.copy(bounds = GraphBounds(minimum, maximum))
+}
 
 private fun insulinActivityScale(values: Iterable<Double>): GraphAxisScale {
     val finite = values.filter(Double::isFinite)
@@ -2389,6 +2412,15 @@ private fun mapAxisY(
     scale: GraphAxisScale,
     plot: RectF,
 ): Float = plot.bottom - scale.ratio(value).toFloat() * plot.height()
+
+internal fun mapActivityY(
+    value: Double,
+    scale: GraphAxisScale,
+    plot: RectF,
+): Float =
+    plot.bottom -
+        plot.height() *
+        (ACTIVITY_VERTICAL_OFFSET_FRACTION + scale.ratio(value).toFloat() * ACTIVITY_HEIGHT_FRACTION)
 
 internal fun continuousActivitySeries(
     actual: List<Pair<Long, Double>>,
