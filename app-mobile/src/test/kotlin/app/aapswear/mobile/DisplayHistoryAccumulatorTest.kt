@@ -246,6 +246,36 @@ class DisplayHistoryAccumulatorTest {
     }
 
     @Test
+    fun `dense independent therapy streams cannot evict each other inside the twenty four hour window`() {
+        val minute = 60_000L
+        val now = 4 * DisplayHistoryAccumulator.WINDOW_MS
+        val start = now - DisplayHistoryAccumulator.WINDOW_MS
+        val history =
+            (0..(24 * 60)).flatMap { offset ->
+                val timestamp = start + offset * minute
+                listOf(
+                    TherapyHistorySample(timestamp, totalIob = offset.toDouble()),
+                    TherapyHistorySample(timestamp + 1, cobGrams = offset.toDouble()),
+                    TherapyHistorySample(timestamp + 2, basalUnitsPerHour = 0.8),
+                    TherapyHistorySample(timestamp + 3, insulinActivityUnitsPerMinute = 0.01),
+                )
+            }
+
+        val merged =
+            DisplayHistoryAccumulator.merge(
+                previous = null,
+                current = TherapyDisplayState(receivedAtEpochMs = now, therapyHistory = history),
+                nowEpochMs = now,
+            )
+
+        assertEquals(24 * 60 + 1, merged.therapyHistory.count { it.totalIob != null })
+        assertEquals(24 * 60 + 1, merged.therapyHistory.count { it.cobGrams != null })
+        assertEquals(24 * 60 + 1, merged.therapyHistory.count { it.basalUnitsPerHour != null })
+        assertEquals(24 * 60 + 1, merged.therapyHistory.count { it.insulinActivityUnitsPerMinute != null })
+        assertEquals(start, merged.therapyHistory.first { it.totalIob != null }.measuredAtEpochMs)
+    }
+
+    @Test
     fun `incoming history samples close an existing graph gap`() {
         val minute = 60_000L
         val now = 1000 * minute
