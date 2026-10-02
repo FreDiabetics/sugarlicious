@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import androidx.test.core.app.ApplicationProvider
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -12,8 +13,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [34, 35, 36, 37])
 class WearRuntimeManifestTest {
+    @Test fun `wear app targets android 17 for wear os 7 compatibility`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertEquals(37, context.applicationInfo.targetSdkVersion)
+    }
+
     @Test fun `persistent runtime permissions and connected device type are declared`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val packageInfo =

@@ -533,19 +533,24 @@ class G7WatchActivityLayoutTest {
 
         val now = System.currentTimeMillis()
         runBlocking {
-            G7ReadingDatabase(activity).insert(
-                CgmReading(
-                    id = "ui-refresh-${System.nanoTime()}",
-                    source = DataSourceId.DEXCOM_G7_WATCH,
-                    sensorId = "sensor-ui-refresh",
-                    sessionId = "session-ui-refresh",
-                    glucoseMgDl = 123.0,
-                    timestampEpochMs = now,
-                    receivedAtEpochMs = now + 1_000L,
-                    trend = Trend.FLAT,
-                    status = CgmReadingStatus.VALID,
-                ),
-            )
+            val database = G7ReadingDatabase(activity)
+            try {
+                database.insert(
+                    CgmReading(
+                        id = "ui-refresh-${System.nanoTime()}",
+                        source = DataSourceId.DEXCOM_G7_WATCH,
+                        sensorId = "sensor-ui-refresh",
+                        sessionId = "session-ui-refresh",
+                        glucoseMgDl = 123.0,
+                        timestampEpochMs = now,
+                        receivedAtEpochMs = now + 1_000L,
+                        trend = Trend.FLAT,
+                        status = CgmReadingStatus.VALID,
+                    ),
+                )
+            } finally {
+                database.close()
+            }
         }
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Process
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Base64
 import androidx.core.content.edit
 import app.aapswear.g7.CollectorAlarmKind
 import app.aapswear.g7.CollectorCycleClassification
@@ -364,6 +365,18 @@ internal class G7ExpectedWindowLedger(
 
     fun snapshot(): List<CollectorExpectedWindow> = synchronized(lock) { load().sortedBy { it.expectedAt } }
 
+    /**
+     * Small boot-safe index used by lifecycle recovery. Reading this value never parses the
+     * retained window ledger, which can be hundreds of kilobytes on a long-running collector.
+     */
+    fun latestExpectedAt(
+        sensorId: String,
+        sessionId: String,
+    ): Long? =
+        preferences
+            .getLong(latestExpectedKey(sensorId, sessionId), NO_EXPECTED_AT)
+            .takeUnless { it == NO_EXPECTED_AT }
+
     fun reconcileUnfinished(
         sensorId: String,
         sessionId: String,
@@ -453,12 +466,28 @@ internal class G7ExpectedWindowLedger(
     }
 
     private fun saveAll(values: List<CollectorExpectedWindow>) {
+        val retained = retainExpectedWindows(values)
         preferences.edit {
             putString(
                 KEY_WINDOWS,
-                json.encodeToString(serializer, retainExpectedWindows(values)),
+                json.encodeToString(serializer, retained),
             )
+            retained
+                .asSequence()
+                .filter { !it.sensorId.isNullOrBlank() && !it.sessionId.isNullOrBlank() }
+                .groupBy { it.sensorId!! to it.sessionId!! }
+                .forEach { (identity, windows) ->
+                    putLong(latestExpectedKey(identity.first, identity.second), windows.maxOf { it.expectedAt })
+                }
         }
+    }
+
+    private fun latestExpectedKey(
+        sensorId: String,
+        sessionId: String,
+    ): String {
+        val identity = "$sensorId\u0000$sessionId".toByteArray(Charsets.UTF_8)
+        return KEY_LATEST_EXPECTED_PREFIX + Base64.encodeToString(identity, Base64.NO_WRAP or Base64.URL_SAFE)
     }
 
     private fun load(): List<CollectorExpectedWindow> =
@@ -475,6 +504,8 @@ internal class G7ExpectedWindowLedger(
     private companion object {
         const val PREFERENCES = "g7_expected_window_ledger"
         const val KEY_WINDOWS = "windows_v1"
+        const val KEY_LATEST_EXPECTED_PREFIX = "latest_expected_v1_"
+        const val NO_EXPECTED_AT = Long.MIN_VALUE
         const val WINDOW_CANONICAL_TOLERANCE_MS = 60_000L
         val lock = Any()
     }

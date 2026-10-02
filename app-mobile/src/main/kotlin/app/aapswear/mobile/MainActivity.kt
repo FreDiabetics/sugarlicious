@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private var settingsSwipeStartX = 0f
     private var settingsSwipeStartY = 0f
     private var settingsSwipeTracking = false
+    private var deferNightscoutSyncForPermissionCheck = false
     private val healthPermissionsLauncher =
         registerForActivityResult(HealthConnectIntegration.permissionContract) { granted ->
             scope.launch {
@@ -94,6 +95,22 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             PersistentBridgeService.refresh(this)
             if (::factory.isInitialized) refresh(forceSettingsRender = screen == DashboardScreen.SETTINGS)
+        }
+    private val localNetworkPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                deferNightscoutSyncForPermissionCheck = false
+                scope.launch(Dispatchers.IO) {
+                    NightscoutTreatmentSync.sync(applicationContext)
+                }
+            } else {
+                Toast
+                    .makeText(
+                        this,
+                        "Lokaler Nightscout-Zugriff ist ohne Netzwerkfreigabe nicht möglich",
+                        Toast.LENGTH_LONG,
+                    ).show()
+            }
         }
     private val settingsExportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -205,6 +222,7 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
+        requestMigratedLocalNetworkAccessIfNeeded()
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
             uiPreferences.edit {
                 putInt("graphHours", 3)
@@ -351,6 +369,40 @@ class MainActivity : ComponentActivity() {
         refresh(forceSettingsRender = true)
     }
 
+    private fun requestMigratedLocalNetworkAccessIfNeeded() {
+        val migrationKey = "android17LocalNetworkPermissionPromptedV1"
+        val configuration = NightscoutConfigurationStore.read(this)
+        val granted =
+            checkSelfPermission(LocalNetworkAccessPolicy.PERMISSION) == PackageManager.PERMISSION_GRANTED
+        deferNightscoutSyncForPermissionCheck =
+            LocalNetworkAccessPolicy.shouldDeferSyncWhileChecking(
+                sdkInt = Build.VERSION.SDK_INT,
+                enabled = configuration.enabled,
+                permissionGranted = granted,
+            )
+        if (!deferNightscoutSyncForPermissionCheck) return
+        scope.launch {
+            val needsPermission =
+                withContext(Dispatchers.IO) {
+                    LocalNetworkAccessPolicy.needsPermissionAfterResolution(
+                        sdkInt = Build.VERSION.SDK_INT,
+                        enabled = configuration.enabled,
+                        baseUrl = configuration.baseUrl,
+                        permissionGranted = granted,
+                    )
+                }
+            if (needsPermission) {
+                if (!uiPreferences.getBoolean(migrationKey, false)) {
+                    uiPreferences.edit { putBoolean(migrationKey, true) }
+                    localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+                }
+            } else {
+                deferNightscoutSyncForPermissionCheck = false
+                scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+            }
+        }
+    }
+
     private fun connectHealthConnect() {
         when (HealthConnectIntegration.availability(this)) {
             HealthConnectClient.SDK_AVAILABLE -> healthPermissionsLauncher.launch(HealthConnectIntegration.permissions)
@@ -445,7 +497,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
-        scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+        if (!deferNightscoutSyncForPermissionCheck) {
+            scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+        }
         refresh()
     }
 

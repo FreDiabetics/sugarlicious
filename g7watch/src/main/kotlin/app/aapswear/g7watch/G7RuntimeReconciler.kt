@@ -297,11 +297,10 @@ internal object G7RuntimeReconciler {
             if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
                 val ledger = G7ExpectedWindowLedger(app)
                 val latestExpected =
-                    ledger
-                        .snapshot()
-                        .asSequence()
-                        .filter { it.sensorId == sensor.sensorId && it.sessionId == (sensor.sessionId ?: sensor.sensorId) }
-                        .maxOfOrNull { it.expectedAt }
+                    ledger.latestExpectedAt(
+                        sensorId = sensor.sensorId,
+                        sessionId = sensor.sessionId ?: sensor.sensorId,
+                    )
                 val firstMissing =
                     latestExpected?.plus(G7_SLOT_INTERVAL_MS)
                         ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)

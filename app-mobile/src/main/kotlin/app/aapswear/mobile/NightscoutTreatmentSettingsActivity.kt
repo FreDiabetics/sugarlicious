@@ -1,7 +1,9 @@
 package app.aapswear.mobile
 
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -16,6 +18,8 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +30,22 @@ import kotlinx.coroutines.withContext
 @SuppressLint("SetTextI18n")
 class NightscoutTreatmentSettingsActivity : ComponentActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var pendingLocalNetworkAction: (() -> Unit)? = null
+    private val localNetworkPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            val action = pendingLocalNetworkAction
+            pendingLocalNetworkAction = null
+            if (granted) {
+                action?.invoke()
+            } else {
+                Toast
+                    .makeText(
+                        this,
+                        "Lokaler Netzwerkzugriff wurde nicht freigegeben",
+                        Toast.LENGTH_LONG,
+                    ).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,6 +124,30 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
                 },
             )
 
+        fun withRequiredNetworkAccess(action: () -> Unit) {
+            val requested = requestedConfiguration()
+            val granted =
+                ContextCompat.checkSelfPermission(this, LocalNetworkAccessPolicy.PERMISSION) ==
+                    PackageManager.PERMISSION_GRANTED
+            scope.launch {
+                val needsPermission =
+                    withContext(Dispatchers.IO) {
+                        LocalNetworkAccessPolicy.needsPermissionAfterResolution(
+                            sdkInt = Build.VERSION.SDK_INT,
+                            enabled = requested.enabled,
+                            baseUrl = requested.baseUrl,
+                            permissionGranted = granted,
+                        )
+                    }
+                if (needsPermission) {
+                    pendingLocalNetworkAction = action
+                    localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+                } else {
+                    action()
+                }
+            }
+        }
+
         fun save(showToast: Boolean): Boolean =
             runCatching {
                 NightscoutConfigurationStore.save(this, requestedConfiguration(), secret.text.toString().takeIf(String::isNotBlank))
@@ -115,20 +159,26 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
             Button(this).apply {
                 text = "Verbindung testen und Treatments laden"
                 setOnClickListener {
-                    if (!save(false)) return@setOnClickListener
-                    isEnabled = false
-                    status.text = "Verbindung wird geprüft …"
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) { NightscoutTreatmentSync.sync(applicationContext) }
-                        status.text = result.message
-                        isEnabled = true
+                    withRequiredNetworkAccess {
+                        if (!save(false)) return@withRequiredNetworkAccess
+                        isEnabled = false
+                        status.text = "Verbindung wird geprüft …"
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) { NightscoutTreatmentSync.sync(applicationContext) }
+                            status.text = result.message
+                            isEnabled = true
+                        }
                     }
                 }
             }
         val saveButton =
             Button(this).apply {
                 text = "Speichern"
-                setOnClickListener { if (save(true)) finish() }
+                setOnClickListener {
+                    withRequiredNetworkAccess {
+                        if (save(true)) finish()
+                    }
+                }
             }
         content.addView(enabled, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         content.addView(label("Nightscout URL"))
