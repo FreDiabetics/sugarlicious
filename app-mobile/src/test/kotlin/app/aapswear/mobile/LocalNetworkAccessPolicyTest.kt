@@ -15,6 +15,8 @@ class LocalNetworkAccessPolicyTest {
 
     @Test fun `public destinations and older android do not request local network access`() {
         assertFalse(LocalNetworkAccessPolicy.needsPermission(37, true, "https://example.com", false))
+        assertFalse(LocalNetworkAccessPolicy.needsPermission(37, true, "https://fda.gov", false))
+        assertFalse(LocalNetworkAccessPolicy.needsPermission(37, true, "https://192.foo.168.1.2", false))
         assertFalse(LocalNetworkAccessPolicy.needsPermission(36, true, "http://192.168.1.2", false))
     }
 

@@ -40,19 +40,15 @@ internal object LocalNetworkAccessPolicy {
     internal fun isLocalDestination(baseUrl: String): Boolean {
         val host = parseHost(baseUrl) ?: return false
         if (host == "localhost" || host.endsWith(".local")) return true
-        if (
-            host == "::1" ||
-            host.startsWith("fe8") ||
-            host.startsWith("fe9") ||
-            host.startsWith("fea") ||
-            host.startsWith("feb") ||
-            host.startsWith("fc") ||
-            host.startsWith("fd")
-        ) {
-            return true
+        if (':' in host) {
+            return runCatching { InetAddress.getByName(host) }
+                .map(::isLocalAddress)
+                .getOrDefault(false)
         }
 
-        val octets = host.split('.').mapNotNull(String::toIntOrNull)
+        val labels = host.split('.')
+        if (labels.size != 4 || labels.any { label -> label.isEmpty() || label.any { !it.isDigit() } }) return false
+        val octets = labels.mapNotNull(String::toIntOrNull)
         if (octets.size != 4 || octets.any { it !in 0..255 }) return false
         return octets[0] == 10 ||
             octets[0] == 127 ||
