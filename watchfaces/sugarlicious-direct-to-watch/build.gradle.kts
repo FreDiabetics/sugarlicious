@@ -6,7 +6,7 @@ android {
     defaultConfig {
         applicationId = "app.aapswear.watchfacepush.g6style"
         minSdk = 33
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 2
         versionName = "0.1.1"
     }

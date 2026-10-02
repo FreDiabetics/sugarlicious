@@ -188,7 +188,7 @@ android {
     defaultConfig {
         applicationId = "app.aapswear"
         minSdk = 33
-        targetSdk = 36
+        targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
         versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
@@ -209,7 +209,7 @@ dependencies {
     implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.4.2")
     implementation("androidx.wear.protolayout:protolayout-material3:1.4.2")
-    implementation("com.google.guava:guava:33.7.1-android")
+    implementation("com.google.guava:guava:33.7.2-android")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
     testImplementation("junit:junit:4.13.2")

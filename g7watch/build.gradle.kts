@@ -9,7 +9,7 @@ android {
     defaultConfig {
         applicationId = "app.aapswear.g7watch"
         minSdk = 33
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 22
         versionName = "0.1.21"
     }
@@ -27,7 +27,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
     implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.4.2")
-    implementation("com.google.guava:guava:33.7.1-android")
+    implementation("com.google.guava:guava:33.7.2-android")
     testImplementation("junit:junit:4.13.2")
     testImplementation("androidx.test:core:1.7.0")
     testImplementation("org.robolectric:robolectric:4.17")

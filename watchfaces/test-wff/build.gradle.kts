@@ -7,7 +7,7 @@ android {
         applicationId =
             "app.aapswear.watchface.test"
         ; minSdk = 33
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 3
         versionName = "0.3.0"
     }

@@ -15,8 +15,13 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@Config(sdk = [34, 35, 36, 37])
 class G7ManifestLifecycleTest {
+    @Test fun `collector targets android 17 for wear os 7 compatibility`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        assertEquals(37, context.applicationInfo.targetSdkVersion)
+    }
+
     @Test fun `package replacement can restore collector`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val intent = Intent(Intent.ACTION_MY_PACKAGE_REPLACED).setPackage(context.packageName)

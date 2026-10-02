@@ -95,6 +95,21 @@ class MainActivity : ComponentActivity() {
             PersistentBridgeService.refresh(this)
             if (::factory.isInitialized) refresh(forceSettingsRender = screen == DashboardScreen.SETTINGS)
         }
+    private val localNetworkPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                scope.launch(Dispatchers.IO) {
+                    NightscoutTreatmentSync.applyConfigurationState(applicationContext)
+                }
+            } else {
+                Toast
+                    .makeText(
+                        this,
+                        "Lokaler Nightscout-Zugriff ist ohne Netzwerkfreigabe nicht möglich",
+                        Toast.LENGTH_LONG,
+                    ).show()
+            }
+        }
     private val settingsExportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
             if (uri == null) return@registerForActivityResult
@@ -205,6 +220,7 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
+        requestMigratedLocalNetworkAccessIfNeeded()
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
             uiPreferences.edit {
                 putInt("graphHours", 3)
@@ -349,6 +365,25 @@ class MainActivity : ComponentActivity() {
             }
         }
         refresh(forceSettingsRender = true)
+    }
+
+    private fun requestMigratedLocalNetworkAccessIfNeeded() {
+        val migrationKey = "android17LocalNetworkPermissionPromptedV1"
+        if (uiPreferences.getBoolean(migrationKey, false)) return
+        val configuration = NightscoutConfigurationStore.read(this)
+        val granted =
+            checkSelfPermission(LocalNetworkAccessPolicy.PERMISSION) == PackageManager.PERMISSION_GRANTED
+        if (
+            LocalNetworkAccessPolicy.needsPermission(
+                sdkInt = Build.VERSION.SDK_INT,
+                enabled = configuration.enabled,
+                baseUrl = configuration.baseUrl,
+                permissionGranted = granted,
+            )
+        ) {
+            uiPreferences.edit { putBoolean(migrationKey, true) }
+            localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+        }
     }
 
     private fun connectHealthConnect() {
