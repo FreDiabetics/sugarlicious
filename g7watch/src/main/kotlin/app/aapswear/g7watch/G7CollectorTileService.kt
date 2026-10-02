@@ -382,23 +382,33 @@ class G7CollectorTileService : TileService() {
         spec: app.aapswear.model.TrendVisualSpec,
         color: Int,
         height: Float,
-    ): Image =
-        Image
-            .Builder(scope)
-            .setImageResource(
-                ImageResource
-                    .Builder()
-                    .setAndroidResourceByResId(
-                        AndroidImageResourceByResId
+    ): LayoutElementBuilders.LayoutElement {
+        val width = height * spec.aspectRatio
+        return Column
+            .Builder()
+            .setWidth(dp(width))
+            .setHeight(dp(height + 2f * G7_TREND_OPTICAL_OFFSET_DP))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .addContent(Spacer.Builder().setHeight(dp(2f * G7_TREND_OPTICAL_OFFSET_DP)).build())
+            .addContent(
+                Image
+                    .Builder(scope)
+                    .setImageResource(
+                        ImageResource
                             .Builder()
-                            .setResourceId(TrendDrawableResources.forAsset(spec.asset))
-                            .build(),
-                    ).build(),
-                trendResourceId(spec.asset),
-            ).setWidth(dp(height * spec.aspectRatio))
-            .setHeight(dp(height))
-            .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
-            .build()
+                            .setAndroidResourceByResId(
+                                AndroidImageResourceByResId
+                                    .Builder()
+                                    .setResourceId(TrendDrawableResources.forAsset(spec.asset))
+                                    .build(),
+                            ).build(),
+                        trendResourceId(spec.asset),
+                    ).setWidth(dp(width))
+                    .setHeight(dp(height))
+                    .setColorFilter(ColorFilter.Builder().setTint(argb(color)).build())
+                    .build(),
+            ).build()
+    }
 
     private fun text(
         value: String,
@@ -421,7 +431,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-15-tile-glucose-appearance"
+        private const val RESOURCES_VERSION = "g7-collector-16-trend-optical-alignment"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

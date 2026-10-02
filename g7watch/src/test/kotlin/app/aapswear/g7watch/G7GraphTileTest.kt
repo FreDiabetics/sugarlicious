@@ -23,9 +23,9 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class G7GraphTileTest {
-    @Test fun `graph tile overlay contains scale and latest CGM age`() {
-        assertEquals("2h • 3m", g7GraphScaleAgeLabel(2, now - 3 * 60_000L, now))
-        assertEquals("2h", g7GraphScaleAgeLabel(2, null, now))
+    @Test fun `graph tile header contains scale and latest CGM age`() {
+        assertEquals("Verlauf 2h · 3m", g7GraphTileHeaderLabel(2, now - 3 * 60_000L, now))
+        assertEquals("Verlauf 2h", g7GraphTileHeaderLabel(2, null, now))
     }
 
     private val context =
@@ -59,6 +59,19 @@ class G7GraphTileTest {
         assertEquals(listOf(backfill.timestampEpochMs, live.timestampEpochMs), input.history.map { it.measuredAtEpochMs })
         assertTrue(input.timeWindow.plotX(backfill.timestampEpochMs, 0f, 100f) < input.timeWindow.plotX(live.timestampEpochMs, 0f, 100f))
         assertEquals(g7CollectorGraphWindow(now, 3), input.timeWindow)
+    }
+
+    @Test fun `graph tile moves scale and age out of the bitmap overlay`() {
+        val snapshot =
+            G7GraphTileSnapshot(
+                readings = listOf(reading("sensor", "session", 1, now - 3 * 60_000L, CgmReadingOrigin.LIVE)),
+                palette = G7AppearanceStore(context).load(),
+                pillState = G7StatusPillState.CONNECTED,
+                graphHours = 2,
+                nowEpochMs = now,
+            )
+
+        assertEquals("", g7GraphTileGraphInput(snapshot, G7DirectToWatchSettingsStore(context)).topLeftLabel)
     }
 
     @Test fun `live copy wins over duplicate backfill without inventing a point`() {
@@ -124,7 +137,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-11-visible-axes-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-12-header-scale-age-"))
         assertTrue(request.scope.hasResources())
         val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
         val content = g7GraphTileContentSpec(192, 192)

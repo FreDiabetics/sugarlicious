@@ -34,6 +34,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -661,10 +662,16 @@ class G7WatchActivityLayoutTest {
         collectTrendArrows(activity.findViewById(android.R.id.content), arrows)
 
         assertEquals(1, arrows.size)
-        assertEquals(0f, arrows.single().rotation)
+        val arrow = arrows.single()
+        val arrowContainer = arrow.parent as android.widget.FrameLayout
+        assertEquals(1f, G7_TREND_OPTICAL_OFFSET_DP)
+        val opticalOffsetPx = (G7_TREND_OPTICAL_OFFSET_DP * activity.resources.displayMetrics.density).roundToInt()
+        assertEquals(0f, arrow.rotation)
+        assertEquals(0f, arrow.translationY)
+        assertEquals(arrow.layoutParams.height + 2 * opticalOffsetPx, arrowContainer.layoutParams.height)
+        assertEquals(2 * opticalOffsetPx, (arrow.layoutParams as android.widget.FrameLayout.LayoutParams).topMargin)
         assertTrue(
-            arrows
-                .single()
+            arrow
                 .contentDescription
                 .toString()
                 .contains("FORTY_FIVE_UP"),

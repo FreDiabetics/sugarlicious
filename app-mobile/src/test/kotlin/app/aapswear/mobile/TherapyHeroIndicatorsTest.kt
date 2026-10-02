@@ -5,6 +5,8 @@ import app.aapswear.model.CarbState
 import app.aapswear.model.EffectiveBasalPresentation
 import app.aapswear.model.InsulinState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEvent
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyHistorySample
 import app.aapswear.model.effectiveBasalPresentation
 import org.junit.Assert.assertEquals
@@ -86,6 +88,8 @@ class TherapyHeroIndicatorsTest {
         assertEquals(15, therapyIndicatorFontSizeSp("0.23U"))
         assertEquals(13, therapyIndicatorFontSizeSp("0.75U/h"))
         assertEquals(11, therapyIndicatorFontSizeSp("12.00U/h"))
+        assertEquals(10, therapyIndicatorSecondaryFontSizeSp("0,3U·8m"))
+        assertEquals(10, therapyIndicatorSecondaryFontSizeSp("@150%"))
     }
 
     @Test
@@ -119,6 +123,39 @@ class TherapyHeroIndicatorsTest {
         val values = therapyIndicatorPresentations(state(insulin = InsulinState(totalIob = -0.65)), 10f, 1_000L)
 
         assertEquals("-0.65U", values[0].value)
+    }
+
+    @Test
+    fun `IOB secondary shows the latest valid bolus with compact age`() {
+        val now = 10 * 60_000L
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                insulin = InsulinState(totalIob = 1.2),
+                therapyEvents =
+                    listOf(
+                        TherapyEvent("meal", TherapyEventKind.MEAL_BOLUS, now - 9 * 60_000L, 2.0),
+                        TherapyEvent("smb", TherapyEventKind.SMB, now - 8 * 60_000L, 0.3),
+                        TherapyEvent("carbs", TherapyEventKind.MEAL_CARBS, now - 60_000L, 20.0),
+                        TherapyEvent("future", TherapyEventKind.MANUAL_CORRECTION, now + 1L, 4.0),
+                        TherapyEvent("invalid", TherapyEventKind.MANUAL_CORRECTION, now - 1L, Double.NaN),
+                    ),
+            )
+
+        assertEquals("0,3U·8m", therapyIndicatorPresentations(state, 10f, now)[0].secondary)
+    }
+
+    @Test
+    fun `IOB secondary is absent when no positive canonical bolus exists`() {
+        val now = 10 * 60_000L
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                insulin = InsulinState(totalIob = 1.2),
+                therapyEvents = listOf(TherapyEvent("zero", TherapyEventKind.SMB, now - 60_000L, 0.0)),
+            )
+
+        assertNull(therapyIndicatorPresentations(state, 10f, now)[0].secondary)
     }
 
     @Test

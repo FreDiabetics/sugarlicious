@@ -50,7 +50,7 @@ internal data class G7GraphTileSnapshot(
             .style(),
 ) {
     val resourceVersion: String
-        get() = "g7-graph-11-visible-axes-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${graphStyle.hashCode()}-${pillState.name}"
+        get() = "g7-graph-12-header-scale-age-${g7GraphHistoryFingerprint(readings)}-${nowEpochMs / G7_GRAPH_TILE_FRESHNESS_INTERVAL_MS}-${palette.hashCode()}-$graphHours-${graphStyle.hashCode()}-${pillState.name}"
 }
 
 internal data class G7GraphTileContentSpec(
@@ -97,6 +97,26 @@ internal fun g7GraphScaleAgeLabel(graphHours: Int, measuredAtEpochMs: Long?, now
     val age = measuredAtEpochMs?.let { ((nowEpochMs - it).coerceAtLeast(0L) / 60_000L).toString() + "m" }
     return listOfNotNull("${graphHours}h", age).joinToString(" • ")
 }
+
+internal fun g7GraphTileHeaderLabel(
+    graphHours: Int,
+    measuredAtEpochMs: Long?,
+    nowEpochMs: Long,
+): String = "Verlauf ${g7GraphScaleAgeLabel(graphHours, measuredAtEpochMs, nowEpochMs).replace(" • ", " · ")}"
+
+internal fun g7GraphTileGraphInput(
+    snapshot: G7GraphTileSnapshot,
+    settings: G7DirectToWatchSettingsStore,
+) = g7SharedGraphInput(
+    readings = snapshot.readings,
+    palette = snapshot.palette,
+    settings = settings,
+    graphHours = snapshot.graphHours,
+    nowEpochMs = snapshot.nowEpochMs,
+    emptyLabel = g7GraphEmptyLabel(snapshot.pillState, normalizeG7LocalHistory(snapshot.readings).isNotEmpty()),
+    styleOverride = snapshot.graphStyle,
+    outsideClipColor = snapshot.palette.argb(G7AppearanceRole.MENU_BACKGROUND),
+)
 
 class G7GraphTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -184,7 +204,11 @@ class G7GraphTileService : TileService() {
                         .build(),
                 ).addContent(
                     label(
-                        "Gewebeglukose-Verlauf",
+                        g7GraphTileHeaderLabel(
+                            snapshot.graphHours,
+                            normalizeG7LocalHistory(snapshot.readings).lastOrNull()?.timestampEpochMs,
+                            snapshot.nowEpochMs,
+                        ),
                         SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp,
                         titleColor,
                     ),
@@ -273,17 +297,7 @@ class G7GraphTileService : TileService() {
             heightPx,
             density,
             density * resources.configuration.fontScale,
-            g7SharedGraphInput(
-                readings = snapshot.readings,
-                palette = snapshot.palette,
-                settings = settings,
-                graphHours = snapshot.graphHours,
-                nowEpochMs = snapshot.nowEpochMs,
-                emptyLabel = g7GraphEmptyLabel(snapshot.pillState, normalizeG7LocalHistory(snapshot.readings).isNotEmpty()),
-                styleOverride = snapshot.graphStyle,
-                outsideClipColor = snapshot.palette.argb(G7AppearanceRole.MENU_BACKGROUND),
-                topLeftLabel = g7GraphScaleAgeLabel(snapshot.graphHours, normalizeG7LocalHistory(snapshot.readings).lastOrNull()?.timestampEpochMs, snapshot.nowEpochMs),
-            ),
+            g7GraphTileGraphInput(snapshot, settings),
         )
         return bitmap
     }

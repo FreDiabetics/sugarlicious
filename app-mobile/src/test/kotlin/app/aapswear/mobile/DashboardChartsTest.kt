@@ -1067,6 +1067,34 @@ class DashboardChartsTest {
     }
 
     @Test
+    fun `metabolic graph reuses configurable plot and scale area colors`() {
+        val preferences = context.getSharedPreferences("metabolic_region_colors", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val plotColor = Color.rgb(12, 96, 44)
+        val scaleColor = Color.rgb(94, 17, 118)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_BACKGROUND, plotColor)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.SURFACE, scaleColor)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+
+        val bitmap =
+            render(
+                MetabolicDashboardChart(context).apply {
+                    bind(TherapyDisplayState(receivedAtEpochMs = 1_000L), 6, showTimeAxis = true, clockEpochMs = 1_000L)
+                },
+                260,
+            )
+
+        assertEquals(scaleColor, bitmap.getPixel(10, 80))
+        assertEquals(plotColor, bitmap.getPixel(100, 20))
+        assertEquals(scaleColor, bitmap.getPixel(100, 250))
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
+    }
+
+    @Test
     fun `overview graph window includes the oldest visible data stream`() {
         val hour = 60L * 60_000L
         val now = 50L * hour

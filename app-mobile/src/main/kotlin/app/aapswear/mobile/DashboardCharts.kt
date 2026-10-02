@@ -1330,31 +1330,40 @@ internal class MetabolicDashboardChart
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            val outer = RectF(0.5f.dp, 0.5f.dp, width - 0.5f.dp, height - 0.5f.dp)
+            val bounds =
+                mobileMetabolicGraphBounds(
+                    width = width.toFloat(),
+                    height = height.toFloat(),
+                    outlineInset = 0.5f.dp,
+                    timeAxisHeight = if (showTimeAxis) TIME_AXIS_HEIGHT_DP.dp else 0f,
+                    valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp,
+                    scaleOnRight = scaleOnRight,
+                    separatorHeight = 2f.dp,
+                    markerHeadroomMaximum = 24f.dp,
+                )
+            val outer = bounds.outer
             if (outer.width() <= 24f || outer.height() <= 24f) return
             val radius = GRAPH_CORNER_RADIUS_DP.dp
             val clip = Path().apply { addRoundRect(outer, radius, radius, Path.Direction.CW) }
             canvas.withClip(clip) {
-                fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
+                fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.SURFACE)
                 canvas.drawRoundRect(outer, radius, radius, fillPaint)
+                fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_BACKGROUND)
+                canvas.drawRoundRect(bounds.plotRegion, radius, radius, fillPaint)
                 val chartNow = renderNowEpochMs
                 val viewportSnapshot = viewport.snapshot(chartNow)
                 val end = viewportSnapshot.endEpochMs
                 val start = viewportSnapshot.startEpochMs
                 val allPoints = state?.therapyHistory.orEmpty()
                 val points = allPoints.filter { it.measuredAtEpochMs in start..end }
-                val valueAxisWidth = VALUE_AXIS_WIDTH_DP.dp
-                val left = if (scaleOnRight) outer.left else outer.left + valueAxisWidth
-                val right = if (scaleOnRight) outer.right - valueAxisWidth else outer.right
-                val top = outer.top
-                val bottom = if (showTimeAxis) outer.bottom - TIME_AXIS_HEIGHT_DP.dp else outer.bottom
-                val gap = 14f.dp
-                val half = (bottom - top - gap) / 2f
-                val iobPlot = RectF(left, top, right, top + half)
-                val cobLanePlot = RectF(left, top + half + gap, right, bottom)
-                val markerHeadroom = min(32f.dp, half * 0.4f)
-                val iobDataPlot = RectF(iobPlot.left, iobPlot.top + markerHeadroom, iobPlot.right, iobPlot.bottom)
-                val cobPlot = RectF(cobLanePlot.left, cobLanePlot.top + markerHeadroom, cobLanePlot.right, cobLanePlot.bottom)
+                val left = bounds.plotRegion.left
+                val right = bounds.plotRegion.right
+                val top = bounds.plotRegion.top
+                val bottom = bounds.plotRegion.bottom
+                val iobPlot = bounds.iobLane
+                val cobLanePlot = bounds.cobLane
+                val iobDataPlot = bounds.iobData
+                val cobPlot = bounds.cobData
                 // AndroidAPS calculates IOB/COB samples at five-minute timestamps and draws those
                 // actual samples. Sugarlicious must not fabricate a future decay from two observations.
                 val scales =
@@ -1378,12 +1387,7 @@ internal class MetabolicDashboardChart
                 // Keep the semantic boundary in data coordinates. A historical viewport may move it
                 // completely off-screen; clamping it to an edge would turn it into a sticky overlay.
                 val dividerX = mapX(dividerTimestamp, start, end, iobDataPlot)
-                canvas.withClip(
-                    Path().apply {
-                        addRoundRect(iobPlot, radius, radius, Path.Direction.CW)
-                        addRoundRect(cobLanePlot, radius, radius, Path.Direction.CW)
-                    },
-                ) {
+                canvas.withClip(Path().apply { addRoundRect(bounds.plotRegion, radius, radius, Path.Direction.CW) }) {
                     drawLane(canvas, iobDataPlot, points, start, end, dividerTimestamp, iob = true, range = iobRange, drawScale = false)
                     drawInsulinActivity(canvas, iobDataPlot, points, start, end, dividerTimestamp, scales.activity)
                     drawLane(canvas, cobPlot, points, start, end, dividerTimestamp, iob = false, range = cobRange, drawScale = false)
@@ -1420,6 +1424,8 @@ internal class MetabolicDashboardChart
                         )
                     }
                 }
+                fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.SURFACE)
+                canvas.drawRect(bounds.separator, fillPaint)
                 drawMetabolicScale(canvas, iobDataPlot, iobRange, scaleOnRight)
                 drawMetabolicScale(canvas, cobPlot, cobRange, scaleOnRight)
                 drawMetabolicZeroLine(canvas, iobDataPlot, iobRange, scaleOnRight, "0 U")
@@ -2035,6 +2041,53 @@ internal data class MobileCgmGraphBounds(
     val timeAxis: RectF,
     val valueAxis: RectF,
 )
+
+internal data class MobileMetabolicGraphBounds(
+    val outer: RectF,
+    val plotRegion: RectF,
+    val timeAxis: RectF,
+    val valueAxis: RectF,
+    val iobLane: RectF,
+    val cobLane: RectF,
+    val iobData: RectF,
+    val cobData: RectF,
+    val separator: RectF,
+)
+
+internal fun mobileMetabolicGraphBounds(
+    width: Float,
+    height: Float,
+    outlineInset: Float,
+    timeAxisHeight: Float,
+    valueAxisWidth: Float,
+    scaleOnRight: Boolean,
+    separatorHeight: Float = 2f,
+    markerHeadroomMaximum: Float = 24f,
+): MobileMetabolicGraphBounds {
+    val outer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
+    val plotRegion =
+        if (scaleOnRight) {
+            RectF(outer.left, outer.top, outer.right - valueAxisWidth, outer.bottom - timeAxisHeight)
+        } else {
+            RectF(outer.left + valueAxisWidth, outer.top, outer.right, outer.bottom - timeAxisHeight)
+        }
+    val timeAxis = RectF(plotRegion.left, plotRegion.bottom, plotRegion.right, outer.bottom)
+    val valueAxis =
+        if (scaleOnRight) {
+            RectF(plotRegion.right, plotRegion.top, outer.right, plotRegion.bottom)
+        } else {
+            RectF(outer.left, plotRegion.top, plotRegion.left, plotRegion.bottom)
+        }
+    val separator = separatorHeight.coerceIn(0f, plotRegion.height())
+    val laneHeight = ((plotRegion.height() - separator) / 2f).coerceAtLeast(0f)
+    val iobLane = RectF(plotRegion.left, plotRegion.top, plotRegion.right, plotRegion.top + laneHeight)
+    val separatorBounds = RectF(plotRegion.left, iobLane.bottom, plotRegion.right, iobLane.bottom + separator)
+    val cobLane = RectF(plotRegion.left, separatorBounds.bottom, plotRegion.right, plotRegion.bottom)
+    val markerHeadroom = min(markerHeadroomMaximum.coerceAtLeast(0f), laneHeight * 0.28f)
+    val iobData = RectF(iobLane.left, iobLane.top + markerHeadroom, iobLane.right, iobLane.bottom)
+    val cobData = RectF(cobLane.left, cobLane.top + markerHeadroom, cobLane.right, cobLane.bottom)
+    return MobileMetabolicGraphBounds(outer, plotRegion, timeAxis, valueAxis, iobLane, cobLane, iobData, cobData, separatorBounds)
+}
 
 internal fun roundedPlotTopTangentY(
     plotTop: Float,
