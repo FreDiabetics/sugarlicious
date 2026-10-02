@@ -10,9 +10,48 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.util.ArrayDeque
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class G7ReceiverWorkDispatcherTest {
+    @Test fun `dispatchers sharing a recovery lock cannot mutate collector state concurrently`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val executor = Executors.newFixedThreadPool(2)
+        val recoveryLock = Any()
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondEntered = CountDownLatch(1)
+        val dispatcher = { action: String ->
+            G7ReceiverWorkDispatcher(
+                launch = { block -> executor.execute(block) },
+                recover = { _, _ ->
+                    if (action == "first") {
+                        firstEntered.countDown()
+                        releaseFirst.await(2, TimeUnit.SECONDS)
+                    } else {
+                        secondEntered.countDown()
+                    }
+                },
+                recoveryLock = recoveryLock,
+            )
+        }
+
+        try {
+            dispatcher("first").dispatch(context, "first") {}
+            assertTrue(firstEntered.await(1, TimeUnit.SECONDS))
+            dispatcher("second").dispatch(context, "second") {}
+            assertFalse(secondEntered.await(100, TimeUnit.MILLISECONDS))
+
+            releaseFirst.countDown()
+            assertTrue(secondEntered.await(1, TimeUnit.SECONDS))
+        } finally {
+            releaseFirst.countDown()
+            executor.shutdownNow()
+        }
+    }
+
     @Test fun `boot recovery is deferred until the background dispatcher runs`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val queued = ArrayDeque<() -> Unit>()

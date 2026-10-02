@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 internal class G7ReceiverWorkDispatcher(
     private val launch: ((() -> Unit) -> Unit),
     private val recover: (Context, String?) -> Unit,
+    private val recoveryLock: Any? = null,
 ) {
     fun dispatch(
         context: Context,
@@ -28,7 +29,9 @@ internal class G7ReceiverWorkDispatcher(
         try {
             launch {
                 try {
-                    recover(context.applicationContext, action)
+                    val appContext = context.applicationContext
+                    recoveryLock?.let { lock -> synchronized(lock) { recover(appContext, action) } }
+                        ?: recover(appContext, action)
                 } finally {
                     onFinished()
                 }
@@ -43,11 +46,13 @@ internal class G7ReceiverWorkDispatcher(
 
 private object G7ReceiverWork {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val recoveryLock = Any()
 
     fun dispatcher(recover: (Context, String?) -> Unit) =
         G7ReceiverWorkDispatcher(
             launch = { block -> scope.launch { block() } },
             recover = recover,
+            recoveryLock = recoveryLock,
         )
 }
 
