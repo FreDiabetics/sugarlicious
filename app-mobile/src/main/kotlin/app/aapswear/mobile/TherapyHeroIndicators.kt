@@ -29,11 +29,15 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.basalIndicatorIcon
 import app.aapswear.model.effectiveBasalPresentation
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 import app.aapswear.uishared.R as SharedUiR
 
 internal data class TherapyIndicatorPresentation(
@@ -61,6 +65,7 @@ internal fun therapyIndicatorPresentations(
         TherapyIndicatorPresentation(
             label = "IOB",
             value = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, iob, state),
+            secondary = latestBolusPresentation(state, nowEpochMs),
             progress = iob?.let { TherapyProgressSemantics.scaled(it, safeIobMaximum) },
             iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
@@ -84,6 +89,28 @@ internal fun therapyIndicatorPresentations(
     )
 }
 
+internal fun latestBolusPresentation(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+): String? {
+    val bolusKinds = setOf(TherapyEventKind.MEAL_BOLUS, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.SMB)
+    val event =
+        state
+            ?.therapyEvents
+            .orEmpty()
+            .asSequence()
+            .filter {
+                it.kind in bolusKinds &&
+                    it.timestampEpochMs <= nowEpochMs &&
+                    it.amount.isFinite() &&
+                    it.amount > 0.0
+            }.maxWithOrNull(compareBy({ it.timestampEpochMs }, { it.id }))
+            ?: return null
+    val amount = DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.GERMANY)).format(event.amount)
+    val age = TherapyDisplayFormatter.ageMinutes(event.timestampEpochMs, nowEpochMs)
+    return "${amount}U·$age"
+}
+
 internal fun basalIconResource(percent: Int?): Int =
     when (basalIndicatorIcon(percent)) {
         TherapyIndicatorIcon.BASAL -> SharedUiR.drawable.ic_basal
@@ -100,6 +127,13 @@ internal fun therapyIndicatorFontSizeSp(value: String): Int =
         value.length >= 8 -> 11
         value.length >= 7 -> 13
         else -> 15
+    }
+
+internal fun therapyIndicatorSecondaryFontSizeSp(value: String): Int =
+    when {
+        value.length >= 14 -> 7
+        value.length >= 10 -> 8
+        else -> 10
     }
 
 @Composable
@@ -181,7 +215,16 @@ private fun TherapyCircularIndicator(
                     softWrap = false,
                 )
                 indicator.secondary?.let {
-                    Text(it, color = SugarliciousColors.TextSecondary, fontSize = 10.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold)
+                    val secondaryTextSize = therapyIndicatorSecondaryFontSizeSp(it)
+                    Text(
+                        it,
+                        color = SugarliciousColors.TextSecondary,
+                        fontSize = secondaryTextSize.sp,
+                        lineHeight = secondaryTextSize.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
                 }
             }
             SugarliciousIcon(

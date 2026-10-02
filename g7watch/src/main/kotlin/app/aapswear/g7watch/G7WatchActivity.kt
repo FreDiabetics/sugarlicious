@@ -37,6 +37,7 @@ import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
 import java.util.Locale
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 
 internal fun hasUsableCollectorSession(
     reading: CgmReading?,
@@ -1034,8 +1035,13 @@ class G7WatchActivity : Activity() {
             val style = appearanceStore.trendArrowStyle().renderSpec()
             val height = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale).toInt().dp
             val width = (WearGlucoseCardStyle.TREND_SIZE_DP * style.scale * spec.aspectRatio).toInt().dp
+            val opticalOffset = (G7_TREND_OPTICAL_OFFSET_DP * resources.displayMetrics.density).roundToInt()
+            val containerHeight = height + 2 * opticalOffset
             addView(
                 android.widget.FrameLayout(this@G7WatchActivity).apply {
+                    clipChildren = false
+                    clipToPadding = false
+
                     fun arrow(
                         tint: Int,
                         x: Float = 0f,
@@ -1047,19 +1053,25 @@ class G7WatchActivity : Activity() {
                         translationY = y
                         scaleType = ImageView.ScaleType.FIT_CENTER
                     }
+
+                    fun arrowLayoutParams() =
+                        android.widget.FrameLayout.LayoutParams(width, height).apply {
+                            topMargin = 2 * opticalOffset
+                        }
+
                     if (style.outlineThicknessDp > 0f) {
                         val offset = style.outlineThicknessDp * resources.displayMetrics.density
                         listOf(-offset to 0f, offset to 0f, 0f to -offset, 0f to offset).forEach { (x, y) ->
-                            addView(arrow(style.outlineColor, x, y), android.widget.FrameLayout.LayoutParams(width, height))
+                            addView(arrow(style.outlineColor, x, y), arrowLayoutParams())
                         }
                     }
                     addView(
                         arrow(style.fillColor).apply { contentDescription = "Trend ${trend.name}" },
-                        android.widget.FrameLayout.LayoutParams(width, height),
+                        arrowLayoutParams(),
                     )
                     contentDescription = "Trend ${trend.name}"
                 },
-                LinearLayout.LayoutParams(width, height),
+                LinearLayout.LayoutParams(width, containerHeight),
             )
         }
     }
@@ -1083,3 +1095,5 @@ class G7WatchActivity : Activity() {
         const val PAIRING_SUCCESS_DURATION_MS = 3_000L
     }
 }
+
+internal const val G7_TREND_OPTICAL_OFFSET_DP = 1f
