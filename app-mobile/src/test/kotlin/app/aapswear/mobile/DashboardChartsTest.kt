@@ -13,6 +13,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmGraphScaleMode
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -90,6 +91,40 @@ class DashboardChartsTest {
         assertEquals(2, segments.size)
         assertEquals(8f, segments.first().endY)
         assertEquals(8f, segments.last().startY)
+    }
+
+    @Test
+    fun `insulin activity visual smoothing reduces an isolated peak while retaining endpoints`() {
+        val smoothed =
+            smoothActivitySeries(
+                listOf(
+                    1_000L to 0.0,
+                    2_000L to 1.0,
+                    3_000L to 0.0,
+                ),
+            )
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 0.5, 3_000L to 0.0), smoothed)
+    }
+
+    @Test
+    fun `live edge extension cannot alter the last observed activity value`() {
+        val rendered = smoothActivityToLiveEdge(listOf(1_000L to 0.0, 2_000L to 1.0), 3_000L, 0L, 4_000L)
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 1.0, 3_000L to 1.0), rendered)
+    }
+
+    @Test
+    fun `insulin activity lane is shifted upward with symmetric headroom`() {
+        val plot = RectF(0f, 0f, 100f, 100f)
+        val scale =
+            app.aapswear.model.GraphAxisScale(
+                app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                app.aapswear.model.GraphBounds(0.0, 1.0),
+            )
+
+        assertEquals(90f, mapActivityY(0.0, scale, plot), 0.001f)
+        assertEquals(10f, mapActivityY(1.0, scale, plot), 0.001f)
     }
 
     @Test fun `glucose chart renders source target and prediction streams`() {
@@ -642,6 +677,26 @@ class DashboardChartsTest {
         assertTrue(scales.iob.bounds.maximum >= 12.0)
     }
 
+    @Test
+    fun `IOB graph never expands below minus two units`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, totalIob = -8.0),
+                TherapyHistorySample(2_000L, totalIob = 3.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = points,
+                visiblePoints = points,
+                iobMaximumUnits = 10.0,
+            )
+
+        assertEquals(-2.0, scales.iob.bounds.minimum, 0.0)
+        assertEquals(0.0, scales.iob.ratio(-8.0), 0.0)
+    }
+
     @Test fun `configured IOB and COB graph maxima use independent axes and retain negative IOB`() {
         val points =
             listOf(
@@ -1064,6 +1119,25 @@ class DashboardChartsTest {
             )
 
         assertEquals(7L * 60L * 60_000L, availableGlucoseHistoryWindowMs(state, now))
+    }
+
+    @Test
+    fun `mobile CGM renderer retains overlapping valid sensor streams for the complete twenty four hours`() {
+        val minute = 60_000L
+        val now = 100L * 60L * minute
+        val samples =
+            (0..288).flatMap { index ->
+                val timestamp = now - DisplayHistoryAccumulator.WINDOW_MS + index * 5L * minute
+                listOf(
+                    GlucoseSample(100.0 + index % 10, timestamp, sensorId = "sensor-a", sessionId = "session-a"),
+                    GlucoseSample(110.0 + index % 10, timestamp, sensorId = "sensor-b", sessionId = "session-b"),
+                )
+            }
+
+        val retained = canonicalMobileGraphHistory(samples, now, DataSourceId.ANDROID_APS)
+
+        assertEquals(578, retained.size)
+        assertEquals(now - DisplayHistoryAccumulator.WINDOW_MS, retained.first().measuredAtEpochMs)
     }
 
     @Test
