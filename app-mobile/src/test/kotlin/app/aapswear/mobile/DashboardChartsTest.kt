@@ -108,6 +108,13 @@ class DashboardChartsTest {
     }
 
     @Test
+    fun `live edge extension cannot alter the last observed activity value`() {
+        val rendered = smoothActivityToLiveEdge(listOf(1_000L to 0.0, 2_000L to 1.0), 3_000L, 0L, 4_000L)
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 1.0, 3_000L to 1.0), rendered)
+    }
+
+    @Test
     fun `insulin activity lane is shifted upward with symmetric headroom`() {
         val plot = RectF(0f, 0f, 100f, 100f)
         val scale =

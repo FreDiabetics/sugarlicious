@@ -1639,13 +1639,11 @@ internal class MetabolicDashboardChart
             activityScale: GraphAxisScale,
         ) {
             val actual =
-                smoothActivitySeries(
-                    extendSeriesToLiveEdge(
-                        finiteInsulinActivitySeries(visiblePoints),
-                        liveEdge,
-                        start,
-                        end,
-                    ),
+                smoothActivityToLiveEdge(
+                    finiteInsulinActivitySeries(visiblePoints),
+                    liveEdge,
+                    start,
+                    end,
                 )
             if (actual.size < 2) return
 
@@ -1950,6 +1948,13 @@ internal fun smoothActivitySeries(values: List<Pair<Long, Double>>): List<Pair<L
         }
     }
 }
+
+internal fun smoothActivityToLiveEdge(
+    values: List<Pair<Long, Double>>,
+    liveEdge: Long,
+    start: Long,
+    end: Long,
+): List<Pair<Long, Double>> = extendSeriesToLiveEdge(smoothActivitySeries(values), liveEdge, start, end)
 
 private fun limitIobNegativeBounds(scale: GraphAxisScale): GraphAxisScale {
     val minimum = max(-2.0, scale.bounds.minimum)
