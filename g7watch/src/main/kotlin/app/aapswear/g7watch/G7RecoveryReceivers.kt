@@ -8,6 +8,56 @@ import android.os.PowerManager
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+
+internal class G7ReceiverWorkDispatcher(
+    private val launch: ((() -> Unit) -> Unit),
+    private val recover: (Context, String?) -> Unit,
+) {
+    fun dispatch(
+        context: Context,
+        action: String?,
+        onFinished: () -> Unit,
+    ) {
+        launch {
+            try {
+                recover(context.applicationContext, action)
+            } finally {
+                onFinished()
+            }
+        }
+    }
+}
+
+private object G7ReceiverWork {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun dispatcher(recover: (Context, String?) -> Unit) =
+        G7ReceiverWorkDispatcher(
+            launch = { block -> scope.launch { block() } },
+            recover = recover,
+        )
+}
+
+private object G7BootRecovery {
+    val dispatcher = G7ReceiverWork.dispatcher(::recover)
+
+    private fun recover(
+        context: Context,
+        action: String?,
+    ) {
+        val state = G7SensorStateStore(context).read()
+        if (!shouldRestoreG7Collector(action, state.collectorEnabled)) return
+        G7CgmAlarmCoordinator.restore(context)
+        // The foreground service owns reconciliation. Starting it first guarantees Android gets
+        // the foreground notification before any retained ledger is reconstructed.
+        runCatching { G7CollectorService.start(context) }
+            .onFailure { G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state) }
+    }
+}
 
 internal fun shouldRestoreG7Collector(
     action: String?,
@@ -32,20 +82,19 @@ class G7BluetoothStateReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        val state = G7SensorStateStore(context).read()
-        if (
-            !shouldRecoverG7AfterBluetoothState(
-                intent.action,
-                intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR),
-                state.collectorEnabled,
-                state.sensor != null,
-            )
-        ) {
-            return
-        }
-        AndroidG7Scanner.forceCleanup()
-        G7RuntimeReconciler.reconcile(context, G7RuntimeEntryPoint.RECONNECT_RECEIVER)
-        G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, G7SensorStateStore(context).read())
+        if (intent.action != BluetoothAdapter.ACTION_STATE_CHANGED) return
+        val adapterState = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+        val pendingResult = goAsync()
+        G7ReceiverWork
+            .dispatcher { app, action ->
+                val state = G7SensorStateStore(app).read()
+                if (!shouldRecoverG7AfterBluetoothState(action, adapterState, state.collectorEnabled, state.sensor != null)) {
+                    return@dispatcher
+                }
+                AndroidG7Scanner.forceCleanup()
+                G7RuntimeReconciler.reconcile(app, G7RuntimeEntryPoint.RECONNECT_RECEIVER)
+                G7ReconnectAlarmScheduler.ensureCollectorSchedule(app, G7SensorStateStore(app).read())
+            }.dispatch(context, intent.action) { pendingResult.finish() }
     }
 }
 
@@ -84,23 +133,9 @@ class G7BootReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        val state = G7SensorStateStore(context).read()
-        if (!shouldRestoreG7Collector(intent.action, state.collectorEnabled)) return
-
-        G7CgmAlarmCoordinator.restore(context)
-        G7RuntimeReconciler.reconcile(
-            context,
-            if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-                G7RuntimeEntryPoint.PACKAGE_REPLACED
-            } else {
-                G7RuntimeEntryPoint.BOOT
-            },
-        )
-        // Lifecycle recovery must never rewrite the user's persisted enable/disable decision.
-        // If Android temporarily refuses the FGS launch, keep collectorEnabled=true and retain a
-        // durable future alarm so a later slot can recover without re-pairing or losing the session.
-        runCatching { G7CollectorService.start(context) }
-            .onFailure { G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state) }
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        val pendingResult = goAsync()
+        G7BootRecovery.dispatcher.dispatch(context, intent.action) { pendingResult.finish() }
     }
 }
 
@@ -109,6 +144,13 @@ class G7ReconnectReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
+        val pendingResult = goAsync()
+        G7ReceiverWork
+            .dispatcher { app, _ -> recoverScheduledReconnect(app) }
+            .dispatch(context, intent.action) { pendingResult.finish() }
+    }
+
+    private fun recoverScheduledReconnect(context: Context) {
         val state = G7SensorStateStore(context).read()
         if (!state.collectorEnabled) return
         val now = System.currentTimeMillis()

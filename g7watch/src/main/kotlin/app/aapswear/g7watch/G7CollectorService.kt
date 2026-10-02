@@ -40,6 +40,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean = collectorEnabled
 
@@ -47,8 +49,6 @@ internal fun shouldUpdateG7ForegroundNotification(
     inserted: Boolean,
     classification: CollectorCycleClassification,
 ): Boolean = inserted && classification == CollectorCycleClassification.SUCCESS_FRESH
-
-internal fun shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs: Long?): Boolean = receiverReceivedAtEpochMs == null
 
 internal fun restoreAuthenticatedG7Address(
     sensor: G7Sensor,
@@ -115,6 +115,7 @@ class G7CollectorService : Service() {
     private lateinit var credentials: G7CredentialStore
     private lateinit var attemptStore: G7CollectorDiagnosticStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val startMutex = Mutex()
     private var collectionJob: Job? = null
     private var cycleWakeLock: PowerManager.WakeLock? = null
     private var cycleToken: Long = 0L
@@ -126,17 +127,6 @@ class G7CollectorService : Service() {
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
         store.save(G7CollectorReliability.rehydrate(store.read(), System.currentTimeMillis()))
-        // A newly created Service has no surviving collector coroutine. Reconcile persisted BLE
-        // state before accepting any new work and restore the future recovery invariant first.
-        // The one exception is an AlarmManager handoff that the receiver has already marked as
-        // delivered: onStartCommand must consume that exact slot before staging N+1. Repairing it
-        // here would replace N with N+1 and then incorrectly stage N+2 during the BLE attempt.
-        val pendingAlarmHandoff = attemptStore.pendingScheduledCycle()?.receiverReceivedAt
-        G7RuntimeReconciler.reconcile(
-            context = this,
-            entryPoint = G7RuntimeEntryPoint.SERVICE_CREATE,
-            allowRepair = shouldRepairG7RuntimeOnServiceCreate(pendingAlarmHandoff),
-        )
         G7CollectorRuntimeRegistry.register(
             owner = this,
             activeCheck = { collectionJob?.isActive == true },
@@ -172,7 +162,7 @@ class G7CollectorService : Service() {
             return START_NOT_STICKY
         }
 
-        var persisted = ensureG7PairingAttempt(store.read(), serviceStartAt)
+        val persisted = ensureG7PairingAttempt(store.read(), serviceStartAt)
         store.save(persisted)
         if (!persisted.collectorEnabled) {
             G7SignalLossMonitor.cancel(this)
@@ -182,6 +172,22 @@ class G7CollectorService : Service() {
             return START_NOT_STICKY
         }
 
+        // Android requires the foreground notification promptly. All persisted-ledger and runtime
+        // recovery work is serialized on Dispatchers.IO after this call.
+        startForegroundCollector()
+        val action = intent?.action
+        scope.launch {
+            startMutex.withLock {
+                prepareAndLaunchCycle(action, serviceStartAt)
+            }
+        }
+        return START_STICKY
+    }
+
+    private fun prepareAndLaunchCycle(
+        action: String?,
+        serviceStartAt: Long,
+    ) {
         G7RuntimeReconciler.reconcile(
             context = this,
             entryPoint = G7RuntimeEntryPoint.SERVICE_START,
@@ -189,27 +195,26 @@ class G7CollectorService : Service() {
             // ACTION_RECONNECT owns a receiver-delivered envelope that is consumed immediately
             // below. Repairing before consumption would replace slot N with N+1, after which the
             // safety scheduler would incorrectly arm N+2 for the duration of this BLE attempt.
-            allowRepair = shouldRepairG7RuntimeOnServiceStart(intent?.action),
+            allowRepair = shouldRepairG7RuntimeOnServiceStart(action),
             cancelLiveCycle = { collectionJob?.cancel() },
             nowEpochMs = serviceStartAt,
         )
-        persisted = store.read()
+        var persisted = store.read()
 
         G7SignalLossMonitor.scheduleFromState(this, persisted)
-        startForegroundCollector()
         val request =
-            when (intent?.action) {
+            when (action) {
                 ACTION_RESTART -> CycleRequest.RESTART
                 ACTION_MANUAL_SCAN -> CycleRequest.MANUAL
                 else -> CycleRequest.AUTOMATIC
             }
         val scheduledCycle =
-            if (intent?.action == ACTION_RECONNECT) {
+            if (action == ACTION_RECONNECT) {
                 attemptStore.consumeScheduledCycle(serviceStartAt)
             } else {
                 null
             }
-        if (intent?.action == ACTION_RECONNECT) {
+        if (action == ACTION_RECONNECT) {
             scope.launch {
                 applicationContext.recordG7Diagnostic(
                     "FGS_RESTART_REQUESTED",
@@ -265,10 +270,9 @@ class G7CollectorService : Service() {
                 )
             }
             G7WakeHandoff.release()
-            return START_STICKY
+            return
         }
         launchCycle(request, scheduledCycle, serviceStartAt)
-        return START_STICKY
     }
 
     private fun launchCycle(

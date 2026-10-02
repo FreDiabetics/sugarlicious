@@ -106,11 +106,6 @@ class G7LifecyclePolicyTest {
         assertFalse(shouldKeepG7RuntimeForeground(collectorEnabled = false))
     }
 
-    @Test fun `service create preserves a just delivered reconnect envelope for onStartCommand`() {
-        assertFalse(shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs = 1_780_000_000_000L))
-        assertTrue(shouldRepairG7RuntimeOnServiceCreate(receiverReceivedAtEpochMs = null))
-    }
-
     @Test fun `scheduled service start consumes its alarm envelope before runtime repair`() {
         assertFalse(shouldRepairG7RuntimeOnServiceStart(G7CollectorService.ACTION_RECONNECT))
         assertTrue(shouldRepairG7RuntimeOnServiceStart(G7CollectorService.ACTION_RESTART))

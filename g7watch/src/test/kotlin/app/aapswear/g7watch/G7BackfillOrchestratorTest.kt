@@ -48,6 +48,21 @@ class G7BackfillOrchestratorTest {
         assertNotNull(ledger.window(older.expectedWindowId)?.gapDetectedAt)
     }
 
+    @Test fun `latest expected timestamp is available without decoding the window ledger`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        ledger.create(300_000L, 290_000L)
+        ledger.create(600_000L, 590_000L)
+
+        context
+            .getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+            .edit()
+            .putString("windows_v1", "not valid json")
+            .commit()
+
+        assertEquals(600_000L, G7ExpectedWindowLedger(context).latestExpectedAt("sensor-a", "session-a"))
+        assertNull(G7ExpectedWindowLedger(context).latestExpectedAt("sensor-a", "another-session"))
+    }
+
     @Test fun `ledger retains only technically recoverable open windows and recent closed evidence`() {
         val values =
             (0 until 400).map { index ->
