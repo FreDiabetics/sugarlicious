@@ -69,6 +69,7 @@ class MainActivity : ComponentActivity() {
     private var settingsSwipeStartX = 0f
     private var settingsSwipeStartY = 0f
     private var settingsSwipeTracking = false
+    private var deferNightscoutSyncForPermissionCheck = false
     private val healthPermissionsLauncher =
         registerForActivityResult(HealthConnectIntegration.permissionContract) { granted ->
             scope.launch {
@@ -98,8 +99,9 @@ class MainActivity : ComponentActivity() {
     private val localNetworkPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) {
+                deferNightscoutSyncForPermissionCheck = false
                 scope.launch(Dispatchers.IO) {
-                    NightscoutTreatmentSync.applyConfigurationState(applicationContext)
+                    NightscoutTreatmentSync.sync(applicationContext)
                 }
             } else {
                 Toast
@@ -369,20 +371,35 @@ class MainActivity : ComponentActivity() {
 
     private fun requestMigratedLocalNetworkAccessIfNeeded() {
         val migrationKey = "android17LocalNetworkPermissionPromptedV1"
-        if (uiPreferences.getBoolean(migrationKey, false)) return
         val configuration = NightscoutConfigurationStore.read(this)
         val granted =
             checkSelfPermission(LocalNetworkAccessPolicy.PERMISSION) == PackageManager.PERMISSION_GRANTED
-        if (
-            LocalNetworkAccessPolicy.needsPermission(
+        deferNightscoutSyncForPermissionCheck =
+            LocalNetworkAccessPolicy.shouldDeferSyncWhileChecking(
                 sdkInt = Build.VERSION.SDK_INT,
                 enabled = configuration.enabled,
-                baseUrl = configuration.baseUrl,
                 permissionGranted = granted,
             )
-        ) {
-            uiPreferences.edit { putBoolean(migrationKey, true) }
-            localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+        if (!deferNightscoutSyncForPermissionCheck) return
+        scope.launch {
+            val needsPermission =
+                withContext(Dispatchers.IO) {
+                    LocalNetworkAccessPolicy.needsPermissionAfterResolution(
+                        sdkInt = Build.VERSION.SDK_INT,
+                        enabled = configuration.enabled,
+                        baseUrl = configuration.baseUrl,
+                        permissionGranted = granted,
+                    )
+                }
+            if (needsPermission) {
+                if (!uiPreferences.getBoolean(migrationKey, false)) {
+                    uiPreferences.edit { putBoolean(migrationKey, true) }
+                    localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+                }
+            } else {
+                deferNightscoutSyncForPermissionCheck = false
+                scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+            }
         }
     }
 
@@ -480,7 +497,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
-        scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+        if (!deferNightscoutSyncForPermissionCheck) {
+            scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
+        }
         refresh()
     }
 

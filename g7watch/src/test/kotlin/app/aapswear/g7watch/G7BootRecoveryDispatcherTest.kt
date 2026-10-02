@@ -39,6 +39,32 @@ class G7ReceiverWorkDispatcherTest {
         assertTrue(finished)
     }
 
+    @Test fun `handoff is acquired synchronously before alarm work is queued`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val events = mutableListOf<String>()
+        val queued = ArrayDeque<() -> Unit>()
+        val dispatcher =
+            G7ReceiverWorkDispatcher(
+                launch = { block ->
+                    events += "queued"
+                    queued.addLast(block)
+                },
+                recover = { _, _ -> events += "recovered" },
+            )
+
+        dispatcher.dispatch(
+            context,
+            "alarm",
+            onBeforeLaunch = { events += "handoff" },
+            onLaunchFailure = { events += "released" },
+            onFinished = { events += "finished" },
+        )
+
+        assertEquals(listOf("handoff", "queued"), events)
+        queued.removeFirst().invoke()
+        assertEquals(listOf("handoff", "queued", "recovered", "finished"), events)
+    }
+
     @Test fun `pending broadcast is always finished when recovery fails`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val queued = ArrayDeque<() -> Unit>()

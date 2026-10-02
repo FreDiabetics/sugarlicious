@@ -20,14 +20,23 @@ internal class G7ReceiverWorkDispatcher(
     fun dispatch(
         context: Context,
         action: String?,
+        onBeforeLaunch: () -> Unit = {},
+        onLaunchFailure: () -> Unit = {},
         onFinished: () -> Unit,
     ) {
-        launch {
-            try {
-                recover(context.applicationContext, action)
-            } finally {
-                onFinished()
+        onBeforeLaunch()
+        try {
+            launch {
+                try {
+                    recover(context.applicationContext, action)
+                } finally {
+                    onFinished()
+                }
             }
+        } catch (error: Throwable) {
+            onLaunchFailure()
+            onFinished()
+            throw error
         }
     }
 }
@@ -147,56 +156,66 @@ class G7ReconnectReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         G7ReceiverWork
             .dispatcher { app, _ -> recoverScheduledReconnect(app) }
-            .dispatch(context, intent.action) { pendingResult.finish() }
+            .dispatch(
+                context = context,
+                action = intent.action,
+                onBeforeLaunch = { G7WakeHandoff.acquire(context) },
+                onLaunchFailure = G7WakeHandoff::release,
+                onFinished = pendingResult::finish,
+            )
     }
 
     private fun recoverScheduledReconnect(context: Context) {
-        val state = G7SensorStateStore(context).read()
-        if (!state.collectorEnabled) return
-        val now = System.currentTimeMillis()
-        val diagnosticStore = G7CollectorDiagnosticStore(context)
-        val scheduled = diagnosticStore.markScheduledAlarmReceived(now)
-        G7ExpectedWindowLedger(context).markPrimaryTriggered(scheduled?.expectedWindowId, now)
-        // The service will stage the following slot before BLE work. At receiver level this is an
-        // observation-only reconciliation so the just-fired diagnostic envelope is not replaced.
-        G7RuntimeReconciler.reconcile(
-            context,
-            G7RuntimeEntryPoint.RECONNECT_RECEIVER,
-            allowRepair = false,
-            nowEpochMs = now,
-        )
-        G7WakeHandoff.acquire(context)
-        G7ExpectedWindowLedger(context).markServiceRequested(scheduled?.expectedWindowId, System.currentTimeMillis())
-        runCatching { G7CollectorService.startScheduledReconnect(context) }
-            .onFailure { error ->
-                G7WakeHandoff.release()
-                // The alarm that brought us here has already fired. Always stage another future
-                // slot before returning, otherwise a transient FGS launch rejection can strand the
-                // collector indefinitely.
-                G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state, now)
-                val attempt =
-                    diagnosticStore.begin(
-                        manual = false,
-                        restart = false,
-                        cycle = scheduled?.copy(cycleEndedAt = System.currentTimeMillis()),
-                        nowEpochMs = now,
+        var handedOffToService = false
+        try {
+            val state = G7SensorStateStore(context).read()
+            if (!state.collectorEnabled) return
+            val now = System.currentTimeMillis()
+            val diagnosticStore = G7CollectorDiagnosticStore(context)
+            val scheduled = diagnosticStore.markScheduledAlarmReceived(now)
+            G7ExpectedWindowLedger(context).markPrimaryTriggered(scheduled?.expectedWindowId, now)
+            // The service will stage the following slot before BLE work. At receiver level this is an
+            // observation-only reconciliation so the just-fired diagnostic envelope is not replaced.
+            G7RuntimeReconciler.reconcile(
+                context,
+                G7RuntimeEntryPoint.RECONNECT_RECEIVER,
+                allowRepair = false,
+                nowEpochMs = now,
+            )
+            G7ExpectedWindowLedger(context).markServiceRequested(scheduled?.expectedWindowId, System.currentTimeMillis())
+            runCatching { G7CollectorService.startScheduledReconnect(context) }
+                .onSuccess { handedOffToService = true }
+                .onFailure { error ->
+                    // The alarm that brought us here has already fired. Always stage another future
+                    // slot before returning, otherwise a transient FGS launch rejection can strand the
+                    // collector indefinitely.
+                    G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state, now)
+                    val attempt =
+                        diagnosticStore.begin(
+                            manual = false,
+                            restart = false,
+                            cycle = scheduled?.copy(cycleEndedAt = System.currentTimeMillis()),
+                            nowEpochMs = now,
+                        )
+                    diagnosticStore.setClassification(attempt.attemptId, CollectorCycleClassification.SERVICE_START_FAILED)
+                    G7ExpectedWindowLedger(
+                        context,
+                    ).markFinal(
+                        scheduled?.expectedWindowId,
+                        CollectorCycleClassification.SERVICE_START_FAILED,
+                        recoveryRequired = true,
+                        reason = error.javaClass.simpleName,
                     )
-                diagnosticStore.setClassification(attempt.attemptId, CollectorCycleClassification.SERVICE_START_FAILED)
-                G7ExpectedWindowLedger(
-                    context,
-                ).markFinal(
-                    scheduled?.expectedWindowId,
-                    CollectorCycleClassification.SERVICE_START_FAILED,
-                    recoveryRequired = true,
-                    reason = error.javaClass.simpleName,
-                )
-                diagnosticStore.record(
-                    attempt.attemptId,
-                    CollectorDiagnosticStage.ERROR,
-                    CollectorDiagnosticResult.RECOVERABLE_ERROR,
-                    "FGS_RESTART_FAILED · Foreground-Service konnte aus dem Sensorfenster-Alarm nicht gestartet werden; Folgeslot wurde geplant (${error.javaClass.simpleName})",
-                    nowEpochMs = System.currentTimeMillis(),
-                )
-            }
+                    diagnosticStore.record(
+                        attempt.attemptId,
+                        CollectorDiagnosticStage.ERROR,
+                        CollectorDiagnosticResult.RECOVERABLE_ERROR,
+                        "FGS_RESTART_FAILED · Foreground-Service konnte aus dem Sensorfenster-Alarm nicht gestartet werden; Folgeslot wurde geplant (${error.javaClass.simpleName})",
+                        nowEpochMs = System.currentTimeMillis(),
+                    )
+                }
+        } finally {
+            if (!handedOffToService) G7WakeHandoff.release()
+        }
     }
 }

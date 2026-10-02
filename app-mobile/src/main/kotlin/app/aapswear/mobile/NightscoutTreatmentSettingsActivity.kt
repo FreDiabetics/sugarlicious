@@ -129,18 +129,22 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
             val granted =
                 ContextCompat.checkSelfPermission(this, LocalNetworkAccessPolicy.PERMISSION) ==
                     PackageManager.PERMISSION_GRANTED
-            if (
-                LocalNetworkAccessPolicy.needsPermission(
-                    sdkInt = Build.VERSION.SDK_INT,
-                    enabled = requested.enabled,
-                    baseUrl = requested.baseUrl,
-                    permissionGranted = granted,
-                )
-            ) {
-                pendingLocalNetworkAction = action
-                localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
-            } else {
-                action()
+            scope.launch {
+                val needsPermission =
+                    withContext(Dispatchers.IO) {
+                        LocalNetworkAccessPolicy.needsPermissionAfterResolution(
+                            sdkInt = Build.VERSION.SDK_INT,
+                            enabled = requested.enabled,
+                            baseUrl = requested.baseUrl,
+                            permissionGranted = granted,
+                        )
+                    }
+                if (needsPermission) {
+                    pendingLocalNetworkAction = action
+                    localNetworkPermissionLauncher.launch(LocalNetworkAccessPolicy.PERMISSION)
+                } else {
+                    action()
+                }
             }
         }
 
