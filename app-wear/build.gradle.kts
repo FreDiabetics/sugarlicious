@@ -192,7 +192,7 @@ val prepareDirectToWatchFace =
 tasks.configureEach {
     if (
         name != prepareDefaultWatchFace.name &&
-            name != prepareAnalogWatchFace.name &&
+        name != prepareAnalogWatchFace.name &&
         name != prepareDirectToWatchFace.name &&
         (
             name.contains("Assets") ||

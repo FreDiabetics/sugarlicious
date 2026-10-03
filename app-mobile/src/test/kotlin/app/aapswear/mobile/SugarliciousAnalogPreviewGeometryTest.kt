@@ -4,10 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.w3c.dom.Element
 import java.io.File
 import javax.imageio.ImageIO
 import javax.xml.parsers.DocumentBuilderFactory
-import org.w3c.dom.Element
 
 class SugarliciousAnalogPreviewGeometryTest {
     @Test
@@ -80,9 +80,21 @@ class SugarliciousAnalogPreviewGeometryTest {
                 assertEquals("388", arc.getAttribute("height"))
                 assertEquals(start, arc.getAttribute("startAngle"))
                 assertEquals("CLOCKWISE", arc.getAttribute("direction"))
-                assertEquals("22", arc.getElementsByTagName("Stroke").item(0).asElement().getAttribute("thickness"))
+                assertEquals(
+                    "22",
+                    arc
+                        .getElementsByTagName("Stroke")
+                        .item(0)
+                        .asElement()
+                        .getAttribute("thickness"),
+                )
             }
-            val valueTransform = arcs.last().getElementsByTagName("Transform").item(0).asElement()
+            val valueTransform =
+                arcs
+                    .last()
+                    .getElementsByTagName("Transform")
+                    .item(0)
+                    .asElement()
             assertTrue(valueTransform.getAttribute("value").contains("* 42"))
             assertTrue("zero-span ranges must be guarded", valueTransform.getAttribute("value").contains("=="))
         }
@@ -104,9 +116,21 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertEquals("124", arc.getAttribute("width"))
             assertEquals("124", arc.getAttribute("height"))
             assertEquals("232", arc.getAttribute("startAngle"))
-            assertEquals("16", arc.getElementsByTagName("Stroke").item(0).asElement().getAttribute("thickness"))
+            assertEquals(
+                "16",
+                arc
+                    .getElementsByTagName("Stroke")
+                    .item(0)
+                    .asElement()
+                    .getAttribute("thickness"),
+            )
         }
-        val valueTransform = arcs.last().getElementsByTagName("Transform").item(0).asElement()
+        val valueTransform =
+            arcs
+                .last()
+                .getElementsByTagName("Transform")
+                .item(0)
+                .asElement()
         assertTrue(valueTransform.getAttribute("value").contains("* 256"))
         assertTrue("zero-span ranges must be guarded", valueTransform.getAttribute("value").contains("=="))
 
@@ -177,7 +201,11 @@ class SugarliciousAnalogPreviewGeometryTest {
         options.zip(expected).forEach { (option, resources) ->
             val actual =
                 listOf("HourHand", "MinuteHand", "SecondHand").map { tag ->
-                    option.getElementsByTagName(tag).item(0).asElement().getAttribute("resource")
+                    option
+                        .getElementsByTagName(tag)
+                        .item(0)
+                        .asElement()
+                        .getAttribute("resource")
                 }
             assertEquals(resources, actual)
             resources.forEach { resource ->
