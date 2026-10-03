@@ -120,6 +120,79 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertTrue(iconPart.getAttribute("y").toInt() >= 112)
     }
 
+    @Test
+    fun `graph stays provider driven and preserves the native WFS aspect ratio`() {
+        val document = watchFaceDocument()
+        val graphSlot = slot(document.documentElement, "7")
+        val policy = graphSlot.getElementsByTagName("DefaultProviderPolicy").item(0).asElement()
+        assertEquals(
+            "app.aapswear/app.aapswear.complications.GlucoseGraphComplication",
+            policy.getAttribute("primaryProvider"),
+        )
+        assertEquals("SMALL_IMAGE", policy.getAttribute("primaryProviderType"))
+
+        val imagePart =
+            complication(graphSlot, "SMALL_IMAGE")
+                .getElementsByTagName("PartImage")
+                .item(0)
+                .asElement()
+        assertEquals("70", imagePart.getAttribute("x"))
+        assertEquals("1", imagePart.getAttribute("y"))
+        assertEquals("255", imagePart.getAttribute("width"))
+        assertEquals("138", imagePart.getAttribute("height"))
+        assertTrue(kotlin.math.abs(255f / 138f - 224f / 121.3336f) < 0.01f)
+    }
+
+    @Test
+    fun `three complete hand packages remain selectable`() {
+        val document = watchFaceDocument()
+        val declared =
+            document
+                .documentElement
+                .getElementsByTagName("UserConfigurations")
+                .item(0)
+                .asElement()
+                .getElementsByTagName("ListConfiguration")
+                .elements()
+                .single { it.getAttribute("id") == "handStyle" }
+        assertEquals(listOf("0", "1", "2"), declared.getElementsByTagName("ListOption").elements().map { it.getAttribute("id") })
+
+        val rendered =
+            document
+                .documentElement
+                .getElementsByTagName("Scene")
+                .item(0)
+                .asElement()
+                .childNodes
+                .elements()
+                .single { it.tagName == "ListConfiguration" && it.getAttribute("id") == "handStyle" }
+        val expected =
+            listOf(
+                listOf("hour_hand", "minute_hand", "second_hand"),
+                listOf("hour_hand_transparent", "minute_hand_transparent", "second_hand_transparent"),
+                listOf("hour_hand_tblack", "minute_hand_tblack", "second_hand_tblack"),
+            )
+        val options = rendered.getElementsByTagName("ListOption").elements()
+        assertEquals(3, options.size)
+        options.zip(expected).forEach { (option, resources) ->
+            val actual =
+                listOf("HourHand", "MinuteHand", "SecondHand").map { tag ->
+                    option.getElementsByTagName(tag).item(0).asElement().getAttribute("resource")
+                }
+            assertEquals(resources, actual)
+            resources.forEach { resource ->
+                assertTrue(
+                    "$resource must be packaged",
+                    repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/$resource.png").isFile,
+                )
+            }
+            val secondHand = option.getElementsByTagName("SecondHand").item(0).asElement()
+            val ambient = secondHand.getElementsByTagName("Variant").item(0).asElement()
+            assertEquals("AMBIENT", ambient.getAttribute("mode"))
+            assertEquals("0", ambient.getAttribute("value"))
+        }
+    }
+
     private fun watchFaceDocument() =
         DocumentBuilderFactory
             .newInstance()
