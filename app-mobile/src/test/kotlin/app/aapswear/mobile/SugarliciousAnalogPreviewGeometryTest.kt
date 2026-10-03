@@ -1,9 +1,13 @@
 package app.aapswear.mobile
 
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import javax.imageio.ImageIO
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
 
 class SugarliciousAnalogPreviewGeometryTest {
     @Test
@@ -59,6 +63,85 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertTrue("graph cutout must stay transparent", template.getRGB(225, 100) ushr 24 == 0)
         assertTrue("dial background outside graph must stay opaque", template.getRGB(225, 225) ushr 24 == 0xFF)
     }
+
+    @Test
+    fun `outer ranged rings are inset thick and share matching tracks`() {
+        val document = watchFaceDocument()
+        val expectedStarts = mapOf("0" to "288", "1" to "18", "2" to "108")
+
+        expectedStarts.forEach { (slotId, start) ->
+            val ranged = complication(slot(document.documentElement, slotId), "RANGED_VALUE")
+            val arcs = ranged.getElementsByTagName("Arc").elements()
+            assertEquals("slot $slotId needs track and value arcs", 2, arcs.size)
+            arcs.forEach { arc ->
+                assertEquals("256", arc.getAttribute("centerX"))
+                assertEquals("256", arc.getAttribute("centerY"))
+                assertEquals("388", arc.getAttribute("width"))
+                assertEquals("388", arc.getAttribute("height"))
+                assertEquals(start, arc.getAttribute("startAngle"))
+                assertEquals("CLOCKWISE", arc.getAttribute("direction"))
+                assertEquals("22", arc.getElementsByTagName("Stroke").item(0).asElement().getAttribute("thickness"))
+            }
+            val valueTransform = arcs.last().getElementsByTagName("Transform").item(0).asElement()
+            assertTrue(valueTransform.getAttribute("value").contains("* 42"))
+            assertTrue("zero-span ranges must be guarded", valueTransform.getAttribute("value").contains("=="))
+        }
+
+        val outerEdge = 256f + 388f / 2f + 22f / 2f
+        assertTrue("outer rings need a safe bezel inset", outerEdge <= 462f)
+    }
+
+    @Test
+    fun `bottom ranged renderer has matching arcs and its trend icon in the open segment`() {
+        val document = watchFaceDocument()
+        val ranged = complication(slot(document.documentElement, "6"), "RANGED_VALUE")
+        val arcs = ranged.getElementsByTagName("Arc").elements()
+
+        assertEquals(2, arcs.size)
+        arcs.forEach { arc ->
+            assertEquals("75", arc.getAttribute("centerX"))
+            assertEquals("75", arc.getAttribute("centerY"))
+            assertEquals("124", arc.getAttribute("width"))
+            assertEquals("124", arc.getAttribute("height"))
+            assertEquals("232", arc.getAttribute("startAngle"))
+            assertEquals("16", arc.getElementsByTagName("Stroke").item(0).asElement().getAttribute("thickness"))
+        }
+        val valueTransform = arcs.last().getElementsByTagName("Transform").item(0).asElement()
+        assertTrue(valueTransform.getAttribute("value").contains("* 256"))
+        assertTrue("zero-span ranges must be guarded", valueTransform.getAttribute("value").contains("=="))
+
+        val icon =
+            ranged
+                .getElementsByTagName("Image")
+                .elements()
+                .singleOrNull { it.getAttribute("resource") == "[COMPLICATION.MONOCHROMATIC_IMAGE]" }
+        assertNotNull("the ranged renderer itself must draw the provider trend icon", icon)
+        val iconPart = icon!!.parentNode.asElement()
+        assertTrue(iconPart.getAttribute("y").toInt() >= 112)
+    }
+
+    private fun watchFaceDocument() =
+        DocumentBuilderFactory
+            .newInstance()
+            .newDocumentBuilder()
+            .parse(repoFile("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml"))
+
+    private fun slot(root: Element, slotId: String): Element =
+        root
+            .getElementsByTagName("ComplicationSlot")
+            .elements()
+            .single { it.getAttribute("slotId") == slotId }
+
+    private fun complication(slot: Element, type: String): Element =
+        slot
+            .childNodes
+            .elements()
+            .single { it.tagName == "Complication" && it.getAttribute("type") == type }
+
+    private fun org.w3c.dom.NodeList.elements(): List<Element> =
+        (0 until length).mapNotNull { index -> item(index) as? Element }
+
+    private fun org.w3c.dom.Node.asElement(): Element = this as Element
 
     private fun repoFile(path: String): File {
         val cwd = File(requireNotNull(System.getProperty("user.dir")))
