@@ -117,6 +117,10 @@ val defaultWatchFaceApk =
     rootProject.layout.projectDirectory.file(
         "watchfaces/sugarlicious-digital/build/outputs/apk/release/sugarlicious-digital-release.apk",
     )
+val analogWatchFaceApk =
+    rootProject.layout.projectDirectory.file(
+        "watchfaces/sugarlicious-analog/build/outputs/apk/release/sugarlicious-analog-release.apk",
+    )
 val directToWatchFaceApk =
     rootProject.layout.projectDirectory.file(
         "watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/release/sugarlicious-direct-to-watch-release.apk",
@@ -151,6 +155,23 @@ val prepareDefaultWatchFace =
         tokenResourceName.set("default_wf_token")
     }
 
+val prepareAnalogWatchFace =
+    tasks.register<PrepareDefaultWatchFaceTask>("prepareAnalogWatchFace") {
+        dependsOn(
+            ":watchfaces:sugarlicious-analog:assembleRelease",
+            ":prepareWatchFaceValidatorCli",
+        )
+        watchFaceApk.set(analogWatchFaceApk)
+        validatorJars.from(
+            rootProject.fileTree(validatorDirectory) { include("validator-push-cli-*.jar") },
+        )
+        outputApk.set(generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog.apk") })
+        outputTokenResource.set(
+            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_analog_token.txt") },
+        )
+        tokenResourceName.set("")
+    }
+
 val prepareDirectToWatchFace =
     tasks.register<PrepareDefaultWatchFaceTask>("prepareDirectToWatchFace") {
         dependsOn(
@@ -171,6 +192,7 @@ val prepareDirectToWatchFace =
 tasks.configureEach {
     if (
         name != prepareDefaultWatchFace.name &&
+            name != prepareAnalogWatchFace.name &&
         name != prepareDirectToWatchFace.name &&
         (
             name.contains("Assets") ||
@@ -178,7 +200,7 @@ tasks.configureEach {
                 name.endsWith("SourceSetPaths")
         )
     ) {
-        dependsOn(prepareDefaultWatchFace, prepareDirectToWatchFace)
+        dependsOn(prepareDefaultWatchFace, prepareAnalogWatchFace, prepareDirectToWatchFace)
     }
 }
 
