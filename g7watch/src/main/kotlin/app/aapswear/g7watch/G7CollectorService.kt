@@ -1461,7 +1461,7 @@ internal fun shouldRecycleG7Runtime(
     radioFailureStreak >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
         cycle?.directConnectResult == app.aapswear.g7.DirectConnectResult.NO_CALLBACK &&
         cycle.fallbackScanUsed &&
-        cycle.scanTotalResults == 0 &&
+        (cycle.scanExactAddressResults ?: 0) == 0 &&
         (lastRecycleAtEpochMs == null || nowEpochMs - lastRecycleAtEpochMs >= G7_RUNTIME_RECYCLE_COOLDOWN_MS)
 
 private val RADIO_FAILURE_CLASSES =
