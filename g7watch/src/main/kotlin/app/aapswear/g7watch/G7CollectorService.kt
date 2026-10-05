@@ -15,18 +15,14 @@ import android.os.SystemClock
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
-import app.aapswear.g7.CollectorDiagnosticAttempt
 import app.aapswear.g7.CollectorDiagnosticResult
 import app.aapswear.g7.CollectorDiagnosticStage
 import app.aapswear.g7.CollectorSlotStrategy
 import app.aapswear.g7.G7CollectorError
-import app.aapswear.g7.G7CollectorHealth
 import app.aapswear.g7.G7ConnectionState
-import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
 import app.aapswear.g7.G7ReconnectScheduler
-import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SessionState
 import app.aapswear.g7.toCgm
@@ -42,72 +38,6 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-
-internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean = collectorEnabled
-
-internal fun shouldUpdateG7ForegroundNotification(
-    inserted: Boolean,
-    classification: CollectorCycleClassification,
-): Boolean = inserted && classification == CollectorCycleClassification.SUCCESS_FRESH
-
-internal fun restoreAuthenticatedG7Address(
-    sensor: G7Sensor,
-    sharedKeyAddress: String?,
-): G7Sensor =
-    if (sensor.deviceAddress.isNullOrBlank() && !sharedKeyAddress.isNullOrBlank()) {
-        sensor.copy(deviceAddress = sharedKeyAddress)
-    } else {
-        sensor
-    }
-
-internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean = action != G7CollectorService.ACTION_RECONNECT
-
-internal fun shouldCoalesceG7CollectorTrigger(
-    automatic: Boolean,
-    activeCycle: Boolean,
-): Boolean = automatic && activeCycle
-
-internal fun needsG7FollowUpRepair(
-    collectorEnabled: Boolean,
-    pendingReconnectEpochMs: Long?,
-    nowEpochMs: Long,
-): Boolean = collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
-
-internal fun ensureG7PairingAttempt(
-    state: G7PersistedState,
-    nowEpochMs: Long,
-): G7PersistedState {
-    if (!state.collectorEnabled || state.sensor == null || state.lastReading != null) return state
-    val deadline =
-        state.pairingDeadlineEpochMs
-            ?.takeIf { it > nowEpochMs }
-            ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
-    return state.copy(
-        pairingAttemptId =
-            state.pairingAttemptId ?: java.util.UUID
-                .randomUUID()
-                .toString(),
-        pairingStartedAtEpochMs = state.pairingStartedAtEpochMs ?: nowEpochMs,
-        pairingDeadlineEpochMs = deadline,
-        scanTimeoutAtEpochMs = deadline,
-    )
-}
-
-internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState =
-    state.copy(
-        connectionState = G7ConnectionState.DISCONNECTED,
-        protocolState = G7ProtocolState.UNINITIALIZED,
-        authenticationState = app.aapswear.g7.G7AuthenticationState.UNKNOWN,
-        retryCount = 0,
-        nextReconnectEpochMs = null,
-        lastError = null,
-        activeAttemptId = null,
-        scanStartedAtEpochMs = null,
-        scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
-    )
-
-internal fun clearG7ScanRuntime(state: G7PersistedState): G7PersistedState =
-    state.copy(scanStartedAtEpochMs = null, scanTimeoutAtEpochMs = null)
 
 class G7CollectorService : Service() {
     private val processStartedElapsedMs by lazy { SystemClock.elapsedRealtime() }
@@ -1442,94 +1372,7 @@ class G7CollectorService : Service() {
     }
 }
 
-internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
-    if (state.sensor?.deviceAddress.isNullOrBlank() || state.lastReading == null) {
-        G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L
-    } else {
-        3L * 60_000L
-    }
-
 private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
-
-internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
-internal const val G7_RUNTIME_RECYCLE_COOLDOWN_MS = 15L * 60_000L
-
-internal fun unexpectedFailureMetadata(
-    phase: String,
-    error: Throwable,
-): Map<String, Any?> {
-    val type = error.javaClass.name
-    val fingerprint =
-        java.security.MessageDigest
-            .getInstance("SHA-256")
-            .digest("$phase:$type".toByteArray())
-            .take(8)
-            .joinToString("") { "%02x".format(it) }
-    return mapOf("failurePhase" to phase, "exceptionType" to type, "failureFingerprint" to fingerprint)
-}
-
-internal fun shouldRecycleG7Runtime(
-    cycle: app.aapswear.g7.CollectorCycleTiming?,
-    radioFailureStreak: Int,
-    lastRecycleAtEpochMs: Long?,
-    nowEpochMs: Long,
-): Boolean =
-    radioFailureStreak >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
-        cycle?.directConnectResult == app.aapswear.g7.DirectConnectResult.NO_CALLBACK &&
-        cycle.fallbackScanUsed &&
-        (cycle.scanExactAddressResults ?: 0) == 0 &&
-        (lastRecycleAtEpochMs == null || nowEpochMs - lastRecycleAtEpochMs >= G7_RUNTIME_RECYCLE_COOLDOWN_MS)
-
-private val RADIO_FAILURE_CLASSES =
-    setOf(
-        G7FailureClass.DIRECT_NO_CALLBACK,
-        G7FailureClass.DIRECT_GATT_133,
-        G7FailureClass.DIRECT_OTHER_GATT_ERROR,
-        G7FailureClass.SCAN_RADIO_FAILURE,
-        G7FailureClass.SENSOR_NOT_ADVERTISING,
-        G7FailureClass.SENSOR_UNREACHABLE,
-    )
-
-internal fun nextRadioFailureStreak(
-    previous: G7CollectorHealth,
-    current: G7FailureClass,
-): Int =
-    if (current in RADIO_FAILURE_CLASSES && previous.lastFailureClass in RADIO_FAILURE_CLASSES) {
-        previous.consecutiveFailures + 1
-    } else {
-        1
-    }
-
-internal fun consecutiveRadioFailures(
-    attempts: List<CollectorDiagnosticAttempt>,
-    currentAttemptId: Long,
-): Int =
-    attempts
-        .asSequence()
-        .filter { it.attemptId < currentAttemptId }
-        .sortedByDescending { it.attemptId }
-        .takeWhile { isCompleteRadioFailure(it.classification, it.cycle) }
-        .count()
-
-internal fun isCompleteRadioFailure(
-    classification: CollectorCycleClassification?,
-    cycle: app.aapswear.g7.CollectorCycleTiming?,
-): Boolean =
-    classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED ||
-        (classification == CollectorCycleClassification.GATT_CONNECT_FAILED && cycle?.fallbackScanUsed == true)
-
-internal fun directConnectDiagnosticCode(result: app.aapswear.g7.DirectConnectResult): String =
-    when (result) {
-        app.aapswear.g7.DirectConnectResult.NO_CALLBACK -> "DIRECT_CONNECT_NO_CALLBACK"
-        app.aapswear.g7.DirectConnectResult.STATUS_133 -> "DIRECT_CONNECT_STATUS_133"
-        app.aapswear.g7.DirectConnectResult.STATUS_19 -> "DIRECT_CONNECT_STATUS_19"
-        app.aapswear.g7.DirectConnectResult.OTHER_STATUS -> "DIRECT_CONNECT_OTHER_STATUS"
-        app.aapswear.g7.DirectConnectResult.TIMEOUT -> "DIRECT_CONNECT_TIMEOUT"
-        app.aapswear.g7.DirectConnectResult.DISCONNECTED_EARLY -> "DIRECT_CONNECT_DISCONNECTED_EARLY"
-        app.aapswear.g7.DirectConnectResult.DEVICE_UNAVAILABLE -> "DIRECT_CONNECT_DEVICE_UNAVAILABLE"
-        app.aapswear.g7.DirectConnectResult.SECURITY_ERROR -> "DIRECT_CONNECT_SECURITY_ERROR"
-        app.aapswear.g7.DirectConnectResult.SUCCESS -> "DIRECT_CONNECT_SUCCESS"
-    }
 
 private fun G7CollectorService.updateAttemptCycleForProtocolState(
     attemptId: Long,
@@ -1605,76 +1448,3 @@ private fun G7CollectorService.recordAttemptProtocolState(
         else -> Unit
     }
 }
-
-private fun G7ProtocolState.toConnectionState(): G7ConnectionState =
-    when (this) {
-        G7ProtocolState.SCANNING -> G7ConnectionState.SCANNING
-        G7ProtocolState.CONNECTING -> G7ConnectionState.CONNECTING
-        G7ProtocolState.DISCOVERING,
-        G7ProtocolState.DISCOVERING_SERVICES,
-        G7ProtocolState.ENABLING_NOTIFICATIONS,
-        -> G7ConnectionState.DISCOVERING
-        G7ProtocolState.AUTHENTICATION_START,
-        G7ProtocolState.AUTHENTICATING,
-        G7ProtocolState.AUTHENTICATED,
-        G7ProtocolState.BONDING,
-        G7ProtocolState.REQUESTING_GLUCOSE,
-        G7ProtocolState.RECEIVING_GLUCOSE,
-        -> G7ConnectionState.CONNECTED
-        else -> G7ConnectionState.DISCONNECTED
-    }
-
-private fun G7ProtocolState.toSessionState(): G7SessionState =
-    when (this) {
-        G7ProtocolState.AUTHENTICATED,
-        G7ProtocolState.REQUESTING_GLUCOSE,
-        G7ProtocolState.RECEIVING_GLUCOSE,
-        -> G7SessionState.ACTIVE
-        G7ProtocolState.AUTHENTICATION_START,
-        G7ProtocolState.AUTHENTICATING,
-        G7ProtocolState.BONDING,
-        -> G7SessionState.AUTHENTICATING
-        G7ProtocolState.WAITING_FOR_NEXT_READING -> G7SessionState.WAITING_FOR_NEXT_READING
-        G7ProtocolState.RECOVERING,
-        G7ProtocolState.ERROR,
-        -> G7SessionState.RECOVERING
-        else -> G7SessionState.INITIAL_SETUP
-    }
-
-private fun G7ProtocolState.label(): String =
-    when (this) {
-        G7ProtocolState.SCANNING -> "Sensor wird gesucht"
-        G7ProtocolState.CONNECTING -> "Sensor wird verbunden"
-        G7ProtocolState.DISCOVERING_SERVICES -> "G7-Dienste werden geprüft"
-        G7ProtocolState.ENABLING_NOTIFICATIONS -> "G7-Datenkanäle werden geöffnet"
-        G7ProtocolState.AUTHENTICATION_START,
-        G7ProtocolState.AUTHENTICATING,
-        -> "Sensor wird authentifiziert"
-        G7ProtocolState.BONDING -> "Sensor wird gekoppelt"
-        G7ProtocolState.AUTHENTICATED -> "Sensor ist authentifiziert"
-        G7ProtocolState.REQUESTING_GLUCOSE -> "Glukosewert wird angefordert"
-        G7ProtocolState.RECEIVING_GLUCOSE -> "Glukosewert wird geprüft"
-        G7ProtocolState.RECOVERING -> "Nächstes Sensorfenster wird abgewartet"
-        else -> name.replace('_', ' ')
-    }
-
-private fun G7ProtocolState.diagnosticCode(): String =
-    when (this) {
-        G7ProtocolState.SCANNING,
-        G7ProtocolState.CONNECTING,
-        G7ProtocolState.DISCOVERING,
-        G7ProtocolState.DISCOVERING_SERVICES,
-        G7ProtocolState.ENABLING_NOTIFICATIONS,
-        -> "G7-BLE-110"
-        G7ProtocolState.RECOVERING -> "G7-BLE-133"
-        G7ProtocolState.AUTHENTICATION_START,
-        G7ProtocolState.AUTHENTICATING,
-        G7ProtocolState.BONDING,
-        G7ProtocolState.AUTHENTICATED,
-        -> "G7-AUTH-110"
-        G7ProtocolState.REQUESTING_GLUCOSE,
-        G7ProtocolState.RECEIVING_GLUCOSE,
-        G7ProtocolState.WAITING_FOR_NEXT_READING,
-        -> "G7-DATA-110"
-        else -> "G7-STATE-100"
-    }
