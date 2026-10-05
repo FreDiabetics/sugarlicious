@@ -1,13 +1,10 @@
 package app.aapswear.model
 
-import kotlin.math.abs
-
 /** Shared validation, ordering and identity-safe deduplication for canonical CGM history. */
 object CanonicalCgmHistory {
     const val DEFAULT_WINDOW_MS = 24L * 60L * 60_000L
     const val DEFAULT_FUTURE_TOLERANCE_MS = 5L * 60_000L
     const val DEFAULT_MAX_POINTS = 300
-    private const val SAME_MEASUREMENT_TOLERANCE_MS = 90_000L
 
     fun merge(
         samples: List<GlucoseSample>,
@@ -39,7 +36,7 @@ object CanonicalCgmHistory {
                     )
             }.sortedWith(CANONICAL_ORDER)
             .forEach { candidate ->
-                val duplicateIndex = result.indexOfFirst { existing -> existing.sameMeasurement(candidate) }
+                val duplicateIndex = result.indexOfFirst { existing -> CanonicalCgmIdentity.sameMeasurement(existing, candidate) }
                 if (duplicateIndex < 0) {
                     result += candidate
                 } else {
@@ -82,22 +79,4 @@ object CanonicalCgmHistory {
             GlucoseSample::valueMgDl,
         )
 
-    private fun GlucoseSample.sameMeasurement(other: GlucoseSample): Boolean {
-        val timeDifference = abs(measuredAtEpochMs - other.measuredAtEpochMs)
-        val sameKnownSensor = sensorId != null && sensorId == other.sensorId
-        val sameKnownSession = sessionId != null && sessionId == other.sessionId
-
-        // A G7 session cannot produce two independent measurements only seconds apart. Some
-        // upstream payloads nevertheless expose the same reading once as history and once as the
-        // live value with different sequence metadata. Collapse that pair before rendering so a
-        // newly arriving dot keeps the regular five-minute visual spacing to its predecessor.
-        if (sameKnownSensor && sameKnownSession && timeDifference <= SAME_MEASUREMENT_TOLERANCE_MS) {
-            return true
-        }
-        if (sensorId != null && other.sensorId != null && sensorId != other.sensorId) return false
-        if (sessionId != null && other.sessionId != null && sessionId != other.sessionId) return false
-
-        if (timeDifference == 0L && source == other.source) return true
-        return false
-    }
 }
