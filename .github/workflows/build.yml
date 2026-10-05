@@ -73,7 +73,7 @@ jobs:
 
       - name: Test and build all applications and watchfaces
         run: >-
-          ./gradlew test assembleDebug
+          ./gradlew verifyArchitecture test assembleDebug
           :watchfaces:test-wff:assembleRelease
           :watchfaces:sugarlicious-digital:assembleRelease
           :watchfaces:sugarlicious-direct-to-watch:assembleRelease
