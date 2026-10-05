@@ -32,6 +32,25 @@ internal class G7SensorStateStore(
     }
 }
 
+internal class G7RuntimeRecycleStore(context: Context) {
+    private val preferences =
+        context.applicationContext.getSharedPreferences("g7_runtime_recovery", Context.MODE_PRIVATE)
+
+    fun lastRecycleAtEpochMs(): Long? =
+        preferences.getLong(KEY_LAST_RECYCLE_AT, 0L).takeIf { it > 0L }
+
+    @Synchronized
+    fun tryClaim(nowEpochMs: Long): Boolean {
+        val previous = lastRecycleAtEpochMs()
+        if (previous != null && nowEpochMs - previous < G7_RUNTIME_RECYCLE_COOLDOWN_MS) return false
+        return preferences.edit().putLong(KEY_LAST_RECYCLE_AT, nowEpochMs).commit()
+    }
+
+    private companion object {
+        const val KEY_LAST_RECYCLE_AT = "last_runtime_recycle_at"
+    }
+}
+
 internal fun maskedPairingCode(pairingCode: String?): String =
     if (pairingCode.isNullOrBlank()) "—" else "•".repeat(pairingCode.length)
 

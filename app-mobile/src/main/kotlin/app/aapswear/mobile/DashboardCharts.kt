@@ -971,6 +971,14 @@ internal class GlucoseDashboardChart
                     }
                 }
 
+                if (showPredictions && futureLaneVisible) {
+                    linePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_NOW_LINE)
+                    linePaint.strokeWidth = 1f.dp
+                    linePaint.pathEffect = DashPathEffect(floatArrayOf(4f.dp, 4f.dp), 0f)
+                    canvas.drawLine(liveX, plot.top, liveX, plot.bottom, linePaint)
+                    linePaint.pathEffect = null
+                }
+
                 canvas.restoreToCount(graphSave)
                 drawGrid(canvas, plot, timeBounds, scaleContainer.bottom, start, end, liveTimestamp, liveX)
 

@@ -182,6 +182,54 @@ class DashboardChartsTest {
         assertTrue("prediction=$predictionPixels", predictionPixels > 2)
     }
 
+    @Test fun `cgm graph renders current time divider when predictions are enabled`() {
+        val preferences = context.getSharedPreferences("cgm_prediction_divider", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        val divider = Color.rgb(17, 231, 199)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_NOW_LINE, divider)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        val now = System.currentTimeMillis()
+        val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L, now) }
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(120.0, now)),
+                glucosePredictions =
+                    listOf(
+                        GlucosePrediction(
+                            PredictionKind.IOB,
+                            listOf(GlucoseSample(125.0, now + 5L * 60_000L)),
+                        ),
+                    ),
+                target = TargetState(80.0, 160.0),
+            )
+
+        val bitmap =
+            render(
+                GlucoseDashboardChart(context = context, sharedViewport = viewport).apply {
+                    bind(
+                        state = state,
+                        unit = GlucoseUnit.MG_DL,
+                        showPredictions = true,
+                        durationHours = 6,
+                        showTargetRange = true,
+                        showPredictionIob = true,
+                    )
+                },
+                230,
+            )
+
+        val dividerPixels =
+            count(bitmap) {
+                kotlin.math.abs(Color.red(it) - Color.red(divider)) <= 32 &&
+                    kotlin.math.abs(Color.green(it) - Color.green(divider)) <= 32 &&
+                    kotlin.math.abs(Color.blue(it) - Color.blue(divider)) <= 32
+            }
+        assertTrue("divider pixels=$dividerPixels", dividerPixels > 8)
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
+    }
+
     @Test fun `in range picker drives the graph while high and low stay transparent without sustained excursion`() {
         val preferences = context.getSharedPreferences("chart_region_colors", android.content.Context.MODE_PRIVATE)
         preferences

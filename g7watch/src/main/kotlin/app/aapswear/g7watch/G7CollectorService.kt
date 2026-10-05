@@ -119,6 +119,7 @@ class G7CollectorService : Service() {
     private var collectionJob: Job? = null
     private var cycleWakeLock: PowerManager.WakeLock? = null
     private var cycleToken: Long = 0L
+    private var runtimeRecycleRequested = false
 
     override fun onCreate() {
         super.onCreate()
@@ -1021,11 +1022,26 @@ class G7CollectorService : Service() {
             if (degraded) {
                 val staleScannerStopped = AndroidG7Scanner.forceCleanup()
                 val callbackRuntimeReset = G7GattCallbackDispatcher.reset()
+                val now = System.currentTimeMillis()
+                val recycleStore = G7RuntimeRecycleStore(this)
+                val recycleRuntime =
+                    shouldRecycleG7Runtime(
+                        cycle = cycle,
+                        radioFailureStreak = streak,
+                        lastRecycleAtEpochMs = recycleStore.lastRecycleAtEpochMs(),
+                        nowEpochMs = now,
+                    ) && recycleStore.tryClaim(now)
+                if (recycleRuntime) {
+                    // Retain the user setting, sensor/session, last reading, history and ledger.
+                    // Only volatile protocol state is reset before recreating the Service runtime.
+                    store.save(resetG7RuntimeForRestart(store.read()))
+                    runtimeRecycleRequested = true
+                }
                 attemptStore.record(
                     attemptId,
                     CollectorDiagnosticStage.RECOVERY,
                     CollectorDiagnosticResult.INFO,
-                    "RADIO_DEGRADED_CLUSTER · streak=$streak · staleScannerStopped=$staleScannerStopped · callbackRuntimeReset=$callbackRuntimeReset · nächster Zyklus erhält frische BLE-Laufzeitobjekte",
+                    "RADIO_DEGRADED_CLUSTER · streak=$streak · staleScannerStopped=$staleScannerStopped · callbackRuntimeReset=$callbackRuntimeReset · serviceRuntimeRecycle=$recycleRuntime",
                     errorCode = "G7-RADIO-CLUSTER",
                 )
             }
@@ -1300,6 +1316,10 @@ class G7CollectorService : Service() {
         } else {
             stopRuntimeForeground()
         }
+        if (runtimeRecycleRequested) {
+            runtimeRecycleRequested = false
+            stopRuntimeForeground()
+        }
     }
 
     private fun stopRuntimeForeground() {
@@ -1429,6 +1449,19 @@ internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
 private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
 
 internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
+internal const val G7_RUNTIME_RECYCLE_COOLDOWN_MS = 15L * 60_000L
+
+internal fun shouldRecycleG7Runtime(
+    cycle: app.aapswear.g7.CollectorCycleTiming?,
+    radioFailureStreak: Int,
+    lastRecycleAtEpochMs: Long?,
+    nowEpochMs: Long,
+): Boolean =
+    radioFailureStreak >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
+        cycle?.directConnectResult == app.aapswear.g7.DirectConnectResult.NO_CALLBACK &&
+        cycle.fallbackScanUsed &&
+        cycle.scanTotalResults == 0 &&
+        (lastRecycleAtEpochMs == null || nowEpochMs - lastRecycleAtEpochMs >= G7_RUNTIME_RECYCLE_COOLDOWN_MS)
 
 private val RADIO_FAILURE_CLASSES =
     setOf(
