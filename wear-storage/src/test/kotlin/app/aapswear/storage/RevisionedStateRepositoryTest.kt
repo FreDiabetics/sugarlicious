@@ -25,15 +25,25 @@ class RevisionedStateRepositoryTest {
             assertEquals(written, backend.secondary)
         }
 
-    private data class Versioned(val value: String, val revision: Long)
+    private data class Versioned(
+        val value: String,
+        val revision: Long,
+    )
 
     private class FakeBackend(
         var primary: Versioned?,
         var secondary: Versioned?,
     ) : RevisionedStateBackend<Versioned> {
         override suspend fun readPrimary() = primary
+
         override suspend fun readSecondary() = secondary
-        override suspend fun writePrimary(value: Versioned) { primary = value }
-        override suspend fun writeSecondary(value: Versioned) { secondary = value }
+
+        override suspend fun writePrimary(value: Versioned) {
+            primary = value
+        }
+
+        override suspend fun writeSecondary(value: Versioned) {
+            secondary = value
+        }
     }
 }
