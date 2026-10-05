@@ -32,7 +32,9 @@ internal class G7SensorStateStore(
     }
 }
 
-internal class G7RuntimeRecycleStore(context: Context) {
+internal class G7RuntimeRecycleStore(
+    context: Context,
+) {
     private val preferences =
         context.applicationContext.getSharedPreferences("g7_runtime_recovery", Context.MODE_PRIVATE)
 

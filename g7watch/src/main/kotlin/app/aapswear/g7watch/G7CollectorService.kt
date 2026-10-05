@@ -1030,7 +1030,8 @@ class G7CollectorService : Service() {
                         radioFailureStreak = streak,
                         lastRecycleAtEpochMs = recycleStore.lastRecycleAtEpochMs(),
                         nowEpochMs = now,
-                    ) && recycleStore.tryClaim(now)
+                    ) &&
+                        recycleStore.tryClaim(now)
                 if (recycleRuntime) {
                     // Retain the user setting, sensor/session, last reading, history and ledger.
                     // Only volatile protocol state is reset before recreating the Service runtime.
