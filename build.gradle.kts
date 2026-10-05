@@ -3,11 +3,13 @@ import java.io.File
 import javax.inject.Inject
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.DefaultTask
+import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.testing.Test
 import org.gradle.process.ExecOperations
+import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
@@ -277,3 +279,78 @@ tasks.register<InstallSugarliciousDebugTask>("installSugarliciousDebug") {
     g7WatchApk.set(layout.projectDirectory.file("g7watch/build/outputs/apk/debug/g7watch-debug.apk"))
     vigilApk.set(layout.projectDirectory.file("watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/debug/sugarlicious-direct-to-watch-debug.apk"))
 }
+
+tasks.register("verifyArchitecture") {
+    group = "verification"
+    description = "Verifies Sugarlicious module direction and Wear-only G7 collector boundaries."
+    notCompatibleWithConfigurationCache("Inspects the configured cross-project dependency graph.")
+
+    doLast {
+        val applicationModules = setOf(":app-mobile", ":app-wear", ":g7watch")
+        val sharedModules =
+            setOf(
+                ":core-model",
+                ":data-source-api",
+                ":data-source-aaps",
+                ":dexcom-g7",
+                ":wear-protocol",
+                ":wear-storage",
+                ":ui-shared",
+                ":complications",
+            )
+
+        fun projectDependencies(module: String): Set<String> =
+            project(module)
+                .configurations
+                .flatMap { configuration ->
+                    configuration.dependencies.withType(ProjectDependency::class.java).map { it.path }
+                }.toSet()
+
+        sharedModules.forEach { module ->
+            val forbidden = projectDependencies(module).intersect(applicationModules)
+            check(forbidden.isEmpty()) {
+                "$module must not depend on application modules: ${forbidden.sorted()}"
+            }
+        }
+
+        val mobileDependencies = projectDependencies(":app-mobile")
+        check(":dexcom-g7" !in mobileDependencies && ":g7watch" !in mobileDependencies) {
+            "Mobile must remain a bridge without a direct G7 BLE collector: ${mobileDependencies.sorted()}"
+        }
+
+        fun manifestValues(
+            relativePath: String,
+            element: String,
+            attribute: String,
+        ): Set<String> {
+            val document =
+                DocumentBuilderFactory
+                    .newInstance()
+                    .apply { isNamespaceAware = true }
+                    .newDocumentBuilder()
+                    .parse(rootProject.file(relativePath))
+            val nodes = document.getElementsByTagName(element)
+            return buildSet {
+                repeat(nodes.length) { index ->
+                    val value = nodes.item(index).attributes?.getNamedItemNS(androidNamespace, attribute)?.nodeValue
+                    if (!value.isNullOrBlank()) add(value)
+                }
+            }
+        }
+
+        val mobilePermissions =
+            manifestValues("app-mobile/src/main/AndroidManifest.xml", "uses-permission", "name")
+        check("android.permission.BLUETOOTH_SCAN" !in mobilePermissions) {
+            "Mobile must not request BLE scan permission; direct collection is Wear-only"
+        }
+        check("android.permission.BLUETOOTH_CONNECT" !in mobilePermissions) {
+            "Mobile must not request BLE connect permission; direct collection is Wear-only"
+        }
+
+        val watchFeatures = manifestValues("g7watch/src/main/AndroidManifest.xml", "uses-feature", "name")
+        check("android.hardware.type.watch" in watchFeatures) { "SugarWear must remain Watch-only" }
+        check("android.hardware.bluetooth_le" in watchFeatures) { "SugarWear must require BLE hardware" }
+    }
+}
+
+val androidNamespace = "http://schemas.android.com/apk/res/android"

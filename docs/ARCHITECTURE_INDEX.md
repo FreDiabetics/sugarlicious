@@ -27,3 +27,9 @@ Mobile, Widgets, Notifications, Wear, G7 Collector, Tiles, Complications and Wat
 4. Record state transitions with stable diagnostic codes.
 5. Update visual references intentionally and retain a diff for visual changes.
 6. Increment the applicable schema version and add a monotonic migration for persisted settings changes.
+
+## Executable boundary gate
+
+Run `verifyArchitecture` before and after changing module dependencies or Android manifests. The gate enforces that shared modules never depend on application shells, Mobile cannot acquire the direct G7 BLE collector, and SugarWear remains a BLE-capable Wear-only package.
+
+The detailed module, runtime-entry-point and state-owner map is maintained in `docs/refactoring/PROJECT_CHANGE_MAP_2026-10-05.md`.
