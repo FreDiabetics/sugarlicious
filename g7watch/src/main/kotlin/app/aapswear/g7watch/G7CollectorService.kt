@@ -923,12 +923,13 @@ class G7CollectorService : Service() {
                 attemptId,
                 startedAt,
             )
-        } catch (_: Throwable) {
+        } catch (error: Throwable) {
             fail(
                 store.read(),
                 G7CollectorError("G7-INT-500", true, System.currentTimeMillis(), "Unerwarteter Collector-Fehler"),
                 attemptId,
                 startedAt,
+                unexpectedFailureMetadata("COLLECT", error),
             )
         } finally {
             finishCycle(token)
@@ -940,6 +941,7 @@ class G7CollectorService : Service() {
         error: G7CollectorError,
         attemptId: Long,
         startedAtEpochMs: Long,
+        failureMetadata: Map<String, Any?> = emptyMap(),
     ) {
         val cycle = attemptStore.snapshot().firstOrNull { it.attemptId == attemptId }?.cycle
         val stagedSafety =
@@ -1077,7 +1079,7 @@ class G7CollectorService : Service() {
                     "retryCount" to next.retryCount,
                     "nextReconnectEpochMs" to next.nextReconnectEpochMs,
                     "sessionState" to next.sessionState.name,
-                ),
+                ) + failureMetadata,
             )
         }
     }
@@ -1451,6 +1453,20 @@ private enum class CycleRequest { AUTOMATIC, MANUAL, RESTART }
 
 internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
 internal const val G7_RUNTIME_RECYCLE_COOLDOWN_MS = 15L * 60_000L
+
+internal fun unexpectedFailureMetadata(
+    phase: String,
+    error: Throwable,
+): Map<String, Any?> {
+    val type = error.javaClass.name
+    val fingerprint =
+        java.security.MessageDigest
+            .getInstance("SHA-256")
+            .digest("$phase:$type".toByteArray())
+            .take(8)
+            .joinToString("") { "%02x".format(it) }
+    return mapOf("failurePhase" to phase, "exceptionType" to type, "failureFingerprint" to fingerprint)
+}
 
 internal fun shouldRecycleG7Runtime(
     cycle: app.aapswear.g7.CollectorCycleTiming?,
