@@ -191,6 +191,25 @@ class G7BlePolicyTest {
         )
     }
 
+    @Test fun `unrelated scan traffic does not suppress recycle when paired sensor is absent`() {
+        val cycle =
+            CollectorCycleTiming(
+                directConnectResult = DirectConnectResult.NO_CALLBACK,
+                fallbackScanUsed = true,
+                scanTotalResults = 755,
+                scanExactAddressResults = 0,
+            )
+
+        assertTrue(
+            shouldRecycleG7Runtime(
+                cycle = cycle,
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+    }
+
     @Test fun `no callback streak uses durable health instead of alternating attempt shapes`() {
         val health =
             G7CollectorHealth(
