@@ -269,5 +269,4 @@ object CanonicalCgmSourceResolver {
             receivedAtEpochMs <= nowEpochMs + futureToleranceMs
 
     private fun CgmSourceCandidate.ageAt(nowEpochMs: Long): Long = (nowEpochMs - measuredAtEpochMs).coerceAtLeast(0L)
-
 }

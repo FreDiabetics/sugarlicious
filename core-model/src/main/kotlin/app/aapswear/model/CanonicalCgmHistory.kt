@@ -78,5 +78,4 @@ object CanonicalCgmHistory {
             { it.receivedAtEpochMs ?: Long.MIN_VALUE },
             GlucoseSample::valueMgDl,
         )
-
 }
