@@ -13,6 +13,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmGraphScaleMode
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -92,6 +93,40 @@ class DashboardChartsTest {
         assertEquals(8f, segments.last().startY)
     }
 
+    @Test
+    fun `insulin activity visual smoothing reduces an isolated peak while retaining endpoints`() {
+        val smoothed =
+            smoothActivitySeries(
+                listOf(
+                    1_000L to 0.0,
+                    2_000L to 1.0,
+                    3_000L to 0.0,
+                ),
+            )
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 0.5, 3_000L to 0.0), smoothed)
+    }
+
+    @Test
+    fun `live edge extension cannot alter the last observed activity value`() {
+        val rendered = smoothActivityToLiveEdge(listOf(1_000L to 0.0, 2_000L to 1.0), 3_000L, 0L, 4_000L)
+
+        assertEquals(listOf(1_000L to 0.0, 2_000L to 1.0, 3_000L to 1.0), rendered)
+    }
+
+    @Test
+    fun `insulin activity lane is shifted upward with symmetric headroom`() {
+        val plot = RectF(0f, 0f, 100f, 100f)
+        val scale =
+            app.aapswear.model.GraphAxisScale(
+                app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                app.aapswear.model.GraphBounds(0.0, 1.0),
+            )
+
+        assertEquals(90f, mapActivityY(0.0, scale, plot), 0.001f)
+        assertEquals(10f, mapActivityY(1.0, scale, plot), 0.001f)
+    }
+
     @Test fun `glucose chart renders source target and prediction streams`() {
         val now = System.currentTimeMillis()
         val state =
@@ -145,6 +180,58 @@ class DashboardChartsTest {
         val predictionPixels = count(bitmap) { Color.blue(it) > 180 && Color.green(it) > 120 }
         assertTrue("inRange=$inRangePixels", inRangePixels > 20)
         assertTrue("prediction=$predictionPixels", predictionPixels > 2)
+    }
+
+    @Test fun `cgm graph renders current time divider when predictions are enabled`() {
+        val preferences = context.getSharedPreferences("cgm_prediction_divider", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val divider = Color.rgb(17, 231, 199)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_NOW_LINE, divider)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        val now = System.currentTimeMillis()
+        val viewport = ChartViewport(6).apply { setFutureWindow(60L * 60_000L, now) }
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(120.0, now)),
+                glucosePredictions =
+                    listOf(
+                        GlucosePrediction(
+                            PredictionKind.IOB,
+                            listOf(GlucoseSample(125.0, now + 5L * 60_000L)),
+                        ),
+                    ),
+                target = TargetState(80.0, 160.0),
+            )
+
+        val bitmap =
+            render(
+                GlucoseDashboardChart(context = context, sharedViewport = viewport).apply {
+                    bind(
+                        state = state,
+                        unit = GlucoseUnit.MG_DL,
+                        showPredictions = true,
+                        durationHours = 6,
+                        showTargetRange = true,
+                        showPredictionIob = true,
+                    )
+                },
+                230,
+            )
+
+        val dividerPixels =
+            count(bitmap) {
+                kotlin.math.abs(Color.red(it) - Color.red(divider)) <= 32 &&
+                    kotlin.math.abs(Color.green(it) - Color.green(divider)) <= 32 &&
+                    kotlin.math.abs(Color.blue(it) - Color.blue(divider)) <= 32
+            }
+        assertTrue("divider pixels=$dividerPixels", dividerPixels > 8)
+        SugarliciousColors.apply(SugarliciousPalette.defaults())
     }
 
     @Test fun `in range picker drives the graph while high and low stay transparent without sustained excursion`() {
@@ -642,6 +729,26 @@ class DashboardChartsTest {
         assertTrue(scales.iob.bounds.maximum >= 12.0)
     }
 
+    @Test
+    fun `IOB graph never expands below minus two units`() {
+        val points =
+            listOf(
+                TherapyHistorySample(1_000L, totalIob = -8.0),
+                TherapyHistorySample(2_000L, totalIob = 3.0),
+            )
+        val scales =
+            resolveMetabolicScales(
+                session = app.aapswear.model.GraphScaleSession(),
+                mode = app.aapswear.model.CgmGraphScaleMode.DYNAMIC,
+                allPoints = points,
+                visiblePoints = points,
+                iobMaximumUnits = 10.0,
+            )
+
+        assertEquals(-2.0, scales.iob.bounds.minimum, 0.0)
+        assertEquals(0.0, scales.iob.ratio(-8.0), 0.0)
+    }
+
     @Test fun `configured IOB and COB graph maxima use independent axes and retain negative IOB`() {
         val points =
             listOf(
@@ -1064,6 +1171,25 @@ class DashboardChartsTest {
             )
 
         assertEquals(7L * 60L * 60_000L, availableGlucoseHistoryWindowMs(state, now))
+    }
+
+    @Test
+    fun `mobile CGM renderer retains overlapping valid sensor streams for the complete twenty four hours`() {
+        val minute = 60_000L
+        val now = 100L * 60L * minute
+        val samples =
+            (0..288).flatMap { index ->
+                val timestamp = now - DisplayHistoryAccumulator.WINDOW_MS + index * 5L * minute
+                listOf(
+                    GlucoseSample(100.0 + index % 10, timestamp, sensorId = "sensor-a", sessionId = "session-a"),
+                    GlucoseSample(110.0 + index % 10, timestamp, sensorId = "sensor-b", sessionId = "session-b"),
+                )
+            }
+
+        val retained = canonicalMobileGraphHistory(samples, now, DataSourceId.ANDROID_APS)
+
+        assertEquals(578, retained.size)
+        assertEquals(now - DisplayHistoryAccumulator.WINDOW_MS, retained.first().measuredAtEpochMs)
     }
 
     @Test

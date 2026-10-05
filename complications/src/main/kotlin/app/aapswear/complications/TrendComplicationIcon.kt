@@ -73,19 +73,11 @@ internal object TrendComplicationIcon {
                 )
             } ?: TrendArrowStyleOverride()
         val bitmap = renderScaled(context, trend, sizePx, scale, offsetX, offsetY, override.resolve(parent)) ?: return null
-        val hostBitmap = runtimeHostBitmap(trend, bitmap)
+        val hostBitmap = runtimeHostBitmap(bitmap)
         return MonochromaticImage.Builder(Icon.createWithBitmap(hostBitmap)).build()
     }
 
-    internal fun runtimeHostBitmap(
-        trend: Trend,
-        bitmap: Bitmap,
-    ): Bitmap =
-        if (trend == Trend.DOUBLE_UP || trend == Trend.DOUBLE_DOWN) {
-            bitmap
-        } else {
-            normalizeComplicationCanvas(bitmap)
-        }
+    internal fun runtimeHostBitmap(bitmap: Bitmap): Bitmap = normalizeComplicationCanvas(bitmap)
 
     /**
      * Keeps a stable canvas so every direction retains identical geometry. The percentage is

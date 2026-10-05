@@ -98,17 +98,17 @@ class WatchFacePushControllerTest {
     }
 
     @Test
-    fun `only Digital and Vigil remain in the deployment catalog`() {
+    fun `ApeX and Vigil align with the two visible selection cards`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(2, active.size)
         assertEquals(
-            setOf(
-                "app.aapswear.watchfacepush.digital",
+            listOf(
+                "app.aapswear.watchfacepush.analog",
                 "app.aapswear.watchfacepush.g6style",
             ),
-            active.map { it.packageName }.toSet(),
+            active.map { it.packageName },
         )
         active.forEach { spec ->
             context.assets.open(spec.apkAsset).use { apk ->

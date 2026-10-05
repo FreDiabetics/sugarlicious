@@ -106,8 +106,10 @@ class G7BluetoothStateReceiver : BroadcastReceiver() {
                     return@dispatcher
                 }
                 AndroidG7Scanner.forceCleanup()
+                G7GattCallbackDispatcher.reset()
                 G7RuntimeReconciler.reconcile(app, G7RuntimeEntryPoint.RECONNECT_RECEIVER)
                 G7ReconnectAlarmScheduler.ensureCollectorSchedule(app, G7SensorStateStore(app).read())
+                G7CollectorService.restart(app)
             }.dispatch(context, intent.action) { pendingResult.finish() }
     }
 }

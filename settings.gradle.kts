@@ -27,6 +27,7 @@ include(
     ":g7watch",
     ":watchfaces:test-wff",
     ":watchfaces:sugarlicious-digital",
+    ":watchfaces:sugarlicious-analog",
     ":watchfaces:sugarlicious-direct-to-watch",
     ":tools:aaps-cwf-parser",
     ":tools:wff-generator",

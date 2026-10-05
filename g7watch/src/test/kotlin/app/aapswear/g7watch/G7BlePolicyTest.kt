@@ -149,6 +149,48 @@ class G7BlePolicyTest {
         assertEquals(0, consecutiveRadioFailures(attempts, 2))
     }
 
+    @Test fun `confirmed no callback radio cluster requests one bounded runtime recycle`() {
+        val cycle =
+            CollectorCycleTiming(
+                directConnectResult = DirectConnectResult.NO_CALLBACK,
+                fallbackScanUsed = true,
+                scanTotalResults = 0,
+            )
+
+        assertTrue(
+            shouldRecycleG7Runtime(
+                cycle = cycle,
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+        assertFalse(
+            shouldRecycleG7Runtime(
+                cycle = cycle,
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD + 1,
+                lastRecycleAtEpochMs = 1_999_000L,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+    }
+
+    @Test fun `runtime recycle is not used for an ordinary sensor miss`() {
+        assertFalse(
+            shouldRecycleG7Runtime(
+                cycle =
+                    CollectorCycleTiming(
+                        directConnectResult = DirectConnectResult.DEVICE_UNAVAILABLE,
+                        fallbackScanUsed = true,
+                        scanTotalResults = 0,
+                    ),
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+    }
+
     @Test fun `no callback streak uses durable health instead of alternating attempt shapes`() {
         val health =
             G7CollectorHealth(

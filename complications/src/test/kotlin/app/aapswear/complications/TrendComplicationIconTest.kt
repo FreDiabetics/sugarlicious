@@ -73,17 +73,19 @@ class TrendComplicationIconTest {
     }
 
     @Test
-    fun `double arrow runtime payload preserves native canvas and configured offset`() {
+    fun `double arrow runtime payload uses a square letterbox and preserves configured offset`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
             val centered = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
             val shifted = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100, offsetXPercent = 25))
-            val centeredHost = TrendComplicationIcon.runtimeHostBitmap(trend, centered)
-            val shiftedHost = TrendComplicationIcon.runtimeHostBitmap(trend, shifted)
+            val centeredHost = TrendComplicationIcon.runtimeHostBitmap(centered)
+            val shiftedHost = TrendComplicationIcon.runtimeHostBitmap(shifted)
 
             assertEquals(centered.width, centeredHost.width)
-            assertEquals(centered.height, centeredHost.height)
+            assertEquals(centered.width, centeredHost.height)
             assertEquals(shifted.width, shiftedHost.width)
+            assertEquals(shifted.width, shiftedHost.height)
+            assertEquals(nonTransparentAspectRatio(centered), nonTransparentAspectRatio(centeredHost), 0.02f)
             assertTrue(nonTransparentCenterX(shiftedHost) > nonTransparentCenterX(centeredHost))
         }
     }
