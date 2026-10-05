@@ -1,5 +1,13 @@
 # Test Report
 
+## Project-wide behavior-preserving refactoring, 2026-10-06
+
+- Finaler Gesamtgate: `verifyArchitecture test assembleDebug assembleRelease lint detekt ktlintCheck --no-daemon --no-configuration-cache --max-workers=4` erfolgreich in 5 min 41 s; 1.151 Gradle-Tasks.
+- 158 JUnit-XML-Suites mit 990 Tests: 0 Fehler, 0 Fehlschläge, 0 übersprungen.
+- Alle vier aktiven/Test-WFF-Dokumente bestanden den offiziellen Validator als WFF v1; alle vier Release-APKs sind codefrei und enthalten 0 DEX-Dateien.
+- Geprüft wurden insbesondere zentrale CGM-Identität, Resolver-Konsumenten, revisionierte Persistenz, Collector-/BLE-Policy, GATT-Generation, Mobile-Graphen, Appearance-Persistenz sowie unveränderte Provider-/Tile-Verträge.
+- `CODE-VALIDIERT` und `BUILD-VALIDIERT`; `HARDWARE-TEST OFFEN` für BLE/OEM-Scheduling, DND und reale Process-Recovery nach diesem Refactor.
+
 ## Main-Hardening-Nachprüfung, 2026-09-20
 
 - Repositoryzustand vor der Nachprüfung: `main` entsprach `origin/main` bei

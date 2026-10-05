@@ -28,7 +28,7 @@ No reproducible new authorization bypass, exported-component exposure, unbounded
 ## Validation boundary
 
 - `CODE-VALIDIERT`: ownership extractions are covered by existing and added unit tests.
-- `BUILD-VALIDIERT`: recorded after the final repository-wide gate.
+- `BUILD-VALIDIERT`: the final repository-wide gate passed with 1,151 Gradle tasks. The generated JUnit reports contain 990 tests, 0 failures, 0 errors and 0 skipped tests. Debug and Release builds, architecture checks, Lint, Detekt and Ktlint passed. All four active/test WFF documents passed the official validator as format version 1, and all four Release APKs contain zero DEX files.
 - `HARDWARE-TEST OFFEN`: refactoring does not itself prove BLE radio, OEM DND or process-death behavior on physical devices. Existing hardware evidence remains valid only for the previously installed build, not this final refactor until redeployed and observed.
 
 ## Residual risks
