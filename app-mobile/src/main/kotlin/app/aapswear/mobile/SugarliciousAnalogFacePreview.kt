@@ -66,7 +66,7 @@ internal object SugarliciousAnalogGeometry {
     const val centerSafetyRadius = 24f
     val handPivot = center
     val graph = fromWfsRect(51.8748f, 54.9999f, 346.2504f, 121.3336f)
-    val graphContent = within(graph, 61.1252f, 0.91f, 224f, 121.3336f)
+    val graphContent = graph
     val middleLeft = fromWfsRect(73f, 171f, 108.3334f, 108.3334f)
     val middleRight = fromWfsRect(269f, 171f, 108.3334f, 108.3334f)
     val bottomCenter = fromWfsRect(158.9996f, 247f, 132.0008f, 130.9996f)

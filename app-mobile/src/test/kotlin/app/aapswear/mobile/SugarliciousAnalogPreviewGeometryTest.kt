@@ -13,7 +13,7 @@ class SugarliciousAnalogPreviewGeometryTest {
     @Test
     fun `active preview keeps its established geometry`() {
         assertTrue(SugarliciousAnalogGeometry.graph == AnalogRectGeometry(59f, 63f, 394f, 138f))
-        assertTrue(SugarliciousAnalogGeometry.graphContent == AnalogRectGeometry(129f, 64f, 255f, 138f))
+        assertTrue(SugarliciousAnalogGeometry.graphContent == AnalogRectGeometry(59f, 63f, 394f, 138f))
         assertTrue(SugarliciousAnalogGeometry.middleLeft == AnalogRectGeometry(83f, 195f, 123f, 123f))
         assertTrue(SugarliciousAnalogGeometry.middleRight == AnalogRectGeometry(306f, 195f, 123f, 123f))
         assertTrue(SugarliciousAnalogGeometry.bottomCenter == AnalogRectGeometry(181f, 281f, 150f, 149f))
@@ -101,6 +101,9 @@ class SugarliciousAnalogPreviewGeometryTest {
 
         val outerEdge = 256f + 388f / 2f + 22f / 2f
         assertTrue("outer rings need a safe bezel inset", outerEdge <= 462f)
+
+        val lowerLeft = complication(slot(document.documentElement, "3"), "RANGED_VALUE")
+        assertEquals("lower-left remains curved text only", 0, lowerLeft.getElementsByTagName("Arc").length)
     }
 
     @Test
@@ -160,11 +163,16 @@ class SugarliciousAnalogPreviewGeometryTest {
                 .getElementsByTagName("PartImage")
                 .item(0)
                 .asElement()
-        assertEquals("70", imagePart.getAttribute("x"))
-        assertEquals("1", imagePart.getAttribute("y"))
-        assertEquals("255", imagePart.getAttribute("width"))
+        assertEquals("0", imagePart.getAttribute("x"))
+        assertEquals("0", imagePart.getAttribute("y"))
+        assertEquals("394", imagePart.getAttribute("width"))
         assertEquals("138", imagePart.getAttribute("height"))
-        assertTrue(kotlin.math.abs(255f / 138f - 224f / 121.3336f) < 0.01f)
+        assertTrue(kotlin.math.abs(394f / 138f - 400f / 140f) < 0.01f)
+
+        listOf("7", "4", "5").forEach { slotId ->
+            val transforms = complication(slot(document.documentElement, slotId), "RANGED_VALUE").getElementsByTagName("Transform")
+            assertTrue("slot $slotId must guard zero-span ranges", transforms.elements().all { it.getAttribute("value").contains("==") })
+        }
     }
 
     @Test
