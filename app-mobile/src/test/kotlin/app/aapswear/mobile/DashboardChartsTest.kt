@@ -184,7 +184,11 @@ class DashboardChartsTest {
 
     @Test fun `cgm graph renders current time divider when predictions are enabled`() {
         val preferences = context.getSharedPreferences("cgm_prediction_divider", android.content.Context.MODE_PRIVATE)
-        preferences.edit().clear().putString("themeMode", "DARK").commit()
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
         val divider = Color.rgb(17, 231, 199)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_NOW_LINE, divider)
         SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
