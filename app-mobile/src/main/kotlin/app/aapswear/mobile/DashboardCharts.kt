@@ -23,13 +23,11 @@ import androidx.core.graphics.withClip
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
-import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.CgmGraphYScale
 import app.aapswear.model.CgmRangeClass
 import app.aapswear.model.CgmThresholds
-import app.aapswear.model.DataSourceId
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -68,8 +66,6 @@ private const val GRAPH_CORNER_RADIUS_DP = 18f
 private const val GLUCOSE_DISPLAY_MAX = 400.0
 private const val VALUE_AXIS_WIDTH_DP = 29f
 private const val TIME_AXIS_HEIGHT_DP = 24f
-private const val OVERVIEW_GRAPH_HOURS_MIGRATION = "graphHoursDefault3MigratedV5"
-internal val OVERVIEW_GRAPH_HOUR_OPTIONS = listOf(1, 2, 3, 6, 12, 24)
 
 internal fun sustainedRangeExcursion(
     samples: List<GlucoseSample>,
@@ -108,112 +104,6 @@ internal class StaticGraphScaleStore(
         suffix: String,
     ) = "graph.static.${axis.name.lowercase(Locale.ROOT)}.$suffix"
 }
-
-internal fun availableGlucoseHistoryWindowMs(
-    state: TherapyDisplayState?,
-    nowEpochMs: Long,
-): Long {
-    val earliest =
-        buildList {
-            state?.glucoseHistory.orEmpty().forEach { sample ->
-                if (sample.measuredAtEpochMs <= nowEpochMs) add(sample.measuredAtEpochMs)
-            }
-            state
-                ?.glucose
-                ?.measuredAtEpochMs
-                ?.takeIf { it <= nowEpochMs }
-                ?.let(::add)
-        }.minOrNull() ?: return 0L
-    return (nowEpochMs - earliest).coerceIn(0L, 24L * HOUR_MS)
-}
-
-internal fun canonicalMobileGraphHistory(
-    samples: List<GlucoseSample>,
-    nowEpochMs: Long,
-    preferredSource: DataSourceId?,
-): List<GlucoseSample> =
-    CanonicalCgmHistory.merge(
-        samples = samples,
-        nowEpochMs = nowEpochMs,
-        preferredSource = preferredSource,
-        windowMs = DisplayHistoryAccumulator.WINDOW_MS,
-        maxPoints = DisplayHistoryAccumulator.MAX_POINTS,
-    )
-
-internal fun availableOverviewHistoryWindowMs(
-    state: TherapyDisplayState?,
-    nowEpochMs: Long,
-    requestedHours: Int,
-): Long {
-    val oldestVisibleTimestamp =
-        buildList {
-            state?.glucoseHistory.orEmpty().forEach { add(it.measuredAtEpochMs) }
-            state?.glucose?.let { add(it.measuredAtEpochMs) }
-            state?.therapyHistory.orEmpty().forEach { add(it.measuredAtEpochMs) }
-            state?.therapyEvents.orEmpty().forEach { add(it.timestampEpochMs) }
-            state?.targetHistory.orEmpty().forEach { add(it.startedAtEpochMs) }
-        }.asSequence()
-            .filter { it <= nowEpochMs }
-            .minOrNull()
-    val actualWindowMs = oldestVisibleTimestamp?.let { nowEpochMs - it } ?: 0L
-    val requestedWindowMs = requestedHours.coerceIn(1, 24) * HOUR_MS
-    return maxOf(actualWindowMs, requestedWindowMs).coerceAtMost(24L * HOUR_MS)
-}
-
-internal fun resolveOverviewGraphHoursPreference(
-    preferences: SharedPreferences,
-    durationHours: Int,
-): Int {
-    val normalized = durationHours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3
-    if (preferences.getBoolean(OVERVIEW_GRAPH_HOURS_MIGRATION, false)) return normalized
-
-    val previousAuto24 =
-        preferences.getBoolean("graphHoursDefault24MigratedV4", false) &&
-            preferences.getInt("graphHours", normalized) == 24
-    val resolved =
-        when {
-            !preferences.contains("graphHours") -> 3
-            previousAuto24 -> 3
-            else -> normalized
-        }
-    preferences.edit {
-        putInt("graphHours", resolved)
-        putBoolean(OVERVIEW_GRAPH_HOURS_MIGRATION, true)
-    }
-    return resolved
-}
-
-/**
- * The divider is a visual time marker only. Dots keep their timestamp-derived X coordinate instead
- * of being pushed away from Now, matching AndroidAPS' continuous time-axis behaviour.
- */
-internal fun graphCenterBeforeDivider(
-    dividerX: Float,
-    radiusPx: Float,
-    outlineWidthPx: Float,
-    safetyPx: Float,
-): Float = dividerX
-
-internal fun graphCenterAfterDivider(
-    dividerX: Float,
-    radiusPx: Float,
-    outlineWidthPx: Float,
-    safetyPx: Float,
-): Float = dividerX
-
-internal data class GraphViewportSnapshot(
-    val startEpochMs: Long,
-    val liveEdgeEpochMs: Long,
-    val endEpochMs: Long,
-) {
-    val durationMs: Long get() = endEpochMs - startEpochMs
-    val visibleHours: Float get() = durationMs.toFloat() / HOUR_MS
-}
-
-internal data class GraphViewportSavedState(
-    val historyHours: Float,
-    val navigationEndEpochMs: Long?,
-)
 
 internal class ChartViewport(
     initialHours: Int,
@@ -1936,34 +1826,6 @@ internal fun resolveMetabolicScales(
             insulinActivityScale(visiblePoints.mapNotNull { it.insulinActivityUnitsPerMinute }),
     )
 
-internal fun finiteInsulinActivitySeries(points: List<TherapyHistorySample>): List<Pair<Long, Double>> =
-    points
-        .mapNotNull { point ->
-            point.insulinActivityUnitsPerMinute
-                ?.takeIf(Double::isFinite)
-                ?.let { point.measuredAtEpochMs to it }
-        }.sortedBy { it.first }
-
-internal fun smoothActivitySeries(values: List<Pair<Long, Double>>): List<Pair<Long, Double>> {
-    val ordered = values.distinctBy { it.first }.sortedBy { it.first }
-    if (ordered.size < 3) return ordered
-    return ordered.mapIndexed { index, point ->
-        if (index == 0 || index == ordered.lastIndex) {
-            point
-        } else {
-            val smoothed = (ordered[index - 1].second + 2.0 * point.second + ordered[index + 1].second) / 4.0
-            point.first to smoothed
-        }
-    }
-}
-
-internal fun smoothActivityToLiveEdge(
-    values: List<Pair<Long, Double>>,
-    liveEdge: Long,
-    start: Long,
-    end: Long,
-): List<Pair<Long, Double>> = extendSeriesToLiveEdge(smoothActivitySeries(values), liveEdge, start, end)
-
 private fun limitIobNegativeBounds(scale: GraphAxisScale): GraphAxisScale {
     val minimum = max(-2.0, scale.bounds.minimum)
     val maximum = maxOf(scale.bounds.maximum, 0.0, minimum + 0.1)
@@ -2083,109 +1945,6 @@ internal fun formatEventAmount(
 }
 
 internal fun glucoseLogRatio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
-
-internal data class MobileCgmGraphBounds(
-    val content: RectF,
-    val tile: RectF,
-    val plot: RectF,
-    val timeAxis: RectF,
-    val valueAxis: RectF,
-)
-
-internal data class MobileMetabolicGraphBounds(
-    val outer: RectF,
-    val plotRegion: RectF,
-    val timeAxis: RectF,
-    val valueAxis: RectF,
-    val iobLane: RectF,
-    val cobLane: RectF,
-    val iobData: RectF,
-    val cobData: RectF,
-    val separator: RectF,
-)
-
-internal fun mobileMetabolicGraphBounds(
-    width: Float,
-    height: Float,
-    outlineInset: Float,
-    timeAxisHeight: Float,
-    valueAxisWidth: Float,
-    scaleOnRight: Boolean,
-    separatorHeight: Float = 2f,
-    markerHeadroomMaximum: Float = 24f,
-): MobileMetabolicGraphBounds {
-    val outer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
-    val plotRegion =
-        if (scaleOnRight) {
-            RectF(outer.left, outer.top, outer.right - valueAxisWidth, outer.bottom - timeAxisHeight)
-        } else {
-            RectF(outer.left + valueAxisWidth, outer.top, outer.right, outer.bottom - timeAxisHeight)
-        }
-    val timeAxis = RectF(plotRegion.left, plotRegion.bottom, plotRegion.right, outer.bottom)
-    val valueAxis =
-        if (scaleOnRight) {
-            RectF(plotRegion.right, plotRegion.top, outer.right, plotRegion.bottom)
-        } else {
-            RectF(outer.left, plotRegion.top, plotRegion.left, plotRegion.bottom)
-        }
-    val separator = separatorHeight.coerceIn(0f, plotRegion.height())
-    val laneHeight = ((plotRegion.height() - separator) / 2f).coerceAtLeast(0f)
-    val iobLane = RectF(plotRegion.left, plotRegion.top, plotRegion.right, plotRegion.top + laneHeight)
-    val separatorBounds = RectF(plotRegion.left, iobLane.bottom, plotRegion.right, iobLane.bottom + separator)
-    val cobLane = RectF(plotRegion.left, separatorBounds.bottom, plotRegion.right, plotRegion.bottom)
-    val markerHeadroom = min(markerHeadroomMaximum.coerceAtLeast(0f), laneHeight * 0.28f)
-    val iobData = RectF(iobLane.left, iobLane.top + markerHeadroom, iobLane.right, iobLane.bottom)
-    val cobData = RectF(cobLane.left, cobLane.top + markerHeadroom, cobLane.right, cobLane.bottom)
-    return MobileMetabolicGraphBounds(outer, plotRegion, timeAxis, valueAxis, iobLane, cobLane, iobData, cobData, separatorBounds)
-}
-
-internal fun roundedPlotTopTangentY(
-    plotTop: Float,
-    cornerRadius: Float,
-): Float = plotTop + cornerRadius.coerceAtLeast(0f)
-
-internal fun graphTimeBounds(
-    plot: RectF,
-    pointRadius: Float,
-    outlineWidth: Float,
-): RectF {
-    val requestedInset = (pointRadius + outlineWidth).coerceAtLeast(0f)
-    val inset = requestedInset.coerceAtMost(plot.width().coerceAtLeast(0f) / 2f)
-    return RectF(plot.left + inset, plot.top, plot.right - inset, plot.bottom)
-}
-
-internal fun mapGraphTimeX(
-    time: Long,
-    start: Long,
-    end: Long,
-    timeBounds: RectF,
-): Float = timeBounds.left + timeToXFraction(time, start, end) * timeBounds.width()
-
-internal fun mobileCgmGraphBounds(
-    width: Float,
-    height: Float,
-    outlineInset: Float,
-    timeAxisHeight: Float,
-    valueAxisWidth: Float,
-    scaleOnRight: Boolean,
-): MobileCgmGraphBounds {
-    val content = RectF(0f, 0f, width, height)
-    val tile = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
-    val plot =
-        if (scaleOnRight) {
-            RectF(tile.left, tile.top, tile.right - valueAxisWidth, tile.bottom - timeAxisHeight)
-        } else {
-            RectF(tile.left + valueAxisWidth, tile.top, tile.right, tile.bottom - timeAxisHeight)
-        }
-    val timeAxis = RectF(plot.left, plot.bottom, plot.right, tile.bottom)
-    val valueAxis =
-        if (scaleOnRight) {
-            RectF(plot.right, plot.top, tile.right, plot.bottom)
-        } else {
-            RectF(tile.left, plot.top, plot.left, plot.bottom)
-        }
-    return MobileCgmGraphBounds(content, tile, plot, timeAxis, valueAxis)
-}
 
 private fun mapGlucoseY(
     valueMgDl: Double,

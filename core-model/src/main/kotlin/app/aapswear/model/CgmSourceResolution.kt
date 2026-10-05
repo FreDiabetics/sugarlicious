@@ -1,7 +1,5 @@
 package app.aapswear.model
 
-import kotlin.math.abs
-
 /** Canonical CGM inputs known to Sugarlicious Wear. */
 enum class CgmCanonicalSource {
     MOBILE_AAPS,
@@ -97,7 +95,7 @@ object CanonicalCgmSourceResolver {
         val watchAge = validWatch?.ageAt(nowEpochMs)
         val mobileUsable = validMobile?.takeIf { mobileAge != null && mobileAge <= policy.mobileFailoverAfterMs }
         val watchUsable = validWatch?.takeIf { watchAge != null && watchAge <= policy.watchFreshAfterMs }
-        val sameMeasurement = sameMeasurement(mobileUsable, watchUsable)
+        val sameMeasurement = CanonicalCgmIdentity.sameMeasurement(mobileUsable, watchUsable)
 
         return when (mode) {
             CgmSourceMode.MOBILE_ONLY ->
@@ -271,19 +269,4 @@ object CanonicalCgmSourceResolver {
             receivedAtEpochMs <= nowEpochMs + futureToleranceMs
 
     private fun CgmSourceCandidate.ageAt(nowEpochMs: Long): Long = (nowEpochMs - measuredAtEpochMs).coerceAtLeast(0L)
-
-    private fun sameMeasurement(
-        mobile: CgmSourceCandidate?,
-        watch: CgmSourceCandidate?,
-    ): Boolean {
-        if (mobile == null || watch == null) return false
-        if (mobile.measuredAtEpochMs != watch.measuredAtEpochMs) return false
-
-        // Cross-source equality is only safe with a complete matching sensor/session identity.
-        // Sequence numbers and glucose values are transport metadata, not measurement identity.
-        if (mobile.sensorId == null || watch.sensorId == null || mobile.sensorId != watch.sensorId) return false
-        if (mobile.sessionId == null || watch.sessionId == null || mobile.sessionId != watch.sessionId) return false
-
-        return abs(mobile.glucoseMgDl - watch.glucoseMgDl) <= 1.0
-    }
 }

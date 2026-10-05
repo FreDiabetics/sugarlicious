@@ -119,4 +119,101 @@ class G7ReceiverWorkDispatcherTest {
 
         assertTrue(finished)
     }
+
+    @Test fun `receiver deadline finishes pending result exactly once`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val queued = ArrayDeque<() -> Unit>()
+        var timeout: (() -> Unit)? = null
+        var finishes = 0
+        val dispatcher =
+            G7ReceiverWorkDispatcher(
+                launch = queued::addLast,
+                recover = { _, _ -> },
+                scheduleTimeout = { _, block -> timeout = block },
+            )
+
+        dispatcher.dispatch(context, "alarm", onFinished = { finishes += 1 })
+        timeout!!.invoke()
+        queued.removeFirst().invoke()
+
+        assertEquals(1, finishes)
+    }
+
+    @Test fun `receiver setup failure finishes pending result exactly once`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var timeout: (() -> Unit)? = null
+        var launchFailures = 0
+        var finishes = 0
+        val dispatcher =
+            G7ReceiverWorkDispatcher(
+                launch = { error("must not launch") },
+                recover = { _, _ -> },
+                scheduleTimeout = { _, block -> timeout = block },
+            )
+
+        runCatching {
+            dispatcher.dispatch(
+                context,
+                "alarm",
+                onBeforeLaunch = { error("setup failed") },
+                onLaunchFailure = { launchFailures += 1 },
+                onFinished = { finishes += 1 },
+            )
+        }
+        timeout!!.invoke()
+
+        assertEquals(1, launchFailures)
+        assertEquals(1, finishes)
+    }
+
+    @Test fun `receiver launch failure finishes pending result exactly once`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var timeout: (() -> Unit)? = null
+        var launchFailures = 0
+        var finishes = 0
+        val dispatcher =
+            G7ReceiverWorkDispatcher(
+                launch = { error("queue failed") },
+                recover = { _, _ -> },
+                scheduleTimeout = { _, block -> timeout = block },
+            )
+
+        runCatching {
+            dispatcher.dispatch(
+                context,
+                "alarm",
+                onLaunchFailure = { launchFailures += 1 },
+                onFinished = { finishes += 1 },
+            )
+        }
+        timeout!!.invoke()
+
+        assertEquals(1, launchFailures)
+        assertEquals(1, finishes)
+    }
+
+    @Test fun `receiver cleanup failure cannot hide launch failure or skip finish`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var finishes = 0
+        val dispatcher =
+            G7ReceiverWorkDispatcher(
+                launch = { error("queue failed") },
+                recover = { _, _ -> },
+                scheduleTimeout = { _, _ -> },
+            )
+
+        val failure =
+            runCatching {
+                dispatcher.dispatch(
+                    context,
+                    "alarm",
+                    onLaunchFailure = { error("cleanup failed") },
+                    onFinished = { finishes += 1 },
+                )
+            }.exceptionOrNull()!!
+
+        assertEquals("queue failed", failure.message)
+        assertEquals("cleanup failed", failure.suppressed.single().message)
+        assertEquals(1, finishes)
+    }
 }

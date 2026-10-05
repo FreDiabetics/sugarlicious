@@ -112,6 +112,16 @@ class CanonicalCgmHistoryTest {
     }
 
     @Test
+    fun `canonical identity is shared and never uses sequence as reading identity`() {
+        val first = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 42L, 121.0, now - 5 * 60_000L)
+        val sameMeasurement = first.copy(sequenceNumber = 99L, receivedAtEpochMs = now)
+        val reusedSequence = first.copy(valueMgDl = 122.0, measuredAtEpochMs = now, receivedAtEpochMs = now)
+
+        assertEquals(true, CanonicalCgmIdentity.sameMeasurement(first, sameMeasurement))
+        assertEquals(false, CanonicalCgmIdentity.sameMeasurement(first, reusedSequence))
+    }
+
+    @Test
     fun `unknown cross source identities remain distinct`() {
         val phone = sample(DataSourceId.ANDROID_APS, "sensor", "session", null, 121.0, now - 60_000L).copy(sensorId = null, sessionId = null)
         val watch = phone.copy(source = DataSourceId.DEXCOM_G7_WATCH)

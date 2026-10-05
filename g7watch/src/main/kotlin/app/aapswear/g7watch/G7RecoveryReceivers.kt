@@ -11,12 +11,15 @@ import app.aapswear.g7.CollectorDiagnosticStage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class G7ReceiverWorkDispatcher(
     private val launch: ((() -> Unit) -> Unit),
     private val recover: (Context, String?) -> Unit,
     private val recoveryLock: Any? = null,
+    private val scheduleTimeout: (Long, () -> Unit) -> Unit = G7ReceiverDeadline::schedule,
 ) {
     fun dispatch(
         context: Context,
@@ -25,21 +28,39 @@ internal class G7ReceiverWorkDispatcher(
         onLaunchFailure: () -> Unit = {},
         onFinished: () -> Unit,
     ) {
-        onBeforeLaunch()
+        val finished = AtomicBoolean(false)
+        val finishOnce = { if (finished.compareAndSet(false, true)) onFinished() }
         try {
+            scheduleTimeout(RECEIVER_WORK_TIMEOUT_MS, finishOnce)
+            onBeforeLaunch()
             launch {
                 try {
                     val appContext = context.applicationContext
                     recoveryLock?.let { lock -> synchronized(lock) { recover(appContext, action) } }
                         ?: recover(appContext, action)
                 } finally {
-                    onFinished()
+                    finishOnce()
                 }
             }
         } catch (error: Throwable) {
-            onLaunchFailure()
-            onFinished()
+            runCatching(onLaunchFailure).exceptionOrNull()?.let(error::addSuppressed)
+            finishOnce()
             throw error
+        }
+    }
+
+    private companion object {
+        const val RECEIVER_WORK_TIMEOUT_MS = 8_000L
+    }
+}
+
+private object G7ReceiverDeadline {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun schedule(timeoutMs: Long, block: () -> Unit) {
+        scope.launch {
+            delay(timeoutMs)
+            block()
         }
     }
 }
