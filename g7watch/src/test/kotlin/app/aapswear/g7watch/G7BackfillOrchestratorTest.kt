@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorExpectedWindow
@@ -16,6 +17,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 class G7BackfillOrchestratorTest {
@@ -226,5 +229,35 @@ class G7BackfillOrchestratorTest {
 
         assertNull(ledger.oldestOpenGap(gap.sensorId, gap.sessionId))
         assertEquals(G7GapRecoveryState.SESSION_ENDED, ledger.window(gap.expectedWindowId)?.gapRecoveryState)
+    }
+
+    @Test fun `long outage reconstruction persists the complete ledger once`() {
+        val preferences = context.getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+        val writes = AtomicInteger()
+        val listener =
+            android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == "windows_v1") writes.incrementAndGet()
+            }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+
+        try {
+            val inserted =
+                G7ExpectedWindowLedger(context).reconstructMissed(
+                    sensorId = "sensor-a",
+                    sessionId = "session-a",
+                    fromExpectedAt = 300_000L,
+                    untilExclusive = 3_300_000L,
+                    sensorStartAt = 0L,
+                    sensorEndAt = 9_000_000L,
+                    nowEpochMs = 3_400_000L,
+                )
+            shadowOf(Looper.getMainLooper()).idle()
+
+            assertEquals(10, inserted)
+            assertEquals(10, G7ExpectedWindowLedger(context).snapshot().size)
+            assertEquals(1, writes.get())
+        } finally {
+            preferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 }

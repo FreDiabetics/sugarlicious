@@ -16,6 +16,28 @@ import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class G7ReceiverWorkDispatcherTest {
+    @Test fun `application receiver dispatchers serialize different recovery entry points`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val firstEntered = CountDownLatch(1)
+        val releaseFirst = CountDownLatch(1)
+        val secondEntered = CountDownLatch(1)
+
+        G7ReceiverWork
+            .dispatcher { _, _ ->
+                firstEntered.countDown()
+                releaseFirst.await(2, TimeUnit.SECONDS)
+            }.dispatch(context, "source") {}
+        assertTrue(firstEntered.await(1, TimeUnit.SECONDS))
+
+        G7ReceiverWork
+            .dispatcher { _, _ -> secondEntered.countDown() }
+            .dispatch(context, "watchdog") {}
+        assertFalse(secondEntered.await(100, TimeUnit.MILLISECONDS))
+
+        releaseFirst.countDown()
+        assertTrue(secondEntered.await(1, TimeUnit.SECONDS))
+    }
+
     @Test fun `dispatchers sharing a recovery lock cannot mutate collector state concurrently`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val executor = Executors.newFixedThreadPool(2)

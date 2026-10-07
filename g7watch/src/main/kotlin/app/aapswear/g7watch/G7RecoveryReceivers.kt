@@ -65,7 +65,7 @@ private object G7ReceiverDeadline {
     }
 }
 
-private object G7ReceiverWork {
+internal object G7ReceiverWork {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val recoveryLock = Any()
 

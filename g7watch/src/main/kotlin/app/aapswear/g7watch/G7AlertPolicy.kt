@@ -13,11 +13,7 @@ import app.aapswear.model.CgmPresentationPolicy
 import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.DiagnosticSeverity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.runBlocking
 
 internal object G7AlertPolicyStore {
     private const val PREFS = "g7_alert_policy"
@@ -154,13 +150,12 @@ class G7SignalLossReceiver : BroadcastReceiver() {
         // disk or system services. A BroadcastReceiver only has a few seconds on its main thread;
         // keeping the complete signal-loss path behind goAsync avoids ANRs that would kill the
         // collector process precisely while it is waiting for the next sensor advertisement.
-        val app = context.applicationContext
         val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try {
-                withTimeout(8_000L) {
+        G7ReceiverWork
+            .dispatcher { app, _ ->
+                try {
                     val state = G7SensorStateStore(app).read()
-                    if (!state.collectorEnabled) return@withTimeout
+                    if (!state.collectorEnabled) return@dispatcher
 
                     val lastReadingAt = state.lastReading?.timestampEpochMs
                     val now = System.currentTimeMillis()
@@ -174,36 +169,37 @@ class G7SignalLossReceiver : BroadcastReceiver() {
                     )
                     if (!isG7SignalLoss(lastReadingAt, now)) {
                         G7SignalLossMonitor.scheduleFromState(app, state)
-                        return@withTimeout
+                        return@dispatcher
                     }
 
                     if (!G7AlertPolicyStore.alarmsEnabled(app)) {
                         val nextHealthCheck = now + G7_SIGNAL_LOSS_RECOVERY_CHECK_MS
                         val nextPolicyCheck = G7AlertPolicyStore.nextAutomaticEnableAt(app, now)
                         G7SignalLossMonitor.schedulePolicyRecheck(app, minOf(nextPolicyCheck ?: nextHealthCheck, nextHealthCheck))
-                        app.recordG7Diagnostic(
-                            code = "G7-SIGNAL-LOSS-SUPPRESSED",
-                            message = "Direct G7 signal loss suppressed because another canonical source is active",
-                            severity = DiagnosticSeverity.INFO,
-                            metadata = mapOf("lastReadingEpochMs" to lastReadingAt),
-                        )
-                        return@withTimeout
+                        runBlocking {
+                            app.recordG7Diagnostic(
+                                code = "G7-SIGNAL-LOSS-SUPPRESSED",
+                                message = "Direct G7 signal loss suppressed because another canonical source is active",
+                                severity = DiagnosticSeverity.INFO,
+                                metadata = mapOf("lastReadingEpochMs" to lastReadingAt),
+                            )
+                        }
+                        return@dispatcher
                     }
 
                     G7SignalLossMonitor.scheduleRecoveryHealthCheck(app, now + G7_SIGNAL_LOSS_RECOVERY_CHECK_MS)
                     G7CgmAlarmCoordinator.onSignalLoss(app, state.lastReading, now)
+                } catch (error: Throwable) {
+                    runBlocking {
+                        app.recordG7Diagnostic(
+                            code = "G7-SIGNAL-LOSS-500",
+                            message = "Asynchronous signal-loss evaluation failed",
+                            severity = DiagnosticSeverity.ERROR,
+                            metadata = mapOf("errorType" to error.javaClass.simpleName.take(40)),
+                        )
+                    }
                 }
-            } catch (error: Throwable) {
-                app.recordG7Diagnostic(
-                    code = "G7-SIGNAL-LOSS-500",
-                    message = "Asynchronous signal-loss evaluation failed",
-                    severity = DiagnosticSeverity.ERROR,
-                    metadata = mapOf("errorType" to error.javaClass.simpleName.take(40)),
-                )
-            } finally {
-                pending.finish()
-            }
-        }
+            }.dispatch(context, intent.action, onFinished = pending::finish)
     }
 }
 

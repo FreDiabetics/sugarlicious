@@ -3,7 +3,6 @@ package app.aapswear.g7watch
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
 import android.media.AudioAttributes
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmAlarmSettings
@@ -275,11 +274,11 @@ class G7CgmAlarmsTest {
             ),
         )
 
-        G7SourceControlReceiver().onReceive(
-            context,
-            Intent(G7SourceControlReceiver.ACTION_SET_SOURCE)
-                .putExtra(G7SourceControlReceiver.EXTRA_G7_SELECTED, false)
-                .putExtra(G7SourceControlReceiver.EXTRA_ALARMS_ENABLED, true),
+        applySourceControl(
+            context = context,
+            g7Selected = false,
+            alarmsEnabled = true,
+            automaticEnableAt = null,
         )
 
         assertNotNull(shadowOf(notificationManager).getNotification(LOW_NOTIFICATION_ID))

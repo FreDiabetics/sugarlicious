@@ -206,7 +206,24 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         intent: Intent,
     ) {
         if (intent.action != G7AdvertisementWakeScheduler.ACTION_SENSOR_ADVERTISEMENT) return
-        val app = context.applicationContext
+        val callbackError = intent.getIntExtra(BluetoothLeScanner.EXTRA_ERROR_CODE, 0)
+        val results =
+            intent
+                .getParcelableArrayListExtra(
+                    BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
+                    ScanResult::class.java,
+                ).orEmpty()
+        val pending = goAsync()
+        G7ReceiverWork
+            .dispatcher { app, _ -> handleAdvertisement(app, callbackError, results) }
+            .dispatch(context, intent.action, onFinished = pending::finish)
+    }
+
+    private fun handleAdvertisement(
+        app: Context,
+        callbackError: Int,
+        results: List<ScanResult>,
+    ) {
         val state = G7SensorStateStore(app).read()
         if (!state.collectorEnabled) {
             G7AdvertisementWakeScheduler.disarm(app)
@@ -218,7 +235,6 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
             G7AdvertisementWakeScheduler.disarm(app)
             return
         }
-        val callbackError = intent.getIntExtra(BluetoothLeScanner.EXTRA_ERROR_CODE, 0)
         if (callbackError != 0) {
             // The AlarmManager watchdog is already staged by the same scheduling operation that
             // armed this scan. Do not immediately re-arm from an error callback: that can create a
@@ -228,12 +244,6 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         }
 
         val knownAddress = state.sensor?.deviceAddress
-        val results =
-            intent
-                .getParcelableArrayListExtra(
-                    BluetoothLeScanner.EXTRA_LIST_SCAN_RESULT,
-                    ScanResult::class.java,
-                ).orEmpty()
         val hasMatchingResult =
             knownAddress != null &&
                 results.any { result ->

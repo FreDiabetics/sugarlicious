@@ -325,17 +325,18 @@ internal class G7ExpectedWindowLedger(
     ): Int =
         synchronized(lock) {
             val slots = missingExpectedSlots(fromExpectedAt, untilExclusive, sensorStartAt, sensorEndAt)
+            val values = load().toMutableList()
             var inserted = 0
             slots.forEach { expectedAt ->
                 val existing =
-                    load().firstOrNull {
+                    values.firstOrNull {
                         it.sensorId == sensorId &&
                             it.sessionId == sessionId &&
                             kotlin.math.abs(it.expectedAt - expectedAt) <= WINDOW_CANONICAL_TOLERANCE_MS
                     }
                 val id = expectedWindowId(sensorId, sessionId, expectedAt)
                 if (existing == null) {
-                    saveUpsert(
+                    values +=
                         CollectorExpectedWindow(
                             expectedWindowId = id,
                             expectedAt = expectedAt,
@@ -350,11 +351,11 @@ internal class G7ExpectedWindowLedger(
                             gapDetectedAt = nowEpochMs,
                             gapRecoveryState = G7GapRecoveryState.RECOVERY_REQUIRED,
                             completedAt = nowEpochMs,
-                        ),
-                    )
+                        )
                     inserted += 1
                 }
             }
+            if (inserted > 0) saveAll(values)
             inserted
         }
 

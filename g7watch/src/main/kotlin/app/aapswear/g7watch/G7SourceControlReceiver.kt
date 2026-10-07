@@ -27,22 +27,10 @@ class G7SourceControlReceiver : BroadcastReceiver() {
             }
         val automaticEnableAt =
             intent.getLongExtra(EXTRA_AUTOMATIC_ENABLE_AT, 0L).takeIf { it > 0L }
-        G7AlertPolicyStore.setPolicy(context, alarmsEnabled, automaticEnableAt)
-        val state = G7SensorStateStore(context).read()
-
-        if (!alarmsEnabled) {
-            G7ErrorNotifier.clearActive(context)
-            G7CgmAlarmCoordinator.clearSuppressed(context)
-        } else {
-            // The reading that caused Automatic mode to fail over may have arrived before this
-            // policy broadcast. Evaluate it now so the source transition cannot miss an alarm.
-            latestAlarmCandidate(context, state)?.let { G7CgmAlarmCoordinator.onReading(context, it) }
-            G7CgmAlarmCoordinator.restore(context)
-            G7SignalLossMonitor.scheduleFromState(context, state)
-        }
-
-        if (!shouldResumeEnabledCollectorForSourceSignal(g7Selected, state.collectorEnabled)) return
-        runCatching { G7CollectorService.start(context) }
+        val pending = goAsync()
+        G7ReceiverWork
+            .dispatcher { app, _ -> applySourceControl(app, g7Selected, alarmsEnabled, automaticEnableAt) }
+            .dispatch(context, intent.action, onFinished = pending::finish)
     }
 
     companion object {
@@ -51,6 +39,30 @@ class G7SourceControlReceiver : BroadcastReceiver() {
         const val EXTRA_ALARMS_ENABLED = "alarms_enabled"
         const val EXTRA_AUTOMATIC_ENABLE_AT = "automatic_enable_at"
     }
+}
+
+internal fun applySourceControl(
+    context: Context,
+    g7Selected: Boolean,
+    alarmsEnabled: Boolean,
+    automaticEnableAt: Long?,
+) {
+    G7AlertPolicyStore.setPolicy(context, alarmsEnabled, automaticEnableAt)
+    val state = G7SensorStateStore(context).read()
+
+    if (!alarmsEnabled) {
+        G7ErrorNotifier.clearActive(context)
+        G7CgmAlarmCoordinator.clearSuppressed(context)
+    } else {
+        // The reading that caused Automatic mode to fail over may have arrived before this
+        // policy broadcast. Evaluate it now so the source transition cannot miss an alarm.
+        latestAlarmCandidate(context, state)?.let { G7CgmAlarmCoordinator.onReading(context, it) }
+        G7CgmAlarmCoordinator.restore(context)
+        G7SignalLossMonitor.scheduleFromState(context, state)
+    }
+
+    if (!shouldResumeEnabledCollectorForSourceSignal(g7Selected, state.collectorEnabled)) return
+    runCatching { G7CollectorService.start(context) }
 }
 
 private fun latestAlarmCandidate(
