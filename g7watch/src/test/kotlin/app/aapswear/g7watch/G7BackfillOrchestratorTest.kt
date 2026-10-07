@@ -5,6 +5,7 @@ import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorExpectedWindow
+import app.aapswear.g7.CollectorWindowTerminalState
 import app.aapswear.g7.G7GapRecoveryState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
@@ -258,6 +259,39 @@ class G7BackfillOrchestratorTest {
             assertEquals(1, writes.get())
         } finally {
             preferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    @Test fun `reconstruction across a watch reboot records backfillable device downtime`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        ledger.reconstructMissed(
+            sensorId = "sensor-a",
+            sessionId = "session-a",
+            fromExpectedAt = 1_000L,
+            untilExclusive = 2_000L,
+            sensorStartAt = null,
+            sensorEndAt = null,
+            nowEpochMs = 2_000L,
+            activeBootId = "10",
+        )
+
+        val inserted =
+            ledger.reconstructMissed(
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                fromExpectedAt = 301_000L,
+                untilExclusive = 901_000L,
+                sensorStartAt = null,
+                sensorEndAt = null,
+                nowEpochMs = 901_000L,
+                activeBootId = "11",
+            )
+
+        assertEquals(2, inserted)
+        ledger.snapshot().filter { it.expectedAt > 1_000L }.forEach { window ->
+            assertEquals(CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP, window.finalResult)
+            assertEquals(CollectorWindowTerminalState.DEVICE_UNAVAILABLE, window.terminalState)
+            assertTrue(window.recoveryRequired)
         }
     }
 }

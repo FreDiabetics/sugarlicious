@@ -160,6 +160,7 @@ enum class CollectorCycleClassification {
     PROCESS_INTERRUPTED,
     COALESCED,
     MISSED_SENSOR_WINDOW,
+    DEVICE_OFF_OR_REBOOT_GAP,
     GATT_NO_CALLBACK,
 }
 
@@ -250,6 +251,7 @@ enum class CollectorWindowTerminalState {
     CANCELLED,
     SUPERSEDED,
     MISSED_WINDOW,
+    DEVICE_UNAVAILABLE,
     UNKNOWN,
 }
 
@@ -388,6 +390,7 @@ data class CollectorHardwareMetrics(
     val attemptedWindows: Int = 0,
     val successfulWindows: Int = 0,
     val missedWindows: Int = 0,
+    val deviceUnavailableWindows: Int = 0,
     val firstAttemptSuccess: Int = 0,
     val retrySuccess: Int = 0,
     val gatt133Count: Int = 0,

@@ -243,6 +243,7 @@ class G7SystemStatusActivity : Activity() {
                             addView(row("Versuchte Fenster", hardwareMetrics.attemptedWindows.toString(), palette))
                             addView(row("Erfolgreiche Fenster", hardwareMetrics.successfulWindows.toString(), palette))
                             addView(row("Verpasste Fenster", hardwareMetrics.missedWindows.toString(), palette))
+                            addView(row("Uhr aus/Neustart", hardwareMetrics.deviceUnavailableWindows.toString(), palette))
                             addView(row("First Attempt", hardwareMetrics.firstAttemptSuccess.toString(), palette))
                             addView(row("Retry-Erfolg", hardwareMetrics.retrySuccess.toString(), palette))
                             addView(row("GATT 133", hardwareMetrics.gatt133Count.toString(), palette))

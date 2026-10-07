@@ -322,10 +322,26 @@ internal class G7ExpectedWindowLedger(
         sensorStartAt: Long?,
         sensorEndAt: Long?,
         nowEpochMs: Long,
+        activeBootId: String = bootId(),
     ): Int =
         synchronized(lock) {
             val slots = missingExpectedSlots(fromExpectedAt, untilExclusive, sensorStartAt, sensorEndAt)
             val values = load().toMutableList()
+            val previousBootId =
+                values
+                    .asSequence()
+                    .filter { it.sensorId == sensorId && it.sessionId == sessionId }
+                    .maxByOrNull(CollectorExpectedWindow::expectedAt)
+                    ?.bootId
+            val crossesBootBoundary =
+                previousBootId != null &&
+                    previousBootId != "unknown" &&
+                    activeBootId != "unknown" &&
+                    previousBootId != activeBootId
+            val gapClassification =
+                if (crossesBootBoundary) CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP else CollectorCycleClassification.MISSED_SENSOR_WINDOW
+            val terminalState =
+                if (crossesBootBoundary) CollectorWindowTerminalState.DEVICE_UNAVAILABLE else CollectorWindowTerminalState.MISSED_WINDOW
             var inserted = 0
             slots.forEach { expectedAt ->
                 val existing =
@@ -343,10 +359,11 @@ internal class G7ExpectedWindowLedger(
                             windowCreatedAt = nowEpochMs,
                             sensorId = sensorId,
                             sessionId = sessionId,
-                            bootId = bootId(),
-                            terminalState = CollectorWindowTerminalState.MISSED_WINDOW,
-                            terminalReason = "reconstructed after lifecycle interruption",
-                            finalResult = CollectorCycleClassification.MISSED_SENSOR_WINDOW,
+                            bootId = activeBootId,
+                            terminalState = terminalState,
+                            terminalReason =
+                                if (crossesBootBoundary) "watch unavailable across reboot boundary" else "reconstructed after lifecycle interruption",
+                            finalResult = gapClassification,
                             recoveryRequired = true,
                             gapDetectedAt = nowEpochMs,
                             gapRecoveryState = G7GapRecoveryState.RECOVERY_REQUIRED,
@@ -541,6 +558,7 @@ private fun CollectorCycleClassification.toTerminalState(): CollectorWindowTermi
         CollectorCycleClassification.CANCELLED, CollectorCycleClassification.COALESCED -> CollectorWindowTerminalState.CANCELLED
         CollectorCycleClassification.PROCESS_INTERRUPTED -> CollectorWindowTerminalState.PROCESS_INTERRUPTED
         CollectorCycleClassification.MISSED_SENSOR_WINDOW, CollectorCycleClassification.ALARM_LATE -> CollectorWindowTerminalState.MISSED_WINDOW
+        CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP -> CollectorWindowTerminalState.DEVICE_UNAVAILABLE
         else -> CollectorWindowTerminalState.UNKNOWN
     }
 
@@ -577,14 +595,23 @@ internal const val G7_READING_IDENTITY_TOLERANCE_MS = 60_000L
 
 internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>): CollectorHardwareMetrics {
     val ordered = windows.sortedBy(CollectorExpectedWindow::expectedAt)
-    val successes = ordered.filter { it.finalResult == CollectorCycleClassification.SUCCESS_FRESH }
+    val deviceUnavailable = ordered.filter { it.finalResult == CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP }
+    val eligible = ordered.filterNot { it.finalResult == CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP }
+    val successes = eligible.filter { it.finalResult == CollectorCycleClassification.SUCCESS_FRESH }
     val delays =
         successes
             .mapNotNull { window -> window.readingReceivedAt?.minus(window.expectedAt) }
             .map { it.coerceAtLeast(0L) }
             .sorted()
-    val readingTimes = successes.mapNotNull(CollectorExpectedWindow::readingReceivedAt).sorted()
-    val gaps = readingTimes.zipWithNext { a, b -> b - a }
+    val gaps =
+        successes
+            .zipWithNext { first, second ->
+                if (first.bootId == second.bootId) {
+                    first.readingReceivedAt?.let { firstAt -> second.readingReceivedAt?.minus(firstAt) }
+                } else {
+                    null
+                }
+            }.filterNotNull()
     val recovered = ordered.filter { it.gapRecoveryState == G7GapRecoveryState.RECOVERED }
     val withinSla =
         recovered.count { window ->
@@ -604,17 +631,18 @@ internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>):
         fraction: Double,
     ): Long? = values.takeIf { it.isNotEmpty() }?.get((ceil(values.size * fraction).toInt() - 1).coerceIn(0, values.lastIndex))
     return CollectorHardwareMetrics(
-        expectedWindows = ordered.size,
-        attemptedWindows = ordered.count { it.cycleStartedAt != null },
+        expectedWindows = eligible.size,
+        attemptedWindows = eligible.count { it.cycleStartedAt != null },
         successfulWindows = successes.size,
-        missedWindows = ordered.count { it.finalResult == CollectorCycleClassification.MISSED_SENSOR_WINDOW },
+        missedWindows = eligible.count { it.finalResult == CollectorCycleClassification.MISSED_SENSOR_WINDOW },
+        deviceUnavailableWindows = deviceUnavailable.size,
         firstAttemptSuccess = successes.count { it.gattAttempts == 1 && it.gattResult == DirectConnectResult.SUCCESS },
         retrySuccess = successes.count { it.gattAttempts > 1 },
         gatt133Count = ordered.sumOf(CollectorExpectedWindow::gatt133Count),
         noCallbackCount = ordered.sumOf(CollectorExpectedWindow::noCallbackCount),
         fallbackScanCount = ordered.count(CollectorExpectedWindow::fallbackScanUsed),
         longestReadingGapMs = gaps.maxOrNull(),
-        availabilityPercent = if (ordered.isEmpty()) 0.0 else successes.size * 100.0 / ordered.size,
+        availabilityPercent = if (eligible.isEmpty()) 0.0 else successes.size * 100.0 / eligible.size,
         medianReceiveDelayMs = percentile(delays, 0.5),
         p95ReceiveDelayMs = percentile(delays, 0.95),
         connectAttempts = ordered.sumOf(CollectorExpectedWindow::gattAttempts),
@@ -631,7 +659,7 @@ internal fun calculateG7HardwareMetrics(windows: List<CollectorExpectedWindow>):
                 if (start != null && end != null) (end - start).coerceIn(0L, 3L * 60_000L) else 0L
             },
         sensorNotVisibleEpisodes = ordered.count { it.fallbackScanUsed && it.advertisementSeenAt == null },
-        silentWindows = ordered.count { it.cycleStartedAt == null && it.expectedAt < System.currentTimeMillis() },
+        silentWindows = eligible.count { it.cycleStartedAt == null && it.expectedAt < System.currentTimeMillis() },
         duplicateCanonicalWindows = canonicalDuplicates,
         recoveredGapCount = recovered.size,
         backfillWithinTenMinutesCount = withinSla,
