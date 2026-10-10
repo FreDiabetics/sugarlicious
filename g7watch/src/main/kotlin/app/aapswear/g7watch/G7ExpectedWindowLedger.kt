@@ -213,6 +213,12 @@ internal class G7ExpectedWindowLedger(
                     terminalState = if (recoveredAt != null) CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY else window.terminalState,
                     recoveryRequired = if (recoveredAt != null) false else window.recoveryRequired,
                     recoveryAttemptCount = window.recoveryAttemptCount,
+                    completeRecoveryMissCount =
+                        when {
+                            recoveredAt != null -> window.completeRecoveryMissCount
+                            requestedAt != null && responseAt != null -> window.completeRecoveryMissCount + 1
+                            else -> window.completeRecoveryMissCount
+                        },
                     lastRecoveryAttemptAt = requestedAt ?: window.lastRecoveryAttemptAt,
                     lastRecoveryOutcome =
                         when {
@@ -445,13 +451,21 @@ internal class G7ExpectedWindowLedger(
     fun oldestOpenGap(
         sensorId: String?,
         sessionId: String?,
+        nowEpochMs: Long = System.currentTimeMillis(),
     ): CollectorExpectedWindow? =
         synchronized(lock) {
-            val now = System.currentTimeMillis()
             val values = load()
             val repaired =
                 values.map { window ->
-                    if (window.recoveryRequired && window.gapDetectedAt == null) window.copy(gapDetectedAt = now) else window
+                    when {
+                        window.sensorId != sensorId || window.sessionId != sessionId || !window.recoveryRequired -> window
+                        nowEpochMs - window.expectedAt > G7CollectorBackfillProtocol.MAX_WINDOW_MS ->
+                            window.asUnrecoverable("outside Dexcom G7 history window", nowEpochMs)
+                        window.completeRecoveryMissCount >= MAX_COMPLETE_BACKFILL_MISSES ->
+                            window.asUnrecoverable("complete backfill responses did not contain gap", nowEpochMs)
+                        window.gapDetectedAt == null -> window.copy(gapDetectedAt = nowEpochMs)
+                        else -> window
+                    }
                 }
             if (repaired != values) saveAll(repaired)
             repaired
@@ -460,6 +474,17 @@ internal class G7ExpectedWindowLedger(
                 .filter { it.terminalState != CollectorWindowTerminalState.SUCCESS_BACKFILL_ONLY }
                 .minByOrNull { it.expectedAt }
         }
+
+    private fun CollectorExpectedWindow.asUnrecoverable(
+        reason: String,
+        at: Long,
+    ): CollectorExpectedWindow =
+        copy(
+            recoveryRequired = false,
+            gapRecoveryState = G7GapRecoveryState.UNRECOVERABLE,
+            terminalGapReason = reason,
+            completedAt = completedAt ?: at,
+        )
 
     fun metrics(): CollectorHardwareMetrics = calculateG7HardwareMetrics(snapshot())
 
@@ -546,6 +571,7 @@ internal fun retainExpectedWindows(values: Collection<CollectorExpectedWindow>):
 
 internal const val MAX_RECOVERABLE_OPEN_WINDOWS = 300
 internal const val MAX_CLOSED_WINDOWS = 192
+internal const val MAX_COMPLETE_BACKFILL_MISSES = 3
 
 private fun CollectorCycleClassification.toTerminalState(): CollectorWindowTerminalState =
     when (this) {

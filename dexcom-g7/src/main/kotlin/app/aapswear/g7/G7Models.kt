@@ -377,6 +377,7 @@ data class CollectorExpectedWindow(
     val backfillInsertedAt: Long? = null,
     val recoveredMeasuredAt: Long? = null,
     val recoveryAttemptCount: Int = 0,
+    val completeRecoveryMissCount: Int = 0,
     val lastRecoveryAttemptAt: Long? = null,
     val lastRecoveryOutcome: String? = null,
     val gapRecoveryState: G7GapRecoveryState = G7GapRecoveryState.OPEN,

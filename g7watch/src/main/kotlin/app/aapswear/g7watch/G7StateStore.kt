@@ -1,5 +1,6 @@
 package app.aapswear.g7watch
 
+import android.annotation.SuppressLint
 import android.content.Context
 import androidx.core.content.edit
 import app.aapswear.g7.G7PersistedState
@@ -42,6 +43,7 @@ internal class G7RuntimeRecycleStore(
         preferences.getLong(KEY_LAST_RECYCLE_AT, 0L).takeIf { it > 0L }
 
     @Synchronized
+    @SuppressLint("UseKtx") // The Boolean commit result is the ownership claim result.
     fun tryClaim(nowEpochMs: Long): Boolean {
         val previous = lastRecycleAtEpochMs()
         if (previous != null && nowEpochMs - previous < G7_RUNTIME_RECYCLE_COOLDOWN_MS) return false

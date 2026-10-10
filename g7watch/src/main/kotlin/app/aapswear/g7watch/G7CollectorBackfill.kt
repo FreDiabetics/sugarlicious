@@ -10,6 +10,7 @@ import java.nio.ByteOrder
 /** Dexcom G7 history is requested only by the Watch Collector BLE session. */
 internal object G7CollectorBackfillProtocol {
     const val MAX_WINDOW_SECONDS = 24L * 60L * 60L
+    const val MAX_WINDOW_MS = MAX_WINDOW_SECONDS * 1_000L
     const val EXPECTED_INTERVAL_SECONDS = 5L * 60L
     const val REQUEST_OPCODE: Byte = 0x59
 
