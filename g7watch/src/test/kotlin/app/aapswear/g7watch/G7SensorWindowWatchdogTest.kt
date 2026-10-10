@@ -2,10 +2,12 @@ package app.aapswear.g7watch
 
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorExpectedWindow
+import app.aapswear.g7.CollectorWindowTerminalState
 import app.aapswear.g7.DirectConnectResult
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -158,5 +160,45 @@ class G7SensorWindowWatchdogTest {
         assertEquals(1, metrics.noCallbackCount)
         assertEquals(1, metrics.missedWindows)
         assertEquals(300_150L, metrics.longestReadingGapMs)
+    }
+
+    @Test fun `hardware metrics exclude powered off watch windows from collector reliability`() {
+        val windows =
+            listOf(
+                CollectorExpectedWindow(
+                    "before",
+                    1_000L,
+                    bootId = "10",
+                    cycleStartedAt = 900L,
+                    readingReceivedAt = 1_100L,
+                    finalResult = CollectorCycleClassification.SUCCESS_FRESH,
+                ),
+                CollectorExpectedWindow(
+                    "off",
+                    301_000L,
+                    bootId = "11",
+                    finalResult = CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP,
+                    terminalState = CollectorWindowTerminalState.DEVICE_UNAVAILABLE,
+                    recoveryRequired = true,
+                ),
+                CollectorExpectedWindow(
+                    "after",
+                    601_000L,
+                    bootId = "11",
+                    cycleStartedAt = 600_900L,
+                    readingReceivedAt = 601_100L,
+                    finalResult = CollectorCycleClassification.SUCCESS_FRESH,
+                ),
+            )
+
+        val metrics = calculateG7HardwareMetrics(windows)
+
+        assertEquals(2, metrics.expectedWindows)
+        assertEquals(2, metrics.successfulWindows)
+        assertEquals(0, metrics.missedWindows)
+        assertEquals(1, metrics.deviceUnavailableWindows)
+        assertEquals(100.0, metrics.availabilityPercent, 0.0)
+        assertNull(metrics.longestReadingGapMs)
+        assertEquals(0, metrics.silentWindows)
     }
 }

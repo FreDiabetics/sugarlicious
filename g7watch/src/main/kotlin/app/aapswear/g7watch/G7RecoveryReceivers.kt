@@ -13,6 +13,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.io.Closeable
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal class G7ReceiverWorkDispatcher(
@@ -65,13 +68,26 @@ private object G7ReceiverDeadline {
     }
 }
 
-private object G7ReceiverWork {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+internal class G7OrderedWorkLauncher(
+    threadName: String,
+) : Closeable {
+    private val executor: ExecutorService =
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, threadName).apply { isDaemon = true }
+        }
+
+    fun launch(block: () -> Unit) = executor.execute(block)
+
+    override fun close() = executor.shutdownNow().let { }
+}
+
+internal object G7ReceiverWork {
+    private val orderedLauncher = G7OrderedWorkLauncher("g7-receiver-work")
     private val recoveryLock = Any()
 
     fun dispatcher(recover: (Context, String?) -> Unit) =
         G7ReceiverWorkDispatcher(
-            launch = { block -> scope.launch { block() } },
+            launch = orderedLauncher::launch,
             recover = recover,
             recoveryLock = recoveryLock,
         )

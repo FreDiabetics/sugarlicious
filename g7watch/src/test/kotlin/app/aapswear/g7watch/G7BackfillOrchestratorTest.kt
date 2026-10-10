@@ -1,9 +1,11 @@
 package app.aapswear.g7watch
 
 import android.content.Context
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorExpectedWindow
+import app.aapswear.g7.CollectorWindowTerminalState
 import app.aapswear.g7.G7GapRecoveryState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
@@ -16,6 +18,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import java.util.concurrent.atomic.AtomicInteger
 
 @RunWith(RobolectricTestRunner::class)
 class G7BackfillOrchestratorTest {
@@ -42,7 +46,7 @@ class G7BackfillOrchestratorTest {
         val older = ledger.create(300_000L, 290_000L)
         ledger.markFinal(older.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
 
-        val selected = ledger.oldestOpenGap(older.sensorId, older.sessionId)
+        val selected = ledger.oldestOpenGap(older.sensorId, older.sessionId, nowEpochMs = 700_000L)
 
         assertEquals(older.expectedWindowId, selected?.expectedWindowId)
         assertNotNull(ledger.window(older.expectedWindowId)?.gapDetectedAt)
@@ -110,13 +114,124 @@ class G7BackfillOrchestratorTest {
         ledger.markRecoveryRequestStarted(sensorId, sessionId, 600_000L, 601_500L)
         ledger.markNextLiveAndBackfill(sensorId, sessionId, 600_000L, 601_000L, 602_000L, 601_500L, 601_700L, emptyList())
 
-        val afterRestart = G7ExpectedWindowLedger(context).oldestOpenGap(gap.sensorId, gap.sessionId)
+        val afterRestart = G7ExpectedWindowLedger(context).oldestOpenGap(gap.sensorId, gap.sessionId, nowEpochMs = 700_000L)
         assertNotNull(afterRestart)
         assertEquals(1, afterRestart?.recoveryAttemptCount)
         assertEquals("RESPONSE_DID_NOT_CONTAIN_GAP", afterRestart?.lastRecoveryOutcome)
 
         ledger.markRecoveryRequestStarted(sensorId, sessionId, 900_000L, 901_500L)
         assertEquals(2, ledger.window(gap.expectedWindowId)?.recoveryAttemptCount)
+    }
+
+    @Test fun `gap older than sensor history is terminalized and no longer blocks a recent gap`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val expired = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(expired.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val recent = ledger.create(G7CollectorBackfillProtocol.MAX_WINDOW_MS + 600_000L, 590_000L)
+        ledger.markFinal(recent.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+
+        val selected =
+            ledger.oldestOpenGap(
+                expired.sensorId,
+                expired.sessionId,
+                nowEpochMs = G7CollectorBackfillProtocol.MAX_WINDOW_MS + 900_000L,
+            )
+
+        assertEquals(recent.expectedWindowId, selected?.expectedWindowId)
+        val terminal = requireNotNull(ledger.window(expired.expectedWindowId))
+        assertFalse(terminal.recoveryRequired)
+        assertEquals(G7GapRecoveryState.UNRECOVERABLE, terminal.gapRecoveryState)
+        assertEquals("outside Dexcom G7 history window", terminal.terminalGapReason)
+    }
+
+    @Test fun `three complete responses without target terminalize gap and unblock next one`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val missing = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(missing.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val next = ledger.create(2_000_000L, 1_990_000L)
+        ledger.markFinal(next.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val sensorId = missing.sensorId ?: "unknown"
+        val sessionId = missing.sessionId ?: "unknown"
+
+        repeat(MAX_COMPLETE_BACKFILL_MISSES) { attempt ->
+            val liveAt = 900_000L + attempt * 300_000L
+            ledger.markRecoveryRequestStarted(sensorId, sessionId, liveAt, liveAt + 1_000L)
+            ledger.markNextLiveAndBackfill(
+                sensorId,
+                sessionId,
+                liveAt,
+                liveAt + 500L,
+                liveAt + 1_500L,
+                liveAt + 1_000L,
+                liveAt + 1_400L,
+                emptyList(),
+            )
+        }
+
+        val selected = ledger.oldestOpenGap(sensorId, sessionId, nowEpochMs = 2_100_000L)
+
+        assertEquals(next.expectedWindowId, selected?.expectedWindowId)
+        val terminal = requireNotNull(ledger.window(missing.expectedWindowId))
+        assertFalse(terminal.recoveryRequired)
+        assertEquals(G7GapRecoveryState.UNRECOVERABLE, terminal.gapRecoveryState)
+        assertEquals("complete backfill responses did not contain gap", terminal.terminalGapReason)
+    }
+
+    @Test fun `failed backfill requests remain retryable`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val gap = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(gap.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val sensorId = gap.sensorId ?: "unknown"
+        val sessionId = gap.sessionId ?: "unknown"
+
+        repeat(MAX_COMPLETE_BACKFILL_MISSES + 1) { attempt ->
+            ledger.markRecoveryRequestStarted(sensorId, sessionId, 600_000L, 601_000L + attempt)
+            ledger.markNextLiveAndBackfill(
+                sensorId,
+                sessionId,
+                600_000L,
+                600_500L,
+                601_500L,
+                601_000L + attempt,
+                null,
+                emptyList(),
+            )
+        }
+
+        assertEquals(
+            gap.expectedWindowId,
+            ledger.oldestOpenGap(sensorId, sessionId, nowEpochMs = 700_000L)?.expectedWindowId,
+        )
+    }
+
+    @Test fun `complete response with failed storage does not consume miss budget`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val gap = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(gap.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val sensorId = gap.sensorId ?: "unknown"
+        val sessionId = gap.sessionId ?: "unknown"
+
+        repeat(MAX_COMPLETE_BACKFILL_MISSES) { attempt ->
+            ledger.markRecoveryRequestStarted(sensorId, sessionId, 600_000L, 601_000L + attempt)
+            ledger.markNextLiveAndBackfill(
+                sensorId,
+                sessionId,
+                600_000L,
+                600_500L,
+                601_500L,
+                601_000L + attempt,
+                601_400L + attempt,
+                emptyList(),
+                responseProcessedSuccessfully = false,
+            )
+        }
+
+        val persisted = requireNotNull(ledger.window(gap.expectedWindowId))
+        assertEquals(0, persisted.completeRecoveryMissCount)
+        assertEquals(
+            gap.expectedWindowId,
+            ledger.oldestOpenGap(sensorId, sessionId, nowEpochMs = 700_000L)?.expectedWindowId,
+        )
     }
 
     @Test fun `one coalesced response closes every matching open window but never another session`() {
@@ -226,5 +341,68 @@ class G7BackfillOrchestratorTest {
 
         assertNull(ledger.oldestOpenGap(gap.sensorId, gap.sessionId))
         assertEquals(G7GapRecoveryState.SESSION_ENDED, ledger.window(gap.expectedWindowId)?.gapRecoveryState)
+    }
+
+    @Test fun `long outage reconstruction persists the complete ledger once`() {
+        val preferences = context.getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+        val writes = AtomicInteger()
+        val listener =
+            android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+                if (key == "windows_v1") writes.incrementAndGet()
+            }
+        preferences.registerOnSharedPreferenceChangeListener(listener)
+
+        try {
+            val inserted =
+                G7ExpectedWindowLedger(context).reconstructMissed(
+                    sensorId = "sensor-a",
+                    sessionId = "session-a",
+                    fromExpectedAt = 300_000L,
+                    untilExclusive = 3_300_000L,
+                    sensorStartAt = 0L,
+                    sensorEndAt = 9_000_000L,
+                    nowEpochMs = 3_400_000L,
+                )
+            shadowOf(Looper.getMainLooper()).idle()
+
+            assertEquals(10, inserted)
+            assertEquals(10, G7ExpectedWindowLedger(context).snapshot().size)
+            assertEquals(1, writes.get())
+        } finally {
+            preferences.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    @Test fun `reconstruction across a watch reboot records backfillable device downtime`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        ledger.reconstructMissed(
+            sensorId = "sensor-a",
+            sessionId = "session-a",
+            fromExpectedAt = 1_000L,
+            untilExclusive = 2_000L,
+            sensorStartAt = null,
+            sensorEndAt = null,
+            nowEpochMs = 2_000L,
+            activeBootId = "10",
+        )
+
+        val inserted =
+            ledger.reconstructMissed(
+                sensorId = "sensor-a",
+                sessionId = "session-a",
+                fromExpectedAt = 301_000L,
+                untilExclusive = 901_000L,
+                sensorStartAt = null,
+                sensorEndAt = null,
+                nowEpochMs = 901_000L,
+                activeBootId = "11",
+            )
+
+        assertEquals(2, inserted)
+        ledger.snapshot().filter { it.expectedAt > 1_000L }.forEach { window ->
+            assertEquals(CollectorCycleClassification.DEVICE_OFF_OR_REBOOT_GAP, window.finalResult)
+            assertEquals(CollectorWindowTerminalState.DEVICE_UNAVAILABLE, window.terminalState)
+            assertTrue(window.recoveryRequired)
+        }
     }
 }

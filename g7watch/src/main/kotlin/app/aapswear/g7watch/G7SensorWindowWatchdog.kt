@@ -8,10 +8,7 @@ import android.content.Intent
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.model.DiagnosticSeverity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 internal data class G7WatchdogDecision(
     val missed: Boolean,
@@ -103,11 +100,21 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
-        val app = context.applicationContext
-        val now = System.currentTimeMillis()
         val windowId = G7SensorWindowWatchdog.windowId(intent)
         val expectedAt = G7SensorWindowWatchdog.expectedAt(intent)
         if (windowId == null || expectedAt <= 0L) return
+        val pendingResult = goAsync()
+        G7ReceiverWork
+            .dispatcher { app, _ -> handleWatchdog(app, windowId, expectedAt) }
+            .dispatch(context, intent.action, onFinished = pendingResult::finish)
+    }
+
+    private fun handleWatchdog(
+        app: Context,
+        windowId: String,
+        expectedAt: Long,
+    ) {
+        val now = System.currentTimeMillis()
         val ledger = G7ExpectedWindowLedger(app)
         ledger.markWatchdogTriggered(windowId, now)
         val window = ledger.window(windowId) ?: return
@@ -125,7 +132,7 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
                 activeCycle = G7CollectorRuntimeRegistry.hasLiveCycle(),
                 plausibleFutureTriggerEpochMs = pending,
             )
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        runBlocking {
             app.recordG7Diagnostic(
                 code = "WATCHDOG_FIRED",
                 message = "WATCHDOG_FIRED · ${decision.reason}",
@@ -143,7 +150,7 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
         }
         if (!decision.missed) return
         ledger.markFinal(windowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, recoveryRequired = true)
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        runBlocking {
             app.recordG7Diagnostic(
                 "WINDOW_RECOVERY_STARTED",
                 "WINDOW_RECOVERY_STARTED · verpasstes Sensorfenster",
@@ -157,7 +164,7 @@ class G7SensorWindowWatchdogReceiver : BroadcastReceiver() {
             nowEpochMs = now,
         )
         val repaired = G7CollectorDiagnosticStore(app).pendingScheduledCycle()
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+        runBlocking {
             app.recordG7Diagnostic(
                 code = "MISSED_SENSOR_WINDOW",
                 message = "MISSED_SENSOR_WINDOW · Recovery-Zeitpfad wiederhergestellt",
