@@ -185,6 +185,7 @@ internal class G7ExpectedWindowLedger(
         requestedAt: Long?,
         responseAt: Long?,
         inserted: List<Long>,
+        responseProcessedSuccessfully: Boolean = responseAt != null,
     ) = synchronized(lock) {
         val recovered = inserted.toSet()
         val updated =
@@ -216,7 +217,8 @@ internal class G7ExpectedWindowLedger(
                     completeRecoveryMissCount =
                         when {
                             recoveredAt != null -> window.completeRecoveryMissCount
-                            requestedAt != null && responseAt != null -> window.completeRecoveryMissCount + 1
+                            requestedAt != null && responseAt != null && responseProcessedSuccessfully ->
+                                window.completeRecoveryMissCount + 1
                             else -> window.completeRecoveryMissCount
                         },
                     lastRecoveryAttemptAt = requestedAt ?: window.lastRecoveryAttemptAt,

@@ -204,6 +204,36 @@ class G7BackfillOrchestratorTest {
         )
     }
 
+    @Test fun `complete response with failed storage does not consume miss budget`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val gap = ledger.create(300_000L, 290_000L)
+        ledger.markFinal(gap.expectedWindowId, CollectorCycleClassification.MISSED_SENSOR_WINDOW, true)
+        val sensorId = gap.sensorId ?: "unknown"
+        val sessionId = gap.sessionId ?: "unknown"
+
+        repeat(MAX_COMPLETE_BACKFILL_MISSES) { attempt ->
+            ledger.markRecoveryRequestStarted(sensorId, sessionId, 600_000L, 601_000L + attempt)
+            ledger.markNextLiveAndBackfill(
+                sensorId,
+                sessionId,
+                600_000L,
+                600_500L,
+                601_500L,
+                601_000L + attempt,
+                601_400L + attempt,
+                emptyList(),
+                responseProcessedSuccessfully = false,
+            )
+        }
+
+        val persisted = requireNotNull(ledger.window(gap.expectedWindowId))
+        assertEquals(0, persisted.completeRecoveryMissCount)
+        assertEquals(
+            gap.expectedWindowId,
+            ledger.oldestOpenGap(sensorId, sessionId, nowEpochMs = 700_000L)?.expectedWindowId,
+        )
+    }
+
     @Test fun `one coalesced response closes every matching open window but never another session`() {
         val ledger = G7ExpectedWindowLedger(context)
         val first = ledger.create(300_000L, 290_000L)

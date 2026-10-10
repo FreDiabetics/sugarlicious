@@ -16,6 +16,28 @@ import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 class G7ReceiverWorkDispatcherTest {
+    @Test fun `ordered receiver launcher preserves broadcast delivery order`() {
+        val launcher = G7OrderedWorkLauncher("test-g7-receiver-work")
+        val completed = CountDownLatch(2)
+        val order = mutableListOf<String>()
+
+        try {
+            launcher.launch {
+                order += "older"
+                completed.countDown()
+            }
+            launcher.launch {
+                order += "newer"
+                completed.countDown()
+            }
+
+            assertTrue(completed.await(1, TimeUnit.SECONDS))
+            assertEquals(listOf("older", "newer"), order)
+        } finally {
+            launcher.close()
+        }
+    }
+
     @Test fun `application receiver dispatchers serialize different recovery entry points`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val firstEntered = CountDownLatch(1)

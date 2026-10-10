@@ -566,6 +566,7 @@ class G7CollectorService : Service() {
                 } catch (error: Throwable) {
                     throw G7BleException("G7-STORE-500", "Lokaler G7-Wert konnte nicht gespeichert werden", true, error)
                 }
+            var backfillProcessedSuccessfully = true
             val (backfillInserted, committedBackfillMeasurements) =
                 try {
                     G7ReadingDatabase(this).let { database ->
@@ -598,6 +599,7 @@ class G7CollectorService : Service() {
                         }
                     }
                 } catch (error: Throwable) {
+                    backfillProcessedSuccessfully = false
                     applicationContext.recordG7Diagnostic(
                         "G7-BACKFILL-500",
                         "Collector history could not be stored",
@@ -659,6 +661,7 @@ class G7CollectorService : Service() {
                 requestedAt = backfillRequestedAt,
                 responseAt = if (backfillRequestedAt != null) now else null,
                 inserted = committedBackfillMeasurements,
+                responseProcessedSuccessfully = backfillProcessedSuccessfully,
             )
             val ledgerUpdated = G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
             if (scheduledCycle != null && !ledgerUpdated) {
