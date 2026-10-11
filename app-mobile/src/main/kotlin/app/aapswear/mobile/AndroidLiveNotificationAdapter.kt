@@ -2,6 +2,7 @@ package app.aapswear.mobile
 
 import android.app.NotificationManager
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationCompat.Metric
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
@@ -33,13 +34,10 @@ internal object AndroidLiveNotificationAdapter {
         val shortText = presentation.androidCapsuleText
         if (!shortText.isNullOrBlank()) builder.setShortCriticalText(shortText)
 
-        val metric = if (sdkInt >= 37) glucoseMetric(presentation) else null
-        if (metric != null) {
-            builder.setStyle(
-                MetricStyle()
-                    .addMetric(metric)
-                    .setCriticalMetric(0),
-            )
+        var metric: Metric? = null
+        if (sdkInt >= 37 && Build.VERSION.SDK_INT >= 37) {
+            metric = glucoseMetric(presentation)
+            metric?.let { applyMetricStyle(builder, it) }
         }
         return AndroidLiveApplication(
             promotionRequested = true,
@@ -54,11 +52,30 @@ internal object AndroidLiveNotificationAdapter {
         notification: android.app.Notification?,
         sdkInt: Int = Build.VERSION.SDK_INT,
     ): AndroidLiveDiagnostics {
-        if (sdkInt < 36) return AndroidLiveDiagnostics(false, null, null)
-        return AndroidLiveDiagnostics(
+        if (sdkInt < 36 || Build.VERSION.SDK_INT < 36) return AndroidLiveDiagnostics(false, null, null)
+        return platformDiagnostics(notificationManager, notification)
+    }
+
+    @RequiresApi(36)
+    private fun platformDiagnostics(
+        notificationManager: NotificationManager,
+        notification: android.app.Notification?,
+    ): AndroidLiveDiagnostics =
+        AndroidLiveDiagnostics(
             apiSupported = true,
             canPostPromotedNotifications = notificationManager.canPostPromotedNotifications(),
             hasPromotableCharacteristics = notification?.hasPromotableCharacteristics(),
+        )
+
+    @RequiresApi(37)
+    private fun applyMetricStyle(
+        builder: NotificationCompat.Builder,
+        metric: Metric,
+    ) {
+        builder.setStyle(
+            MetricStyle()
+                .addMetric(metric)
+                .setCriticalMetric(0),
         )
     }
 
