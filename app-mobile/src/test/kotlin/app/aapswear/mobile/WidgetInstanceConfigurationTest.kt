@@ -3,6 +3,9 @@ package app.aapswear.mobile
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TherapyMetricAppearance
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.model.TrendArrowStyleOverride
 import org.junit.Assert.assertEquals
@@ -15,6 +18,62 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
+    @Test
+    fun `therapy progress appearance round trips independently per widget`() {
+        val firstAppearance =
+            TherapyProgressAppearance(
+                enabledMetrics = setOf(TherapyProgressMetric.IOB, TherapyProgressMetric.BASAL),
+                groupScalePercent = 124,
+                gapDp = 11,
+                global = TherapyMetricAppearance(ringThicknessPercent = 135, primaryTextPercent = 92),
+                metricOverrides =
+                    mapOf(
+                        TherapyProgressMetric.IOB to TherapyMetricAppearance(overallScalePercent = 118, iconPercent = 74),
+                        TherapyProgressMetric.BASAL to TherapyMetricAppearance(secondaryTextPercent = 141),
+                    ),
+            )
+        val secondAppearance = TherapyProgressAppearance(enabledMetrics = setOf(TherapyProgressMetric.COB), gapDp = 2)
+
+        WidgetInstanceConfigurationStore.save(context, 1201, WidgetInstanceConfiguration(therapyProgressAppearance = firstAppearance))
+        WidgetInstanceConfigurationStore.save(context, 1202, WidgetInstanceConfiguration(therapyProgressAppearance = secondAppearance))
+
+        assertEquals(firstAppearance, WidgetInstanceConfigurationStore.read(context, 1201).therapyProgressAppearance)
+        assertEquals(secondAppearance, WidgetInstanceConfigurationStore.read(context, 1202).therapyProgressAppearance)
+        WidgetInstanceConfigurationStore.delete(context, 1201)
+        WidgetInstanceConfigurationStore.delete(context, 1202)
+    }
+
+    @Test
+    fun `therapy progress settings reject disabling the final metric`() {
+        val onlyIob = TherapyProgressAppearance(enabledMetrics = setOf(TherapyProgressMetric.IOB))
+
+        assertEquals(onlyIob, toggleTherapyMetric(onlyIob, TherapyProgressMetric.IOB, enabled = false))
+        assertEquals(
+            setOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB),
+            toggleTherapyMetric(onlyIob, TherapyProgressMetric.COB, enabled = true).enabledMetrics,
+        )
+    }
+
+    @Test
+    fun `corrupt therapy progress preferences recover into supported ranges`() {
+        val id = 1203
+        context
+            .getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("$id.therapy.enabled", "UNKNOWN")
+            .putInt("$id.therapy.group_scale", 999)
+            .putInt("$id.therapy.gap_dp", -40)
+            .putInt("$id.therapy.iob.icon", 999)
+            .apply()
+
+        val stored = WidgetInstanceConfigurationStore.read(context, id).therapyProgressAppearance
+        assertEquals(TherapyProgressMetric.entries.toSet(), stored.enabledMetrics)
+        assertEquals(150, stored.groupScalePercent)
+        assertEquals(0, stored.gapDp)
+        assertEquals(180, stored.metricOverrides.getValue(TherapyProgressMetric.IOB).iconPercent)
+        WidgetInstanceConfigurationStore.delete(context, id)
+    }
+
     @Test
     fun `configuration options follow the concrete widget provider`() {
         assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind("app.aapswear.mobile.GlucoseWidgetReceiver"))
@@ -211,6 +270,22 @@ class WidgetInstanceConfigurationTest {
         val pill = WidgetInstanceConfiguration(shapeMode = WidgetShapeMode.PILL)
         assertEquals(40f, resolveWidgetCornerRadiusDp(pill, 80f), 0.01f)
         assertEquals(75f, resolveWidgetCornerRadiusDp(pill, 150f), 0.01f)
+    }
+
+    @Test
+    fun `one by two graph widget supports pill shape`() {
+        val pill = WidgetInstanceConfiguration(shapeMode = WidgetShapeMode.PILL)
+
+        assertTrue(widgetSupportsPill(ConfigurableWidgetKind.GRAPH))
+        assertEquals(
+            55f,
+            resolveWidgetCornerRadiusDp(
+                configuration = pill,
+                heightDp = 110f,
+                pillAllowed = widgetSupportsPill(ConfigurableWidgetKind.GRAPH),
+            ),
+            0.01f,
+        )
     }
 
     @Test

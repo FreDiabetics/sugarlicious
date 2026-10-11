@@ -19,6 +19,9 @@ import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.GlucoseTrendSizing
+import app.aapswear.model.TherapyMetricAppearance
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.protocol.WatchGlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
@@ -450,6 +453,8 @@ class WearSettingsActivity : Activity() {
             val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
             section("TILE 2 · INHALT")
             tileContentRows(WearTileKind.THERAPY)
+            section("TILE 2 · GRÖSSE UND ABSTÄNDE")
+            therapyGeometryRows()
             section("TILE 2 · FARBEN")
             tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
             colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
@@ -532,12 +537,18 @@ class WearSettingsActivity : Activity() {
 
     private fun tileContentRows(kind: WearTileKind) {
         if (kind == WearTileKind.THERAPY) {
-            val selected = TherapyTileSelectionStore.read(this).canonical.toSet()
+            val appearance = TherapyTileGeometryStore.read(this)
+            val selected = appearance.enabledMetrics.mapTo(linkedSetOf()) { it.toTileMetric() }
             TherapyTileMetric.entries.forEach { metric ->
                 root.addView(
                     switchRow(metric.label, metric in selected) { enabled ->
                         val next = if (enabled) selected + metric else selected - metric
-                        if (next.isNotEmpty()) TherapyTileSelectionStore.write(this, next)
+                        if (next.isNotEmpty()) {
+                            TherapyTileGeometryStore.write(
+                                this,
+                                appearance.copy(enabledMetrics = next.mapTo(linkedSetOf()) { it.toProgressMetric() }),
+                            )
+                        }
                         requestSugarliciousTileUpdates(this, setOf(TherapyTileService::class.java))
                         buildUi()
                     },
@@ -557,6 +568,56 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
         }
+    }
+
+    private fun therapyGeometryRows() {
+        val appearance = TherapyTileGeometryStore.read(this)
+
+        fun save(value: TherapyProgressAppearance) {
+            TherapyTileGeometryStore.write(this, value.validated())
+            requestSugarliciousTileUpdates(this, setOf(TherapyTileService::class.java))
+            buildUi()
+        }
+
+        fun addSlider(
+            title: String,
+            range: IntRange,
+            value: Int,
+            suffix: String = "%",
+            changed: (Int) -> Unit,
+        ) {
+            root.addView(sliderCard(title, range.first, range.last, value, { "$it$suffix" }, changed), cardParams())
+        }
+        addSlider("Gesamtgröße", 50..150, appearance.groupScalePercent) { save(appearance.copy(groupScalePercent = it)) }
+        addSlider("Abstand", 0..24, appearance.gapDp, " dp") { save(appearance.copy(gapDp = it)) }
+        addSlider("Alle · Ringdicke", 50..200, appearance.global.ringThicknessPercent) {
+            save(appearance.copy(global = appearance.global.copy(ringThicknessPercent = it)))
+        }
+        addSlider("Alle · obere Zeile", 60..180, appearance.global.primaryTextPercent) {
+            save(appearance.copy(global = appearance.global.copy(primaryTextPercent = it)))
+        }
+        addSlider("Alle · untere Zeile", 60..180, appearance.global.secondaryTextPercent) {
+            save(appearance.copy(global = appearance.global.copy(secondaryTextPercent = it)))
+        }
+        addSlider("Alle · Icon", 50..180, appearance.global.iconPercent) {
+            save(appearance.copy(global = appearance.global.copy(iconPercent = it)))
+        }
+        TherapyProgressMetric.entries.forEach { metric ->
+            val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+            val label = metric.toTileMetric().label
+
+            fun update(transform: (TherapyMetricAppearance) -> TherapyMetricAppearance) =
+                save(appearance.copy(metricOverrides = appearance.metricOverrides + (metric to transform(local))))
+            addSlider("$label · Gesamtgröße", 60..140, local.overallScalePercent) { update { value -> value.copy(overallScalePercent = it) } }
+            addSlider("$label · Ringdicke", 50..200, local.ringThicknessPercent) { update { value -> value.copy(ringThicknessPercent = it) } }
+            addSlider("$label · obere Zeile", 60..180, local.primaryTextPercent) { update { value -> value.copy(primaryTextPercent = it) } }
+            addSlider("$label · untere Zeile", 60..180, local.secondaryTextPercent) { update { value -> value.copy(secondaryTextPercent = it) } }
+            addSlider("$label · Icon", 50..180, local.iconPercent) { update { value -> value.copy(iconPercent = it) } }
+        }
+        root.addView(
+            actionCard("Progressanzeigen zurücksetzen", "Standard") { save(TherapyProgressAppearance()) },
+            cardParams(),
+        )
     }
 
     private fun settingsCategory(
