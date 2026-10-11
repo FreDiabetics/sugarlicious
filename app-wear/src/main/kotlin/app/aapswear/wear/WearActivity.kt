@@ -444,7 +444,7 @@ class WearActivity : Activity() {
             R.id.wear_cob,
             R.id.wear_source,
             R.id.wear_settings_label,
-            R.id.wear_header_title,
+            R.id.wear_footer_text,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textPrimary) }
 
         listOf(
@@ -452,14 +452,7 @@ class WearActivity : Activity() {
             R.id.wear_age,
             R.id.wear_sync_hint,
             R.id.wear_watchface_push_status,
-            R.id.wear_footer_text,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textSecondary) }
-
-        findViewById<ImageView>(R.id.wear_header_logo).renderSugarliciousWearIcon(
-            R.drawable.ic_foreground,
-            tintArgb = null,
-            backgroundArgb = ui.background,
-        )
         iobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_iob, ui.iob, ui.tileBackground)
         cobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_carbs, ui.cob, ui.tileBackground)
         basalIcon.renderSugarliciousWearIcon(currentBasalIconRes, ui.basal, ui.tileBackground)
@@ -470,9 +463,9 @@ class WearActivity : Activity() {
             colored = false,
         )
         findViewById<ImageView>(R.id.wear_footer_icon).renderSugarliciousWearIcon(
-            R.drawable.ic_monochrome_outlined,
-            ui.accent,
-            ui.background,
+            R.drawable.ic_foreground,
+            tintArgb = null,
+            backgroundArgb = ui.background,
         )
     }
 

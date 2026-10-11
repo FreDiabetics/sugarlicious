@@ -30,6 +30,28 @@ import app.aapswear.complications.R as ComplicationR
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    fun `brand is shown once at the end of the wearable menu`() {
+        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val footerIcon = activity.findViewById<ImageView>(R.id.wear_footer_icon)
+        val footerText = activity.findViewById<TextView>(R.id.wear_footer_text)
+        val footer = footerIcon.parent as View
+        val menu = footer.parent as ViewGroup
+
+        assertEquals(0, activity.resources.getIdentifier("wear_header_logo", "id", activity.packageName))
+        assertEquals(0, activity.resources.getIdentifier("wear_header_title", "id", activity.packageName))
+        assertEquals((52 * activity.resources.displayMetrics.density).toInt(), footerIcon.layoutParams.width)
+        assertEquals("Sugarlicious", footerText.text.toString())
+        val expectedTextSize =
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP,
+                15f,
+                activity.resources.displayMetrics,
+            )
+        assertEquals(expectedTextSize, footerText.textSize, 0.01f)
+        assertTrue(menu.indexOfChild(footer) > menu.indexOfChild(activity.findViewById(R.id.wear_settings_action)))
+    }
+
+    @Test
     fun `wear appearance is dark by default and explicit selection remains active`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context

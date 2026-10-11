@@ -24,26 +24,6 @@
             android:paddingEnd="24dp"
             android:paddingBottom="30dp">
 
-            <ImageView
-                android:id="@+id/wear_header_logo"
-                android:layout_width="52dp"
-                android:layout_height="52dp"
-                android:contentDescription="Sugarlicious"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_foreground" />
-
-            <TextView
-                android:id="@+id/wear_header_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:layout_marginBottom="7dp"
-                android:includeFontPadding="false"
-                android:text="Sugarlicious"
-                android:textColor="@color/wear_text"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
             <LinearLayout
                 android:id="@+id/wear_glucose_card"
                 android:layout_width="match_parent"
@@ -225,9 +205,31 @@
                 <TextView android:id="@+id/wear_settings_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:text="Watch Einstellungen" android:textColor="@color/wear_text" android:textSize="9sp" android:textStyle="bold" />
             </LinearLayout>
 
-            <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="11dp" android:gravity="center" android:orientation="horizontal">
-                <ImageView android:id="@+id/wear_footer_icon" android:layout_width="16dp" android:layout_height="16dp" android:contentDescription="Sugarlicious" android:src="@drawable/ic_monochrome_outlined" android:tint="@color/wear_green" />
-                <TextView android:id="@+id/wear_footer_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="5dp" android:text="Sugarlicious · FreDiabetics" android:textColor="@color/wear_text_secondary" android:textSize="7sp" android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="11dp"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <ImageView
+                    android:id="@+id/wear_footer_icon"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:contentDescription="Sugarlicious"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_foreground" />
+
+                <TextView
+                    android:id="@+id/wear_footer_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:includeFontPadding="false"
+                    android:text="Sugarlicious"
+                    android:textColor="@color/wear_text"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
