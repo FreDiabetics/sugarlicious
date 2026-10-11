@@ -17,6 +17,7 @@ internal object SamsungLiveNotificationAdapter {
     const val EXTRA_STYLE = "android.ongoingActivityNoti.style"
     const val EXTRA_PRIMARY_INFO = "android.ongoingActivityNoti.primaryInfo"
     const val EXTRA_SECONDARY_INFO = "android.ongoingActivityNoti.secondaryInfo"
+    const val EXTRA_CHIP_BACKGROUND_COLOR = "android.ongoingActivityNoti.chipBgColor"
     const val EXTRA_CHIP_ICON = "android.ongoingActivityNoti.chipIcon"
     const val EXTRA_CHIP_EXPANDED_TEXT = "android.ongoingActivityNoti.chipExpandedText"
     const val EXTRA_NOWBAR_PRIMARY_INFO = "android.ongoingActivityNoti.nowbarPrimaryInfo"
@@ -39,6 +40,7 @@ internal object SamsungLiveNotificationAdapter {
                 putString(EXTRA_PRIMARY_INFO, texts.drawerPrimary)
                 putString(EXTRA_NOWBAR_PRIMARY_INFO, texts.nowBarPrimary)
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)
+                putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
                 putParcelable(EXTRA_CHIP_ICON, Icon.createWithResource(context, notificationIconRes))
                 texts.drawerSecondary?.let { putString(EXTRA_SECONDARY_INFO, it) }
                 texts.nowBarSecondary?.let { putString(EXTRA_NOWBAR_SECONDARY_INFO, it) }
