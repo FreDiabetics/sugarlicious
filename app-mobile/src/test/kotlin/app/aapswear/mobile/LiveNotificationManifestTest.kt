@@ -32,6 +32,17 @@ class LiveNotificationManifestTest {
         )
         assertEquals(
             1,
+            (0 until permissions.length).count {
+                permissions
+                    .item(it)
+                    .attributes
+                    .getNamedItemNS(androidNamespace, "name")
+                    ?.nodeValue ==
+                    "android.permission.SCHEDULE_EXACT_ALARM"
+            },
+        )
+        assertEquals(
+            1,
             (0 until metadata.length).count {
                 val attributes = metadata.item(it).attributes
                 attributes.getNamedItemNS(androidNamespace, "name")?.nodeValue ==

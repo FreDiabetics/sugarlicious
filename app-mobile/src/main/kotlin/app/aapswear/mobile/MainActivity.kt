@@ -716,6 +716,15 @@ class MainActivity : ComponentActivity() {
         PersistentBridgeService.refresh(this)
         if (!enabled) return
         val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        if (Build.VERSION.SDK_INT >= 31) {
+            val alarms = getSystemService(android.app.AlarmManager::class.java)
+            if (!alarms.canScheduleExactAlarms()) {
+                openExternal(
+                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
+                )
+                return
+            }
+        }
         if (Build.VERSION.SDK_INT < 36 && !samsung) {
             Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return

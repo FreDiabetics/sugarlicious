@@ -222,11 +222,12 @@ class PersistentBridgeService :
         val pendingIntent = freshnessBoundaryPendingIntent()
         alarmManager.cancel(pendingIntent)
         val boundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
-        alarmManager.setAndAllowWhileIdle(
-            AlarmManager.ELAPSED_REALTIME_WAKEUP,
-            SystemClock.elapsedRealtime() + (boundary - nowEpochMs).coerceAtLeast(1L),
-            pendingIntent,
-        )
+        val triggerAt = SystemClock.elapsedRealtime() + (boundary - nowEpochMs).coerceAtLeast(1L)
+        if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+        } else {
+            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+        }
         freshnessBoundaryJob =
             scope.launch {
                 delay((boundary - System.currentTimeMillis()).coerceAtLeast(1L))

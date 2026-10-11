@@ -21,6 +21,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -437,6 +438,7 @@ class MainActivityTest {
     @Test
     @Config(sdk = [36])
     fun `live notification switch opens the Android 16 promotion permission when needed`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context
             .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -462,6 +464,30 @@ class MainActivityTest {
     }
 
     @Test
+    @Config(sdk = [36])
+    fun `live notification switch requests exact alarm access before promotion permission`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val settingsIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, settingsIntent.action)
+        assertEquals("package:${activity.packageName}", settingsIntent.dataString)
+        controller.pause().stop().destroy()
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+    }
+
+    @Test
     fun `live notification status keeps samsung path independent from android promotion`() {
         val status = liveNotificationStatus(true, 35, "Samsung", canPostPromoted = null)
 
@@ -472,6 +498,7 @@ class MainActivityTest {
         assertEquals("nicht geprüft", status.promotableCharacteristics)
         assertEquals("nicht angewendet", status.samsungExtras)
         assertEquals("noch nicht erfolgt", status.lastPostAttempt)
+        assertEquals("nicht erforderlich", status.exactFreshnessAlarm)
         assertEquals("nicht durchgeführt", status.hardwareValidation)
     }
 

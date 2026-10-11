@@ -20,7 +20,7 @@ Both live modes derive their text from `NotificationPresentation`, which uses th
 - Missing, stale, signal-loss, error, and no-source states suppress old glucose values and show the explicit state.
 - Therapy values, active basal, source, and profile are retained in the ordinary notification content where available.
 
-The service compares the full visible presentation revision, not only the glucose timestamp. Therapy-only changes therefore refresh the same notification ID. A one-shot elapsed-realtime wakeup updates the notification when glucose freshness or an active temporary basal crosses its next boundary; there is no polling loop, and duplicate ordinary service starts do not repost an identical presentation.
+The service compares the full visible presentation revision, not only the glucose timestamp. Therapy-only changes therefore refresh the same notification ID. A one-shot exact elapsed-realtime wakeup updates the notification when glucose freshness or an active temporary basal crosses its next boundary, including during AOD/deep sleep. Android 12+ requests the system's exact-alarm special access; until granted, an inexact idle alarm plus the awake coroutine and screen/time reconciliation paths form the safe fallback. There is no polling loop, and duplicate ordinary service starts do not repost an identical presentation.
 
 ## Samsung integration
 

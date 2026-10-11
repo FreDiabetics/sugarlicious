@@ -912,6 +912,7 @@ class DashboardViewFactory(
                     addView(statusRow("Promotable", liveStatus.promotableCharacteristics))
                     addView(statusRow("Samsung Extras", liveStatus.samsungExtras))
                     addView(statusRow("Letzter Post-Versuch", liveStatus.lastPostAttempt))
+                    addView(statusRow("Exakte Frischegrenze", liveStatus.exactFreshnessAlarm))
                     addView(statusRow("Hardwaretest", liveStatus.hardwareValidation))
                     addView(divider())
                     addView(settingsGroupLabel("GRAPH"))

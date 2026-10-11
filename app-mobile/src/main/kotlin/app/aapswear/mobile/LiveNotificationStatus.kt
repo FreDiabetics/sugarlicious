@@ -12,6 +12,7 @@ internal data class LiveNotificationStatus(
     val promotableCharacteristics: String,
     val samsungExtras: String,
     val lastPostAttempt: String,
+    val exactFreshnessAlarm: String,
     val hardwareValidation: String,
 )
 
@@ -23,6 +24,7 @@ internal fun liveNotificationStatus(
     hasPromotableCharacteristics: Boolean? = null,
     samsungExtrasApplied: Boolean = false,
     lastPostAttemptAt: Long = 0L,
+    canScheduleExactAlarms: Boolean? = null,
 ): LiveNotificationStatus {
     val samsung = manufacturer.equals("samsung", ignoreCase = true)
     return LiveNotificationStatus(
@@ -48,6 +50,12 @@ internal fun liveNotificationStatus(
             },
         samsungExtras = if (samsungExtrasApplied) "angewendet" else "nicht angewendet",
         lastPostAttempt = if (lastPostAttemptAt > 0L) "durchgeführt" else "noch nicht erfolgt",
+        exactFreshnessAlarm =
+            when (canScheduleExactAlarms) {
+                true -> "erlaubt"
+                false -> "nicht erlaubt"
+                null -> "nicht erforderlich"
+            },
         hardwareValidation = "nicht durchgeführt",
     )
 }
@@ -71,5 +79,11 @@ internal fun liveNotificationStatus(
             hasPromotableCharacteristics = diagnostics.hasPromotableCharacteristics,
             samsungExtrasApplied = persisted.getBoolean(PersistentBridgeService.DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED, false),
             lastPostAttemptAt = persisted.getLong(PersistentBridgeService.DIAGNOSTIC_LAST_POST_ATTEMPT_AT, 0L),
+            canScheduleExactAlarms =
+                if (Build.VERSION.SDK_INT >= 31) {
+                    context.getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()
+                } else {
+                    null
+                },
         )
     }
