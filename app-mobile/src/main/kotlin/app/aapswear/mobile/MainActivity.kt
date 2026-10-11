@@ -715,10 +715,12 @@ class MainActivity : ComponentActivity() {
         uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, enabled) }
         PersistentBridgeService.refresh(this)
         if (!enabled) return
-        if (Build.VERSION.SDK_INT < 36) {
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        if (Build.VERSION.SDK_INT < 36 && !samsung) {
             Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return
         }
+        if (Build.VERSION.SDK_INT < 36) return
         val manager = getSystemService(NotificationManager::class.java)
         if (!manager.canPostPromotedNotifications()) {
             openExternal(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))

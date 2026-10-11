@@ -28,6 +28,7 @@ import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -57,18 +58,18 @@ class PersistentBridgeServiceTest {
     }
 
     @Test
-    fun `notification revision changes only with a new glucose measurement`() {
+    fun `notification revision changes for visible therapy data at the same glucose time`() {
         val measuredAt = 1_000L
         val initial =
             TherapyDisplayState(
                 receivedAtEpochMs = 2_000L,
                 glucose = GlucoseState(valueMgDl = 120.0, displayUnit = GlucoseUnit.MG_DL, measuredAtEpochMs = measuredAt),
+                insulin = app.aapswear.model.InsulinState(totalIob = 1.0),
             )
 
-        assertEquals(measuredAt, notificationGlucoseRevision(initial))
-        assertEquals(measuredAt, notificationGlucoseRevision(initial.copy(receivedAtEpochMs = 9_000L)))
-        assertEquals(1_001L, notificationGlucoseRevision(initial.copy(glucose = initial.glucose?.copy(measuredAtEpochMs = 1_001L))))
-        assertNull(notificationGlucoseRevision(initial.copy(glucose = null)))
+        val first = notificationRevision(initial, measuredAt, GlucoseUnit.MG_DL)
+        assertEquals(first, notificationRevision(initial.copy(receivedAtEpochMs = 9_000L), measuredAt, GlucoseUnit.MG_DL))
+        assertNotEquals(first, notificationRevision(initial.copy(insulin = app.aapswear.model.InsulinState(totalIob = 2.0)), measuredAt, GlucoseUnit.MG_DL))
     }
 
     @Test
@@ -143,6 +144,7 @@ class PersistentBridgeServiceTest {
             .edit()
             .clear()
             .commit()
+        runBlocking { TherapyStateStore(context).save(TherapyDisplayState(receivedAtEpochMs = 0L)) }
         val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
         val service = controller.get()
         val manager = service.getSystemService(NotificationManager::class.java)
@@ -151,18 +153,17 @@ class PersistentBridgeServiceTest {
         assertNotNull(notification)
         assertEquals("—", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
-        assertFalse(notification.extras.getBoolean(PersistentBridgeService.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertNotNull(notification.contentView)
+        assertNotNull(notification.bigContentView)
         assertEquals(NotificationManager.IMPORTANCE_LOW, manager.getNotificationChannel(PersistentBridgeService.CHANNEL_ID).importance)
         assertEquals(Service.START_STICKY, service.onStartCommand(null, 0, 2))
         controller.destroy()
     }
 
-    // Custom notification RemoteViews only expose compatibility fields for
-    // inspection, so this API use is intentionally isolated to this test.
-    @Suppress("DEPRECATION")
     @Test
     @Config(sdk = [36])
-    fun `live preference requests promoted status with current glucose delta and graph`() {
+    fun `android live mode requests promotion and removes custom graph views`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context
             .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -201,84 +202,47 @@ class PersistentBridgeServiceTest {
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val manager = controller.get().getSystemService(NotificationManager::class.java)
         val notification = shadowOf(manager).getNotification(PersistentBridgeService.NOTIFICATION_ID)
-        val content = notification.extras.getCharSequence(Notification.EXTRA_TEXT).toString()
-
-        assertEquals("123", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
-        assertTrue(notification.extras.getBoolean(PersistentBridgeService.EXTRA_REQUEST_PROMOTED_ONGOING))
-        assertTrue(content.contains("+5"))
-        assertTrue(content.contains("+5 mg/dL"))
-        assertNull(notification.getLargeIcon())
-        assertNotNull(notification.contentView)
-        assertNotNull(notification.bigContentView)
-        assertNull(notification.extras.getParcelable(Notification.EXTRA_PICTURE))
-
-        val graphPreferences =
-            context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
-        val highEdgeColor = Color.rgb(198, 36, 91)
-        val appInRangeColor = Color.rgb(0, 184, 126)
-        val lowEdgeColor = Color.rgb(24, 156, 214)
-        SugarliciousColorStore.save(
-            graphPreferences,
-            SugarliciousColorRole.RANGE_IN_RANGE,
-            appInRangeColor,
-        )
-        val graphColors = graphPreferences.edit()
-        listOf("dark", "light").forEach { mode ->
-            graphColors.putInt(
-                "notification.color.$mode.${SugarliciousColorRole.RANGE_HIGH.preferenceKey}",
-                highEdgeColor,
-            )
-            // Legacy/notification-only values must never turn the shared in-range band white.
-            graphColors.putInt(
-                "notification.color.$mode.${SugarliciousColorRole.RANGE_IN_RANGE.preferenceKey}",
-                Color.WHITE,
-            )
-            graphColors.putInt(
-                "notification.color.$mode.${SugarliciousColorRole.TARGET_BAND.preferenceKey}",
-                Color.WHITE,
-            )
-            graphColors.putInt(
-                "notification.color.$mode.${SugarliciousColorRole.RANGE_LOW.preferenceKey}",
-                lowEdgeColor,
-            )
-        }
-        graphColors.commit()
-
-        val collapsedGraph =
-            NotificationGraphRenderer.renderCollapsed(
-                context,
-                therapyState,
-                graphPreferences,
-            )
-        val expandedGraph =
-            NotificationGraphRenderer.renderExpanded(
-                context,
-                therapyState,
-                graphPreferences,
-            )
-
-        assertEquals(NotificationGraphRenderer.COLLAPSED_WIDTH, collapsedGraph.width)
-        assertEquals(NotificationGraphRenderer.COLLAPSED_HEIGHT, collapsedGraph.height)
-        assertEquals(NotificationGraphRenderer.EXPANDED_WIDTH, expandedGraph.width)
-        assertEquals(NotificationGraphRenderer.EXPANDED_HEIGHT, expandedGraph.height)
-        listOf(collapsedGraph, expandedGraph).forEach { graph ->
-            assertEquals(0, Color.alpha(graph.getPixel(0, 0)))
-            assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, 0)))
-            assertEquals(0, Color.alpha(graph.getPixel(0, graph.height - 1)))
-            assertEquals(0, Color.alpha(graph.getPixel(graph.width - 1, graph.height - 1)))
-            // In-range data must leave both excursion regions on the graph background.
-            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, 0))
-            assertEquals(0xFF202020.toInt(), graph.getPixel(graph.width / 2, graph.height - 1))
-        }
-        var inRangePixels = 0
-        for (y in 0 until expandedGraph.height) {
-            for (x in 0 until expandedGraph.width) {
-                if (expandedGraph.getPixel(x, y) == appInRangeColor) inRangePixels++
-            }
-        }
-        assertTrue("inRangePixels=$inRangePixels", inRangePixels > 1_000)
-        assertEquals(null, notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))
+        assertEquals("123 → +5", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
+        assertEquals("123 →", notification.shortCriticalText)
+        assertTrue(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertNull(notification.contentView)
+        assertNull(notification.bigContentView)
         assertEquals(1, notification.actions.size)
+        controller.destroy()
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `samsung live mode uses proprietary extras without custom views or promotion`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        org.robolectric.shadows.ShadowBuild.setManufacturer("samsung")
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
+            .commit()
+        val now = System.currentTimeMillis()
+        runBlocking {
+            TherapyStateStore(context).save(
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(118.0, GlucoseUnit.MG_DL, Trend.FORTY_FIVE_DOWN, now, deltaMgDl = -6.0),
+                ),
+            )
+        }
+
+        val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        val notification =
+            shadowOf(controller.get().getSystemService(NotificationManager::class.java))
+                .getNotification(PersistentBridgeService.NOTIFICATION_ID)
+
+        assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
+        assertEquals("118 ↘ −6", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
+        assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+        assertNull(notification.contentView)
+        assertNull(notification.bigContentView)
         controller.destroy()
     }
 

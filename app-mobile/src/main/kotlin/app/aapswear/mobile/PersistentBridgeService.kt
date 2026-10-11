@@ -15,9 +15,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.drawable.Icon
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
 import android.text.Spannable
 import android.text.SpannableString
@@ -25,6 +23,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -66,7 +65,11 @@ internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
     return (EXTERNAL_SURFACE_MINUTE_MS - remainder).coerceAtLeast(1L)
 }
 
-internal fun notificationGlucoseRevision(state: TherapyDisplayState?): Long? = state?.glucose?.measuredAtEpochMs
+internal fun notificationRevision(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+    selectedUnit: GlucoseUnit?,
+): String = notificationPresentation(state, nowEpochMs, selectedUnit).revision
 
 internal fun notificationGlucoseColorRole(
     valueMgDl: Double,
@@ -86,9 +89,10 @@ class PersistentBridgeService :
     private lateinit var uiPreferences: SharedPreferences
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var latestState: TherapyDisplayState? = null
-    private var notifiedGlucoseRevision: Long? = null
+    private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
     private var externalSurfaceClockJob: Job? = null
+    private var freshnessBoundaryJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -98,8 +102,10 @@ class PersistentBridgeService :
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
                 latestState = it
-                if (foregroundStarted && notificationGlucoseRevision(it) != notifiedGlucoseRevision) {
-                    notifyUpdated()
+                if (foregroundStarted) {
+                    val revision = currentPresentationRevision()
+                    if (revision != notifiedPresentationRevision) notifyUpdated()
+                    else scheduleNextFreshnessBoundary()
                 }
             }
         }
@@ -124,9 +130,11 @@ class PersistentBridgeService :
         if (intent?.action == ACTION_DISABLE_LIVE) {
             uiPreferences.edit { putBoolean(PREFERENCE_LIVE_NOTIFICATION, false) }
         }
-        promoteToForeground(buildNotification())
-        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
+        val now = System.currentTimeMillis()
+        promoteToForeground(buildNotification(now))
+        notifiedPresentationRevision = currentPresentationRevision(now)
         foregroundStarted = true
+        scheduleNextFreshnessBoundary(now)
         return START_STICKY
     }
 
@@ -140,6 +148,7 @@ class PersistentBridgeService :
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         externalSurfaceClockJob?.cancel()
+        freshnessBoundaryJob?.cancel()
         scope.cancel()
         super.onDestroy()
     }
@@ -147,8 +156,27 @@ class PersistentBridgeService :
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun notifyUpdated() {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
-        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
+        val now = System.currentTimeMillis()
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(now))
+        notifiedPresentationRevision = currentPresentationRevision(now)
+        scheduleNextFreshnessBoundary(now)
+    }
+
+    private fun currentPresentationRevision(nowEpochMs: Long = System.currentTimeMillis()): String =
+        notificationRevision(
+            latestState,
+            nowEpochMs,
+            DashboardUiPreferences.read(uiPreferences).unitFor(latestState),
+        )
+
+    private fun scheduleNextFreshnessBoundary(nowEpochMs: Long = System.currentTimeMillis()) {
+        freshnessBoundaryJob?.cancel()
+        val boundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
+        freshnessBoundaryJob =
+            scope.launch {
+                delay((boundary - System.currentTimeMillis()).coerceAtLeast(1L))
+                if (foregroundStarted) notifyUpdated()
+            }
     }
 
     private fun promoteToForeground(notification: Notification) {
@@ -159,9 +187,9 @@ class PersistentBridgeService :
         }
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(nowEpochMs: Long = System.currentTimeMillis()): Notification {
         val liveRequested = uiPreferences.getBoolean(PREFERENCE_LIVE_NOTIFICATION, false)
-        val liveCapable = liveRequested && Build.VERSION.SDK_INT >= 36
+        val mode = notificationMode(liveRequested, Build.VERSION.SDK_INT, Build.MANUFACTURER.orEmpty())
         val openApp =
             PendingIntent.getActivity(
                 this,
@@ -169,9 +197,19 @@ class PersistentBridgeService :
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+        if (mode != NotificationMode.STANDARD_CUSTOM) {
+            return buildLiveNotification(mode, openApp, nowEpochMs)
+        }
+        return buildStandardCustomNotification(openApp, nowEpochMs)
+    }
+
+    private fun buildStandardCustomNotification(
+        openApp: PendingIntent,
+        nowEpochMs: Long,
+    ): Notification {
         val notificationGraphEnabled =
             uiPreferences.getBoolean(PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true)
-        val display = notificationDisplay(latestState, notificationGraphEnabled)
+        val display = notificationDisplay(latestState, nowEpochMs)
         val collapsedGraph =
             if (notificationGraphEnabled) {
                 NotificationGraphRenderer.renderCollapsed(this, latestState, uiPreferences)
@@ -215,25 +253,59 @@ class PersistentBridgeService :
                 .setCustomContentView(collapsedView)
                 .setCustomBigContentView(expandedView)
 
-        if (liveCapable) {
-            val disableLive =
-                PendingIntent.getService(
-                    this,
-                    1,
-                    Intent(this, PersistentBridgeService::class.java).setAction(ACTION_DISABLE_LIVE),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-                )
-            builder
-                .addAction(
-                    Notification.Action
-                        .Builder(
-                            Icon.createWithResource(this, R.drawable.ic_notification),
-                            "Live beenden",
-                            disableLive,
-                        ).build(),
-                ).addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
-        }
+        return builder.build()
+    }
 
+    private fun buildLiveNotification(
+        mode: NotificationMode,
+        openApp: PendingIntent,
+        nowEpochMs: Long,
+    ): Notification {
+        val unit = DashboardUiPreferences.read(uiPreferences).unitFor(latestState)
+        val presentation = notificationPresentation(latestState, nowEpochMs, unit)
+        val disableLive =
+            PendingIntent.getService(
+                this,
+                1,
+                Intent(this, PersistentBridgeService::class.java).setAction(ACTION_DISABLE_LIVE),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_outlined)
+                .setColor(getColor(R.color.app_accent))
+                .setContentTitle(presentation.drawerPrimaryText)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setContentIntent(openApp)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .addAction(R.drawable.ic_notification, "Live beenden", disableLive)
+        presentation.therapyText?.let(builder::setContentText)
+        listOfNotNull(presentation.profileText, presentation.sourceText.takeIf(String::isNotBlank))
+            .joinToString(" · ")
+            .takeIf(String::isNotBlank)
+            ?.let(builder::setSubText)
+
+        AndroidLiveNotificationAdapter.apply(builder, presentation)
+        val samsungTexts =
+            if (mode == NotificationMode.SAMSUNG_LIVE) {
+                SamsungLiveNotificationAdapter.apply(
+                    this,
+                    builder,
+                    presentation,
+                    Build.MANUFACTURER.orEmpty(),
+                    R.drawable.ic_notification_outlined,
+                )
+            } else {
+                null
+            }
+        getSharedPreferences(LIVE_NOTIFICATION_DIAGNOSTICS, MODE_PRIVATE).edit {
+            putString(DIAGNOSTIC_MODE, mode.name)
+            putBoolean(DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED, samsungTexts != null)
+            putLong(DIAGNOSTIC_LAST_POST_ATTEMPT_AT, nowEpochMs)
+        }
         return builder.build()
     }
 
@@ -325,10 +397,9 @@ class PersistentBridgeService :
 
     private fun notificationDisplay(
         state: TherapyDisplayState?,
-        graphEnabled: Boolean,
+        now: Long = System.currentTimeMillis(),
     ): NotificationDisplay {
         val glucose = state?.glucose
-        val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
             return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false, SugarliciousColorRole.TEXT_PRIMARY)
@@ -403,7 +474,10 @@ class PersistentBridgeService :
         const val PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH = "notification.cgm.dot.expanded.outlineWidthDp"
         const val PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED = "notification.cgm.dot.profilesMigratedV1"
 
-        const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+        const val LIVE_NOTIFICATION_DIAGNOSTICS = "live_notification_diagnostics"
+        const val DIAGNOSTIC_MODE = "mode"
+        const val DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED = "samsungExtrasApplied"
+        const val DIAGNOSTIC_LAST_POST_ATTEMPT_AT = "lastPostAttemptAt"
         const val CHANNEL_ID = "sugarlicious_background"
         const val NOTIFICATION_ID = 4101
         private const val PREFERENCES_NAME = "dashboard_ui"

@@ -461,6 +461,17 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
+    @Test
+    fun `live notification status keeps samsung path independent from android promotion`() {
+        val status = liveNotificationStatus(true, 35, "Samsung", canPostPromoted = null)
+
+        assertEquals("Samsung", status.device)
+        assertEquals("angefordert", status.samsungNowBar)
+        assertEquals("nicht unterstützt", status.androidLiveUpdates)
+        assertEquals("nicht verfügbar", status.promotedNotifications)
+        assertEquals("nicht durchgeführt", status.hardwareValidation)
+    }
+
     private fun textOf(view: View): String =
         when (view) {
             is TextView -> view.text.toString()

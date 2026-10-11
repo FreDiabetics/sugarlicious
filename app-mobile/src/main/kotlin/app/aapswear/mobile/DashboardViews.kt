@@ -892,6 +892,7 @@ class DashboardViewFactory(
         }
 
         addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
+            val liveStatus = liveNotificationStatus(context, preferences.liveNotification)
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("LIVE-ANZEIGE"))
@@ -903,6 +904,12 @@ class DashboardViewFactory(
                             callbacks.setLiveNotification,
                         ),
                     )
+                    addView(divider())
+                    addView(statusRow("Gerät", liveStatus.device))
+                    addView(statusRow("Samsung Now Bar", liveStatus.samsungNowBar))
+                    addView(statusRow("Android Live Updates", liveStatus.androidLiveUpdates))
+                    addView(statusRow("Promoted Notifications", liveStatus.promotedNotifications))
+                    addView(statusRow("Hardwaretest", liveStatus.hardwareValidation))
                     addView(divider())
                     addView(settingsGroupLabel("GRAPH"))
                     addView(
@@ -1235,6 +1242,26 @@ class DashboardViewFactory(
                 text = "\u203a"
                 textSize = 21f
                 setTextColor(secondary)
+            },
+        )
+    }
+
+    private fun statusRow(
+        title: String,
+        valueText: String,
+    ) = LinearLayout(context).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        minimumHeight = 44.dp
+        setPadding(0, 3.dp, 0, 3.dp)
+        addView(value(title, text, 14f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(
+            TextView(context).apply {
+                text = valueText
+                textSize = 13f
+                setTextColor(secondary)
+                gravity = Gravity.END
+                setPadding(8.dp, 0, 0, 0)
             },
         )
     }
