@@ -72,11 +72,10 @@ internal fun widgetRangePresentation(
         return WidgetRangePresentation(null, WidgetColorRole.TEXT)
     }
     val excursion = CgmGraphPolicy.rangeExcursion(samples, thresholds)
-    val role =
-        when (excursion) {
-            RangeExcursion.HIGH -> WidgetColorRole.HIGH
-            RangeExcursion.LOW -> WidgetColorRole.LOW
-            null -> WidgetColorRole.IN_RANGE
-        }
+    // The graph area deliberately waits for two consecutive readings before activating an
+    // excursion. The displayed CGM value is an instantaneous measurement and must therefore use
+    // the latest value directly instead of inheriting that confirmation delay.
+    val currentValue = state?.glucose?.valueMgDl ?: return WidgetRangePresentation(excursion, WidgetColorRole.TEXT)
+    val role = widgetGlucoseColorRole(currentValue, thresholds)
     return WidgetRangePresentation(excursion, role)
 }
