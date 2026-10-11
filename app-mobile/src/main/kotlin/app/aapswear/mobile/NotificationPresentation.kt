@@ -173,6 +173,15 @@ internal fun nextNotificationFreshnessBoundary(
         .minOrNull()
 }
 
+internal fun nextNotificationSafetyBoundary(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+): Long? {
+    val measuredAt = state?.glucose?.measuredAtEpochMs ?: return null
+    if (!TherapyDisplayFormatter.isGlucoseKnown(state)) return null
+    return (measuredAt + FreshnessPolicy.DELAYED_MAX_MS + 1L).takeIf { it > nowEpochMs }
+}
+
 private fun formatGlucose(
     valueMgDl: Double,
     unit: GlucoseUnit,

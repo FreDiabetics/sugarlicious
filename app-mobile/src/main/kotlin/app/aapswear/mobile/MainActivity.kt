@@ -57,6 +57,7 @@ internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
 }
 
 class MainActivity : ComponentActivity() {
+    private var resumeLiveNotificationSetup = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val diagnostics by lazy { getSharedPreferences("diagnostics", MODE_PRIVATE) }
     private val uiPreferences by lazy { getSharedPreferences("dashboard_ui", MODE_PRIVATE) }
@@ -506,6 +507,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::factory.isInitialized) refresh(forceSettingsRender = screen == DashboardScreen.SETTINGS)
+        if (resumeLiveNotificationSetup) {
+            resumeLiveNotificationSetup = false
+            PersistentBridgeService.refresh(this)
+            continueLiveNotificationSetup(requestExactAlarmAccess = false)
+        }
     }
 
     override fun onStop() {
@@ -715,13 +721,20 @@ class MainActivity : ComponentActivity() {
         uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, enabled) }
         PersistentBridgeService.refresh(this)
         if (!enabled) return
+        continueLiveNotificationSetup(requestExactAlarmAccess = true)
+    }
+
+    private fun continueLiveNotificationSetup(requestExactAlarmAccess: Boolean) {
         val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
         if (Build.VERSION.SDK_INT >= 31) {
             val alarms = getSystemService(android.app.AlarmManager::class.java)
             if (!alarms.canScheduleExactAlarms()) {
-                openExternal(
-                    Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
-                )
+                if (requestExactAlarmAccess) {
+                    resumeLiveNotificationSetup = true
+                    openExternal(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
+                    )
+                }
                 return
             }
         }

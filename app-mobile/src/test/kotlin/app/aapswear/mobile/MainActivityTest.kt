@@ -483,8 +483,14 @@ class MainActivityTest {
         val settingsIntent = shadowOf(activity).nextStartedActivity
         assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, settingsIntent.action)
         assertEquals("package:${activity.packageName}", settingsIntent.dataString)
-        controller.pause().stop().destroy()
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        controller.pause().resume()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val promotionIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, promotionIntent.action)
+        assertEquals(activity.packageName, promotionIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+        controller.pause().stop().destroy()
     }
 
     @Test

@@ -168,6 +168,15 @@ class NotificationPresentationTest {
         assertNull(nextNotificationFreshnessBoundary(state, measuredAt + CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS))
     }
 
+    @Test
+    fun `deep sleep safety boundary skips aging and targets glucose suppression`() {
+        val measuredAt = now - 60_000L
+        val state = state(measuredAt)
+
+        assertEquals(measuredAt + FreshnessPolicy.DELAYED_MAX_MS + 1L, nextNotificationSafetyBoundary(state, now))
+        assertNull(nextNotificationSafetyBoundary(state, measuredAt + FreshnessPolicy.DELAYED_MAX_MS + 1L))
+    }
+
     private fun state(measuredAt: Long = now): TherapyDisplayState =
         TherapyDisplayState(
             source = DataSourceId.ANDROID_APS,

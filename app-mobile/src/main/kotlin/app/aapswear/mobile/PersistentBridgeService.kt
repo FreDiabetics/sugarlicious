@@ -221,16 +221,18 @@ class PersistentBridgeService :
         val alarmManager = getSystemService(AlarmManager::class.java)
         val pendingIntent = freshnessBoundaryPendingIntent()
         alarmManager.cancel(pendingIntent)
-        val boundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
-        val triggerAt = SystemClock.elapsedRealtime() + (boundary - nowEpochMs).coerceAtLeast(1L)
-        if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
-        } else {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+        val visibleBoundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
+        nextNotificationSafetyBoundary(latestState, nowEpochMs)?.let { safetyBoundary ->
+            val triggerAt = SystemClock.elapsedRealtime() + (safetyBoundary - nowEpochMs).coerceAtLeast(1L)
+            if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+            }
         }
         freshnessBoundaryJob =
             scope.launch {
-                delay((boundary - System.currentTimeMillis()).coerceAtLeast(1L))
+                delay((visibleBoundary - System.currentTimeMillis()).coerceAtLeast(1L))
                 reconcileFreshnessBoundary()
             }
     }
