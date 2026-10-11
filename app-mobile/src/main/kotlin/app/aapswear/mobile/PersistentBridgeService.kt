@@ -370,6 +370,32 @@ class PersistentBridgeService :
             .takeIf(String::isNotBlank)
             ?.let(builder::setSubText)
 
+        if (mode == NotificationMode.SAMSUNG_LIVE) {
+            val graphEnabled = uiPreferences.getBoolean(PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true)
+            val display = notificationDisplay(latestState, nowEpochMs)
+            val collapsedGraph =
+                if (graphEnabled) NotificationGraphRenderer.renderCollapsed(this, latestState, uiPreferences) else null
+            val expandedGraph =
+                if (graphEnabled) NotificationGraphRenderer.renderExpanded(this, latestState, uiPreferences) else null
+            builder
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(
+                    notificationRemoteView(
+                        R.layout.notification_sugarlicious_collapsed,
+                        NotificationGraphProfile.COLLAPSED,
+                        display,
+                        collapsedGraph,
+                    ),
+                ).setCustomBigContentView(
+                    notificationRemoteView(
+                        R.layout.notification_sugarlicious_expanded,
+                        NotificationGraphProfile.EXPANDED,
+                        display,
+                        expandedGraph,
+                    ),
+                )
+        }
+
         AndroidLiveNotificationAdapter.apply(builder, presentation)
         val samsungTexts =
             if (mode == NotificationMode.SAMSUNG_LIVE) {

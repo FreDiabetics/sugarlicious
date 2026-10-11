@@ -286,7 +286,7 @@ class PersistentBridgeServiceTest {
 
     @Test
     @Config(sdk = [35])
-    fun `samsung live mode uses proprietary extras without custom views or promotion`() {
+    fun `samsung live mode combines proprietary capsule with fallback graph views`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         ShadowBuild
             .setManufacturer("samsung")
@@ -314,9 +314,13 @@ class PersistentBridgeServiceTest {
 
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
         assertEquals("118 ↘ −6", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
+        assertEquals(
+            context.getColor(R.color.app_accent),
+            notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
+        )
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
-        assertNull(notification.contentView)
-        assertNull(notification.bigContentView)
+        assertEquals(R.layout.notification_sugarlicious_collapsed, notification.contentView.layoutId)
+        assertEquals(R.layout.notification_sugarlicious_expanded, notification.bigContentView.layoutId)
         controller.destroy()
     }
 
