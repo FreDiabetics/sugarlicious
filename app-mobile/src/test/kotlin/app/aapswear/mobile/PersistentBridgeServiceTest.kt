@@ -52,6 +52,65 @@ class PersistentBridgeServiceTest {
     }
 
     @Test
+    @Config(sdk = [36])
+    fun `screen wake reconciles freshness after elapsed sleep time`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
+            .commit()
+        val measuredAt = System.currentTimeMillis()
+        runBlocking {
+            TherapyStateStore(context).save(
+                TherapyDisplayState(
+                    receivedAtEpochMs = measuredAt,
+                    glucose = GlucoseState(118.0, GlucoseUnit.MG_DL, Trend.FLAT, measuredAt),
+                ),
+            )
+        }
+        val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        val manager = controller.get().getSystemService(NotificationManager::class.java)
+        assertEquals("118 →", shadowOf(manager).getNotification(PersistentBridgeService.NOTIFICATION_ID).extras.getString(Notification.EXTRA_TITLE))
+
+        val elapsedState =
+            TherapyDisplayState(
+                receivedAtEpochMs = measuredAt,
+                glucose = GlucoseState(118.0, GlucoseUnit.MG_DL, Trend.FLAT, measuredAt - 20 * 60_000L),
+            )
+        controller
+            .get()
+            .javaClass
+            .getDeclaredField("latestState")
+            .apply { isAccessible = true }
+            .set(
+                controller.get(),
+                elapsedState,
+            )
+        val wakeReceiver =
+            controller
+                .get()
+                .javaClass
+                .getDeclaredField("freshnessReconcileReceiver")
+                .apply { isAccessible = true }
+                .get(controller.get()) as android.content.BroadcastReceiver
+        wakeReceiver.onReceive(context, Intent(Intent.ACTION_SCREEN_ON))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val postedRevision =
+            controller
+                .get()
+                .javaClass
+                .getDeclaredField("notifiedPresentationRevision")
+                .apply { isAccessible = true }
+                .get(controller.get())
+        assertEquals(notificationRevision(elapsedState, System.currentTimeMillis(), GlucoseUnit.MG_DL), postedRevision)
+        controller.destroy()
+    }
+
+    @Test
     fun `notification glucose color follows configured range thresholds`() {
         val thresholds = CgmThresholds(veryHighMgDl = 250.0, highMgDl = 160.0, lowMgDl = 70.0, veryLowMgDl = 54.0)
 

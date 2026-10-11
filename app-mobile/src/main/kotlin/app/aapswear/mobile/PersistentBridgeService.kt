@@ -6,8 +6,10 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -26,6 +28,7 @@ import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -105,11 +108,31 @@ class PersistentBridgeService :
     private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
     private var externalSurfaceClockJob: Job? = null
+    private var freshnessBoundaryJob: Job? = null
+    private val freshnessReconcileReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                reconcileFreshnessBoundary()
+            }
+        }
 
     override fun onCreate() {
         super.onCreate()
         uiPreferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
         uiPreferences.registerOnSharedPreferenceChangeListener(this)
+        ContextCompat.registerReceiver(
+            this,
+            freshnessReconcileReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         createNotificationChannel()
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
@@ -169,7 +192,9 @@ class PersistentBridgeService :
 
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
+        unregisterReceiver(freshnessReconcileReceiver)
         externalSurfaceClockJob?.cancel()
+        freshnessBoundaryJob?.cancel()
         cancelFreshnessBoundary()
         scope.cancel()
         super.onDestroy()
@@ -192,6 +217,7 @@ class PersistentBridgeService :
         )
 
     private fun scheduleNextFreshnessBoundary(nowEpochMs: Long = System.currentTimeMillis()) {
+        freshnessBoundaryJob?.cancel()
         val alarmManager = getSystemService(AlarmManager::class.java)
         val pendingIntent = freshnessBoundaryPendingIntent()
         alarmManager.cancel(pendingIntent)
@@ -201,6 +227,21 @@ class PersistentBridgeService :
             SystemClock.elapsedRealtime() + (boundary - nowEpochMs).coerceAtLeast(1L),
             pendingIntent,
         )
+        freshnessBoundaryJob =
+            scope.launch {
+                delay((boundary - System.currentTimeMillis()).coerceAtLeast(1L))
+                reconcileFreshnessBoundary()
+            }
+    }
+
+    private fun reconcileFreshnessBoundary() {
+        if (!foregroundStarted) return
+        val now = System.currentTimeMillis()
+        if (currentPresentationRevision(now) != notifiedPresentationRevision) {
+            notifyUpdated()
+        } else {
+            scheduleNextFreshnessBoundary(now)
+        }
     }
 
     private fun cancelFreshnessBoundary() {
