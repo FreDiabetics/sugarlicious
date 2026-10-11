@@ -12,6 +12,7 @@ import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
 import app.aapswear.model.CgmGraphScaleMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -461,6 +462,31 @@ class MainActivityTest {
         val settingsIntent = shadowOf(activity).nextStartedActivity
         assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, settingsIntent.action)
         assertEquals(activity.packageName, settingsIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+        controller.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun `existing live preference resumes promotion setup once per app session`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
+            .commit()
+
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        val firstIntent = shadowOf(activity).nextStartedActivity
+
+        assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, firstIntent.action)
+        assertEquals(activity.packageName, firstIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+
+        controller.pause().resume()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertNotEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, shadowOf(activity).nextStartedActivity?.action)
         controller.pause().stop().destroy()
     }
 

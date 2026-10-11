@@ -58,6 +58,7 @@ internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
 
 class MainActivity : ComponentActivity() {
     private var resumeLiveNotificationSetup = false
+    private var promotionSettingsRequestedThisSession = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val diagnostics by lazy { getSharedPreferences("diagnostics", MODE_PRIVATE) }
     private val uiPreferences by lazy { getSharedPreferences("dashboard_ui", MODE_PRIVATE) }
@@ -516,6 +517,7 @@ class MainActivity : ComponentActivity() {
                 PersistentBridgeService.refresh(this)
             }
         }
+        requestPromotionAccessIfNeeded()
     }
 
     override fun onStop() {
@@ -750,9 +752,15 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return
         }
-        if (Build.VERSION.SDK_INT < 36) return
+        requestPromotionAccessIfNeeded()
+    }
+
+    private fun requestPromotionAccessIfNeeded() {
+        if (Build.VERSION.SDK_INT < 36 || promotionSettingsRequestedThisSession) return
+        if (!uiPreferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)) return
         val manager = getSystemService(NotificationManager::class.java)
         if (!manager.canPostPromotedNotifications()) {
+            promotionSettingsRequestedThisSession = true
             openExternal(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
         }
     }
