@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat.Metric
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
 import androidx.core.app.NotificationCompat.Metric.FixedInt
 import androidx.core.app.NotificationCompat.MetricStyle
+import kotlin.math.roundToInt
 
 internal data class AndroidLiveApplication(
     val promotionRequested: Boolean,
@@ -86,7 +87,7 @@ internal object AndroidLiveNotificationAdapter {
             if (unit == app.aapswear.model.GlucoseUnit.MMOL_L) {
                 FixedFloat(numeric.toFloat(), null, 1, 1)
             } else {
-                FixedInt(numeric.toInt(), null)
+                FixedInt(numeric.roundToInt(), null)
             }
         return Metric(value, presentation.therapyText.orEmpty())
     }

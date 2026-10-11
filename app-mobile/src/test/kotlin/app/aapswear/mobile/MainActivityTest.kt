@@ -469,6 +469,9 @@ class MainActivityTest {
         assertEquals("angefordert", status.samsungNowBar)
         assertEquals("nicht unterstützt", status.androidLiveUpdates)
         assertEquals("nicht verfügbar", status.promotedNotifications)
+        assertEquals("nicht geprüft", status.promotableCharacteristics)
+        assertEquals("nicht angewendet", status.samsungExtras)
+        assertEquals("noch nicht erfolgt", status.lastPostAttempt)
         assertEquals("nicht durchgeführt", status.hardwareValidation)
     }
 

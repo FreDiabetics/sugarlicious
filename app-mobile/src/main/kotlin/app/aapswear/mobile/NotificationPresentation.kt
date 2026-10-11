@@ -1,11 +1,13 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.CgmPresentationPolicy
 import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.effectiveBasalPresentation
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -82,16 +84,16 @@ internal fun notificationPresentation(
                 ?.insulin
                 ?.totalIob
                 ?.takeIf(Double::isFinite)
-                ?.let { "IOB ${formatDecimal(it, 1)} U" },
+                ?.let { "IOB ${TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, it, state)}" },
             state
                 ?.carbs
                 ?.cobGrams
                 ?.takeIf(Double::isFinite)
-                ?.let { "COB ${formatDecimal(it, 1)} g" },
+                ?.let { "COB ${TherapyDisplayFormatter.aaps(AapsDisplayField.COB, it, state)}" },
         )
     val basalText =
-        state?.basal?.currentUnitsPerHour?.takeIf(Double::isFinite)?.let {
-            "Basal ${formatDecimal(it, 2)} U/h"
+        effectiveBasalPresentation(state, nowEpochMs)?.unitsPerHour?.let {
+            "Basal ${TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, it, state)}"
         }
     val statusText =
         when (status) {
@@ -156,13 +158,19 @@ internal fun nextNotificationFreshnessBoundary(
 ): Long? {
     val measuredAt = state?.glucose?.measuredAtEpochMs ?: return null
     if (!TherapyDisplayFormatter.isGlucoseKnown(state)) return null
-    val boundaries =
+    val freshnessBoundaries =
         listOf(
             measuredAt + FreshnessPolicy.CURRENT_MAX_MS + 1L,
             measuredAt + FreshnessPolicy.DELAYED_MAX_MS + 1L,
             measuredAt + CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS,
         )
-    return boundaries.firstOrNull { it > nowEpochMs }
+    val basal = state.basal
+    val tempBasalEnd =
+        basal?.tempEndsAtEpochMs
+            ?: basal?.tempStartedAtEpochMs?.let { start -> basal.tempDurationMinutes?.let { start + it * 60_000L } }
+    return (freshnessBoundaries + listOfNotNull(tempBasalEnd))
+        .filter { it > nowEpochMs }
+        .minOrNull()
 }
 
 private fun formatGlucose(
@@ -174,14 +182,6 @@ private fun formatGlucose(
     } else {
         valueMgDl.roundToInt().toString()
     }
-
-private fun formatDecimal(
-    value: Double,
-    maxDigits: Int,
-): String {
-    val formatted = String.format(Locale.US, "%.${maxDigits}f", value)
-    return formatted.trimEnd('0').trimEnd('.')
-}
 
 private fun joinVisible(vararg values: String?): String? =
     values.mapNotNull { it?.takeIf(String::isNotBlank) }.takeIf(List<String>::isNotEmpty)?.joinToString(" ")

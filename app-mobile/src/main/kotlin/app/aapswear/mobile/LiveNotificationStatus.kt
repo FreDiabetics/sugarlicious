@@ -9,6 +9,9 @@ internal data class LiveNotificationStatus(
     val samsungNowBar: String,
     val androidLiveUpdates: String,
     val promotedNotifications: String,
+    val promotableCharacteristics: String,
+    val samsungExtras: String,
+    val lastPostAttempt: String,
     val hardwareValidation: String,
 )
 
@@ -17,6 +20,9 @@ internal fun liveNotificationStatus(
     sdkInt: Int,
     manufacturer: String,
     canPostPromoted: Boolean?,
+    hasPromotableCharacteristics: Boolean? = null,
+    samsungExtrasApplied: Boolean = false,
+    lastPostAttemptAt: Long = 0L,
 ): LiveNotificationStatus {
     val samsung = manufacturer.equals("samsung", ignoreCase = true)
     return LiveNotificationStatus(
@@ -34,6 +40,14 @@ internal fun liveNotificationStatus(
                 false -> "nicht erlaubt"
                 null -> "nicht verfügbar"
             },
+        promotableCharacteristics =
+            when (hasPromotableCharacteristics) {
+                true -> "ja"
+                false -> "nein"
+                null -> "nicht geprüft"
+            },
+        samsungExtras = if (samsungExtrasApplied) "angewendet" else "nicht angewendet",
+        lastPostAttempt = if (lastPostAttemptAt > 0L) "durchgeführt" else "noch nicht erfolgt",
         hardwareValidation = "nicht durchgeführt",
     )
 }
@@ -42,14 +56,20 @@ internal fun liveNotificationStatus(
     context: Context,
     liveRequested: Boolean,
 ): LiveNotificationStatus =
-    liveNotificationStatus(
-        liveRequested = liveRequested,
-        sdkInt = Build.VERSION.SDK_INT,
-        manufacturer = Build.MANUFACTURER.orEmpty(),
-        canPostPromoted =
-            if (Build.VERSION.SDK_INT >= 36) {
-                context.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
-            } else {
-                null
-            },
-    )
+    context.getSystemService(NotificationManager::class.java).let { manager ->
+        val diagnostics =
+            AndroidLiveNotificationAdapter.diagnostics(
+                manager,
+                manager.activeNotifications.firstOrNull { it.id == PersistentBridgeService.NOTIFICATION_ID }?.notification,
+            )
+        val persisted = context.getSharedPreferences(PersistentBridgeService.LIVE_NOTIFICATION_DIAGNOSTICS, Context.MODE_PRIVATE)
+        liveNotificationStatus(
+            liveRequested = liveRequested,
+            sdkInt = Build.VERSION.SDK_INT,
+            manufacturer = Build.MANUFACTURER.orEmpty(),
+            canPostPromoted = diagnostics.canPostPromotedNotifications,
+            hasPromotableCharacteristics = diagnostics.hasPromotableCharacteristics,
+            samsungExtrasApplied = persisted.getBoolean(PersistentBridgeService.DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED, false),
+            lastPostAttemptAt = persisted.getLong(PersistentBridgeService.DIAGNOSTIC_LAST_POST_ATTEMPT_AT, 0L),
+        )
+    }

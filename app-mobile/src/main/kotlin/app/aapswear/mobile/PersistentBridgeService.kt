@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -17,6 +18,7 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.os.Build
 import android.os.IBinder
+import android.os.SystemClock
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
@@ -71,6 +73,17 @@ internal fun notificationRevision(
     selectedUnit: GlucoseUnit?,
 ): String = notificationPresentation(state, nowEpochMs, selectedUnit).revision
 
+internal fun shouldPostNotificationOnStart(
+    foregroundStarted: Boolean,
+    action: String?,
+    currentRevision: String,
+    notifiedRevision: String?,
+): Boolean =
+    !foregroundStarted ||
+        action == PersistentBridgeService.ACTION_REFRESH ||
+        action == PersistentBridgeService.ACTION_DISABLE_LIVE ||
+        currentRevision != notifiedRevision
+
 internal fun notificationGlucoseColorRole(
     valueMgDl: Double,
     thresholds: CgmThresholds,
@@ -92,7 +105,6 @@ class PersistentBridgeService :
     private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
     private var externalSurfaceClockJob: Job? = null
-    private var freshnessBoundaryJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -134,10 +146,17 @@ class PersistentBridgeService :
             uiPreferences.edit { putBoolean(PREFERENCE_LIVE_NOTIFICATION, false) }
         }
         val now = System.currentTimeMillis()
-        promoteToForeground(buildNotification(now))
-        notifiedPresentationRevision = currentPresentationRevision(now)
-        foregroundStarted = true
-        scheduleNextFreshnessBoundary(now)
+        val revision = currentPresentationRevision(now)
+        if (!foregroundStarted) {
+            promoteToForeground(buildNotification(now))
+            notifiedPresentationRevision = revision
+            foregroundStarted = true
+            scheduleNextFreshnessBoundary(now)
+        } else if (shouldPostNotificationOnStart(foregroundStarted, intent?.action, revision, notifiedPresentationRevision)) {
+            notifyUpdated()
+        } else {
+            scheduleNextFreshnessBoundary(now)
+        }
         return START_STICKY
     }
 
@@ -151,7 +170,7 @@ class PersistentBridgeService :
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         externalSurfaceClockJob?.cancel()
-        freshnessBoundaryJob?.cancel()
+        cancelFreshnessBoundary()
         scope.cancel()
         super.onDestroy()
     }
@@ -173,14 +192,28 @@ class PersistentBridgeService :
         )
 
     private fun scheduleNextFreshnessBoundary(nowEpochMs: Long = System.currentTimeMillis()) {
-        freshnessBoundaryJob?.cancel()
+        val alarmManager = getSystemService(AlarmManager::class.java)
+        val pendingIntent = freshnessBoundaryPendingIntent()
+        alarmManager.cancel(pendingIntent)
         val boundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
-        freshnessBoundaryJob =
-            scope.launch {
-                delay((boundary - System.currentTimeMillis()).coerceAtLeast(1L))
-                if (foregroundStarted) notifyUpdated()
-            }
+        alarmManager.setAndAllowWhileIdle(
+            AlarmManager.ELAPSED_REALTIME_WAKEUP,
+            SystemClock.elapsedRealtime() + (boundary - nowEpochMs).coerceAtLeast(1L),
+            pendingIntent,
+        )
     }
+
+    private fun cancelFreshnessBoundary() {
+        getSystemService(AlarmManager::class.java).cancel(freshnessBoundaryPendingIntent())
+    }
+
+    private fun freshnessBoundaryPendingIntent(): PendingIntent =
+        PendingIntent.getService(
+            this,
+            FRESHNESS_BOUNDARY_REQUEST_CODE,
+            Intent(this, PersistentBridgeService::class.java).setAction(ACTION_FRESHNESS_BOUNDARY),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun promoteToForeground(notification: Notification) {
         if (Build.VERSION.SDK_INT >= 34) {
@@ -484,8 +517,10 @@ class PersistentBridgeService :
         const val CHANNEL_ID = "sugarlicious_background"
         const val NOTIFICATION_ID = 4101
         private const val PREFERENCES_NAME = "dashboard_ui"
-        private const val ACTION_REFRESH = "app.aapswear.action.REFRESH_PERSISTENT_NOTIFICATION"
-        private const val ACTION_DISABLE_LIVE = "app.aapswear.action.DISABLE_LIVE_NOTIFICATION"
+        internal const val ACTION_REFRESH = "app.aapswear.action.REFRESH_PERSISTENT_NOTIFICATION"
+        internal const val ACTION_DISABLE_LIVE = "app.aapswear.action.DISABLE_LIVE_NOTIFICATION"
+        internal const val ACTION_FRESHNESS_BOUNDARY = "app.aapswear.action.REFRESH_NOTIFICATION_FRESHNESS"
+        private const val FRESHNESS_BOUNDARY_REQUEST_CODE = 4102
 
         fun start(context: Context): Boolean = startWithAction(context, null)
 

@@ -5,14 +5,14 @@ Sugarlicious exposes the canonical mobile therapy state through one persistent n
 ## Rendering modes
 
 - `STANDARD_CUSTOM` keeps the existing custom collapsed/expanded notification and optional CGM graph.
-- `ANDROID_LIVE` uses the platform live-update surface on Android 16+ and requests promoted ongoing status. Android 17+ also receives a `Notification.ProgressStyle` metric for the glucose value.
+- `ANDROID_LIVE` uses the platform live-update surface on Android 16+ and requests promoted ongoing status. Android 17+ also receives a `NotificationCompat.MetricStyle` metric for the glucose value.
 - `SAMSUNG_LIVE` adds Samsung ongoing-activity and Now Bar extras. This path is manufacturer-gated and remains available independently of the Android 16 promotion API.
 
 Live modes intentionally use a standard notification layout. Custom `RemoteViews` are not mixed into promoted/live notifications because system surfaces need the platform title, text, short critical text, and metric data.
 
 ## Visible data contract
 
-All modes derive their text from `NotificationPresentation`, which uses the same canonical `TherapyDisplayState`, unit selection, freshness policy, therapy formatter, source, and profile as the rest of Sugarlicious.
+Both live modes derive their text from `NotificationPresentation`, which uses the same canonical `TherapyDisplayState`, unit selection, freshness policy, therapy formatter, source, and profile as the rest of Sugarlicious. Standard mode keeps its established custom-notification renderer unchanged.
 
 - The Android capsule shows glucose plus the canonical trend arrow, for example `123 →`.
 - The notification drawer and Samsung Now Bar show glucose, trend arrow, and delta, for example `123 → +5`.
@@ -20,7 +20,7 @@ All modes derive their text from `NotificationPresentation`, which uses the same
 - Missing, stale, signal-loss, error, and no-source states suppress old glucose values and show the explicit state.
 - Therapy values, active basal, source, and profile are retained in the ordinary notification content where available.
 
-The service compares the full visible presentation revision, not only the glucose timestamp. Therapy-only changes therefore refresh the same notification ID. A one-shot freshness timer updates the notification exactly when a value crosses a freshness boundary; there is no polling loop.
+The service compares the full visible presentation revision, not only the glucose timestamp. Therapy-only changes therefore refresh the same notification ID. A one-shot elapsed-realtime wakeup updates the notification when glucose freshness or an active temporary basal crosses its next boundary; there is no polling loop, and duplicate ordinary service starts do not repost an identical presentation.
 
 ## Samsung integration
 

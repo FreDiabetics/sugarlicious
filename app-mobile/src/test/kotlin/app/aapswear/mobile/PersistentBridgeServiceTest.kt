@@ -44,6 +44,14 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
     @Test
+    fun `repeated ordinary start suppresses identical notification but explicit refresh posts`() {
+        assertFalse(shouldPostNotificationOnStart(true, null, "same", "same"))
+        assertTrue(shouldPostNotificationOnStart(true, null, "new", "old"))
+        assertTrue(shouldPostNotificationOnStart(true, PersistentBridgeService.ACTION_REFRESH, "same", "same"))
+        assertFalse(shouldPostNotificationOnStart(true, PersistentBridgeService.ACTION_FRESHNESS_BOUNDARY, "same", "same"))
+    }
+
+    @Test
     fun `notification glucose color follows configured range thresholds`() {
         val thresholds = CgmThresholds(veryHighMgDl = 250.0, highMgDl = 160.0, lowMgDl = 70.0, veryLowMgDl = 54.0)
 

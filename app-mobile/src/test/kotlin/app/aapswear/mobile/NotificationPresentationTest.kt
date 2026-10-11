@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import app.aapswear.model.AapsDisplaySemantics
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
 import app.aapswear.model.CgmPresentationPolicy
@@ -28,11 +29,11 @@ class NotificationPresentationTest {
         assertEquals(118.0, presentation.glucoseNumeric!!, 0.0)
         assertEquals("↘", presentation.trendSymbol)
         assertEquals("−6", presentation.deltaText)
-        assertEquals("IOB 1.3 U · COB 22 g", presentation.therapyText)
-        assertEquals("Basal 0.45 U/h", presentation.basalText)
+        assertEquals("IOB 1.30U · COB 22g", presentation.therapyText)
+        assertEquals("Basal 0.45U/h", presentation.basalText)
         assertEquals("118 ↘", presentation.androidCapsuleText)
         assertEquals("118 ↘ −6", presentation.compactPrimaryText)
-        assertEquals("118 ↘ −6 · Basal 0.45 U/h", presentation.drawerPrimaryText)
+        assertEquals("118 ↘ −6 · Basal 0.45U/h", presentation.drawerPrimaryText)
         assertEquals("AndroidAPS", presentation.sourceText)
         assertEquals("Loop", presentation.profileText)
         assertEquals("mg/dL", presentation.unitText)
@@ -84,9 +85,30 @@ class NotificationPresentationTest {
                 now,
             )
 
-        assertEquals("COB 22 g", presentation.therapyText)
+        assertEquals("COB 22g", presentation.therapyText)
         assertNull(presentation.basalText)
         assertEquals("118 ↘ −6", presentation.drawerPrimaryText)
+    }
+
+    @Test
+    fun `therapy values keep canonical precision and active temp basal`() {
+        val tempEnd = now + 90_000L
+        val input =
+            state().copy(
+                aapsDisplaySemantics = AapsDisplaySemantics(insulinDigits = 2, carbDigits = 1, basalDigits = 3),
+                insulin = InsulinState(totalIob = 0.04),
+                carbs = CarbState(cobGrams = 2.25),
+                basal = BasalState(currentUnitsPerHour = 0.8, tempAbsoluteUnitsPerHour = 0.0, tempEndsAtEpochMs = tempEnd),
+            )
+
+        val active = notificationPresentation(input, now)
+        val expired = notificationPresentation(input, tempEnd)
+
+        assertEquals("IOB 0.04U · COB 2.3g", active.therapyText)
+        assertEquals("Basal 0.000U/h", active.basalText)
+        assertEquals("Basal 0.800U/h", expired.basalText)
+        assertNotEquals(active.revision, expired.revision)
+        assertEquals(tempEnd, nextNotificationFreshnessBoundary(input, now))
     }
 
     @Test

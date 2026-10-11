@@ -70,6 +70,18 @@ class LiveNotificationAdaptersTest {
 
     @Test
     @Config(sdk = [37])
+    fun `api 37 integer metric uses the same rounding as the glucose title`() {
+        val builder = builder()
+        val rounded = state().copy(glucose = state().glucose!!.copy(valueMgDl = 118.8))
+
+        val result = AndroidLiveNotificationAdapter.apply(builder, notificationPresentation(rounded, NOW), 37)
+
+        assertEquals("119", notificationPresentation(rounded, NOW).glucoseText)
+        assertEquals(119, (result.metric!!.value as FixedInt).value)
+    }
+
+    @Test
+    @Config(sdk = [37])
     fun `api 37 mmol metric retains one fraction digit`() {
         val builder = builder()
         val state = state().copy(glucose = state().glucose!!.copy(valueMgDl = 162.0, displayUnit = GlucoseUnit.MMOL_L))
@@ -101,10 +113,10 @@ class LiveNotificationAdaptersTest {
         val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung", android.R.drawable.ic_dialog_info)
         val notification = builder.build()
 
-        assertEquals("118 ↘ −6 · Basal 0.45 U/h", texts!!.drawerPrimary)
-        assertEquals("IOB 1.3 U · COB 22 g", texts.drawerSecondary)
+        assertEquals("118 ↘ −6 · Basal 0.45U/h", texts!!.drawerPrimary)
+        assertEquals("IOB 1.30U · COB 22g", texts.drawerSecondary)
         assertEquals("118 ↘ −6", texts.nowBarPrimary)
-        assertEquals("IOB 1.3 U · COB 22 g", texts.nowBarSecondary)
+        assertEquals("IOB 1.30U · COB 22g", texts.nowBarSecondary)
         assertEquals("118 ↘ −6", texts.chipExpandedText)
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
         assertEquals(texts.drawerPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_PRIMARY_INFO))
