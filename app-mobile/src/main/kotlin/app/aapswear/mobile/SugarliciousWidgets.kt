@@ -57,7 +57,7 @@ import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.TrendVisualSpec
 import app.aapswear.model.TrendVisuals
-import app.aapswear.model.resolveHorizontalTherapyLayout
+import app.aapswear.model.resolveResponsiveTherapyLayout
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.uishared.TrendVectorPaths
 import kotlinx.coroutines.flow.first
@@ -424,7 +424,7 @@ internal fun renderTherapyIndicatorWidget(
     val metricByIndex = listOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB, TherapyProgressMetric.BASAL)
     val indicatorsByMetric = metricByIndex.zip(allIndicators).toMap()
     val resolvedLayout =
-        resolveHorizontalTherapyLayout(
+        resolveResponsiveTherapyLayout(
             safeWidth / renderDensity,
             safeHeight / renderDensity,
             configuration.therapyProgressAppearance,

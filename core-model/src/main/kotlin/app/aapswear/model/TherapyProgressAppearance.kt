@@ -122,6 +122,33 @@ fun resolveHorizontalTherapyLayout(
     }
 }
 
+fun resolveVerticalTherapyLayout(
+    availableWidthDp: Float,
+    availableHeightDp: Float,
+    appearance: TherapyProgressAppearance,
+): List<ResolvedTherapyIndicator> =
+    resolveHorizontalTherapyLayout(availableHeightDp, availableWidthDp, appearance).map { indicator ->
+        indicator.copy(
+            slot =
+                TherapySlot(
+                    centerXDp = indicator.slot.centerYDp,
+                    centerYDp = indicator.slot.centerXDp,
+                    diameterDp = indicator.slot.diameterDp,
+                ),
+        )
+    }
+
+fun resolveResponsiveTherapyLayout(
+    availableWidthDp: Float,
+    availableHeightDp: Float,
+    appearance: TherapyProgressAppearance,
+): List<ResolvedTherapyIndicator> =
+    if (availableWidthDp >= availableHeightDp) {
+        resolveHorizontalTherapyLayout(availableWidthDp, availableHeightDp, appearance)
+    } else {
+        resolveVerticalTherapyLayout(availableWidthDp, availableHeightDp, appearance)
+    }
+
 fun resolveRoundTherapyLayout(
     availableSideDp: Float,
     appearance: TherapyProgressAppearance,
