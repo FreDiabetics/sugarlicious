@@ -52,6 +52,14 @@ class WearActivityTest {
     }
 
     @Test
+    fun `first card starts inside the round display safe area`() {
+        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val menu = activity.findViewById<View>(R.id.wear_glucose_card).parent as ViewGroup
+
+        assertEquals((20 * activity.resources.displayMetrics.density).toInt(), menu.paddingTop)
+    }
+
+    @Test
     fun `wear appearance is dark by default and explicit selection remains active`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context
