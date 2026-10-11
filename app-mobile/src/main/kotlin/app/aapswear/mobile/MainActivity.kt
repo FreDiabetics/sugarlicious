@@ -509,8 +509,12 @@ class MainActivity : ComponentActivity() {
         if (::factory.isInitialized) refresh(forceSettingsRender = screen == DashboardScreen.SETTINGS)
         if (resumeLiveNotificationSetup) {
             resumeLiveNotificationSetup = false
-            PersistentBridgeService.refresh(this)
-            continueLiveNotificationSetup(requestExactAlarmAccess = false)
+            if (canScheduleExactFreshnessAlarm()) {
+                activateLiveNotification()
+            } else {
+                uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+                PersistentBridgeService.refresh(this)
+            }
         }
     }
 
@@ -718,26 +722,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setLiveNotification(enabled: Boolean) {
-        uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, enabled) }
-        PersistentBridgeService.refresh(this)
-        if (!enabled) return
-        continueLiveNotificationSetup(requestExactAlarmAccess = true)
+        if (!enabled) {
+            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            PersistentBridgeService.refresh(this)
+            return
+        }
+        if (!canScheduleExactFreshnessAlarm()) {
+            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            PersistentBridgeService.refresh(this)
+            resumeLiveNotificationSetup = true
+            openExternal(
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
+            )
+            return
+        }
+        activateLiveNotification()
     }
 
-    private fun continueLiveNotificationSetup(requestExactAlarmAccess: Boolean) {
+    private fun canScheduleExactFreshnessAlarm(): Boolean =
+        Build.VERSION.SDK_INT < 31 || getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()
+
+    private fun activateLiveNotification() {
+        uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true) }
+        PersistentBridgeService.refresh(this)
         val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-        if (Build.VERSION.SDK_INT >= 31) {
-            val alarms = getSystemService(android.app.AlarmManager::class.java)
-            if (!alarms.canScheduleExactAlarms()) {
-                if (requestExactAlarmAccess) {
-                    resumeLiveNotificationSetup = true
-                    openExternal(
-                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
-                    )
-                }
-                return
-            }
-        }
         if (Build.VERSION.SDK_INT < 36 && !samsung) {
             Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return

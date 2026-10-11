@@ -30,6 +30,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -37,12 +38,18 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowAlarmManager
 import org.robolectric.shadows.ShadowBuild
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
+    @Before
+    fun allowExactFreshnessAlarms() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+    }
+
     @Test
     fun `repeated ordinary start suppresses identical notification but explicit refresh posts`() {
         assertFalse(shouldPostNotificationOnStart(true, null, "same", "same"))

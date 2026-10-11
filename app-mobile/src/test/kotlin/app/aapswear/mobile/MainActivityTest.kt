@@ -119,6 +119,7 @@ class MainActivityTest {
     }
 
     @Test fun `inline settings persist without submenu`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
@@ -483,9 +484,20 @@ class MainActivityTest {
         val settingsIntent = shadowOf(activity).nextStartedActivity
         assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, settingsIntent.action)
         assertEquals("package:${activity.packageName}", settingsIntent.dataString)
+        assertFalse(
+            context
+                .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+                .getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
+        )
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
         controller.pause().resume()
         shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        assertTrue(
+            context
+                .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+                .getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
+        )
 
         val promotionIntent = shadowOf(activity).nextStartedActivity
         assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, promotionIntent.action)

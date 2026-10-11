@@ -269,7 +269,9 @@ class PersistentBridgeService :
 
     private fun buildNotification(nowEpochMs: Long = System.currentTimeMillis()): Notification {
         val liveRequested = uiPreferences.getBoolean(PREFERENCE_LIVE_NOTIFICATION, false)
-        val mode = notificationMode(liveRequested, Build.VERSION.SDK_INT, Build.MANUFACTURER.orEmpty())
+        val exactFreshnessAvailable =
+            Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        val mode = notificationMode(liveRequested && exactFreshnessAvailable, Build.VERSION.SDK_INT, Build.MANUFACTURER.orEmpty())
         val openApp =
             PendingIntent.getActivity(
                 this,
