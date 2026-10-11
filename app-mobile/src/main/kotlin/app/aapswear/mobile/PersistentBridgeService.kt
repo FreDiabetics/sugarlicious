@@ -31,6 +31,8 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -65,6 +67,18 @@ internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
 }
 
 internal fun notificationGlucoseRevision(state: TherapyDisplayState?): Long? = state?.glucose?.measuredAtEpochMs
+
+internal fun notificationGlucoseColorRole(
+    valueMgDl: Double,
+    thresholds: CgmThresholds,
+): SugarliciousColorRole =
+    when (thresholds.classify(valueMgDl)) {
+        CgmRangeClass.VERY_LOW -> SugarliciousColorRole.GLUCOSE_VERY_LOW
+        CgmRangeClass.LOW -> SugarliciousColorRole.GLUCOSE_LOW
+        CgmRangeClass.IN_RANGE, null -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+        CgmRangeClass.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+        CgmRangeClass.VERY_HIGH -> SugarliciousColorRole.GLUCOSE_VERY_HIGH
+    }
 
 class PersistentBridgeService :
     Service(),
@@ -283,7 +297,7 @@ class PersistentBridgeService :
                 setViewLayoutWidth(R.id.notification_trend, trendSizeDp * trendAspect, android.util.TypedValue.COMPLEX_UNIT_DIP)
                 setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
             }
-            setTextColor(R.id.notification_value, textPrimary)
+            setTextColor(R.id.notification_value, palette.argb(display.valueColorRole))
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
                 display.trend?.let {
@@ -317,7 +331,7 @@ class PersistentBridgeService :
         val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
-            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false)
+            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false, SugarliciousColorRole.TEXT_PRIMARY)
         }
 
         val selectedUnit = DashboardUiPreferences.read(uiPreferences).unitFor(state)
@@ -342,6 +356,7 @@ class PersistentBridgeService :
             glucose.trend.takeUnless { it == app.aapswear.model.Trend.UNKNOWN },
             deltaUnit,
             freshness == Freshness.SIGNAL_LOSS,
+            notificationGlucoseColorRole(glucose.valueMgDl, CgmThresholdPreferences.read(uiPreferences)),
         )
     }
 
@@ -366,6 +381,7 @@ class PersistentBridgeService :
         val trend: app.aapswear.model.Trend?,
         val deltaUnitText: String?,
         val strikeTitle: Boolean,
+        val valueColorRole: SugarliciousColorRole,
     )
 
     companion object {

@@ -15,6 +15,7 @@ import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseTrendSizing
@@ -42,6 +43,19 @@ import kotlin.math.abs
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class PersistentBridgeServiceTest {
+    @Test
+    fun `notification glucose color follows configured range thresholds`() {
+        val thresholds = CgmThresholds(veryHighMgDl = 250.0, highMgDl = 160.0, lowMgDl = 70.0, veryLowMgDl = 54.0)
+
+        assertEquals(SugarliciousColorRole.GLUCOSE_VERY_LOW, notificationGlucoseColorRole(53.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_LOW, notificationGlucoseColorRole(62.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_LOW, notificationGlucoseColorRole(70.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_IN_RANGE, notificationGlucoseColorRole(71.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_IN_RANGE, notificationGlucoseColorRole(159.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_HIGH, notificationGlucoseColorRole(160.0, thresholds))
+        assertEquals(SugarliciousColorRole.GLUCOSE_VERY_HIGH, notificationGlucoseColorRole(250.0, thresholds))
+    }
+
     @Test
     fun `notification revision changes only with a new glucose measurement`() {
         val measuredAt = 1_000L
