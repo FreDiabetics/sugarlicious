@@ -22,7 +22,11 @@ class LiveNotificationManifestTest {
         assertEquals(
             1,
             (0 until permissions.length).count {
-                permissions.item(it).attributes.getNamedItemNS(androidNamespace, "name")?.nodeValue ==
+                permissions
+                    .item(it)
+                    .attributes
+                    .getNamedItemNS(androidNamespace, "name")
+                    ?.nodeValue ==
                     "android.permission.POST_PROMOTED_NOTIFICATIONS"
             },
         )

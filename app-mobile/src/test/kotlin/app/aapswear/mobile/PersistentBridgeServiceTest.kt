@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Rect
 import android.util.TypedValue
 import android.view.LayoutInflater
@@ -14,7 +13,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
-import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -39,6 +37,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowBuild
 import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
@@ -215,7 +214,8 @@ class PersistentBridgeServiceTest {
     @Config(sdk = [35])
     fun `samsung live mode uses proprietary extras without custom views or promotion`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        org.robolectric.shadows.ShadowBuild.setManufacturer("samsung")
+        ShadowBuild
+            .setManufacturer("samsung")
         context
             .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
             .edit()

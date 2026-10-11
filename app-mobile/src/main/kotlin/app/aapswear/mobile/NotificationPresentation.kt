@@ -78,8 +78,16 @@ internal fun notificationPresentation(
     val androidCapsule = joinVisible(glucoseText, trendSymbol)
     val therapyText =
         joinSeparated(
-            state?.insulin?.totalIob?.takeIf(Double::isFinite)?.let { "IOB ${formatDecimal(it, 1)} U" },
-            state?.carbs?.cobGrams?.takeIf(Double::isFinite)?.let { "COB ${formatDecimal(it, 1)} g" },
+            state
+                ?.insulin
+                ?.totalIob
+                ?.takeIf(Double::isFinite)
+                ?.let { "IOB ${formatDecimal(it, 1)} U" },
+            state
+                ?.carbs
+                ?.cobGrams
+                ?.takeIf(Double::isFinite)
+                ?.let { "COB ${formatDecimal(it, 1)} g" },
         )
     val basalText =
         state?.basal?.currentUnitsPerHour?.takeIf(Double::isFinite)?.let {

@@ -104,8 +104,11 @@ class PersistentBridgeService :
                 latestState = it
                 if (foregroundStarted) {
                     val revision = currentPresentationRevision()
-                    if (revision != notifiedPresentationRevision) notifyUpdated()
-                    else scheduleNextFreshnessBoundary()
+                    if (revision != notifiedPresentationRevision) {
+                        notifyUpdated()
+                    } else {
+                        scheduleNextFreshnessBoundary()
+                    }
                 }
             }
         }
