@@ -3,6 +3,7 @@ package app.aapswear.mobile
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.widget.RemoteViews
@@ -25,8 +26,11 @@ internal object SamsungLiveNotificationAdapter {
     const val EXTRA_CARD_ICON = "android.ongoingActivityCardIcon"
     const val EXTRA_CARD_ICON_BACKGROUND = "android.ongoingActivityCardIconBg"
     const val EXTRA_CHIP_EXPANDED_TEXT = "android.ongoingActivityNoti.chipExpandedText"
+    const val EXTRA_CHIP_EXPANDED_VIEW = "android.ongoingActivityNoti.chipExpandedView"
     const val EXTRA_NOWBAR_PRIMARY_INFO = "android.ongoingActivityNoti.nowbarPrimaryInfo"
     const val EXTRA_NOWBAR_SECONDARY_INFO = "android.ongoingActivityNoti.nowbarSecondaryInfo"
+    const val EXTRA_NOWBAR_ICON = "android.ongoingActivityNoti.nowbarIcon"
+    const val EXTRA_AOD_REMOTE_APP_ICON = "android.ongoingActivityNoti.aodRemoteAppIcon"
     const val EXTRA_CUSTOM_REMOTE_VIEW = "android.ongoingActivityNoti.chronometerRemoteView"
     const val EXTRA_CUSTOM_REMOTE_VIEW_POSITION = "android.ongoingActivityNoti.chronometerRemoteViewPosition"
     const val EXTRA_CUSTOM_REMOTE_VIEW_TAG = "android.ongoingActivityNoti.chronometerRemoteViewTag"
@@ -51,8 +55,17 @@ internal object SamsungLiveNotificationAdapter {
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)
                 putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
                 val notificationIcon = Icon.createWithResource(context, notificationIconRes)
+                val monochromeIcon = monochromeCardIcon(context, notificationIconRes)
                 putParcelable(EXTRA_CHIP_ICON, notificationIcon)
-                putParcelable(EXTRA_CARD_ICON, monochromeCardIcon(context, notificationIconRes))
+                putParcelable(EXTRA_CARD_ICON, monochromeIcon)
+                putParcelable(EXTRA_NOWBAR_ICON, monochromeIcon)
+                putParcelable(EXTRA_AOD_REMOTE_APP_ICON, monochromeIcon)
+                putParcelable(
+                    EXTRA_CHIP_EXPANDED_VIEW,
+                    RemoteViews(context.packageName, R.layout.notification_samsung_live_chip).apply {
+                        setTextViewText(R.id.live_chip_text, texts.chipExpandedText)
+                    },
+                )
                 expandedRemoteView?.let {
                     putParcelable(EXTRA_CUSTOM_REMOTE_VIEW, it)
                     putInt(EXTRA_CUSTOM_REMOTE_VIEW_POSITION, 1)
@@ -72,6 +85,7 @@ internal object SamsungLiveNotificationAdapter {
         iconRes: Int,
     ): Icon {
         val drawable = requireNotNull(context.getDrawable(iconRes)).mutate()
+        drawable.setTint(Color.WHITE)
         val size = (24f * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         drawable.setBounds(0, 0, size, size)
@@ -81,10 +95,16 @@ internal object SamsungLiveNotificationAdapter {
 
     fun texts(presentation: NotificationPresentation): SamsungLiveTexts {
         val primary = presentation.compactPrimaryText ?: presentation.statusText ?: "Keine Quelle"
+        val nowBarPrimary =
+            listOfNotNull(
+                presentation.glucoseText,
+                presentation.nowBarTrendSymbol,
+                presentation.deltaText,
+            ).takeIf(List<String>::isNotEmpty)?.joinToString(" ") ?: presentation.statusText ?: "Keine Quelle"
         return SamsungLiveTexts(
             drawerPrimary = presentation.drawerPrimaryText,
             drawerSecondary = presentation.therapyText,
-            nowBarPrimary = primary,
+            nowBarPrimary = nowBarPrimary,
             nowBarSecondary = presentation.therapyText,
             chipExpandedText = primary,
         )

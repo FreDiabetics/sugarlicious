@@ -1,12 +1,14 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.AapsDisplayField
+import app.aapswear.model.CanonicalTrendPolicy
 import app.aapswear.model.CgmPresentationPolicy
 import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TrendRateProfile
 import app.aapswear.model.effectiveBasalPresentation
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -19,6 +21,7 @@ internal data class NotificationPresentation(
     val unit: GlucoseUnit?,
     val unitText: String?,
     val trendSymbol: String?,
+    val nowBarTrendSymbol: String?,
     val deltaText: String?,
     val ageText: String?,
     val status: CgmPresentationStatus,
@@ -76,6 +79,18 @@ internal fun notificationPresentation(
         } else {
             null
         }
+    val nowBarTrendSymbol =
+        if (displayable) {
+            glucose.deltaMgDl
+                ?.takeIf(Double::isFinite)
+                ?.div(NOW_BAR_DELTA_MINUTES)
+                ?.let { CanonicalTrendPolicy.fromRate(it, TrendRateProfile.ANDROID_APS) }
+                ?.let(TherapyDisplayFormatter::trendArrow)
+                ?.ifBlank { null }
+                ?: trendSymbol
+        } else {
+            null
+        }
     val compactPrimary = joinVisible(glucoseText, trendSymbol, deltaText)
     val androidCapsule = joinVisible(glucoseText, trendSymbol)
     val therapyText =
@@ -122,6 +137,7 @@ internal fun notificationPresentation(
             glucoseNumeric,
             unit,
             trendSymbol,
+            nowBarTrendSymbol,
             deltaText,
             ageText,
             status,
@@ -138,6 +154,7 @@ internal fun notificationPresentation(
         unit = unit,
         unitText = unit?.let { if (it == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL" },
         trendSymbol = trendSymbol,
+        nowBarTrendSymbol = nowBarTrendSymbol,
         deltaText = deltaText,
         ageText = ageText,
         status = status,
@@ -152,6 +169,8 @@ internal fun notificationPresentation(
         revision = revision,
     )
 }
+
+private const val NOW_BAR_DELTA_MINUTES = 5.0
 
 internal fun nextNotificationFreshnessBoundary(
     state: TherapyDisplayState?,

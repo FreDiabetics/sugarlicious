@@ -3,6 +3,8 @@ package app.aapswear.mobile
 import android.app.Notification
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.view.ViewGroup
+import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
 import androidx.core.app.NotificationCompat.Metric.FixedInt
@@ -133,8 +135,39 @@ class LiveNotificationAdaptersTest {
             Icon.TYPE_BITMAP,
             notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON, Icon::class.java)!!.type,
         )
+        assertEquals(
+            Icon.TYPE_BITMAP,
+            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_ICON, Icon::class.java)!!.type,
+        )
+        assertEquals(
+            Icon.TYPE_BITMAP,
+            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_AOD_REMOTE_APP_ICON, Icon::class.java)!!.type,
+        )
+        val chipView =
+            notification.extras
+                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_VIEW, android.widget.RemoteViews::class.java)!!
+        assertEquals(R.layout.notification_samsung_live_chip, chipView.layoutId)
+        val inflated = chipView.apply(context, null) as ViewGroup
+        val chipText = inflated.findViewById<TextView>(R.id.live_chip_text)
+        assertEquals("118 ↘ −6", chipText.text.toString())
+        assertNotNull(inflated.background)
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
+    }
+
+    @Test
+    fun `samsung now bar derives flat arrow from plus three five minute delta`() {
+        val state =
+            state().copy(
+                glucose = state().glucose!!.copy(trend = Trend.FORTY_FIVE_UP, deltaMgDl = 3.0),
+            )
+
+        val presentation = notificationPresentation(state, NOW)
+        val texts = SamsungLiveNotificationAdapter.texts(presentation)
+
+        assertEquals("118 ↗ +3 · Basal 0.45U/h", texts.drawerPrimary)
+        assertEquals("118 → +3", texts.nowBarPrimary)
+        assertEquals("118 ↗ +3", texts.chipExpandedText)
     }
 
     @Test
