@@ -364,12 +364,15 @@ class PersistentBridgeService :
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
                 .addAction(R.drawable.ic_notification, "Live beenden", disableLive)
-        presentation.therapyText?.let(builder::setContentText)
+        if (mode != NotificationMode.SAMSUNG_LIVE) {
+            presentation.therapyText?.let(builder::setContentText)
+        }
         listOfNotNull(presentation.profileText, presentation.sourceText.takeIf(String::isNotBlank))
             .joinToString(" · ")
             .takeIf(String::isNotBlank)
             ?.let(builder::setSubText)
 
+        var samsungExpandedView: RemoteViews? = null
         if (mode == NotificationMode.SAMSUNG_LIVE) {
             val graphEnabled = uiPreferences.getBoolean(PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true)
             val display = notificationDisplay(latestState, nowEpochMs)
@@ -377,6 +380,13 @@ class PersistentBridgeService :
                 if (graphEnabled) NotificationGraphRenderer.renderCollapsed(this, latestState, uiPreferences) else null
             val expandedGraph =
                 if (graphEnabled) NotificationGraphRenderer.renderExpanded(this, latestState, uiPreferences) else null
+            samsungExpandedView =
+                notificationRemoteView(
+                    R.layout.notification_sugarlicious_expanded,
+                    NotificationGraphProfile.EXPANDED,
+                    display,
+                    expandedGraph,
+                )
             builder
                 .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 .setCustomContentView(
@@ -387,12 +397,7 @@ class PersistentBridgeService :
                         collapsedGraph,
                     ),
                 ).setCustomBigContentView(
-                    notificationRemoteView(
-                        R.layout.notification_sugarlicious_expanded,
-                        NotificationGraphProfile.EXPANDED,
-                        display,
-                        expandedGraph,
-                    ),
+                    samsungExpandedView,
                 )
         }
 
@@ -405,6 +410,7 @@ class PersistentBridgeService :
                     presentation,
                     Build.MANUFACTURER.orEmpty(),
                     R.drawable.ic_notification_outlined,
+                    samsungExpandedView,
                 )
             } else {
                 null

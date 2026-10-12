@@ -14,10 +14,12 @@ import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.model.CgmThresholds
+import app.aapswear.model.CarbState
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.InsulinState
 import app.aapswear.model.TargetSample
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
@@ -302,6 +304,8 @@ class PersistentBridgeServiceTest {
                 TherapyDisplayState(
                     receivedAtEpochMs = now,
                     glucose = GlucoseState(118.0, GlucoseUnit.MG_DL, Trend.FORTY_FIVE_DOWN, now, deltaMgDl = -6.0),
+                    insulin = InsulinState(totalIob = 1.3),
+                    carbs = CarbState(cobGrams = 22.0),
                 ),
             )
         }
@@ -321,6 +325,18 @@ class PersistentBridgeServiceTest {
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertEquals(R.layout.notification_sugarlicious_collapsed, notification.contentView.layoutId)
         assertEquals(R.layout.notification_sugarlicious_expanded, notification.bigContentView.layoutId)
+        assertEquals(
+            R.layout.notification_sugarlicious_expanded,
+            notification.extras
+                .getParcelable("android.ongoingActivityNoti.chronometerRemoteView", android.widget.RemoteViews::class.java)!!
+                .layoutId,
+        )
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_SECONDARY_INFO))
+        assertNull(notification.extras.getCharSequence(Notification.EXTRA_TEXT))
+        assertEquals(
+            "IOB 1.30U · COB 22g",
+            notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO),
+        )
         controller.destroy()
     }
 
