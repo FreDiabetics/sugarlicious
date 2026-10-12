@@ -323,7 +323,7 @@ class PersistentBridgeServiceTest {
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
         assertEquals(
-            R.drawable.ic_notification_legacy,
+            R.drawable.ic_notification_outlined,
             notification.extras
                 .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, android.graphics.drawable.Icon::class.java)!!
                 .resId,

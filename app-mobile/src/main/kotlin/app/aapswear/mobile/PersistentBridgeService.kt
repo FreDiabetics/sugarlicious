@@ -409,7 +409,7 @@ class PersistentBridgeService :
                     builder,
                     presentation,
                     Build.MANUFACTURER.orEmpty(),
-                    R.drawable.ic_notification_legacy,
+                    R.drawable.ic_notification_outlined,
                     samsungExpandedView,
                 )
             } else {
