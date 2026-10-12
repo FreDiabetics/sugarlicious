@@ -36,6 +36,7 @@ internal object SamsungLiveNotificationAdapter {
     const val EXTRA_CUSTOM_REMOTE_VIEW_TAG = "android.ongoingActivityNoti.chronometerRemoteViewTag"
 
     private const val STANDARD_STYLE = 1
+    private const val CUSTOM_CHIP_ENABLED = false
 
     fun apply(
         context: Context,
@@ -53,19 +54,21 @@ internal object SamsungLiveNotificationAdapter {
                 putString(EXTRA_PRIMARY_INFO, texts.drawerPrimary)
                 putString(EXTRA_NOWBAR_PRIMARY_INFO, texts.nowBarPrimary)
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)
-                putInt(EXTRA_CHIP_BACKGROUND_COLOR, Color.TRANSPARENT)
+                putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
                 val notificationIcon = Icon.createWithResource(context, notificationIconRes)
                 val monochromeIcon = monochromeCardIcon(context, notificationIconRes)
                 putParcelable(EXTRA_CHIP_ICON, notificationIcon)
                 putParcelable(EXTRA_CARD_ICON, monochromeIcon)
                 putParcelable(EXTRA_NOWBAR_ICON, monochromeIcon)
                 putParcelable(EXTRA_AOD_REMOTE_APP_ICON, monochromeIcon)
-                putParcelable(
-                    EXTRA_CHIP_EXPANDED_VIEW,
-                    RemoteViews(context.packageName, R.layout.notification_samsung_live_chip).apply {
-                        setTextViewText(R.id.live_chip_text, texts.chipExpandedText)
-                    },
-                )
+                if (CUSTOM_CHIP_ENABLED) {
+                    putParcelable(
+                        EXTRA_CHIP_EXPANDED_VIEW,
+                        RemoteViews(context.packageName, R.layout.notification_samsung_live_chip).apply {
+                            setTextViewText(R.id.live_chip_text, texts.chipExpandedText)
+                        },
+                    )
+                }
                 expandedRemoteView?.let {
                     putParcelable(EXTRA_CUSTOM_REMOTE_VIEW, it)
                     putInt(EXTRA_CUSTOM_REMOTE_VIEW_POSITION, 1)

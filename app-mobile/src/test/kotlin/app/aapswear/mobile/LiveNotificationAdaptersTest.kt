@@ -4,10 +4,6 @@ import android.app.Notification
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.Icon
-import android.graphics.drawable.LayerDrawable
-import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
 import androidx.core.app.NotificationCompat.Metric.FixedInt
@@ -130,7 +126,7 @@ class LiveNotificationAdaptersTest {
         assertEquals(texts.nowBarSecondary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO))
         assertEquals(texts.chipExpandedText, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_TEXT))
         assertEquals(
-            Color.TRANSPARENT,
+            context.getColor(R.color.app_accent),
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
         assertNotNull(notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, Icon::class.java))
@@ -146,20 +142,7 @@ class LiveNotificationAdaptersTest {
             Icon.TYPE_BITMAP,
             notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_AOD_REMOTE_APP_ICON, Icon::class.java)!!.type,
         )
-        val chipView =
-            notification.extras
-                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_VIEW, android.widget.RemoteViews::class.java)!!
-        assertEquals(R.layout.notification_samsung_live_chip, chipView.layoutId)
-        val inflated = chipView.apply(context, FrameLayout(context)) as ViewGroup
-        val chipSurface = inflated.findViewById<ViewGroup>(R.id.live_chip_surface)
-        assertEquals((18f * context.resources.displayMetrics.density).toInt(), chipSurface.layoutParams.height)
-        assertEquals(-2f * context.resources.displayMetrics.density, chipSurface.translationY, 0.01f)
-        val chipBackground = chipSurface.background as LayerDrawable
-        assertEquals((2f * context.resources.displayMetrics.density).toInt(), chipBackground.getLayerInsetBottom(0))
-        val chipText = inflated.findViewById<TextView>(R.id.live_chip_text)
-        assertEquals("118 ↘ −6", chipText.text.toString())
-        assertNull(inflated.background)
-        assertNotNull(chipSurface.background)
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_VIEW))
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }
