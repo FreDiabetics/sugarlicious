@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.Rect
 import android.util.TypedValue
 import android.view.LayoutInflater
@@ -319,7 +320,7 @@ class PersistentBridgeServiceTest {
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
         assertEquals("118 ↘ −6", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(
-            context.getColor(R.color.app_accent),
+            Color.TRANSPARENT,
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
         assertEquals(

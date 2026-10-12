@@ -53,7 +53,7 @@ internal object SamsungLiveNotificationAdapter {
                 putString(EXTRA_PRIMARY_INFO, texts.drawerPrimary)
                 putString(EXTRA_NOWBAR_PRIMARY_INFO, texts.nowBarPrimary)
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)
-                putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
+                putInt(EXTRA_CHIP_BACKGROUND_COLOR, Color.TRANSPARENT)
                 val notificationIcon = Icon.createWithResource(context, notificationIconRes)
                 val monochromeIcon = monochromeCardIcon(context, notificationIconRes)
                 putParcelable(EXTRA_CHIP_ICON, notificationIcon)
