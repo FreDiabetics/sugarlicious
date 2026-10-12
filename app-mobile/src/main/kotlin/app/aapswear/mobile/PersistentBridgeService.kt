@@ -221,7 +221,11 @@ class PersistentBridgeService :
         val alarmManager = getSystemService(AlarmManager::class.java)
         val pendingIntent = freshnessBoundaryPendingIntent()
         alarmManager.cancel(pendingIntent)
-        val visibleBoundary = nextNotificationFreshnessBoundary(latestState, nowEpochMs) ?: return
+        val visibleBoundary =
+            listOfNotNull(
+                nextNotificationFreshnessBoundary(latestState, nowEpochMs),
+                nextNotificationAgeBoundary(latestState, nowEpochMs),
+            ).minOrNull() ?: return
         nextNotificationSafetyBoundary(latestState, nowEpochMs)?.let { safetyBoundary ->
             val triggerAt = SystemClock.elapsedRealtime() + (safetyBoundary - nowEpochMs).coerceAtLeast(1L)
             if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {

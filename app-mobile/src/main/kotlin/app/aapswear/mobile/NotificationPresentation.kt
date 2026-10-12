@@ -123,6 +123,7 @@ internal fun notificationPresentation(
             unit,
             trendSymbol,
             deltaText,
+            ageText,
             status,
             glucose?.quality,
             therapyText,
@@ -180,6 +181,16 @@ internal fun nextNotificationSafetyBoundary(
     val measuredAt = state?.glucose?.measuredAtEpochMs ?: return null
     if (!TherapyDisplayFormatter.isGlucoseKnown(state)) return null
     return (measuredAt + FreshnessPolicy.DELAYED_MAX_MS + 1L).takeIf { it > nowEpochMs }
+}
+
+internal fun nextNotificationAgeBoundary(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+): Long? {
+    val measuredAt = state?.glucose?.measuredAtEpochMs ?: return null
+    if (!TherapyDisplayFormatter.isGlucoseKnown(state)) return null
+    val elapsedMinutes = ((nowEpochMs - measuredAt).coerceAtLeast(0L) / 60_000L)
+    return measuredAt + (elapsedMinutes + 1L) * 60_000L
 }
 
 private fun formatGlucose(

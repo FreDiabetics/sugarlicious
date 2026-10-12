@@ -129,6 +129,11 @@ class LiveNotificationAdaptersTest {
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
         assertNotNull(notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, Icon::class.java))
+        assertEquals(
+            Icon.TYPE_BITMAP,
+            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON, Icon::class.java)!!.type,
+        )
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }
 

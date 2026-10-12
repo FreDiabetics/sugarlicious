@@ -169,6 +169,19 @@ class NotificationPresentationTest {
     }
 
     @Test
+    fun `age participates in revision and advances on the exact measurement minute`() {
+        val measuredAt = now - 90_000L
+        val input = state(measuredAt)
+
+        assertEquals("1m", notificationPresentation(input, now).ageText)
+        assertNotEquals(
+            notificationPresentation(input, measuredAt + 119_999L).revision,
+            notificationPresentation(input, measuredAt + 120_000L).revision,
+        )
+        assertEquals(measuredAt + 120_000L, nextNotificationAgeBoundary(input, now))
+    }
+
+    @Test
     fun `deep sleep safety boundary skips aging and targets glucose suppression`() {
         val measuredAt = now - 60_000L
         val state = state(measuredAt)
