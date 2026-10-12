@@ -322,6 +322,12 @@ class PersistentBridgeServiceTest {
             context.getColor(R.color.app_accent),
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
+        assertEquals(
+            R.drawable.ic_notification_legacy,
+            notification.extras
+                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, android.graphics.drawable.Icon::class.java)!!
+                .resId,
+        )
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertEquals(R.layout.notification_sugarlicious_collapsed, notification.contentView.layoutId)
         assertEquals(R.layout.notification_sugarlicious_expanded, notification.bigContentView.layoutId)
