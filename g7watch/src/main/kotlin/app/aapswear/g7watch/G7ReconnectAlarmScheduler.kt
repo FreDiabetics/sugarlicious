@@ -208,7 +208,10 @@ internal object G7ReconnectAlarmScheduler {
         state: G7PersistedState,
     ): Boolean =
         shouldUseDirectReconnect(
-            G7ReconnectStrategyStore.read(context.applicationContext),
+            effectiveG7ReconnectStrategy(
+                G7ReconnectStrategyStore.read(context.applicationContext),
+                state.health,
+            ),
             state.sensor?.deviceAddress,
         )
 }

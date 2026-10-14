@@ -52,6 +52,23 @@ internal object G7AlertPolicyStore {
 }
 
 internal const val G7_SIGNAL_LOSS_AFTER_MS = CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS
+private const val G7_SIGNAL_LOSS_RECOVERY_CHECK_MS = 15L * 60_000L
+
+/**
+ * Keeps a missed signal-loss deadline on a deterministic recovery cadence. Clamping an expired
+ * deadline to now + 1 second caused every failed collector cycle to replace the alarm with another
+ * immediate wakeup. Anchoring recovery checks to the original deadline prevents both drift and a
+ * wakeup storm while retaining a maximum fifteen-minute recovery check interval.
+ */
+internal fun nextG7SignalLossMonitorAt(
+    signalLossDeadlineEpochMs: Long,
+    nowEpochMs: Long,
+): Long {
+    if (signalLossDeadlineEpochMs > nowEpochMs) return signalLossDeadlineEpochMs
+    val elapsed = nowEpochMs - signalLossDeadlineEpochMs
+    val completedIntervals = elapsed / G7_SIGNAL_LOSS_RECOVERY_CHECK_MS
+    return signalLossDeadlineEpochMs + (completedIntervals + 1L) * G7_SIGNAL_LOSS_RECOVERY_CHECK_MS
+}
 
 internal fun isG7SignalLoss(
     lastReadingEpochMs: Long?,
@@ -89,7 +106,12 @@ internal object G7SignalLossMonitor {
                 cancel(context)
                 return
             }
-        schedule(context, lastReading + G7_SIGNAL_LOSS_AFTER_MS)
+        val now = System.currentTimeMillis()
+        schedule(
+            context,
+            nextG7SignalLossMonitorAt(lastReading + G7_SIGNAL_LOSS_AFTER_MS, now),
+            now,
+        )
     }
 
     fun cancel(context: Context) {
@@ -115,10 +137,11 @@ internal object G7SignalLossMonitor {
     private fun schedule(
         context: Context,
         requestedAtEpochMs: Long,
+        nowEpochMs: Long = System.currentTimeMillis(),
     ) {
         val app = context.applicationContext
         val alarmManager = app.getSystemService(AlarmManager::class.java)
-        val triggerAt = maxOf(requestedAtEpochMs, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
+        val triggerAt = maxOf(requestedAtEpochMs, nowEpochMs + MIN_TRIGGER_LEAD_MS)
         val pending = pendingIntent(app)
         val exactAllowed = alarmManager.canScheduleExactAlarms()
         if (exactAllowed) {
@@ -202,5 +225,3 @@ class G7SignalLossReceiver : BroadcastReceiver() {
             }.dispatch(context, intent.action, onFinished = pending::finish)
     }
 }
-
-private const val G7_SIGNAL_LOSS_RECOVERY_CHECK_MS = 15L * 60_000L

@@ -74,6 +74,26 @@ private val RADIO_FAILURE_CLASSES =
         G7FailureClass.SENSOR_UNREACHABLE,
     )
 
+/**
+ * A known address remains the fast path while the radio is healthy. After a durable cluster of
+ * complete radio failures, waiting for the sensor advertisement is safer than repeatedly asking a
+ * degraded vendor Bluetooth stack to connect blindly. A successful reading clears the health
+ * streak, so this is a temporary recovery mode and never rewrites the user's configured strategy.
+ */
+internal fun effectiveG7ReconnectStrategy(
+    configured: G7ReconnectStrategy,
+    health: G7CollectorHealth,
+): G7ReconnectStrategy =
+    if (
+        configured == G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT &&
+        health.consecutiveFailures >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
+        health.lastFailureClass in RADIO_FAILURE_CLASSES
+    ) {
+        G7ReconnectStrategy.BOUNDED_SCAN
+    } else {
+        configured
+    }
+
 internal fun shouldRecycleG7Runtime(
     cycle: app.aapswear.g7.CollectorCycleTiming?,
     radioFailureStreak: Int,

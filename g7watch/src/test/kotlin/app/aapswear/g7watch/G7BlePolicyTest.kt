@@ -303,11 +303,53 @@ class G7BlePolicyTest {
         )
     }
 
-    @Test fun `no callback receives one clean direct retry before fallback`() {
-        assertTrue(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = false))
+    @Test fun `connect callback timeout enters fallback without wasting another sensor window`() {
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = false))
         assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 1, fallbackUsed = false))
         assertFalse(shouldRetryNoCallbackDirectly(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, 0, fallbackUsed = true))
         assertFalse(shouldRetryNoCallbackDirectly(G7_GATT_133_ERROR_CODE, 0, fallbackUsed = false))
+    }
+
+    @Test fun `operation callback timeout still receives one clean direct retry`() {
+        assertTrue(shouldRetryNoCallbackDirectly(G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE, 0, fallbackUsed = false))
+        assertFalse(shouldRetryNoCallbackDirectly(G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE, 1, fallbackUsed = false))
+    }
+
+    @Test fun `repeated radio failures temporarily switch known sensor to bounded scan`() {
+        val degraded =
+            G7CollectorHealth(
+                consecutiveFailures = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                lastFailureClass = G7FailureClass.DIRECT_NO_CALLBACK,
+            )
+
+        assertEquals(
+            G7ReconnectStrategy.BOUNDED_SCAN,
+            effectiveG7ReconnectStrategy(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, degraded),
+        )
+    }
+
+    @Test fun `healthy and non radio failures retain configured direct strategy`() {
+        assertEquals(
+            G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+            effectiveG7ReconnectStrategy(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, G7CollectorHealth()),
+        )
+        assertEquals(
+            G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+            effectiveG7ReconnectStrategy(
+                G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+                G7CollectorHealth(
+                    consecutiveFailures = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                    lastFailureClass = G7FailureClass.AUTH_FAILURE,
+                ),
+            ),
+        )
+    }
+
+    @Test fun `explicit bounded scan strategy is never overridden`() {
+        assertEquals(
+            G7ReconnectStrategy.BOUNDED_SCAN,
+            effectiveG7ReconnectStrategy(G7ReconnectStrategy.BOUNDED_SCAN, G7CollectorHealth()),
+        )
     }
 
     @Test fun `known sensor address rejects a different nearby G7`() {

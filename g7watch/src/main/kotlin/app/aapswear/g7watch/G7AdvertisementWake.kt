@@ -231,7 +231,12 @@ class G7AdvertisementWakeReceiver : BroadcastReceiver() {
         }
 
         val now = System.currentTimeMillis()
-        if (G7ReconnectStrategyStore.read(app) != G7ReconnectStrategy.BOUNDED_SCAN) {
+        val effectiveStrategy =
+            effectiveG7ReconnectStrategy(
+                G7ReconnectStrategyStore.read(app),
+                state.health,
+            )
+        if (effectiveStrategy != G7ReconnectStrategy.BOUNDED_SCAN) {
             G7AdvertisementWakeScheduler.disarm(app)
             return
         }
