@@ -236,41 +236,6 @@ class MainActivity : ComponentActivity() {
             },
         )
         requestMigratedLocalNetworkAccessIfNeeded()
-        if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
-            uiPreferences.edit {
-                putInt("graphHours", 3)
-                putBoolean("graphHoursDefault3Migrated", true)
-            }
-        }
-        if (!uiPreferences.getBoolean("cgmDotsOnlyDefaultMigratedV1", false)) {
-            uiPreferences.edit {
-                putBoolean("showCgmGraph", true)
-                putBoolean("showMetabolicGraph", false)
-                putBoolean("showPredictions", false)
-                putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", true)
-                putBoolean("cgm.prediction.iob", false)
-                putBoolean("cgm.prediction.cob", false)
-                putBoolean("cgm.prediction.uam", false)
-                putBoolean("cgm.prediction.zeroTemp", false)
-                putBoolean("cgmDotsOnlyDefaultMigratedV1", true)
-            }
-        }
-        if (!uiPreferences.getBoolean("overviewDefaultsMigratedV2", false)) {
-            uiPreferences.edit {
-                putBoolean("showCgmGraph", true)
-                putBoolean("showDetails", true)
-                putBoolean("showMetabolicGraph", false)
-                putBoolean("cgm.targetValue", false)
-                putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", true)
-                putBoolean("cgm.prediction.iob", false)
-                putBoolean("cgm.prediction.cob", false)
-                putBoolean("cgm.prediction.uam", false)
-                putBoolean("cgm.prediction.zeroTemp", false)
-                putBoolean("overviewDefaultsMigratedV2", true)
-            }
-        }
         if (!uiPreferences.getBoolean("targetStepLineDefaultMigratedV3", false)) {
             // Earlier releases persisted the target-value layer as off, which made a correctly
             // rendered Step-Line invisible after an in-place update. Enable the new AAPS-style
