@@ -144,9 +144,25 @@ class WearProtocolTest {
     }
 
     @Test fun `current and historical dot outlines round trip independently`() {
-        val style = WatchGraphStyle(cgmHistoricalDotOutlineEnabled = false, cgmCurrentDotOutlineEnabled = true)
+        val style =
+            WatchGraphStyle(
+                cgmHistoricalDotOutlineEnabled = false,
+                cgmCurrentDotOutlineEnabled = true,
+                cgmHistoricalDotOutlineWidthDp = 0.45f,
+                cgmCurrentDotOutlineWidthDp = 1.85f,
+            )
         val config = WatchConfig(graphStyle = style)
         assertEquals(style, WearProtocol.decodeConfig(WearProtocol.encodeConfig(config)).graphStyle)
+    }
+
+    @Test fun `legacy common dot outline width migrates into both independent widths`() {
+        val legacy =
+            """{"schemaVersion":10,"graphStyle":{"cgmDotOutlineWidthDp":1.65,"cgmCurrentDotOutlineEnabled":false}}"""
+
+        val style = WearProtocol.decodeConfig(legacy.encodeToByteArray()).graphStyle
+
+        assertEquals(1.65f, style.cgmHistoricalDotOutlineWidthDp)
+        assertEquals(1.65f, style.cgmCurrentDotOutlineWidthDp)
     }
 
     @Test fun legacyWatchConfigUsesDefaultBasalColor() {

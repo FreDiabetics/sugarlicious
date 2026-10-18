@@ -20,6 +20,21 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
     @Test
+    fun `current dot outline is permanent and widths are selected independently`() {
+        val style =
+            SharedWearCgmGraphStyle(
+                dotOutlineEnabled = false,
+                historicalDotOutlineEnabled = false,
+                currentDotOutlineEnabled = false,
+                historicalDotOutlineWidthDp = 0.4f,
+                currentDotOutlineWidthDp = 2.2f,
+            )
+
+        assertEquals(null, effectiveDotOutlineWidthDp(style, isCurrent = false))
+        assertEquals(2.2f, effectiveDotOutlineWidthDp(style, isCurrent = true))
+    }
+
+    @Test
     fun `Wear and Mobile use the identical canonical glucose scale`() {
         listOf(0.0, 40.0, 70.0, 80.0, 120.0, 160.0, 250.0, 400.0).forEach { value ->
             assertEquals(GlucoseGraphScale.ratio(value), WearCgmGraphScale.ratio(value), 0.000001)

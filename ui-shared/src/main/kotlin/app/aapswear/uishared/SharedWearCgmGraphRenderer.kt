@@ -50,6 +50,8 @@ data class SharedWearCgmGraphStyle(
     val dotOutlineEnabled: Boolean = true,
     val historicalDotOutlineEnabled: Boolean = true,
     val currentDotOutlineEnabled: Boolean = true,
+    val historicalDotOutlineWidthDp: Float = dotOutlineWidthDp,
+    val currentDotOutlineWidthDp: Float = dotOutlineWidthDp,
     val cornerRadiusDp: Float = 20f,
     val borderEnabled: Boolean = true,
     val timeAxisEnabled: Boolean = true,
@@ -64,6 +66,8 @@ object DirectToWatchGraphDefaults {
     fun style() =
         SharedWearCgmGraphStyle(
             dotOutlineWidthDp = 0.35f,
+            historicalDotOutlineWidthDp = 0.35f,
+            currentDotOutlineWidthDp = 0.35f,
             borderEnabled = false,
             timeAxisEnabled = false,
             targetTicksEnabled = false,
@@ -78,6 +82,18 @@ object WearCgmGraphScale {
 
     fun ratio(valueMgDl: Double): Double = GlucoseGraphScale.ratio(valueMgDl)
 }
+
+internal fun effectiveDotOutlineWidthDp(
+    style: SharedWearCgmGraphStyle,
+    isCurrent: Boolean,
+): Float? =
+    if (isCurrent) {
+        style.currentDotOutlineWidthDp.coerceIn(0.25f, 3f)
+    } else if (style.dotOutlineEnabled && style.historicalDotOutlineEnabled) {
+        style.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f)
+    } else {
+        null
+    }
 
 data class SharedWearCgmGraphInput(
     val history: List<GlucoseSample>,
@@ -314,17 +330,14 @@ object SharedWearCgmGraphRenderer {
 
         val liveX = metrics.xFor(input.timeWindow, input.timeWindow.liveEdgeEpochMs)
         val radius = input.style.dotRadiusDp.coerceIn(1.5f, 6f) * density
-        val outline = input.style.dotOutlineWidthDp.coerceIn(0.25f, 3f) * density
         history.forEachIndexed { index, sample ->
             val isCurrent = index == history.lastIndex
             // "Current" controls styling only. Every point, including the newest one, belongs to
             // its real sensor event time; it must drift left as the wall-clock viewport advances.
             val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
             val y = metrics.yFor(sample.valueMgDl)
-            val outlineEnabled =
-                input.style.dotOutlineEnabled &&
-                    if (isCurrent) input.style.currentDotOutlineEnabled else input.style.historicalDotOutlineEnabled
-            if (outlineEnabled) {
+            val outline = effectiveDotOutlineWidthDp(input.style, isCurrent)?.times(density)
+            if (outline != null) {
                 fill.color = palette.dotOutline
                 canvas.drawCircle(x, y, radius + outline, fill)
             }
