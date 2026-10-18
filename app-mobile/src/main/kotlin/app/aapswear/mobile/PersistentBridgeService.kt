@@ -33,6 +33,7 @@ import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmRangeClass
@@ -414,7 +415,7 @@ class PersistentBridgeService :
                     presentation,
                     Build.MANUFACTURER.orEmpty(),
                     R.drawable.ic_notification_outlined,
-                    samsungExpandedView,
+                    expandedRemoteView = samsungExpandedView,
                 )
             } else {
                 null
@@ -654,10 +655,31 @@ internal enum class NotificationGraphProfile(
     ),
 }
 
+internal fun notificationGraphColor(
+    preferences: SharedPreferences,
+    palette: SugarliciousPalette,
+    role: SugarliciousColorRole,
+): Int {
+    val notificationColorPrefix = if (palette.isLight) "notification.color.light." else "notification.color.dark."
+    val overrideKey = "notification.color.override." + role.preferenceKey
+    val legacyModeKey = notificationColorPrefix + role.preferenceKey
+    return when {
+        palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
+        palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
+        role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
+        preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
+        !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
+        else -> palette.argb(role)
+    }
+}
+
 internal data class NotificationGraphDotStyle(
     val cgmRadiusDp: Float,
     val cgmOutlineEnabled: Boolean,
     val cgmOutlineWidthDp: Float,
+    val historicalOutlineEnabled: Boolean = cgmOutlineEnabled,
+    val historicalOutlineWidthDp: Float = cgmOutlineWidthDp,
+    val currentOutlineWidthDp: Float = cgmOutlineWidthDp,
 )
 
 internal object NotificationGraphDotStyleStore {
@@ -694,6 +716,23 @@ internal object NotificationGraphDotStyleStore {
                         modeKey(mode, outlineWidthKey(profile)),
                         preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp),
                     ).coerceIn(0.25f, 3.0f),
+            historicalOutlineEnabled =
+                preferences.getBoolean(
+                    modeKey(mode, historicalOutlineEnabledKey(profile)),
+                    preferences.getBoolean(modeKey(mode, outlineEnabledKey(profile)), preferences.getBoolean(outlineEnabledKey(profile), true)),
+                ),
+            historicalOutlineWidthDp =
+                preferences
+                    .getFloat(
+                        modeKey(mode, historicalOutlineWidthKey(profile)),
+                        preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)),
+                    ).coerceIn(0.25f, 3f),
+            currentOutlineWidthDp =
+                preferences
+                    .getFloat(
+                        modeKey(mode, currentOutlineWidthKey(profile)),
+                        preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)),
+                    ).coerceIn(0.25f, 3f),
         )
     }
 
@@ -714,6 +753,9 @@ internal object NotificationGraphDotStyleStore {
             putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
             putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
             putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
+            putBoolean(modeKey(mode, historicalOutlineEnabledKey(profile)), style.historicalOutlineEnabled)
+            putFloat(modeKey(mode, historicalOutlineWidthKey(profile)), style.historicalOutlineWidthDp.coerceIn(0.25f, 3f))
+            putFloat(modeKey(mode, currentOutlineWidthKey(profile)), style.currentOutlineWidthDp.coerceIn(0.25f, 3f))
         }
     }
 
@@ -829,6 +871,12 @@ internal object NotificationGraphDotStyleStore {
             NotificationGraphProfile.EXPANDED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED
         }
 
+    private fun historicalOutlineEnabledKey(profile: NotificationGraphProfile) = outlineEnabledKey(profile) + ".historical"
+
+    private fun historicalOutlineWidthKey(profile: NotificationGraphProfile) = outlineWidthKey(profile) + ".historical"
+
+    private fun currentOutlineWidthKey(profile: NotificationGraphProfile) = outlineWidthKey(profile) + ".current"
+
     private fun outlineWidthKey(profile: NotificationGraphProfile): String =
         when (profile) {
             NotificationGraphProfile.COLLAPSED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_WIDTH
@@ -893,21 +941,8 @@ internal object NotificationGraphRenderer {
         val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         val palette = SugarliciousColorStore.load(preferences)
-        val notificationColorPrefix =
-            if (palette.isLight) "notification.color.light." else "notification.color.dark."
 
-        fun graphColor(role: SugarliciousColorRole): Int {
-            val overrideKey = "notification.color.override." + role.preferenceKey
-            val legacyModeKey = notificationColorPrefix + role.preferenceKey
-            return when {
-                palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
-                palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
-                role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-                preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
-                !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
-                else -> palette.argb(role)
-            }
-        }
+        fun graphColor(role: SugarliciousColorRole): Int = notificationGraphColor(preferences, palette, role)
 
         val scaleX = width / profile.displayWidthDp
         val scaleY = height / profile.displayHeightDp
@@ -1041,13 +1076,13 @@ internal object NotificationGraphRenderer {
         paint.style = Paint.Style.STROKE
         paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = max(1f, renderDensity)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
+        paint.color = graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
         canvas.drawLine(visualLeft, y(targetHigh), labelLaneLeft, y(targetHigh), paint)
-        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE)))
+        paint.color = laneColor(graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE)))
         canvas.drawLine(labelLaneLeft, y(targetHigh), visualRight, y(targetHigh), paint)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
+        paint.color = graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
         canvas.drawLine(visualLeft, y(targetLow), labelLaneLeft, y(targetLow), paint)
-        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE)))
+        paint.color = laneColor(graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE)))
         canvas.drawLine(labelLaneLeft, y(targetLow), visualRight, y(targetLow), paint)
 
         fun drawYLabel(
@@ -1064,7 +1099,6 @@ internal object NotificationGraphRenderer {
         drawYLabel(targetLow, aboveLine = false)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
-        val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity
         val dotRadius = dotStyle.cgmRadiusDp * renderDensity
         val currentExtra = 0.18f * renderDensity
 
@@ -1072,7 +1106,10 @@ internal object NotificationGraphRenderer {
             val px = x(point.key)
             val py = y(point.value)
             val current = index == points.lastIndex
-            if (dotStyle.cgmOutlineEnabled) {
+            val outlineEnabled = current || dotStyle.historicalOutlineEnabled
+            val outlineRadius =
+                (dotStyle.cgmRadiusDp + if (current) dotStyle.currentOutlineWidthDp else dotStyle.historicalOutlineWidthDp) * renderDensity
+            if (outlineEnabled) {
                 paint.style = Paint.Style.FILL
                 paint.color = graphColor(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
                 canvas.drawCircle(
@@ -1121,4 +1158,4 @@ internal object NotificationGraphRenderer {
     }
 }
 
-internal fun opaqueGraphBoundaryColor(color: Int): Int = 0xFF000000.toInt() or (color and 0x00FFFFFF)
+internal fun graphBoundaryColor(color: Int): Int = color

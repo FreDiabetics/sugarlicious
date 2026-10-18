@@ -24,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -224,6 +225,16 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (screen != DashboardScreen.OVERVIEW) {
+                        navigate(DashboardScreen.OVERVIEW)
+                    }
+                }
+            },
+        )
         requestMigratedLocalNetworkAccessIfNeeded()
         if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
             uiPreferences.edit {

@@ -906,8 +906,6 @@ private fun MiniGlucosePreview(
     val dotRadiusDp =
         (graphStyle.cgmDotRadiusDp - 0.5f)
             .coerceIn(1.0f, 5.5f)
-    val outlineEnabled = graphStyle.cgmDotOutlineEnabled
-    val outlineWidthDp = graphStyle.cgmDotOutlineWidthDp
     Canvas(
         Modifier
             .fillMaxWidth()
@@ -934,7 +932,9 @@ private fun MiniGlucosePreview(
         merged.forEachIndexed { index, sample ->
             val radius = dotRadiusDp.dp.toPx() * if (index == merged.lastIndex) 1.25f else 1f
             val center = Offset(x(sample.measuredAtEpochMs), y(sample.valueMgDl))
-            if (outlineEnabled) {
+            val currentPoint = index == merged.lastIndex
+            if (currentPoint || graphStyle.cgmHistoricalDotOutlineEnabled) {
+                val outlineWidthDp = if (currentPoint) graphStyle.cgmCurrentDotOutlineWidthDp else graphStyle.cgmHistoricalDotOutlineWidthDp
                 drawCircle(SugarliciousColors.color(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE), radius + outlineWidthDp.dp.toPx(), center)
             }
             val dotColor =

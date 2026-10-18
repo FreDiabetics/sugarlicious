@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import android.content.Context
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
@@ -10,6 +11,30 @@ import app.aapswear.model.TherapyDisplayState
 internal enum class WidgetWidthClass { VERY_NARROW, NARROW, REGULAR, WIDE, VERY_WIDE }
 
 internal enum class WidgetHeightClass { LOW, REGULAR, HIGH }
+
+internal const val SAMSUNG_COMPACT_WIDGET_HORIZONTAL_INSET_DP = 8f
+internal const val SAMSUNG_COMPACT_WIDGET_VERTICAL_INSET_DP = 9f
+
+internal object WidgetLayoutSizeStore {
+    private const val PREFERENCES = "dashboard_ui"
+    private const val KEY_SAMSUNG_COMPACT = "widget.layout.samsung_compact"
+
+    fun isSamsungCompact(context: Context): Boolean =
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SAMSUNG_COMPACT, true)
+
+    fun setSamsungCompact(
+        context: Context,
+        enabled: Boolean,
+    ) {
+        context.applicationContext
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_SAMSUNG_COMPACT, enabled)
+            .apply()
+    }
+}
 
 internal data class ResponsiveWidgetLayout(
     val widthClass: WidgetWidthClass,

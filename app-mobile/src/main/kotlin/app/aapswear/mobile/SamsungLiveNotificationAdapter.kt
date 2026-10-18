@@ -31,6 +31,8 @@ internal object SamsungLiveNotificationAdapter {
     const val EXTRA_NOWBAR_SECONDARY_INFO = "android.ongoingActivityNoti.nowbarSecondaryInfo"
     const val EXTRA_NOWBAR_ICON = "android.ongoingActivityNoti.nowbarIcon"
     const val EXTRA_AOD_REMOTE_APP_ICON = "android.ongoingActivityNoti.aodRemoteAppIcon"
+    const val EXTRA_EXPANDED_REMOTE_VIEW = "android.ongoingActivityNoti.expandedRemoteView"
+    const val EXTRA_NOWBAR_REMOTE_VIEW = "android.ongoingActivityNoti.nowbarRemoteView"
     const val EXTRA_CUSTOM_REMOTE_VIEW = "android.ongoingActivityNoti.chronometerRemoteView"
     const val EXTRA_CUSTOM_REMOTE_VIEW_POSITION = "android.ongoingActivityNoti.chronometerRemoteViewPosition"
     const val EXTRA_CUSTOM_REMOTE_VIEW_TAG = "android.ongoingActivityNoti.chronometerRemoteViewTag"
@@ -74,9 +76,6 @@ internal object SamsungLiveNotificationAdapter {
                     putInt(EXTRA_CUSTOM_REMOTE_VIEW_POSITION, 1)
                     putString(EXTRA_CUSTOM_REMOTE_VIEW_TAG, "sugarlicious_expanded_notification")
                 }
-                if (expandedRemoteView == null) {
-                    texts.drawerSecondary?.let { putString(EXTRA_SECONDARY_INFO, it) }
-                }
                 texts.nowBarSecondary?.let { putString(EXTRA_NOWBAR_SECONDARY_INFO, it) }
             }
         builder.addExtras(extras)
@@ -102,13 +101,19 @@ internal object SamsungLiveNotificationAdapter {
             listOfNotNull(
                 presentation.glucoseText,
                 presentation.nowBarTrendSymbol,
-                presentation.deltaText,
             ).takeIf(List<String>::isNotEmpty)?.joinToString(" ") ?: presentation.statusText ?: "Keine Quelle"
+        val nowBarSecondary =
+            listOfNotNull(
+                presentation.deltaText?.let { delta ->
+                    presentation.unitText?.let { unit -> "$delta $unit" } ?: delta
+                },
+                presentation.ageText,
+            ).takeIf(List<String>::isNotEmpty)?.joinToString(" · ")
         return SamsungLiveTexts(
             drawerPrimary = presentation.drawerPrimaryText,
             drawerSecondary = presentation.therapyText,
             nowBarPrimary = nowBarPrimary,
-            nowBarSecondary = presentation.therapyText,
+            nowBarSecondary = nowBarSecondary,
             chipExpandedText = primary,
         )
     }

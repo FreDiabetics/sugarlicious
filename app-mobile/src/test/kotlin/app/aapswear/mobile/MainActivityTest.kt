@@ -10,6 +10,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
 import app.aapswear.model.CgmGraphScaleMode
+import app.aapswear.model.PredictionKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -184,8 +185,9 @@ class MainActivityTest {
         val ui = DashboardUiPreferences.read(preferences)
 
         assertEquals(4.25f, ui.cgmDotRadiusDp, 0.001f)
-        assertFalse(ui.cgmDotOutlineEnabled)
-        assertEquals(1.75f, ui.cgmDotOutlineWidthDp, 0.001f)
+        assertFalse(ui.cgmHistoricalDotOutlineEnabled)
+        assertEquals(1.75f, ui.cgmHistoricalDotOutlineWidthDp, 0.001f)
+        assertEquals(1.75f, ui.cgmCurrentDotOutlineWidthDp, 0.001f)
     }
 
     @Test fun `notification graph defaults are independent from dashboard graph`() {
@@ -296,6 +298,34 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
+    @Test
+    fun `prediction master switch controls every prediction stream and divider`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("prediction_master_contract", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putBoolean("showPredictions", false)
+            .putBoolean("cgm.prediction.iob", true)
+            .putBoolean("cgm.prediction.cob", true)
+            .putBoolean("cgm.prediction.uam", true)
+            .putBoolean("cgm.prediction.zeroTemp", true)
+            .commit()
+
+        val disabled = DashboardUiPreferences.read(preferences)
+        assertFalse(disabled.predictionsEnabled)
+        assertFalse(disabled.showPredictionDivider)
+
+        preferences.edit().putBoolean("showPredictions", true).commit()
+        val enabled = DashboardUiPreferences.read(preferences)
+        assertTrue(enabled.predictionsEnabled)
+        assertTrue(enabled.showPredictionDivider)
+        assertEquals(
+            PredictionKind.entries.toSet(),
+            enabled.enabledPredictionKinds,
+        )
+    }
+
     @Test fun `saving carousel position does not rebuild the visible dashboard`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -356,6 +386,28 @@ class MainActivityTest {
         activity.findViewById<View>(R.id.top_settings).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertTrue(textOf(activity.findViewById(R.id.dashboard_content)).contains("Einstellungen"))
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `system back navigates to overview and can never finish the main activity`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
+
+        activity.onBackPressedDispatcher.onBackPressed()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_app_bar).visibility)
+        assertFalse(activity.isFinishing)
+
+        repeat(3) {
+            activity.onBackPressedDispatcher.onBackPressed()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        assertFalse(activity.isFinishing)
+
         controller.pause().stop().destroy()
     }
 

@@ -58,7 +58,13 @@ internal fun notificationPresentation(
     val displayable =
         glucose != null &&
             TherapyDisplayFormatter.isGlucoseKnown(state) &&
-            status in setOf(CgmPresentationStatus.CURRENT, CgmPresentationStatus.AGING)
+            status in
+            setOf(
+                CgmPresentationStatus.CURRENT,
+                CgmPresentationStatus.AGING,
+                CgmPresentationStatus.STALE,
+                CgmPresentationStatus.SIGNAL_LOSS,
+            )
     val unit = selectedUnit ?: glucose?.displayUnit
     val glucoseText = if (displayable && unit != null) formatGlucose(glucose.valueMgDl, unit) else null
     val glucoseNumeric =

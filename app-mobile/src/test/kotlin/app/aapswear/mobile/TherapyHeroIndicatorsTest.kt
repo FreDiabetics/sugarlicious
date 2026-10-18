@@ -145,6 +145,12 @@ class TherapyHeroIndicatorsTest {
         assertEquals("0,3U·8m", therapyIndicatorPresentations(state, 10f, now)[0].secondary)
     }
 
+    @Test fun `last bolus age switches from minutes to whole hours at sixty minutes`() {
+        assertEquals("59m", formatCompactBolusAge(59L * 60_000L))
+        assertEquals("1h", formatCompactBolusAge(60L * 60_000L))
+        assertEquals("2h", formatCompactBolusAge(179L * 60_000L))
+    }
+
     @Test
     fun `IOB secondary is absent when no positive canonical bolus exists`() {
         val now = 10 * 60_000L
@@ -181,6 +187,16 @@ class TherapyHeroIndicatorsTest {
     }
 
     @Test
+    fun `CGM graph scale lane moves continuously between sides`() {
+        val left = mobileCgmGraphBounds(400f, 240f, 1f, 32f, 40f, scaleRightBlend = 0f)
+        val middle = mobileCgmGraphBounds(400f, 240f, 1f, 32f, 40f, scaleRightBlend = 0.5f)
+        val right = mobileCgmGraphBounds(400f, 240f, 1f, 32f, 40f, scaleRightBlend = 1f)
+
+        assertEquals((left.plot.left + right.plot.left) / 2f, middle.plot.left, 0.001f)
+        assertEquals((left.plot.right + right.plot.right) / 2f, middle.plot.right, 0.001f)
+    }
+
+    @Test
     fun `metabolic graph uses one plot region with a minimal square internal separator`() {
         val bounds = mobileMetabolicGraphBounds(400f, 260f, 1f, 24f, 29f, scaleOnRight = true)
 
@@ -191,6 +207,16 @@ class TherapyHeroIndicatorsTest {
         assertEquals(bounds.separator.bottom, bounds.cobLane.top, 0.001f)
         assertTrue(bounds.iobData.height() > bounds.iobLane.height() * 0.65f)
         assertTrue(bounds.cobData.height() > bounds.cobLane.height() * 0.65f)
+    }
+
+    @Test
+    fun `metabolic graph scale lane moves continuously between sides`() {
+        val left = mobileMetabolicGraphBounds(400f, 260f, 1f, 24f, 29f, scaleRightBlend = 0f)
+        val middle = mobileMetabolicGraphBounds(400f, 260f, 1f, 24f, 29f, scaleRightBlend = 0.5f)
+        val right = mobileMetabolicGraphBounds(400f, 260f, 1f, 24f, 29f, scaleRightBlend = 1f)
+
+        assertEquals((left.plotRegion.left + right.plotRegion.left) / 2f, middle.plotRegion.left, 0.001f)
+        assertEquals((left.plotRegion.right + right.plotRegion.right) / 2f, middle.plotRegion.right, 0.001f)
     }
 
     private fun state(

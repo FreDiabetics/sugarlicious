@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.app.Notification
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.Icon
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
@@ -108,7 +107,7 @@ class LiveNotificationAdaptersTest {
 
     @Test
     @Config(sdk = [35])
-    fun `samsung adapter writes all supported extras independently of android promotion`() {
+    fun `samsung adapter keeps therapy details out of the drawer while preserving now bar text`() {
         val builder = builder()
 
         val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung", android.R.drawable.ic_dialog_info)
@@ -116,12 +115,12 @@ class LiveNotificationAdaptersTest {
 
         assertEquals("118 ↘ −6 · Basal 0.45U/h", texts!!.drawerPrimary)
         assertEquals("IOB 1.30U · COB 22g", texts.drawerSecondary)
-        assertEquals("118 ↘ −6", texts.nowBarPrimary)
-        assertEquals("IOB 1.30U · COB 22g", texts.nowBarSecondary)
+        assertEquals("118 ↘", texts.nowBarPrimary)
+        assertEquals("−6 mg/dL · 0m", texts.nowBarSecondary)
         assertEquals("118 ↘ −6", texts.chipExpandedText)
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
         assertEquals(texts.drawerPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_PRIMARY_INFO))
-        assertEquals(texts.drawerSecondary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_SECONDARY_INFO))
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_SECONDARY_INFO))
         assertEquals(texts.nowBarPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(texts.nowBarSecondary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO))
         assertEquals(texts.chipExpandedText, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_TEXT))
@@ -158,7 +157,8 @@ class LiveNotificationAdaptersTest {
         val texts = SamsungLiveNotificationAdapter.texts(presentation)
 
         assertEquals("118 ↗ +3 · Basal 0.45U/h", texts.drawerPrimary)
-        assertEquals("118 → +3", texts.nowBarPrimary)
+        assertEquals("118 →", texts.nowBarPrimary)
+        assertEquals("+3 mg/dL · 0m", texts.nowBarSecondary)
         assertEquals("118 ↗ +3", texts.chipExpandedText)
     }
 

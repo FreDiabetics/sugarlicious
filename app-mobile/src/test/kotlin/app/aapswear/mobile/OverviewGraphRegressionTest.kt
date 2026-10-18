@@ -3,8 +3,6 @@ package app.aapswear.mobile
 import android.content.Context
 import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
-import app.aapswear.mobile.ui.theme.SugarliciousColorRole
-import app.aapswear.mobile.ui.theme.SugarliciousColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -68,13 +66,12 @@ class OverviewGraphRegressionTest {
     }
 
     @Test
-    fun `target range boundary colors preserve region rgb and force full opacity`() {
-        listOf(SugarliciousColorRole.RANGE_HIGH, SugarliciousColorRole.RANGE_LOW).forEach { role ->
-            val regionColor = SugarliciousColors.argb(role)
-            val boundaryColor = opaqueGraphBoundaryColor(regionColor)
+    fun `target range boundary colors preserve configured transparency`() {
+        val configuredColor = Color.argb(37, 12, 90, 180)
 
-            assertEquals(255, Color.alpha(boundaryColor))
-            assertEquals(regionColor and 0x00FFFFFF, boundaryColor and 0x00FFFFFF)
-        }
+        val boundaryColor = graphBoundaryColor(configuredColor)
+
+        assertEquals(37, Color.alpha(boundaryColor))
+        assertEquals(configuredColor, boundaryColor)
     }
 }

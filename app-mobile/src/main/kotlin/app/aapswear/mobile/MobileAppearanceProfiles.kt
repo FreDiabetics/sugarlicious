@@ -18,16 +18,28 @@ internal fun readMobileGraphStyle(
                     graphAppearanceKey(mode, "dotRadiusDp"),
                     preferences.getFloat("cgm.dotRadiusDp", 2.4f),
                 ).coerceIn(1.5f, 6f),
-        cgmDotOutlineEnabled =
+        cgmHistoricalDotOutlineEnabled =
             preferences.getBoolean(
-                graphAppearanceKey(mode, "dotOutlineEnabled"),
+                graphAppearanceKey(mode, "historicalDotOutlineEnabled"),
                 preferences.getBoolean("cgm.dotOutlineEnabled", true),
             ),
-        cgmDotOutlineWidthDp =
+        cgmHistoricalDotOutlineWidthDp =
             preferences
                 .getFloat(
-                    graphAppearanceKey(mode, "dotOutlineWidthDp"),
-                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                    graphAppearanceKey(mode, "historicalDotOutlineWidthDp"),
+                    preferences.getFloat(
+                        graphAppearanceKey(mode, "dotOutlineWidthDp"),
+                        preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                    ),
+                ).coerceIn(0.25f, 3f),
+        cgmCurrentDotOutlineWidthDp =
+            preferences
+                .getFloat(
+                    graphAppearanceKey(mode, "currentDotOutlineWidthDp"),
+                    preferences.getFloat(
+                        graphAppearanceKey(mode, "dotOutlineWidthDp"),
+                        preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                    ),
                 ).coerceIn(0.25f, 3f),
     )
 

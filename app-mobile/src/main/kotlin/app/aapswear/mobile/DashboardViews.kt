@@ -21,6 +21,7 @@ import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
+import app.aapswear.model.PredictionKind
 import app.aapswear.model.TherapyDisplayState
 import java.util.Locale
 
@@ -71,6 +72,7 @@ data class DashboardUiPreferences(
     val showCgmCurrentBasal: Boolean = false,
     val showCgmBaseBasal: Boolean = false,
     val showCgmActivity: Boolean = true,
+    val showCgmPredictions: Boolean = false,
     val showCgmPredictionIob: Boolean = false,
     val showCgmPredictionCob: Boolean = false,
     val showCgmPredictionUam: Boolean = false,
@@ -84,6 +86,9 @@ data class DashboardUiPreferences(
     val cgmDotRadiusDp: Float = 2.4f,
     val cgmDotOutlineEnabled: Boolean = true,
     val cgmDotOutlineWidthDp: Float = 0.95f,
+    val cgmHistoricalDotOutlineEnabled: Boolean = cgmDotOutlineEnabled,
+    val cgmHistoricalDotOutlineWidthDp: Float = cgmDotOutlineWidthDp,
+    val cgmCurrentDotOutlineWidthDp: Float = cgmDotOutlineWidthDp,
     val predictionDotRadiusDp: Float = 1.75f,
     val predictionDotOutlineWidthDp: Float = 0.70f,
     val compact: Boolean = true,
@@ -91,7 +96,7 @@ data class DashboardUiPreferences(
     val graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
     val iobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
     val cobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
-    val graphMinimumMgDl: Double = 40.0,
+    val graphMinimumMgDl: Double = 0.0,
     val graphMaximumMgDl: Double = 400.0,
     val liveNotification: Boolean = false,
     val notificationGraphEnabled: Boolean = true,
@@ -105,12 +110,23 @@ data class DashboardUiPreferences(
 ) {
     val effectiveShowDetails: Boolean
         get() = glucoseTileDetailMode == GlucoseTileDetailMode.TIR && showDetails
-    val anyCgmPredictionEnabled: Boolean
+    val enabledPredictionKinds: Set<PredictionKind>
         get() =
-            showCgmPredictionIob ||
-                showCgmPredictionCob ||
-                showCgmPredictionUam ||
-                showCgmPredictionZeroTemp
+            buildSet {
+                if (showCgmPredictionIob) add(PredictionKind.IOB)
+                if (showCgmPredictionCob) {
+                    add(PredictionKind.COB)
+                    add(PredictionKind.ACOB)
+                }
+                if (showCgmPredictionUam) add(PredictionKind.UAM)
+                if (showCgmPredictionZeroTemp) add(PredictionKind.ZERO_TEMP)
+            }
+    val predictionsEnabled: Boolean
+        get() = showCgmPredictions && enabledPredictionKinds.isNotEmpty()
+    val showPredictionDivider: Boolean
+        get() = predictionsEnabled
+    val anyCgmPredictionEnabled: Boolean
+        get() = predictionsEnabled
     val showCgmBasal: Boolean
         get() = showCgmCurrentBasal || showCgmBaseBasal
 
@@ -142,6 +158,7 @@ data class DashboardUiPreferences(
                 showCgmCurrentBasal = preferences.getBoolean(CGM_CURRENT_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
                 showCgmBaseBasal = preferences.getBoolean(CGM_BASE_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
                 showCgmActivity = preferences.getBoolean("cgm.activity", true),
+                showCgmPredictions = preferences.getBoolean("showPredictions", false),
                 showCgmPredictionIob = preferences.getBoolean("cgm.prediction.iob", false),
                 showCgmPredictionCob = preferences.getBoolean("cgm.prediction.cob", false),
                 showCgmPredictionUam = preferences.getBoolean("cgm.prediction.uam", false),
@@ -155,6 +172,9 @@ data class DashboardUiPreferences(
                 cgmDotRadiusDp = readMobileGraphStyle(preferences).cgmDotRadiusDp,
                 cgmDotOutlineEnabled = readMobileGraphStyle(preferences).cgmDotOutlineEnabled,
                 cgmDotOutlineWidthDp = readMobileGraphStyle(preferences).cgmDotOutlineWidthDp,
+                cgmHistoricalDotOutlineEnabled = readMobileGraphStyle(preferences).cgmHistoricalDotOutlineEnabled,
+                cgmHistoricalDotOutlineWidthDp = readMobileGraphStyle(preferences).cgmHistoricalDotOutlineWidthDp,
+                cgmCurrentDotOutlineWidthDp = readMobileGraphStyle(preferences).cgmCurrentDotOutlineWidthDp,
                 predictionDotRadiusDp = readMobilePredictionDotRadius(preferences),
                 predictionDotOutlineWidthDp = readMobilePredictionDotOutlineWidth(preferences),
                 compact = preferences.getBoolean("compact", true),
@@ -165,7 +185,7 @@ data class DashboardUiPreferences(
                     }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC),
                 iobGraphScaleMode = readScaleMode(preferences, IOB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
                 cobGraphScaleMode = readScaleMode(preferences, COB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
-                graphMinimumMgDl = preferences.getFloat(GRAPH_MINIMUM_KEY, 40f).toDouble().coerceIn(20.0, 300.0),
+                graphMinimumMgDl = 0.0,
                 graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
                 liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
@@ -694,23 +714,6 @@ class DashboardViewFactory(
                             addView(divider())
                             addView(
                                 sugarliciousSliderRow(
-                                    title = "Graphminimum",
-                                    value = thresholdForUi(preferences.graphMinimumMgDl, graphUnit),
-                                    minimum = thresholdForUi(20.0, graphUnit),
-                                    maximum = thresholdForUi(300.0, graphUnit),
-                                    valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
-                                ) { entered ->
-                                    dashboardPreferences.edit {
-                                        putFloat(
-                                            DashboardUiPreferences.GRAPH_MINIMUM_KEY,
-                                            thresholdFromUi(entered, graphUnit).toFloat(),
-                                        )
-                                    }
-                                },
-                            )
-                            addView(divider())
-                            addView(
-                                sugarliciousSliderRow(
                                     title = "Graphmaximum",
                                     value = thresholdForUi(preferences.graphMaximumMgDl, graphUnit),
                                     minimum = thresholdForUi(180.0, graphUnit),
@@ -809,6 +812,20 @@ class DashboardViewFactory(
                                 maximum = 500f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, it) } },
+                        )
+                        addView(divider())
+                        addView(
+                            switchRowCompact("Vorhersagen", preferences.showCgmPredictions, View.generateViewId()) { enabled ->
+                                dashboardPreferences.edit {
+                                    putBoolean("showPredictions", enabled)
+                                    if (enabled) {
+                                        putBoolean("cgm.prediction.iob", true)
+                                        putBoolean("cgm.prediction.cob", true)
+                                        putBoolean("cgm.prediction.uam", true)
+                                        putBoolean("cgm.prediction.zeroTemp", true)
+                                    }
+                                }
+                            },
                         )
                         addView(divider())
                         addView(

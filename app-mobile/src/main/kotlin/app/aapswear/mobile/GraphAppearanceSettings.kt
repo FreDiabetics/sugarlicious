@@ -8,9 +8,11 @@ import app.aapswear.model.AppearanceMode
 private val cgmGraphColorRoles =
     setOf(
         SugarliciousColorRole.RANGE_LOW,
+        SugarliciousColorRole.RANGE_VERY_LOW,
         SugarliciousColorRole.GLUCOSE_VERY_LOW,
         SugarliciousColorRole.RANGE_IN_RANGE,
         SugarliciousColorRole.RANGE_HIGH,
+        SugarliciousColorRole.RANGE_VERY_HIGH,
         SugarliciousColorRole.GLUCOSE_VERY_HIGH,
         SugarliciousColorRole.TARGET_BAND,
         SugarliciousColorRole.CGM_DOT_LOW,
@@ -19,6 +21,8 @@ private val cgmGraphColorRoles =
         SugarliciousColorRole.GRAPH_DIVIDER,
         SugarliciousColorRole.GRAPH_BORDER,
         SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
+        SugarliciousColorRole.GRAPH_VERY_LOW_LINE,
+        SugarliciousColorRole.GRAPH_VERY_HIGH_LINE,
     )
 
 internal fun colorRoleVisible(
@@ -35,12 +39,18 @@ internal fun colorRoleVisible(
 internal fun graphAppearanceKey(mode: AppearanceMode, suffix: String): String = "cgm.${mode.storageKey}.$suffix"
 
 internal fun migrateGraphAppearance(preferences: SharedPreferences) {
-    if (preferences.getBoolean("cgm.appearance.profiles.v1", false)) return
+    if (preferences.getBoolean("cgm.appearance.profiles.v1", false)) {
+        migrateSplitDotOutlineWidths(preferences)
+        return
+    }
     val legacy =
         listOf(
             "dotRadiusDp" to "cgm.dotRadiusDp",
             "dotOutlineEnabled" to "cgm.dotOutlineEnabled",
             "dotOutlineWidthDp" to "cgm.dotOutlineWidthDp",
+            "historicalDotOutlineWidthDp" to "cgm.dotOutlineWidthDp",
+            "currentDotOutlineWidthDp" to "cgm.dotOutlineWidthDp",
+            "historicalDotOutlineEnabled" to "cgm.dotOutlineEnabled",
             "prediction.dotRadiusDp" to "cgm.prediction.dotRadiusDp",
             "prediction.dotOutlineWidthDp" to "cgm.prediction.dotOutlineWidthDp",
         )
@@ -52,7 +62,7 @@ internal fun migrateGraphAppearance(preferences: SharedPreferences) {
                 val target = graphAppearanceKey(mode, suffix)
                 if (preferences.contains(target)) return@forEach
                 when (suffix) {
-                    "dotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
+                    "dotOutlineEnabled", "historicalDotOutlineEnabled" -> putBoolean(target, preferences.getBoolean(oldKey, true))
                     else ->
                         putFloat(
                             target,
@@ -70,5 +80,25 @@ internal fun migrateGraphAppearance(preferences: SharedPreferences) {
             }
         }
         putBoolean("cgm.appearance.profiles.v1", true)
+    }
+    migrateSplitDotOutlineWidths(preferences)
+}
+
+private fun migrateSplitDotOutlineWidths(preferences: SharedPreferences) {
+    if (preferences.getBoolean("cgm.appearance.dotOutlines.v2", false)) return
+    preferences.edit {
+        AppearanceMode.entries.forEach { mode ->
+            val legacyKey = graphAppearanceKey(mode, "dotOutlineWidthDp")
+            val legacyWidth =
+                preferences.getFloat(
+                    legacyKey,
+                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                )
+            listOf("historicalDotOutlineWidthDp", "currentDotOutlineWidthDp").forEach { suffix ->
+                val target = graphAppearanceKey(mode, suffix)
+                if (!preferences.contains(target)) putFloat(target, legacyWidth)
+            }
+        }
+        putBoolean("cgm.appearance.dotOutlines.v2", true)
     }
 }

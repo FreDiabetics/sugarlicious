@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -31,6 +32,18 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CgmGraphCustomizationTest {
+    @Test
+    fun `boundary paint restores exact configured alpha after reused paint state`() {
+        val paint = Paint().apply { alpha = 211 }
+
+        applyGraphBoundaryPaint(paint, Color.TRANSPARENT)
+        assertEquals(0, paint.alpha)
+
+        applyGraphBoundaryPaint(paint, Color.argb(73, 12, 34, 56))
+        assertEquals(73, paint.alpha)
+        assertEquals(12, Color.red(paint.color))
+    }
+
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
 

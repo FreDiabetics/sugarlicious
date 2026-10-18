@@ -63,6 +63,7 @@ internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
 
 internal const val RADIO_DEGRADED_CLUSTER_THRESHOLD = 3
 internal const val G7_RUNTIME_RECYCLE_COOLDOWN_MS = 15L * 60_000L
+internal const val G7_DEGRADED_SCAN_WINDOWS_BEFORE_DIRECT_PROBE = 3
 
 private val RADIO_FAILURE_CLASSES =
     setOf(
@@ -84,27 +85,51 @@ internal fun effectiveG7ReconnectStrategy(
     configured: G7ReconnectStrategy,
     health: G7CollectorHealth,
 ): G7ReconnectStrategy =
-    if (
-        configured == G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT &&
-        health.consecutiveFailures >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
-        health.lastFailureClass in RADIO_FAILURE_CLASSES
-    ) {
-        G7ReconnectStrategy.BOUNDED_SCAN
-    } else {
-        configured
+    when {
+        configured != G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT -> configured
+        health.consecutiveFailures < RADIO_DEGRADED_CLUSTER_THRESHOLD -> configured
+        health.lastFailureClass !in RADIO_FAILURE_CLASSES -> configured
+        else -> {
+            val degradedOffset = health.consecutiveFailures - RADIO_DEGRADED_CLUSTER_THRESHOLD
+            val recoveryCycleLength = G7_DEGRADED_SCAN_WINDOWS_BEFORE_DIRECT_PROBE + 1
+            if (degradedOffset % recoveryCycleLength < G7_DEGRADED_SCAN_WINDOWS_BEFORE_DIRECT_PROBE) {
+                G7ReconnectStrategy.BOUNDED_SCAN
+            } else {
+                G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT
+            }
+        }
     }
 
 internal fun shouldRecycleG7Runtime(
     cycle: app.aapswear.g7.CollectorCycleTiming?,
     radioFailureStreak: Int,
+    knownSensorAddress: Boolean = false,
     lastRecycleAtEpochMs: Long?,
     nowEpochMs: Long,
-): Boolean =
-    radioFailureStreak >= RADIO_DEGRADED_CLUSTER_THRESHOLD &&
-        cycle?.directConnectResult == app.aapswear.g7.DirectConnectResult.NO_CALLBACK &&
+): Boolean {
+    if (radioFailureStreak < RADIO_DEGRADED_CLUSTER_THRESHOLD || cycle == null) return false
+    if ((cycle.scanExactAddressResults ?: 0) > 0) return false
+    if (lastRecycleAtEpochMs != null && nowEpochMs - lastRecycleAtEpochMs < G7_RUNTIME_RECYCLE_COOLDOWN_MS) return false
+
+    val recoverableDirectCluster =
         cycle.fallbackScanUsed &&
-        (cycle.scanExactAddressResults ?: 0) == 0 &&
-        (lastRecycleAtEpochMs == null || nowEpochMs - lastRecycleAtEpochMs >= G7_RUNTIME_RECYCLE_COOLDOWN_MS)
+            cycle.directConnectResult in
+            setOf(
+                app.aapswear.g7.DirectConnectResult.NO_CALLBACK,
+                app.aapswear.g7.DirectConnectResult.STATUS_133,
+                app.aapswear.g7.DirectConnectResult.OTHER_STATUS,
+                app.aapswear.g7.DirectConnectResult.TIMEOUT,
+                app.aapswear.g7.DirectConnectResult.DISCONNECTED_EARLY,
+            )
+    val degradedScanOnlyMiss =
+        knownSensorAddress &&
+            cycle.radioDegradedCluster &&
+            cycle.directConnectResult == null &&
+            cycle.scanStartedAt != null &&
+            cycle.scanEndedAt != null
+
+    return recoverableDirectCluster || degradedScanOnlyMiss
+}
 
 internal fun nextRadioFailureStreak(previous: G7CollectorHealth, current: G7FailureClass): Int =
     if (current in RADIO_FAILURE_CLASSES && previous.lastFailureClass in RADIO_FAILURE_CLASSES) previous.consecutiveFailures + 1 else 1
@@ -122,7 +147,13 @@ internal fun isCompleteRadioFailure(
     cycle: app.aapswear.g7.CollectorCycleTiming?,
 ): Boolean =
     classification == CollectorCycleClassification.FALLBACK_SCAN_FAILED ||
-        (classification == CollectorCycleClassification.GATT_CONNECT_FAILED && cycle?.fallbackScanUsed == true)
+        (classification == CollectorCycleClassification.GATT_CONNECT_FAILED && cycle?.fallbackScanUsed == true) ||
+        (
+            classification == CollectorCycleClassification.NO_ADVERTISEMENT &&
+                cycle?.scanStartedAt != null &&
+                cycle.scanEndedAt != null &&
+                (cycle.scanExactAddressResults ?: 0) == 0
+        )
 
 internal fun directConnectDiagnosticCode(result: app.aapswear.g7.DirectConnectResult): String =
     when (result) {

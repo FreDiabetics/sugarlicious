@@ -50,17 +50,19 @@ class SharedWearCgmGraphRendererTest {
     }
 
     @Test
-    fun `wear and collector adapters receive identical full bleed geometry`() {
+    fun `wear and collector adapters receive identical outline safe geometry`() {
         listOf(192 to 112, 320 to 170, 454 to 220).forEach { (width, height) ->
             val wear = SharedWearCgmGraphRenderer.metrics(width, height, 2f, CgmThresholds.DEFAULT)
             val collector = SharedWearCgmGraphRenderer.metrics(width, height, 2f, CgmThresholds.DEFAULT)
+            val dotInset = (2.4f + 0.95f) * 2f
             assertEquals(wear, collector)
-            assertEquals(0f, wear.plot.left, 0.01f)
-            assertEquals(width - 58f, wear.plot.right, 0.01f)
+            assertEquals(dotInset, wear.plot.left, 0.01f)
+            assertEquals(dotInset, wear.plot.top, 0.01f)
+            assertEquals(width - 58f - dotInset, wear.plot.right, 0.01f)
             assertEquals(0f, wear.visualBounds.left, 0.01f)
             assertEquals(0f, wear.visualBounds.top, 0.01f)
             assertEquals(width.toFloat(), wear.visualBounds.right, 0.01f)
-            assertEquals(wear.plot.bottom, wear.visualBounds.bottom, 0.01f)
+            assertTrue(wear.visualBounds.bottom > wear.plot.bottom)
             assertTrue(wear.plot.height() > 0f)
             assertTrue(wear.highY < wear.lowY)
         }

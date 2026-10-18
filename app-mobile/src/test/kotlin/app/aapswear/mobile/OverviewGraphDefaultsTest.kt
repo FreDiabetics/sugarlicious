@@ -41,9 +41,17 @@ class OverviewGraphDefaultsTest {
 
         val preferences = DashboardUiPreferences.read(storage)
         assertEquals(CgmGraphScaleMode.LOGARITHMIC_DYNAMIC, preferences.graphScaleMode)
-        assertEquals(55.0, preferences.graphMinimumMgDl, 0.0)
+        assertEquals(0.0, preferences.graphMinimumMgDl, 0.0)
         assertEquals(350.0, preferences.graphMaximumMgDl, 0.0)
         assertEquals(180f, preferences.cobProgressMaximumGrams, 0f)
+    }
+
+    @Test
+    fun `mobile graph uses real zero when no legacy minimum exists`() {
+        val storage = context.getSharedPreferences("dashboard_ui_zero_minimum", android.content.Context.MODE_PRIVATE)
+        storage.edit().clear().commit()
+
+        assertEquals(0.0, DashboardUiPreferences.read(storage).graphMinimumMgDl, 0.0)
     }
 
     @Test

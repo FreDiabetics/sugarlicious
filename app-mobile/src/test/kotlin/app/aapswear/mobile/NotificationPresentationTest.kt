@@ -112,7 +112,7 @@ class NotificationPresentationTest {
     }
 
     @Test
-    fun `signal loss sensor error and no source suppress old glucose`() {
+    fun `signal loss retains last glucose trend and delta while invalid states stay hidden`() {
         val signalLoss = notificationPresentation(state(now - CgmPresentationPolicy.SIGNAL_LOSS_AFTER_MS), now)
         val sensorError =
             notificationPresentation(
@@ -122,8 +122,10 @@ class NotificationPresentationTest {
         val noSource = notificationPresentation(state().copy(glucose = null), now)
 
         assertEquals("Signalverlust", signalLoss.statusText)
-        assertNull(signalLoss.glucoseText)
-        assertNull(signalLoss.androidCapsuleText)
+        assertEquals("118", signalLoss.glucoseText)
+        assertEquals("↘", signalLoss.trendSymbol)
+        assertEquals("−6", signalLoss.deltaText)
+        assertEquals("118 ↘", signalLoss.androidCapsuleText)
         assertEquals("Sensorfehler", sensorError.statusText)
         assertNull(sensorError.compactPrimaryText)
         assertEquals("Keine Quelle", noSource.statusText)

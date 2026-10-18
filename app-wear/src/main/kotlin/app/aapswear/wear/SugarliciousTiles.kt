@@ -101,7 +101,7 @@ internal fun wearGlucoseTilePresentation(
 ): WearGlucoseTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val glucose = state?.glucose
-    val fresh = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val retainsLastState = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
     val displayable = TherapyDisplayFormatter.isGlucoseKnown(state) && glucose != null
     val statusColor =
         when (freshness) {
@@ -146,7 +146,7 @@ internal fun wearGlucoseTilePresentation(
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         valueColor = valueColor,
         statusColor = statusColor,
-        trend = glucose.trend.takeIf { fresh && it != Trend.UNKNOWN },
+        trend = glucose.trend.takeIf { retainsLastState && it != Trend.UNKNOWN },
     )
 }
 
@@ -469,9 +469,11 @@ internal fun renderWearTileGraph(
                     SharedWearCgmGraphStyle(
                         dotRadiusDp = preferences.graphStyle.cgmDotRadiusDp,
                         dotOutlineWidthDp = preferences.graphStyle.cgmDotOutlineWidthDp,
+                        historicalDotOutlineWidthDp = preferences.graphStyle.cgmHistoricalDotOutlineWidthDp,
+                        currentDotOutlineWidthDp = preferences.graphStyle.cgmCurrentDotOutlineWidthDp,
                         dotOutlineEnabled = preferences.graphStyle.cgmDotOutlineEnabled,
                         historicalDotOutlineEnabled = preferences.graphStyle.cgmHistoricalDotOutlineEnabled,
-                        currentDotOutlineEnabled = preferences.graphStyle.cgmCurrentDotOutlineEnabled,
+                        currentDotOutlineEnabled = true,
                         scaleLaneOpacityPercent = preferences.graphStyle.scaleLaneOpacityPercent,
                     ),
             ),

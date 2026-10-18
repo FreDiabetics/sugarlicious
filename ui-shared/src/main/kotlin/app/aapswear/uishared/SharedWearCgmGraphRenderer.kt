@@ -163,18 +163,27 @@ object SharedWearCgmGraphRenderer {
         style: SharedWearCgmGraphStyle = SharedWearCgmGraphStyle(),
     ): SharedWearCgmGraphMetrics {
         fun dp(value: Float) = value * density
-        val left = 0f
+        val dotInset =
+            dp(
+                style.dotRadiusDp.coerceAtLeast(0f) +
+                    maxOf(
+                        if (style.historicalDotOutlineEnabled) style.historicalDotOutlineWidthDp else 0f,
+                        style.currentDotOutlineWidthDp,
+                    ).coerceIn(0f, 3f),
+            )
+        val left = dotInset
         // Reserve one explicit label lane so data cannot run through the target values.
         // Keep the target-value lane only as wide as a three-digit value needs. The live edge
         // remains visibly separate from that (invisible) lane boundary.
         val axisLeft = widthPx - dp(25f)
-        val top = 0f
-        val bottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
-        val plot = RectF(left, top, axisLeft - dp(4f), bottom)
+        val top = dotInset
+        val visualBottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
+        val bottom = visualBottom - dotInset
+        val plot = RectF(left, top, axisLeft - dp(4f) - dotInset, bottom)
 
         fun y(value: Double): Float = plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
         return SharedWearCgmGraphMetrics(
-            visualBounds = RectF(0f, 0f, widthPx.toFloat(), bottom),
+            visualBounds = RectF(0f, 0f, widthPx.toFloat(), visualBottom),
             plot = plot,
             axisLeftPx = axisLeft,
             highY = y(thresholds.highMgDl),

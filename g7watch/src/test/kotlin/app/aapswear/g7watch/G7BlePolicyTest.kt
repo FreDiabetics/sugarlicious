@@ -254,6 +254,20 @@ class G7BlePolicyTest {
         assertEquals(2, consecutiveRadioFailures(attempts, currentAttemptId = 4))
     }
 
+    @Test fun `completed scan only miss remains part of degraded radio cluster`() {
+        assertTrue(
+            isCompleteRadioFailure(
+                classification = CollectorCycleClassification.NO_ADVERTISEMENT,
+                cycle =
+                    CollectorCycleTiming(
+                        scanStartedAt = 1_000L,
+                        scanEndedAt = 61_000L,
+                        scanExactAddressResults = 0,
+                    ),
+            ),
+        )
+    }
+
     @Test fun `initial pairing keeps scanning for up to thirty minutes`() {
         assertEquals(
             G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
@@ -325,6 +339,79 @@ class G7BlePolicyTest {
         assertEquals(
             G7ReconnectStrategy.BOUNDED_SCAN,
             effectiveG7ReconnectStrategy(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, degraded),
+        )
+    }
+
+    @Test fun `known sensor gets a direct probe after three degraded scan windows`() {
+        val strategies =
+            (RADIO_DEGRADED_CLUSTER_THRESHOLD..RADIO_DEGRADED_CLUSTER_THRESHOLD + 4).map { failures ->
+                effectiveG7ReconnectStrategy(
+                    G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+                    G7CollectorHealth(
+                        consecutiveFailures = failures,
+                        lastFailureClass = G7FailureClass.SENSOR_NOT_ADVERTISING,
+                    ),
+                )
+            }
+
+        assertEquals(
+            listOf(
+                G7ReconnectStrategy.BOUNDED_SCAN,
+                G7ReconnectStrategy.BOUNDED_SCAN,
+                G7ReconnectStrategy.BOUNDED_SCAN,
+                G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT,
+                G7ReconnectStrategy.BOUNDED_SCAN,
+            ),
+            strategies,
+        )
+    }
+
+    @Test fun `degraded known sensor scan miss can recycle runtime without a direct callback`() {
+        val scanOnlyMiss =
+            CollectorCycleTiming(
+                scanStartedAt = 1_000L,
+                scanEndedAt = 61_000L,
+                scanTotalResults = 755,
+                scanExactAddressResults = 0,
+                radioDegradedCluster = true,
+            )
+
+        assertTrue(
+            shouldRecycleG7Runtime(
+                cycle = scanOnlyMiss,
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                knownSensorAddress = true,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+        assertFalse(
+            shouldRecycleG7Runtime(
+                cycle = scanOnlyMiss.copy(radioDegradedCluster = false),
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                knownSensorAddress = false,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
+        )
+    }
+
+    @Test fun `status 133 cluster can recycle runtime after paired sensor fallback miss`() {
+        val status133Miss =
+            CollectorCycleTiming(
+                directConnectResult = DirectConnectResult.STATUS_133,
+                fallbackScanUsed = true,
+                scanEndedAt = 16_000L,
+                scanExactAddressResults = 0,
+            )
+
+        assertTrue(
+            shouldRecycleG7Runtime(
+                cycle = status133Miss,
+                radioFailureStreak = RADIO_DEGRADED_CLUSTER_THRESHOLD,
+                lastRecycleAtEpochMs = null,
+                nowEpochMs = 2_000_000L,
+            ),
         )
     }
 

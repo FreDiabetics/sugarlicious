@@ -13,8 +13,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
-import app.aapswear.model.CgmThresholds
 import app.aapswear.model.CarbState
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
 import app.aapswear.model.GlucoseTrendSizing
@@ -46,6 +46,7 @@ import kotlin.math.abs
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Suppress("DEPRECATION")
 class PersistentBridgeServiceTest {
     @Before
     fun allowExactFreshnessAlarms() {
@@ -211,6 +212,31 @@ class PersistentBridgeServiceTest {
     }
 
     @Test
+    fun `expanded notification restores centered glucose details above a full width graph`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val headerId = context.resources.getIdentifier("notification_header", "id", context.packageName)
+        val headerBackgroundId = context.resources.getIdentifier("notification_header_background", "id", context.packageName)
+        val headerContentId = context.resources.getIdentifier("notification_header_content", "id", context.packageName)
+        val therapyId = context.resources.getIdentifier("notification_therapy", "id", context.packageName)
+
+        assertEquals(0, headerId)
+        assertEquals(0, headerBackgroundId)
+        assertEquals(0, headerContentId)
+        assertEquals(0, therapyId)
+        val root = LayoutInflater.from(context).inflate(R.layout.notification_sugarlicious_expanded, null) as ViewGroup
+        val info = root.findViewById<android.widget.LinearLayout>(R.id.notification_info_block)
+        val meta = root.findViewById<TextView>(R.id.notification_meta)
+        val graph = root.findViewById<ImageView>(R.id.notification_graph)
+
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
+        assertTrue(info.gravity and android.view.Gravity.CENTER_HORIZONTAL != 0)
+        assertEquals(android.view.Gravity.CENTER, meta.gravity)
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, graph.layoutParams.width)
+        assertEquals(0, root.paddingLeft)
+        assertEquals(0, root.paddingRight)
+    }
+
+    @Test
     @Config(sdk = [35])
     fun `normal notification is ongoing private and sticky by default`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -312,12 +338,12 @@ class PersistentBridgeServiceTest {
 
         val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
         shadowOf(android.os.Looper.getMainLooper()).idle()
-        val notification =
+        var notification =
             shadowOf(controller.get().getSystemService(NotificationManager::class.java))
                 .getNotification(PersistentBridgeService.NOTIFICATION_ID)
 
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
-        assertEquals("118 ↘ −6", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
+        assertEquals("118 ↘", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(
             context.getColor(R.color.app_accent),
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
@@ -334,15 +360,29 @@ class PersistentBridgeServiceTest {
         assertEquals(
             R.layout.notification_sugarlicious_expanded,
             notification.extras
-                .getParcelable("android.ongoingActivityNoti.chronometerRemoteView", android.widget.RemoteViews::class.java)!!
+                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CUSTOM_REMOTE_VIEW, android.widget.RemoteViews::class.java)!!
                 .layoutId,
         )
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_REMOTE_VIEW))
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_SECONDARY_INFO))
         assertNull(notification.extras.getCharSequence(Notification.EXTRA_TEXT))
         assertEquals(
-            "IOB 1.30U · COB 22g",
+            "−6 mg/dL · 0m",
             notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO),
         )
+
+        context.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        notification =
+            shadowOf(controller.get().getSystemService(NotificationManager::class.java))
+                .getNotification(PersistentBridgeService.NOTIFICATION_ID)
+        assertEquals(
+            R.layout.notification_sugarlicious_expanded,
+            notification.extras
+                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CUSTOM_REMOTE_VIEW, android.widget.RemoteViews::class.java)!!
+                .layoutId,
+        )
+        assertEquals("118 ↘", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         controller.destroy()
     }
 
