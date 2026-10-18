@@ -502,10 +502,9 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val titleIndex = texts.indexOf("SugarWear")
-        val brandIndex = texts.indexOf("by Sugarlicious")
         assertFalse(texts.contains("Systemstatus"))
         assertTrue(titleIndex >= 0)
-        assertTrue(brandIndex > titleIndex)
+        assertFalse(texts.contains("by Sugarlicious"))
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
         assertFalse(texts.contains("ZEITPLANUNG"))

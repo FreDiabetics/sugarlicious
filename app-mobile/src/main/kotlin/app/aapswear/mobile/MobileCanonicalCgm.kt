@@ -97,7 +97,7 @@ internal object MobileCanonicalStateCoordinator {
                 .merge(priorPhone, incoming, nowEpochMs)
                 .withoutDirectWatchCgm()
         val glucose = mergedPhone.glucose
-        if (glucose != null && glucose.trend == Trend.UNKNOWN) {
+        if (glucose != null && (glucose.deltaMgDl?.isFinite() == true || glucose.trend == Trend.UNKNOWN)) {
             val resolution =
                 TrendArrowResolver.resolveWithRate(
                     glucose.trend,

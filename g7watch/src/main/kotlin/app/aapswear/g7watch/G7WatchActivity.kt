@@ -647,13 +647,6 @@ class G7WatchActivity : Activity() {
                 setPadding(3.dp, 2.dp, 3.dp, 0)
             },
         )
-        content.addView(
-            label("by Sugarlicious", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), true).apply {
-                letterSpacing = 0.08f
-                setPadding(3.dp, 1.dp, 3.dp, 0)
-            },
-        )
-
         scrollView =
             G7EdgeFadeScrollView(this)
                 .apply {
