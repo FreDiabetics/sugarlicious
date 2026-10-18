@@ -32,17 +32,40 @@ internal fun mobileMetabolicGraphBounds(
     scaleOnRight: Boolean,
     separatorHeight: Float = 2f,
     markerHeadroomMaximum: Float = 24f,
+): MobileMetabolicGraphBounds =
+    mobileMetabolicGraphBounds(
+        width,
+        height,
+        outlineInset,
+        timeAxisHeight,
+        valueAxisWidth,
+        if (scaleOnRight) 1f else 0f,
+        separatorHeight,
+        markerHeadroomMaximum,
+    )
+
+internal fun mobileMetabolicGraphBounds(
+    width: Float,
+    height: Float,
+    outlineInset: Float,
+    timeAxisHeight: Float,
+    valueAxisWidth: Float,
+    scaleRightBlend: Float,
+    separatorHeight: Float = 2f,
+    markerHeadroomMaximum: Float = 24f,
 ): MobileMetabolicGraphBounds {
+    val blend = scaleRightBlend.coerceIn(0f, 1f)
     val outer = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
     val plotRegion =
-        if (scaleOnRight) {
-            RectF(outer.left, outer.top, outer.right - valueAxisWidth, outer.bottom - timeAxisHeight)
-        } else {
-            RectF(outer.left + valueAxisWidth, outer.top, outer.right, outer.bottom - timeAxisHeight)
-        }
+        RectF(
+            outer.left + valueAxisWidth * (1f - blend),
+            outer.top,
+            outer.right - valueAxisWidth * blend,
+            outer.bottom - timeAxisHeight,
+        )
     val timeAxis = RectF(plotRegion.left, plotRegion.bottom, plotRegion.right, outer.bottom)
     val valueAxis =
-        if (scaleOnRight) {
+        if (blend >= 0.5f) {
             RectF(plotRegion.right, plotRegion.top, outer.right, plotRegion.bottom)
         } else {
             RectF(outer.left, plotRegion.top, plotRegion.left, plotRegion.bottom)
@@ -76,18 +99,37 @@ internal fun mobileCgmGraphBounds(
     timeAxisHeight: Float,
     valueAxisWidth: Float,
     scaleOnRight: Boolean,
+): MobileCgmGraphBounds =
+    mobileCgmGraphBounds(
+        width,
+        height,
+        outlineInset,
+        timeAxisHeight,
+        valueAxisWidth,
+        if (scaleOnRight) 1f else 0f,
+    )
+
+internal fun mobileCgmGraphBounds(
+    width: Float,
+    height: Float,
+    outlineInset: Float,
+    timeAxisHeight: Float,
+    valueAxisWidth: Float,
+    scaleRightBlend: Float,
 ): MobileCgmGraphBounds {
+    val blend = scaleRightBlend.coerceIn(0f, 1f)
     val content = RectF(0f, 0f, width, height)
     val tile = RectF(outlineInset, outlineInset, width - outlineInset, height - outlineInset)
     val plot =
-        if (scaleOnRight) {
-            RectF(tile.left, tile.top, tile.right - valueAxisWidth, tile.bottom - timeAxisHeight)
-        } else {
-            RectF(tile.left + valueAxisWidth, tile.top, tile.right, tile.bottom - timeAxisHeight)
-        }
+        RectF(
+            tile.left + valueAxisWidth * (1f - blend),
+            tile.top,
+            tile.right - valueAxisWidth * blend,
+            tile.bottom - timeAxisHeight,
+        )
     val timeAxis = RectF(plot.left, plot.bottom, plot.right, tile.bottom)
     val valueAxis =
-        if (scaleOnRight) {
+        if (blend >= 0.5f) {
             RectF(plot.right, plot.top, tile.right, plot.bottom)
         } else {
             RectF(tile.left, plot.top, plot.left, plot.bottom)

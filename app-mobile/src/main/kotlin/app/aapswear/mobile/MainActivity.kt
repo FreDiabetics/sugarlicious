@@ -24,6 +24,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.edit
 import androidx.core.net.toUri
@@ -57,6 +58,8 @@ internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
 }
 
 class MainActivity : ComponentActivity() {
+    private var resumeLiveNotificationSetup = false
+    private var promotionSettingsRequestedThisSession = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val diagnostics by lazy { getSharedPreferences("diagnostics", MODE_PRIVATE) }
     private val uiPreferences by lazy { getSharedPreferences("dashboard_ui", MODE_PRIVATE) }
@@ -222,42 +225,17 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (screen != DashboardScreen.OVERVIEW) {
+                        navigate(DashboardScreen.OVERVIEW)
+                    }
+                }
+            },
+        )
         requestMigratedLocalNetworkAccessIfNeeded()
-        if (!uiPreferences.getBoolean("graphHoursDefault3Migrated", false)) {
-            uiPreferences.edit {
-                putInt("graphHours", 3)
-                putBoolean("graphHoursDefault3Migrated", true)
-            }
-        }
-        if (!uiPreferences.getBoolean("cgmDotsOnlyDefaultMigratedV1", false)) {
-            uiPreferences.edit {
-                putBoolean("showCgmGraph", true)
-                putBoolean("showMetabolicGraph", false)
-                putBoolean("showPredictions", false)
-                putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", true)
-                putBoolean("cgm.prediction.iob", false)
-                putBoolean("cgm.prediction.cob", false)
-                putBoolean("cgm.prediction.uam", false)
-                putBoolean("cgm.prediction.zeroTemp", false)
-                putBoolean("cgmDotsOnlyDefaultMigratedV1", true)
-            }
-        }
-        if (!uiPreferences.getBoolean("overviewDefaultsMigratedV2", false)) {
-            uiPreferences.edit {
-                putBoolean("showCgmGraph", true)
-                putBoolean("showDetails", true)
-                putBoolean("showMetabolicGraph", false)
-                putBoolean("cgm.targetValue", false)
-                putBoolean("cgm.basal", false)
-                putBoolean("cgm.activity", true)
-                putBoolean("cgm.prediction.iob", false)
-                putBoolean("cgm.prediction.cob", false)
-                putBoolean("cgm.prediction.uam", false)
-                putBoolean("cgm.prediction.zeroTemp", false)
-                putBoolean("overviewDefaultsMigratedV2", true)
-            }
-        }
         if (!uiPreferences.getBoolean("targetStepLineDefaultMigratedV3", false)) {
             // Earlier releases persisted the target-value layer as off, which made a correctly
             // rendered Step-Line invisible after an in-place update. Enable the new AAPS-style
@@ -506,6 +484,16 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::factory.isInitialized) refresh(forceSettingsRender = screen == DashboardScreen.SETTINGS)
+        if (resumeLiveNotificationSetup) {
+            resumeLiveNotificationSetup = false
+            if (canScheduleExactFreshnessAlarm()) {
+                activateLiveNotification()
+            } else {
+                uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+                PersistentBridgeService.refresh(this)
+            }
+        }
+        requestPromotionAccessIfNeeded()
     }
 
     override fun onStop() {
@@ -712,15 +700,43 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setLiveNotification(enabled: Boolean) {
-        uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, enabled) }
+        if (!enabled) {
+            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            PersistentBridgeService.refresh(this)
+            return
+        }
+        if (!canScheduleExactFreshnessAlarm()) {
+            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            PersistentBridgeService.refresh(this)
+            resumeLiveNotificationSetup = true
+            openExternal(
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri()),
+            )
+            return
+        }
+        activateLiveNotification()
+    }
+
+    private fun canScheduleExactFreshnessAlarm(): Boolean =
+        Build.VERSION.SDK_INT < 31 || getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()
+
+    private fun activateLiveNotification() {
+        uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true) }
         PersistentBridgeService.refresh(this)
-        if (!enabled) return
-        if (Build.VERSION.SDK_INT < 36) {
+        val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        if (Build.VERSION.SDK_INT < 36 && !samsung) {
             Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return
         }
+        requestPromotionAccessIfNeeded()
+    }
+
+    private fun requestPromotionAccessIfNeeded() {
+        if (Build.VERSION.SDK_INT < 36 || promotionSettingsRequestedThisSession) return
+        if (!uiPreferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)) return
         val manager = getSystemService(NotificationManager::class.java)
         if (!manager.canPostPromotedNotifications()) {
+            promotionSettingsRequestedThisSession = true
             openExternal(Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
         }
     }

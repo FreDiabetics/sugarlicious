@@ -31,6 +31,71 @@ import kotlin.math.roundToInt
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
+    @Test
+    fun `glucose widget uses the full host surface`() {
+        assertEquals(WidgetContentInsets.ZERO, widgetContentInsetsDp(WidgetKind.GLUCOSE, samsungCompact = false))
+    }
+
+    @Test
+    fun `therapy progress widget matches glucose surface and supports pill shape`() {
+        assertEquals(WidgetContentInsets.ZERO, widgetContentInsetsDp(WidgetKind.METABOLIC, samsungCompact = false))
+        assertTrue(widgetSupportsPill(ConfigurableWidgetKind.METABOLIC))
+    }
+
+    @Test
+    fun `samsung compact size adds the same inset to every mobile widget`() {
+        WidgetKind.entries.forEach { kind ->
+            assertEquals(
+                WidgetContentInsets(horizontalDp = 8f, verticalDp = 9f),
+                widgetContentInsetsDp(kind, samsungCompact = true),
+            )
+            assertEquals(WidgetContentInsets.ZERO, widgetContentInsetsDp(kind, samsungCompact = false))
+        }
+    }
+
+    @Test
+    fun `widget bitmap is rendered for the actual compact content box`() {
+        val size =
+            widgetRenderSizeDp(
+                hostWidthDp = 201.6f,
+                hostHeightDp = 100.8f,
+                insets = WidgetContentInsets(horizontalDp = 8f, verticalDp = 9f),
+            )
+
+        assertEquals(185.6f, size.widthDp, 0.01f)
+        assertEquals(82.8f, size.heightDp, 0.01f)
+    }
+
+    @Test
+    fun `widget settings preview uses the same compact homescreen dimensions`() {
+        val size = widgetPreviewRenderSizeDp(WidgetKind.GLUCOSE_GRAPH, 201.6f, 201.6f, samsungCompact = true)
+
+        assertEquals(185.6f, size.widthDp, 0.01f)
+        assertEquals(183.6f, size.heightDp, 0.01f)
+    }
+
+    @Test
+    fun `global samsung compact size setting persists`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        WidgetLayoutSizeStore.setSamsungCompact(context, true)
+        assertTrue(WidgetLayoutSizeStore.isSamsungCompact(context))
+
+        WidgetLayoutSizeStore.setSamsungCompact(context, false)
+        assertFalse(WidgetLayoutSizeStore.isSamsungCompact(context))
+    }
+
+    @Test
+    fun `samsung compact size is enabled for existing widgets until user disables it`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+
+        assertTrue(WidgetLayoutSizeStore.isSamsungCompact(context))
+    }
+
     private val now = 20_000_000L
     private val thresholds = app.aapswear.model.CgmThresholds.DEFAULT
     private val palette =
@@ -56,28 +121,34 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `first high remains in range and second high activates high`() {
-        val first = state(listOf(sample(150.0, -10), sample(190.0, -5)), 190.0)
-        val second = state(listOf(sample(190.0, -10), sample(195.0, -5)), 195.0)
-        assertEquals(WidgetColorRole.IN_RANGE, presentation(first).visibleRole)
-        assertEquals(WidgetColorRole.HIGH, presentation(second).visibleRole)
+    fun `first high colors value immediately and second high confirms excursion`() {
+        val configured = thresholds.copy(highMgDl = 160.0)
+        val first = state(listOf(sample(150.0, -10), sample(162.0, -5)), 162.0)
+        val second = state(listOf(sample(162.0, -10), sample(165.0, -5)), 165.0)
+        assertEquals(WidgetColorRole.HIGH, presentation(first, configured).visibleRole)
+        assertEquals(null, presentation(first, configured).excursion)
+        assertEquals(WidgetColorRole.HIGH, presentation(second, configured).visibleRole)
+        assertEquals(app.aapswear.model.RangeExcursion.HIGH, presentation(second, configured).excursion)
     }
 
     @Test
-    fun `first low remains in range and second low activates low`() {
+    fun `first low colors value immediately and second low confirms excursion`() {
         val first = state(listOf(sample(100.0, -10), sample(65.0, -5)), 65.0)
         val second = state(listOf(sample(65.0, -10), sample(60.0, -5)), 60.0)
-        assertEquals(WidgetColorRole.IN_RANGE, presentation(first).visibleRole)
+        assertEquals(WidgetColorRole.LOW, presentation(first).visibleRole)
+        assertEquals(null, presentation(first).excursion)
         assertEquals(WidgetColorRole.LOW, presentation(second).visibleRole)
+        assertEquals(app.aapswear.model.RangeExcursion.LOW, presentation(second).excursion)
     }
 
     @Test
-    fun `return in range resets immediately and duplicate cannot confirm`() {
+    fun `return in range resets immediately and duplicate only colors the value`() {
         val returned = state(listOf(sample(190.0, -15), sample(195.0, -10), sample(150.0, -5)), 150.0)
         val duplicate = sample(190.0, -5, sequence = 7)
         val duplicates = state(listOf(duplicate, duplicate.copy()), 190.0)
         assertEquals(WidgetColorRole.IN_RANGE, presentation(returned).visibleRole)
-        assertEquals(WidgetColorRole.IN_RANGE, presentation(duplicates).visibleRole)
+        assertEquals(WidgetColorRole.HIGH, presentation(duplicates).visibleRole)
+        assertEquals(null, presentation(duplicates).excursion)
     }
 
     @Test
@@ -100,6 +171,42 @@ class WidgetPresentationTest {
             assertFalse(graph.isRecycled)
             assertFalse(glucose.isRecycled)
         }
+    }
+
+    @Test
+    fun `therapy widget renders three mobile rings and preserves background transparency`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val transparentBackground = Color.argb(72, 10, 20, 30)
+        val transparentPalette = palette.with(WidgetColorRole.BACKGROUND, transparentBackground)
+        val bitmap =
+            renderTherapyIndicatorWidget(
+                context,
+                null,
+                transparentPalette,
+                402,
+                202,
+                now,
+                DashboardUiPreferences(),
+                WidgetInstanceConfiguration(backgroundArgb = transparentBackground),
+                2f,
+            )
+
+        assertEquals(402, bitmap.width)
+        assertEquals(202, bitmap.height)
+        assertTrue(
+            (0 until bitmap.width).any { x ->
+                Color.alpha(bitmap.getPixel(x, bitmap.height / 2)) == Color.alpha(transparentBackground)
+            },
+        )
+        val occupiedCells =
+            (0 until 3).count { cell ->
+                val left = cell * bitmap.width / 3
+                val right = (cell + 1) * bitmap.width / 3
+                (left until right step 2).any { x ->
+                    (0 until bitmap.height step 2).any { y -> Color.alpha(bitmap.getPixel(x, y)) > 72 }
+                }
+            }
+        assertEquals(3, occupiedCells)
     }
 
     @Test
@@ -188,6 +295,69 @@ class WidgetPresentationTest {
         assertTrue(metrics.graphFrame.top < metrics.headerHeightPx)
         assertTrue(metrics.headerHeightPx - metrics.graphFrame.top <= 8)
         assertEquals(440, metrics.graphFrame.bottom)
+    }
+
+    @Test
+    fun `combined widget applies background transparency once and keeps graph opaque`() {
+        val translucentBackground = 0x66000000
+        val transparentPalette =
+            palette
+                .with(WidgetColorRole.BACKGROUND, translucentBackground)
+                .with(WidgetColorRole.GRAPH_BACKGROUND, 0x66333333)
+        val configuration =
+            WidgetInstanceConfiguration(
+                backgroundArgb = translucentBackground,
+                backgroundEnabled = true,
+                cornerRadiusDp = 28,
+            )
+        val bitmap =
+            renderGlucoseGraphWidget(
+                state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0),
+                transparentPalette,
+                440,
+                440,
+                now,
+                thresholds,
+                responsiveWidgetLayout(220f, 220f),
+                2f,
+                configuration,
+            )
+        val metrics = combinedWidgetMetrics(440, 440, 2f, DEFAULT_COMBINED_WIDGET_VALUE_PERCENT)
+
+        assertEquals(0x66, Color.alpha(bitmap.getPixel(220, 24)))
+        assertEquals(0xFF, Color.alpha(bitmap.getPixel(metrics.graphFrame.centerX(), metrics.graphFrame.centerY())))
+    }
+
+    @Test
+    fun `combined widget foreground remains opaque over translucent background`() {
+        val bitmap =
+            renderGlucoseGraphWidget(
+                state(listOf(sample(115.0, -10), sample(120.0, -5)), 120.0),
+                palette,
+                440,
+                440,
+                now,
+                thresholds,
+                responsiveWidgetLayout(220f, 220f),
+                2f,
+                WidgetInstanceConfiguration(
+                    backgroundArgb = 0x44000000,
+                    outlineEnabled = true,
+                    outlineArgb = Color.GREEN,
+                    cornerRadiusDp = 28,
+                ),
+            )
+        val headerHeight = combinedWidgetMetrics(440, 440, 2f, DEFAULT_COMBINED_WIDGET_VALUE_PERCENT).headerHeightPx
+        val opaqueForegroundPixels =
+            (0 until headerHeight).sumOf { y ->
+                (0 until bitmap.width).count { x ->
+                    val pixel = bitmap.getPixel(x, y)
+                    Color.alpha(pixel) == 0xFF && pixel != Color.BLACK
+                }
+            }
+
+        assertTrue("value, arrow and outline must provide fully opaque foreground pixels", opaqueForegroundPixels > 100)
+        assertEquals(0xFF, Color.alpha(bitmap.getPixel(bitmap.width / 2, 1)))
     }
 
     @Test
@@ -317,6 +487,23 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `widget target labels start directly beside the live boundary`() {
+        val density = 2f
+        val metrics =
+            widgetGraphMetrics(
+                440,
+                260,
+                density,
+                responsiveWidgetLayout(220f, 130f),
+                Paint(),
+            )
+
+        val pointExtent = metrics.plot.left - metrics.graphBounds.left
+        assertTrue(metrics.yLabelLeftPx >= metrics.plot.right + pointExtent)
+        assertTrue(metrics.yLabelLeftPx - metrics.plot.right <= pointExtent + 2f * density)
+    }
+
+    @Test
     fun `graph corner radius is responsive and remains bounded by graph geometry`() {
         listOf(96 to 72, 320 to 180, 640 to 520).forEach { (width, height) ->
             val metrics =
@@ -410,7 +597,10 @@ class WidgetPresentationTest {
         }
     }
 
-    private fun presentation(state: TherapyDisplayState) = widgetRangePresentation(state, canonicalWidgetSamples(state, now), thresholds, now)
+    private fun presentation(
+        state: TherapyDisplayState,
+        configuredThresholds: app.aapswear.model.CgmThresholds = thresholds,
+    ) = widgetRangePresentation(state, canonicalWidgetSamples(state, now), configuredThresholds, now)
 
     private fun sample(
         value: Double,

@@ -27,7 +27,7 @@ class G7CollectorTileTrendSafetyTest {
     }
 
     @Test
-    fun `stale and sensor error states never expose a trend arrow`() {
+    fun `signal loss retains last trend while sensor error exposes none`() {
         val stale = g7TilePresentation(reading(now - 13 * 60_000L, Trend.SINGLE_UP), colors, now)
         val sensorError =
             g7TilePresentation(
@@ -39,7 +39,7 @@ class G7CollectorTileTrendSafetyTest {
                 now,
             )
 
-        assertNull(stale.trend)
+        assertEquals(Trend.SINGLE_UP, stale.trend)
         assertNull(sensorError.trend)
     }
 

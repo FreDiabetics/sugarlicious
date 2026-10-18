@@ -78,7 +78,8 @@ fun wearGlucoseCardPresentation(
             else -> FreshnessPolicy.classify(input.measuredAtEpochMs, nowEpochMs)
         }
     val displayable = input.quality == CgmQuality.VALID && value != null && value.isFinite() && value in 20.0..1_000.0
-    val fresh = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+    val retainsLastState =
+        freshness in setOf(Freshness.CURRENT, Freshness.DELAYED, Freshness.STALE, Freshness.SIGNAL_LOSS)
     val unit = if (input.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
     val formattedValue =
         if (!displayable) {
@@ -103,7 +104,7 @@ fun wearGlucoseCardPresentation(
         value = formattedValue,
         primaryMeta = if (displayable) listOf("$delta $unit", stateText).filter(String::isNotBlank).joinToString(" · ") else stateText,
         secondaryMeta = "",
-        trend = input.trend.takeIf { fresh && it != Trend.UNKNOWN },
+        trend = input.trend.takeIf { retainsLastState && it != Trend.UNKNOWN },
         freshness = freshness,
         rangeClass = value?.takeIf { displayable }?.let(thresholds::classify),
         displayable = displayable,

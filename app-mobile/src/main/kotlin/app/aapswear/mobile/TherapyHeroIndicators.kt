@@ -107,8 +107,13 @@ internal fun latestBolusPresentation(
             }.maxWithOrNull(compareBy({ it.timestampEpochMs }, { it.id }))
             ?: return null
     val amount = DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.GERMANY)).format(event.amount)
-    val age = TherapyDisplayFormatter.ageMinutes(event.timestampEpochMs, nowEpochMs)
+    val age = formatCompactBolusAge((nowEpochMs - event.timestampEpochMs).coerceAtLeast(0L))
     return "${amount}U·$age"
+}
+
+internal fun formatCompactBolusAge(ageMs: Long): String {
+    val totalMinutes = ageMs.coerceAtLeast(0L) / 60_000L
+    return if (totalMinutes < 60L) "${totalMinutes}m" else "${totalMinutes / 60L}h"
 }
 
 internal fun basalIconResource(percent: Int?): Int =

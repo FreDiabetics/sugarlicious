@@ -44,7 +44,9 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyIndicatorIcon
+import app.aapswear.model.TherapyProgressAppearance
 import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.Trend
@@ -52,6 +54,7 @@ import app.aapswear.model.TrendVisualAsset
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.basalIndicatorIcon
 import app.aapswear.model.effectiveBasalPresentation
+import app.aapswear.model.resolveRoundTherapyLayout
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.uishared.SharedWearCgmGraphInput
@@ -67,6 +70,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
 private const val TILE_RESOURCES_VERSION = "sugarlicious-10-centered-therapy-values"
@@ -95,7 +101,7 @@ internal fun wearGlucoseTilePresentation(
 ): WearGlucoseTilePresentation {
     val freshness = TherapyDisplayFormatter.freshness(state, now)
     val glucose = state?.glucose
-    val fresh = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
+    val retainsLastState = TherapyDisplayFormatter.isGlucoseDisplayable(state, now) && glucose != null
     val displayable = TherapyDisplayFormatter.isGlucoseKnown(state) && glucose != null
     val statusColor =
         when (freshness) {
@@ -140,7 +146,7 @@ internal fun wearGlucoseTilePresentation(
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         valueColor = valueColor,
         statusColor = statusColor,
-        trend = glucose.trend.takeIf { fresh && it != Trend.UNKNOWN },
+        trend = glucose.trend.takeIf { retainsLastState && it != Trend.UNKNOWN },
     )
 }
 
@@ -148,6 +154,8 @@ internal data class WearTherapyTilePresentation(
     val iob: String,
     val cob: String,
     val basal: String,
+    val iobSecondary: String? = null,
+    val basalSecondary: String? = null,
     val status: String,
     val footer: String,
     val displayable: Boolean,
@@ -163,6 +171,8 @@ internal fun wearTherapyTilePresentation(
         iob = TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state),
         cob = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state),
         basal = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, effectiveBasalPresentation(state, now)?.unitsPerHour, state),
+        iobSecondary = wearLatestBolusPresentation(state, now),
+        basalSecondary = effectiveBasalPresentation(state, now)?.percent?.takeIf { it != 100 }?.let { "@$it%" },
         status = TherapyDisplayFormatter.freshnessLabel(freshness),
         footer =
             if (displayable) {
@@ -185,6 +195,24 @@ internal fun wearTherapyTilePresentation(
             },
         displayable = displayable,
     )
+}
+
+private fun wearLatestBolusPresentation(
+    state: TherapyDisplayState?,
+    now: Long,
+): String? {
+    val kinds = setOf(TherapyEventKind.MEAL_BOLUS, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.SMB)
+    val event =
+        state
+            ?.therapyEvents
+            .orEmpty()
+            .asSequence()
+            .filter { it.kind in kinds && it.timestampEpochMs <= now && it.amount.isFinite() && it.amount > 0.0 }
+            .maxWithOrNull(compareBy({ it.timestampEpochMs }, { it.id }))
+            ?: return null
+    val amount = DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.GERMANY)).format(event.amount)
+    val minutes = (now - event.timestampEpochMs).coerceAtLeast(0L) / 60_000L
+    return "${amount}U·${if (minutes < 60L) "${minutes}m" else "${minutes / 60L}h"}"
 }
 
 internal data class WearTileGraphPoint(
@@ -248,11 +276,12 @@ abstract class SugarliciousTileService : TileService() {
         val colors = WearTileAppearanceStore.read(this, tileKind)
         val content = WearTileContentStore.read(this, tileKind)
         val therapySelection = TherapyTileSelectionStore.read(this)
+        val therapyAppearance = TherapyTileGeometryStore.read(this)
         val preferences = WearDisplayPreferences.read(this)
         val now = System.currentTimeMillis()
         val resourcesVersion =
             if (tileKind == WearTileKind.THERAPY) {
-                "$TILE_RESOURCES_VERSION-therapy-${therapySelection.canonical.joinToString { it.name }}"
+                "$TILE_RESOURCES_VERSION-therapy-${therapySelection.canonical.joinToString { it.name }}-${therapyAppearance.hashCode()}"
             } else if (content == WearTileContent.GRAPH) {
                 "$TILE_RESOURCES_VERSION-graph-${now / 60_000L}-${state?.glucoseHistory.hashCode()}-${state?.glucose.hashCode()}-${preferences.hashCode()}-${colors.hashCode()}"
             } else {
@@ -271,6 +300,7 @@ abstract class SugarliciousTileService : TileService() {
                             colors,
                             now,
                             therapySelection,
+                            therapyAppearance,
                             minOf(requestParams.deviceConfiguration.screenWidthDp, requestParams.deviceConfiguration.screenHeightDp).toFloat(),
                         )
                     } else {
@@ -439,9 +469,11 @@ internal fun renderWearTileGraph(
                     SharedWearCgmGraphStyle(
                         dotRadiusDp = preferences.graphStyle.cgmDotRadiusDp,
                         dotOutlineWidthDp = preferences.graphStyle.cgmDotOutlineWidthDp,
+                        historicalDotOutlineWidthDp = preferences.graphStyle.cgmHistoricalDotOutlineWidthDp,
+                        currentDotOutlineWidthDp = preferences.graphStyle.cgmCurrentDotOutlineWidthDp,
                         dotOutlineEnabled = preferences.graphStyle.cgmDotOutlineEnabled,
                         historicalDotOutlineEnabled = preferences.graphStyle.cgmHistoricalDotOutlineEnabled,
-                        currentDotOutlineEnabled = preferences.graphStyle.cgmCurrentDotOutlineEnabled,
+                        currentDotOutlineEnabled = true,
                         scaleLaneOpacityPercent = preferences.graphStyle.scaleLaneOpacityPercent,
                     ),
             ),
@@ -551,15 +583,33 @@ private fun therapyTileContent(
     colors: WatchUiColors,
     now: Long,
     selection: TherapyTileSelection,
+    appearance: TherapyProgressAppearance,
     availableSideDp: Float,
 ): LayoutElementBuilders.LayoutElement {
     val presentation = wearTherapyTilePresentation(state, now)
+    val effectiveAppearance = appearance.copy(enabledMetrics = selection.canonical.mapTo(linkedSetOf()) { it.toProgressMetric() })
+    val resolved = resolveRoundTherapyLayout(availableSideDp * 0.80f, effectiveAppearance)
     val placements = therapyTilePlacements(selection)
     val compact = placements.size > 1
-    val geometry = therapyTileGroupGeometry(availableSideDp, placements.size)
-    val ring = TherapyRingLayoutSpec(geometry.ringDiameterDp)
+    val gap = effectiveAppearance.validated().gapDp.toFloat()
+    val resolvedByMetric = resolved.associateBy { it.metric.toTileMetric() }
 
-    fun card(metric: TherapyTileMetric): Box = therapyMetricCard(scope, metric, presentation, state, colors, compact, now, ring)
+    fun card(metric: TherapyTileMetric): Box {
+        val item = resolvedByMetric.getValue(metric)
+        return therapyMetricCard(
+            scope,
+            metric,
+            presentation,
+            state,
+            colors,
+            compact,
+            now,
+            TherapyRingLayoutSpec(item.slot.diameterDp, strokeWidthDp = item.strokeWidthDp),
+            item.primaryTextSizeSp,
+            item.secondaryTextSizeSp,
+            item.iconSizeDp,
+        )
+    }
     val group =
         when (placements.size) {
             1 -> card(placements.single().metric)
@@ -568,7 +618,7 @@ private fun therapyTileContent(
                     .Builder()
                     .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                     .addContent(card(placements[0].metric))
-                    .addContent(Spacer.Builder().setWidth(dp(geometry.gapDp)).build())
+                    .addContent(Spacer.Builder().setWidth(dp(gap)).build())
                     .addContent(card(placements[1].metric))
                     .build()
             else ->
@@ -580,10 +630,10 @@ private fun therapyTileContent(
                             .Builder()
                             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                             .addContent(card(TherapyTileMetric.IOB))
-                            .addContent(Spacer.Builder().setWidth(dp(geometry.gapDp)).build())
+                            .addContent(Spacer.Builder().setWidth(dp(gap)).build())
                             .addContent(card(TherapyTileMetric.COB))
                             .build(),
-                    ).addContent(Spacer.Builder().setHeight(dp(geometry.gapDp)).build())
+                    ).addContent(Spacer.Builder().setHeight(dp(gap)).build())
                     .addContent(card(TherapyTileMetric.BASAL))
                     .build()
         }
@@ -599,6 +649,9 @@ private fun therapyMetricCard(
     compact: Boolean,
     nowEpochMs: Long,
     ring: TherapyRingLayoutSpec,
+    primaryTextSizeSp: Float,
+    secondaryTextSizeSp: Float,
+    configuredIconSizeDp: Float,
 ): Box {
     val value = therapyMetricValue(metric, presentation)
     val progress = wearTherapyProgress(metric, state, nowEpochMs) ?: 0f
@@ -638,9 +691,26 @@ private fun therapyMetricCard(
             .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
             .addContent(progressArc)
             .build()
-    val valueContent = tileText(value, if (compact) 18f else 30f, colors.textPrimary, bold = true)
+    val baseTextSize = if (compact) 18f else 30f
+    val valueContent = tileText(value, baseTextSize * (primaryTextSizeSp / 19f), colors.textPrimary, bold = true)
+    val secondary =
+        when (metric) {
+            TherapyTileMetric.IOB -> presentation.iobSecondary
+            TherapyTileMetric.COB -> null
+            TherapyTileMetric.BASAL -> presentation.basalSecondary
+        }
+    val textContent =
+        Column
+            .Builder()
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .addContent(valueContent)
+            .apply {
+                secondary?.let {
+                    addContent(tileText(it, 10f * (secondaryTextSizeSp / 11f), colors.textSecondary, bold = false))
+                }
+            }.build()
     val iconState = wearTherapyIcon(metric, state, nowEpochMs)
-    val iconSize = if (metric == TherapyTileMetric.COB) 17f else 19f
+    val iconSize = (if (metric == TherapyTileMetric.COB) 17f else 19f) * (configuredIconSizeDp / 19f)
     val icon =
         Image
             .Builder(scope)
@@ -672,7 +742,7 @@ private fun therapyMetricCard(
         .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
         .addContent(backgroundRing)
         .addContent(progressRing)
-        .addContent(valueContent)
+        .addContent(textContent)
         .addContent(iconOverlay)
         .build()
 }
@@ -680,8 +750,8 @@ private fun therapyMetricCard(
 internal data class TherapyRingLayoutSpec(
     val diameterDp: Float,
     val geometry: TherapyRingGeometry = TherapyRingGeometry(),
+    val strokeWidthDp: Float = geometry.strokeWidthDp,
 ) {
-    val strokeWidthDp: Float get() = geometry.strokeWidthDp
     val protoLayoutStartDegrees: Float get() = geometry.protoLayoutStartDegrees
     val sweepDegrees: Float get() = geometry.sweepDegrees
 }

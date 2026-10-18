@@ -3,6 +3,7 @@ package app.aapswear.mobile
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.RectF
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
@@ -42,6 +43,25 @@ import org.robolectric.annotation.GraphicsMode
 class DashboardChartsTest {
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
+    @Test
+    fun `metabolic scale ticks use the same y transform as IOB and COB curves`() {
+        val plot = RectF(24f, 16f, 360f, 216f)
+        val metrics = Paint().apply { textSize = 18f }.fontMetrics
+        listOf(
+            app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.STATIC, app.aapswear.model.GraphBounds(-2.0, 10.0)),
+            app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.DYNAMIC, app.aapswear.model.GraphBounds(0.0, 8.2)),
+            app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.LOGARITHMIC, app.aapswear.model.GraphBounds(0.0, 300.0)),
+            app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.LOGARITHMIC_DYNAMIC, app.aapswear.model.GraphBounds(0.0, 93.0)),
+        ).forEach { scale ->
+            val layout = metabolicAxisTickLayout(plot, scale, metrics)
+            assertEquals(plot.top, layout.maximumCenterY, 0.001f)
+            assertEquals(plot.bottom, layout.minimumCenterY, 0.001f)
+            val expectedZero = plot.bottom - scale.ratio(0.0).toFloat() * plot.height()
+            assertEquals(expectedZero, layout.zeroCenterY, 0.001f)
+            assertEquals(layout.maximumCenterY - (metrics.ascent + metrics.descent) / 2f, layout.maximumBaselineY, 0.001f)
+        }
+    }
+
     @Test fun `insulin activity series preserves finite negative AndroidAPS values`() {
         val points =
             listOf(
@@ -51,6 +71,26 @@ class DashboardChartsTest {
             )
 
         assertEquals(listOf(1_000L to -0.012, 2_000L to -0.008), finiteInsulinActivitySeries(points))
+    }
+
+    @Test fun `visible insulin activity retains supplied future samples`() {
+        val values = listOf(1_000L to 0.01, 2_000L to 0.02, 3_000L to 0.03)
+
+        assertEquals(values, visibleInsulinActivitySeries(values, 1_000L, 3_000L))
+    }
+
+    @Test fun `CGM insulin activity reaches now without crossing into prediction time`() {
+        val values = listOf(1_000L to 0.01, 2_000L to 0.02)
+
+        assertEquals(
+            listOf(1_000L to 0.01, 2_000L to 0.02, 3_000L to 0.02),
+            cgmInsulinActivitySeries(values, now = 3_000L, start = 0L, end = 5_000L),
+        )
+    }
+
+    @Test fun `permanent current target reaches prediction viewport while temporary target does not`() {
+        assertEquals(5_000L, targetDisplayEndEpochMs(2_000L, temporary = false, isCurrent = true, now = 3_000L, viewportEnd = 5_000L))
+        assertEquals(3_000L, targetDisplayEndEpochMs(2_000L, temporary = true, isCurrent = true, now = 3_000L, viewportEnd = 5_000L))
     }
 
     @Test fun `insulin activity smoothing passes through samples without overshoot`() {
@@ -115,6 +155,23 @@ class DashboardChartsTest {
     }
 
     @Test
+    fun `insulin activity smoothing is independent of zoom viewport`() {
+        val values =
+            listOf(
+                1_000L to 0.0,
+                2_000L to 0.4,
+                3_000L to 1.0,
+                4_000L to 0.4,
+                5_000L to 0.0,
+            )
+
+        val wide = smoothActivityToLiveEdge(values, liveEdge = 5_000L, start = 1_000L, end = 5_000L)
+        val zoomed = smoothActivityToLiveEdge(values, liveEdge = 5_000L, start = 2_000L, end = 4_000L)
+
+        assertEquals(wide, zoomed)
+    }
+
+    @Test
     fun `insulin activity lane is shifted upward with symmetric headroom`() {
         val plot = RectF(0f, 0f, 100f, 100f)
         val scale =
@@ -125,6 +182,32 @@ class DashboardChartsTest {
 
         assertEquals(90f, mapActivityY(0.0, scale, plot), 0.001f)
         assertEquals(10f, mapActivityY(1.0, scale, plot), 0.001f)
+    }
+
+    @Test
+    fun `CGM insulin activity follows AndroidAPS zero baseline and eighty percent height`() {
+        val plot = RectF(0f, 0f, 100f, 100f)
+        val scale = cgmInsulinActivityScale(listOf(-0.25, 0.5))
+
+        assertEquals(100f, mapCgmActivityY(0.0, scale, plot), 0.001f)
+        assertEquals(20f, mapCgmActivityY(0.5, scale, plot), 0.001f)
+    }
+
+    @Test
+    fun `CGM insulin activity is confined to the configured target range`() {
+        val dataPlot = RectF(10f, 5f, 190f, 195f)
+
+        val band = cgmInsulinActivityBand(dataPlot, targetTop = 42f, targetBottom = 138f)
+
+        assertEquals(RectF(10f, 42f, 190f, 138f), band)
+    }
+
+    @Test
+    fun `CGM insulin activity scale uses largest absolute AndroidAPS value`() {
+        val scale = cgmInsulinActivityScale(listOf(-0.75, 0.5))
+
+        assertEquals(0.0, scale.bounds.minimum, 0.0)
+        assertEquals(0.75, scale.bounds.maximum, 0.0)
     }
 
     @Test fun `glucose chart renders source target and prediction streams`() {
@@ -585,7 +668,7 @@ class DashboardChartsTest {
         val bitmap =
             render(
                 MetabolicDashboardChart(context, sharedViewport = viewport).apply {
-                    bind(state, 6, scaleOnRight = true, showPredictionDivider = true)
+                    bind(state, 6, scaleRightBlend = 1f, showPredictionDivider = true)
                 },
                 260,
             )
@@ -617,7 +700,7 @@ class DashboardChartsTest {
         val bitmap =
             render(
                 MetabolicDashboardChart(context, sharedViewport = viewport).apply {
-                    bind(state, 6, scaleOnRight = true, clockEpochMs = now)
+                    bind(state, 6, scaleRightBlend = 1f, clockEpochMs = now)
                 },
                 260,
             )
@@ -946,7 +1029,7 @@ class DashboardChartsTest {
         assertEquals(actual.last(), prediction.first())
     }
 
-    @Test fun `CGM insulin activity uses AndroidAPS eighty percent of full graph height`() {
+    @Test fun `CGM insulin activity uses AndroidAPS eighty percent inside target range`() {
         val now = System.currentTimeMillis()
         val scalePreferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
         scalePreferences
@@ -984,7 +1067,7 @@ class DashboardChartsTest {
             (0 until bitmap.height).firstOrNull { y ->
                 (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
             } ?: bitmap.height
-        assertTrue("activityTop=$activityTop", activityTop < bitmap.height * 0.35)
+        assertTrue("activityTop=$activityTop", activityTop in (bitmap.height * 0.20).toInt()..(bitmap.height * 0.65).toInt())
     }
 
     @Test fun `productive AAPS activity remains visible in every graph scale mode`() {

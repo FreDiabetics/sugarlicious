@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -31,6 +32,39 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CgmGraphCustomizationTest {
+    @Test
+    fun `fresh appearance profiles reproduce approved mobile dot settings`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("fresh_approved_dot_profiles", android.content.Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+
+        val dark = readMobileGraphStyle(preferences, app.aapswear.model.AppearanceMode.DARK)
+        val light = readMobileGraphStyle(preferences, app.aapswear.model.AppearanceMode.LIGHT)
+
+        assertEquals(3.0f, dark.cgmDotRadiusDp, 0.001f)
+        assertTrue(dark.cgmHistoricalDotOutlineEnabled)
+        assertEquals(0.6f, dark.cgmHistoricalDotOutlineWidthDp, 0.001f)
+        assertEquals(1.2f, dark.cgmCurrentDotOutlineWidthDp, 0.001f)
+        assertEquals(2.6f, light.cgmDotRadiusDp, 0.001f)
+        assertFalse(light.cgmHistoricalDotOutlineEnabled)
+        assertEquals(1.0f, light.cgmHistoricalDotOutlineWidthDp, 0.001f)
+        assertEquals(1.0f, light.cgmCurrentDotOutlineWidthDp, 0.001f)
+        assertEquals(1.6f, readMobilePredictionDotRadius(preferences, app.aapswear.model.AppearanceMode.DARK), 0.001f)
+        assertEquals(0.2f, readMobilePredictionDotOutlineWidth(preferences, app.aapswear.model.AppearanceMode.DARK), 0.001f)
+    }
+
+    @Test
+    fun `boundary paint restores exact configured alpha after reused paint state`() {
+        val paint = Paint().apply { alpha = 211 }
+
+        applyGraphBoundaryPaint(paint, Color.TRANSPARENT)
+        assertEquals(0, paint.alpha)
+
+        applyGraphBoundaryPaint(paint, Color.argb(73, 12, 34, 56))
+        assertEquals(73, paint.alpha)
+        assertEquals(12, Color.red(paint.color))
+    }
+
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
 

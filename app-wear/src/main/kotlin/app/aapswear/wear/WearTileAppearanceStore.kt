@@ -2,6 +2,9 @@ package app.aapswear.wear
 
 import android.content.Context
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.TherapyMetricAppearance
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.protocol.WatchUiColors
 
 enum class WearTileKind(
@@ -89,6 +92,73 @@ internal object TherapyTileSelectionStore {
             .apply()
     }
 }
+
+internal object TherapyTileGeometryStore {
+    private const val PREFERENCES = "wear_tile_therapy_geometry"
+
+    fun read(context: Context): TherapyProgressAppearance {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        if (!preferences.contains("enabled")) {
+            val legacy = TherapyTileSelectionStore.read(context).canonical.mapTo(linkedSetOf()) { it.toProgressMetric() }
+            write(context, TherapyProgressAppearance(enabledMetrics = legacy))
+        }
+
+        fun metric(prefix: String) =
+            TherapyMetricAppearance(
+                overallScalePercent = preferences.getInt(prefix + "overall", 100),
+                ringThicknessPercent = preferences.getInt(prefix + "ring", 100),
+                primaryTextPercent = preferences.getInt(prefix + "primary", 100),
+                secondaryTextPercent = preferences.getInt(prefix + "secondary", 100),
+                iconPercent = preferences.getInt(prefix + "icon", 100),
+            ).validated()
+        val enabled =
+            preferences
+                .getStringSet("enabled", null)
+                ?.mapNotNull { raw -> runCatching { TherapyProgressMetric.valueOf(raw) }.getOrNull() }
+                ?.toSet()
+                ?.takeIf { it.isNotEmpty() }
+                ?: TherapyProgressMetric.entries.toSet()
+        return TherapyProgressAppearance(
+            enabledMetrics = enabled,
+            groupScalePercent = preferences.getInt("group_scale", 100),
+            gapDp = preferences.getInt("gap_dp", 6),
+            global = metric("global."),
+            metricOverrides = TherapyProgressMetric.entries.associateWith { metric("${it.name.lowercase()}.") },
+        ).validated()
+    }
+
+    fun write(
+        context: Context,
+        appearance: TherapyProgressAppearance,
+    ) {
+        val safe = appearance.validated()
+        context
+            .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+            .edit()
+            .apply {
+                putStringSet("enabled", safe.enabledMetrics.mapTo(linkedSetOf()) { it.name })
+                putInt("group_scale", safe.groupScalePercent)
+                putInt("gap_dp", safe.gapDp)
+
+                fun writeMetric(prefix: String, value: TherapyMetricAppearance) {
+                    putInt(prefix + "overall", value.overallScalePercent)
+                    putInt(prefix + "ring", value.ringThicknessPercent)
+                    putInt(prefix + "primary", value.primaryTextPercent)
+                    putInt(prefix + "secondary", value.secondaryTextPercent)
+                    putInt(prefix + "icon", value.iconPercent)
+                }
+                writeMetric("global.", safe.global)
+                TherapyProgressMetric.entries.forEach { metric ->
+                    writeMetric("${metric.name.lowercase()}.", safe.metricOverrides[metric] ?: TherapyMetricAppearance())
+                }
+            }.apply()
+        TherapyTileSelectionStore.write(context, safe.enabledMetrics.mapTo(linkedSetOf()) { it.toTileMetric() })
+    }
+}
+
+internal fun TherapyTileMetric.toProgressMetric(): TherapyProgressMetric = TherapyProgressMetric.valueOf(name)
+
+internal fun TherapyProgressMetric.toTileMetric(): TherapyTileMetric = TherapyTileMetric.valueOf(name)
 
 /** The two system tile slots keep their own content choice; no global fake tile state. */
 internal object WearTileContentStore {

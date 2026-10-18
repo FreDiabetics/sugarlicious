@@ -12,7 +12,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TrendArrowStyle
@@ -248,15 +250,29 @@ class G7AppearanceActivity : Activity() {
             },
         )
         content.addView(
-            toggleRow("Kontur · bisherige Punkte", store.historicalDotOutlineEnabled(), palette) {
+            toggleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, store.historicalDotOutlineEnabled(), palette) {
                 store.setHistoricalDotOutlineEnabled(it)
             },
             params(top = 5),
         )
         content.addView(
-            toggleRow("Kontur · aktueller Wert", store.currentDotOutlineEnabled(), palette) {
-                store.setCurrentDotOutlineEnabled(it)
-            },
+            scaleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH, (store.inAppGraphStyle().historicalDotOutlineWidthDp * 100).roundToInt(), palette, {
+                val style =
+                    store.inAppGraphStyle().copy(
+                        historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    )
+                store.setInAppDotOutlineWidths(style.historicalDotOutlineWidthDp, style.currentDotOutlineWidthDp)
+            }, min = 25, max = 300, format = { "Historisch · ${it / 100f} dp" }),
+            params(top = 5),
+        )
+        content.addView(
+            scaleRow(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, (store.inAppGraphStyle().currentDotOutlineWidthDp * 100).roundToInt(), palette, {
+                val style =
+                    store.inAppGraphStyle().copy(
+                        currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    )
+                store.setInAppDotOutlineWidths(style.historicalDotOutlineWidthDp, style.currentDotOutlineWidthDp)
+            }, min = 25, max = 300, format = { "Aktuell · ${it / 100f} dp" }),
             params(top = 5),
         )
         content.addView(
@@ -282,21 +298,31 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
         content.addView(
-            toggleRow("Kontur · bisherige Punkte", tileStyle.historicalDotOutlineEnabled, palette) {
+            toggleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, tileStyle.historicalDotOutlineEnabled, palette) {
                 store.saveTileGraphStyle(store.tileGraphStyle().copy(historicalDotOutlineEnabled = it))
             },
             params(top = 5),
         )
         content.addView(
-            toggleRow("Kontur · aktueller Wert", tileStyle.currentDotOutlineEnabled, palette) {
-                store.saveTileGraphStyle(store.tileGraphStyle().copy(currentDotOutlineEnabled = it))
-            },
+            scaleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH, (tileStyle.historicalDotOutlineWidthDp * 100).roundToInt(), palette, {
+                store.saveTileGraphStyle(
+                    store.tileGraphStyle().copy(
+                        historicalDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
+            }, min = 25, max = 300, format = { "Historisch · ${it / 100f} dp" }),
             params(top = 5),
         )
         content.addView(
-            scaleRow("Konturdicke", (tileStyle.dotOutlineWidthDp * 100).roundToInt(), palette, {
-                store.saveTileGraphStyle(store.tileGraphStyle().copy(dotOutlineWidthDp = it / 100f))
-            }, min = 25, max = 300, format = { "Konturdicke · ${it / 100f} dp" }),
+            scaleRow(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, (tileStyle.currentDotOutlineWidthDp * 100).roundToInt(), palette, {
+                store.saveTileGraphStyle(
+                    store.tileGraphStyle().copy(
+                        currentDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
+            }, min = 25, max = 300, format = { "Aktuell · ${it / 100f} dp" }),
             params(top = 5),
         )
         content.addView(

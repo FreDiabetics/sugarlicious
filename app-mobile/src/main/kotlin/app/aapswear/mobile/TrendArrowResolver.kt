@@ -32,6 +32,13 @@ internal object TrendArrowResolver {
         history: List<GlucoseSample>,
         nightscoutDirection: String? = null,
     ): Resolution {
+        current.deltaMgDl?.takeIf(Double::isFinite)?.let { delta ->
+            return Resolution(
+                trend = CanonicalTrendPolicy.fromFiveMinuteDelta(delta, TrendRateProfile.SUGARLICIOUS),
+                rateMgDlPerMinute = delta / 5.0,
+                provenance = ValueProvenance.DERIVED,
+            )
+        }
         if (aapsTrend != Trend.UNKNOWN) return Resolution(aapsTrend, provenance = ValueProvenance.SOURCE)
 
         CanonicalTrendPolicy.fromDirection(nightscoutDirection).takeUnless { it == Trend.UNKNOWN }?.let {
@@ -48,7 +55,7 @@ internal object TrendArrowResolver {
                 receivedAtEpochMs = current.receivedAtEpochMs,
                 quality = current.quality,
             )
-        val derived = CanonicalTrendPolicy.derive(currentSample, history, TrendRateProfile.ANDROID_APS)
+        val derived = CanonicalTrendPolicy.derive(currentSample, history, TrendRateProfile.SUGARLICIOUS)
         return Resolution(
             derived?.trend ?: Trend.UNKNOWN,
             derived?.rateMgDlPerMinute,

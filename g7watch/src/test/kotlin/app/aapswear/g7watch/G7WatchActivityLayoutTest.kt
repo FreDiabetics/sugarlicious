@@ -16,6 +16,7 @@ import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SensorState
 import app.aapswear.g7.G7SessionState
 import app.aapswear.model.AppearanceMode
+import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseUnit
@@ -47,8 +48,9 @@ class G7WatchActivityLayoutTest {
 
         assertTrue(text.contains("WEAROS-TILE GRAPH"))
         assertTrue(text.any { it.startsWith("Punktgröße") })
-        assertTrue(text.contains("Kontur · bisherige Punkte"))
-        assertTrue(text.contains("Kontur · aktueller Wert"))
+        assertTrue(text.contains(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE))
+        assertFalse(text.contains("Kontur · aktueller Wert"))
+        assertTrue(text.any { it.startsWith("Aktuell ·") })
         assertTrue(text.any { it.startsWith("Konturdicke") })
         assertTrue(text.contains("Zeitachse"))
         assertTrue(text.any { it.startsWith("Eckenradius") })
@@ -376,8 +378,9 @@ class G7WatchActivityLayoutTest {
         assertTrue("Zeitachsenskala" in texts)
         assertTrue("Zuckerwert fett" in texts)
         assertFalse("Horizontale Zielwert-Striche" in texts)
-        assertTrue("Kontur · bisherige Punkte" in texts)
-        assertTrue("Kontur · aktueller Wert" in texts)
+        assertTrue(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE in texts)
+        assertFalse("Kontur · aktueller Wert" in texts)
+        assertTrue(texts.any { it.startsWith("Aktuell ·") })
         assertFalse("Range-Hintergrundfärbung" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
         assertTrue("GLUKOSE · EINHEIT" in texts)
@@ -499,10 +502,9 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
         val titleIndex = texts.indexOf("SugarWear")
-        val brandIndex = texts.indexOf("by Sugarlicious")
         assertFalse(texts.contains("Systemstatus"))
         assertTrue(titleIndex >= 0)
-        assertTrue(brandIndex > titleIndex)
+        assertFalse(texts.contains("by Sugarlicious"))
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
         assertFalse(texts.contains("ZEITPLANUNG"))

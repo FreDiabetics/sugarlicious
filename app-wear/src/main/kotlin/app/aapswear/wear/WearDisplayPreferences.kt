@@ -27,7 +27,7 @@ internal fun shouldApplyG7CollectorSourceTransition(
 ): Boolean = previous != current
 
 internal data class WearDisplayPreferences(
-    val graphHours: Int = 3,
+    val graphHours: Int = 6,
     val showPredictions: Boolean = false,
     val glucoseUnit: WatchGlucoseUnit = WatchGlucoseUnit.AAPS,
     val dataSource: WatchDataSource = WatchDataSource.PHONE,
@@ -60,6 +60,8 @@ internal data class WearDisplayPreferences(
         private const val STYLE_HISTORICAL_OUTLINE_ENABLED = "cgm_historical_dot_outline_enabled"
         private const val STYLE_CURRENT_OUTLINE_ENABLED = "cgm_current_dot_outline_enabled"
         private const val STYLE_OUTLINE_WIDTH = "cgm_dot_outline_width_dp"
+        private const val STYLE_HISTORICAL_OUTLINE_WIDTH = "cgm_historical_dot_outline_width_dp"
+        private const val STYLE_CURRENT_OUTLINE_WIDTH = "cgm_current_dot_outline_width_dp"
         private const val STYLE_SCALE_LANE_OPACITY = "scale_lane_opacity_percent"
         private const val STYLE_BORDER_ENABLED = "graph_border_enabled"
         private const val THRESHOLD_VERY_HIGH = "threshold_very_high"
@@ -139,9 +141,9 @@ internal data class WearDisplayPreferences(
             return WearDisplayPreferences(
                 graphHours =
                     preferences
-                        .getInt(KEY_GRAPH_HOURS, 3)
+                        .getInt(KEY_GRAPH_HOURS, 6)
                         .takeIf { it in allowedGraphHours }
-                        ?: 3,
+                        ?: 6,
                 showPredictions =
                     preferences.getBoolean(KEY_SHOW_PREDICTIONS, false),
                 glucoseUnit = unit,
@@ -199,21 +201,29 @@ internal data class WearDisplayPreferences(
                                 .getFloat(prefix + STYLE_DOT_RADIUS, styleDefaults.cgmDotRadiusDp)
                                 .coerceIn(1.5f, 6.0f),
                         cgmDotOutlineEnabled =
-                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmDotOutlineEnabled),
+                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, false),
                         cgmHistoricalDotOutlineEnabled =
                             preferences.getBoolean(
                                 prefix + STYLE_HISTORICAL_OUTLINE_ENABLED,
-                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmHistoricalDotOutlineEnabled),
+                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, false),
                             ),
-                        cgmCurrentDotOutlineEnabled =
-                            preferences.getBoolean(
-                                prefix + STYLE_CURRENT_OUTLINE_ENABLED,
-                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmCurrentDotOutlineEnabled),
-                            ),
+                        cgmCurrentDotOutlineEnabled = true,
                         cgmDotOutlineWidthDp =
                             preferences
                                 .getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp)
                                 .coerceIn(0.25f, 3.0f),
+                        cgmHistoricalDotOutlineWidthDp =
+                            preferences
+                                .getFloat(
+                                    prefix + STYLE_HISTORICAL_OUTLINE_WIDTH,
+                                    preferences.getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp),
+                                ).coerceIn(0.25f, 3.0f),
+                        cgmCurrentDotOutlineWidthDp =
+                            preferences
+                                .getFloat(
+                                    prefix + STYLE_CURRENT_OUTLINE_WIDTH,
+                                    preferences.getFloat(prefix + STYLE_OUTLINE_WIDTH, styleDefaults.cgmDotOutlineWidthDp),
+                                ).coerceIn(0.25f, 3.0f),
                         scaleLaneOpacityPercent =
                             preferences
                                 .getInt(
@@ -402,8 +412,10 @@ internal data class WearDisplayPreferences(
             putFloat(prefix + STYLE_DOT_RADIUS, profile.graphStyle.cgmDotRadiusDp)
             putBoolean(prefix + STYLE_OUTLINE_ENABLED, profile.graphStyle.cgmDotOutlineEnabled)
             putBoolean(prefix + STYLE_HISTORICAL_OUTLINE_ENABLED, profile.graphStyle.cgmHistoricalDotOutlineEnabled)
-            putBoolean(prefix + STYLE_CURRENT_OUTLINE_ENABLED, profile.graphStyle.cgmCurrentDotOutlineEnabled)
+            putBoolean(prefix + STYLE_CURRENT_OUTLINE_ENABLED, true)
             putFloat(prefix + STYLE_OUTLINE_WIDTH, profile.graphStyle.cgmDotOutlineWidthDp)
+            putFloat(prefix + STYLE_HISTORICAL_OUTLINE_WIDTH, profile.graphStyle.cgmHistoricalDotOutlineWidthDp)
+            putFloat(prefix + STYLE_CURRENT_OUTLINE_WIDTH, profile.graphStyle.cgmCurrentDotOutlineWidthDp)
             putInt(prefix + STYLE_SCALE_LANE_OPACITY, profile.graphStyle.scaleLaneOpacityPercent.coerceIn(0, 100))
             putBoolean(prefix + STYLE_BORDER_ENABLED, profile.graphStyle.borderEnabled)
             val ui = profile.uiColors
@@ -439,6 +451,8 @@ internal data class WearDisplayPreferences(
                                 STYLE_HISTORICAL_OUTLINE_ENABLED,
                                 STYLE_CURRENT_OUTLINE_ENABLED,
                                 STYLE_OUTLINE_WIDTH,
+                                STYLE_HISTORICAL_OUTLINE_WIDTH,
+                                STYLE_CURRENT_OUTLINE_WIDTH,
                                 STYLE_BORDER_ENABLED,
                             )
                         ) {

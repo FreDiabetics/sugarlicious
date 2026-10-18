@@ -12,8 +12,9 @@ class WidgetGraphRendererContractTest {
 
         assertTrue(source.contains("override val sizeMode: SizeMode = SizeMode.Exact"))
         assertTrue(source.contains("val size = LocalSize.current"))
-        assertTrue(source.contains("(size.width.value * pixelDensity).roundToInt()"))
-        assertTrue(source.contains("(size.height.value * pixelDensity).roundToInt()"))
+        assertTrue(source.contains("widgetRenderSizeDp(size.width.value, size.height.value, contentInsets)"))
+        assertTrue(source.contains("(renderSize.widthDp * pixelDensity).roundToInt()"))
+        assertTrue(source.contains("(renderSize.heightDp * pixelDensity).roundToInt()"))
         assertFalse(source.contains("width: Int = 800"))
         assertFalse(source.contains("height: Int = 360"))
         assertFalse(source.contains("val density = safeWidth / 400f"))

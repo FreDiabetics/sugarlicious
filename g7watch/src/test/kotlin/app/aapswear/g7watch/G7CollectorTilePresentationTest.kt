@@ -53,16 +53,16 @@ class G7CollectorTilePresentationTest {
     }
 
     @Test
-    fun `stale keeps validated value while no data invalid and sensor errors stay neutral`() {
+    fun `signal loss keeps validated value and trend while invalid states stay neutral`() {
         val noData = g7TilePresentation(null, colors, now)
         assertEquals(G7_TILE_CARD_BACKGROUND, noData.cardBackground)
         assertNull(noData.trend)
 
         val stale = g7TilePresentation(reading(120.0, now - G7_SIGNAL_LOSS_AFTER_MS), colors, now)
-        assertEquals("120", stale.value)
+        assertEquals("120 →", stale.value)
         assertEquals(G7_TILE_CARD_BACKGROUND, stale.cardBackground)
         assertEquals(G7_TILE_TEXT_PRIMARY, stale.cardForeground)
-        assertNull(stale.trend)
+        assertEquals(Trend.FLAT, stale.trend)
 
         val invalid = g7TilePresentation(reading(120.0, status = CgmReadingStatus.INVALID), colors, now)
         assertEquals("—", invalid.value)

@@ -20,7 +20,6 @@ internal fun shouldUseFallbackDiscovery(
 internal fun shouldRetryNoCallbackDirectly(errorCode: String, retriesUsed: Int, fallbackUsed: Boolean): Boolean =
     errorCode in
         setOf(
-            G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE,
             G7_DISCOVERY_CALLBACK_TIMEOUT_ERROR_CODE,
             G7_DESCRIPTOR_CALLBACK_TIMEOUT_ERROR_CODE,
             G7_WRITE_CALLBACK_TIMEOUT_ERROR_CODE,

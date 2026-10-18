@@ -17,7 +17,6 @@ import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.Trend
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,7 +60,7 @@ class SugarliciousTilesTest {
         val therapy = wearTherapyTilePresentation(state(123.0, now - 20 * 60_000L), now)
 
         assertEquals("123", stale.value)
-        assertNull(stale.trend)
+        assertEquals(Trend.FORTY_FIVE_UP, stale.trend)
         assertEquals("SIGNALVERLUST", stale.status)
         assertTrue(therapy.displayable)
         assertEquals("1.20U", therapy.iob)

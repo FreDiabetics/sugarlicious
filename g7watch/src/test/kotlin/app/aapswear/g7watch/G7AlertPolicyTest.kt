@@ -2,6 +2,7 @@ package app.aapswear.g7watch
 
 import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7SessionState
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,6 +12,22 @@ class G7AlertPolicyTest {
         val last = 1_000_000L
         assertFalse(isG7SignalLoss(last, last + G7_SIGNAL_LOSS_AFTER_MS - 1L))
         assertTrue(isG7SignalLoss(last, last + G7_SIGNAL_LOSS_AFTER_MS))
+    }
+
+    @Test fun `future signal loss deadline is preserved`() {
+        val now = 1_000_000L
+        val deadline = now + 120_000L
+
+        assertEquals(deadline, nextG7SignalLossMonitorAt(deadline, now))
+    }
+
+    @Test fun `past signal loss deadline advances to stable fifteen minute recovery boundary`() {
+        val deadline = 1_000_000L
+        val now = deadline + 31L * 60_000L
+        val expected = deadline + 45L * 60_000L
+
+        assertEquals(expected, nextG7SignalLossMonitorAt(deadline, now))
+        assertEquals(expected, nextG7SignalLossMonitorAt(deadline, now + 30_000L))
     }
 
     @Test fun `recoverable scan miss does not immediately alert`() {

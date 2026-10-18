@@ -23,8 +23,8 @@ internal enum class WidgetColorRole(
     RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA),
     HIGH_LINE("high_line", AppearanceTerminology.GRAPH_HIGH_LINE),
     LOW_LINE("low_line", AppearanceTerminology.GRAPH_LOW_LINE),
-    DOT_OUTLINE("dot_outline", "Historische CGM-Punktkontur"),
-    CURRENT_DOT_OUTLINE("current_dot_outline", "Aktuelle CGM-Punktkontur"),
+    DOT_OUTLINE("dot_outline", app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE),
+    CURRENT_DOT_OUTLINE("current_dot_outline", app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE),
     DOT_HIGH("dot_high", AppearanceTerminology.GRAPH_DOT_HIGH),
     DOT_IN_RANGE("dot_in_range", AppearanceTerminology.GRAPH_DOT_IN_RANGE),
     DOT_LOW("dot_low", AppearanceTerminology.GRAPH_DOT_LOW),
@@ -55,6 +55,7 @@ internal data class WidgetPalette(
 internal object WidgetColorStore {
     private const val PREFERENCES = "dashboard_ui"
     private const val PREFIX = "widget.color.override."
+    private const val VERY_HIGH_TEXT_COLOR_MIGRATION = "widget.color.very_high_text.v2"
 
     fun load(context: Context): WidgetPalette =
         load(
@@ -68,6 +69,7 @@ internal object WidgetColorStore {
     ): WidgetPalette {
         val preferences = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
         migrateLegacy(preferences)
+        migrateLegacyVeryHighTextColor(preferences)
         val mobile = SugarliciousColorStore.load(preferences, mode)
         return WidgetPalette(
             WidgetColorRole.entries.associateWith { role ->
@@ -148,7 +150,7 @@ internal object WidgetColorStore {
                         WidgetColorRole.IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                         WidgetColorRole.LOW -> SugarliciousColorRole.CGM_DOT_LOW
                         WidgetColorRole.URGENT_LOW -> SugarliciousColorRole.RANGE_LOW
-                        WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.RANGE_HIGH
+                        WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.GLUCOSE_VERY_HIGH
                         WidgetColorRole.BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
                         WidgetColorRole.GRAPH_BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
                         WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH
@@ -215,6 +217,34 @@ internal object WidgetColorStore {
         }
     }
 
+    private fun migrateLegacyVeryHighTextColor(preferences: android.content.SharedPreferences) {
+        if (preferences.getBoolean(VERY_HIGH_TEXT_COLOR_MIGRATION, false)) return
+        val mobileByMode = AppearanceMode.entries.associateWith { SugarliciousColorStore.load(preferences, it) }
+        val legacyRangeFills = mobileByMode.values.map { it.argb(SugarliciousColorRole.RANGE_HIGH) }.toSet()
+        preferences.edit {
+            AppearanceMode.entries.forEach { mode ->
+                val veryHighKey = key(mode, WidgetColorRole.VERY_HIGH)
+                if (preferences.contains(veryHighKey)) {
+                    val stored = preferences.getInt(veryHighKey, 0)
+                    if ((stored ushr 24) != 0xFF && stored in legacyRangeFills) {
+                        putInt(veryHighKey, mobileByMode.getValue(mode).argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH))
+                    }
+                }
+            }
+            val legacyKey = key(WidgetColorRole.VERY_HIGH)
+            if (preferences.contains(legacyKey)) {
+                val stored = preferences.getInt(legacyKey, 0)
+                if ((stored ushr 24) != 0xFF && stored in legacyRangeFills) {
+                    putInt(
+                        legacyKey,
+                        mobileByMode.getValue(AppearanceMode.DARK).argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+                    )
+                }
+            }
+            putBoolean(VERY_HIGH_TEXT_COLOR_MIGRATION, true)
+        }
+    }
+
     private fun mobileDefault(
         role: WidgetColorRole,
         color: (SugarliciousColorRole) -> Int,
@@ -225,7 +255,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
                 WidgetColorRole.LOW -> SugarliciousColorRole.GLUCOSE_LOW
                 WidgetColorRole.URGENT_LOW -> SugarliciousColorRole.RED
-                WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.YELLOW
+                WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.GLUCOSE_VERY_HIGH
                 WidgetColorRole.BACKGROUND -> SugarliciousColorRole.SURFACE
                 WidgetColorRole.GRAPH_BACKGROUND -> SugarliciousColorRole.GRAPH_BACKGROUND
                 WidgetColorRole.RANGE_HIGH -> SugarliciousColorRole.RANGE_HIGH

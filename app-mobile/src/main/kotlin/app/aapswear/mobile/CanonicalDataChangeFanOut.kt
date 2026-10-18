@@ -35,7 +35,7 @@ internal suspend fun dispatchCanonicalDataChanged(
 
     CanonicalDataChangeFanOut.dispatch(
         updateWidgets = {
-            runCatching { SugarliciousWidgets.update(app) }
+            runCatching { SugarliciousWidgets.update(app, state) }
                 .onSuccess { diagnostics.edit { putLong("widgetObservedAt", System.currentTimeMillis()) } }
                 .onFailure { error ->
                     app.recordMobileDiagnostic(

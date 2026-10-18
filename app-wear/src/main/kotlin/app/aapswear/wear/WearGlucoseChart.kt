@@ -140,9 +140,11 @@ class WearGlucoseChart
                         SharedWearCgmGraphStyle(
                             dotRadiusDp = graphStyle.cgmDotRadiusDp,
                             dotOutlineWidthDp = graphStyle.cgmDotOutlineWidthDp,
+                            historicalDotOutlineWidthDp = graphStyle.cgmHistoricalDotOutlineWidthDp,
+                            currentDotOutlineWidthDp = graphStyle.cgmCurrentDotOutlineWidthDp,
                             dotOutlineEnabled = graphStyle.cgmDotOutlineEnabled,
                             historicalDotOutlineEnabled = graphStyle.cgmHistoricalDotOutlineEnabled,
-                            currentDotOutlineEnabled = graphStyle.cgmCurrentDotOutlineEnabled,
+                            currentDotOutlineEnabled = true,
                             cornerRadiusDp = TILE_RADIUS_DP,
                             borderEnabled = graphStyle.borderEnabled,
                             scaleLaneOpacityPercent = graphStyle.scaleLaneOpacityPercent,

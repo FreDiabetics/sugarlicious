@@ -39,22 +39,33 @@ class CanonicalTrendPolicyTest {
     }
 
     @Test
-    fun `AndroidAPS boundaries match upstream inclusivity`() {
+    fun `Sugarlicious boundaries use rounded whole five minute deltas`() {
         val cases =
             mapOf(
-                -3.5001 to Trend.DOUBLE_DOWN,
-                -3.5 to Trend.DOUBLE_DOWN,
-                -3.4999 to Trend.SINGLE_DOWN,
-                -2.0 to Trend.SINGLE_DOWN,
-                -1.0 to Trend.FORTY_FIVE_DOWN,
-                1.0 to Trend.FLAT,
-                2.0 to Trend.FORTY_FIVE_UP,
-                3.5 to Trend.SINGLE_UP,
-                3.5001 to Trend.DOUBLE_UP,
+                -14.0 to Trend.DOUBLE_DOWN,
+                -13.0 to Trend.SINGLE_DOWN,
+                -10.0 to Trend.SINGLE_DOWN,
+                -9.0 to Trend.FORTY_FIVE_DOWN,
+                -6.0 to Trend.FORTY_FIVE_DOWN,
+                -5.0 to Trend.FLAT,
+                0.0 to Trend.FLAT,
+                5.0 to Trend.FLAT,
+                6.0 to Trend.FORTY_FIVE_UP,
+                9.0 to Trend.FORTY_FIVE_UP,
+                10.0 to Trend.SINGLE_UP,
+                13.0 to Trend.SINGLE_UP,
+                14.0 to Trend.DOUBLE_UP,
             )
-        cases.forEach { (rate, trend) ->
-            assertEquals(trend, CanonicalTrendPolicy.fromRate(rate, TrendRateProfile.ANDROID_APS))
+        cases.forEach { (delta, trend) ->
+            assertEquals(trend, CanonicalTrendPolicy.fromFiveMinuteDelta(delta, TrendRateProfile.SUGARLICIOUS))
         }
+    }
+
+    @Test
+    fun `Sugarlicious rounds raw deltas before classification while Dexcom profile is unchanged`() {
+        assertEquals(Trend.FLAT, CanonicalTrendPolicy.fromFiveMinuteDelta(5.49, TrendRateProfile.SUGARLICIOUS))
+        assertEquals(Trend.FLAT, CanonicalTrendPolicy.fromFiveMinuteDelta(-5.49, TrendRateProfile.SUGARLICIOUS))
+        assertEquals(Trend.FORTY_FIVE_UP, CanonicalTrendPolicy.fromRate(1.0, TrendRateProfile.DEXCOM_G7))
     }
 
     @Test
@@ -87,7 +98,7 @@ class CanonicalTrendPolicyTest {
                 Trend.SINGLE_UP to 2,
                 Trend.DOUBLE_UP to 3,
             )
-        val classified = deltas.map { delta -> CanonicalTrendPolicy.fromRate(delta / 5.0, TrendRateProfile.ANDROID_APS) }
+        val classified = deltas.map { delta -> CanonicalTrendPolicy.fromRate(delta / 5.0, TrendRateProfile.SUGARLICIOUS) }
         classified.zipWithNext().forEach { (left, right) ->
             check(ranks.getValue(left) >= ranks.getValue(right)) { "$left must not rank below $right" }
         }
@@ -98,13 +109,13 @@ class CanonicalTrendPolicyTest {
     @Test
     fun `fallback uses measured interval and rejects incompatible evidence`() {
         val current = sample(100.0, 10, source = DataSourceId.ANDROID_APS, sensor = "s", session = "a")
-        assertEquals(Trend.SINGLE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 6, sensor = "s", session = "a")), TrendRateProfile.ANDROID_APS)?.trend)
-        assertEquals(Trend.FORTY_FIVE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "s", session = "a")), TrendRateProfile.ANDROID_APS)?.trend)
-        assertEquals(Trend.FORTY_FIVE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 4, sensor = "s", session = "a")), TrendRateProfile.ANDROID_APS)?.trend)
-        assertEquals(Trend.FLAT, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 0, sensor = "s", session = "a")), TrendRateProfile.ANDROID_APS)?.trend)
-        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "other", session = "a")), TrendRateProfile.ANDROID_APS))
-        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "s", session = "other")), TrendRateProfile.ANDROID_APS))
-        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 11, sensor = "s", session = "a")), TrendRateProfile.ANDROID_APS))
+        assertEquals(Trend.SINGLE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 6, sensor = "s", session = "a")), TrendRateProfile.SUGARLICIOUS)?.trend)
+        assertEquals(Trend.FORTY_FIVE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "s", session = "a")), TrendRateProfile.SUGARLICIOUS)?.trend)
+        assertEquals(Trend.FORTY_FIVE_DOWN, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 4, sensor = "s", session = "a")), TrendRateProfile.SUGARLICIOUS)?.trend)
+        assertEquals(Trend.FLAT, CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 0, sensor = "s", session = "a")), TrendRateProfile.SUGARLICIOUS)?.trend)
+        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "other", session = "a")), TrendRateProfile.SUGARLICIOUS))
+        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 5, sensor = "s", session = "other")), TrendRateProfile.SUGARLICIOUS))
+        assertNull(CanonicalTrendPolicy.derive(current, listOf(sample(108.0, 11, sensor = "s", session = "a")), TrendRateProfile.SUGARLICIOUS))
     }
 
     @Test
@@ -124,7 +135,7 @@ class CanonicalTrendPolicyTest {
         val properPrevious = sample(108.0, 5).copy(receivedAtEpochMs = 19 * 60_000L)
         val lateBackfill = sample(140.0, 3).copy(receivedAtEpochMs = 21 * 60_000L)
 
-        val result = CanonicalTrendPolicy.derive(current, listOf(lateBackfill, properPrevious), TrendRateProfile.ANDROID_APS)
+        val result = CanonicalTrendPolicy.derive(current, listOf(lateBackfill, properPrevious), TrendRateProfile.SUGARLICIOUS)
 
         assertEquals(5 * 60_000L, result?.previousMeasuredAtEpochMs)
         assertEquals(-1.6, result?.rateMgDlPerMinute ?: 0.0, 0.0)

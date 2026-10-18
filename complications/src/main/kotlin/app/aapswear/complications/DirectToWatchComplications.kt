@@ -242,6 +242,8 @@ object DirectToWatchPreferences {
     private const val KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED = "graph_style_historical_dot_outline_enabled"
     private const val KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED = "graph_style_current_dot_outline_enabled"
     private const val KEY_GRAPH_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+    private const val KEY_GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH = "graph_style_historical_dot_outline_width"
+    private const val KEY_GRAPH_CURRENT_DOT_OUTLINE_WIDTH = "graph_style_current_dot_outline_width"
     private const val KEY_GRAPH_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
     private const val KEY_GLUCOSE_UNIT = "display.glucose_unit"
     private const val KEY_GLUCOSE_BOLD = "display.glucose_bold"
@@ -403,12 +405,20 @@ object DirectToWatchPreferences {
                     KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED,
                     p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.historicalDotOutlineEnabled),
                 ),
-            currentDotOutlineEnabled =
-                p.getBoolean(
-                    KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED,
-                    p.getBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, defaults.currentDotOutlineEnabled),
-                ),
+            currentDotOutlineEnabled = true,
             dotOutlineWidthDp = p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(0.25f, 3f),
+            historicalDotOutlineWidthDp =
+                p
+                    .getFloat(
+                        KEY_GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
+                        p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.historicalDotOutlineWidthDp),
+                    ).coerceIn(0.25f, 3f),
+            currentDotOutlineWidthDp =
+                p
+                    .getFloat(
+                        KEY_GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
+                        p.getFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, defaults.currentDotOutlineWidthDp),
+                    ).coerceIn(0.25f, 3f),
             cornerRadiusDp = p.getFloat("graph_style_corner_radius", defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = p.getBoolean("graph_style_border_enabled", defaults.borderEnabled),
             timeAxisEnabled = p.getBoolean("graph_style_time_axis_enabled", defaults.timeAxisEnabled),
@@ -431,8 +441,10 @@ object DirectToWatchPreferences {
             .putFloat(KEY_GRAPH_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
             .putBoolean(KEY_GRAPH_DOT_OUTLINE_ENABLED, true)
             .putBoolean(KEY_GRAPH_HISTORICAL_DOT_OUTLINE_ENABLED, style.historicalDotOutlineEnabled)
-            .putBoolean(KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED, style.currentDotOutlineEnabled)
+            .putBoolean(KEY_GRAPH_CURRENT_DOT_OUTLINE_ENABLED, true)
             .putFloat(KEY_GRAPH_DOT_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(0.25f, 3f))
+            .putFloat(KEY_GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH, style.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
+            .putFloat(KEY_GRAPH_CURRENT_DOT_OUTLINE_WIDTH, style.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
             .putFloat("graph_style_corner_radius", style.cornerRadiusDp.coerceIn(0f, 40f))
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)

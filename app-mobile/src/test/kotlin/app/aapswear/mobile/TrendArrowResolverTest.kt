@@ -9,15 +9,15 @@ import org.junit.Test
 
 class TrendArrowResolverTest {
     @Test
-    fun `AAPS trend always wins`() {
+    fun `Sugarlicious whole delta policy overrides source arrow`() {
         val result =
             TrendArrowResolver.resolve(
                 Trend.SINGLE_UP,
-                current(50.0),
+                current(50.0).copy(deltaMgDl = -14.0),
                 listOf(GlucoseSample(100.0, 0L), GlucoseSample(50.0, 5 * 60_000L)),
                 "DoubleDown",
             )
-        assertEquals(Trend.SINGLE_UP, result)
+        assertEquals(Trend.DOUBLE_DOWN, result)
     }
 
     @Test

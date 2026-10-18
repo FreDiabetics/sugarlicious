@@ -123,14 +123,18 @@ object TherapyDisplayFormatter {
             CgmPresentationStatus.NO_SOURCE -> "KEINE QUELLE"
         }
 
+    /**
+     * Whether the last validated CGM state should remain visible. Age changes its presentation,
+     * but only invalid/no data removes value, delta and trend from a display surface.
+     */
     fun isGlucoseDisplayable(
         state: TherapyDisplayState?,
         nowEpochMs: Long,
     ): Boolean {
         if (!isGlucoseKnown(state)) return false
         return when (freshness(state, nowEpochMs)) {
-            Freshness.CURRENT, Freshness.DELAYED -> true
-            Freshness.STALE, Freshness.SIGNAL_LOSS, Freshness.ERROR, Freshness.NO_DATA -> false
+            Freshness.CURRENT, Freshness.DELAYED, Freshness.STALE, Freshness.SIGNAL_LOSS -> true
+            Freshness.ERROR, Freshness.NO_DATA -> false
         }
     }
 

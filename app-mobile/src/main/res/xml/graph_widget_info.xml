@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:targetApi="s"
     android:description="@string/widget_graph_description"
-    android:initialLayout="@layout/widget_loading"
+    android:initialLayout="@layout/widget_graph_initial"
     android:previewLayout="@layout/widget_graph_preview"
     android:minWidth="120dp"
     android:minHeight="80dp"

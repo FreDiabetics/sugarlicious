@@ -1,12 +1,15 @@
 package app.aapswear.mobile
 
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
@@ -15,22 +18,26 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.drawable.Icon
 import android.os.Build
-import android.os.Bundle
 import android.os.IBinder
+import android.os.SystemClock
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.graphics.createBitmap
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.mobile.ui.theme.SugarliciousPalette
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmGraphPolicy
+import app.aapswear.model.CgmRangeClass
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucoseGraphScale
@@ -64,7 +71,34 @@ internal fun delayUntilNextExternalSurfaceMinute(nowEpochMs: Long): Long {
     return (EXTERNAL_SURFACE_MINUTE_MS - remainder).coerceAtLeast(1L)
 }
 
-internal fun notificationGlucoseRevision(state: TherapyDisplayState?): Long? = state?.glucose?.measuredAtEpochMs
+internal fun notificationRevision(
+    state: TherapyDisplayState?,
+    nowEpochMs: Long,
+    selectedUnit: GlucoseUnit?,
+): String = notificationPresentation(state, nowEpochMs, selectedUnit).revision
+
+internal fun shouldPostNotificationOnStart(
+    foregroundStarted: Boolean,
+    action: String?,
+    currentRevision: String,
+    notifiedRevision: String?,
+): Boolean =
+    !foregroundStarted ||
+        action == PersistentBridgeService.ACTION_REFRESH ||
+        action == PersistentBridgeService.ACTION_DISABLE_LIVE ||
+        currentRevision != notifiedRevision
+
+internal fun notificationGlucoseColorRole(
+    valueMgDl: Double,
+    thresholds: CgmThresholds,
+): SugarliciousColorRole =
+    when (thresholds.classify(valueMgDl)) {
+        CgmRangeClass.VERY_LOW -> SugarliciousColorRole.GLUCOSE_VERY_LOW
+        CgmRangeClass.LOW -> SugarliciousColorRole.GLUCOSE_LOW
+        CgmRangeClass.IN_RANGE, null -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+        CgmRangeClass.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+        CgmRangeClass.VERY_HIGH -> SugarliciousColorRole.GLUCOSE_VERY_HIGH
+    }
 
 class PersistentBridgeService :
     Service(),
@@ -72,20 +106,45 @@ class PersistentBridgeService :
     private lateinit var uiPreferences: SharedPreferences
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var latestState: TherapyDisplayState? = null
-    private var notifiedGlucoseRevision: Long? = null
+    private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
     private var externalSurfaceClockJob: Job? = null
+    private var freshnessBoundaryJob: Job? = null
+    private val freshnessReconcileReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context?,
+                intent: Intent?,
+            ) {
+                reconcileFreshnessBoundary()
+            }
+        }
 
     override fun onCreate() {
         super.onCreate()
         uiPreferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
         uiPreferences.registerOnSharedPreferenceChangeListener(this)
+        ContextCompat.registerReceiver(
+            this,
+            freshnessReconcileReceiver,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_TIME_CHANGED)
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         createNotificationChannel()
         scope.launch {
             TherapyStateStore(this@PersistentBridgeService).state.collectLatest {
                 latestState = it
-                if (foregroundStarted && notificationGlucoseRevision(it) != notifiedGlucoseRevision) {
-                    notifyUpdated()
+                if (foregroundStarted) {
+                    val revision = currentPresentationRevision()
+                    if (revision != notifiedPresentationRevision) {
+                        notifyUpdated()
+                    } else {
+                        scheduleNextFreshnessBoundary()
+                    }
                 }
             }
         }
@@ -110,9 +169,18 @@ class PersistentBridgeService :
         if (intent?.action == ACTION_DISABLE_LIVE) {
             uiPreferences.edit { putBoolean(PREFERENCE_LIVE_NOTIFICATION, false) }
         }
-        promoteToForeground(buildNotification())
-        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
-        foregroundStarted = true
+        val now = System.currentTimeMillis()
+        val revision = currentPresentationRevision(now)
+        if (!foregroundStarted) {
+            promoteToForeground(buildNotification(now))
+            notifiedPresentationRevision = revision
+            foregroundStarted = true
+            scheduleNextFreshnessBoundary(now)
+        } else if (shouldPostNotificationOnStart(foregroundStarted, intent?.action, revision, notifiedPresentationRevision)) {
+            notifyUpdated()
+        } else {
+            scheduleNextFreshnessBoundary(now)
+        }
         return START_STICKY
     }
 
@@ -125,7 +193,10 @@ class PersistentBridgeService :
 
     override fun onDestroy() {
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
+        unregisterReceiver(freshnessReconcileReceiver)
         externalSurfaceClockJob?.cancel()
+        freshnessBoundaryJob?.cancel()
+        cancelFreshnessBoundary()
         scope.cancel()
         super.onDestroy()
     }
@@ -133,9 +204,65 @@ class PersistentBridgeService :
     override fun onBind(intent: Intent?): IBinder? = null
 
     private fun notifyUpdated() {
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification())
-        notifiedGlucoseRevision = notificationGlucoseRevision(latestState)
+        val now = System.currentTimeMillis()
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(now))
+        notifiedPresentationRevision = currentPresentationRevision(now)
+        scheduleNextFreshnessBoundary(now)
     }
+
+    private fun currentPresentationRevision(nowEpochMs: Long = System.currentTimeMillis()): String =
+        notificationRevision(
+            latestState,
+            nowEpochMs,
+            DashboardUiPreferences.read(uiPreferences).unitFor(latestState),
+        )
+
+    private fun scheduleNextFreshnessBoundary(nowEpochMs: Long = System.currentTimeMillis()) {
+        freshnessBoundaryJob?.cancel()
+        val alarmManager = getSystemService(AlarmManager::class.java)
+        val pendingIntent = freshnessBoundaryPendingIntent()
+        alarmManager.cancel(pendingIntent)
+        val visibleBoundary =
+            listOfNotNull(
+                nextNotificationFreshnessBoundary(latestState, nowEpochMs),
+                nextNotificationAgeBoundary(latestState, nowEpochMs),
+            ).minOrNull() ?: return
+        nextNotificationSafetyBoundary(latestState, nowEpochMs)?.let { safetyBoundary ->
+            val triggerAt = SystemClock.elapsedRealtime() + (safetyBoundary - nowEpochMs).coerceAtLeast(1L)
+            if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, triggerAt, pendingIntent)
+            }
+        }
+        freshnessBoundaryJob =
+            scope.launch {
+                delay((visibleBoundary - System.currentTimeMillis()).coerceAtLeast(1L))
+                reconcileFreshnessBoundary()
+            }
+    }
+
+    private fun reconcileFreshnessBoundary() {
+        if (!foregroundStarted) return
+        val now = System.currentTimeMillis()
+        if (currentPresentationRevision(now) != notifiedPresentationRevision) {
+            notifyUpdated()
+        } else {
+            scheduleNextFreshnessBoundary(now)
+        }
+    }
+
+    private fun cancelFreshnessBoundary() {
+        getSystemService(AlarmManager::class.java).cancel(freshnessBoundaryPendingIntent())
+    }
+
+    private fun freshnessBoundaryPendingIntent(): PendingIntent =
+        PendingIntent.getService(
+            this,
+            FRESHNESS_BOUNDARY_REQUEST_CODE,
+            Intent(this, PersistentBridgeService::class.java).setAction(ACTION_FRESHNESS_BOUNDARY),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun promoteToForeground(notification: Notification) {
         if (Build.VERSION.SDK_INT >= 34) {
@@ -145,9 +272,11 @@ class PersistentBridgeService :
         }
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(nowEpochMs: Long = System.currentTimeMillis()): Notification {
         val liveRequested = uiPreferences.getBoolean(PREFERENCE_LIVE_NOTIFICATION, false)
-        val liveCapable = liveRequested && Build.VERSION.SDK_INT >= 36
+        val exactFreshnessAvailable =
+            Build.VERSION.SDK_INT < 31 || getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+        val mode = notificationMode(liveRequested && exactFreshnessAvailable, Build.VERSION.SDK_INT, Build.MANUFACTURER.orEmpty())
         val openApp =
             PendingIntent.getActivity(
                 this,
@@ -155,9 +284,19 @@ class PersistentBridgeService :
                 Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
+        if (mode != NotificationMode.STANDARD_CUSTOM) {
+            return buildLiveNotification(mode, openApp, nowEpochMs)
+        }
+        return buildStandardCustomNotification(openApp, nowEpochMs)
+    }
+
+    private fun buildStandardCustomNotification(
+        openApp: PendingIntent,
+        nowEpochMs: Long,
+    ): Notification {
         val notificationGraphEnabled =
             uiPreferences.getBoolean(PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true)
-        val display = notificationDisplay(latestState, notificationGraphEnabled)
+        val display = notificationDisplay(latestState, nowEpochMs)
         val collapsedGraph =
             if (notificationGraphEnabled) {
                 NotificationGraphRenderer.renderCollapsed(this, latestState, uiPreferences)
@@ -201,25 +340,91 @@ class PersistentBridgeService :
                 .setCustomContentView(collapsedView)
                 .setCustomBigContentView(expandedView)
 
-        if (liveCapable) {
-            val disableLive =
-                PendingIntent.getService(
-                    this,
-                    1,
-                    Intent(this, PersistentBridgeService::class.java).setAction(ACTION_DISABLE_LIVE),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        return builder.build()
+    }
+
+    private fun buildLiveNotification(
+        mode: NotificationMode,
+        openApp: PendingIntent,
+        nowEpochMs: Long,
+    ): Notification {
+        val unit = DashboardUiPreferences.read(uiPreferences).unitFor(latestState)
+        val presentation = notificationPresentation(latestState, nowEpochMs, unit)
+        val disableLive =
+            PendingIntent.getService(
+                this,
+                1,
+                Intent(this, PersistentBridgeService::class.java).setAction(ACTION_DISABLE_LIVE),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_outlined)
+                .setColor(getColor(R.color.app_accent))
+                .setContentTitle(presentation.drawerPrimaryText)
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setContentIntent(openApp)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setShowWhen(false)
+                .addAction(R.drawable.ic_notification, "Live beenden", disableLive)
+        if (mode != NotificationMode.SAMSUNG_LIVE) {
+            presentation.therapyText?.let(builder::setContentText)
+        }
+        listOfNotNull(presentation.profileText, presentation.sourceText.takeIf(String::isNotBlank))
+            .joinToString(" · ")
+            .takeIf(String::isNotBlank)
+            ?.let(builder::setSubText)
+
+        var samsungExpandedView: RemoteViews? = null
+        if (mode == NotificationMode.SAMSUNG_LIVE) {
+            val graphEnabled = uiPreferences.getBoolean(PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true)
+            val display = notificationDisplay(latestState, nowEpochMs)
+            val collapsedGraph =
+                if (graphEnabled) NotificationGraphRenderer.renderCollapsed(this, latestState, uiPreferences) else null
+            val expandedGraph =
+                if (graphEnabled) NotificationGraphRenderer.renderExpanded(this, latestState, uiPreferences) else null
+            samsungExpandedView =
+                notificationRemoteView(
+                    R.layout.notification_sugarlicious_expanded,
+                    NotificationGraphProfile.EXPANDED,
+                    display,
+                    expandedGraph,
                 )
             builder
-                .addAction(
-                    Notification.Action
-                        .Builder(
-                            Icon.createWithResource(this, R.drawable.ic_notification),
-                            "Live beenden",
-                            disableLive,
-                        ).build(),
-                ).addExtras(Bundle().apply { putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true) })
+                .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+                .setCustomContentView(
+                    notificationRemoteView(
+                        R.layout.notification_sugarlicious_collapsed,
+                        NotificationGraphProfile.COLLAPSED,
+                        display,
+                        collapsedGraph,
+                    ),
+                ).setCustomBigContentView(
+                    samsungExpandedView,
+                )
         }
 
+        AndroidLiveNotificationAdapter.apply(builder, presentation)
+        val samsungTexts =
+            if (mode == NotificationMode.SAMSUNG_LIVE) {
+                SamsungLiveNotificationAdapter.apply(
+                    this,
+                    builder,
+                    presentation,
+                    Build.MANUFACTURER.orEmpty(),
+                    R.drawable.ic_notification_outlined,
+                    expandedRemoteView = samsungExpandedView,
+                )
+            } else {
+                null
+            }
+        getSharedPreferences(LIVE_NOTIFICATION_DIAGNOSTICS, MODE_PRIVATE).edit {
+            putString(DIAGNOSTIC_MODE, mode.name)
+            putBoolean(DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED, samsungTexts != null)
+            putLong(DIAGNOSTIC_LAST_POST_ATTEMPT_AT, nowEpochMs)
+        }
         return builder.build()
     }
 
@@ -283,7 +488,7 @@ class PersistentBridgeService :
                 setViewLayoutWidth(R.id.notification_trend, trendSizeDp * trendAspect, android.util.TypedValue.COMPLEX_UNIT_DIP)
                 setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
             }
-            setTextColor(R.id.notification_value, textPrimary)
+            setTextColor(R.id.notification_value, palette.argb(display.valueColorRole))
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
                 display.trend?.let {
@@ -311,13 +516,12 @@ class PersistentBridgeService :
 
     private fun notificationDisplay(
         state: TherapyDisplayState?,
-        graphEnabled: Boolean,
+        now: Long = System.currentTimeMillis(),
     ): NotificationDisplay {
         val glucose = state?.glucose
-        val now = System.currentTimeMillis()
         val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
         if (glucose == null || !TherapyDisplayFormatter.isGlucoseKnown(state)) {
-            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false)
+            return NotificationDisplay("—", "Keine aktuellen Glukosedaten", null, null, false, SugarliciousColorRole.TEXT_PRIMARY)
         }
 
         val selectedUnit = DashboardUiPreferences.read(uiPreferences).unitFor(state)
@@ -342,6 +546,7 @@ class PersistentBridgeService :
             glucose.trend.takeUnless { it == app.aapswear.model.Trend.UNKNOWN },
             deltaUnit,
             freshness == Freshness.SIGNAL_LOSS,
+            notificationGlucoseColorRole(glucose.valueMgDl, CgmThresholdPreferences.read(uiPreferences)),
         )
     }
 
@@ -366,6 +571,7 @@ class PersistentBridgeService :
         val trend: app.aapswear.model.Trend?,
         val deltaUnitText: String?,
         val strikeTitle: Boolean,
+        val valueColorRole: SugarliciousColorRole,
     )
 
     companion object {
@@ -387,12 +593,17 @@ class PersistentBridgeService :
         const val PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_WIDTH = "notification.cgm.dot.expanded.outlineWidthDp"
         const val PREFERENCE_NOTIFICATION_DOT_PROFILES_MIGRATED = "notification.cgm.dot.profilesMigratedV1"
 
-        const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+        const val LIVE_NOTIFICATION_DIAGNOSTICS = "live_notification_diagnostics"
+        const val DIAGNOSTIC_MODE = "mode"
+        const val DIAGNOSTIC_SAMSUNG_EXTRAS_APPLIED = "samsungExtrasApplied"
+        const val DIAGNOSTIC_LAST_POST_ATTEMPT_AT = "lastPostAttemptAt"
         const val CHANNEL_ID = "sugarlicious_background"
         const val NOTIFICATION_ID = 4101
         private const val PREFERENCES_NAME = "dashboard_ui"
-        private const val ACTION_REFRESH = "app.aapswear.action.REFRESH_PERSISTENT_NOTIFICATION"
-        private const val ACTION_DISABLE_LIVE = "app.aapswear.action.DISABLE_LIVE_NOTIFICATION"
+        internal const val ACTION_REFRESH = "app.aapswear.action.REFRESH_PERSISTENT_NOTIFICATION"
+        internal const val ACTION_DISABLE_LIVE = "app.aapswear.action.DISABLE_LIVE_NOTIFICATION"
+        internal const val ACTION_FRESHNESS_BOUNDARY = "app.aapswear.action.REFRESH_NOTIFICATION_FRESHNESS"
+        private const val FRESHNESS_BOUNDARY_REQUEST_CODE = 4102
 
         fun start(context: Context): Boolean = startWithAction(context, null)
 
@@ -444,10 +655,31 @@ internal enum class NotificationGraphProfile(
     ),
 }
 
+internal fun notificationGraphColor(
+    preferences: SharedPreferences,
+    palette: SugarliciousPalette,
+    role: SugarliciousColorRole,
+): Int {
+    val notificationColorPrefix = if (palette.isLight) "notification.color.light." else "notification.color.dark."
+    val overrideKey = "notification.color.override." + role.preferenceKey
+    val legacyModeKey = notificationColorPrefix + role.preferenceKey
+    return when {
+        palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
+        palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
+        role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
+        preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
+        !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
+        else -> palette.argb(role)
+    }
+}
+
 internal data class NotificationGraphDotStyle(
     val cgmRadiusDp: Float,
     val cgmOutlineEnabled: Boolean,
     val cgmOutlineWidthDp: Float,
+    val historicalOutlineEnabled: Boolean = cgmOutlineEnabled,
+    val historicalOutlineWidthDp: Float = cgmOutlineWidthDp,
+    val currentOutlineWidthDp: Float = cgmOutlineWidthDp,
 )
 
 internal object NotificationGraphDotStyleStore {
@@ -484,6 +716,23 @@ internal object NotificationGraphDotStyleStore {
                         modeKey(mode, outlineWidthKey(profile)),
                         preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp),
                     ).coerceIn(0.25f, 3.0f),
+            historicalOutlineEnabled =
+                preferences.getBoolean(
+                    modeKey(mode, historicalOutlineEnabledKey(profile)),
+                    preferences.getBoolean(modeKey(mode, outlineEnabledKey(profile)), preferences.getBoolean(outlineEnabledKey(profile), true)),
+                ),
+            historicalOutlineWidthDp =
+                preferences
+                    .getFloat(
+                        modeKey(mode, historicalOutlineWidthKey(profile)),
+                        preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)),
+                    ).coerceIn(0.25f, 3f),
+            currentOutlineWidthDp =
+                preferences
+                    .getFloat(
+                        modeKey(mode, currentOutlineWidthKey(profile)),
+                        preferences.getFloat(modeKey(mode, outlineWidthKey(profile)), preferences.getFloat(outlineWidthKey(profile), profile.defaultOutlineWidthDp)),
+                    ).coerceIn(0.25f, 3f),
         )
     }
 
@@ -504,6 +753,9 @@ internal object NotificationGraphDotStyleStore {
             putFloat(modeKey(mode, radiusKey(profile)), style.cgmRadiusDp.coerceIn(1.5f, 6.0f))
             putBoolean(modeKey(mode, outlineEnabledKey(profile)), style.cgmOutlineEnabled)
             putFloat(modeKey(mode, outlineWidthKey(profile)), style.cgmOutlineWidthDp.coerceIn(0.25f, 3.0f))
+            putBoolean(modeKey(mode, historicalOutlineEnabledKey(profile)), style.historicalOutlineEnabled)
+            putFloat(modeKey(mode, historicalOutlineWidthKey(profile)), style.historicalOutlineWidthDp.coerceIn(0.25f, 3f))
+            putFloat(modeKey(mode, currentOutlineWidthKey(profile)), style.currentOutlineWidthDp.coerceIn(0.25f, 3f))
         }
     }
 
@@ -619,6 +871,12 @@ internal object NotificationGraphDotStyleStore {
             NotificationGraphProfile.EXPANDED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_EXPANDED_DOT_OUTLINE_ENABLED
         }
 
+    private fun historicalOutlineEnabledKey(profile: NotificationGraphProfile) = outlineEnabledKey(profile) + ".historical"
+
+    private fun historicalOutlineWidthKey(profile: NotificationGraphProfile) = outlineWidthKey(profile) + ".historical"
+
+    private fun currentOutlineWidthKey(profile: NotificationGraphProfile) = outlineWidthKey(profile) + ".current"
+
     private fun outlineWidthKey(profile: NotificationGraphProfile): String =
         when (profile) {
             NotificationGraphProfile.COLLAPSED -> PersistentBridgeService.PREFERENCE_NOTIFICATION_COLLAPSED_DOT_OUTLINE_WIDTH
@@ -683,21 +941,8 @@ internal object NotificationGraphRenderer {
         val bitmap = createBitmap(width, height)
         val canvas = Canvas(bitmap)
         val palette = SugarliciousColorStore.load(preferences)
-        val notificationColorPrefix =
-            if (palette.isLight) "notification.color.light." else "notification.color.dark."
 
-        fun graphColor(role: SugarliciousColorRole): Int {
-            val overrideKey = "notification.color.override." + role.preferenceKey
-            val legacyModeKey = notificationColorPrefix + role.preferenceKey
-            return when {
-                palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
-                palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
-                role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-                preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
-                !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
-                else -> palette.argb(role)
-            }
-        }
+        fun graphColor(role: SugarliciousColorRole): Int = notificationGraphColor(preferences, palette, role)
 
         val scaleX = width / profile.displayWidthDp
         val scaleY = height / profile.displayHeightDp
@@ -831,13 +1076,13 @@ internal object NotificationGraphRenderer {
         paint.style = Paint.Style.STROKE
         paint.strokeCap = Paint.Cap.BUTT
         paint.strokeWidth = max(1f, renderDensity)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
+        paint.color = graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE))
         canvas.drawLine(visualLeft, y(targetHigh), labelLaneLeft, y(targetHigh), paint)
-        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE)))
+        paint.color = laneColor(graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_HIGH_LINE)))
         canvas.drawLine(labelLaneLeft, y(targetHigh), visualRight, y(targetHigh), paint)
-        paint.color = opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
+        paint.color = graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE))
         canvas.drawLine(visualLeft, y(targetLow), labelLaneLeft, y(targetLow), paint)
-        paint.color = laneColor(opaqueGraphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE)))
+        paint.color = laneColor(graphBoundaryColor(graphColor(SugarliciousColorRole.GRAPH_LOW_LINE)))
         canvas.drawLine(labelLaneLeft, y(targetLow), visualRight, y(targetLow), paint)
 
         fun drawYLabel(
@@ -854,7 +1099,6 @@ internal object NotificationGraphRenderer {
         drawYLabel(targetLow, aboveLine = false)
 
         val dotStyle = NotificationGraphDotStyleStore.read(preferences, profile)
-        val outlineRadius = (dotStyle.cgmRadiusDp + dotStyle.cgmOutlineWidthDp) * renderDensity
         val dotRadius = dotStyle.cgmRadiusDp * renderDensity
         val currentExtra = 0.18f * renderDensity
 
@@ -862,7 +1106,10 @@ internal object NotificationGraphRenderer {
             val px = x(point.key)
             val py = y(point.value)
             val current = index == points.lastIndex
-            if (dotStyle.cgmOutlineEnabled) {
+            val outlineEnabled = current || dotStyle.historicalOutlineEnabled
+            val outlineRadius =
+                (dotStyle.cgmRadiusDp + if (current) dotStyle.currentOutlineWidthDp else dotStyle.historicalOutlineWidthDp) * renderDensity
+            if (outlineEnabled) {
                 paint.style = Paint.Style.FILL
                 paint.color = graphColor(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
                 canvas.drawCircle(
@@ -911,4 +1158,4 @@ internal object NotificationGraphRenderer {
     }
 }
 
-internal fun opaqueGraphBoundaryColor(color: Int): Int = 0xFF000000.toInt() or (color and 0x00FFFFFF)
+internal fun graphBoundaryColor(color: Int): Int = color

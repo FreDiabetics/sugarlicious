@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AapsDisplayField
-import app.aapswear.model.Freshness
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseTrendSizing
@@ -76,7 +75,7 @@ internal fun SugarliciousOverviewScreen(
     val knownGlucose =
         app.aapswear.model.TherapyDisplayFormatter
             .isGlucoseKnown(state)
-    val displayable = freshness == Freshness.CURRENT || freshness == Freshness.DELAYED
+    val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val density = LocalDensity.current
     val screenHeightDp =
         with(density) {
@@ -133,47 +132,34 @@ internal fun SugarliciousOverviewScreen(
     }
 
     val enabledPredictions =
-        if (preferences.showCgmGraph && preferences.anyCgmPredictionEnabled) {
+        if (preferences.showCgmGraph && preferences.predictionsEnabled) {
             state
                 ?.glucosePredictions
                 .orEmpty()
-                .filter { series ->
-                    when (series.kind) {
-                        app.aapswear.model.PredictionKind.IOB -> preferences.showCgmPredictionIob
-                        app.aapswear.model.PredictionKind.COB,
-                        app.aapswear.model.PredictionKind.ACOB,
-                        -> preferences.showCgmPredictionCob
-                        app.aapswear.model.PredictionKind.UAM -> preferences.showCgmPredictionUam
-                        app.aapswear.model.PredictionKind.ZERO_TEMP -> preferences.showCgmPredictionZeroTemp
-                    }
-                }
+                .filter { it.kind in preferences.enabledPredictionKinds }
         } else {
             emptyList()
         }
-    val sharedScaleOnRight =
-        targetScaleOnRight(
-            hasVisiblePredictions(enabledPredictions, now, sharedViewportSnapshot),
-        )
-
     val predictionFutureWindowMs =
-        if (
-            preferences.showCgmGraph &&
-            preferences.anyCgmPredictionEnabled
-        ) {
-            maxOf(PredictionDisplayTimeline.futureWindowMs(enabledPredictions, now), 60L * 60_000L)
-        } else {
-            0L
-        }
-
-    val metabolicFutureWindowMs =
-        if (
-            preferences.showMetabolicGraph &&
-            preferences.anyCgmPredictionEnabled
-        ) {
-            90L * 60_000L
-        } else {
-            0L
-        }
+        predictionFutureWindowMs(
+            enabled = preferences.showCgmGraph && preferences.predictionsEnabled,
+            predictions = enabledPredictions,
+            now = now,
+        )
+    val predictionViewportPolicy =
+        resolvePredictionViewportPolicy(
+            historyHours = cgmChartViewport.hours,
+            predictionsEnabled = preferences.showCgmGraph && preferences.predictionsEnabled,
+            futureWindowMs = predictionFutureWindowMs,
+        )
+    val sharedScaleRightBlend =
+        predictionViewportPolicy.scaleRightBlendOverride
+            ?: predictionScaleRightBlend(
+                enabledPredictions,
+                now,
+                sharedViewportSnapshot.startEpochMs,
+                sharedViewportSnapshot.endEpochMs,
+            )
 
     LaunchedEffect(
         preferences.graphHours,
@@ -188,16 +174,9 @@ internal fun SugarliciousOverviewScreen(
     }
 
     LaunchedEffect(
-        predictionFutureWindowMs,
-        metabolicFutureWindowMs,
+        predictionViewportPolicy.effectiveFutureWindowMs,
     ) {
-        cgmChartViewport.setFutureWindow(
-            maxOf(
-                predictionFutureWindowMs,
-                metabolicFutureWindowMs,
-            ),
-            now,
-        )
+        cgmChartViewport.setFutureWindow(predictionViewportPolicy.effectiveFutureWindowMs, now)
     }
 
     val glucoseText = if (knownGlucose && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
@@ -285,7 +264,7 @@ internal fun SugarliciousOverviewScreen(
                 viewport = metabolicChartViewport,
                 chartHeightDp = metabolicGraphHeightDp,
                 now = now,
-                scaleOnRight = sharedScaleOnRight,
+                scaleRightBlend = sharedScaleRightBlend,
             )
         }
     }
@@ -301,6 +280,12 @@ internal fun hasVisiblePredictions(
         .any { series ->
             series.samples.any { it.measuredAtEpochMs in viewport.startEpochMs..viewport.endEpochMs }
         }
+
+internal fun predictionFutureWindowMs(
+    enabled: Boolean,
+    predictions: List<GlucosePrediction>,
+    now: Long,
+): Long = if (enabled) PredictionDisplayTimeline.futureWindowMs(predictions, now) else 0L
 
 @Composable
 private fun GlucoseHeroCard(
@@ -772,7 +757,7 @@ internal fun GlucoseDashboardChart.bindOverview(
     bind(
         state = state,
         unit = preferences.unitFor(state),
-        showPredictions = preferences.anyCgmPredictionEnabled,
+        showPredictions = preferences.predictionsEnabled,
         durationHours = preferences.graphHours,
         showTargetRange = true,
         showTargetValue = preferences.showCgmTargetValue,
@@ -786,6 +771,9 @@ internal fun GlucoseDashboardChart.bindOverview(
         cgmDotRadiusDp = preferences.cgmDotRadiusDp,
         cgmDotOutlineEnabled = preferences.cgmDotOutlineEnabled,
         cgmDotOutlineWidthDp = preferences.cgmDotOutlineWidthDp,
+        cgmHistoricalDotOutlineEnabled = preferences.cgmHistoricalDotOutlineEnabled,
+        cgmHistoricalDotOutlineWidthDp = preferences.cgmHistoricalDotOutlineWidthDp,
+        cgmCurrentDotOutlineWidthDp = preferences.cgmCurrentDotOutlineWidthDp,
         graphMaximumMgDl = preferences.graphMaximumMgDl,
         graphMinimumMgDl = preferences.graphMinimumMgDl,
         graphScaleMode = preferences.graphScaleMode,
@@ -800,7 +788,7 @@ private fun MetabolicGraphSurface(
     viewport: ChartViewport,
     chartHeightDp: Int,
     now: Long,
-    scaleOnRight: Boolean,
+    scaleRightBlend: Float,
 ) {
     AndroidView(
         modifier = Modifier.fillMaxWidth().height(chartHeightDp.dp),
@@ -821,13 +809,13 @@ private fun MetabolicGraphSurface(
                     mealCarbs = preferences.showMealCarbMarkers,
                     eCarbs = preferences.showECarbMarkers,
                 ),
-                scaleOnRight = scaleOnRight,
+                scaleRightBlend = scaleRightBlend,
                 showTimeAxis = !preferences.showCgmGraph,
                 iobGraphScaleMode = preferences.iobGraphScaleMode,
                 cobGraphScaleMode = preferences.cobGraphScaleMode,
                 iobMaximumUnits = preferences.iobGraphMaximumUnits,
                 cobMaximumGrams = preferences.cobGraphMaximumGrams,
-                showPredictionDivider = preferences.anyCgmPredictionEnabled,
+                showPredictionDivider = preferences.showPredictionDivider,
                 clockEpochMs = now,
             )
         },

@@ -24,14 +24,22 @@ object AppearanceTerminology {
 
     const val GRAPH_BACKGROUND = "Graph-Hintergrund"
     const val GRAPH_LOW_AREA = "Tief-Bereich"
+    const val GRAPH_VERY_LOW_AREA = "Sehr-tief-Bereich"
     const val GRAPH_TARGET_AREA = "Zielbereich"
     const val GRAPH_HIGH_AREA = "Hoch-Bereich"
+    const val GRAPH_VERY_HIGH_AREA = "Sehr-hoch-Bereich"
     const val GRAPH_LOW_LINE = "Tief-Grenzlinie"
+    const val GRAPH_VERY_LOW_LINE = "Sehr-tief-Grenzlinie"
     const val GRAPH_HIGH_LINE = "Hoch-Grenzlinie"
+    const val GRAPH_VERY_HIGH_LINE = "Sehr-hoch-Grenzlinie"
     const val GRAPH_DOT_LOW = "CGM-Punkte · tief"
     const val GRAPH_DOT_IN_RANGE = "CGM-Punkte · im Ziel"
     const val GRAPH_DOT_HIGH = "CGM-Punkte · hoch"
-    const val GRAPH_DOT_OUTLINE = "CGM-Punktkontur"
+    const val GRAPH_DOT_OUTLINE = "CGM-Dot-Kontur"
+    const val GRAPH_HISTORICAL_DOT_OUTLINE = "Historische CGM-Dot-Kontur"
+    const val GRAPH_CURRENT_DOT_OUTLINE = "Aktuelle CGM-Dot-Kontur (immer aktiv)"
+    const val GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH = "Konturstärke historische CGM-Dots"
+    const val GRAPH_CURRENT_DOT_OUTLINE_WIDTH = "Konturstärke aktueller CGM-Dot"
     const val GRAPH_AXIS_TEXT = "Achsenbeschriftung"
     const val GRAPH_AXIS_TICK = "Achsenstriche"
     const val GRAPH_NOW_LINE = "Jetzt-Linie"
@@ -43,4 +51,22 @@ object AppearanceTerminology {
     const val PREDICTION_COB = "COB-Prognose"
     const val PREDICTION_UAM = "UAM-Prognose"
     const val PREDICTION_ZERO_TEMP = "ZeroTemp-Prognose"
+}
+
+/** Shared numeric behavior for equivalent appearance controls on every surface. */
+object AppearanceControlContract {
+    const val DOT_OUTLINE_MIN_DP = 0.25f
+    const val DOT_OUTLINE_MAX_DP = 3.0f
+    const val DOT_OUTLINE_STEP_DP = 0.05f
+    const val COLOR_ALPHA_MIN_PERCENT = 0
+    const val COLOR_ALPHA_MAX_PERCENT = 100
+
+    fun normalizeDotOutlineWidth(value: Float): Float =
+        value.coerceIn(DOT_OUTLINE_MIN_DP, DOT_OUTLINE_MAX_DP)
+
+    fun quantizeDotOutlineWidth(value: Float): Float =
+        (
+            kotlin.math.round(normalizeDotOutlineWidth(value) / DOT_OUTLINE_STEP_DP) *
+                DOT_OUTLINE_STEP_DP
+        ).coerceIn(DOT_OUTLINE_MIN_DP, DOT_OUTLINE_MAX_DP)
 }

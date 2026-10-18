@@ -40,7 +40,7 @@ class WearGlucoseCardPresentationTest {
             )
         assertEquals("123", stale.value)
         assertEquals("—", error.value)
-        assertNull(stale.trend)
+        assertEquals(Trend.FLAT, stale.trend)
         assertNull(error.trend)
         assertTrue(stale.displayable)
         assertFalse(error.displayable)

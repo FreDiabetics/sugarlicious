@@ -123,12 +123,10 @@ class G7DirectToWatchSettingsStore(
                     KEY_HISTORICAL_DOT_OUTLINE,
                     preferences.getBoolean(KEY_DOT_OUTLINE, defaults.historicalDotOutlineEnabled),
                 ),
-            currentDotOutlineEnabled =
-                preferences.getBoolean(
-                    KEY_CURRENT_DOT_OUTLINE,
-                    preferences.getBoolean(KEY_DOT_OUTLINE, defaults.currentDotOutlineEnabled),
-                ),
+            currentDotOutlineEnabled = true,
             dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
+            historicalDotOutlineWidthDp = preferences.getFloat(KEY_HISTORICAL_DOT_OUTLINE_WIDTH, preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
+            currentDotOutlineWidthDp = preferences.getFloat(KEY_CURRENT_DOT_OUTLINE_WIDTH, preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = preferences.getBoolean(KEY_BORDER_ENABLED, defaults.borderEnabled),
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
@@ -145,8 +143,10 @@ class G7DirectToWatchSettingsStore(
             putFloat(KEY_DOT_RADIUS, value.dotRadiusDp.coerceIn(1.5f, 6f))
             putBoolean(KEY_DOT_OUTLINE, true)
             putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value.historicalDotOutlineEnabled)
-            putBoolean(KEY_CURRENT_DOT_OUTLINE, value.currentDotOutlineEnabled)
+            putBoolean(KEY_CURRENT_DOT_OUTLINE, true)
             putFloat(KEY_DOT_OUTLINE_WIDTH, value.dotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_HISTORICAL_DOT_OUTLINE_WIDTH, value.historicalDotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_CURRENT_DOT_OUTLINE_WIDTH, value.currentDotOutlineWidthDp.coerceIn(.25f, 3f))
             putFloat(KEY_CORNER_RADIUS, value.cornerRadiusDp.coerceIn(0f, 40f))
             putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
             putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
@@ -281,6 +281,8 @@ class G7DirectToWatchSettingsStore(
         private const val KEY_HISTORICAL_DOT_OUTLINE = "graph_style_historical_dot_outline_enabled"
         private const val KEY_CURRENT_DOT_OUTLINE = "graph_style_current_dot_outline_enabled"
         private const val KEY_DOT_OUTLINE_WIDTH = "graph_style_dot_outline_width"
+        private const val KEY_HISTORICAL_DOT_OUTLINE_WIDTH = "graph_style_historical_dot_outline_width"
+        private const val KEY_CURRENT_DOT_OUTLINE_WIDTH = "graph_style_current_dot_outline_width"
         private const val KEY_CORNER_RADIUS = "graph_style_corner_radius"
         private const val KEY_BORDER_ENABLED = "graph_style_border_enabled"
         private const val KEY_TIME_AXIS_ENABLED = "graph_style_time_axis_enabled"

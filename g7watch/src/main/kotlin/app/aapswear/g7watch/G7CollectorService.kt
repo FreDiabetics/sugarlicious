@@ -452,7 +452,11 @@ class G7CollectorService : Service() {
                         }
                     },
                     scanTimeoutMsOverride = boundedScanTimeout,
-                    reconnectStrategy = G7ReconnectStrategyStore.read(this),
+                    reconnectStrategy =
+                        effectiveG7ReconnectStrategy(
+                            G7ReconnectStrategyStore.read(this),
+                            store.read().health,
+                        ),
                     onTelemetry = { telemetry ->
                         if (telemetry is G7BackfillRequestTelemetry) {
                             backfillRequestedAt = telemetry.timestampEpochMs
@@ -961,8 +965,9 @@ class G7CollectorService : Service() {
                 val recycleStore = G7RuntimeRecycleStore(this)
                 val recycleRuntime =
                     shouldRecycleG7Runtime(
-                        cycle = cycle,
+                        cycle = cycle?.copy(radioFailureStreak = streak, radioDegradedCluster = degraded),
                         radioFailureStreak = streak,
+                        knownSensorAddress = !state.sensor?.deviceAddress.isNullOrBlank(),
                         lastRecycleAtEpochMs = recycleStore.lastRecycleAtEpochMs(),
                         nowEpochMs = now,
                     ) &&

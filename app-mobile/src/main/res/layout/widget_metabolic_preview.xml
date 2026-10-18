@@ -3,30 +3,23 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_widget_preview_surface"
-    android:gravity="center_vertical"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="4dp">
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
-        <ImageView android:layout_width="20dp" android:layout_height="20dp" android:src="@drawable/ic_sugarlicious_monochrome" android:tint="#6DE892" android:contentDescription="@string/app_name" />
-        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="7dp" android:layout_weight="1" android:text="@string/app_name" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="14sp" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_current" android:textColor="#6DE892" android:textStyle="bold" android:textSize="11sp" />
-    </LinearLayout>
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:baselineAligned="false" android:orientation="horizontal">
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_iob_label" android:textColor="#64BFFF" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_iob_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_cob_label" android:textColor="#FF9D18" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_cob_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
-        </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_basal_label" android:textColor="#54DF30" android:textStyle="bold" android:textSize="11sp" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_basal_value" android:textColor="#F5F5F5" android:textStyle="bold" android:textSize="19sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="9dp" android:text="@string/widget_preview_source_age" android:textColor="#B5B5B5" android:textSize="11sp" />
+    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
+        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_iob_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#64BFFF" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_iob_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
+        <ImageView android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_iob" android:tint="#64BFFF" />
+    </FrameLayout>
+    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
+        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_cob_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#FF9D18" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_cob_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
+        <ImageView android:layout_width="17dp" android:layout_height="17dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_carbs" android:tint="#FF9D18" />
+    </FrameLayout>
+    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
+        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_basal_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#19D7E8" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_basal_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
+        <ImageView android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_basal" android:tint="#19D7E8" />
+    </FrameLayout>
 </LinearLayout>

@@ -1,6 +1,9 @@
 package app.aapswear.wear
 
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.model.TherapyMetricAppearance
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.protocol.WatchGraphStyle
 import app.aapswear.protocol.WatchUiColors
 import org.junit.Assert.assertEquals
@@ -13,6 +16,28 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WearTileAppearanceStoreTest {
+    @Test
+    fun `therapy tile geometry round trips separately from colors`() {
+        val expected =
+            TherapyProgressAppearance(
+                enabledMetrics = setOf(TherapyProgressMetric.COB, TherapyProgressMetric.BASAL),
+                groupScalePercent = 117,
+                gapDp = 9,
+                global = TherapyMetricAppearance(ringThicknessPercent = 144),
+                metricOverrides = mapOf(TherapyProgressMetric.COB to TherapyMetricAppearance(iconPercent = 155)),
+            )
+
+        TherapyTileGeometryStore.write(context, expected)
+
+        val stored = TherapyTileGeometryStore.read(context)
+        assertEquals(expected.enabledMetrics, stored.enabledMetrics)
+        assertEquals(117, stored.groupScalePercent)
+        assertEquals(9, stored.gapDp)
+        assertEquals(144, stored.global.ringThicknessPercent)
+        assertEquals(155, stored.metricOverrides.getValue(TherapyProgressMetric.COB).iconPercent)
+        assertEquals(listOf(TherapyTileMetric.COB, TherapyTileMetric.BASAL), TherapyTileSelectionStore.read(context).canonical)
+    }
+
     @Test
     fun `each system tile persists its content independently`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -78,6 +103,11 @@ class WearTileAppearanceStoreTest {
                 .clear()
                 .commit()
         }
+        context
+            .getSharedPreferences("wear_tile_therapy_geometry", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
     }
 
     @Test

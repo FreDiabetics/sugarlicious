@@ -7,6 +7,7 @@
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
+ <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>
  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -42,6 +43,7 @@
   <package android:name="com.google.android.apps.healthdata"/>
  </queries>
  <application android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">
+  <meta-data android:name="com.samsung.android.support.ongoing_activity" android:value="true"/>
   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name=".NightscoutTreatmentSettingsActivity" android:exported="false"/>
   <activity android:name=".DiagnosticActivity" android:exported="false"/>
@@ -71,7 +73,6 @@
   <receiver android:name=".GlucoseWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/glucose_widget_info"/></receiver>
   <receiver android:name=".GraphWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/graph_widget_info"/></receiver>
   <receiver android:name=".MetabolicWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/metabolic_widget_info"/></receiver>
-  <receiver android:name=".ActivityWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/activity_widget_info"/></receiver>
   <receiver android:name=".GlucoseGraphWidgetReceiver" android:exported="false"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/><action android:name="android.appwidget.action.APPWIDGET_DELETED"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/glucose_graph_widget_info"/></receiver>
   <service android:name=".PersistentBridgeService" android:exported="false" android:foregroundServiceType="specialUse">
    <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-visible Sugarlicious therapy status receiver and read-only Wear OS synchronization"/>

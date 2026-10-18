@@ -14,6 +14,24 @@ class ChartViewportRegressionTest {
     private val now = 48L * hour
 
     @Test
+    fun `prediction viewport ends at last supplied prediction instead of a fixed window`() {
+        val predictions =
+            listOf(
+                GlucosePrediction(
+                    kind = PredictionKind.IOB,
+                    samples =
+                        listOf(
+                            GlucoseSample(120.0, now),
+                            GlucoseSample(135.0, now + 37L * 60_000L),
+                        ),
+                ),
+            )
+
+        assertEquals(37L * 60_000L, predictionFutureWindowMs(true, predictions, now))
+        assertEquals(0L, predictionFutureWindowMs(false, predictions, now))
+    }
+
+    @Test
     fun `prediction axis changes side only while a prediction is in the visible viewport`() {
         val predictions =
             listOf(
@@ -30,7 +48,24 @@ class ChartViewportRegressionTest {
     }
 
     @Test
-    fun `twenty four hours is an invariant including prediction space`() {
+    fun `prediction scale crossfades through the final eight percent of the viewport`() {
+        val start = now
+        val end = now + hour
+        val transition = (hour * 0.08).toLong()
+
+        fun prediction(at: Long) =
+            listOf(GlucosePrediction(PredictionKind.IOB, listOf(GlucoseSample(130.0, at))))
+
+        assertEquals(1f, predictionScaleRightBlend(prediction(start - 1L), now, start, end), 0.001f)
+        assertEquals(1f, predictionScaleRightBlend(prediction(start), now, start, end), 0.001f)
+        assertEquals(0.5f, predictionScaleRightBlend(prediction(start + transition / 2L), now, start, end), 0.03f)
+        assertEquals(0f, predictionScaleRightBlend(prediction(start + transition), now, start, end), 0.001f)
+        assertEquals(0.5f, predictionScaleRightBlend(prediction(end - transition / 2L), now, start, end), 0.03f)
+        assertEquals(1f, predictionScaleRightBlend(prediction(end + 1L), now, start, end), 0.001f)
+    }
+
+    @Test
+    fun `full history keeps twenty four past hours and appends prediction space`() {
         val viewport = ChartViewport(23)
         viewport.setAvailablePastWindow(48L * hour, now)
         assertEquals(23f, viewport.visibleHours, 0.0001f)
@@ -42,8 +77,53 @@ class ChartViewportRegressionTest {
         assertEquals(24f, viewport.visibleHours, 0.0001f)
 
         viewport.setFutureWindow(2L * hour, now)
-        assertEquals(24f, viewport.visibleHours, 0.0001f)
-        assertEquals(22f, viewport.hours, 0.0001f)
+        assertEquals(26f, viewport.visibleHours, 0.0001f)
+        assertEquals(24f, viewport.hours, 0.0001f)
+        assertEquals(now - 24L * hour, viewport.snapshot(now).startEpochMs)
+        assertEquals(now + 2L * hour, viewport.snapshot(now).endEpochMs)
+    }
+
+    @Test
+    fun `pinch to full history keeps predictions beyond the live divider`() {
+        val viewport = ChartViewport(12)
+        viewport.setAvailablePastWindow(24L * hour, now)
+        viewport.setFutureWindow(hour, now)
+
+        viewport.zoom(0.01f, 1f, now)
+
+        assertEquals(24f, viewport.hours, 0.0001f)
+        assertEquals(25f, viewport.visibleHours, 0.0001f)
+        assertEquals(now - 24L * hour, viewport.snapshot(now).startEpochMs)
+        assertEquals(now + hour, viewport.snapshot(now).endEpochMs)
+    }
+
+    @Test
+    fun `near full history retains the existing combined duration limit`() {
+        val viewport = ChartViewport(12)
+        viewport.setAvailablePastWindow(24L * hour, now)
+        viewport.setHours(23.99f)
+        viewport.setFutureWindow(hour, now)
+
+        assertTrue(viewport.visibleHours <= MAX_VISIBLE_GRAPH_HOURS)
+    }
+
+    @Test
+    fun `full history prediction policy pins the scale to the left`() {
+        assertEquals(
+            0f,
+            resolvePredictionViewportPolicy(24f, predictionsEnabled = true, futureWindowMs = hour)
+                .scaleRightBlendOverride,
+        )
+        assertEquals(
+            null,
+            resolvePredictionViewportPolicy(24f, predictionsEnabled = false, futureWindowMs = hour)
+                .scaleRightBlendOverride,
+        )
+        assertEquals(
+            null,
+            resolvePredictionViewportPolicy(24f, predictionsEnabled = true, futureWindowMs = 0L)
+                .scaleRightBlendOverride,
+        )
     }
 
     @Test
@@ -79,7 +159,9 @@ class ChartViewportRegressionTest {
         repeat(12) {
             viewport.pan(if (it % 2 == 0) 100_000f else -100_000f, 400f, now)
             viewport.zoom(if (it % 2 == 0) 0.01f else 4f, 0.4f, now)
-            assertTrue(viewport.snapshot(now).durationMs <= 24L * hour)
+            val maximumDuration =
+                if (viewport.hours >= MAX_VISIBLE_GRAPH_HOURS) 25L * hour else 24L * hour
+            assertTrue(viewport.snapshot(now).durationMs <= maximumDuration)
             assertTrue(viewport.snapshot(now).endEpochMs <= now + hour)
         }
     }

@@ -5,17 +5,29 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CgmGraphYScaleTest {
-    @Test fun `static CGM scale always maps forty to its lower boundary`() {
+    @Test fun `static CGM scale maps real zero to its lower boundary`() {
         val scale =
             CgmGraphYScale.resolve(
                 mode = CgmGraphScaleMode.STATIC,
                 visibleValuesMgDl = listOf(80.0, 120.0),
-                staticMinimumMgDl = 20.0,
+                staticMinimumMgDl = 0.0,
                 staticMaximumMgDl = 400.0,
             )
 
-        assertEquals(40.0, scale.minimumMgDl, 0.0)
-        assertEquals(0.0, scale.ratio(40.0), 0.0)
+        assertEquals(0.0, scale.minimumMgDl, 0.0)
+        assertEquals(0.0, scale.ratio(0.0), 0.0)
+        assertTrue(scale.ratio(40.0) > 0.0)
+    }
+
+    @Test
+    fun `all zero based CGM modes reserve only a compact band below sensor floor`() {
+        CgmGraphScaleMode.entries.forEach { mode ->
+            val scale = CgmGraphYScale(mode, 0.0, 400.0)
+
+            assertEquals(0.0, scale.ratio(0.0), 0.0, mode.name)
+            assertEquals(0.06, scale.ratio(40.0), 0.000001, mode.name)
+            assertEquals(40.0, scale.inverseRatio(0.06), 0.000001, mode.name)
+        }
     }
 
     @Test fun `custom logarithmic and dynamic CGM lower bounds remain unchanged`() {

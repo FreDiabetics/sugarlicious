@@ -5,7 +5,6 @@
     <string name="widget_glucose_description">Glukosewert und Trendpfeil im Sugarlicious-Stil</string>
     <string name="widget_graph_description">Kanonischer CGM-Verlauf mit Zielbereich</string>
     <string name="widget_metabolic_description">IOB, COB und Basal im Sugarlicious-Stil</string>
-    <string name="widget_activity_description">Schritte, Puls, Aktivzeit und Kalorien aus Health Connect</string>
     <string name="widget_glucose_graph_description">Glukosewert, Trend und kanonischer CGM-Graph</string>
     <string name="screen_watch">Watch</string>
     <string name="screen_settings">Einstellungen</string>
@@ -13,13 +12,10 @@
     <string name="health_connect_not_synchronized">noch nicht synchronisiert</string>
     <string name="health_connect_sync_summary">Leserechte %1$d/%2$d · Letzte Synchronisierung: %3$s</string>
     <string name="navigate_back">Zurück</string>
-    <string name="widget_loading">Daten werden geladen …</string>
-    <string name="widget_preview_steps_label">SCHRITTE</string>
-    <string name="widget_preview_steps_value">8.426</string>
-    <string name="widget_preview_heart_rate_label">PULS</string>
-    <string name="widget_preview_heart_rate_value">78 bpm</string>
-    <string name="widget_preview_active_value">AKTIV  42 min</string>
-    <string name="widget_preview_calories_value">KCAL  518</string>
+    <string name="widget_initial_unavailable">—</string>
+    <string name="widget_initial_iob">IOB\n—</string>
+    <string name="widget_initial_cob">COB\n—</string>
+    <string name="widget_initial_basal">BASAL\n—</string>
     <string name="widget_preview_glucose_graph_value">125  →\nmg/dL</string>
     <string name="widget_preview_glucose_value">123</string>
     <string name="widget_preview_current">AKTUELL</string>

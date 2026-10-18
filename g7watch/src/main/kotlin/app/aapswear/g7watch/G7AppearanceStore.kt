@@ -264,7 +264,7 @@ class G7AppearanceStore(
 
     fun historicalDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_HISTORICAL_DOT_OUTLINE, true)
 
-    fun currentDotOutlineEnabled(): Boolean = preferences.getBoolean(KEY_CURRENT_DOT_OUTLINE, true)
+    fun currentDotOutlineEnabled(): Boolean = true
 
     fun setHistoricalDotOutlineEnabled(value: Boolean) {
         preferences.edit { putBoolean(KEY_HISTORICAL_DOT_OUTLINE, value) }
@@ -272,7 +272,15 @@ class G7AppearanceStore(
     }
 
     fun setCurrentDotOutlineEnabled(value: Boolean) {
-        preferences.edit { putBoolean(KEY_CURRENT_DOT_OUTLINE, value) }
+        preferences.edit { putBoolean(KEY_CURRENT_DOT_OUTLINE, true) }
+        notifyTileChanged()
+    }
+
+    fun setInAppDotOutlineWidths(historical: Float, current: Float) {
+        preferences.edit {
+            putFloat(KEY_HISTORICAL_OUTLINE_WIDTH, historical.coerceIn(.25f, 3f))
+            putFloat(KEY_CURRENT_OUTLINE_WIDTH, current.coerceIn(.25f, 3f))
+        }
         notifyTileChanged()
     }
 
@@ -356,7 +364,9 @@ class G7AppearanceStore(
     fun inAppGraphStyle(): SharedWearCgmGraphStyle =
         DirectToWatchGraphDefaults.style().copy(
             historicalDotOutlineEnabled = historicalDotOutlineEnabled(),
-            currentDotOutlineEnabled = currentDotOutlineEnabled(),
+            currentDotOutlineEnabled = true,
+            historicalDotOutlineWidthDp = preferences.getFloat(KEY_HISTORICAL_OUTLINE_WIDTH, .35f).coerceIn(.25f, 3f),
+            currentDotOutlineWidthDp = preferences.getFloat(KEY_CURRENT_OUTLINE_WIDTH, .35f).coerceIn(.25f, 3f),
             timeAxisEnabled = preferences.getBoolean(KEY_IN_APP_TIME_AXIS, true),
             borderEnabled = preferences.getBoolean(KEY_IN_APP_BORDER, true),
         )
@@ -382,8 +392,10 @@ class G7AppearanceStore(
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_TILE_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             historicalDotOutlineEnabled = preferences.getBoolean(KEY_TILE_HISTORY_OUTLINE, defaults.historicalDotOutlineEnabled),
-            currentDotOutlineEnabled = preferences.getBoolean(KEY_TILE_CURRENT_OUTLINE, defaults.currentDotOutlineEnabled),
+            currentDotOutlineEnabled = true,
             dotOutlineWidthDp = preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
+            historicalDotOutlineWidthDp = preferences.getFloat(KEY_TILE_HISTORICAL_OUTLINE_WIDTH, preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
+            currentDotOutlineWidthDp = preferences.getFloat(KEY_TILE_CURRENT_OUTLINE_WIDTH, preferences.getFloat(KEY_TILE_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_TILE_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = preferences.getBoolean(KEY_TILE_BORDER, true),
             timeAxisEnabled = preferences.getBoolean(KEY_TILE_TIME_AXIS, defaults.timeAxisEnabled),
@@ -395,8 +407,10 @@ class G7AppearanceStore(
         preferences.edit {
             putFloat(KEY_TILE_DOT_RADIUS, style.dotRadiusDp.coerceIn(1.5f, 6f))
             putBoolean(KEY_TILE_HISTORY_OUTLINE, style.historicalDotOutlineEnabled)
-            putBoolean(KEY_TILE_CURRENT_OUTLINE, style.currentDotOutlineEnabled)
+            putBoolean(KEY_TILE_CURRENT_OUTLINE, true)
             putFloat(KEY_TILE_OUTLINE_WIDTH, style.dotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_TILE_HISTORICAL_OUTLINE_WIDTH, style.historicalDotOutlineWidthDp.coerceIn(.25f, 3f))
+            putFloat(KEY_TILE_CURRENT_OUTLINE_WIDTH, style.currentDotOutlineWidthDp.coerceIn(.25f, 3f))
             putFloat(KEY_TILE_CORNER_RADIUS, style.cornerRadiusDp.coerceIn(0f, 40f))
             putBoolean(KEY_TILE_TIME_AXIS, style.timeAxisEnabled)
             putBoolean(KEY_TILE_BORDER, style.borderEnabled)
@@ -483,6 +497,10 @@ class G7AppearanceStore(
         private const val KEY_TILE_HISTORY_OUTLINE = "tile_graph.history_outline"
         private const val KEY_TILE_CURRENT_OUTLINE = "tile_graph.current_outline"
         private const val KEY_TILE_OUTLINE_WIDTH = "tile_graph.outline_width"
+        private const val KEY_TILE_HISTORICAL_OUTLINE_WIDTH = "tile_graph.historical_outline_width"
+        private const val KEY_TILE_CURRENT_OUTLINE_WIDTH = "tile_graph.current_outline_width"
+        private const val KEY_HISTORICAL_OUTLINE_WIDTH = "graph.historical_outline_width"
+        private const val KEY_CURRENT_OUTLINE_WIDTH = "graph.current_outline_width"
         private const val KEY_TILE_CORNER_RADIUS = "tile_graph.corner_radius"
         private const val KEY_TILE_TIME_AXIS = "tile_graph.time_axis"
         private const val KEY_TILE_BORDER = "tile_graph.border"

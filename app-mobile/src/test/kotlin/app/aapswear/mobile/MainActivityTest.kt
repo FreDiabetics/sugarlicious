@@ -10,8 +10,10 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
 import app.aapswear.model.CgmGraphScaleMode
+import app.aapswear.model.PredictionKind
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -21,6 +23,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowAlarmManager
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -118,9 +121,16 @@ class MainActivityTest {
     }
 
     @Test fun `inline settings persist without submenu`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
-        preferences.edit().clear().commit()
+        preferences
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
+            .putBoolean("showDetails", true)
+            .putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)
+            .commit()
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
 
@@ -181,8 +191,9 @@ class MainActivityTest {
         val ui = DashboardUiPreferences.read(preferences)
 
         assertEquals(4.25f, ui.cgmDotRadiusDp, 0.001f)
-        assertFalse(ui.cgmDotOutlineEnabled)
-        assertEquals(1.75f, ui.cgmDotOutlineWidthDp, 0.001f)
+        assertFalse(ui.cgmHistoricalDotOutlineEnabled)
+        assertEquals(1.75f, ui.cgmHistoricalDotOutlineWidthDp, 0.001f)
+        assertEquals(1.75f, ui.cgmCurrentDotOutlineWidthDp, 0.001f)
     }
 
     @Test fun `notification graph defaults are independent from dashboard graph`() {
@@ -214,12 +225,12 @@ class MainActivityTest {
         assertTrue(ui.showDetails)
         assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
-        assertFalse(ui.showCgmBasal)
+        assertTrue(ui.showCgmBasal)
         assertTrue(ui.showCgmActivity)
-        assertFalse(ui.anyCgmPredictionEnabled)
-        assertFalse(ui.showMetabolicGraph)
+        assertTrue(ui.anyCgmPredictionEnabled)
+        assertTrue(ui.showMetabolicGraph)
         assertTrue(ui.notificationGraphEnabled)
-        assertEquals(3, ui.notificationGraphHours)
+        assertEquals(2, ui.notificationGraphHours)
 
         controller.pause().stop().destroy()
     }
@@ -293,6 +304,34 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
+    @Test
+    fun `prediction master switch controls every prediction stream and divider`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("prediction_master_contract", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putBoolean("showPredictions", false)
+            .putBoolean("cgm.prediction.iob", true)
+            .putBoolean("cgm.prediction.cob", true)
+            .putBoolean("cgm.prediction.uam", true)
+            .putBoolean("cgm.prediction.zeroTemp", true)
+            .commit()
+
+        val disabled = DashboardUiPreferences.read(preferences)
+        assertFalse(disabled.predictionsEnabled)
+        assertFalse(disabled.showPredictionDivider)
+
+        preferences.edit().putBoolean("showPredictions", true).commit()
+        val enabled = DashboardUiPreferences.read(preferences)
+        assertTrue(enabled.predictionsEnabled)
+        assertTrue(enabled.showPredictionDivider)
+        assertEquals(
+            PredictionKind.entries.toSet(),
+            enabled.enabledPredictionKinds,
+        )
+    }
+
     @Test fun `saving carousel position does not rebuild the visible dashboard`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -356,12 +395,35 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
+    @Test fun `system back navigates to overview and can never finish the main activity`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
+
+        activity.onBackPressedDispatcher.onBackPressed()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_app_bar).visibility)
+        assertFalse(activity.isFinishing)
+
+        repeat(3) {
+            activity.onBackPressedDispatcher.onBackPressed()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        assertFalse(activity.isFinishing)
+
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `settings accordion keeps exact order allows multiple sections and resets after leaving`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context
             .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
             .edit()
             .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             .commit()
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
@@ -437,11 +499,13 @@ class MainActivityTest {
     @Test
     @Config(sdk = [36])
     fun `live notification switch opens the Android 16 promotion permission when needed`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context
             .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
             .edit()
             .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             .commit()
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
@@ -459,6 +523,88 @@ class MainActivityTest {
         assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, settingsIntent.action)
         assertEquals(activity.packageName, settingsIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
         controller.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun `existing live preference resumes promotion setup once per app session`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
+            .commit()
+
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        val firstIntent = shadowOf(activity).nextStartedActivity
+
+        assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, firstIntent.action)
+        assertEquals(activity.packageName, firstIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+
+        controller.pause().resume()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertNotEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, shadowOf(activity).nextStartedActivity?.action)
+        controller.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [36])
+    fun `live notification switch requests exact alarm access before promotion permission`() {
+        ShadowAlarmManager.setCanScheduleExactAlarms(false)
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
+            .commit()
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        val settingsIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, settingsIntent.action)
+        assertEquals("package:${activity.packageName}", settingsIntent.dataString)
+        assertFalse(
+            context
+                .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+                .getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
+        )
+        ShadowAlarmManager.setCanScheduleExactAlarms(true)
+        controller.pause().resume()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+
+        assertTrue(
+            context
+                .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+                .getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
+        )
+
+        val promotionIntent = shadowOf(activity).nextStartedActivity
+        assertEquals(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS, promotionIntent.action)
+        assertEquals(activity.packageName, promotionIntent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+        controller.pause().stop().destroy()
+    }
+
+    @Test
+    fun `live notification status keeps samsung path independent from android promotion`() {
+        val status = liveNotificationStatus(true, 35, "Samsung", canPostPromoted = null)
+
+        assertEquals("Samsung", status.device)
+        assertEquals("angefordert", status.samsungNowBar)
+        assertEquals("nicht unterstützt", status.androidLiveUpdates)
+        assertEquals("nicht verfügbar", status.promotedNotifications)
+        assertEquals("nicht geprüft", status.promotableCharacteristics)
+        assertEquals("nicht angewendet", status.samsungExtras)
+        assertEquals("noch nicht erfolgt", status.lastPostAttempt)
+        assertEquals("nicht erforderlich", status.exactFreshnessAlarm)
+        assertEquals("nicht durchgeführt", status.hardwareValidation)
     }
 
     private fun textOf(view: View): String =

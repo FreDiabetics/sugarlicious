@@ -104,6 +104,13 @@ enum class SugarliciousColorRole(
         true,
     ),
     RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    RANGE_VERY_LOW(
+        "range_very_low",
+        AppearanceTerminology.GRAPH_VERY_LOW_AREA,
+        SugarliciousColorGroup.GLUCOSE,
+        0xFFFF3347.toInt(),
+        configurable = true,
+    ),
     RANGE_IN_RANGE(
         "range_in_range",
         AppearanceTerminology.GRAPH_TARGET_AREA,
@@ -118,6 +125,14 @@ enum class SugarliciousColorRole(
         SugarliciousColorGroup.GLUCOSE,
         0xFFFFD040.toInt(),
         0xFFD47D00.toInt(),
+        true,
+    ),
+    RANGE_VERY_HIGH(
+        "range_very_high",
+        AppearanceTerminology.GRAPH_VERY_HIGH_AREA,
+        SugarliciousColorGroup.GLUCOSE,
+        0xFFFFA000.toInt(),
+        0xFFC86400.toInt(),
         true,
     ),
     PROGRESS_BELOW("progress_below", "Progressbar · unter Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
@@ -237,11 +252,26 @@ enum class SugarliciousColorRole(
         0xFFD47D00.toInt(),
         true,
     ),
+    GRAPH_VERY_HIGH_LINE(
+        "graph_very_high_line",
+        AppearanceTerminology.GRAPH_VERY_HIGH_LINE,
+        SugarliciousColorGroup.GRAPH,
+        0xFFFFA000.toInt(),
+        0xFFC86400.toInt(),
+        true,
+    ),
     GRAPH_LOW_LINE(
         "graph_low_line",
         AppearanceTerminology.GRAPH_LOW_LINE,
         SugarliciousColorGroup.GRAPH,
         0xFFFF5C69.toInt(),
+        configurable = true,
+    ),
+    GRAPH_VERY_LOW_LINE(
+        "graph_very_low_line",
+        AppearanceTerminology.GRAPH_VERY_LOW_LINE,
+        SugarliciousColorGroup.GRAPH,
+        0xFFFF3347.toInt(),
         configurable = true,
     ),
     GRAPH_NOW_LINE(
@@ -375,6 +405,12 @@ object SugarliciousColorStore {
         if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_HIGH)
         }
+        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_LOW)) {
+            values[SugarliciousColorRole.RANGE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_HIGH)) {
+            values[SugarliciousColorRole.RANGE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_HIGH)
+        }
         // Keep existing installs visually unchanged while giving every graph element its own
         // independently configurable semantic role from now on.
         if (!hasExplicit(SugarliciousColorRole.GRAPH_HIGH_LINE)) {
@@ -382,6 +418,12 @@ object SugarliciousColorStore {
         }
         if (!hasExplicit(SugarliciousColorRole.GRAPH_LOW_LINE)) {
             values[SugarliciousColorRole.GRAPH_LOW_LINE] = values.getValue(SugarliciousColorRole.RANGE_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_LOW_LINE)) {
+            values[SugarliciousColorRole.GRAPH_VERY_LOW_LINE] = values.getValue(SugarliciousColorRole.RANGE_VERY_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_HIGH_LINE)) {
+            values[SugarliciousColorRole.GRAPH_VERY_HIGH_LINE] = values.getValue(SugarliciousColorRole.RANGE_VERY_HIGH)
         }
         if (!hasExplicit(SugarliciousColorRole.GRAPH_AXIS_TICK)) {
             values[SugarliciousColorRole.GRAPH_AXIS_TICK] = values.getValue(SugarliciousColorRole.GRAPH_DIVIDER)

@@ -1,8 +1,9 @@
 package app.aapswear.model
 
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
-enum class TrendRateProfile { ANDROID_APS, DEXCOM_G7 }
+enum class TrendRateProfile { SUGARLICIOUS, ANDROID_APS, DEXCOM_G7 }
 
 data class TrendDerivation(
     val deltaMgDl: Double,
@@ -36,16 +37,10 @@ object CanonicalTrendPolicy {
     ): Trend {
         if (rateMgDlPerMinute == null || !rateMgDlPerMinute.isFinite()) return Trend.UNKNOWN
         return when (profile) {
-            TrendRateProfile.ANDROID_APS ->
-                when {
-                    rateMgDlPerMinute <= -3.5 -> Trend.DOUBLE_DOWN
-                    rateMgDlPerMinute <= -2.0 -> Trend.SINGLE_DOWN
-                    rateMgDlPerMinute <= -1.0 -> Trend.FORTY_FIVE_DOWN
-                    rateMgDlPerMinute <= 1.0 -> Trend.FLAT
-                    rateMgDlPerMinute <= 2.0 -> Trend.FORTY_FIVE_UP
-                    rateMgDlPerMinute <= 3.5 -> Trend.SINGLE_UP
-                    else -> Trend.DOUBLE_UP
-                }
+            TrendRateProfile.SUGARLICIOUS,
+            TrendRateProfile.ANDROID_APS,
+            ->
+                fromFiveMinuteDelta(rateMgDlPerMinute * IDEAL_INTERVAL_MINUTES, profile)
             TrendRateProfile.DEXCOM_G7 ->
                 when {
                     rateMgDlPerMinute < -3.0 -> Trend.DOUBLE_DOWN
@@ -56,6 +51,25 @@ object CanonicalTrendPolicy {
                     rateMgDlPerMinute <= 3.0 -> Trend.SINGLE_UP
                     else -> Trend.DOUBLE_UP
                 }
+        }
+    }
+
+    fun fromFiveMinuteDelta(
+        deltaMgDl: Double?,
+        profile: TrendRateProfile,
+    ): Trend {
+        if (deltaMgDl == null || !deltaMgDl.isFinite()) return Trend.UNKNOWN
+        if (profile == TrendRateProfile.DEXCOM_G7) {
+            return fromRate(deltaMgDl / IDEAL_INTERVAL_MINUTES, profile)
+        }
+        return when (deltaMgDl.roundToInt()) {
+            in Int.MIN_VALUE..-14 -> Trend.DOUBLE_DOWN
+            in -13..-10 -> Trend.SINGLE_DOWN
+            in -9..-6 -> Trend.FORTY_FIVE_DOWN
+            in -5..5 -> Trend.FLAT
+            in 6..9 -> Trend.FORTY_FIVE_UP
+            in 10..13 -> Trend.SINGLE_UP
+            else -> Trend.DOUBLE_UP
         }
     }
 

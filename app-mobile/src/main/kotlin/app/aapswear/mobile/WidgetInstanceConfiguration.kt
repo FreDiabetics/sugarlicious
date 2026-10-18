@@ -43,6 +43,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
@@ -51,6 +52,9 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyMetricAppearance
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.model.TrendArrowStyleOverride
@@ -69,7 +73,6 @@ internal enum class ConfigurableWidgetKind(
     GRAPH(true),
     GLUCOSE_GRAPH(true),
     METABOLIC(false),
-    ACTIVITY(false),
 }
 
 internal fun configurableWidgetKind(providerClassName: String?): ConfigurableWidgetKind =
@@ -77,7 +80,6 @@ internal fun configurableWidgetKind(providerClassName: String?): ConfigurableWid
         providerClassName?.endsWith("GlucoseGraphWidgetReceiver") == true -> ConfigurableWidgetKind.GLUCOSE_GRAPH
         providerClassName?.endsWith("GraphWidgetReceiver") == true -> ConfigurableWidgetKind.GRAPH
         providerClassName?.endsWith("MetabolicWidgetReceiver") == true -> ConfigurableWidgetKind.METABOLIC
-        providerClassName?.endsWith("ActivityWidgetReceiver") == true -> ConfigurableWidgetKind.ACTIVITY
         else -> ConfigurableWidgetKind.GLUCOSE
     }
 
@@ -106,13 +108,63 @@ internal data class WidgetInstanceConfiguration(
     val showGlucoseUnit: Boolean = true,
     val glucoseBold: Boolean = true,
     val deltaUnitBold: Boolean = true,
+    val cgmDotRadiusDp: Float = CgmGraphVisualPolicy.DOT_RADIUS_DP,
     val historicalDotOutlineEnabled: Boolean = true,
     val currentDotOutlineEnabled: Boolean = true,
     val historicalDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
     val currentDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
     val darkTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
     val lightTrendStyle: TrendArrowStyleOverride = TrendArrowStyleOverride(),
+    val therapyProgressAppearance: TherapyProgressAppearance = TherapyProgressAppearance(),
 )
+
+/** Approved 2026-10-18 widget templates captured from the newest active instance of each kind. */
+internal object WidgetSystemDefaults {
+    private const val ACTIVE_BACKGROUND = 0xB2000000.toInt()
+
+    fun forKind(kind: ConfigurableWidgetKind): WidgetInstanceConfiguration =
+        when (kind) {
+            ConfigurableWidgetKind.GLUCOSE ->
+                WidgetInstanceConfiguration(
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    shapeMode = WidgetShapeMode.PILL,
+                    trendScalePercent = 110,
+                )
+            ConfigurableWidgetKind.GRAPH ->
+                WidgetInstanceConfiguration(
+                    showTimeAxis = true,
+                    scaleMode = WidgetScaleMode.DYNAMIC,
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    historicalDotOutlineWidthDp = .7f,
+                    currentDotOutlineWidthDp = 1.25f,
+                )
+            ConfigurableWidgetKind.GLUCOSE_GRAPH ->
+                WidgetInstanceConfiguration(
+                    showTimeAxis = true,
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    cornerRadiusDp = 30,
+                    trendScalePercent = 110,
+                    glucoseGraphValuePercent = 38,
+                    historicalDotOutlineWidthDp = .4f,
+                    currentDotOutlineWidthDp = 1.3f,
+                )
+            ConfigurableWidgetKind.METABOLIC ->
+                WidgetInstanceConfiguration(
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    shapeMode = WidgetShapeMode.PILL,
+                    therapyProgressAppearance = TherapyProgressAppearance(gapDp = 20),
+                )
+        }
+}
+
+internal fun toggleTherapyMetric(
+    appearance: TherapyProgressAppearance,
+    metric: TherapyProgressMetric,
+    enabled: Boolean,
+): TherapyProgressAppearance {
+    val updated = if (enabled) appearance.enabledMetrics + metric else appearance.enabledMetrics - metric
+    return if (updated.isEmpty()) appearance else appearance.copy(enabledMetrics = updated)
+}
 
 internal fun WidgetInstanceConfiguration.trendStyle(
     mode: AppearanceMode,
@@ -180,6 +232,15 @@ internal object WidgetInstanceConfigurationStore {
         id: Int,
         suffix: String,
     ) = "$id.$suffix"
+
+    fun hasStoredConfiguration(
+        context: Context,
+        appWidgetId: Int,
+    ): Boolean =
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .all.keys
+            .any { it.startsWith("$appWidgetId.") }
 
     fun read(
         context: Context,
@@ -263,8 +324,13 @@ internal object WidgetInstanceConfigurationStore {
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
             glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
             deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
+            cgmDotRadiusDp =
+                prefs
+                    .getFloat(key(appWidgetId, "cgm_dot_radius_dp"), CgmGraphVisualPolicy.DOT_RADIUS_DP)
+                    .coerceIn(1.5f, 6f),
             historicalDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "historical_dot_outline_enabled"), true),
-            currentDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "current_dot_outline_enabled"), true),
+            // Legacy false values are intentionally ignored: the current real CGM dot is always outlined.
+            currentDotOutlineEnabled = true,
             historicalDotOutlineWidthDp =
                 prefs
                     .getFloat(
@@ -279,6 +345,7 @@ internal object WidgetInstanceConfigurationStore {
                     ).coerceIn(0.25f, 3f),
             darkTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.DARK),
             lightTrendStyle = readTrendStyle(prefs, appWidgetId, AppearanceMode.LIGHT),
+            therapyProgressAppearance = readTherapyAppearance(prefs, appWidgetId),
             // One-time compatible fallback for widgets created before per-instance tap targets existed.
             // The configuration activity persists this resolved value for the individual widget.
             launchPackage =
@@ -314,12 +381,14 @@ internal object WidgetInstanceConfigurationStore {
             putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
             putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
             putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
+            putFloat(key(appWidgetId, "cgm_dot_radius_dp"), value.cgmDotRadiusDp.coerceIn(1.5f, 6f))
             putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
-            putBoolean(key(appWidgetId, "current_dot_outline_enabled"), value.currentDotOutlineEnabled)
+            putBoolean(key(appWidgetId, "current_dot_outline_enabled"), true)
             putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
             putFloat(key(appWidgetId, "current_dot_outline_width_dp"), value.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
             writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle)
             writeTrendStyle(this, appWidgetId, AppearanceMode.LIGHT, value.lightTrendStyle)
+            writeTherapyAppearance(this, appWidgetId, value.therapyProgressAppearance)
             WidgetColorRole.entries.forEach { role ->
                 val roleKey = key(appWidgetId, "dark.color.${role.preferenceKey}")
                 value.colorOverrides[role]?.let { putInt(roleKey, it) } ?: remove(roleKey)
@@ -373,6 +442,73 @@ internal object WidgetInstanceConfigurationStore {
         style.outlineThicknessDp?.let { editor.putFloat(p + "outlineThickness", it) } ?: editor.remove(p + "outlineThickness")
         style.alpha?.let { editor.putFloat(p + "alpha", it) } ?: editor.remove(p + "alpha")
     }
+
+    private fun readTherapyAppearance(
+        prefs: android.content.SharedPreferences,
+        id: Int,
+    ): TherapyProgressAppearance {
+        val prefix = key(id, "therapy.")
+        val enabled =
+            prefs
+                .getString(prefix + "enabled", null)
+                ?.split(',')
+                ?.mapNotNull { name -> runCatching { TherapyProgressMetric.valueOf(name) }.getOrNull() }
+                ?.toSet()
+                ?.takeIf { it.isNotEmpty() }
+                ?: TherapyProgressMetric.entries.toSet()
+
+        fun metricAppearance(storagePrefix: String): TherapyMetricAppearance =
+            TherapyMetricAppearance(
+                overallScalePercent = prefs.getInt(storagePrefix + "overall", 100),
+                ringThicknessPercent = prefs.getInt(storagePrefix + "ring", 100),
+                primaryTextPercent = prefs.getInt(storagePrefix + "primary", 100),
+                secondaryTextPercent = prefs.getInt(storagePrefix + "secondary", 100),
+                iconPercent = prefs.getInt(storagePrefix + "icon", 100),
+            ).validated()
+
+        return TherapyProgressAppearance(
+            enabledMetrics = enabled,
+            groupScalePercent = prefs.getInt(prefix + "group_scale", 100),
+            gapDp = prefs.getInt(prefix + "gap_dp", 6),
+            global = metricAppearance(prefix + "global."),
+            metricOverrides =
+                TherapyProgressMetric.entries
+                    .mapNotNull { metric ->
+                        val metricPrefix = prefix + metric.name.lowercase() + "."
+                        metric
+                            .takeIf {
+                                listOf("overall", "ring", "primary", "secondary", "icon")
+                                    .any { suffix -> prefs.contains(metricPrefix + suffix) }
+                            }?.let { it to metricAppearance(metricPrefix) }
+                    }.toMap(),
+        ).validated()
+    }
+
+    private fun writeTherapyAppearance(
+        editor: android.content.SharedPreferences.Editor,
+        id: Int,
+        appearance: TherapyProgressAppearance,
+    ) {
+        val safe = appearance.validated()
+        val prefix = key(id, "therapy.")
+        editor.putString(prefix + "enabled", safe.enabledMetrics.joinToString(",") { it.name })
+        editor.putInt(prefix + "group_scale", safe.groupScalePercent)
+        editor.putInt(prefix + "gap_dp", safe.gapDp)
+
+        fun writeMetric(storagePrefix: String, value: TherapyMetricAppearance) {
+            editor.putInt(storagePrefix + "overall", value.overallScalePercent)
+            editor.putInt(storagePrefix + "ring", value.ringThicknessPercent)
+            editor.putInt(storagePrefix + "primary", value.primaryTextPercent)
+            editor.putInt(storagePrefix + "secondary", value.secondaryTextPercent)
+            editor.putInt(storagePrefix + "icon", value.iconPercent)
+        }
+        writeMetric(prefix + "global.", safe.global)
+        TherapyProgressMetric.entries.forEach { metric ->
+            val metricPrefix = prefix + metric.name.lowercase() + "."
+            safe.metricOverrides[metric]?.let { writeMetric(metricPrefix, it) }
+                ?: listOf("overall", "ring", "primary", "secondary", "icon").forEach { editor.remove(metricPrefix + it) }
+        }
+    }
 }
 
 class WidgetConfigurationActivity : ComponentActivity() {
@@ -389,9 +525,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
             finish()
             return
         }
-        val initial = WidgetInstanceConfigurationStore.read(this, appWidgetId)
         val manager = AppWidgetManager.getInstance(this)
         val widgetKind = configurableWidgetKind(manager.getAppWidgetInfo(appWidgetId)?.provider?.className)
+        val initial =
+            if (WidgetInstanceConfigurationStore.hasStoredConfiguration(this, appWidgetId)) {
+                WidgetInstanceConfigurationStore.read(this, appWidgetId)
+            } else {
+                WidgetSystemDefaults.forKind(widgetKind)
+            }
         currentWidgetKind = widgetKind
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
         val previewWidthDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220).coerceAtLeast(80)
@@ -411,7 +552,11 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 currentConfiguration = value
                 LaunchedEffect(value) {
                     WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
-                    SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, widgetKind)
+                    SugarliciousWidgetUpdateCoordinator.submitInstance(
+                        this@WidgetConfigurationActivity,
+                        appWidgetId,
+                        widgetKind,
+                    )
                 }
                 Column(
                     Modifier.background(ComposeColor(0xFF000000)).padding(18.dp).verticalScroll(rememberScrollState()),
@@ -437,21 +582,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 value = value.withOutline(selectedMode, Color.DKGRAY)
                             }
                         }
-                        WidgetPercentSlider(
-                            "Eckenradius",
-                            if (value.cornerRadiusDp ==
-                                0
-                            ) {
-                                SAMSUNG_WIDGET_RADIUS_FALLBACK_DP.toInt()
-                            } else {
-                                value.cornerRadiusDp
-                            },
-                            8..32,
-                            "dp",
-                        ) {
-                            value = value.copy(cornerRadiusDp = it)
-                        }
-                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
+                        if (widgetSupportsPill(widgetKind)) {
                             Text("Form", color = ComposeColor.LightGray, fontSize = 11.sp)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 WidgetShapeMode.entries.forEach { mode ->
@@ -563,8 +694,20 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             }
                         }
                     }
+                    if (widgetKind == ConfigurableWidgetKind.METABOLIC) {
+                        TherapyProgressSettings(value.therapyProgressAppearance) {
+                            value = value.copy(therapyProgressAppearance = it)
+                        }
+                    }
                     if (widgetKind.hasGraph) {
                         WidgetSettingsSection("Graph") {
+                            WidgetPercentSlider(
+                                "CGM-Dot-Größe",
+                                (value.cgmDotRadiusDp * 10f).roundToInt(),
+                                15..60,
+                                " ×0,1 dp",
+                                (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
+                            ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
                             WidgetPercentSlider(
                                 "Graph-Eckenradius",
                                 value.graphCornerRadiusDp,
@@ -635,7 +778,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(value.historicalDotOutlineEnabled, { value = value.copy(historicalDotOutlineEnabled = it) })
-                                Text("Historische Punktkontur", color = ComposeColor.White)
+                                Text(app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, color = ComposeColor.White)
                             }
                             if (value.historicalDotOutlineEnabled) {
                                 WidgetColorSetting(
@@ -649,17 +792,19 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     { editRole = WidgetColorRole.DOT_OUTLINE },
                                 ) { value = value.withColorOverride(selectedMode, WidgetColorRole.DOT_OUTLINE, null) }
                                 WidgetPercentSlider(
-                                    label = "Konturstärke historische Punkte",
+                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
                                     value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
-                                ) { value = value.copy(historicalDotOutlineWidthDp = it / 100f) }
+                                ) {
+                                    value =
+                                        value.copy(
+                                            historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                        )
+                                }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.currentDotOutlineEnabled, { value = value.copy(currentDotOutlineEnabled = it) })
-                                Text("Aktuelle Punktkontur", color = ComposeColor.White)
-                            }
-                            if (value.currentDotOutlineEnabled) {
+                            Text(app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE, color = ComposeColor.White)
+                            run {
                                 WidgetColorSetting(
                                     WidgetColorRole.CURRENT_DOT_OUTLINE.label,
                                     appearance.colorOverrides[WidgetColorRole.CURRENT_DOT_OUTLINE]
@@ -671,11 +816,16 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
                                 ) { value = value.withColorOverride(selectedMode, WidgetColorRole.CURRENT_DOT_OUTLINE, null) }
                                 WidgetPercentSlider(
-                                    label = "Konturstärke aktueller Punkt",
+                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
                                     value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
-                                ) { value = value.copy(currentDotOutlineWidthDp = it / 100f) }
+                                ) {
+                                    value =
+                                        value.copy(
+                                            currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                        )
+                                }
                             }
                         }
                     }
@@ -752,11 +902,101 @@ class WidgetConfigurationActivity : ComponentActivity() {
     override fun onStop() {
         currentConfiguration?.let { configuration ->
             WidgetInstanceConfigurationStore.save(this, appWidgetId, configuration)
-            lifecycleScope.launch { SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, currentWidgetKind) }
+            lifecycleScope.launch {
+                val (target, revision) =
+                    SugarliciousWidgetUpdateCoordinator.submitInstance(
+                        this@WidgetConfigurationActivity,
+                        appWidgetId,
+                        currentWidgetKind,
+                    )
+                SugarliciousWidgetUpdateCoordinator.flush(this@WidgetConfigurationActivity, target, revision)
+            }
         }
         super.onStop()
     }
 }
+
+@androidx.compose.runtime.Composable
+private fun TherapyProgressSettings(
+    appearance: TherapyProgressAppearance,
+    onChange: (TherapyProgressAppearance) -> Unit,
+) {
+    fun updateGlobal(transform: (TherapyMetricAppearance) -> TherapyMetricAppearance) =
+        onChange(appearance.copy(global = transform(appearance.global)).validated())
+
+    fun updateMetric(
+        metric: TherapyProgressMetric,
+        transform: (TherapyMetricAppearance) -> TherapyMetricAppearance,
+    ) {
+        val current = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+        onChange(appearance.copy(metricOverrides = appearance.metricOverrides + (metric to transform(current))).validated())
+    }
+
+    WidgetSettingsSection("Progressanzeigen") {
+        Text("Anzeigen", color = ComposeColor.LightGray, fontSize = 11.sp)
+        TherapyProgressMetric.entries.forEach { metric ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(
+                    checked = metric in appearance.enabledMetrics,
+                    onCheckedChange = { enabled -> onChange(toggleTherapyMetric(appearance, metric, enabled)) },
+                )
+                Text(metric.displayLabel(), color = ComposeColor.White)
+            }
+        }
+        WidgetPercentSlider("Gesamtgröße", appearance.groupScalePercent, 50..150) {
+            onChange(appearance.copy(groupScalePercent = it))
+        }
+        WidgetPercentSlider("Abstand", appearance.gapDp, 0..24, "dp") {
+            onChange(appearance.copy(gapDp = it))
+        }
+        Text("Für alle Anzeigen", color = ComposeColor.LightGray, fontSize = 11.sp)
+        WidgetPercentSlider("Ringdicke", appearance.global.ringThicknessPercent, 50..200) {
+            updateGlobal { value -> value.copy(ringThicknessPercent = it) }
+        }
+        WidgetPercentSlider("Obere Zeile", appearance.global.primaryTextPercent, 60..180) {
+            updateGlobal { value -> value.copy(primaryTextPercent = it) }
+        }
+        WidgetPercentSlider("Untere Zeile", appearance.global.secondaryTextPercent, 60..180) {
+            updateGlobal { value -> value.copy(secondaryTextPercent = it) }
+        }
+        WidgetPercentSlider("Icon", appearance.global.iconPercent, 50..180) {
+            updateGlobal { value -> value.copy(iconPercent = it) }
+        }
+        TherapyProgressMetric.entries.forEach { metric ->
+            val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+            Text(metric.displayLabel(), color = ComposeColor(0xFF6DE892), fontWeight = FontWeight.Bold)
+            WidgetPercentSlider("Gesamtgröße", local.overallScalePercent, 60..140) {
+                updateMetric(metric) { value -> value.copy(overallScalePercent = it) }
+            }
+            WidgetPercentSlider("Ringdicke", local.ringThicknessPercent, 50..200) {
+                updateMetric(metric) { value -> value.copy(ringThicknessPercent = it) }
+            }
+            WidgetPercentSlider("Obere Zeile", local.primaryTextPercent, 60..180) {
+                updateMetric(metric) { value -> value.copy(primaryTextPercent = it) }
+            }
+            WidgetPercentSlider("Untere Zeile", local.secondaryTextPercent, 60..180) {
+                updateMetric(metric) { value -> value.copy(secondaryTextPercent = it) }
+            }
+            WidgetPercentSlider("Icon", local.iconPercent, 50..180) {
+                updateMetric(metric) { value -> value.copy(iconPercent = it) }
+            }
+        }
+        Text(
+            "PROGRESSANZEIGEN ZURÜCKSETZEN",
+            color = ComposeColor(0xFF6DE892),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable { onChange(TherapyProgressAppearance()) }.padding(vertical = 8.dp),
+        )
+    }
+}
+
+private fun TherapyProgressMetric.displayLabel(): String =
+    when (this) {
+        TherapyProgressMetric.IOB -> "IOB"
+        TherapyProgressMetric.COB -> "COB"
+        TherapyProgressMetric.BASAL -> "Basal"
+    }
 
 @androidx.compose.runtime.Composable
 private fun WidgetConfigurationPreview(
@@ -767,6 +1007,21 @@ private fun WidgetConfigurationPreview(
     heightDp: Int,
 ) {
     val context = LocalContext.current
+    val samsungCompact = WidgetLayoutSizeStore.isSamsungCompact(context)
+    val runtimeKind =
+        when (kind) {
+            ConfigurableWidgetKind.GLUCOSE -> WidgetKind.GLUCOSE
+            ConfigurableWidgetKind.GRAPH -> WidgetKind.GRAPH
+            ConfigurableWidgetKind.GLUCOSE_GRAPH -> WidgetKind.GLUCOSE_GRAPH
+            ConfigurableWidgetKind.METABOLIC -> WidgetKind.METABOLIC
+        }
+    val renderSize =
+        widgetPreviewRenderSizeDp(
+            runtimeKind,
+            widthDp.toFloat(),
+            heightDp.toFloat(),
+            samsungCompact,
+        )
     val themedConfiguration = configuration.resolvedAppearance(mode)
     val now = System.currentTimeMillis()
     val state = remember(now) { widgetPreviewState(now) }
@@ -780,15 +1035,15 @@ private fun WidgetConfigurationPreview(
                     if (themedConfiguration.backgroundEnabled) themedConfiguration.backgroundArgb else Color.TRANSPARENT,
                 )
         }
-    val previewWidth = (widthDp * 2).coerceIn(160, 900)
-    val previewHeight = (heightDp * 2).coerceIn(96, 900)
-    val previewLayout = responsiveWidgetLayout(widthDp.toFloat(), heightDp.toFloat())
+    val previewWidth = (renderSize.widthDp * 2f).roundToInt().coerceIn(160, 900)
+    val previewHeight = (renderSize.heightDp * 2f).roundToInt().coerceIn(96, 900)
+    val previewLayout = responsiveWidgetLayout(renderSize.widthDp, renderSize.heightDp)
     val previewRadius =
         resolveWidgetCornerRadiusDp(
             themedConfiguration,
-            heightDp.toFloat(),
-            SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
-            pillAllowed = kind == ConfigurableWidgetKind.GLUCOSE,
+            renderSize.heightDp,
+            systemWidgetCornerRadiusDp(context),
+            pillAllowed = widgetSupportsPill(kind),
         )
     val renderConfiguration = themedConfiguration.copy(cornerRadiusDp = previewRadius.toInt())
     val previewTrendStyle =
@@ -824,6 +1079,19 @@ private fun WidgetConfigurationPreview(
                         renderConfiguration,
                         previewTrendStyle,
                     )
+                ConfigurableWidgetKind.METABOLIC ->
+                    renderTherapyIndicatorWidget(
+                        context,
+                        state,
+                        palette,
+                        previewWidth,
+                        previewHeight,
+                        now,
+                        DashboardUiPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)),
+                        renderConfiguration,
+                        2f,
+                        mode,
+                    )
                 else ->
                     renderMinimalGlucoseWidget(
                         state,
@@ -845,11 +1113,21 @@ private fun WidgetConfigurationPreview(
                     )
             }
         }
-    AndroidView(
-        factory = { context -> ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-        update = { it.setImageBitmap(bitmap) },
-        modifier = Modifier.fillMaxWidth().aspectRatio(widthDp.toFloat() / heightDp.coerceAtLeast(1)),
-    )
+    Surface(
+        color = if (mode == AppearanceMode.DARK) ComposeColor(0xFF292929) else ComposeColor(0xFFF0F0F0),
+        shape = RoundedCornerShape((previewRadius + 10f).dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        AndroidView(
+            factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
+            update = { it.setImageBitmap(bitmap) },
+            modifier =
+                Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(renderSize.widthDp / renderSize.heightDp.coerceAtLeast(1f)),
+        )
+    }
 }
 
 @androidx.compose.runtime.Composable

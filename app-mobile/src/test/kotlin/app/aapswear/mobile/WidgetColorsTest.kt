@@ -49,6 +49,56 @@ class WidgetColorsTest {
     }
 
     @Test
+    fun `very high widget value uses opaque mobile glucose color by default`() {
+        val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        val mobile = SugarliciousColorStore.load(preferences, AppearanceMode.DARK)
+
+        val widget = WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.VERY_HIGH)
+
+        assertEquals(mobile.argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH), widget)
+        assertEquals(255, Color.alpha(widget))
+    }
+
+    @Test
+    fun `copy from graph keeps very high value independent from transparent range fill`() {
+        val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        val rangeFill = Color.argb(76, 255, 208, 64)
+        val glucoseVeryHigh = Color.rgb(210, 44, 51)
+        SugarliciousColorStore.save(preferences, AppearanceMode.DARK, SugarliciousColorRole.RANGE_HIGH, rangeFill)
+        SugarliciousColorStore.save(preferences, AppearanceMode.DARK, SugarliciousColorRole.GLUCOSE_VERY_HIGH, glucoseVeryHigh)
+
+        WidgetColorStore.copyFromMobileGraph(context, AppearanceMode.DARK)
+
+        assertEquals(glucoseVeryHigh, WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.VERY_HIGH))
+    }
+
+    @Test
+    fun `legacy range fill copied into very high text is migrated for both appearance modes`() {
+        val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        val legacyRangeFill = Color.argb(76, 255, 208, 64)
+        SugarliciousColorStore.save(preferences, AppearanceMode.DARK, SugarliciousColorRole.RANGE_HIGH, legacyRangeFill)
+        preferences
+            .edit()
+            .putInt(WidgetColorStore.key(AppearanceMode.DARK, WidgetColorRole.VERY_HIGH), legacyRangeFill)
+            .putInt(WidgetColorStore.key(AppearanceMode.LIGHT, WidgetColorRole.VERY_HIGH), legacyRangeFill)
+            .commit()
+
+        val dark = WidgetColorStore.load(context, AppearanceMode.DARK).argb(WidgetColorRole.VERY_HIGH)
+        val light = WidgetColorStore.load(context, AppearanceMode.LIGHT).argb(WidgetColorRole.VERY_HIGH)
+
+        assertEquals(255, Color.alpha(dark))
+        assertEquals(255, Color.alpha(light))
+        assertEquals(
+            SugarliciousColorStore.load(preferences, AppearanceMode.DARK).argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+            dark,
+        )
+        assertEquals(
+            SugarliciousColorStore.load(preferences, AppearanceMode.LIGHT).argb(SugarliciousColorRole.GLUCOSE_VERY_HIGH),
+            light,
+        )
+    }
+
+    @Test
     fun `copy from graph is a snapshot and remains independent afterwards`() {
         val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         preferences
