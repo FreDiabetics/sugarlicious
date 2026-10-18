@@ -1,4 +1,4 @@
-# Systemweite CGM-Punktkonturen
+# Systemweite CGM-Punktkonturen und transparente Sehr-hoch-Grenzlinie
 
 ## Ziel
 
@@ -99,3 +99,24 @@ Nach Umsetzung werden die relevanten Unit-, Integrations-, Renderer-, Persistenz
 - Änderung von CGM-Punktfarben oder Punktradien
 - Änderung von Graphskalen, Datenquellen oder Collectorlogik
 - Einführung eines zweiten parallelen Graph-Settingssystems
+
+## Mobile Sehr-hoch-Grenzlinie
+
+Das Patchpaket behebt zusätzlich den Defekt, dass die Grenzlinie `Sehr hoch` im produktiven Mobile-CGM-Graph trotz einer konfigurierten Transparenz von 100 Prozent sichtbar bleibt.
+
+Verbindlicher Vertrag:
+
+- Die im Colorpicker gespeicherte Alpha-Komponente von `GRAPH_VERY_HIGH_LINE` wird unverändert bis zum produktiven Canvas übertragen.
+- Alpha `0` bedeutet vollständig unsichtbar; es darf weder eine Mindestdeckkraft noch einen Farb-Fallback geben.
+- Die Transparenz der Sehr-hoch-Fläche und die Transparenz der Sehr-hoch-Grenzlinie bleiben unabhängige Einstellungen.
+- Die anderen Grenzlinien behalten ihre jeweils eigenen Farben und Alpha-Werte.
+- Wiederverwendete `Paint`-Objekte dürfen keine Alpha-Werte früherer Zeichenoperationen in eine Grenzlinie übernehmen. Farbe und Alpha werden vor jeder Grenzlinie vollständig definiert beziehungsweise nach temporären Alpha-Operationen wiederhergestellt.
+- Colorpicker-Vorschau, Persistenz und produktiver Mobile-Graph müssen denselben ARGB-Wert verwenden.
+
+Zusätzliche Regressionstests prüfen:
+
+- `GRAPH_VERY_HIGH_LINE` mit Alpha `0` erzeugt keine sichtbaren Pixel an der Sehr-hoch-Grenze
+- eine teilweise transparente Linie behält exakt ihre konfigurierte Alpha-Komponente
+- eine opake Linie bleibt opak
+- Sehr-hoch-Fläche und Sehr-hoch-Grenzlinie beeinflussen sich nicht gegenseitig
+- nach Zeichenoperationen mit temporärem `Paint.alpha` bleibt die Grenzlinien-Transparenz deterministisch
