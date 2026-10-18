@@ -13,9 +13,9 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.io.File
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
@@ -27,6 +27,7 @@ class WidgetInstanceConfigurationTest {
         assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.flush"))
         assertFalse(source.contains("LaunchedEffect(value) {\n                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)\n                    SugarliciousWidgets.update"))
     }
+
     @Test
     fun `therapy progress appearance round trips independently per widget`() {
         val firstAppearance =

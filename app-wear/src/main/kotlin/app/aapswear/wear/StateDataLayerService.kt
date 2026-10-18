@@ -708,13 +708,19 @@ class StateDataLayerService : WearableListenerService() {
                 .putString("wearEventId", delivery.eventId)
                 .putLong("wearGeneratedAt", delivery.generatedAtEpochMs ?: 0L)
                 .apply()
-            WearCanonicalStateEvents.publishLocalReadingUpdate()
-            requestComplicationUpdates(
-                ComplicationUpdatePlanner.affectedProviders(old, merged),
-            )
-            requestSugarliciousTileUpdates(
-                this@StateDataLayerService,
-                affectedSugarliciousTiles(old, merged),
+            WearSurfaceUpdateCoordinator.dispatch(
+                updateApp = { WearCanonicalStateEvents.publishLocalReadingUpdate() },
+                updateComplications = {
+                    requestComplicationUpdates(
+                        ComplicationUpdatePlanner.affectedProviders(old, merged),
+                    )
+                },
+                updateTiles = {
+                    requestSugarliciousTileUpdates(
+                        this@StateDataLayerService,
+                        affectedSugarliciousTiles(old, merged),
+                    )
+                },
             )
             applicationContext.recordWatchDiagnostic(
                 "SYNC",

@@ -100,7 +100,7 @@ class G7GraphTileTest {
     }
 
     @Test fun `graph empty states are explicit and history remains visible while stale`() {
-        assertEquals("Wird geladen", g7GraphEmptyLabel(G7StatusPillState.CONNECTED, false))
+        assertEquals("Keine Daten", g7GraphEmptyLabel(G7StatusPillState.CONNECTED, false))
         assertEquals("Signalverlust", g7GraphEmptyLabel(G7StatusPillState.SIGNAL_LOSS, false))
         assertEquals("Sensorfehler", g7GraphEmptyLabel(G7StatusPillState.SENSOR_ERROR, false))
         assertEquals("Kein aktiver Sensor", g7GraphEmptyLabel(G7StatusPillState.NO_ACTIVE_SENSOR, false))

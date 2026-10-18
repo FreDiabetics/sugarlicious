@@ -90,7 +90,7 @@ internal fun g7GraphEmptyLabel(
         state == G7StatusPillState.NO_ACTIVE_SENSOR -> "Kein aktiver Sensor"
         state == G7StatusPillState.SENSOR_ERROR -> "Sensorfehler"
         state == G7StatusPillState.SIGNAL_LOSS -> "Signalverlust"
-        else -> "Wird geladen"
+        else -> "Keine Daten"
     }
 
 internal fun g7GraphScaleAgeLabel(graphHours: Int, measuredAtEpochMs: Long?, nowEpochMs: Long): String {

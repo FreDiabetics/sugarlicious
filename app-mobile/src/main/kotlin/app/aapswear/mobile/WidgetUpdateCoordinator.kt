@@ -3,6 +3,7 @@ package app.aapswear.mobile
 import android.content.Context
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.TherapyDisplayState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
@@ -83,8 +84,13 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
     ) {
         var current = initial
         while (true) {
-            runCatching { render(key, current.value) }
-                .onFailure { error -> onFailure(key, current.revision, error) }
+            try {
+                render(key, current.value)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                onFailure(key, current.revision, error)
+            }
 
             val next =
                 synchronized(lock) {
@@ -109,11 +115,16 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
 internal object WidgetSurfaceRevision {
     private val sequence = AtomicLong(System.currentTimeMillis())
 
-    fun next(): Long = sequence.updateAndGet { previous -> maxOf(previous + 1L, System.currentTimeMillis()) }
+    fun next(): Long =
+        sequence.updateAndGet { previous ->
+            maxOf(previous + 1L, System.currentTimeMillis())
+        }
 }
 
 internal sealed interface WidgetUpdateTarget {
-    data class Family(val kind: WidgetKind) : WidgetUpdateTarget
+    data class Family(
+        val kind: WidgetKind,
+    ) : WidgetUpdateTarget
 
     data class Instance(
         val appWidgetId: Int,
