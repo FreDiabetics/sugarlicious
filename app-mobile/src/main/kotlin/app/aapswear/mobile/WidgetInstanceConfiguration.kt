@@ -43,6 +43,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
@@ -725,7 +726,12 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
-                                ) { value = value.copy(historicalDotOutlineWidthDp = it / 100f) }
+                                ) {
+                                    value =
+                                        value.copy(
+                                            historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                        )
+                                }
                             }
                             Text(app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE, color = ComposeColor.White)
                             run {
@@ -744,7 +750,12 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
-                                ) { value = value.copy(currentDotOutlineWidthDp = it / 100f) }
+                                ) {
+                                    value =
+                                        value.copy(
+                                            currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                        )
+                                }
                             }
                         }
                     }

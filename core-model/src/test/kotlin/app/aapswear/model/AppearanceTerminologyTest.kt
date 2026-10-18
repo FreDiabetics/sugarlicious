@@ -45,5 +45,7 @@ class AppearanceTerminologyTest {
         assertEquals(0.05f, AppearanceControlContract.DOT_OUTLINE_STEP_DP)
         assertEquals(0.25f, AppearanceControlContract.normalizeDotOutlineWidth(-2f))
         assertEquals(3.0f, AppearanceControlContract.normalizeDotOutlineWidth(9f))
+        assertEquals(1.25f, AppearanceControlContract.quantizeDotOutlineWidth(1.23f))
+        assertEquals(1.20f, AppearanceControlContract.quantizeDotOutlineWidth(1.22f))
     }
 }

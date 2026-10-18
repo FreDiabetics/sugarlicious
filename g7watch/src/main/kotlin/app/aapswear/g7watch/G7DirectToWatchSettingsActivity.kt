@@ -16,6 +16,7 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.ArgbColor
@@ -125,13 +126,23 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 palette,
                 { "Konturbreite · ${it / 100f} dp" },
             ) {
-                settings.saveGraphStyle(settings.graphStyle().copy(historicalDotOutlineWidthDp = it / 100f))
+                settings.saveGraphStyle(
+                    settings.graphStyle().copy(
+                        historicalDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
             },
             params(5),
         )
         root.addView(
             slider(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, 25, 300, (graphStyle.currentDotOutlineWidthDp * 100).roundToInt(), palette, { "Aktuell · ${it / 100f} dp" }) {
-                settings.saveGraphStyle(settings.graphStyle().copy(currentDotOutlineWidthDp = it / 100f))
+                settings.saveGraphStyle(
+                    settings.graphStyle().copy(
+                        currentDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
             },
             params(5),
         )

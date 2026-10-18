@@ -63,4 +63,10 @@ object AppearanceControlContract {
 
     fun normalizeDotOutlineWidth(value: Float): Float =
         value.coerceIn(DOT_OUTLINE_MIN_DP, DOT_OUTLINE_MAX_DP)
+
+    fun quantizeDotOutlineWidth(value: Float): Float =
+        (
+            kotlin.math.round(normalizeDotOutlineWidth(value) / DOT_OUTLINE_STEP_DP) *
+                DOT_OUTLINE_STEP_DP
+        ).coerceIn(DOT_OUTLINE_MIN_DP, DOT_OUTLINE_MAX_DP)
 }

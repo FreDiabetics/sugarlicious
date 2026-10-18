@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.ArgbColor
@@ -256,14 +257,20 @@ class G7AppearanceActivity : Activity() {
         )
         content.addView(
             scaleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH, (store.inAppGraphStyle().historicalDotOutlineWidthDp * 100).roundToInt(), palette, {
-                val style = store.inAppGraphStyle().copy(historicalDotOutlineWidthDp = it / 100f)
+                val style =
+                    store.inAppGraphStyle().copy(
+                        historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    )
                 store.setInAppDotOutlineWidths(style.historicalDotOutlineWidthDp, style.currentDotOutlineWidthDp)
             }, min = 25, max = 300, format = { "Historisch · ${it / 100f} dp" }),
             params(top = 5),
         )
         content.addView(
             scaleRow(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, (store.inAppGraphStyle().currentDotOutlineWidthDp * 100).roundToInt(), palette, {
-                val style = store.inAppGraphStyle().copy(currentDotOutlineWidthDp = it / 100f)
+                val style =
+                    store.inAppGraphStyle().copy(
+                        currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    )
                 store.setInAppDotOutlineWidths(style.historicalDotOutlineWidthDp, style.currentDotOutlineWidthDp)
             }, min = 25, max = 300, format = { "Aktuell · ${it / 100f} dp" }),
             params(top = 5),
@@ -298,13 +305,23 @@ class G7AppearanceActivity : Activity() {
         )
         content.addView(
             scaleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH, (tileStyle.historicalDotOutlineWidthDp * 100).roundToInt(), palette, {
-                store.saveTileGraphStyle(store.tileGraphStyle().copy(historicalDotOutlineWidthDp = it / 100f))
+                store.saveTileGraphStyle(
+                    store.tileGraphStyle().copy(
+                        historicalDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
             }, min = 25, max = 300, format = { "Historisch · ${it / 100f} dp" }),
             params(top = 5),
         )
         content.addView(
             scaleRow(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, (tileStyle.currentDotOutlineWidthDp * 100).roundToInt(), palette, {
-                store.saveTileGraphStyle(store.tileGraphStyle().copy(currentDotOutlineWidthDp = it / 100f))
+                store.saveTileGraphStyle(
+                    store.tileGraphStyle().copy(
+                        currentDotOutlineWidthDp =
+                            AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                    ),
+                )
             }, min = 25, max = 300, format = { "Aktuell · ${it / 100f} dp" }),
             params(top = 5),
         )

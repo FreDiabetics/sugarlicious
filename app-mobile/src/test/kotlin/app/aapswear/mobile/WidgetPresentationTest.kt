@@ -498,8 +498,9 @@ class WidgetPresentationTest {
                 Paint(),
             )
 
-        assertTrue(metrics.yLabelLeftPx >= metrics.plot.right)
-        assertTrue(metrics.yLabelLeftPx - metrics.plot.right <= 2f * density)
+        val pointExtent = metrics.plot.left - metrics.graphBounds.left
+        assertTrue(metrics.yLabelLeftPx >= metrics.plot.right + pointExtent)
+        assertTrue(metrics.yLabelLeftPx - metrics.plot.right <= pointExtent + 2f * density)
     }
 
     @Test

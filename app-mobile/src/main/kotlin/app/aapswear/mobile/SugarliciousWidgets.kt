@@ -942,7 +942,7 @@ internal fun widgetGraphMetrics(
         yTickEndPx = yTickEnd,
         // Target values begin immediately beside the live/Now boundary. The lane still keeps its
         // full clipping/background width, but no longer leaves a visually empty gutter before text.
-        yLabelLeftPx = plot.right + 1f * safeDensity,
+        yLabelLeftPx = plot.right + pointInset + 1f * safeDensity,
     )
 }
 

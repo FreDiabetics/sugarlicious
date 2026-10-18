@@ -16,6 +16,7 @@ import android.widget.Switch
 import android.widget.TextView
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.GlucoseTrendSizing
@@ -331,7 +332,12 @@ class WearSettingsActivity : Activity() {
                     value = { String.format(java.util.Locale.GERMANY, "%.2f dp", it / 100f) },
                 ) { progress ->
                     save(
-                        current.copy(graphStyle = current.graphStyle.copy(cgmHistoricalDotOutlineWidthDp = progress / 100f)),
+                        current.copy(
+                            graphStyle =
+                                current.graphStyle.copy(
+                                    cgmHistoricalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(progress / 100f),
+                                ),
+                        ),
                         rebuild = false,
                     )
                 },
@@ -345,7 +351,15 @@ class WearSettingsActivity : Activity() {
                     progress = (current.graphStyle.cgmCurrentDotOutlineWidthDp * 100f).roundToInt(),
                     value = { String.format(java.util.Locale.GERMANY, "%.2f dp", it / 100f) },
                 ) { progress ->
-                    save(current.copy(graphStyle = current.graphStyle.copy(cgmCurrentDotOutlineWidthDp = progress / 100f)), rebuild = false)
+                    save(
+                        current.copy(
+                            graphStyle =
+                                current.graphStyle.copy(
+                                    cgmCurrentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(progress / 100f),
+                                ),
+                        ),
+                        rebuild = false,
+                    )
                 },
                 cardParams(),
             )

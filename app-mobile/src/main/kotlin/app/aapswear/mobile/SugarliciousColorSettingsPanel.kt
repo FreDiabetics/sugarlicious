@@ -55,6 +55,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorGroup
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
+import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.TrendArrowStyle
@@ -95,19 +96,28 @@ internal fun SugarliciousColorSettingsPanel(
                 ).coerceIn(1.5f, 6.0f),
         )
     }
-    var cgmDotOutlineEnabled by remember(showCgmGraph, selectedMode) {
+    var cgmHistoricalDotOutlineEnabled by remember(showCgmGraph, selectedMode) {
         mutableStateOf(
             preferences.getBoolean(
-                graphAppearanceKey(selectedMode, "dotOutlineEnabled"),
+                graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"),
                 preferences.getBoolean("cgm.dotOutlineEnabled", true),
             ),
         )
     }
-    var cgmDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
+    var cgmHistoricalDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
         mutableFloatStateOf(
             preferences
                 .getFloat(
-                    graphAppearanceKey(selectedMode, "dotOutlineWidthDp"),
+                    graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"),
+                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
+                ).coerceIn(0.25f, 3.0f),
+        )
+    }
+    var cgmCurrentDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
+        mutableFloatStateOf(
+            preferences
+                .getFloat(
+                    graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"),
                     preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
                 ).coerceIn(0.25f, 3.0f),
         )
@@ -264,28 +274,40 @@ internal fun SugarliciousColorSettingsPanel(
             )
 
             GraphSettingSwitch(
-                title = "Kontur",
-                description = "Kontur um die CGM-Dots anzeigen",
-                checked = cgmDotOutlineEnabled,
+                title = "Historische Kontur",
+                description = "Kontur um historische CGM-Dots anzeigen",
+                checked = cgmHistoricalDotOutlineEnabled,
                 onCheckedChange = { enabled ->
-                    cgmDotOutlineEnabled = enabled
-                    preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "dotOutlineEnabled"), enabled) }
+                    cgmHistoricalDotOutlineEnabled = enabled
+                    preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"), enabled) }
                 },
             )
 
-            if (cgmDotOutlineEnabled) {
+            if (cgmHistoricalDotOutlineEnabled) {
                 SugarliciousSettingSlider(
-                    title = "Konturdicke",
-                    description = "Dicke der Dot-Kontur",
-                    value = cgmDotOutlineWidthDp,
+                    title = "Historische Konturdicke",
+                    description = "Dicke der Kontur historischer Dots",
+                    value = cgmHistoricalDotOutlineWidthDp,
                     valueRange = 0.25f..3.0f,
-                    valueText = "${String.format(locale, "%.2f", cgmDotOutlineWidthDp)} dp",
-                    onValueChange = { cgmDotOutlineWidthDp = it },
+                    valueText = "${String.format(locale, "%.2f", cgmHistoricalDotOutlineWidthDp)} dp",
+                    onValueChange = { cgmHistoricalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
                     onValueChangeFinished = {
-                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotOutlineWidthDp"), cgmDotOutlineWidthDp) }
+                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"), cgmHistoricalDotOutlineWidthDp) }
                     },
                 )
             }
+
+            SugarliciousSettingSlider(
+                title = "Aktuelle Konturdicke",
+                description = "Der aktuelle echte CGM-Dot besitzt immer eine Kontur",
+                value = cgmCurrentDotOutlineWidthDp,
+                valueRange = 0.25f..3.0f,
+                valueText = "${String.format(locale, "%.2f", cgmCurrentDotOutlineWidthDp)} dp",
+                onValueChange = { cgmCurrentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
+                onValueChangeFinished = {
+                    preferences.edit { putFloat(graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"), cgmCurrentDotOutlineWidthDp) }
+                },
+            )
 
             SugarliciousSettingSlider(
                 title = "Prediction-Punktgröße",
@@ -392,6 +414,7 @@ internal fun WidgetColorSettingsPanel() {
     var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
     var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
+    var samsungCompact by remember { mutableStateOf(WidgetLayoutSizeStore.isSamsungCompact(context)) }
     val palette = remember(revision, selectedMode) { WidgetColorStore.load(context, selectedMode) }
 
     fun refreshWidgets() {
@@ -410,6 +433,24 @@ internal fun WidgetColorSettingsPanel() {
     ) {
         Text("WIDGET-STANDARDFARBEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Text("Farben", color = SugarliciousColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(
+                checked = samsungCompact,
+                onCheckedChange = { enabled ->
+                    samsungCompact = enabled
+                    WidgetLayoutSizeStore.setSamsungCompact(context, enabled)
+                    refreshWidgets()
+                },
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Samsung-kompakte Widgetgröße", color = SugarliciousColors.TextPrimary, fontSize = 13.sp)
+                Text(
+                    "Gleicher Innenabstand wie bei Samsung-Widgets; gilt für alle Mobile-Widgets.",
+                    color = SugarliciousColors.TextSecondary,
+                    fontSize = 10.sp,
+                )
+            }
+        }
         AppearanceModeSelector(selectedMode) { selectedMode = it }
         Text(
             "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
@@ -790,8 +831,10 @@ private fun ColorRoleExample(
             SugarliciousColorRole.GLUCOSE_IN_RANGE,
             SugarliciousColorRole.GLUCOSE_HIGH,
             SugarliciousColorRole.RANGE_LOW,
+            SugarliciousColorRole.RANGE_VERY_LOW,
             SugarliciousColorRole.RANGE_IN_RANGE,
             SugarliciousColorRole.RANGE_HIGH,
+            SugarliciousColorRole.RANGE_VERY_HIGH,
             SugarliciousColorRole.CGM_DOT_LOW,
             SugarliciousColorRole.CGM_DOT_IN_RANGE,
             SugarliciousColorRole.CGM_DOT_HIGH,
@@ -1207,11 +1250,13 @@ internal fun NotificationGraphSettingsPanel() {
             NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.EXPANDED)
         }
     var collapsedRadius by remember(revision) { mutableFloatStateOf(collapsedInitial.cgmRadiusDp) }
-    var collapsedOutlineEnabled by remember(revision) { mutableStateOf(collapsedInitial.cgmOutlineEnabled) }
-    var collapsedOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.cgmOutlineWidthDp) }
+    var collapsedOutlineEnabled by remember(revision) { mutableStateOf(collapsedInitial.historicalOutlineEnabled) }
+    var collapsedOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.historicalOutlineWidthDp) }
+    var collapsedCurrentOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.currentOutlineWidthDp) }
     var expandedRadius by remember(revision) { mutableFloatStateOf(expandedInitial.cgmRadiusDp) }
-    var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.cgmOutlineEnabled) }
-    var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.cgmOutlineWidthDp) }
+    var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.historicalOutlineEnabled) }
+    var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.historicalOutlineWidthDp) }
+    var expandedCurrentOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.currentOutlineWidthDp) }
     var scaleLaneOpacity by remember(revision) {
         mutableFloatStateOf(preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).toFloat())
     }
@@ -1235,7 +1280,7 @@ internal fun NotificationGraphSettingsPanel() {
             preferences,
             selectedMode,
             NotificationGraphProfile.COLLAPSED,
-            NotificationGraphDotStyle(collapsedRadius, collapsedOutlineEnabled, collapsedOutlineWidth),
+            NotificationGraphDotStyle(collapsedRadius, collapsedOutlineEnabled, collapsedOutlineWidth, collapsedOutlineEnabled, collapsedOutlineWidth, collapsedCurrentOutlineWidth),
         )
     }
 
@@ -1244,7 +1289,7 @@ internal fun NotificationGraphSettingsPanel() {
             preferences,
             selectedMode,
             NotificationGraphProfile.EXPANDED,
-            NotificationGraphDotStyle(expandedRadius, expandedOutlineEnabled, expandedOutlineWidth),
+            NotificationGraphDotStyle(expandedRadius, expandedOutlineEnabled, expandedOutlineWidth, expandedOutlineEnabled, expandedOutlineWidth, expandedCurrentOutlineWidth),
         )
     }
 
@@ -1362,8 +1407,8 @@ internal fun NotificationGraphSettingsPanel() {
             onValueChangeFinished = ::saveCollapsed,
         )
         GraphSettingSwitch(
-            title = "Kontur",
-            description = "Kontur der eingeklappten CGM-Dots",
+            title = "Historische Kontur",
+            description = "Kontur historischer CGM-Dots",
             checked = collapsedOutlineEnabled,
             onCheckedChange = {
                 collapsedOutlineEnabled = it
@@ -1381,6 +1426,15 @@ internal fun NotificationGraphSettingsPanel() {
                 onValueChangeFinished = ::saveCollapsed,
             )
         }
+        SugarliciousSettingSlider(
+            title = "Aktuelle Konturdicke",
+            description = "Aktueller CGM-Dot (immer aktiv)",
+            value = collapsedCurrentOutlineWidth,
+            valueRange = 0.25f..3f,
+            valueText = "${String.format(locale, "%.2f", collapsedCurrentOutlineWidth)} dp",
+            onValueChange = { collapsedCurrentOutlineWidth = it },
+            onValueChangeFinished = ::saveCollapsed,
+        )
 
         Text(
             "AUSGEKLAPPT",
@@ -1406,8 +1460,8 @@ internal fun NotificationGraphSettingsPanel() {
             onValueChangeFinished = ::saveExpanded,
         )
         GraphSettingSwitch(
-            title = "Kontur",
-            description = "Kontur der ausgeklappten CGM-Dots",
+            title = "Historische Kontur",
+            description = "Kontur historischer CGM-Dots",
             checked = expandedOutlineEnabled,
             onCheckedChange = {
                 expandedOutlineEnabled = it
@@ -1425,13 +1479,23 @@ internal fun NotificationGraphSettingsPanel() {
                 onValueChangeFinished = ::saveExpanded,
             )
         }
+        SugarliciousSettingSlider(
+            title = "Aktuelle Konturdicke",
+            description = "Aktueller CGM-Dot (immer aktiv)",
+            value = expandedCurrentOutlineWidth,
+            valueRange = 0.25f..3f,
+            valueText = "${String.format(locale, "%.2f", expandedCurrentOutlineWidth)} dp",
+            onValueChange = { expandedCurrentOutlineWidth = it },
+            onValueChangeFinished = ::saveExpanded,
+        )
         TextButton(
             onClick = {
                 val copied = NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
                 NotificationGraphDotStyleStore.save(preferences, selectedMode, NotificationGraphProfile.EXPANDED, copied)
                 expandedRadius = copied.cgmRadiusDp
-                expandedOutlineEnabled = copied.cgmOutlineEnabled
-                expandedOutlineWidth = copied.cgmOutlineWidthDp
+                expandedOutlineEnabled = copied.historicalOutlineEnabled
+                expandedOutlineWidth = copied.historicalOutlineWidthDp
+                expandedCurrentOutlineWidth = copied.currentOutlineWidthDp
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
