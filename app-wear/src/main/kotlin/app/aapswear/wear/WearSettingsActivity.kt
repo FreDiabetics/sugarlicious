@@ -313,7 +313,7 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             root.addView(
-                switchRow("Kontur · bisherige Punkte", current.graphStyle.cgmHistoricalDotOutlineEnabled) {
+                switchRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, current.graphStyle.cgmHistoricalDotOutlineEnabled) {
                     save(
                         current.copy(
                             graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmHistoricalDotOutlineEnabled = it),
@@ -323,23 +323,29 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             root.addView(
-                switchRow("Kontur · aktueller Wert", current.graphStyle.cgmCurrentDotOutlineEnabled) {
-                    save(current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineEnabled = true, cgmCurrentDotOutlineEnabled = it)))
+                sliderCard(
+                    title = AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
+                    min = 25,
+                    max = 300,
+                    progress = (current.graphStyle.cgmHistoricalDotOutlineWidthDp * 100f).roundToInt(),
+                    value = { String.format(java.util.Locale.GERMANY, "%.2f dp", it / 100f) },
+                ) { progress ->
+                    save(
+                        current.copy(graphStyle = current.graphStyle.copy(cgmHistoricalDotOutlineWidthDp = progress / 100f)),
+                        rebuild = false,
+                    )
                 },
                 cardParams(),
             )
             root.addView(
                 sliderCard(
-                    title = "Konturbreite",
+                    title = AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
                     min = 25,
                     max = 300,
-                    progress = (current.graphStyle.cgmDotOutlineWidthDp * 100f).roundToInt(),
+                    progress = (current.graphStyle.cgmCurrentDotOutlineWidthDp * 100f).roundToInt(),
                     value = { String.format(java.util.Locale.GERMANY, "%.2f dp", it / 100f) },
                 ) { progress ->
-                    save(
-                        current.copy(graphStyle = current.graphStyle.copy(cgmDotOutlineWidthDp = progress / 100f)),
-                        rebuild = false,
-                    )
+                    save(current.copy(graphStyle = current.graphStyle.copy(cgmCurrentDotOutlineWidthDp = progress / 100f)), rebuild = false)
                 },
                 cardParams(),
             )

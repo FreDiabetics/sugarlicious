@@ -275,7 +275,8 @@ internal object WidgetInstanceConfigurationStore {
             glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
             deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
             historicalDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "historical_dot_outline_enabled"), true),
-            currentDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "current_dot_outline_enabled"), true),
+            // Legacy false values are intentionally ignored: the current real CGM dot is always outlined.
+            currentDotOutlineEnabled = true,
             historicalDotOutlineWidthDp =
                 prefs
                     .getFloat(
@@ -327,7 +328,7 @@ internal object WidgetInstanceConfigurationStore {
             putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
             putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
             putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
-            putBoolean(key(appWidgetId, "current_dot_outline_enabled"), value.currentDotOutlineEnabled)
+            putBoolean(key(appWidgetId, "current_dot_outline_enabled"), true)
             putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
             putFloat(key(appWidgetId, "current_dot_outline_width_dp"), value.currentDotOutlineWidthDp.coerceIn(0.25f, 3f))
             writeTrendStyle(this, appWidgetId, AppearanceMode.DARK, value.darkTrendStyle)
@@ -516,20 +517,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             WidgetColorSetting("Kontur", appearance.outlineArgb, { editOutline = true }) {
                                 value = value.withOutline(selectedMode, Color.DKGRAY)
                             }
-                        }
-                        WidgetPercentSlider(
-                            "Eckenradius",
-                            if (value.cornerRadiusDp ==
-                                0
-                            ) {
-                                SAMSUNG_WIDGET_RADIUS_FALLBACK_DP.toInt()
-                            } else {
-                                value.cornerRadiusDp
-                            },
-                            8..32,
-                            "dp",
-                        ) {
-                            value = value.copy(cornerRadiusDp = it)
                         }
                         if (widgetSupportsPill(widgetKind)) {
                             Text("Form", color = ComposeColor.LightGray, fontSize = 11.sp)
@@ -720,7 +707,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(value.historicalDotOutlineEnabled, { value = value.copy(historicalDotOutlineEnabled = it) })
-                                Text("Historische Punktkontur", color = ComposeColor.White)
+                                Text(app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, color = ComposeColor.White)
                             }
                             if (value.historicalDotOutlineEnabled) {
                                 WidgetColorSetting(
@@ -734,17 +721,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     { editRole = WidgetColorRole.DOT_OUTLINE },
                                 ) { value = value.withColorOverride(selectedMode, WidgetColorRole.DOT_OUTLINE, null) }
                                 WidgetPercentSlider(
-                                    label = "Konturstärke historische Punkte",
+                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
                                     value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
                                 ) { value = value.copy(historicalDotOutlineWidthDp = it / 100f) }
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.currentDotOutlineEnabled, { value = value.copy(currentDotOutlineEnabled = it) })
-                                Text("Aktuelle Punktkontur", color = ComposeColor.White)
-                            }
-                            if (value.currentDotOutlineEnabled) {
+                            Text(app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE, color = ComposeColor.White)
+                            run {
                                 WidgetColorSetting(
                                     WidgetColorRole.CURRENT_DOT_OUTLINE.label,
                                     appearance.colorOverrides[WidgetColorRole.CURRENT_DOT_OUTLINE]
@@ -756,7 +740,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
                                 ) { value = value.withColorOverride(selectedMode, WidgetColorRole.CURRENT_DOT_OUTLINE, null) }
                                 WidgetPercentSlider(
-                                    label = "Konturstärke aktueller Punkt",
+                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
                                     value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
                                     range = 25..300,
                                     suffix = " ×0,01 dp",
@@ -934,6 +918,21 @@ private fun WidgetConfigurationPreview(
     heightDp: Int,
 ) {
     val context = LocalContext.current
+    val samsungCompact = WidgetLayoutSizeStore.isSamsungCompact(context)
+    val runtimeKind =
+        when (kind) {
+            ConfigurableWidgetKind.GLUCOSE -> WidgetKind.GLUCOSE
+            ConfigurableWidgetKind.GRAPH -> WidgetKind.GRAPH
+            ConfigurableWidgetKind.GLUCOSE_GRAPH -> WidgetKind.GLUCOSE_GRAPH
+            ConfigurableWidgetKind.METABOLIC -> WidgetKind.METABOLIC
+        }
+    val renderSize =
+        widgetPreviewRenderSizeDp(
+            runtimeKind,
+            widthDp.toFloat(),
+            heightDp.toFloat(),
+            samsungCompact,
+        )
     val themedConfiguration = configuration.resolvedAppearance(mode)
     val now = System.currentTimeMillis()
     val state = remember(now) { widgetPreviewState(now) }
@@ -947,14 +946,14 @@ private fun WidgetConfigurationPreview(
                     if (themedConfiguration.backgroundEnabled) themedConfiguration.backgroundArgb else Color.TRANSPARENT,
                 )
         }
-    val previewWidth = (widthDp * 2).coerceIn(160, 900)
-    val previewHeight = (heightDp * 2).coerceIn(96, 900)
-    val previewLayout = responsiveWidgetLayout(widthDp.toFloat(), heightDp.toFloat())
+    val previewWidth = (renderSize.widthDp * 2f).roundToInt().coerceIn(160, 900)
+    val previewHeight = (renderSize.heightDp * 2f).roundToInt().coerceIn(96, 900)
+    val previewLayout = responsiveWidgetLayout(renderSize.widthDp, renderSize.heightDp)
     val previewRadius =
         resolveWidgetCornerRadiusDp(
             themedConfiguration,
-            heightDp.toFloat(),
-            SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+            renderSize.heightDp,
+            systemWidgetCornerRadiusDp(context),
             pillAllowed = widgetSupportsPill(kind),
         )
     val renderConfiguration = themedConfiguration.copy(cornerRadiusDp = previewRadius.toInt())
@@ -1024,11 +1023,21 @@ private fun WidgetConfigurationPreview(
                     )
             }
         }
-    AndroidView(
-        factory = { context -> ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
-        update = { it.setImageBitmap(bitmap) },
-        modifier = Modifier.fillMaxWidth().aspectRatio(widthDp.toFloat() / heightDp.coerceAtLeast(1)),
-    )
+    Surface(
+        color = if (mode == AppearanceMode.DARK) ComposeColor(0xFF292929) else ComposeColor(0xFFF0F0F0),
+        shape = RoundedCornerShape((previewRadius + 10f).dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        AndroidView(
+            factory = { viewContext -> ImageView(viewContext).apply { scaleType = ImageView.ScaleType.FIT_CENTER } },
+            update = { it.setImageBitmap(bitmap) },
+            modifier =
+                Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(renderSize.widthDp / renderSize.heightDp.coerceAtLeast(1f)),
+        )
+    }
 }
 
 @androidx.compose.runtime.Composable

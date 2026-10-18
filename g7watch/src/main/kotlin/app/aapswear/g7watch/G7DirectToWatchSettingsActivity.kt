@@ -111,27 +111,27 @@ class G7DirectToWatchSettingsActivity : Activity() {
             params(5),
         )
         root.addView(
-            toggle("Kontur · bisherige Punkte", graphStyle.historicalDotOutlineEnabled, palette) {
+            toggle(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, graphStyle.historicalDotOutlineEnabled, palette) {
                 settings.saveGraphStyle(settings.graphStyle().copy(historicalDotOutlineEnabled = it))
             },
             params(5),
         )
         root.addView(
-            toggle("Kontur · aktueller Wert", graphStyle.currentDotOutlineEnabled, palette) {
-                settings.saveGraphStyle(settings.graphStyle().copy(currentDotOutlineEnabled = it))
+            slider(
+                AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
+                25,
+                300,
+                (graphStyle.historicalDotOutlineWidthDp * 100).roundToInt(),
+                palette,
+                { "Konturbreite · ${it / 100f} dp" },
+            ) {
+                settings.saveGraphStyle(settings.graphStyle().copy(historicalDotOutlineWidthDp = it / 100f))
             },
             params(5),
         )
         root.addView(
-            slider(
-                "Konturbreite",
-                25,
-                300,
-                (graphStyle.dotOutlineWidthDp * 100).roundToInt(),
-                palette,
-                { "Konturbreite · ${it / 100f} dp" },
-            ) {
-                settings.saveGraphStyle(settings.graphStyle().copy(dotOutlineWidthDp = it / 100f))
+            slider(AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH, 25, 300, (graphStyle.currentDotOutlineWidthDp * 100).roundToInt(), palette, { "Aktuell · ${it / 100f} dp" }) {
+                settings.saveGraphStyle(settings.graphStyle().copy(currentDotOutlineWidthDp = it / 100f))
             },
             params(5),
         )

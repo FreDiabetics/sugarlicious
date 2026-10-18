@@ -267,7 +267,11 @@ internal class ChartViewport(
     private fun maximumHours(): Float =
         minOf(
             availablePastWindowMs.toFloat() / HOUR_MS,
-            MAX_VISIBLE_GRAPH_HOURS - futureWindowMs.toFloat() / HOUR_MS,
+            if (requestedHours >= MAX_VISIBLE_GRAPH_HOURS) {
+                MAX_VISIBLE_GRAPH_HOURS
+            } else {
+                MAX_VISIBLE_GRAPH_HOURS - futureWindowMs.toFloat() / HOUR_MS
+            },
         ).coerceAtLeast(MIN_VISIBLE_HISTORY_HOURS)
 
     private fun navigateToEnd(
@@ -2360,6 +2364,27 @@ internal fun timeToXFraction(
 internal fun targetScaleOnRight(
     hasVisiblePredictions: Boolean,
 ): Boolean = !hasVisiblePredictions
+
+internal data class PredictionViewportPolicy(
+    val effectiveFutureWindowMs: Long,
+    val scaleRightBlendOverride: Float?,
+)
+
+internal fun resolvePredictionViewportPolicy(
+    historyHours: Float,
+    predictionsEnabled: Boolean,
+    futureWindowMs: Long,
+): PredictionViewportPolicy {
+    val effectiveFutureWindowMs = futureWindowMs.coerceIn(0L, 2L * HOUR_MS)
+    val isFullHistory = historyHours >= MAX_VISIBLE_GRAPH_HOURS
+    return PredictionViewportPolicy(
+        effectiveFutureWindowMs = effectiveFutureWindowMs,
+        scaleRightBlendOverride =
+            0f.takeIf {
+                isFullHistory && predictionsEnabled && effectiveFutureWindowMs > 0L
+            },
+    )
+}
 
 internal fun predictionScaleRightBlend(
     predictions: List<GlucosePrediction>,
