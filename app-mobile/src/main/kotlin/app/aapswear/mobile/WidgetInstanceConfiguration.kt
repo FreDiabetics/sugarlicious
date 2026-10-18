@@ -118,6 +118,45 @@ internal data class WidgetInstanceConfiguration(
     val therapyProgressAppearance: TherapyProgressAppearance = TherapyProgressAppearance(),
 )
 
+/** Approved 2026-10-18 widget templates captured from the newest active instance of each kind. */
+internal object WidgetSystemDefaults {
+    private const val ACTIVE_BACKGROUND = 0xB2000000.toInt()
+
+    fun forKind(kind: ConfigurableWidgetKind): WidgetInstanceConfiguration =
+        when (kind) {
+            ConfigurableWidgetKind.GLUCOSE ->
+                WidgetInstanceConfiguration(
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    shapeMode = WidgetShapeMode.PILL,
+                    trendScalePercent = 110,
+                )
+            ConfigurableWidgetKind.GRAPH ->
+                WidgetInstanceConfiguration(
+                    showTimeAxis = true,
+                    scaleMode = WidgetScaleMode.DYNAMIC,
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    historicalDotOutlineWidthDp = .7f,
+                    currentDotOutlineWidthDp = 1.25f,
+                )
+            ConfigurableWidgetKind.GLUCOSE_GRAPH ->
+                WidgetInstanceConfiguration(
+                    showTimeAxis = true,
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    cornerRadiusDp = 30,
+                    trendScalePercent = 110,
+                    glucoseGraphValuePercent = 38,
+                    historicalDotOutlineWidthDp = .4f,
+                    currentDotOutlineWidthDp = 1.3f,
+                )
+            ConfigurableWidgetKind.METABOLIC ->
+                WidgetInstanceConfiguration(
+                    backgroundArgb = ACTIVE_BACKGROUND,
+                    shapeMode = WidgetShapeMode.PILL,
+                    therapyProgressAppearance = TherapyProgressAppearance(gapDp = 20),
+                )
+        }
+}
+
 internal fun toggleTherapyMetric(
     appearance: TherapyProgressAppearance,
     metric: TherapyProgressMetric,
@@ -193,6 +232,15 @@ internal object WidgetInstanceConfigurationStore {
         id: Int,
         suffix: String,
     ) = "$id.$suffix"
+
+    fun hasStoredConfiguration(
+        context: Context,
+        appWidgetId: Int,
+    ): Boolean =
+        context
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .all.keys
+            .any { it.startsWith("$appWidgetId.") }
 
     fun read(
         context: Context,
@@ -477,9 +525,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
             finish()
             return
         }
-        val initial = WidgetInstanceConfigurationStore.read(this, appWidgetId)
         val manager = AppWidgetManager.getInstance(this)
         val widgetKind = configurableWidgetKind(manager.getAppWidgetInfo(appWidgetId)?.provider?.className)
+        val initial =
+            if (WidgetInstanceConfigurationStore.hasStoredConfiguration(this, appWidgetId)) {
+                WidgetInstanceConfigurationStore.read(this, appWidgetId)
+            } else {
+                WidgetSystemDefaults.forKind(widgetKind)
+            }
         currentWidgetKind = widgetKind
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
         val previewWidthDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220).coerceAtLeast(80)

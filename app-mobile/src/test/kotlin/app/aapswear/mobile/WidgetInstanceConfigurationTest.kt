@@ -20,6 +20,31 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
     @Test
+    fun `fresh widgets use the approved provider specific templates`() {
+        val glucose = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GLUCOSE)
+        assertEquals(WidgetShapeMode.PILL, glucose.shapeMode)
+        assertEquals(110, glucose.trendScalePercent)
+
+        val graph = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GRAPH)
+        assertTrue(graph.showTimeAxis)
+        assertEquals(WidgetScaleMode.DYNAMIC, graph.scaleMode)
+        assertEquals(.7f, graph.historicalDotOutlineWidthDp)
+        assertEquals(1.25f, graph.currentDotOutlineWidthDp)
+
+        val combined = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GLUCOSE_GRAPH)
+        assertTrue(combined.showTimeAxis)
+        assertEquals(30, combined.cornerRadiusDp)
+        assertEquals(38, combined.glucoseGraphValuePercent)
+        assertEquals(.4f, combined.historicalDotOutlineWidthDp)
+        assertEquals(1.3f, combined.currentDotOutlineWidthDp)
+
+        val therapy = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.METABOLIC)
+        assertEquals(WidgetShapeMode.PILL, therapy.shapeMode)
+        assertEquals(20, therapy.therapyProgressAppearance.gapDp)
+        assertEquals(TherapyProgressMetric.entries.toSet(), therapy.therapyProgressAppearance.enabledMetrics)
+    }
+
+    @Test
     fun `settings changes use latest wins coordinator and leaving flushes final instance`() {
         val source = File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
 
