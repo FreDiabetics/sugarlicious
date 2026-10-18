@@ -1852,6 +1852,7 @@ internal fun metabolicAxisTickLayout(
     textMetrics: Paint.FontMetrics,
 ): MetabolicAxisTickLayout {
     fun centerY(value: Double): Float = plot.bottom - range.ratio(value).toFloat() * plot.height()
+
     fun baseline(centerY: Float): Float = centerY - (textMetrics.ascent + textMetrics.descent) / 2f
 
     val maximumCenterY = centerY(range.bounds.maximum)
