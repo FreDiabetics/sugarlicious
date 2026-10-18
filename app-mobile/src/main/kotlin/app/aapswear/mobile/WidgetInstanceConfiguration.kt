@@ -108,6 +108,7 @@ internal data class WidgetInstanceConfiguration(
     val showGlucoseUnit: Boolean = true,
     val glucoseBold: Boolean = true,
     val deltaUnitBold: Boolean = true,
+    val cgmDotRadiusDp: Float = CgmGraphVisualPolicy.DOT_RADIUS_DP,
     val historicalDotOutlineEnabled: Boolean = true,
     val currentDotOutlineEnabled: Boolean = true,
     val historicalDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
@@ -275,6 +276,10 @@ internal object WidgetInstanceConfigurationStore {
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
             glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
             deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
+            cgmDotRadiusDp =
+                prefs
+                    .getFloat(key(appWidgetId, "cgm_dot_radius_dp"), CgmGraphVisualPolicy.DOT_RADIUS_DP)
+                    .coerceIn(1.5f, 6f),
             historicalDotOutlineEnabled = prefs.getBoolean(key(appWidgetId, "historical_dot_outline_enabled"), true),
             // Legacy false values are intentionally ignored: the current real CGM dot is always outlined.
             currentDotOutlineEnabled = true,
@@ -328,6 +333,7 @@ internal object WidgetInstanceConfigurationStore {
             putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
             putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
             putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
+            putFloat(key(appWidgetId, "cgm_dot_radius_dp"), value.cgmDotRadiusDp.coerceIn(1.5f, 6f))
             putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
             putBoolean(key(appWidgetId, "current_dot_outline_enabled"), true)
             putFloat(key(appWidgetId, "historical_dot_outline_width_dp"), value.historicalDotOutlineWidthDp.coerceIn(0.25f, 3f))
@@ -642,6 +648,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     }
                     if (widgetKind.hasGraph) {
                         WidgetSettingsSection("Graph") {
+                            WidgetPercentSlider(
+                                "CGM-Dot-Größe",
+                                (value.cgmDotRadiusDp * 10f).roundToInt(),
+                                15..60,
+                                " ×0,1 dp",
+                                (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
+                            ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
                             WidgetPercentSlider(
                                 "Graph-Eckenradius",
                                 value.graphCornerRadiusDp,
@@ -1024,6 +1037,7 @@ private fun WidgetConfigurationPreview(
                         DashboardUiPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)),
                         renderConfiguration,
                         2f,
+                        mode,
                     )
                 else ->
                     renderMinimalGlucoseWidget(

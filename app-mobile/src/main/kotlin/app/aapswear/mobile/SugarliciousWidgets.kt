@@ -261,7 +261,8 @@ private fun WidgetShell(
             WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, renderInstance, renderSize)
             WidgetKind.GLUCOSE_GRAPH ->
                 GlucoseGraphWidgetContent(state, palette, thresholds, layout, renderInstance, appearanceMode, renderSize)
-            WidgetKind.METABOLIC -> MetabolicWidgetContent(state, palette, renderInstance, dashboardAppearance, renderSize)
+            WidgetKind.METABOLIC ->
+                MetabolicWidgetContent(state, palette, renderInstance, appearanceMode, dashboardAppearance, renderSize)
         }
     }
 }
@@ -434,6 +435,7 @@ private fun MetabolicWidgetContent(
     state: TherapyDisplayState?,
     palette: WidgetPalette,
     configuration: WidgetInstanceConfiguration,
+    appearanceMode: AppearanceMode,
     dashboardAppearance: DashboardUiPreferences,
     renderSize: WidgetRenderSize,
 ) {
@@ -452,6 +454,7 @@ private fun MetabolicWidgetContent(
             dashboardAppearance,
             configuration,
             density,
+            appearanceMode,
         )
     Image(ImageProvider(bitmap), "IOB, COB und Basal", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
 }
@@ -462,6 +465,21 @@ internal fun widgetBackgroundArgb(
 ): Int = if (enabled) configuredArgb else AndroidColor.TRANSPARENT
 
 internal fun widgetHostBackgroundArgb(): Int = AndroidColor.TRANSPARENT
+
+internal fun therapyWidgetTextArgb(
+    appearanceMode: AppearanceMode,
+    palette: WidgetPalette,
+): Int = if (appearanceMode == AppearanceMode.LIGHT) AndroidColor.BLACK else palette.argb(WidgetColorRole.TEXT)
+
+internal fun therapyWidgetSecondaryTextAlpha(
+    appearanceMode: AppearanceMode,
+    textArgb: Int,
+): Int =
+    if (appearanceMode == AppearanceMode.LIGHT) {
+        255
+    } else {
+        (AndroidColor.alpha(textArgb) * 0.72f).roundToInt()
+    }
 
 internal fun renderTherapyIndicatorWidget(
     context: Context,
@@ -475,6 +493,7 @@ internal fun renderTherapyIndicatorWidget(
     density: Float =
         context.resources.displayMetrics.density
             .coerceAtLeast(1f),
+    appearanceMode: AppearanceMode = AppearanceMode.DARK,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(48)
@@ -508,14 +527,13 @@ internal fun renderTherapyIndicatorWidget(
     val geometry = TherapyRingGeometry()
     val valuePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.argb(WidgetColorRole.TEXT)
+            color = therapyWidgetTextArgb(appearanceMode, palette)
             textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT_BOLD
         }
     val secondaryPaint =
         Paint(valuePaint).apply {
-            color = palette.argb(WidgetColorRole.TEXT)
-            alpha = (AndroidColor.alpha(color) * 0.72f).roundToInt()
+            alpha = therapyWidgetSecondaryTextAlpha(appearanceMode, color)
         }
 
     resolvedLayout.forEach { resolved ->
@@ -679,7 +697,7 @@ internal fun renderWidgetGraph(
             safeWidth,
             safeHeight,
             renderDensity,
-            layout,
+            layout.copy(graphDotRadiusDp = configuration.cgmDotRadiusDp),
             textPaint,
             configuration.showTimeAxis,
             configuration.graphCornerRadiusDp.toFloat(),
@@ -906,7 +924,7 @@ internal fun widgetGraphMetrics(
     // Axis text sits inside the full-bleed surface, but must also clear the launcher's rounded
     // clipping mask. A tiny edge clamp is insufficient near the lower corners (notably for 3h).
     val edgeGap = (if (lowSurface) 4f else 8f) * safeDensity
-    val dotRadius = layout.graphDotRadiusDp.coerceIn(2.4f, 2.5f) * safeDensity
+    val dotRadius = layout.graphDotRadiusDp.coerceIn(1.5f, 6f) * safeDensity
     val outline = maxOf(layout.graphOutlineDp.coerceIn(0.8f, 1f), maxDotOutlineWidthDp.coerceIn(0f, 3f)) * safeDensity
     val lineWidth = layout.graphLineDp.coerceIn(1f, 1.2f) * safeDensity
     val yLabelWidth = maxOf(textPaint.measureText("160"), textPaint.measureText("80"))
