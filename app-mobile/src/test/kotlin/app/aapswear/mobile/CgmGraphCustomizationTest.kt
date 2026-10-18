@@ -32,7 +32,6 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CgmGraphCustomizationTest {
-
     @Test
     fun `fresh appearance profiles reproduce approved mobile dot settings`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -53,6 +52,7 @@ class CgmGraphCustomizationTest {
         assertEquals(1.6f, readMobilePredictionDotRadius(preferences, app.aapswear.model.AppearanceMode.DARK), 0.001f)
         assertEquals(0.2f, readMobilePredictionDotOutlineWidth(preferences, app.aapswear.model.AppearanceMode.DARK), 0.001f)
     }
+
     @Test
     fun `boundary paint restores exact configured alpha after reused paint state`() {
         val paint = Paint().apply { alpha = 211 }

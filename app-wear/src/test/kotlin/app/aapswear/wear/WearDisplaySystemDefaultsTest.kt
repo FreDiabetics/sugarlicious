@@ -16,7 +16,11 @@ class WearDisplaySystemDefaultsTest {
     @Test
     fun `fresh wear settings reproduce approved system baseline`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        context.getSharedPreferences(WearDisplayPreferences.PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        context
+            .getSharedPreferences(WearDisplayPreferences.PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
 
         val defaults = WearDisplayPreferences.read(context)
 
