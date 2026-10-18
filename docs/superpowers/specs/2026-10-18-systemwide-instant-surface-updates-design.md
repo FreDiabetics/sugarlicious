@@ -47,6 +47,12 @@ Vor der Übergabe an den Launcher wird die neue Darstellung vollständig erzeugt
 
 Periodische Widget-Updates bleiben ausschließlich für zeitabhängige Alters-/Freshness-Grenzen und als Recovery-Sicherheitsnetz bestehen. Sie sind nicht der primäre Datenaktualisierungspfad.
 
+### Widget-Einstellungen
+
+Änderungen in `WidgetConfigurationActivity` werden sofort persistent gespeichert, dürfen aber nicht für jede Slider-Zwischenposition einen vollständigen Launcher-Renderauftrag aufstauen. Die Vorschau reagiert lokal direkt. Der Widget-Updatekoordinator führt schnelle Änderungen nach der Latest-wins-Regel zusammen.
+
+Sobald die Widget-Einstellungen verlassen werden (`onStop`/Back/Done), muss die zuletzt gespeicherte Konfiguration synchron als neueste Revision an den Updatekoordinator übergeben und vollständig abgearbeitet werden. Beim Zurückkehren zum Launcher muss die echte betroffene Widget-Instanz bereits die letzte Einstellung zeigen. Ein noch laufender älterer Renderauftrag darf dieses Ergebnis anschließend nicht zurücksetzen. Auch dabei bleibt bis zur fertigen neuen Darstellung der letzte gültige Widgetzustand sichtbar; ein Loading- oder Leerzustand ist unzulässig.
+
 ## Mobile-zu-Wear-Transport
 
 `MessageClient` und dringender `DataClient` bleiben parallele, unabhängige Garantien:
@@ -113,6 +119,8 @@ Automatisiert werden mindestens geprüft:
 - ein langsamer Tile-/Complication-Callback blockiert andere Oberflächen nicht
 - verspäteter DataItem-Zustand kann neueren Message-Zustand nicht zurückrollen
 - Process-Recovery stellt Last-known-good vor dem ersten neuen Wert dar
+- schnelle Slider-Änderungen stauen keine vollständigen Widget-Renderaufträge auf
+- Verlassen der Widget-Einstellungen wartet auf beziehungsweise erzwingt die neueste echte Widget-Darstellung
 
 ## Validierung
 
@@ -129,5 +137,6 @@ Automatisiert werden mindestens geprüft:
 - Während jeder Aktualisierung bleibt der letzte gültige Zustand sichtbar.
 - Kein produktiver Ladezustand, Spinner oder temporärer Leerzustand existiert mehr.
 - Process Death, Reconnect und Neustart stellen zuerst Last-known-good wieder her.
+- Nach Verlassen der Widget-Einstellungen zeigt die Launcher-Instanz sofort die zuletzt gespeicherte Konfiguration.
 - alle automatisierten Quality Gates sind grün.
 - reale Latenz und fehlende Loading-Zustände sind getrennt als Hardwaretest dokumentiert.
