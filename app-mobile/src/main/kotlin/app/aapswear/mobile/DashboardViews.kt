@@ -59,25 +59,37 @@ internal fun formatThreshold(
         "${valueMgDl.toInt()} mg/dL"
     }
 
+internal object DashboardSystemDefaults {
+    val unit = DisplayUnitPreference.MG_DL
+    val glucoseTileDetailMode = GlucoseTileDetailMode.THERAPY
+    const val COB_PROGRESS_MAXIMUM_GRAMS = 80.1f
+    const val COB_GRAPH_MAXIMUM_GRAMS = 100f
+    const val GRAPH_HOURS = 2
+    val graphScaleMode = CgmGraphScaleMode.DYNAMIC
+    const val GRAPH_MAXIMUM_MG_DL = 251f
+    const val NOTIFICATION_GRAPH_HOURS = 2
+    const val TREND_SCALE_PERCENT = 120
+}
+
 data class DashboardUiPreferences(
-    val unit: DisplayUnitPreference = DisplayUnitPreference.AAPS,
+    val unit: DisplayUnitPreference = DashboardSystemDefaults.unit,
     val showDetails: Boolean = true,
-    val glucoseTileDetailMode: GlucoseTileDetailMode = GlucoseTileDetailMode.TIR,
+    val glucoseTileDetailMode: GlucoseTileDetailMode = DashboardSystemDefaults.glucoseTileDetailMode,
     val iobProgressMaximumUnits: Float = 10f,
-    val cobProgressMaximumGrams: Float = 300f,
+    val cobProgressMaximumGrams: Float = DashboardSystemDefaults.COB_PROGRESS_MAXIMUM_GRAMS,
     val iobGraphMaximumUnits: Float = 10f,
-    val cobGraphMaximumGrams: Float = 300f,
+    val cobGraphMaximumGrams: Float = DashboardSystemDefaults.COB_GRAPH_MAXIMUM_GRAMS,
     val showCgmGraph: Boolean = true,
     val showCgmTargetValue: Boolean = true,
-    val showCgmCurrentBasal: Boolean = false,
-    val showCgmBaseBasal: Boolean = false,
+    val showCgmCurrentBasal: Boolean = true,
+    val showCgmBaseBasal: Boolean = true,
     val showCgmActivity: Boolean = true,
-    val showCgmPredictions: Boolean = false,
-    val showCgmPredictionIob: Boolean = false,
-    val showCgmPredictionCob: Boolean = false,
-    val showCgmPredictionUam: Boolean = false,
-    val showCgmPredictionZeroTemp: Boolean = false,
-    val showMetabolicGraph: Boolean = false,
+    val showCgmPredictions: Boolean = true,
+    val showCgmPredictionIob: Boolean = true,
+    val showCgmPredictionCob: Boolean = true,
+    val showCgmPredictionUam: Boolean = true,
+    val showCgmPredictionZeroTemp: Boolean = true,
+    val showMetabolicGraph: Boolean = true,
     val showMealBolusMarkers: Boolean = true,
     val showCorrectionMarkers: Boolean = true,
     val showSmbMarkers: Boolean = true,
@@ -92,21 +104,21 @@ data class DashboardUiPreferences(
     val predictionDotRadiusDp: Float = 1.75f,
     val predictionDotOutlineWidthDp: Float = 0.70f,
     val compact: Boolean = true,
-    val graphHours: Int = 3,
-    val graphScaleMode: CgmGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC,
+    val graphHours: Int = DashboardSystemDefaults.GRAPH_HOURS,
+    val graphScaleMode: CgmGraphScaleMode = DashboardSystemDefaults.graphScaleMode,
     val iobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
     val cobGraphScaleMode: CgmGraphScaleMode = graphScaleMode,
     val graphMinimumMgDl: Double = 0.0,
-    val graphMaximumMgDl: Double = 400.0,
-    val liveNotification: Boolean = false,
+    val graphMaximumMgDl: Double = DashboardSystemDefaults.GRAPH_MAXIMUM_MG_DL.toDouble(),
+    val liveNotification: Boolean = true,
     val notificationGraphEnabled: Boolean = true,
-    val notificationGraphHours: Int = 3,
+    val notificationGraphHours: Int = DashboardSystemDefaults.NOTIFICATION_GRAPH_HOURS,
     val watchFaceIndex: Int = 1,
     val dataSource: DataSourcePreference = DataSourcePreference.ANDROID_APS,
     val themeMode: DashboardThemeMode = DashboardThemeMode.SYSTEM,
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
-    val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
+    val trendScalePercent: Int = DashboardSystemDefaults.TREND_SCALE_PERCENT,
 ) {
     val effectiveShowDetails: Boolean
         get() = glucoseTileDetailMode == GlucoseTileDetailMode.TIR && showDetails
@@ -142,28 +154,28 @@ data class DashboardUiPreferences(
             DashboardUiPreferences(
                 unit =
                     runCatching {
-                        DisplayUnitPreference.valueOf(preferences.getString("unit", "AAPS")!!)
-                    }.getOrDefault(DisplayUnitPreference.AAPS),
+                        DisplayUnitPreference.valueOf(preferences.getString("unit", DashboardSystemDefaults.unit.name)!!)
+                    }.getOrDefault(DashboardSystemDefaults.unit),
                 showDetails = preferences.getBoolean("showDetails", true),
                 glucoseTileDetailMode =
                     runCatching {
-                        GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)!!)
-                    }.getOrDefault(GlucoseTileDetailMode.TIR),
+                        GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, DashboardSystemDefaults.glucoseTileDetailMode.name)!!)
+                    }.getOrDefault(DashboardSystemDefaults.glucoseTileDetailMode),
                 iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
-                cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
+                cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, DashboardSystemDefaults.COB_PROGRESS_MAXIMUM_GRAMS).coerceIn(10f, 500f),
                 iobGraphMaximumUnits = preferences.getFloat(IOB_GRAPH_MAXIMUM_KEY, 10f).coerceIn(1f, 30f),
-                cobGraphMaximumGrams = preferences.getFloat(COB_GRAPH_MAXIMUM_KEY, 300f).coerceIn(10f, 500f),
+                cobGraphMaximumGrams = preferences.getFloat(COB_GRAPH_MAXIMUM_KEY, DashboardSystemDefaults.COB_GRAPH_MAXIMUM_GRAMS).coerceIn(10f, 500f),
                 showCgmGraph = preferences.getBoolean("showCgmGraph", true),
                 showCgmTargetValue = preferences.getBoolean("cgm.targetValue", true),
-                showCgmCurrentBasal = preferences.getBoolean(CGM_CURRENT_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
-                showCgmBaseBasal = preferences.getBoolean(CGM_BASE_BASAL_KEY, preferences.getBoolean("cgm.basal", false)),
+                showCgmCurrentBasal = preferences.getBoolean(CGM_CURRENT_BASAL_KEY, preferences.getBoolean("cgm.basal", true)),
+                showCgmBaseBasal = preferences.getBoolean(CGM_BASE_BASAL_KEY, preferences.getBoolean("cgm.basal", true)),
                 showCgmActivity = preferences.getBoolean("cgm.activity", true),
-                showCgmPredictions = preferences.getBoolean("showPredictions", false),
-                showCgmPredictionIob = preferences.getBoolean("cgm.prediction.iob", false),
-                showCgmPredictionCob = preferences.getBoolean("cgm.prediction.cob", false),
-                showCgmPredictionUam = preferences.getBoolean("cgm.prediction.uam", false),
-                showCgmPredictionZeroTemp = preferences.getBoolean("cgm.prediction.zeroTemp", false),
-                showMetabolicGraph = preferences.getBoolean("showMetabolicGraph", false),
+                showCgmPredictions = preferences.getBoolean("showPredictions", true),
+                showCgmPredictionIob = preferences.getBoolean("cgm.prediction.iob", true),
+                showCgmPredictionCob = preferences.getBoolean("cgm.prediction.cob", true),
+                showCgmPredictionUam = preferences.getBoolean("cgm.prediction.uam", true),
+                showCgmPredictionZeroTemp = preferences.getBoolean("cgm.prediction.zeroTemp", true),
+                showMetabolicGraph = preferences.getBoolean("showMetabolicGraph", true),
                 showMealBolusMarkers = preferences.getBoolean("treatment.mealBolus", true),
                 showCorrectionMarkers = preferences.getBoolean("treatment.correction", true),
                 showSmbMarkers = preferences.getBoolean("treatment.smb", true),
@@ -178,19 +190,19 @@ data class DashboardUiPreferences(
                 predictionDotRadiusDp = readMobilePredictionDotRadius(preferences),
                 predictionDotOutlineWidthDp = readMobilePredictionDotOutlineWidth(preferences),
                 compact = preferences.getBoolean("compact", true),
-                graphHours = preferences.getInt("graphHours", 3).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3,
+                graphHours = preferences.getInt("graphHours", DashboardSystemDefaults.GRAPH_HOURS).takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: DashboardSystemDefaults.GRAPH_HOURS,
                 graphScaleMode =
                     runCatching {
-                        CgmGraphScaleMode.valueOf(preferences.getString(GRAPH_SCALE_MODE_KEY, CgmGraphScaleMode.LOGARITHMIC.name)!!)
-                    }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC),
+                        CgmGraphScaleMode.valueOf(preferences.getString(GRAPH_SCALE_MODE_KEY, DashboardSystemDefaults.graphScaleMode.name)!!)
+                    }.getOrDefault(DashboardSystemDefaults.graphScaleMode),
                 iobGraphScaleMode = readScaleMode(preferences, IOB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
                 cobGraphScaleMode = readScaleMode(preferences, COB_GRAPH_SCALE_MODE_KEY, GRAPH_SCALE_MODE_KEY),
                 graphMinimumMgDl = 0.0,
-                graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, 400f).toDouble().coerceIn(180.0, 600.0),
-                liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false),
+                graphMaximumMgDl = preferences.getFloat(GRAPH_MAXIMUM_KEY, DashboardSystemDefaults.GRAPH_MAXIMUM_MG_DL).toDouble().coerceIn(180.0, 600.0),
+                liveNotification = preferences.getBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true),
                 notificationGraphEnabled = preferences.getBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, true),
                 notificationGraphHours =
-                    preferences.getInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, 3).takeIf { it in 1..3 } ?: 3,
+                    preferences.getInt(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS, DashboardSystemDefaults.NOTIFICATION_GRAPH_HOURS).takeIf { it in 1..3 } ?: DashboardSystemDefaults.NOTIFICATION_GRAPH_HOURS,
                 watchFaceIndex = preferences.getInt("watchFaceIndex", 1).coerceIn(sugarliciousWatchFaceCards.indices),
                 dataSource = DataSourcePreference.ANDROID_APS,
                 themeMode =
@@ -204,7 +216,7 @@ data class DashboardUiPreferences(
                         .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
                 trendScalePercent =
                     preferences
-                        .getInt(MOBILE_TREND_SCALE_KEY, GlucoseTrendSizing.DEFAULT_SCALE_PERCENT)
+                        .getInt(MOBILE_TREND_SCALE_KEY, DashboardSystemDefaults.TREND_SCALE_PERCENT)
                         .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             )
 
@@ -232,9 +244,9 @@ private fun readScaleMode(
 ): CgmGraphScaleMode =
     runCatching {
         CgmGraphScaleMode.valueOf(
-            preferences.getString(key, preferences.getString(legacyKey, CgmGraphScaleMode.LOGARITHMIC.name))!!,
+            preferences.getString(key, preferences.getString(legacyKey, DashboardSystemDefaults.graphScaleMode.name))!!,
         )
-    }.getOrDefault(CgmGraphScaleMode.LOGARITHMIC)
+    }.getOrDefault(DashboardSystemDefaults.graphScaleMode)
 
 private fun graphScaleModeLabel(mode: CgmGraphScaleMode): String =
     when (mode) {

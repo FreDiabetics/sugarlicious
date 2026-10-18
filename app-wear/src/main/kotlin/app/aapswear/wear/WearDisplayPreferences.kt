@@ -27,7 +27,7 @@ internal fun shouldApplyG7CollectorSourceTransition(
 ): Boolean = previous != current
 
 internal data class WearDisplayPreferences(
-    val graphHours: Int = 3,
+    val graphHours: Int = 6,
     val showPredictions: Boolean = false,
     val glucoseUnit: WatchGlucoseUnit = WatchGlucoseUnit.AAPS,
     val dataSource: WatchDataSource = WatchDataSource.PHONE,
@@ -141,9 +141,9 @@ internal data class WearDisplayPreferences(
             return WearDisplayPreferences(
                 graphHours =
                     preferences
-                        .getInt(KEY_GRAPH_HOURS, 3)
+                        .getInt(KEY_GRAPH_HOURS, 6)
                         .takeIf { it in allowedGraphHours }
-                        ?: 3,
+                        ?: 6,
                 showPredictions =
                     preferences.getBoolean(KEY_SHOW_PREDICTIONS, false),
                 glucoseUnit = unit,
@@ -201,11 +201,11 @@ internal data class WearDisplayPreferences(
                                 .getFloat(prefix + STYLE_DOT_RADIUS, styleDefaults.cgmDotRadiusDp)
                                 .coerceIn(1.5f, 6.0f),
                         cgmDotOutlineEnabled =
-                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmDotOutlineEnabled),
+                            preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, false),
                         cgmHistoricalDotOutlineEnabled =
                             preferences.getBoolean(
                                 prefix + STYLE_HISTORICAL_OUTLINE_ENABLED,
-                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, styleDefaults.cgmHistoricalDotOutlineEnabled),
+                                preferences.getBoolean(prefix + STYLE_OUTLINE_ENABLED, false),
                             ),
                         cgmCurrentDotOutlineEnabled = true,
                         cgmDotOutlineWidthDp =

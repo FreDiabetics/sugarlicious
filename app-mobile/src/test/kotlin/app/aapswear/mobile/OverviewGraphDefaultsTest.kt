@@ -55,6 +55,35 @@ class OverviewGraphDefaultsTest {
     }
 
     @Test
+    fun `fresh mobile settings reproduce the approved system baseline`() {
+        val storage = context.getSharedPreferences("dashboard_ui_approved_baseline", android.content.Context.MODE_PRIVATE)
+        storage.edit().clear().commit()
+
+        val preferences = DashboardUiPreferences.read(storage)
+
+        assertEquals(DisplayUnitPreference.MG_DL, preferences.unit)
+        assertEquals(GlucoseTileDetailMode.THERAPY, preferences.glucoseTileDetailMode)
+        assertEquals(80.1f, preferences.cobProgressMaximumGrams, 0.001f)
+        assertEquals(100f, preferences.cobGraphMaximumGrams, 0.001f)
+        assertEquals(true, preferences.showCgmCurrentBasal)
+        assertEquals(true, preferences.showCgmBaseBasal)
+        assertEquals(true, preferences.showCgmPredictions)
+        assertEquals(true, preferences.showCgmPredictionIob)
+        assertEquals(true, preferences.showCgmPredictionCob)
+        assertEquals(true, preferences.showCgmPredictionUam)
+        assertEquals(true, preferences.showCgmPredictionZeroTemp)
+        assertEquals(true, preferences.showMetabolicGraph)
+        assertEquals(2, preferences.graphHours)
+        assertEquals(CgmGraphScaleMode.DYNAMIC, preferences.graphScaleMode)
+        assertEquals(CgmGraphScaleMode.DYNAMIC, preferences.iobGraphScaleMode)
+        assertEquals(CgmGraphScaleMode.DYNAMIC, preferences.cobGraphScaleMode)
+        assertEquals(251.0, preferences.graphMaximumMgDl, 0.0)
+        assertEquals(true, preferences.liveNotification)
+        assertEquals(2, preferences.notificationGraphHours)
+        assertEquals(120, preferences.trendScalePercent)
+    }
+
+    @Test
     fun `explicit non legacy overview duration is preserved`() {
         val preferences = context.getSharedPreferences("overview_graph_explicit_duration", android.content.Context.MODE_PRIVATE)
         preferences
