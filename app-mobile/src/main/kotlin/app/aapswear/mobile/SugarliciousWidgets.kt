@@ -85,7 +85,7 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
         val dashboardPreferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         val appearanceMode = SugarliciousColorStore.activeMode(dashboardPreferences)
         val instance = WidgetInstanceConfigurationStore.read(context, appWidgetId).resolvedAppearance(appearanceMode)
-        val state = TherapyStateStore(context).state.first()
+        val state = WidgetRenderStateCache.latest() ?: TherapyStateStore(context).state.first()
         val dashboardAppearance = DashboardUiPreferences.read(dashboardPreferences)
         val palette =
             WidgetColorStore
@@ -170,14 +170,27 @@ class MetabolicWidgetReceiver : GlanceAppWidgetReceiver() {
 
 internal object SugarliciousWidgets {
     suspend fun update(context: Context) {
-        GlucoseWidget().updateAll(context)
-        GraphWidget().updateAll(context)
-        GlucoseGraphWidget().updateAll(context)
-        MetabolicWidget().updateAll(context)
+        TherapyStateStore(context).state.first()?.let { SugarliciousWidgetUpdateCoordinator.updateAll(context, it) }
+    }
+
+    suspend fun update(
+        context: Context,
+        appWidgetId: Int,
+        kind: ConfigurableWidgetKind,
+    ) {
+        val (target, revision) = SugarliciousWidgetUpdateCoordinator.submitInstance(context, appWidgetId, kind)
+        SugarliciousWidgetUpdateCoordinator.flush(context, target, revision)
+    }
+
+    suspend fun update(
+        context: Context,
+        state: TherapyDisplayState,
+    ) {
+        SugarliciousWidgetUpdateCoordinator.updateAll(context, state)
     }
 
     @SuppressLint("RestrictedApi")
-    suspend fun update(
+    internal suspend fun renderInstance(
         context: Context,
         appWidgetId: Int,
         kind: ConfigurableWidgetKind,
@@ -188,6 +201,18 @@ internal object SugarliciousWidgets {
             ConfigurableWidgetKind.GRAPH -> GraphWidget().update(context, id)
             ConfigurableWidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidget().update(context, id)
             ConfigurableWidgetKind.METABOLIC -> MetabolicWidget().update(context, id)
+        }
+    }
+
+    internal suspend fun renderFamily(
+        context: Context,
+        kind: WidgetKind,
+    ) {
+        when (kind) {
+            WidgetKind.GLUCOSE -> GlucoseWidget().updateAll(context)
+            WidgetKind.GRAPH -> GraphWidget().updateAll(context)
+            WidgetKind.GLUCOSE_GRAPH -> GlucoseGraphWidget().updateAll(context)
+            WidgetKind.METABOLIC -> MetabolicWidget().updateAll(context)
         }
     }
 }

@@ -493,7 +493,11 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 currentConfiguration = value
                 LaunchedEffect(value) {
                     WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
-                    SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, widgetKind)
+                    SugarliciousWidgetUpdateCoordinator.submitInstance(
+                        this@WidgetConfigurationActivity,
+                        appWidgetId,
+                        widgetKind,
+                    )
                 }
                 Column(
                     Modifier.background(ComposeColor(0xFF000000)).padding(18.dp).verticalScroll(rememberScrollState()),
@@ -832,7 +836,15 @@ class WidgetConfigurationActivity : ComponentActivity() {
     override fun onStop() {
         currentConfiguration?.let { configuration ->
             WidgetInstanceConfigurationStore.save(this, appWidgetId, configuration)
-            lifecycleScope.launch { SugarliciousWidgets.update(this@WidgetConfigurationActivity, appWidgetId, currentWidgetKind) }
+            lifecycleScope.launch {
+                val (target, revision) =
+                    SugarliciousWidgetUpdateCoordinator.submitInstance(
+                        this@WidgetConfigurationActivity,
+                        appWidgetId,
+                        currentWidgetKind,
+                    )
+                SugarliciousWidgetUpdateCoordinator.flush(this@WidgetConfigurationActivity, target, revision)
+            }
         }
         super.onStop()
     }

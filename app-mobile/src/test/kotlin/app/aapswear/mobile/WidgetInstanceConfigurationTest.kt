@@ -13,11 +13,20 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
+    @Test
+    fun `settings changes use latest wins coordinator and leaving flushes final instance`() {
+        val source = File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
+
+        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.submitInstance"))
+        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.flush"))
+        assertFalse(source.contains("LaunchedEffect(value) {\n                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)\n                    SugarliciousWidgets.update"))
+    }
     @Test
     fun `therapy progress appearance round trips independently per widget`() {
         val firstAppearance =
@@ -248,7 +257,7 @@ class WidgetInstanceConfigurationTest {
         WidgetInstanceConfigurationStore.save(context, 910, largeValue)
 
         assertEquals(compactValue, WidgetInstanceConfigurationStore.read(context, 909))
-        assertEquals(largeValue, WidgetInstanceConfigurationStore.read(context, 910))
+        assertEquals(largeValue.copy(currentDotOutlineEnabled = true), WidgetInstanceConfigurationStore.read(context, 910))
         assertTrue(combinedWidgetTopHeight(400, 35) < combinedWidgetTopHeight(400, 42))
     }
 
@@ -289,15 +298,19 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
-    fun `standard shape uses custom radius or samsung compatible fallback`() {
+    fun `standard shape always uses samsung system radius`() {
         assertEquals(
             SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
             resolveWidgetCornerRadiusDp(WidgetInstanceConfiguration(), 120f),
             0.01f,
         )
         assertEquals(
-            18f,
-            resolveWidgetCornerRadiusDp(WidgetInstanceConfiguration(cornerRadiusDp = 18), 120f),
+            31f,
+            resolveWidgetCornerRadiusDp(
+                WidgetInstanceConfiguration(cornerRadiusDp = 18),
+                120f,
+                systemDefaultDp = 31f,
+            ),
             0.01f,
         )
     }
@@ -311,5 +324,13 @@ class WidgetInstanceConfigurationTest {
                 check(scale.map(value, plot) in 0f..100f)
             }
         }
+    }
+
+    @Test
+    fun `dynamic widget scale does not reserve the sensor floor without low readings`() {
+        val scale = widgetYScale(WidgetScaleMode.DYNAMIC, listOf(118.0, 123.0, 129.0), 80.0, 160.0)
+
+        assertEquals(80.0 - scale.minimum, scale.maximum - 160.0, 0.001)
+        assertTrue(scale.minimum > 40.0)
     }
 }
