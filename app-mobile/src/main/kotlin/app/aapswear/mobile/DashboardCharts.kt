@@ -1853,6 +1853,7 @@ internal fun metabolicAxisTickLayout(
 ): MetabolicAxisTickLayout {
     fun centerY(value: Double): Float = plot.bottom - range.ratio(value).toFloat() * plot.height()
     fun baseline(centerY: Float): Float = centerY - (textMetrics.ascent + textMetrics.descent) / 2f
+
     val maximumCenterY = centerY(range.bounds.maximum)
     val minimumCenterY = centerY(range.bounds.minimum)
     return MetabolicAxisTickLayout(
