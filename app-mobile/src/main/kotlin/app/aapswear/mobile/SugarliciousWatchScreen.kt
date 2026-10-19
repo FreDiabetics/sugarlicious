@@ -83,6 +83,7 @@ internal fun SugarliciousWatchScreen(
     state: TherapyDisplayState?,
     preferences: DashboardUiPreferences,
     onSelectedFace: (Int) -> Unit,
+    diagnostics: DiagnosticsSnapshot,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -93,6 +94,15 @@ internal fun SugarliciousWatchScreen(
     var editingFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
 
+    fun selectFace(index: Int) {
+        editingFaceIndex = index
+        activeFaceIndex = reduceWatchFaceSelection(activeFaceIndex, index, WatchFaceSelectionEvent.USER_SELECTION)
+        SugarliciousWatchFaceSelectionStore.write(appContext, index)
+        val activated = WatchFacePresetStore.activate(appContext, index)
+        facePresets = WatchFacePresetStore.readAll(appContext).toMutableList().also { it[index] = activated }
+        onSelectedFace(index)
+    }
+
     LaunchedEffect(appContext) {
         runCatching { requestWatchRuntimeStatus(appContext) }
     }
@@ -101,6 +111,13 @@ internal fun SugarliciousWatchScreen(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        OverviewWatchFaceTile(
+            state,
+            diagnostics,
+            activeFaceIndex,
+            onSelectedFace = ::selectFace,
+            onEdit = { editingFaceIndex = activeFaceIndex },
+        )
         Text(
             text = "Ziffernblätter",
             modifier = Modifier.fillMaxWidth(),
@@ -124,22 +141,7 @@ internal fun SugarliciousWatchScreen(
                         activeComplicationIds = facePresets.getOrElse(index) { emptyList() },
                         selected = activeFaceIndex == index,
                         enabled = enabled,
-                        onSelected = {
-                            editingFaceIndex = index
-                            activeFaceIndex =
-                                reduceWatchFaceSelection(
-                                    currentFaceIndex = activeFaceIndex,
-                                    requestedFaceIndex = index,
-                                    event = WatchFaceSelectionEvent.USER_SELECTION,
-                                )
-                            SugarliciousWatchFaceSelectionStore.write(appContext, index)
-                            val activated = WatchFacePresetStore.activate(appContext, index)
-                            facePresets =
-                                WatchFacePresetStore.readAll(appContext).toMutableList().also {
-                                    it[index] = activated
-                                }
-                            onSelectedFace(index)
-                        },
+                        onSelected = { selectFace(index) },
                     )
                 }
                 if (indices.size == 1) Spacer(Modifier.weight(1f))

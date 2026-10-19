@@ -20,6 +20,39 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
     @Test
+    fun `detail font weights and all icon colors persist per widget and theme`() {
+        val roles = listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON, WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)
+        val saved =
+            WidgetInstanceConfiguration(
+                deltaBold = true,
+                ageBold = true,
+                tirBold = true,
+                graphLabelBold = true,
+                colorOverrides = roles.associateWith { Color.RED },
+                lightColorOverrides = roles.associateWith { Color.BLUE },
+            )
+        WidgetInstanceConfigurationStore.save(context, 9921, saved)
+        val restored = WidgetInstanceConfigurationStore.read(context, 9921)
+        assertTrue(restored.deltaBold && restored.ageBold && restored.tirBold && restored.graphLabelBold)
+        roles.forEach { role ->
+            assertEquals(Color.RED, restored.resolvedAppearance(AppearanceMode.DARK).colorOverrides[role])
+            assertEquals(Color.BLUE, restored.resolvedAppearance(AppearanceMode.LIGHT).colorOverrides[role])
+        }
+        assertFalse(WidgetInstanceConfigurationStore.read(context, 9922).tirBold)
+    }
+
+    @Test
+    fun `new widgets start with fully opaque backgrounds in both themes`() {
+        ConfigurableWidgetKind.entries.forEach { kind ->
+            val value = WidgetSystemDefaults.forNewInstance(context, kind)
+            AppearanceMode.entries.forEach { mode ->
+                assertEquals("$kind $mode", 255, Color.alpha(value.resolvedAppearance(mode).backgroundArgb))
+                if (mode == AppearanceMode.LIGHT) assertEquals("$kind light background", Color.WHITE, value.resolvedAppearance(mode).backgroundArgb)
+            }
+        }
+    }
+
+    @Test
     fun `fresh widgets use the approved provider specific templates`() {
         val glucose = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GLUCOSE)
         assertEquals(WidgetShapeMode.PILL, glucose.shapeMode)
@@ -51,7 +84,10 @@ class WidgetInstanceConfigurationTest {
         assertTrue(source.contains("WidgetSettingsActionPill("))
         assertTrue(source.contains("setResult(RESULT_CANCELED)"))
         assertTrue(source.contains("WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)"))
-        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate"))
+        val prepare = source.indexOf("SugarliciousWidgets.prepareInstance(this@WidgetConfigurationActivity, appWidgetId, widgetKind, saved)")
+        val commit = source.indexOf("commit = { WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)")
+        assertTrue(prepare >= 0 && commit > prepare)
+        assertTrue(source.contains("updateAppWidget(appWidgetId, views)"))
         assertFalse(source.contains("override fun onPause()"))
         assertFalse(source.contains("LaunchedEffect(value)"))
     }

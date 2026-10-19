@@ -335,7 +335,9 @@ class DashboardViewFactory(
     private val density = context.resources.displayMetrics.density
     private val text: Int get() = SugarliciousColors.argb(SugarliciousColorRole.TEXT_PRIMARY)
     private val secondary: Int get() = SugarliciousColors.argb(SugarliciousColorRole.TEXT_SECONDARY)
-    private val accent: Int get() = SugarliciousColors.argb(SugarliciousColorRole.PRIMARY)
+    private val accent: Int get() =
+        app.aapswear.mobile.ui.theme
+            .mobileMenuAccentArgb(context, dark = !SugarliciousColors.palette.isLight)
     private val dashboardPreferences: SharedPreferences by lazy {
         context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
     }
@@ -416,6 +418,7 @@ class DashboardViewFactory(
                             SugarliciousWatchScreen(
                                 state = rendered.state,
                                 preferences = rendered.preferences,
+                                diagnostics = rendered.diagnostics,
                                 onSelectedFace = callbacks.setWatchFaceIndex,
                             )
                         }
@@ -1139,7 +1142,6 @@ class DashboardViewFactory(
                 visibility = if (key in expandedSettingsCategories) View.VISIBLE else View.GONE
                 buildContent()
             }
-        val chevron = value(if (key in expandedSettingsCategories) "⌄" else "›", secondary, 23f, 1)
         val header =
             tile(null).apply {
                 tag = "settings-category-$key"
@@ -1153,12 +1155,14 @@ class DashboardViewFactory(
                     LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 10.dp },
                 )
                 addView(value(title, text, 17f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                addView(chevron, LinearLayout.LayoutParams(30.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
+                androidx.core.view.ViewCompat
+                    .setStateDescription(this, if (key in expandedSettingsCategories) "Ausgeklappt" else "Eingeklappt")
                 setOnClickListener {
                     val expanded = key in expandedSettingsCategories
                     if (expanded) expandedSettingsCategories.remove(key) else expandedSettingsCategories.add(key)
                     content.visibility = if (expanded) View.GONE else View.VISIBLE
-                    chevron.text = if (expanded) "›" else "⌄"
+                    androidx.core.view.ViewCompat
+                        .setStateDescription(this, if (expanded) "Eingeklappt" else "Ausgeklappt")
                 }
             }
         parent.addView(header, cardParams(top = 7))

@@ -205,15 +205,12 @@ internal fun SugarliciousOverviewScreen(
                 .padding(horizontal = 2.dp, vertical = 2.dp),
         verticalArrangement = Arrangement.spacedBy(gap),
     ) {
-        OverviewWatchFaceTile(
-            state = state,
+        OverviewInlineHeader(
+            onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
             diagnostics = diagnostics,
-            selectedFaceIndex = preferences.watchFaceIndex,
-            onSelectedFace = callbacks.setWatchFaceIndex,
-            onEdit = { callbacks.navigate(DashboardScreen.WATCH) },
+            onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
+            sectionGapDp = gapDp,
         )
-
-        OverviewInlineHeader(onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) })
 
         GlucoseHeroCard(
             glucoseText = glucoseText,

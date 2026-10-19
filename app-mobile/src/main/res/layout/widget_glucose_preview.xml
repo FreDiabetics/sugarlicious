@@ -1,24 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Generated from the production renderer by WidgetPickerPreviewTest. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_preview_surface"
-    android:gravity="center"
-    android:orientation="horizontal"
-    android:padding="8dp">
-
-    <TextView
-        android:id="@+id/widget_preview_glucose"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/widget_preview_glucose_value"
-        android:textColor="#FFFFFFFF"
-        android:textSize="52sp"
-        android:textStyle="bold" />
-    <ImageView
-        android:layout_width="52dp"
-        android:layout_height="52dp"
-        android:layout_marginStart="7dp"
-        android:contentDescription="@null"
-        android:src="@drawable/ic_trend_fortyfiveup" />
-</LinearLayout>
+    android:scaleType="fitCenter"
+    android:contentDescription="@null"
+    android:src="@drawable/widget_picker_legacy_glucose" />

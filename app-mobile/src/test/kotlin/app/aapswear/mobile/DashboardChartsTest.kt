@@ -41,6 +41,36 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DashboardChartsTest {
+    @Test
+    fun `transparent very high line leaves no antialias seam between identical range fills`() {
+        val preferences = context.getSharedPreferences("seam_regression", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val yellow = Color.rgb(252, 201, 59)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, yellow)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_VERY_HIGH, yellow)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_VERY_HIGH_LINE, Color.TRANSPARENT)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        try {
+            val now = 50L * 60 * 60_000
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(205.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory = listOf(GlucoseSample(201.0, now - 300_000), GlucoseSample(205.0, now)),
+                )
+            val bitmap = render(GlucoseDashboardChart(context).apply { bind(state, GlucoseUnit.MG_DL, false, 2, clockEpochMs = now) }, 237)
+            val yellowRows = (0 until bitmap.height).filter { bitmap.getPixel(180, it) == yellow }
+            assertTrue(yellowRows.size > 5)
+            (yellowRows.first()..yellowRows.last()).forEach { y -> assertEquals("range seam at y=$y", yellow, bitmap.getPixel(180, y)) }
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test

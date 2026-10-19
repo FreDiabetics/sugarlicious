@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import androidx.core.content.edit
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
@@ -16,6 +17,11 @@ internal enum class WidgetWidthClass { VERY_NARROW, NARROW, REGULAR, WIDE, VERY_
 internal enum class WidgetHeightClass { LOW, REGULAR, HIGH }
 
 internal enum class WidgetFamilyLayout { COMPACT_2X1, DETAIL_2X2, WIDE_4X2 }
+
+internal fun nextWidgetGraphHours(hours: Int): Int {
+    val choices = listOf(1, 2, 3, 6, 12, 24)
+    return choices[(choices.indexOf(hours) + 1) % choices.size]
+}
 
 internal fun widgetFamilyLayout(
     widthDp: Float,
@@ -47,8 +53,8 @@ internal fun widgetGlucoseFamilyText(
         ->
             WidgetGlucoseFamilyText(
                 delta = "$delta $unit",
-                age = "$age her",
-                tir = "Im Ziel: ${tirPercent?.let { "$it%" } ?: "--"}",
+                age = age,
+                tir = tirPercent?.let { "$it%" } ?: "--",
             )
     }
 
@@ -96,9 +102,7 @@ internal object WidgetLayoutSizeStore {
     ) {
         context.applicationContext
             .getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_SAMSUNG_COMPACT, enabled)
-            .apply()
+            .edit { putBoolean(KEY_SAMSUNG_COMPACT, enabled) }
     }
 }
 

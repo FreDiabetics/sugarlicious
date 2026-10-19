@@ -36,6 +36,13 @@ internal enum class WidgetColorRole(
     DELTA_UNIT("delta_unit", AppearanceTerminology.DELTA_UNIT),
     DELTA("widget_delta", "Delta"),
     AGE("widget_age", "Alter"),
+    TIR("widget_tir", "Zeit im Ziel"),
+    DELTA_ICON("widget_delta_icon", "Delta-Icon Hintergrund"),
+    AGE_ICON("widget_age_icon", "Alter-Icon Hintergrund"),
+    TIR_ICON("widget_tir_icon", "Zeit-im-Ziel-Icon Hintergrund"),
+    DELTA_SYMBOL("widget_delta_symbol", "Delta-Symbol"),
+    AGE_SYMBOL("widget_age_symbol", "Alter-Symbol"),
+    TIR_SYMBOL("widget_tir_symbol", "Zeit-im-Ziel-Symbol"),
     UNIT("widget_unit", "Maßeinheit"),
     TREND("trend", AppearanceTerminology.TREND_ARROW),
     TREND_HIGH("trend_high", "Trend Hoch"),
@@ -150,6 +157,7 @@ internal object WidgetColorStore {
             WidgetColorRole.entries.forEach { role ->
                 val sourceRole =
                     when (role) {
+                        WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL -> SugarliciousColorRole.BACKGROUND
                         WidgetColorRole.HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                         WidgetColorRole.IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
                         WidgetColorRole.LOW -> SugarliciousColorRole.CGM_DOT_LOW
@@ -173,7 +181,7 @@ internal object WidgetColorStore {
                         WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                         WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
                         WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
-                        WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT -> SugarliciousColorRole.DELTA_UNIT
+                        WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT, WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON -> SugarliciousColorRole.DELTA_UNIT
                         WidgetColorRole.TREND -> SugarliciousColorRole.TEXT_PRIMARY
                         WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                         WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
@@ -255,9 +263,12 @@ internal object WidgetColorStore {
         role: WidgetColorRole,
         color: (SugarliciousColorRole) -> Int,
     ): Int {
+        if (role in listOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)) return android.graphics.Color.BLACK
+        if (role in listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON)) return android.graphics.Color.WHITE
         if (role == WidgetColorRole.HIGH_REGION_LABEL) return 0xFF151515.toInt()
         return color(
             when (role) {
+                WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL -> SugarliciousColorRole.BACKGROUND
                 WidgetColorRole.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                 WidgetColorRole.IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
                 WidgetColorRole.LOW -> SugarliciousColorRole.GLUCOSE_LOW
@@ -281,7 +292,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                 WidgetColorRole.TEXT -> SugarliciousColorRole.TEXT_PRIMARY
                 WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
-                WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT -> SugarliciousColorRole.DELTA_UNIT
+                WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT, WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON -> SugarliciousColorRole.DELTA_UNIT
                 WidgetColorRole.TREND -> SugarliciousColorRole.PRIMARY
                 WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                 WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE

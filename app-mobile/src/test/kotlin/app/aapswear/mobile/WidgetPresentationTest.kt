@@ -36,6 +36,59 @@ import kotlin.math.roundToInt
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
     @Test
+    fun `compact value and supplement use a centered group with equal outer margins`() {
+        val columns = compactGlucoseColumns(308f, 160f, 40f, 2f)
+        assertTrue(columns.valueLeft > 28f)
+        assertTrue(columns.supplementCenter < 308f * .82f)
+        assertEquals(columns.valueLeft, 308f - columns.supplementCenter - 20f, .001f)
+    }
+
+    @Test
+    fun `adaptive compact glucose value and trend are optically centered vertically`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = 1_792_411_200_000L
+        val bitmap =
+            renderAdaptiveGlucoseWidget(
+                state = widgetPreviewState(now),
+                palette = WidgetColorStore.load(context, app.aapswear.model.AppearanceMode.DARK),
+                width = 308,
+                height = 138,
+                now = now,
+                pixelDensity = 2f,
+                configuration = WidgetInstanceConfiguration(),
+                trendStyle =
+                    app.aapswear.model.TrendArrowStyle
+                        .defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+            )
+        val rows =
+            (0 until bitmap.height).filter { y ->
+                (28 until 215).any { x ->
+                    val color = bitmap.getPixel(x, y)
+                    Color.alpha(color) > 240 && Color.red(color) > 240 && Color.green(color) > 240 && Color.blue(color) > 240
+                }
+            }
+        assertTrue(rows.isNotEmpty())
+        assertEquals(bitmap.height / 2f, (rows.first() + rows.last() + 1) / 2f, 2f)
+    }
+
+    @Test
+    fun `native Samsung family bounds must not have compact padding subtracted twice`() {
+        val insets = widgetContentInsetsDp(WidgetKind.METABOLIC, samsungCompact = true, nativeHostSized = true)
+        val actual = widgetRenderSizeDp(154.28572f, 68.85714f, insets)
+        assertEquals(154.28572f, actual.widthDp, .001f)
+        assertEquals(68.85714f, actual.heightDp, .001f)
+        val options =
+            android.os.Bundle().apply {
+                putInt("semWidgetSize", 2)
+                putFloat("hsResizeRatio", 1f)
+            }
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
+        assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.TherapyFamily2x1Receiver", options))
+        options.putFloat("hsResizeRatio", .8333333f)
+        assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
+    }
+
+    @Test
     fun `glucose widget uses the full host surface`() {
         assertEquals(WidgetContentInsets.ZERO, widgetContentInsetsDp(WidgetKind.GLUCOSE, samsungCompact = false))
     }
@@ -140,11 +193,11 @@ class WidgetPresentationTest {
             widgetGlucoseFamilyText(WidgetFamilyLayout.COMPACT_2X1, "5m", "-5", "mg/dL", 89),
         )
         assertEquals(
-            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m her", tir = "Im Ziel: 89%"),
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m", tir = "89%"),
             widgetGlucoseFamilyText(WidgetFamilyLayout.DETAIL_2X2, "5m", "+10", "mg/dL", 89),
         )
         assertEquals(
-            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m her", tir = "Im Ziel: --"),
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m", tir = "--"),
             widgetGlucoseFamilyText(WidgetFamilyLayout.WIDE_4X2, "5m", "+10", "mg/dL", null),
         )
     }
@@ -177,7 +230,8 @@ class WidgetPresentationTest {
         assertEquals(null, detail.graphBounds)
         assertEquals(null, compact.dividerX)
         assertEquals(215f, wide.dividerX!!, 0.01f)
-        assertEquals(227f, wide.graphBounds!!.left, 0.01f)
+        assertEquals(230.05f, wide.graphBounds!!.left, 0.01f)
+        assertEquals(228f * .70f, wide.graphBounds.height(), 0.01f)
         assertTrue(wide.valueBounds.right < wide.graphBounds.left)
     }
 
@@ -222,6 +276,8 @@ class WidgetPresentationTest {
 
     @Test
     fun `graph scale mode cycles and wraps in canonical order`() {
+        assertEquals(6, nextWidgetGraphHours(3))
+        assertEquals(1, nextWidgetGraphHours(24))
         assertEquals(WidgetScaleMode.DYNAMIC, nextWidgetScaleMode(WidgetScaleMode.STATIC))
         assertEquals(WidgetScaleMode.LOGARITHMIC, nextWidgetScaleMode(WidgetScaleMode.DYNAMIC))
         assertEquals(WidgetScaleMode.STATIC, nextWidgetScaleMode(WidgetScaleMode.LOGARITHMIC))

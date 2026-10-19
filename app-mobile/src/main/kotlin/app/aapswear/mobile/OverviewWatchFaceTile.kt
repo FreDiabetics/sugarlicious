@@ -66,7 +66,16 @@ internal val sugarliciousWatchFaceNames =
     )
 
 private const val carouselPages = 400
-private val carouselHeight = 224.dp
+
+internal object OverviewWatchHeroLayout {
+    const val FRAME_HEIGHT_DP = 224
+    const val GAP_DP = 3
+    const val MODEL_HEIGHT_DP = 24
+    const val PILL_ICON_SIZE_DP = 14
+    const val PILL_VERTICAL_PADDING_DP = 6
+}
+
+private val carouselHeight = OverviewWatchHeroLayout.FRAME_HEIGHT_DP.dp
 private val carouselFaceSize = 135.dp
 private val carouselPageSpacing = 8.dp
 private val carouselFaceVerticalOffset = (-7).dp
@@ -229,15 +238,10 @@ internal fun OverviewWatchFaceTile(
         }
     }
 
-    val syncStatus = diagnostics.syncStatus
-    val connected = isWatchConnected(diagnostics.reachableWatches)
-    val pending = !connected && syncStatus == "pending"
-    val error = syncStatus !in listOf(null, "ok", "pending")
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp),
+        verticalArrangement = Arrangement.spacedBy(OverviewWatchHeroLayout.GAP_DP.dp),
     ) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxWidth().height(frameHeight).clipToBounds(),
@@ -322,10 +326,10 @@ internal fun OverviewWatchFaceTile(
         Column(
             modifier = Modifier.fillMaxWidth().offset(y = (-18).dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(OverviewWatchHeroLayout.GAP_DP.dp),
         ) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(24.dp),
+                modifier = Modifier.fillMaxWidth().height(OverviewWatchHeroLayout.MODEL_HEIGHT_DP.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -336,48 +340,7 @@ internal fun OverviewWatchFaceTile(
                 )
             }
 
-            val statusColor =
-                when {
-                    connected -> SugarliciousColors.Primary
-                    pending -> SugarliciousColors.Yellow
-                    error -> SugarliciousColors.Red
-                    else -> SugarliciousColors.Red
-                }
-            val statusText =
-                when {
-                    connected -> "Verbunden"
-                    pending -> "Verbindung wird geprüft"
-                    else -> "Nicht verbunden"
-                }
-
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = statusColor.copy(alpha = 0.14f),
-                border =
-                    androidx.compose.foundation.BorderStroke(
-                        width = 1.dp,
-                        color = statusColor.copy(alpha = 0.72f),
-                    ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SugarliciousIcon(
-                        drawableRes = R.drawable.ic_watch_status,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp).offset(y = 1.dp).graphicsLayer { alpha = 1f },
-                        tint = statusColor,
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = statusText,
-                        color = statusColor,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
+            WatchConnectionPill(diagnostics)
         }
     }
 }
@@ -418,5 +381,55 @@ internal fun FaceDial(
                 complicationIds = activeComplicationIds,
                 modifier = modifier,
             )
+    }
+}
+
+@Composable
+internal fun WatchConnectionPill(diagnostics: DiagnosticsSnapshot, compact: Boolean = false) {
+    val syncStatus = diagnostics.syncStatus
+    val connected = isWatchConnected(diagnostics.reachableWatches)
+    val pending = !connected && syncStatus == "pending"
+    val error = syncStatus !in listOf(null, "ok", "pending")
+    val statusColor =
+        when {
+            connected -> SugarliciousColors.Primary
+            pending -> SugarliciousColors.Yellow
+            error -> SugarliciousColors.Red
+            else -> SugarliciousColors.Red
+        }
+    val statusText =
+        when {
+            connected -> "Verbunden"
+            pending -> "Verbindung wird geprüft"
+            else -> "Nicht verbunden"
+        }
+
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = statusColor.copy(alpha = 0.14f),
+        border =
+            androidx.compose.foundation.BorderStroke(
+                width = 1.dp,
+                color = statusColor.copy(alpha = 0.72f),
+            ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = if (compact) 8.dp else 12.dp, vertical = if (compact) 4.dp else OverviewWatchHeroLayout.PILL_VERTICAL_PADDING_DP.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SugarliciousIcon(
+                drawableRes = R.drawable.ic_watch_status,
+                contentDescription = null,
+                modifier = Modifier.size(OverviewWatchHeroLayout.PILL_ICON_SIZE_DP.dp).offset(y = 1.dp).graphicsLayer { alpha = 1f },
+                tint = statusColor,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = statusText,
+                color = statusColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }

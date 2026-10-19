@@ -11,7 +11,7 @@
     android:minResizeHeight="96dp"
     android:targetCellWidth="2"
     android:targetCellHeight="2"
-    android:resizeMode="horizontal|vertical"
+    android:resizeMode="none"
     android:widgetCategory="home_screen"
     android:configure="app.aapswear.mobile.WidgetConfigurationActivity"
     android:widgetFeatures="reconfigurable"

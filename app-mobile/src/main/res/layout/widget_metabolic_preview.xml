@@ -1,25 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Generated from the production renderer by WidgetPickerPreviewTest. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_preview_surface"
-    android:gravity="center"
-    android:orientation="horizontal"
-    android:padding="4dp">
-
-    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
-        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_iob_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#64BFFF" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_iob_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
-        <ImageView android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_iob" android:tint="#64BFFF" />
-    </FrameLayout>
-    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
-        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_cob_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#FF9D18" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_cob_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
-        <ImageView android:layout_width="17dp" android:layout_height="17dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_carbs" android:tint="#FF9D18" />
-    </FrameLayout>
-    <FrameLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1">
-        <ImageView android:layout_width="66dp" android:layout_height="66dp" android:layout_gravity="center" android:contentDescription="@string/widget_preview_basal_label" android:src="@drawable/widget_therapy_ring_preview" android:tint="#19D7E8" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="@string/widget_preview_basal_value" android:textColor="#F5F5F5" android:textSize="15sp" android:textStyle="bold" />
-        <ImageView android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="center_horizontal|bottom" android:contentDescription="@null" android:src="@drawable/ic_basal" android:tint="#19D7E8" />
-    </FrameLayout>
-</LinearLayout>
+    android:scaleType="fitCenter"
+    android:contentDescription="@null"
+    android:src="@drawable/widget_picker_legacy_metabolic" />
