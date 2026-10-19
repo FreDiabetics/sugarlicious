@@ -7,10 +7,76 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.RangeExcursion
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import java.time.Instant
+import java.time.ZoneId
+import kotlin.math.roundToInt
 
 internal enum class WidgetWidthClass { VERY_NARROW, NARROW, REGULAR, WIDE, VERY_WIDE }
 
 internal enum class WidgetHeightClass { LOW, REGULAR, HIGH }
+
+internal enum class WidgetFamilyLayout { COMPACT_2X1, DETAIL_2X2, WIDE_4X2 }
+
+internal fun widgetFamilyLayout(
+    widthDp: Float,
+    heightDp: Float,
+): WidgetFamilyLayout =
+    when {
+        widthDp >= 300f -> WidgetFamilyLayout.WIDE_4X2
+        heightDp >= 135f -> WidgetFamilyLayout.DETAIL_2X2
+        else -> WidgetFamilyLayout.COMPACT_2X1
+    }
+
+internal data class WidgetGlucoseFamilyText(
+    val age: String? = null,
+    val delta: String? = null,
+    val tir: String? = null,
+)
+
+internal fun widgetGlucoseFamilyText(
+    layout: WidgetFamilyLayout,
+    age: String,
+    delta: String,
+    unit: String,
+    tirPercent: Int?,
+): WidgetGlucoseFamilyText =
+    when (layout) {
+        WidgetFamilyLayout.COMPACT_2X1 -> WidgetGlucoseFamilyText(age = age, delta = delta)
+        WidgetFamilyLayout.DETAIL_2X2,
+        WidgetFamilyLayout.WIDE_4X2,
+        ->
+            WidgetGlucoseFamilyText(
+                delta = "$delta $unit",
+                age = "$age her",
+                tir = "Im Ziel: ${tirPercent?.let { "$it%" } ?: "--"}",
+            )
+    }
+
+internal fun currentDayTirPercent(
+    samples: List<GlucoseSample>,
+    targetLowMgDl: Double,
+    targetHighMgDl: Double,
+    nowEpochMs: Long,
+    zoneId: ZoneId = ZoneId.systemDefault(),
+): Int? {
+    val startOfDay =
+        Instant
+            .ofEpochMilli(nowEpochMs)
+            .atZone(zoneId)
+            .toLocalDate()
+            .atStartOfDay(zoneId)
+            .toInstant()
+            .toEpochMilli()
+    val valid =
+        samples
+            .asSequence()
+            .filter { it.measuredAtEpochMs in startOfDay..(nowEpochMs + 5 * 60_000L) }
+            .filter { it.valueMgDl in 20.0..1000.0 }
+            .associateBy { it.measuredAtEpochMs }
+            .values
+    if (valid.isEmpty()) return null
+    return (valid.count { it.valueMgDl in targetLowMgDl..targetHighMgDl } * 100.0 / valid.size).roundToInt()
+}
 
 internal const val SAMSUNG_COMPACT_WIDGET_HORIZONTAL_INSET_DP = 8f
 internal const val SAMSUNG_COMPACT_WIDGET_VERTICAL_INSET_DP = 9f

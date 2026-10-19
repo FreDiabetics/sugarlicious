@@ -25,6 +25,8 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
@@ -121,6 +123,49 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `widget family layout maps samsung 2x1 2x2 and 4x2 content sizes`() {
+        assertEquals(WidgetFamilyLayout.COMPACT_2X1, widgetFamilyLayout(185.6f, 82.8f))
+        assertEquals(WidgetFamilyLayout.DETAIL_2X2, widgetFamilyLayout(185.6f, 183.6f))
+        assertEquals(WidgetFamilyLayout.WIDE_4X2, widgetFamilyLayout(413.9f, 183.6f))
+        assertEquals(WidgetFamilyLayout.COMPACT_2X1, widgetFamilyLayout(299.9f, 120f))
+        assertEquals(WidgetFamilyLayout.WIDE_4X2, widgetFamilyLayout(300f, 120f))
+    }
+
+    @Test
+    fun `glucose family text follows compact and detail contracts`() {
+        assertEquals(
+            WidgetGlucoseFamilyText(age = "5m", delta = "-5"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.COMPACT_2X1, "5m", "-5", "mg/dL", 89),
+        )
+        assertEquals(
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m her", tir = "Im Ziel: 89%"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.DETAIL_2X2, "5m", "+10", "mg/dL", 89),
+        )
+        assertEquals(
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m her", tir = "Im Ziel: --"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.WIDE_4X2, "5m", "+10", "mg/dL", null),
+        )
+    }
+
+    @Test
+    fun `current day tir excludes yesterday future and invalid samples`() {
+        val zone = ZoneId.of("Europe/Berlin")
+        val now = Instant.parse("2026-10-19T12:00:00Z").toEpochMilli()
+        val samples =
+            listOf(
+                GlucoseSample(100.0, Instant.parse("2026-10-19T06:00:00Z").toEpochMilli()),
+                GlucoseSample(120.0, Instant.parse("2026-10-19T07:00:00Z").toEpochMilli()),
+                GlucoseSample(200.0, Instant.parse("2026-10-19T08:00:00Z").toEpochMilli()),
+                GlucoseSample(110.0, Instant.parse("2026-10-18T20:00:00Z").toEpochMilli()),
+                GlucoseSample(100.0, Instant.parse("2026-10-19T13:00:00Z").toEpochMilli()),
+                GlucoseSample(1_200.0, Instant.parse("2026-10-19T09:00:00Z").toEpochMilli()),
+            )
+
+        assertEquals(67, currentDayTirPercent(samples, 80.0, 160.0, now, zone))
+        assertEquals(null, currentDayTirPercent(emptyList(), 80.0, 160.0, now, zone))
+    }
+
+    @Test
     fun `first high colors value immediately and second high confirms excursion`() {
         val configured = thresholds.copy(highMgDl = 160.0)
         val first = state(listOf(sample(150.0, -10), sample(162.0, -5)), 162.0)
@@ -171,6 +216,29 @@ class WidgetPresentationTest {
             assertFalse(graph.isRecycled)
             assertFalse(glucose.isRecycled)
         }
+    }
+
+    @Test
+    fun `glucose supplement composes delta age and unit in the approved rows`() {
+        assertEquals(
+            WidgetGlucoseSupplement(topLeft = "−2", bottomRight = "mg/dL"),
+            widgetGlucoseSupplement(showDelta = true, showAge = false, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(
+            WidgetGlucoseSupplement(topLeft = "−2", separator = "·", topRight = "2m", bottomRight = "mg/dL"),
+            widgetGlucoseSupplement(showDelta = true, showAge = true, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(
+            WidgetGlucoseSupplement(topRight = "2m"),
+            widgetGlucoseSupplement(showDelta = false, showAge = true, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(null, widgetGlucoseSupplement(false, false, "−2", "2m", "mg/dL"))
+    }
+
+    @Test
+    fun `glucose and trend move into the left region when a supplement is visible`() {
+        assertEquals(100f, widgetGlucoseGroupStartX(300f, 100f, hasSupplement = false), 0.01f)
+        assertEquals(43f, widgetGlucoseGroupStartX(300f, 100f, hasSupplement = true), 0.01f)
     }
 
     @Test
