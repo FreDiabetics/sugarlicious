@@ -166,6 +166,49 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `adaptive glucose geometry reserves a graph only for the 4x2 layout`() {
+        val compact = adaptiveGlucoseGeometry(202f, 101f, WidgetFamilyLayout.COMPACT_2X1)
+        val detail = adaptiveGlucoseGeometry(202f, 228f, WidgetFamilyLayout.DETAIL_2X2)
+        val wide = adaptiveGlucoseGeometry(430f, 228f, WidgetFamilyLayout.WIDE_4X2)
+
+        assertEquals(null, compact.graphBounds)
+        assertEquals(null, detail.graphBounds)
+        assertEquals(null, compact.dividerX)
+        assertEquals(215f, wide.dividerX!!, 0.01f)
+        assertEquals(227f, wide.graphBounds!!.left, 0.01f)
+        assertTrue(wide.valueBounds.right < wide.graphBounds.left)
+    }
+
+    @Test
+    fun `adaptive glucose forces pill only for compact layout`() {
+        assertEquals(50f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.COMPACT_2X1, 100f, 28f), 0.01f)
+        assertEquals(28f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.DETAIL_2X2, 200f, 28f), 0.01f)
+        assertEquals(28f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.WIDE_4X2, 200f, 28f), 0.01f)
+    }
+
+    @Test
+    fun `adaptive glucose renderer produces every supported surface`() {
+        val current = state(listOf(sample(110.0, -10), sample(115.0, -5)), 115.0)
+        listOf(202 to 101, 202 to 228, 430 to 228).forEach { (width, height) ->
+            val bitmap =
+                renderAdaptiveGlucoseWidget(
+                    state = current,
+                    palette = palette,
+                    width = width,
+                    height = height,
+                    now = now,
+                    thresholds = thresholds,
+                    pixelDensity = 1f,
+                    configuration = WidgetInstanceConfiguration(),
+                    trendStyle = app.aapswear.model.TrendArrowStyle.defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+                )
+            assertEquals(width, bitmap.width)
+            assertEquals(height, bitmap.height)
+            assertFalse(bitmap.isRecycled)
+        }
+    }
+
+    @Test
     fun `first high colors value immediately and second high confirms excursion`() {
         val configured = thresholds.copy(highMgDl = 160.0)
         val first = state(listOf(sample(150.0, -10), sample(162.0, -5)), 162.0)

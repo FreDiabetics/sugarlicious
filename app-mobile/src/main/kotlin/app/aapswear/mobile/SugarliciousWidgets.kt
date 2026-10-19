@@ -385,27 +385,186 @@ private fun GlucoseWidgetContent(
             MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), appearanceMode),
         )
     val bitmap =
-        renderMinimalGlucoseWidget(
+        renderAdaptiveGlucoseWidget(
             state = state,
             palette = palette,
             width = (renderSize.widthDp * pixelDensity).roundToInt().coerceAtLeast(48),
             height = (renderSize.heightDp * pixelDensity).roundToInt().coerceAtLeast(48),
             thresholds = thresholds,
-            layout = layout,
             pixelDensity = pixelDensity,
-            options =
-                GlucoseWidgetRenderOptions(
-                    glucoseScale = configurationScale(instance.glucoseScalePercent),
-                    trendScale = configurationScale(instance.trendScalePercent),
-                    outlineEnabled = instance.outlineEnabled,
-                    outlineArgb = instance.outlineArgb,
-                    cornerRadiusDp = instance.cornerRadiusDp.takeIf { it > 0 }?.toFloat() ?: layout.cornerRadiusDp,
-                    trendStyle = trendStyle,
-                    glucoseBold = instance.glucoseBold,
-                    configuration = instance,
-                ),
+            configuration = instance,
+            trendStyle = trendStyle,
+            systemCornerRadiusDp = systemWidgetCornerRadiusDp(context),
         )
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
+}
+
+internal data class AdaptiveGlucoseGeometry(
+    val valueBounds: RectF,
+    val graphBounds: RectF? = null,
+    val dividerX: Float? = null,
+)
+
+internal fun adaptiveGlucoseGeometry(
+    width: Float,
+    height: Float,
+    layout: WidgetFamilyLayout,
+): AdaptiveGlucoseGeometry =
+    when (layout) {
+        WidgetFamilyLayout.COMPACT_2X1,
+        WidgetFamilyLayout.DETAIL_2X2,
+        -> AdaptiveGlucoseGeometry(RectF(0f, 0f, width, height))
+        WidgetFamilyLayout.WIDE_4X2 -> {
+            val divider = width / 2f
+            AdaptiveGlucoseGeometry(
+                valueBounds = RectF(0f, 0f, divider - 12f, height),
+                graphBounds = RectF(divider + 12f, 8f, width - 8f, height - 8f),
+                dividerX = divider,
+            )
+        }
+    }
+
+internal fun adaptiveGlucoseCornerRadius(
+    layout: WidgetFamilyLayout,
+    heightDp: Float,
+    systemRadiusDp: Float,
+): Float = if (layout == WidgetFamilyLayout.COMPACT_2X1) heightDp / 2f else systemRadiusDp
+
+internal fun renderAdaptiveGlucoseWidget(
+    state: TherapyDisplayState?,
+    palette: WidgetPalette,
+    width: Int,
+    height: Int,
+    now: Long = System.currentTimeMillis(),
+    thresholds: app.aapswear.model.CgmThresholds = app.aapswear.model.CgmThresholds.DEFAULT,
+    pixelDensity: Float = 1f,
+    configuration: WidgetInstanceConfiguration,
+    trendStyle: app.aapswear.model.TrendArrowStyle,
+    systemCornerRadiusDp: Float = SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+): Bitmap {
+    val safeDensity = pixelDensity.coerceAtLeast(1f)
+    val widthDp = width / safeDensity
+    val heightDp = height / safeDensity
+    val familyLayout = widgetFamilyLayout(widthDp, heightDp)
+    val geometry = adaptiveGlucoseGeometry(width.toFloat(), height.toFloat(), familyLayout)
+    val radiusDp = adaptiveGlucoseCornerRadius(familyLayout, heightDp, systemCornerRadiusDp)
+    val bitmap = createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
+    val canvas = AndroidCanvas(bitmap)
+    clipWidgetCanvas(canvas, bitmap.width, bitmap.height, radiusDp, safeDensity)
+    canvas.drawColor(palette.argb(WidgetColorRole.BACKGROUND))
+
+    val glucose = state?.glucose
+    val unit = if (glucose?.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+    val delta = TherapyDisplayFormatter.signedDelta(glucose?.deltaMgDl, glucose?.displayUnit ?: GlucoseUnit.MG_DL).replace('-', '−')
+    val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
+    val history =
+        buildList {
+            addAll(state?.glucoseHistory.orEmpty())
+            glucose?.let { add(GlucoseSample(it.valueMgDl, it.measuredAtEpochMs)) }
+        }
+    val tir = currentDayTirPercent(history, thresholds.lowMgDl, thresholds.highMgDl, now)
+    val text = widgetGlucoseFamilyText(familyLayout, age, delta, unit, tir)
+    val valueWidth = geometry.valueBounds.width().roundToInt().coerceAtLeast(48)
+    val valueHeight =
+        when (familyLayout) {
+            WidgetFamilyLayout.COMPACT_2X1 -> height
+            WidgetFamilyLayout.DETAIL_2X2, WidgetFamilyLayout.WIDE_4X2 -> (height * .47f).roundToInt()
+        }.coerceAtLeast(48)
+    val valueBitmap =
+        renderMinimalGlucoseWidget(
+            state = state,
+            palette = palette,
+            width = valueWidth,
+            height = valueHeight,
+            now = now,
+            thresholds = thresholds,
+            layout = responsiveWidgetLayout(valueWidth / safeDensity, valueHeight / safeDensity),
+            pixelDensity = safeDensity,
+            options =
+                GlucoseWidgetRenderOptions(
+                    glucoseScale = configurationScale(configuration.glucoseScalePercent) * if (familyLayout == WidgetFamilyLayout.COMPACT_2X1) .88f else .82f,
+                    trendScale = configurationScale(configuration.trendScalePercent),
+                    leftAligned = familyLayout == WidgetFamilyLayout.COMPACT_2X1,
+                    leftInsetDp = 14f,
+                    cornerRadiusDp = 0f,
+                    drawBackground = false,
+                    trendStyle = trendStyle,
+                    glucoseBold = configuration.glucoseBold,
+                ),
+        )
+    canvas.drawBitmap(valueBitmap, geometry.valueBounds.left, geometry.valueBounds.top + 4f * safeDensity, null)
+
+    fun centeredPaint(sizeSp: Float, role: WidgetColorRole) =
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = palette.argb(role)
+            textSize = sizeSp * safeDensity
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+        }
+
+    when (familyLayout) {
+        WidgetFamilyLayout.COMPACT_2X1 -> {
+            val x = width * .82f
+            val agePaint = centeredPaint(15f * configuration.ageScalePercent / 100f, WidgetColorRole.AGE)
+            val deltaPaint = centeredPaint(15f * configuration.deltaScalePercent / 100f, WidgetColorRole.DELTA)
+            canvas.drawText(text.age.orEmpty(), x + configuration.ageOffsetXDp * safeDensity, height * .43f + configuration.ageOffsetYDp * safeDensity, agePaint)
+            canvas.drawText(text.delta.orEmpty(), x + configuration.deltaOffsetXDp * safeDensity, height * .68f + configuration.deltaOffsetYDp * safeDensity, deltaPaint)
+        }
+        WidgetFamilyLayout.DETAIL_2X2,
+        WidgetFamilyLayout.WIDE_4X2,
+        -> {
+            val centerX = geometry.valueBounds.centerX()
+            val baseY = height * .58f
+            val detailPaint = centeredPaint(14f, WidgetColorRole.DELTA)
+            val agePaint = centeredPaint(13f, WidgetColorRole.AGE)
+            val tirPaint = centeredPaint(13f, WidgetColorRole.TEXT)
+            canvas.drawText("Δ ${text.delta.orEmpty()}", centerX, baseY, detailPaint)
+            canvas.drawText(text.age.orEmpty(), centerX, baseY + 25f * safeDensity, agePaint)
+            canvas.drawText(text.tir.orEmpty(), centerX, baseY + 49f * safeDensity, tirPaint)
+        }
+    }
+
+    geometry.dividerX?.let { x ->
+        canvas.drawLine(
+            x,
+            18f * safeDensity,
+            x,
+            height - 18f * safeDensity,
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = configuration.outlineArgb
+                strokeWidth = safeDensity
+                alpha = 110
+            },
+        )
+    }
+    geometry.graphBounds?.let { bounds ->
+        val graph =
+            renderWidgetGraph(
+                state = state,
+                palette = palette,
+                width = bounds.width().roundToInt().coerceAtLeast(96),
+                height = bounds.height().roundToInt().coerceAtLeast(72),
+                now = now,
+                thresholds = thresholds,
+                layout = responsiveWidgetLayout(bounds.width() / safeDensity, bounds.height() / safeDensity),
+                pixelDensity = safeDensity,
+                configuration = configuration.copy(outlineEnabled = false, graphCornerRadiusDp = 4),
+                clipToWidgetShape = false,
+            )
+        canvas.drawBitmap(graph, bounds.left, bounds.top, null)
+    }
+    drawWidgetOutline(
+        canvas,
+        bitmap.width,
+        bitmap.height,
+        GlucoseWidgetRenderOptions(
+            outlineEnabled = configuration.outlineEnabled,
+            outlineArgb = configuration.outlineArgb,
+            cornerRadiusDp = radiusDp,
+        ),
+        safeDensity,
+    )
+    return bitmap
 }
 
 internal const val SAMSUNG_WIDGET_RADIUS_FALLBACK_DP = 28f
