@@ -45,14 +45,15 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
-    fun `settings changes use latest wins coordinator and leaving schedules durable final instance`() {
+    fun `settings changes remain local until the explicit action pill saves them`() {
         val source = File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
 
-        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.submitInstance"))
-        assertTrue(source.contains("override fun onPause()"))
+        assertTrue(source.contains("WidgetSettingsActionPill("))
+        assertTrue(source.contains("setResult(RESULT_CANCELED)"))
+        assertTrue(source.contains("WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)"))
         assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate"))
-        assertFalse(source.contains("lifecycleScope.launch"))
-        assertFalse(source.contains("LaunchedEffect(value) {\n                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)\n                    SugarliciousWidgets.update"))
+        assertFalse(source.contains("override fun onPause()"))
+        assertFalse(source.contains("LaunchedEffect(value)"))
     }
 
     @Test
@@ -235,6 +236,28 @@ class WidgetInstanceConfigurationTest {
         assertTrue(WidgetColorRole.AGE in migrated.colorOverrides)
         assertTrue(WidgetColorRole.UNIT in migrated.colorOverrides)
         WidgetInstanceConfigurationStore.delete(context, id)
+    }
+
+    @Test
+    fun `version two graph profile gains high region label color`() {
+        val id = 9241
+        val prefs = context.getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+        WidgetInstanceConfigurationStore.save(context, id, WidgetInstanceConfiguration())
+        prefs.edit().putInt("$id.isolated_profile_version", 2).commit()
+
+        val migrated = WidgetInstanceConfigurationStore.readIsolated(context, id, ConfigurableWidgetKind.GRAPH)
+
+        assertTrue(WidgetColorRole.HIGH_REGION_LABEL in migrated.colorOverrides)
+        WidgetInstanceConfigurationStore.delete(context, id)
+    }
+
+    @Test
+    fun `widget settings only keep edited values when save is chosen`() {
+        val initial = WidgetInstanceConfiguration(graphHours = 3)
+        val edited = initial.copy(graphHours = 24)
+
+        assertEquals(initial, resolvedWidgetConfigurationOnExit(initial, edited, save = false))
+        assertEquals(edited, resolvedWidgetConfigurationOnExit(initial, edited, save = true))
     }
 
     @Test

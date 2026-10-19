@@ -21,19 +21,38 @@ class WidgetCatalogContractTest {
                 name to resource
             }
 
-        assertEquals("@xml/glucose_widget_info", names[".GlucoseWidgetReceiver"])
+        assertEquals("@xml/glucose_family_2x1_info", names[".GlucoseFamily2x1Receiver"])
         assertEquals("@xml/glucose_widget_2x2_info", names[".GlucoseWidget2x2Receiver"])
         assertEquals("@xml/glucose_widget_4x2_info", names[".GlucoseWidget4x2Receiver"])
-        assertEquals("@xml/graph_widget_info", names[".GraphWidgetReceiver"])
+        assertEquals("@xml/graph_family_2x1_info", names[".GraphFamily2x1Receiver"])
         assertEquals("@xml/graph_widget_2x2_info", names[".GraphWidget2x2Receiver"])
         assertEquals("@xml/graph_widget_4x2_info", names[".GraphWidget4x2Receiver"])
 
-        assertTargetCells("glucose_widget_info.xml", 2, 1)
+        assertTargetCells("glucose_family_2x1_info.xml", 2, 1)
         assertTargetCells("glucose_widget_2x2_info.xml", 2, 2)
         assertTargetCells("glucose_widget_4x2_info.xml", 4, 2)
-        assertTargetCells("graph_widget_info.xml", 2, 1)
+        assertTargetCells("graph_family_2x1_info.xml", 2, 1)
         assertTargetCells("graph_widget_2x2_info.xml", 2, 2)
         assertTargetCells("graph_widget_4x2_info.xml", 4, 2)
+        assertEquals("@xml/therapy_family_2x1_info", names[".TherapyFamily2x1Receiver"])
+        assertEquals("@xml/therapy_family_2x2_info", names[".TherapyFamily2x2Receiver"])
+        assertTargetCells("therapy_family_2x1_info.xml", 2, 1)
+        assertTargetCells("therapy_family_2x2_info.xml", 2, 2)
+    }
+
+    @Test
+    fun `new families use automatic shape while legacy providers remain developer widgets`() {
+        assertTrue(widgetUsesAutomaticShape("app.aapswear.mobile.GlucoseFamily2x1Receiver"))
+        assertTrue(widgetUsesAutomaticShape("app.aapswear.mobile.GlucoseWidget2x2Receiver"))
+        assertTrue(widgetUsesAutomaticShape("app.aapswear.mobile.GraphFamily2x1Receiver"))
+        assertTrue(widgetUsesAutomaticShape("app.aapswear.mobile.TherapyFamily2x2Receiver"))
+        assertFalse(widgetUsesAutomaticShape("app.aapswear.mobile.GlucoseWidgetReceiver"))
+
+        val manifest = File("src/main/AndroidManifest.xml").readText()
+        assertTrue(manifest.contains(".GlucoseWidgetReceiver\" android:label=\"@string/widget_developer_glucose_label"))
+        assertTrue(manifest.contains(".GraphWidgetReceiver\" android:label=\"@string/widget_developer_graph_label"))
+        assertTrue(manifest.contains(".MetabolicWidgetReceiver\" android:label=\"@string/widget_developer_therapy_label"))
+        assertTrue(manifest.contains(".GlucoseGraphWidgetReceiver\" android:label=\"@string/widget_developer_compact_label"))
     }
 
     private fun assertTargetCells(fileName: String, width: Int, height: Int) {

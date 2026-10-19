@@ -153,6 +153,30 @@ internal data class WidgetRangePresentation(
     val visibleRole: WidgetColorRole,
 )
 
+internal fun nextWidgetScaleMode(mode: WidgetScaleMode): WidgetScaleMode =
+    when (mode) {
+        WidgetScaleMode.STATIC -> WidgetScaleMode.DYNAMIC
+        WidgetScaleMode.DYNAMIC -> WidgetScaleMode.LOGARITHMIC
+        WidgetScaleMode.LOGARITHMIC -> WidgetScaleMode.STATIC
+    }
+
+internal fun graphScaleAgeColorRole(excursion: RangeExcursion?): WidgetColorRole =
+    if (excursion == RangeExcursion.HIGH) WidgetColorRole.HIGH_REGION_LABEL else WidgetColorRole.AXIS
+
+internal fun graphScaleAgeText(
+    graphHours: Int,
+    ageMinutes: Long?,
+): String =
+    buildString {
+        append(graphHours)
+        append("h")
+        ageMinutes?.let {
+            append(" · ")
+            append(it)
+            append("m")
+        }
+    }
+
 internal fun widgetRangePresentation(
     state: TherapyDisplayState?,
     samples: List<GlucoseSample>,

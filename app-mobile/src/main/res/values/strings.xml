@@ -6,6 +6,10 @@
     <string name="widget_graph_family_label">Glukosegraph</string>
     <string name="widget_glucose_graph_compact_label">Glukose + Graph kompakt</string>
     <string name="widget_therapy_family_label">Therapie</string>
+    <string name="widget_developer_glucose_label">Developer Widgets · Glukose</string>
+    <string name="widget_developer_graph_label">Developer Widgets · Glukosegraph</string>
+    <string name="widget_developer_therapy_label">Developer Widgets · Therapie</string>
+    <string name="widget_developer_compact_label">Developer Widgets · Glukose + Graph kompakt</string>
     <string name="widget_glucose_description">Glukosewert und Trendpfeil im Sugarlicious-Stil</string>
     <string name="widget_glucose_2x1_description">Glukose · 2×1</string>
     <string name="widget_glucose_2x2_description">Glukose · 2×2</string>

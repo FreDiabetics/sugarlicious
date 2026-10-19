@@ -30,6 +30,7 @@ internal enum class WidgetColorRole(
     DOT_LOW("dot_low", AppearanceTerminology.GRAPH_DOT_LOW),
     DIVIDER("divider", AppearanceTerminology.GRAPH_NOW_LINE),
     AXIS("axis", AppearanceTerminology.GRAPH_AXIS_TEXT),
+    HIGH_REGION_LABEL("high_region_label", "Graphtext im Hochbereich"),
     AXIS_TICK("axis_tick", AppearanceTerminology.GRAPH_AXIS_TICK),
     TEXT("text", "Text"),
     DELTA_UNIT("delta_unit", AppearanceTerminology.DELTA_UNIT),
@@ -168,6 +169,7 @@ internal object WidgetColorStore {
                         WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
                         WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
                         WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
+                        WidgetColorRole.HIGH_REGION_LABEL -> SugarliciousColorRole.GRAPH_LABEL
                         WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                         WidgetColorRole.TEXT -> SugarliciousColorRole.GRAPH_LABEL
                         WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
@@ -252,8 +254,9 @@ internal object WidgetColorStore {
     private fun mobileDefault(
         role: WidgetColorRole,
         color: (SugarliciousColorRole) -> Int,
-    ): Int =
-        color(
+    ): Int {
+        if (role == WidgetColorRole.HIGH_REGION_LABEL) return 0xFF151515.toInt()
+        return color(
             when (role) {
                 WidgetColorRole.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                 WidgetColorRole.IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
@@ -274,6 +277,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.DOT_LOW -> SugarliciousColorRole.CGM_DOT_LOW
                 WidgetColorRole.DIVIDER -> SugarliciousColorRole.GRAPH_NOW_LINE
                 WidgetColorRole.AXIS -> SugarliciousColorRole.GRAPH_LABEL
+                WidgetColorRole.HIGH_REGION_LABEL -> SugarliciousColorRole.GRAPH_LABEL
                 WidgetColorRole.AXIS_TICK -> SugarliciousColorRole.GRAPH_AXIS_TICK
                 WidgetColorRole.TEXT -> SugarliciousColorRole.TEXT_PRIMARY
                 WidgetColorRole.DELTA_UNIT -> SugarliciousColorRole.DELTA_UNIT
@@ -284,6 +288,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
             },
         )
+    }
 }
 
 internal fun widgetGlucoseColorRole(

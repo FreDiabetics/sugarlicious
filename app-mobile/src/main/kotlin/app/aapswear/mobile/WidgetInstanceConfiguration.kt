@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -27,7 +29,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,6 +65,12 @@ internal enum class WidgetScaleMode { STATIC, DYNAMIC, LOGARITHMIC }
 
 internal enum class WidgetShapeMode { STANDARD, PILL }
 
+internal fun resolvedWidgetConfigurationOnExit(
+    initial: WidgetInstanceConfiguration,
+    edited: WidgetInstanceConfiguration,
+    save: Boolean,
+): WidgetInstanceConfiguration = if (save) edited else initial
+
 internal enum class ConfigurableWidgetKind(
     val hasGraph: Boolean,
 ) {
@@ -76,10 +83,23 @@ internal enum class ConfigurableWidgetKind(
 internal fun configurableWidgetKind(providerClassName: String?): ConfigurableWidgetKind =
     when {
         providerClassName?.endsWith("GlucoseGraphWidgetReceiver") == true -> ConfigurableWidgetKind.GLUCOSE_GRAPH
+        providerClassName?.contains("TherapyFamily") == true -> ConfigurableWidgetKind.METABOLIC
         providerClassName?.contains("GraphWidget") == true -> ConfigurableWidgetKind.GRAPH
+        providerClassName?.contains("GraphFamily") == true -> ConfigurableWidgetKind.GRAPH
         providerClassName?.endsWith("MetabolicWidgetReceiver") == true -> ConfigurableWidgetKind.METABOLIC
         else -> ConfigurableWidgetKind.GLUCOSE
     }
+
+internal fun widgetUsesAutomaticShape(providerClassName: String?): Boolean =
+    providerClassName?.let {
+        it.contains("GlucoseFamily") ||
+            it.contains("GraphFamily") ||
+            it.contains("TherapyFamily") ||
+            it.endsWith("GlucoseWidget2x2Receiver") ||
+            it.endsWith("GlucoseWidget4x2Receiver") ||
+            it.endsWith("GraphWidget2x2Receiver") ||
+            it.endsWith("GraphWidget4x2Receiver")
+    } == true
 
 internal fun widgetProviderPreset(providerClassName: String?): WidgetFamilyLayout =
     when {
@@ -277,7 +297,7 @@ internal fun WidgetInstanceConfiguration.withColorOverride(
 
 internal object WidgetInstanceConfigurationStore {
     private const val PREFS = "widget_instance_configuration"
-    private const val ISOLATED_PROFILE_VERSION = 2
+    private const val ISOLATED_PROFILE_VERSION = 3
 
     private fun key(
         id: Int,
@@ -606,8 +626,6 @@ internal object WidgetInstanceConfigurationStore {
 
 class WidgetConfigurationActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-    private var currentConfiguration: WidgetInstanceConfiguration? = null
-    private var currentWidgetKind: ConfigurableWidgetKind = ConfigurableWidgetKind.GLUCOSE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -619,14 +637,15 @@ class WidgetConfigurationActivity : ComponentActivity() {
             return
         }
         val manager = AppWidgetManager.getInstance(this)
-        val widgetKind = configurableWidgetKind(manager.getAppWidgetInfo(appWidgetId)?.provider?.className)
+        val providerClassName = manager.getAppWidgetInfo(appWidgetId)?.provider?.className
+        val widgetKind = configurableWidgetKind(providerClassName)
+        val automaticShape = widgetUsesAutomaticShape(providerClassName)
         val initial =
             if (WidgetInstanceConfigurationStore.hasStoredConfiguration(this, appWidgetId)) {
                 WidgetInstanceConfigurationStore.readIsolated(this, appWidgetId, widgetKind)
             } else {
                 WidgetSystemDefaults.forNewInstance(this, widgetKind)
             }
-        currentWidgetKind = widgetKind
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
         val previewWidthDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220).coerceAtLeast(80)
         val previewHeightDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110).coerceAtLeast(48)
@@ -643,352 +662,368 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
                 val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
-                currentConfiguration = value
-                LaunchedEffect(value) {
-                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
-                    SugarliciousWidgetUpdateCoordinator.submitInstance(
-                        this@WidgetConfigurationActivity,
-                        appWidgetId,
-                        widgetKind,
-                    )
-                }
-                Column(
-                    Modifier.background(ComposeColor(0xFF000000)).padding(18.dp).verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Widget konfigurieren", color = ComposeColor.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    AppearanceModeSelector(selectedMode) { selectedMode = it }
-                    WidgetConfigurationPreview(widgetKind, value, selectedMode, previewWidthDp, previewHeightDp)
-                    WidgetSettingsSection("Allgemein") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(appearance.backgroundEnabled, { value = value.withBackgroundEnabled(selectedMode, it) })
-                            Text("Hintergrund anzeigen", color = ComposeColor.White)
-                        }
-                        WidgetColorSetting("Hintergrund", appearance.backgroundArgb, { editBackground = true }) {
-                            value = value.withBackground(selectedMode, Color.BLACK)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(appearance.outlineEnabled, { value = value.withOutlineEnabled(selectedMode, it) })
-                            Text("Kontur anzeigen", color = ComposeColor.White)
-                        }
-                        if (appearance.outlineEnabled) {
-                            WidgetColorSetting("Kontur", appearance.outlineArgb, { editOutline = true }) {
-                                value = value.withOutline(selectedMode, Color.DKGRAY)
-                            }
-                        }
-                        if (widgetSupportsPill(widgetKind)) {
-                            Text("Form", color = ComposeColor.LightGray, fontSize = 11.sp)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                WidgetShapeMode.entries.forEach { mode ->
-                                    Text(
-                                        if (mode == WidgetShapeMode.STANDARD) "STANDARD" else "PILLE",
-                                        color = if (value.shapeMode == mode) ComposeColor(0xFF6DE892) else ComposeColor.White,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier =
-                                            Modifier
-                                                .clickable { value = value.copy(shapeMode = mode) }
-                                                .background(ComposeColor(0xFF242424), RoundedCornerShape(999.dp))
-                                                .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (widgetKind == ConfigurableWidgetKind.GLUCOSE || widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
-                        WidgetSettingsSection("Glukosewert") {
-                            WidgetPercentSlider("Größe", value.glucoseScalePercent) { value = value.copy(glucoseScalePercent = it) }
+                Box(Modifier.fillMaxSize().background(ComposeColor.Black)) {
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 18.dp)
+                            .padding(top = 18.dp, bottom = 92.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("Widget konfigurieren", color = ComposeColor.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        AppearanceModeSelector(selectedMode) { selectedMode = it }
+                        WidgetConfigurationPreview(widgetKind, value, selectedMode, previewWidthDp, previewHeightDp)
+                        WidgetSettingsSection("Allgemein") {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.glucoseBold, { value = value.copy(glucoseBold = it) })
-                                Text("Zuckerwert fett", color = ComposeColor.White)
+                                Checkbox(appearance.backgroundEnabled, { value = value.withBackgroundEnabled(selectedMode, it) })
+                                Text("Hintergrund anzeigen", color = ComposeColor.White)
                             }
-                            listOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW).forEach { role ->
-                                WidgetColorSetting(
-                                    role.label,
-                                    appearance.colorOverrides[role]
-                                        ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
-                                    {
-                                        editRole =
-                                            role
-                                    },
-                                ) {
-                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                            WidgetColorSetting("Hintergrund", appearance.backgroundArgb, { editBackground = true }) {
+                                value = value.withBackground(selectedMode, Color.BLACK)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(appearance.outlineEnabled, { value = value.withOutlineEnabled(selectedMode, it) })
+                                Text("Kontur anzeigen", color = ComposeColor.White)
+                            }
+                            if (appearance.outlineEnabled) {
+                                WidgetColorSetting("Kontur", appearance.outlineArgb, { editOutline = true }) {
+                                    value = value.withOutline(selectedMode, Color.DKGRAY)
                                 }
                             }
-                        }
-                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
-                            WidgetSettingsSection("Delta und Alter") {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(value.showDelta, { value = value.copy(showDelta = it) })
-                                    Text("Delta anzeigen", color = ComposeColor.White)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(value.showAge, { value = value.copy(showAge = it) })
-                                    Text("Alter anzeigen", color = ComposeColor.White)
-                                }
-                                listOf(
-                                    Triple("Delta", value.deltaScalePercent, { v: Int -> value = value.copy(deltaScalePercent = v) }),
-                                    Triple("Alter", value.ageScalePercent, { v: Int -> value = value.copy(ageScalePercent = v) }),
-                                    Triple("Maßeinheit", value.unitScalePercent, { v: Int -> value = value.copy(unitScalePercent = v) }),
-                                ).forEach { (label, setting, update) -> WidgetPercentSlider("$label Größe", setting, onChange = update) }
-                                WidgetPercentSlider("Delta X", value.deltaOffsetXDp, -40..40, "dp") { value = value.copy(deltaOffsetXDp = it) }
-                                WidgetPercentSlider("Delta Y", value.deltaOffsetYDp, -40..40, "dp") { value = value.copy(deltaOffsetYDp = it) }
-                                WidgetPercentSlider("Alter X", value.ageOffsetXDp, -40..40, "dp") { value = value.copy(ageOffsetXDp = it) }
-                                WidgetPercentSlider("Alter Y", value.ageOffsetYDp, -40..40, "dp") { value = value.copy(ageOffsetYDp = it) }
-                                WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
-                                WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
-                                listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT).forEach { role ->
-                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role }) {
-                                        value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                            if (widgetSupportsPill(widgetKind) && !automaticShape) {
+                                Text("Form", color = ComposeColor.LightGray, fontSize = 11.sp)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    WidgetShapeMode.entries.forEach { mode ->
+                                        Text(
+                                            if (mode == WidgetShapeMode.STANDARD) "STANDARD" else "PILLE",
+                                            color = if (value.shapeMode == mode) ComposeColor(0xFF6DE892) else ComposeColor.White,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier =
+                                                Modifier
+                                                    .clickable { value = value.copy(shapeMode = mode) }
+                                                    .background(ComposeColor(0xFF242424), RoundedCornerShape(999.dp))
+                                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                        )
                                     }
                                 }
                             }
                         }
-                        WidgetSettingsSection("Trendpfeil") {
-                            WidgetPercentSlider("Größe", value.trendScalePercent) { value = value.copy(trendScalePercent = it) }
-                            listOf(WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW).forEach { role ->
-                                WidgetColorSetting(
-                                    role.label,
-                                    appearance.colorOverrides[role]
-                                        ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
-                                    {
-                                        editRole =
-                                            role
-                                    },
-                                ) {
-                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE || widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
+                            WidgetSettingsSection("Glukosewert") {
+                                WidgetPercentSlider("Größe", value.glucoseScalePercent) { value = value.copy(glucoseScalePercent = it) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.glucoseBold, { value = value.copy(glucoseBold = it) })
+                                    Text("Zuckerwert fett", color = ComposeColor.White)
+                                }
+                                listOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW).forEach { role ->
+                                    WidgetColorSetting(
+                                        role.label,
+                                        appearance.colorOverrides[role]
+                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
+                                        {
+                                            editRole =
+                                                role
+                                        },
+                                    ) {
+                                        value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                    }
                                 }
                             }
-                            val trendOverride = if (selectedMode == AppearanceMode.LIGHT) value.lightTrendStyle else value.darkTrendStyle
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(trendAppearance.outlineEnabled, {
-                                    value =
-                                        value.withTrendStyle(selectedMode, trendOverride.copy(outlineEnabled = it))
-                                })
-                                Text("Kontur anzeigen", color = ComposeColor.White)
-                            }
-                            if (trendAppearance.outlineEnabled) {
-                                WidgetColorSetting("Trend-Kontur", trendAppearance.outlineColor, { editTrendOutline = true }) {
-                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineColor = parentTrendStyle.outlineColor))
+                            if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
+                                WidgetSettingsSection("Delta und Alter") {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(value.showDelta, { value = value.copy(showDelta = it) })
+                                        Text("Delta anzeigen", color = ComposeColor.White)
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Checkbox(value.showAge, { value = value.copy(showAge = it) })
+                                        Text("Alter anzeigen", color = ComposeColor.White)
+                                    }
+                                    listOf(
+                                        Triple("Delta", value.deltaScalePercent, { v: Int -> value = value.copy(deltaScalePercent = v) }),
+                                        Triple("Alter", value.ageScalePercent, { v: Int -> value = value.copy(ageScalePercent = v) }),
+                                        Triple("Maßeinheit", value.unitScalePercent, { v: Int -> value = value.copy(unitScalePercent = v) }),
+                                    ).forEach { (label, setting, update) -> WidgetPercentSlider("$label Größe", setting, onChange = update) }
+                                    WidgetPercentSlider("Delta X", value.deltaOffsetXDp, -40..40, "dp") { value = value.copy(deltaOffsetXDp = it) }
+                                    WidgetPercentSlider("Delta Y", value.deltaOffsetYDp, -40..40, "dp") { value = value.copy(deltaOffsetYDp = it) }
+                                    WidgetPercentSlider("Alter X", value.ageOffsetXDp, -40..40, "dp") { value = value.copy(ageOffsetXDp = it) }
+                                    WidgetPercentSlider("Alter Y", value.ageOffsetYDp, -40..40, "dp") { value = value.copy(ageOffsetYDp = it) }
+                                    WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
+                                    WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
+                                    listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT).forEach { role ->
+                                        WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role }) {
+                                            value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                        }
+                                    }
                                 }
+                            }
+                            WidgetSettingsSection("Trendpfeil") {
+                                WidgetPercentSlider("Größe", value.trendScalePercent) { value = value.copy(trendScalePercent = it) }
+                                listOf(WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW).forEach { role ->
+                                    WidgetColorSetting(
+                                        role.label,
+                                        appearance.colorOverrides[role]
+                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
+                                        {
+                                            editRole =
+                                                role
+                                        },
+                                    ) {
+                                        value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                    }
+                                }
+                                val trendOverride = if (selectedMode == AppearanceMode.LIGHT) value.lightTrendStyle else value.darkTrendStyle
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(trendAppearance.outlineEnabled, {
+                                        value =
+                                            value.withTrendStyle(selectedMode, trendOverride.copy(outlineEnabled = it))
+                                    })
+                                    Text("Kontur anzeigen", color = ComposeColor.White)
+                                }
+                                if (trendAppearance.outlineEnabled) {
+                                    WidgetColorSetting("Trend-Kontur", trendAppearance.outlineColor, { editTrendOutline = true }) {
+                                        value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineColor = parentTrendStyle.outlineColor))
+                                    }
+                                    WidgetPercentSlider(
+                                        "Konturdicke",
+                                        (trendAppearance.outlineThicknessDp * 100).roundToInt(),
+                                        25..400,
+                                        "×0,01 dp",
+                                    ) {
+                                        value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineThicknessDp = it / 100f))
+                                    }
+                                }
+                                WidgetPercentSlider("Deckkraft", (trendAppearance.alpha * 100).roundToInt(), 0..100, "%") {
+                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(alpha = it / 100f))
+                                }
+                                Text(
+                                    "TREND-STIL ZURÜCKSETZEN",
+                                    color = ComposeColor(0xFF6DE892),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier =
+                                        Modifier
+                                            .clickable {
+                                                value =
+                                                    value.withTrendStyle(
+                                                        selectedMode,
+                                                        parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride(),
+                                                    )
+                                            }.padding(vertical = 8.dp),
+                                )
+                            }
+                        }
+                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
+                            WidgetSettingsSection("Kombination") {
                                 WidgetPercentSlider(
-                                    "Konturdicke",
-                                    (trendAppearance.outlineThicknessDp * 100).roundToInt(),
-                                    25..400,
-                                    "×0,01 dp",
-                                ) {
-                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineThicknessDp = it / 100f))
+                                    "Wertbereich",
+                                    value.glucoseGraphValuePercent,
+                                    MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT,
+                                ) { value = value.copy(glucoseGraphValuePercent = it) }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
+                                    Text("Maßeinheit anzeigen", color = ComposeColor.White)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.deltaUnitBold, { value = value.copy(deltaUnitBold = it) })
+                                    Text("Delta + Maßeinheit fett", color = ComposeColor.White)
                                 }
                             }
-                            WidgetPercentSlider("Deckkraft", (trendAppearance.alpha * 100).roundToInt(), 0..100, "%") {
-                                value = value.withTrendStyle(selectedMode, trendOverride.copy(alpha = it / 100f))
+                        }
+                        if (widgetKind == ConfigurableWidgetKind.METABOLIC) {
+                            TherapyProgressSettings(value.therapyProgressAppearance) {
+                                value = value.copy(therapyProgressAppearance = it)
                             }
+                        }
+                        if (widgetKind.hasGraph) {
+                            WidgetSettingsSection("Graph") {
+                                WidgetPercentSlider(
+                                    "CGM-Dot-Größe",
+                                    (value.cgmDotRadiusDp * 10f).roundToInt(),
+                                    15..60,
+                                    " ×0,1 dp",
+                                    (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
+                                ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
+                                WidgetPercentSlider(
+                                    "Graph-Eckenradius",
+                                    value.graphCornerRadiusDp,
+                                    MIN_WIDGET_GRAPH_CORNER_RADIUS_DP..MAX_WIDGET_GRAPH_CORNER_RADIUS_DP,
+                                    "dp",
+                                    DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
+                                ) { value = value.copy(graphCornerRadiusDp = it) }
+                                WidgetPercentSlider(
+                                    "Skalenbereich",
+                                    value.scaleLaneOpacityPercent,
+                                    0..100,
+                                    "%",
+                                    30,
+                                ) { value = value.copy(scaleLaneOpacityPercent = it) }
+                                Text("Zeitraum", color = ComposeColor.LightGray, fontSize = 11.sp)
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(1, 2, 3, 6, 12, 24).forEach { hours ->
+                                        Text(
+                                            "${hours}h",
+                                            color = if (value.graphHours == hours) ComposeColor(0xFF6DE892) else ComposeColor.White,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable { value = value.copy(graphHours = hours) }.padding(8.dp),
+                                        )
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.showTimeAxis, { value = value.copy(showTimeAxis = it) })
+                                    Text("Zeitachse anzeigen", color = ComposeColor.White)
+                                }
+                                Text("Skalierung", color = ComposeColor.LightGray, fontSize = 11.sp)
+                                WidgetScaleMode.entries.forEach { mode ->
+                                    Text(
+                                        when (mode) {
+                                            WidgetScaleMode.STATIC -> "Statisch"
+                                            WidgetScaleMode.DYNAMIC -> "Dynamisch"
+                                            WidgetScaleMode.LOGARITHMIC -> "Logarithmisch"
+                                        },
+                                        color = if (value.scaleMode == mode) ComposeColor(0xFF6DE892) else ComposeColor.White,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.fillMaxWidth().clickable { value = value.copy(scaleMode = mode) }.padding(10.dp),
+                                    )
+                                }
+                                listOf(
+                                    WidgetColorRole.GRAPH_BACKGROUND,
+                                    WidgetColorRole.RANGE_HIGH,
+                                    WidgetColorRole.RANGE_IN_RANGE,
+                                    WidgetColorRole.RANGE_LOW,
+                                    WidgetColorRole.HIGH_LINE,
+                                    WidgetColorRole.LOW_LINE,
+                                    WidgetColorRole.DOT_HIGH,
+                                    WidgetColorRole.DOT_IN_RANGE,
+                                    WidgetColorRole.DOT_LOW,
+                                    WidgetColorRole.AXIS,
+                                    WidgetColorRole.HIGH_REGION_LABEL,
+                                    WidgetColorRole.AXIS_TICK,
+                                    WidgetColorRole.DIVIDER,
+                                ).forEach { role ->
+                                    WidgetColorSetting(
+                                        role.label,
+                                        appearance.colorOverrides[role]
+                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
+                                        {
+                                            editRole =
+                                                role
+                                        },
+                                    ) {
+                                        value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                    }
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.historicalDotOutlineEnabled, { value = value.copy(historicalDotOutlineEnabled = it) })
+                                    Text(app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, color = ComposeColor.White)
+                                }
+                                if (value.historicalDotOutlineEnabled) {
+                                    WidgetColorSetting(
+                                        WidgetColorRole.DOT_OUTLINE.label,
+                                        appearance.colorOverrides[WidgetColorRole.DOT_OUTLINE]
+                                            ?: WidgetColorStore
+                                                .load(
+                                                    this@WidgetConfigurationActivity,
+                                                    selectedMode,
+                                                ).argb(WidgetColorRole.DOT_OUTLINE),
+                                        { editRole = WidgetColorRole.DOT_OUTLINE },
+                                    ) {
+                                        value =
+                                            value.withColorOverride(
+                                                selectedMode,
+                                                WidgetColorRole.DOT_OUTLINE,
+                                                resetPalette.argb(WidgetColorRole.DOT_OUTLINE),
+                                            )
+                                    }
+                                    WidgetPercentSlider(
+                                        label = app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
+                                        value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
+                                        range = 25..300,
+                                        suffix = " ×0,01 dp",
+                                    ) {
+                                        value =
+                                            value.copy(
+                                                historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                            )
+                                    }
+                                }
+                                Text(app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE, color = ComposeColor.White)
+                                run {
+                                    WidgetColorSetting(
+                                        WidgetColorRole.CURRENT_DOT_OUTLINE.label,
+                                        appearance.colorOverrides[WidgetColorRole.CURRENT_DOT_OUTLINE]
+                                            ?: WidgetColorStore
+                                                .load(
+                                                    this@WidgetConfigurationActivity,
+                                                    selectedMode,
+                                                ).argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
+                                        { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
+                                    ) {
+                                        value =
+                                            value.withColorOverride(
+                                                selectedMode,
+                                                WidgetColorRole.CURRENT_DOT_OUTLINE,
+                                                resetPalette.argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
+                                            )
+                                    }
+                                    WidgetPercentSlider(
+                                        label = app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
+                                        value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
+                                        range = 25..300,
+                                        suffix = " ×0,01 dp",
+                                    ) {
+                                        value =
+                                            value.copy(
+                                                currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
+                                            )
+                                    }
+                                }
+                            }
+                        }
+                        Text("Beim Antippen öffnen", color = ComposeColor.LightGray, fontSize = 11.sp)
+                        WidgetLaunchTargetStore.available(this@WidgetConfigurationActivity).forEach { target ->
                             Text(
-                                "TREND-STIL ZURÜCKSETZEN",
-                                color = ComposeColor(0xFF6DE892),
-                                fontSize = 10.sp,
+                                target.label,
+                                color =
+                                    if ((value.launchPackage ?: packageName) ==
+                                        target.packageName
+                                    ) {
+                                        ComposeColor(0xFF6DE892)
+                                    } else {
+                                        ComposeColor.White
+                                    },
                                 fontWeight = FontWeight.Bold,
                                 modifier =
                                     Modifier
+                                        .fillMaxWidth()
                                         .clickable {
                                             value =
-                                                value.withTrendStyle(
-                                                    selectedMode,
-                                                    parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride(),
+                                                value.copy(
+                                                    launchPackage = target.packageName,
                                                 )
-                                        }.padding(vertical = 8.dp),
+                                        }.padding(10.dp),
                             )
                         }
                     }
-                    if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
-                        WidgetSettingsSection("Kombination") {
-                            WidgetPercentSlider(
-                                "Wertbereich",
-                                value.glucoseGraphValuePercent,
-                                MIN_COMBINED_WIDGET_VALUE_PERCENT..MAX_COMBINED_WIDGET_VALUE_PERCENT,
-                            ) { value = value.copy(glucoseGraphValuePercent = it) }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.showGlucoseUnit, { value = value.copy(showGlucoseUnit = it) })
-                                Text("Maßeinheit anzeigen", color = ComposeColor.White)
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.deltaUnitBold, { value = value.copy(deltaUnitBold = it) })
-                                Text("Delta + Maßeinheit fett", color = ComposeColor.White)
-                            }
-                        }
-                    }
-                    if (widgetKind == ConfigurableWidgetKind.METABOLIC) {
-                        TherapyProgressSettings(value.therapyProgressAppearance) {
-                            value = value.copy(therapyProgressAppearance = it)
-                        }
-                    }
-                    if (widgetKind.hasGraph) {
-                        WidgetSettingsSection("Graph") {
-                            WidgetPercentSlider(
-                                "CGM-Dot-Größe",
-                                (value.cgmDotRadiusDp * 10f).roundToInt(),
-                                15..60,
-                                " ×0,1 dp",
-                                (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
-                            ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
-                            WidgetPercentSlider(
-                                "Graph-Eckenradius",
-                                value.graphCornerRadiusDp,
-                                MIN_WIDGET_GRAPH_CORNER_RADIUS_DP..MAX_WIDGET_GRAPH_CORNER_RADIUS_DP,
-                                "dp",
-                                DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP,
-                            ) { value = value.copy(graphCornerRadiusDp = it) }
-                            WidgetPercentSlider(
-                                "Skalenbereich",
-                                value.scaleLaneOpacityPercent,
-                                0..100,
-                                "%",
-                                30,
-                            ) { value = value.copy(scaleLaneOpacityPercent = it) }
-                            Text("Zeitraum", color = ComposeColor.LightGray, fontSize = 11.sp)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(1, 2, 3, 6, 12, 24).forEach { hours ->
-                                    Text(
-                                        "${hours}h",
-                                        color = if (value.graphHours == hours) ComposeColor(0xFF6DE892) else ComposeColor.White,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.clickable { value = value.copy(graphHours = hours) }.padding(8.dp),
-                                    )
-                                }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.showTimeAxis, { value = value.copy(showTimeAxis = it) })
-                                Text("Zeitachse anzeigen", color = ComposeColor.White)
-                            }
-                            Text("Skalierung", color = ComposeColor.LightGray, fontSize = 11.sp)
-                            WidgetScaleMode.entries.forEach { mode ->
-                                Text(
-                                    when (mode) {
-                                        WidgetScaleMode.STATIC -> "Statisch"
-                                        WidgetScaleMode.DYNAMIC -> "Dynamisch"
-                                        WidgetScaleMode.LOGARITHMIC -> "Logarithmisch"
-                                    },
-                                    color = if (value.scaleMode == mode) ComposeColor(0xFF6DE892) else ComposeColor.White,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.fillMaxWidth().clickable { value = value.copy(scaleMode = mode) }.padding(10.dp),
-                                )
-                            }
-                            listOf(
-                                WidgetColorRole.GRAPH_BACKGROUND,
-                                WidgetColorRole.RANGE_HIGH,
-                                WidgetColorRole.RANGE_IN_RANGE,
-                                WidgetColorRole.RANGE_LOW,
-                                WidgetColorRole.HIGH_LINE,
-                                WidgetColorRole.LOW_LINE,
-                                WidgetColorRole.DOT_HIGH,
-                                WidgetColorRole.DOT_IN_RANGE,
-                                WidgetColorRole.DOT_LOW,
-                                WidgetColorRole.AXIS,
-                                WidgetColorRole.AXIS_TICK,
-                                WidgetColorRole.DIVIDER,
-                            ).forEach { role ->
-                                WidgetColorSetting(
-                                    role.label,
-                                    appearance.colorOverrides[role]
-                                        ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
-                                    {
-                                        editRole =
-                                            role
-                                    },
-                                ) {
-                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
-                                }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(value.historicalDotOutlineEnabled, { value = value.copy(historicalDotOutlineEnabled = it) })
-                                Text(app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, color = ComposeColor.White)
-                            }
-                            if (value.historicalDotOutlineEnabled) {
-                                WidgetColorSetting(
-                                    WidgetColorRole.DOT_OUTLINE.label,
-                                    appearance.colorOverrides[WidgetColorRole.DOT_OUTLINE]
-                                        ?: WidgetColorStore
-                                            .load(
-                                                this@WidgetConfigurationActivity,
-                                                selectedMode,
-                                            ).argb(WidgetColorRole.DOT_OUTLINE),
-                                    { editRole = WidgetColorRole.DOT_OUTLINE },
-                                ) {
-                                    value =
-                                        value.withColorOverride(
-                                            selectedMode,
-                                            WidgetColorRole.DOT_OUTLINE,
-                                            resetPalette.argb(WidgetColorRole.DOT_OUTLINE),
-                                        )
-                                }
-                                WidgetPercentSlider(
-                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
-                                    value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
-                                    range = 25..300,
-                                    suffix = " ×0,01 dp",
-                                ) {
-                                    value =
-                                        value.copy(
-                                            historicalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
-                                        )
-                                }
-                            }
-                            Text(app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE, color = ComposeColor.White)
-                            run {
-                                WidgetColorSetting(
-                                    WidgetColorRole.CURRENT_DOT_OUTLINE.label,
-                                    appearance.colorOverrides[WidgetColorRole.CURRENT_DOT_OUTLINE]
-                                        ?: WidgetColorStore
-                                            .load(
-                                                this@WidgetConfigurationActivity,
-                                                selectedMode,
-                                            ).argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
-                                    { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
-                                ) {
-                                    value =
-                                        value.withColorOverride(
-                                            selectedMode,
-                                            WidgetColorRole.CURRENT_DOT_OUTLINE,
-                                            resetPalette.argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
-                                        )
-                                }
-                                WidgetPercentSlider(
-                                    label = app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
-                                    value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
-                                    range = 25..300,
-                                    suffix = " ×0,01 dp",
-                                ) {
-                                    value =
-                                        value.copy(
-                                            currentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it / 100f),
-                                        )
-                                }
-                            }
-                        }
-                    }
-                    Text("Beim Antippen öffnen", color = ComposeColor.LightGray, fontSize = 11.sp)
-                    WidgetLaunchTargetStore.available(this@WidgetConfigurationActivity).forEach { target ->
-                        Text(
-                            target.label,
-                            color =
-                                if ((value.launchPackage ?: packageName) ==
-                                    target.packageName
-                                ) {
-                                    ComposeColor(0xFF6DE892)
-                                } else {
-                                    ComposeColor.White
-                                },
-                            fontWeight = FontWeight.Bold,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        value =
-                                            value.copy(
-                                                launchPackage = target.packageName,
-                                            )
-                                    }.padding(10.dp),
-                        )
-                    }
+                    WidgetSettingsActionPill(
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+                        onCancel = {
+                            setResult(RESULT_CANCELED)
+                            finish()
+                        },
+                        onSave = {
+                            val saved = resolvedWidgetConfigurationOnExit(initial, value, save = true)
+                            WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)
+                            SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate(
+                                this@WidgetConfigurationActivity,
+                                appWidgetId,
+                                widgetKind,
+                            )
+                            setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                            finish()
+                        },
+                    )
                 }
                 if (editBackground) {
                     ColorEditorDialog(
@@ -1032,15 +1067,39 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 }
             }
         }
-        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
     }
+}
 
-    override fun onPause() {
-        currentConfiguration?.let { configuration ->
-            WidgetInstanceConfigurationStore.save(this, appWidgetId, configuration)
-            SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate(this, appWidgetId, currentWidgetKind)
+@androidx.compose.runtime.Composable
+private fun WidgetSettingsActionPill(
+    modifier: Modifier = Modifier,
+    onCancel: () -> Unit,
+    onSave: () -> Unit,
+) {
+    Surface(
+        modifier = modifier,
+        color = ComposeColor(0xFF1D1D1F),
+        shape = RoundedCornerShape(999.dp),
+        shadowElevation = 10.dp,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                "Abbrechen",
+                color = ComposeColor.White,
+                fontSize = 12.sp,
+                modifier = Modifier.clickable(onClick = onCancel).padding(horizontal = 18.dp, vertical = 12.dp),
+            )
+            Box(Modifier.width(1.dp).height(20.dp).background(ComposeColor(0xFF666666)))
+            Text(
+                "Speichern",
+                color = ComposeColor.White,
+                fontSize = 12.sp,
+                modifier = Modifier.clickable(onClick = onSave).padding(horizontal = 18.dp, vertical = 12.dp),
+            )
         }
-        super.onPause()
     }
 }
 

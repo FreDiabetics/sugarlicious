@@ -110,7 +110,36 @@
 - [ ] Implement capacity rules, geometry, and size-aware previews.
 - [ ] Verify green.
 
-### Task 6: Regression and device validation
+### Task 6: Shared widget settings action pill
+
+**Files:**
+- Modify: `app-mobile/src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt`
+- Test: `app-mobile/src/test/kotlin/app/aapswear/mobile/WidgetInstanceConfigurationTest.kt`
+
+**Interfaces:**
+- One bottom-centered floating pill exposes `Abbrechen | Speichern` for every widget kind.
+- Edits remain local until save; cancel/back discard the session; save persists and refreshes exactly one widget instance.
+
+- [x] Write a failing save/cancel state-contract test.
+- [x] Remove eager/on-pause persistence and implement explicit save semantics.
+- [x] Add the shared dark pill with vertical divider and verify the focused tests.
+
+### Task 7: Automatic family shape and legacy catalog separation
+
+**Files:**
+- Modify: `app-mobile/src/main/AndroidManifest.xml`
+- Modify: `app-mobile/src/main/res/values/strings.xml`
+- Create: family-specific 2x1/2x2 provider metadata under `app-mobile/src/main/res/xml/`
+- Modify: `app-mobile/src/main/kotlin/app/aapswear/mobile/SugarliciousWidgets.kt`
+- Modify: `app-mobile/src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt`
+- Test: `app-mobile/src/test/kotlin/app/aapswear/mobile/WidgetCatalogContractTest.kt`
+
+- [x] Register family-specific providers without removing legacy provider classes.
+- [x] Force pill geometry only at 2x1 and Samsung rounded geometry above 2x1.
+- [x] Hide the manual form selector for automatic families.
+- [x] Prefix all legacy picker entries with `Developer Widgets`.
+
+### Task 8: Regression and device validation
 
 **Files:**
 - Modify tests only if verification exposes a real uncovered regression.

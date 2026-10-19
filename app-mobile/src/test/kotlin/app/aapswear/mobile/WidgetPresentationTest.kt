@@ -14,6 +14,8 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.Trend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -200,12 +202,43 @@ class WidgetPresentationTest {
                     thresholds = thresholds,
                     pixelDensity = 1f,
                     configuration = WidgetInstanceConfiguration(),
-                    trendStyle = app.aapswear.model.TrendArrowStyle.defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+                    trendStyle =
+                        app.aapswear.model.TrendArrowStyle
+                            .defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
                 )
             assertEquals(width, bitmap.width)
             assertEquals(height, bitmap.height)
             assertFalse(bitmap.isRecycled)
         }
+    }
+
+    @Test
+    fun `graph label uses dark contrast only on confirmed high area`() {
+        assertEquals(WidgetColorRole.HIGH_REGION_LABEL, graphScaleAgeColorRole(app.aapswear.model.RangeExcursion.HIGH))
+        assertEquals(WidgetColorRole.AXIS, graphScaleAgeColorRole(null))
+        assertEquals("3h · 5m", graphScaleAgeText(3, 5))
+        assertEquals("3h", graphScaleAgeText(3, null))
+    }
+
+    @Test
+    fun `graph scale mode cycles and wraps in canonical order`() {
+        assertEquals(WidgetScaleMode.DYNAMIC, nextWidgetScaleMode(WidgetScaleMode.STATIC))
+        assertEquals(WidgetScaleMode.LOGARITHMIC, nextWidgetScaleMode(WidgetScaleMode.DYNAMIC))
+        assertEquals(WidgetScaleMode.STATIC, nextWidgetScaleMode(WidgetScaleMode.LOGARITHMIC))
+    }
+
+    @Test
+    fun `therapy widget uses two slots at 2x1 and a centered one plus two at 2x2`() {
+        val compact = resolveWidgetTherapyLayout(202f, 101f, TherapyProgressAppearance())
+        val detail = resolveWidgetTherapyLayout(202f, 228f, TherapyProgressAppearance())
+
+        assertEquals(listOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB), compact.map { it.metric })
+        assertEquals(1, compact.map { it.slot.centerYDp }.distinct().size)
+        assertEquals(TherapyProgressMetric.entries, detail.map { it.metric })
+        assertEquals(101f, detail.first().slot.centerXDp, 0.01f)
+        assertTrue(detail[0].slot.centerYDp < detail[1].slot.centerYDp)
+        assertEquals(detail[1].slot.centerYDp, detail[2].slot.centerYDp, 0.01f)
+        assertTrue(detail[1].slot.centerXDp < detail[2].slot.centerXDp)
     }
 
     @Test

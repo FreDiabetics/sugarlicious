@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.PathParser
 import androidx.core.graphics.createBitmap
@@ -27,15 +28,20 @@ import androidx.glance.appwidget.AppWidgetId
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
+import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.padding
+import androidx.glance.text.Text
+import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
@@ -59,7 +65,7 @@ import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.TrendVisualSpec
 import app.aapswear.model.TrendVisuals
-import app.aapswear.model.resolveResponsiveTherapyLayout
+import app.aapswear.model.resolveHorizontalTherapyLayout
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.uishared.TrendVectorPaths
 import kotlinx.coroutines.flow.first
@@ -82,6 +88,13 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
         id: GlanceId,
     ) {
         val appWidgetId = (id as? AppWidgetId)?.appWidgetId ?: android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID
+        val providerClassName =
+            android.appwidget.AppWidgetManager
+                .getInstance(context)
+                .getAppWidgetInfo(appWidgetId)
+                ?.provider
+                ?.className
+        val automaticShape = widgetUsesAutomaticShape(providerClassName)
         val dashboardPreferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         val appearanceMode = SugarliciousColorStore.activeMode(dashboardPreferences)
         val configurableKind =
@@ -103,7 +116,9 @@ private abstract class SugarliciousWidget : GlanceAppWidget() {
                 .with(instance.colorOverrides)
                 .with(WidgetColorRole.BACKGROUND, widgetBackgroundArgb(instance.backgroundEnabled, instance.backgroundArgb))
         val thresholds = CgmThresholdPreferences.read(dashboardPreferences)
-        provideContent { WidgetShell(kind, state, palette, thresholds, instance, appearanceMode, dashboardAppearance) }
+        provideContent {
+            WidgetShell(kind, state, palette, thresholds, instance, appearanceMode, dashboardAppearance, automaticShape)
+        }
     }
 }
 
@@ -142,6 +157,15 @@ class GlucoseWidgetReceiver : GlanceAppWidgetReceiver() {
     }
 }
 
+class GlucoseFamily2x1Receiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = GlucoseWidget()
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        deleteWidgetConfigurations(context, appWidgetIds)
+        super.onDeleted(context, appWidgetIds)
+    }
+}
+
 class GlucoseWidget2x2Receiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = GlucoseWidget()
 
@@ -167,6 +191,15 @@ class GraphWidgetReceiver : GlanceAppWidgetReceiver() {
         context: Context,
         appWidgetIds: IntArray,
     ) {
+        deleteWidgetConfigurations(context, appWidgetIds)
+        super.onDeleted(context, appWidgetIds)
+    }
+}
+
+class GraphFamily2x1Receiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = GraphWidget()
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         deleteWidgetConfigurations(context, appWidgetIds)
         super.onDeleted(context, appWidgetIds)
     }
@@ -209,6 +242,24 @@ class MetabolicWidgetReceiver : GlanceAppWidgetReceiver() {
         context: Context,
         appWidgetIds: IntArray,
     ) {
+        deleteWidgetConfigurations(context, appWidgetIds)
+        super.onDeleted(context, appWidgetIds)
+    }
+}
+
+class TherapyFamily2x1Receiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MetabolicWidget()
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        deleteWidgetConfigurations(context, appWidgetIds)
+        super.onDeleted(context, appWidgetIds)
+    }
+}
+
+class TherapyFamily2x2Receiver : GlanceAppWidgetReceiver() {
+    override val glanceAppWidget: GlanceAppWidget = MetabolicWidget()
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
         deleteWidgetConfigurations(context, appWidgetIds)
         super.onDeleted(context, appWidgetIds)
     }
@@ -272,6 +323,7 @@ private fun WidgetShell(
     instance: WidgetInstanceConfiguration,
     appearanceMode: AppearanceMode,
     dashboardAppearance: DashboardUiPreferences,
+    automaticShape: Boolean,
 ) {
     val size = LocalSize.current
     val context = LocalContext.current
@@ -279,12 +331,20 @@ private fun WidgetShell(
     val renderSize = widgetRenderSizeDp(size.width.value, size.height.value, contentInsets)
     val layout = responsiveWidgetLayout(renderSize.widthDp, renderSize.heightDp)
     val resolvedRadius =
-        resolveWidgetCornerRadiusDp(
-            instance,
-            heightDp = renderSize.heightDp,
-            systemDefaultDp = systemWidgetCornerRadiusDp(context),
-            pillAllowed = widgetSupportsPill(kind),
-        )
+        if (automaticShape) {
+            adaptiveGlucoseCornerRadius(
+                widgetFamilyLayout(renderSize.widthDp, renderSize.heightDp),
+                renderSize.heightDp,
+                systemWidgetCornerRadiusDp(context),
+            )
+        } else {
+            resolveWidgetCornerRadiusDp(
+                instance,
+                heightDp = renderSize.heightDp,
+                systemDefaultDp = systemWidgetCornerRadiusDp(context),
+                pillAllowed = widgetSupportsPill(kind),
+            )
+        }
     val renderInstance = instance.copy(cornerRadiusDp = resolvedRadius.roundToInt())
     val launchComponent = WidgetLaunchTargetStore.launchComponent(context, instance.launchPackage)
     // Every remaining widget renders its configured background into one bitmap. Keeping the
@@ -303,7 +363,16 @@ private fun WidgetShell(
     ) {
         when (kind) {
             WidgetKind.GLUCOSE ->
-                GlucoseWidgetContent(state, palette, thresholds, layout, renderInstance, appearanceMode, renderSize)
+                GlucoseWidgetContent(
+                    state,
+                    palette,
+                    thresholds,
+                    layout,
+                    renderInstance,
+                    appearanceMode,
+                    renderSize,
+                    automaticShape,
+                )
             WidgetKind.GRAPH -> GraphWidgetContent(state, palette, thresholds, layout, renderInstance, renderSize)
             WidgetKind.GLUCOSE_GRAPH ->
                 GlucoseGraphWidgetContent(state, palette, thresholds, layout, renderInstance, appearanceMode, renderSize)
@@ -374,6 +443,7 @@ private fun GlucoseWidgetContent(
     instance: WidgetInstanceConfiguration,
     appearanceMode: AppearanceMode,
     renderSize: WidgetRenderSize,
+    adaptiveFamily: Boolean,
 ) {
     val pixelDensity =
         LocalContext.current.resources.displayMetrics.density
@@ -384,18 +454,43 @@ private fun GlucoseWidgetContent(
             appearanceMode,
             MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), appearanceMode),
         )
+    val width = (renderSize.widthDp * pixelDensity).roundToInt().coerceAtLeast(48)
+    val height = (renderSize.heightDp * pixelDensity).roundToInt().coerceAtLeast(48)
     val bitmap =
-        renderAdaptiveGlucoseWidget(
-            state = state,
-            palette = palette,
-            width = (renderSize.widthDp * pixelDensity).roundToInt().coerceAtLeast(48),
-            height = (renderSize.heightDp * pixelDensity).roundToInt().coerceAtLeast(48),
-            thresholds = thresholds,
-            pixelDensity = pixelDensity,
-            configuration = instance,
-            trendStyle = trendStyle,
-            systemCornerRadiusDp = systemWidgetCornerRadiusDp(context),
-        )
+        if (adaptiveFamily) {
+            renderAdaptiveGlucoseWidget(
+                state = state,
+                palette = palette,
+                width = width,
+                height = height,
+                thresholds = thresholds,
+                pixelDensity = pixelDensity,
+                configuration = instance,
+                trendStyle = trendStyle,
+                systemCornerRadiusDp = systemWidgetCornerRadiusDp(context),
+            )
+        } else {
+            renderMinimalGlucoseWidget(
+                state = state,
+                palette = palette,
+                width = width,
+                height = height,
+                thresholds = thresholds,
+                layout = layout,
+                pixelDensity = pixelDensity,
+                options =
+                    GlucoseWidgetRenderOptions(
+                        glucoseScale = configurationScale(instance.glucoseScalePercent),
+                        trendScale = configurationScale(instance.trendScalePercent),
+                        outlineEnabled = instance.outlineEnabled,
+                        outlineArgb = instance.outlineArgb,
+                        cornerRadiusDp = instance.cornerRadiusDp.toFloat(),
+                        trendStyle = trendStyle,
+                        glucoseBold = instance.glucoseBold,
+                        configuration = instance,
+                    ),
+            )
+        }
     Image(ImageProvider(bitmap), "Glukose und Trend", GlanceModifier.fillMaxSize(), contentScale = ContentScale.Fit)
 }
 
@@ -464,7 +559,11 @@ internal fun renderAdaptiveGlucoseWidget(
         }
     val tir = currentDayTirPercent(history, thresholds.lowMgDl, thresholds.highMgDl, now)
     val text = widgetGlucoseFamilyText(familyLayout, age, delta, unit, tir)
-    val valueWidth = geometry.valueBounds.width().roundToInt().coerceAtLeast(48)
+    val valueWidth =
+        geometry.valueBounds
+            .width()
+            .roundToInt()
+            .coerceAtLeast(48)
     val valueHeight =
         when (familyLayout) {
             WidgetFamilyLayout.COMPACT_2X1 -> height
@@ -550,6 +649,7 @@ internal fun renderAdaptiveGlucoseWidget(
                 pixelDensity = safeDensity,
                 configuration = configuration.copy(outlineEnabled = false, graphCornerRadiusDp = 4),
                 clipToWidgetShape = false,
+                showScaleAndAge = true,
             )
         canvas.drawBitmap(graph, bounds.left, bounds.top, null)
     }
@@ -617,6 +717,7 @@ private fun GraphWidgetContent(
     val pixelDensity =
         LocalContext.current.resources.displayMetrics.density
             .coerceAtLeast(1f)
+    val now = System.currentTimeMillis()
     val bitmap =
         renderWidgetGraph(
             state = state,
@@ -626,14 +727,38 @@ private fun GraphWidgetContent(
             thresholds = thresholds,
             layout = layout,
             pixelDensity = pixelDensity,
+            now = now,
             configuration = instance,
         )
-    Image(
-        provider = ImageProvider(bitmap),
-        contentDescription = "Sugarlicious CGM-Graph",
-        modifier = GlanceModifier.fillMaxSize(),
-        contentScale = ContentScale.FillBounds,
-    )
+    val excursion = CgmGraphPolicy.rangeExcursion(canonicalWidgetSamples(state, now), thresholds)
+    val label = graphScaleAgeText(instance.graphHours, TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, now))
+    Box(GlanceModifier.fillMaxSize()) {
+        Image(
+            provider = ImageProvider(bitmap),
+            contentDescription = "Sugarlicious CGM-Graph",
+            modifier = GlanceModifier.fillMaxSize(),
+            contentScale = ContentScale.FillBounds,
+        )
+        Text(
+            text = label,
+            modifier = GlanceModifier.padding(start = 6.dp, top = 6.dp).clickable(actionRunCallback<CycleGraphScaleAction>()),
+            style = TextStyle(color = widgetColor(palette.argb(graphScaleAgeColorRole(excursion))), fontSize = layout.graphAxisTextSp.sp),
+        )
+    }
+}
+
+class CycleGraphScaleAction : ActionCallback {
+    @SuppressLint("RestrictedApi")
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: androidx.glance.action.ActionParameters,
+    ) {
+        val appWidgetId = (glanceId as? AppWidgetId)?.appWidgetId ?: return
+        val current = WidgetInstanceConfigurationStore.readIsolated(context, appWidgetId, ConfigurableWidgetKind.GRAPH)
+        WidgetInstanceConfigurationStore.save(context, appWidgetId, current.copy(scaleMode = nextWidgetScaleMode(current.scaleMode)))
+        SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate(context, appWidgetId, ConfigurableWidgetKind.GRAPH)
+    }
 }
 
 @Composable
@@ -725,7 +850,7 @@ internal fun renderTherapyIndicatorWidget(
     val metricByIndex = listOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB, TherapyProgressMetric.BASAL)
     val indicatorsByMetric = metricByIndex.zip(allIndicators).toMap()
     val resolvedLayout =
-        resolveResponsiveTherapyLayout(
+        resolveWidgetTherapyLayout(
             safeWidth / renderDensity,
             safeHeight / renderDensity,
             configuration.therapyProgressAppearance,
@@ -795,6 +920,39 @@ internal fun renderTherapyIndicatorWidget(
         }
     }
     return bitmap
+}
+
+internal fun resolveWidgetTherapyLayout(
+    availableWidthDp: Float,
+    availableHeightDp: Float,
+    appearance: app.aapswear.model.TherapyProgressAppearance,
+): List<app.aapswear.model.ResolvedTherapyIndicator> {
+    val enabled = TherapyProgressMetric.entries.filter(appearance.validated().enabledMetrics::contains)
+    val familyLayout = widgetFamilyLayout(availableWidthDp, availableHeightDp)
+    val capacity = if (familyLayout == WidgetFamilyLayout.COMPACT_2X1) 2 else 3
+    val selected = enabled.take(capacity)
+    if (selected.isEmpty()) return emptyList()
+    val selectedAppearance = appearance.copy(enabledMetrics = selected.toSet())
+    if (familyLayout != WidgetFamilyLayout.DETAIL_2X2 || selected.size < 3) {
+        return resolveHorizontalTherapyLayout(availableWidthDp, availableHeightDp, selectedAppearance)
+    }
+
+    val halfHeight = availableHeightDp / 2f
+    val top =
+        resolveHorizontalTherapyLayout(
+            availableWidthDp,
+            halfHeight,
+            appearance.copy(enabledMetrics = setOf(selected.first())),
+        )
+    val bottom =
+        resolveHorizontalTherapyLayout(
+            availableWidthDp,
+            halfHeight,
+            appearance.copy(enabledMetrics = selected.drop(1).toSet()),
+        ).map { indicator ->
+            indicator.copy(slot = indicator.slot.copy(centerYDp = indicator.slot.centerYDp + halfHeight))
+        }
+    return top + bottom
 }
 
 private fun widgetStatusLine(
@@ -1010,21 +1168,14 @@ internal fun renderWidgetGraph(
 
     if (showScaleAndAge) {
         val ageMinutes = TherapyDisplayFormatter.ageMinutesValue(state?.glucose?.measuredAtEpochMs, now)
-        val status =
-            buildString {
-                append(configuration.graphHours)
-                append("h")
-                if (ageMinutes != null) {
-                    append(" • ")
-                    append(ageMinutes)
-                    append("m")
-                }
-            }
+        val status = graphScaleAgeText(configuration.graphHours, ageMinutes)
         val inset = 6f * renderDensity
+        textPaint.color = palette.argb(graphScaleAgeColorRole(excursion))
         textPaint.textAlign = Paint.Align.LEFT
         textPaint.textSize = metrics.axisTextSizePx
         val baseline = graphBounds.top + inset - textPaint.fontMetrics.ascent
         canvas.drawText(status, graphBounds.left + inset, baseline, textPaint)
+        textPaint.color = text
     }
 
     textPaint.textAlign = Paint.Align.CENTER

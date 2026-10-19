@@ -115,6 +115,11 @@ The picker exposes 2x1, 2x2, and 4x2 graph presets. Intermediate launcher dimens
 - Graph previews include the scale/age label and high-background contrast color.
 - Existing Mobile control styles, color picker, sliders, reset behavior, and naming are reused.
 - The 2x1 glucose pill rule is presented as fixed rather than as an ineffective shape option.
+- The new glucose, graph, and therapy families use automatic geometry: 2x1 is always a pill; every larger size uses the Samsung-provided rounded widget radius, matching the compact 2x2 reference. Their settings do not expose a pill/standard selector.
+- Pre-existing provider entries remain available for compatibility and are clearly prefixed `Developer Widgets` in the picker; the new families use their product labels.
+- Every widget settings screen ends with one floating dark pill containing `Abbrechen | Speichern`, separated by a vertical divider.
+- Settings edits remain local while the screen is open. `Abbrechen` discards the complete edit session; `Speichern` persists the complete configuration for exactly that widget instance, refreshes it immediately, and closes the screen.
+- Back navigation behaves like cancellation and never silently persists a partial edit.
 
 ## Testing
 
@@ -134,6 +139,7 @@ Automated tests shall cover:
 - therapy layouts for one, two, and three enabled indicators;
 - no loading placeholder during resize or update;
 - configuration migration and missing-color resilience;
+- explicit save versus cancel behavior for the shared settings action pill;
 - render smoke tests at Samsung-reported 2x1, 2x2, and 4x2 dimensions.
 
 ## Validation
