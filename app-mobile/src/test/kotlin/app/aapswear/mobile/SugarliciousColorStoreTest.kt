@@ -5,7 +5,6 @@ import android.graphics.Color
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
-import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
 import app.aapswear.model.AppearanceMode
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +17,47 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class SugarliciousColorStoreTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
+
+    @Test
+    fun `fresh install uses approved mobile color profiles`() {
+        val preferences = context.getSharedPreferences("approved_color_defaults", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+
+        val dark = SugarliciousColorStore.load(preferences, AppearanceMode.DARK)
+        val light = SugarliciousColorStore.load(preferences, AppearanceMode.LIGHT)
+
+        mapOf(
+            SugarliciousColorRole.BACKGROUND to 0xFF191919.toInt(),
+            SugarliciousColorRole.SURFACE to 0xFF191919.toInt(),
+            SugarliciousColorRole.GRAPH_BACKGROUND to 0xFF191919.toInt(),
+            SugarliciousColorRole.GLUCOSE_LOW to 0xFFF73D45.toInt(),
+            SugarliciousColorRole.GLUCOSE_HIGH to 0xFFFCC93B.toInt(),
+            SugarliciousColorRole.RANGE_IN_RANGE to 0xFF202020.toInt(),
+            SugarliciousColorRole.PROGRESS_IN_RANGE to 0xFF4BFA7C.toInt(),
+            SugarliciousColorRole.CGM_DOT_LOW to Color.WHITE,
+            SugarliciousColorRole.CGM_DOT_IN_RANGE to Color.WHITE,
+            SugarliciousColorRole.CGM_DOT_HIGH to Color.WHITE,
+            SugarliciousColorRole.TARGET_VALUE to 0xFFDCDCDC.toInt(),
+            SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY to 0xFF24A4B0.toInt(),
+            SugarliciousColorRole.GRAPH_VERY_HIGH_LINE to 0x00FCC93B,
+            SugarliciousColorRole.GRAPH_VERY_LOW_LINE to 0x00F73D45,
+            SugarliciousColorRole.GRAPH_SIGNAL_LOSS to 0xB26E6E6E.toInt(),
+        ).forEach { (role, expected) -> assertEquals("dark ${role.name}", expected, dark.argb(role)) }
+
+        mapOf(
+            SugarliciousColorRole.GLUCOSE_IN_RANGE to Color.BLACK,
+            SugarliciousColorRole.GLUCOSE_HIGH to 0xFFF3C404.toInt(),
+            SugarliciousColorRole.RANGE_IN_RANGE to 0xFFEDEDED.toInt(),
+            SugarliciousColorRole.PROGRESS_IN_RANGE to 0xFF25C947.toInt(),
+            SugarliciousColorRole.CGM_DOT_LOW to Color.BLACK,
+            SugarliciousColorRole.CGM_DOT_IN_RANGE to Color.BLACK,
+            SugarliciousColorRole.CGM_DOT_HIGH to Color.BLACK,
+            SugarliciousColorRole.GRAPH_COB to 0xFFFF8F0D.toInt(),
+            SugarliciousColorRole.GRAPH_VERY_HIGH_LINE to 0x00FFFFFF,
+            SugarliciousColorRole.GRAPH_VERY_LOW_LINE to 0x00FFFFFF,
+            SugarliciousColorRole.GRAPH_SIGNAL_LOSS to 0x38808080,
+        ).forEach { (role, expected) -> assertEquals("light ${role.name}", expected, light.argb(role)) }
+    }
 
     @Test
     fun `every configurable color role round trips exact ARGB in dark and light mode`() {
@@ -54,7 +94,7 @@ class SugarliciousColorStoreTest {
         assertTrue(SugarliciousColorRole.TARGET_VALUE.configurable)
         assertEquals("target_value", SugarliciousColorRole.TARGET_VALUE.preferenceKey)
         assertEquals(
-            derivedTargetValueArgb(SugarliciousColorRole.RANGE_IN_RANGE.defaultArgb),
+            SugarliciousColorRole.TARGET_VALUE.defaultArgb,
             SugarliciousColorStore.load(preferences).argb(SugarliciousColorRole.TARGET_VALUE),
         )
     }

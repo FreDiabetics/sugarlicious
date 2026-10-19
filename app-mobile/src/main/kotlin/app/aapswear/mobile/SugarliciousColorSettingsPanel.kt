@@ -1237,8 +1237,7 @@ internal fun NotificationGraphSettingsPanel() {
     fun resolved(role: SugarliciousColorRole): Int =
         when {
             preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
-            role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-            else -> palette.argb(role)
+            else -> NotificationGraphColorDefaults.argb(palette, role)
         }
 
     val collapsedInitial =

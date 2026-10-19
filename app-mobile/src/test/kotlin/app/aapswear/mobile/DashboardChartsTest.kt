@@ -712,7 +712,7 @@ class DashboardChartsTest {
             listOf(
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB),
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB),
-                Color.rgb(242, 201, 76),
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY),
             )
 
         streamColors.forEach { color ->
@@ -1065,7 +1065,9 @@ class DashboardChartsTest {
             }
         val activityTop =
             (0 until bitmap.height).firstOrNull { y ->
-                (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
+                (0 until bitmap.width).any { x ->
+                    bitmap.getPixel(x, y) == SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
+                }
             } ?: bitmap.height
         assertTrue("activityTop=$activityTop", activityTop in (bitmap.height * 0.20).toInt()..(bitmap.height * 0.65).toInt())
     }
@@ -1111,7 +1113,7 @@ class DashboardChartsTest {
                     },
                     230,
                 )
-            val activityPixels = count(bitmap) { it == Color.rgb(242, 201, 76) }
+            val activityPixels = count(bitmap) { it == SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY) }
             assertTrue("mode=$mode activity=$activityPixels", activityPixels > 4)
         }
     }

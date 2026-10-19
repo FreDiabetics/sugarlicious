@@ -38,11 +38,11 @@ enum class SugarliciousColorRole(
         "background",
         AppearanceTerminology.APP_BACKGROUND,
         SugarliciousColorGroup.APP,
-        0xFF181818.toInt(),
+        0xFF191919.toInt(),
         0xFFF2F2F2.toInt(),
         true,
     ),
-    SURFACE("surface", AppearanceTerminology.SURFACE_BACKGROUND, SugarliciousColorGroup.APP, 0xFF242424.toInt(), 0xFFFDFDFD.toInt(), true),
+    SURFACE("surface", AppearanceTerminology.SURFACE_BACKGROUND, SugarliciousColorGroup.APP, 0xFF191919.toInt(), 0xFFFDFDFD.toInt(), true),
     SURFACE_HIGH("surface_high", "Erhöhte Fläche", SugarliciousColorGroup.APP, 0xFF303030.toInt(), 0xFFE7E7E7.toInt()),
     SURFACE_RAISED("surface_raised", "Progress-/Raised-Fläche", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt()),
     SURFACE_SELECTED("surface_selected", "Ausgewählte Fläche", SugarliciousColorGroup.APP, 0xFF3A3A3A.toInt(), 0xFFDCE8DF.toInt()),
@@ -71,27 +71,28 @@ enum class SugarliciousColorRole(
         true,
     ),
 
-    GLUCOSE_LOW("glucose_low", AppearanceTerminology.GLUCOSE_LOW, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    GLUCOSE_LOW("glucose_low", AppearanceTerminology.GLUCOSE_LOW, SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), 0xFFFF5C69.toInt(), true),
     GLUCOSE_IN_RANGE(
         "glucose_in_range",
         AppearanceTerminology.GLUCOSE_IN_RANGE,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFF5F5F5.toInt(),
-        0xFF202020.toInt(),
+        0xFFFFFFFF.toInt(),
+        0xFF000000.toInt(),
         true,
     ),
     GLUCOSE_HIGH(
         "glucose_high",
         AppearanceTerminology.GLUCOSE_HIGH,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFD040.toInt(),
-        0xFFD47D00.toInt(),
+        0xFFFCC93B.toInt(),
+        0xFFF3C404.toInt(),
         true,
     ),
     GLUCOSE_VERY_LOW(
         "glucose_very_low",
         AppearanceTerminology.GLUCOSE_VERY_LOW,
         SugarliciousColorGroup.GLUCOSE,
+        0xFFF73D45.toInt(),
         0xFFFF5C69.toInt(),
         configurable = true,
     ),
@@ -99,15 +100,16 @@ enum class SugarliciousColorRole(
         "glucose_very_high",
         AppearanceTerminology.GLUCOSE_VERY_HIGH,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFD040.toInt(),
+        0xFFFCC93B.toInt(),
         0xFFD47D00.toInt(),
         true,
     ),
-    RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA, SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA, SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), 0xFFFF5C69.toInt(), true),
     RANGE_VERY_LOW(
         "range_very_low",
         AppearanceTerminology.GRAPH_VERY_LOW_AREA,
         SugarliciousColorGroup.GLUCOSE,
+        0xFFF73D45.toInt(),
         0xFFFF3347.toInt(),
         configurable = true,
     ),
@@ -115,55 +117,56 @@ enum class SugarliciousColorRole(
         "range_in_range",
         AppearanceTerminology.GRAPH_TARGET_AREA,
         SugarliciousColorGroup.GLUCOSE,
-        0xFF54DF30.toInt(),
-        0xFF2E9C45.toInt(),
+        0xFF202020.toInt(),
+        0xFFEDEDED.toInt(),
         true,
     ),
     RANGE_HIGH(
         "range_high",
         AppearanceTerminology.GRAPH_HIGH_AREA,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFD040.toInt(),
-        0xFFD47D00.toInt(),
+        0xFFFCC93B.toInt(),
+        0xFFF3C404.toInt(),
         true,
     ),
     RANGE_VERY_HIGH(
         "range_very_high",
         AppearanceTerminology.GRAPH_VERY_HIGH_AREA,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFA000.toInt(),
+        0xFFFCC93B.toInt(),
         0xFFC86400.toInt(),
         true,
     ),
-    PROGRESS_BELOW("progress_below", "Progressbar · unter Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFFF5C69.toInt(), configurable = true),
+    PROGRESS_BELOW("progress_below", "Progressbar · unter Ziel", SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), 0xFFFF5C69.toInt(), true),
     PROGRESS_IN_RANGE(
         "progress_in_range",
         "Progressbar · im Ziel",
         SugarliciousColorGroup.GLUCOSE,
-        0xFF54DF30.toInt(),
-        0xFF2E9C45.toInt(),
+        0xFF4BFA7C.toInt(),
+        0xFF25C947.toInt(),
         true,
     ),
     PROGRESS_ABOVE(
         "progress_above",
         "Progressbar · über Ziel",
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFD040.toInt(),
-        0xFFD47D00.toInt(),
+        0xFFFCC93B.toInt(),
+        0xFFF3C404.toInt(),
         true,
     ),
     CGM_DOT_LOW(
         "cgm_dot_low",
         AppearanceTerminology.GRAPH_DOT_LOW,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFF5C69.toInt(),
+        0xFFFFFFFF.toInt(),
+        0xFF000000.toInt(),
         configurable = true,
     ),
     CGM_DOT_IN_RANGE(
         "cgm_dot_in_range",
         AppearanceTerminology.GRAPH_DOT_IN_RANGE,
         SugarliciousColorGroup.GLUCOSE,
-        0xFF54DF30.toInt(),
+        0xFFFFFFFF.toInt(),
         0xFF000000.toInt(),
         true,
     ),
@@ -171,8 +174,8 @@ enum class SugarliciousColorRole(
         "cgm_dot_high",
         AppearanceTerminology.GRAPH_DOT_HIGH,
         SugarliciousColorGroup.GLUCOSE,
-        0xFFFFD040.toInt(),
-        0xFFD47D00.toInt(),
+        0xFFFFFFFF.toInt(),
+        0xFF000000.toInt(),
         true,
     ),
 
@@ -185,8 +188,8 @@ enum class SugarliciousColorRole(
         "target_value",
         AppearanceTerminology.GRAPH_TARGET_VALUE,
         SugarliciousColorGroup.GLUCOSE,
-        0xFF5AF034.toInt(),
-        0xFF47F06A.toInt(),
+        0xFFDCDCDC.toInt(),
+        0xFFF0F0F0.toInt(),
         true,
     ),
 
@@ -220,17 +223,17 @@ enum class SugarliciousColorRole(
         "graph_background",
         AppearanceTerminology.GRAPH_BACKGROUND,
         SugarliciousColorGroup.GRAPH,
-        0xFF202020.toInt(),
+        0xFF191919.toInt(),
         0xFFFFFFFF.toInt(),
         true,
     ),
     GRAPH_IOB("graph_iob", "IOB", SugarliciousColorGroup.GRAPH, 0xFF64BFFF.toInt(), 0xFF2479B7.toInt(), true),
-    GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFBD6500.toInt(), true),
+    GRAPH_COB("graph_cob", "COB", SugarliciousColorGroup.GRAPH, 0xFFFF9D18.toInt(), 0xFFFF8F0D.toInt(), true),
     GRAPH_INSULIN_ACTIVITY(
         "graph_insulin_activity",
         "Insulinaktivität",
         SugarliciousColorGroup.GRAPH,
-        0xFFF2C94C.toInt(),
+        0xFF24A4B0.toInt(),
         0xFFB17D00.toInt(),
         true,
     ),
@@ -248,7 +251,7 @@ enum class SugarliciousColorRole(
         "graph_high_line",
         AppearanceTerminology.GRAPH_HIGH_LINE,
         SugarliciousColorGroup.GRAPH,
-        0xFFFFD040.toInt(),
+        0xFFFCC93B.toInt(),
         0xFFD47D00.toInt(),
         true,
     ),
@@ -256,14 +259,15 @@ enum class SugarliciousColorRole(
         "graph_very_high_line",
         AppearanceTerminology.GRAPH_VERY_HIGH_LINE,
         SugarliciousColorGroup.GRAPH,
-        0xFFFFA000.toInt(),
-        0xFFC86400.toInt(),
+        0x00FCC93B,
+        0x00FFFFFF,
         true,
     ),
     GRAPH_LOW_LINE(
         "graph_low_line",
         AppearanceTerminology.GRAPH_LOW_LINE,
         SugarliciousColorGroup.GRAPH,
+        0xFFF73D45.toInt(),
         0xFFFF5C69.toInt(),
         configurable = true,
     ),
@@ -271,7 +275,8 @@ enum class SugarliciousColorRole(
         "graph_very_low_line",
         AppearanceTerminology.GRAPH_VERY_LOW_LINE,
         SugarliciousColorGroup.GRAPH,
-        0xFFFF3347.toInt(),
+        0x00F73D45,
+        0x00FFFFFF,
         configurable = true,
     ),
     GRAPH_NOW_LINE(
@@ -292,7 +297,7 @@ enum class SugarliciousColorRole(
         true,
     ),
     GRAPH_BORDER("graph_border", AppearanceTerminology.GRAPH_BORDER, SugarliciousColorGroup.GRAPH, 0xFF969696.toInt()),
-    GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0x46FF5C69, 0x38D11A2A, true),
+    GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0xB26E6E6E.toInt(), 0x38808080, true),
     GRAPH_CURRENT_OUTLINE("graph_current_outline", "Aktueller Punkt · Kontur", SugarliciousColorGroup.GRAPH, 0xFF000000.toInt()),
     ;
 
@@ -386,49 +391,49 @@ object SugarliciousColorStore {
                             role.defaultArgb
                     }
                 }.toMutableMap()
-        val targetRole = SugarliciousColorRole.TARGET_VALUE
-        val targetHasExplicitColor =
-            preferences.contains(prefix + targetRole.preferenceKey) ||
-                preferences.contains(OVERRIDE_PREFIX + targetRole.preferenceKey) ||
-                preferences.contains(LEGACY_PREFIX + targetRole.preferenceKey)
-        if (!targetHasExplicitColor) {
-            values[targetRole] = derivedTargetValueArgb(values.getValue(SugarliciousColorRole.RANGE_IN_RANGE))
-        }
 
         fun hasExplicit(role: SugarliciousColorRole): Boolean =
             preferences.contains(prefix + role.preferenceKey) ||
                 preferences.contains(OVERRIDE_PREFIX + role.preferenceKey) ||
                 preferences.contains(LEGACY_PREFIX + role.preferenceKey)
-        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW)) {
+
+        val targetRole = SugarliciousColorRole.TARGET_VALUE
+        val targetHasExplicitColor =
+            hasExplicit(targetRole)
+        if (!targetHasExplicitColor && hasExplicit(SugarliciousColorRole.RANGE_IN_RANGE)) {
+            values[targetRole] = derivedTargetValueArgb(values.getValue(SugarliciousColorRole.RANGE_IN_RANGE))
+        }
+
+        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW) && hasExplicit(SugarliciousColorRole.GLUCOSE_LOW)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_LOW)
         }
-        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH)) {
+        if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH) && hasExplicit(SugarliciousColorRole.GLUCOSE_HIGH)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_HIGH)
         }
-        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_LOW)) {
+        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_LOW) && hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW)) {
             values[SugarliciousColorRole.RANGE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_LOW)
         }
-        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_HIGH)) {
+        if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_HIGH) && hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH)) {
             values[SugarliciousColorRole.RANGE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_HIGH)
         }
         // Keep existing installs visually unchanged while giving every graph element its own
         // independently configurable semantic role from now on.
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_HIGH_LINE)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_HIGH_LINE) && hasExplicit(SugarliciousColorRole.RANGE_HIGH)) {
             values[SugarliciousColorRole.GRAPH_HIGH_LINE] = values.getValue(SugarliciousColorRole.RANGE_HIGH)
         }
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_LOW_LINE)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_LOW_LINE) && hasExplicit(SugarliciousColorRole.RANGE_LOW)) {
             values[SugarliciousColorRole.GRAPH_LOW_LINE] = values.getValue(SugarliciousColorRole.RANGE_LOW)
         }
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_LOW_LINE)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_LOW_LINE) && hasExplicit(SugarliciousColorRole.RANGE_VERY_LOW)) {
             values[SugarliciousColorRole.GRAPH_VERY_LOW_LINE] = values.getValue(SugarliciousColorRole.RANGE_VERY_LOW)
         }
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_HIGH_LINE)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_VERY_HIGH_LINE) && hasExplicit(SugarliciousColorRole.RANGE_VERY_HIGH)) {
             values[SugarliciousColorRole.GRAPH_VERY_HIGH_LINE] = values.getValue(SugarliciousColorRole.RANGE_VERY_HIGH)
         }
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_AXIS_TICK)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_AXIS_TICK) && hasExplicit(SugarliciousColorRole.GRAPH_DIVIDER)) {
             values[SugarliciousColorRole.GRAPH_AXIS_TICK] = values.getValue(SugarliciousColorRole.GRAPH_DIVIDER)
         }
-        if (!hasExplicit(SugarliciousColorRole.GRAPH_NOW_LINE)) {
+        if (!hasExplicit(SugarliciousColorRole.GRAPH_NOW_LINE) && hasExplicit(SugarliciousColorRole.GRAPH_DIVIDER)) {
             values[SugarliciousColorRole.GRAPH_NOW_LINE] = values.getValue(SugarliciousColorRole.GRAPH_DIVIDER)
         }
 
