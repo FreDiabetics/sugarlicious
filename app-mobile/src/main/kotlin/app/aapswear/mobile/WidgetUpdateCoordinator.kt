@@ -16,6 +16,15 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
+internal class DurableUpdateDispatcher<T>(
+    private val scope: CoroutineScope,
+    private val update: suspend (T) -> Unit,
+) {
+    fun request(value: T) {
+        scope.launch(start = CoroutineStart.UNDISPATCHED) { update(value) }
+    }
+}
+
 internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
     private val scope: CoroutineScope,
     private val render: suspend (K, V) -> Unit,
@@ -148,8 +157,19 @@ internal object WidgetRenderStateCache {
 }
 
 internal object SugarliciousWidgetUpdateCoordinator {
+    private data class InstanceRequest(
+        val context: Context,
+        val appWidgetId: Int,
+        val kind: ConfigurableWidgetKind,
+    )
+
     private val initialization = Mutex()
     private var coordinator: LatestWinsSurfaceCoordinator<WidgetUpdateTarget, WidgetRenderRequest>? = null
+    private val durableInstanceUpdates =
+        DurableUpdateDispatcher<InstanceRequest>(CoroutineScope(SupervisorJob() + Dispatchers.Default)) { request ->
+            val (target, revision) = submitInstance(request.context, request.appWidgetId, request.kind)
+            flush(request.context, target, revision)
+        }
 
     private suspend fun instance(context: Context): LatestWinsSurfaceCoordinator<WidgetUpdateTarget, WidgetRenderRequest> {
         coordinator?.let { return it }
@@ -209,6 +229,14 @@ internal object SugarliciousWidgetUpdateCoordinator {
         val revision = WidgetSurfaceRevision.next()
         instance(context).submit(target, revision, WidgetRenderRequest(context.applicationContext, null))
         return target to revision
+    }
+
+    fun requestInstanceUpdate(
+        context: Context,
+        appWidgetId: Int,
+        kind: ConfigurableWidgetKind,
+    ) {
+        durableInstanceUpdates.request(InstanceRequest(context.applicationContext, appWidgetId, kind))
     }
 
     suspend fun flush(

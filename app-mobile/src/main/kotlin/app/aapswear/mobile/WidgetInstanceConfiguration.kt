@@ -40,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.edit
-import androidx.lifecycle.lifecycleScope
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
 import app.aapswear.model.AppearanceControlContract
@@ -58,7 +57,6 @@ import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.model.TrendArrowStyleOverride
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as ComposeColor
 
@@ -78,9 +76,16 @@ internal enum class ConfigurableWidgetKind(
 internal fun configurableWidgetKind(providerClassName: String?): ConfigurableWidgetKind =
     when {
         providerClassName?.endsWith("GlucoseGraphWidgetReceiver") == true -> ConfigurableWidgetKind.GLUCOSE_GRAPH
-        providerClassName?.endsWith("GraphWidgetReceiver") == true -> ConfigurableWidgetKind.GRAPH
+        providerClassName?.contains("GraphWidget") == true -> ConfigurableWidgetKind.GRAPH
         providerClassName?.endsWith("MetabolicWidgetReceiver") == true -> ConfigurableWidgetKind.METABOLIC
         else -> ConfigurableWidgetKind.GLUCOSE
+    }
+
+internal fun widgetProviderPreset(providerClassName: String?): WidgetFamilyLayout =
+    when {
+        providerClassName?.contains("4x2") == true -> WidgetFamilyLayout.WIDE_4X2
+        providerClassName?.contains("2x2") == true -> WidgetFamilyLayout.DETAIL_2X2
+        else -> WidgetFamilyLayout.COMPACT_2X1
     }
 
 internal data class WidgetInstanceConfiguration(
@@ -108,6 +113,17 @@ internal data class WidgetInstanceConfiguration(
     val showGlucoseUnit: Boolean = true,
     val glucoseBold: Boolean = true,
     val deltaUnitBold: Boolean = true,
+    val showDelta: Boolean = false,
+    val showAge: Boolean = false,
+    val deltaScalePercent: Int = 100,
+    val deltaOffsetXDp: Int = 0,
+    val deltaOffsetYDp: Int = 0,
+    val ageScalePercent: Int = 100,
+    val ageOffsetXDp: Int = 0,
+    val ageOffsetYDp: Int = 0,
+    val unitScalePercent: Int = 100,
+    val unitOffsetXDp: Int = 0,
+    val unitOffsetYDp: Int = 0,
     val cgmDotRadiusDp: Float = CgmGraphVisualPolicy.DOT_RADIUS_DP,
     val historicalDotOutlineEnabled: Boolean = true,
     val currentDotOutlineEnabled: Boolean = true,
@@ -155,6 +171,40 @@ internal object WidgetSystemDefaults {
                     therapyProgressAppearance = TherapyProgressAppearance(gapDp = 20),
                 )
         }
+
+    fun forNewInstance(
+        context: Context,
+        kind: ConfigurableWidgetKind,
+    ): WidgetInstanceConfiguration = snapshotInheritedSettings(context, forKind(kind))
+}
+
+private fun TrendArrowStyle.asCompleteOverride(): TrendArrowStyleOverride =
+    TrendArrowStyleOverride(
+        fillColor = fillColor,
+        outlineEnabled = outlineEnabled,
+        outlineColor = outlineColor,
+        outlineThicknessDp = outlineThicknessDp,
+        sizePercent = sizePercent,
+        alpha = alpha,
+    )
+
+private fun snapshotInheritedSettings(
+    context: Context,
+    value: WidgetInstanceConfiguration,
+): WidgetInstanceConfiguration {
+    val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+    val darkPalette = WidgetColorStore.load(context, AppearanceMode.DARK)
+    val lightPalette = WidgetColorStore.load(context, AppearanceMode.LIGHT)
+    val darkColors = WidgetColorRole.entries.associateWith(darkPalette::argb) + value.colorOverrides
+    val lightColors = WidgetColorRole.entries.associateWith(lightPalette::argb) + value.lightColorOverrides
+    val darkTrend = value.trendStyle(AppearanceMode.DARK, MobileTrendArrowAppearance.load(preferences, AppearanceMode.DARK))
+    val lightTrend = value.trendStyle(AppearanceMode.LIGHT, MobileTrendArrowAppearance.load(preferences, AppearanceMode.LIGHT))
+    return value.copy(
+        colorOverrides = darkColors,
+        lightColorOverrides = lightColors,
+        darkTrendStyle = darkTrend.asCompleteOverride(),
+        lightTrendStyle = lightTrend.asCompleteOverride(),
+    )
 }
 
 internal fun toggleTherapyMetric(
@@ -227,6 +277,7 @@ internal fun WidgetInstanceConfiguration.withColorOverride(
 
 internal object WidgetInstanceConfigurationStore {
     private const val PREFS = "widget_instance_configuration"
+    private const val ISOLATED_PROFILE_VERSION = 2
 
     private fun key(
         id: Int,
@@ -324,6 +375,17 @@ internal object WidgetInstanceConfigurationStore {
             showGlucoseUnit = prefs.getBoolean(key(appWidgetId, "show_glucose_unit"), true),
             glucoseBold = prefs.getBoolean(key(appWidgetId, "glucose_bold"), true),
             deltaUnitBold = prefs.getBoolean(key(appWidgetId, "delta_unit_bold"), true),
+            showDelta = prefs.getBoolean(key(appWidgetId, "show_delta"), false),
+            showAge = prefs.getBoolean(key(appWidgetId, "show_age"), false),
+            deltaScalePercent = prefs.getInt(key(appWidgetId, "delta_scale"), 100),
+            deltaOffsetXDp = prefs.getInt(key(appWidgetId, "delta_x"), 0),
+            deltaOffsetYDp = prefs.getInt(key(appWidgetId, "delta_y"), 0),
+            ageScalePercent = prefs.getInt(key(appWidgetId, "age_scale"), 100),
+            ageOffsetXDp = prefs.getInt(key(appWidgetId, "age_x"), 0),
+            ageOffsetYDp = prefs.getInt(key(appWidgetId, "age_y"), 0),
+            unitScalePercent = prefs.getInt(key(appWidgetId, "unit_scale"), 100),
+            unitOffsetXDp = prefs.getInt(key(appWidgetId, "unit_x"), 0),
+            unitOffsetYDp = prefs.getInt(key(appWidgetId, "unit_y"), 0),
             cgmDotRadiusDp =
                 prefs
                     .getFloat(key(appWidgetId, "cgm_dot_radius_dp"), CgmGraphVisualPolicy.DOT_RADIUS_DP)
@@ -354,6 +416,22 @@ internal object WidgetInstanceConfigurationStore {
         )
     }
 
+    fun readIsolated(
+        context: Context,
+        appWidgetId: Int,
+        kind: ConfigurableWidgetKind,
+    ): WidgetInstanceConfiguration {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val versionKey = key(appWidgetId, "isolated_profile_version")
+        if (prefs.getInt(versionKey, 0) >= ISOLATED_PROFILE_VERSION) return read(context, appWidgetId)
+
+        val source = if (hasStoredConfiguration(context, appWidgetId)) read(context, appWidgetId) else WidgetSystemDefaults.forKind(kind)
+        val isolated = snapshotInheritedSettings(context, source)
+        save(context, appWidgetId, isolated)
+        prefs.edit { putInt(versionKey, ISOLATED_PROFILE_VERSION) }
+        return isolated
+    }
+
     fun save(
         context: Context,
         appWidgetId: Int,
@@ -381,6 +459,17 @@ internal object WidgetInstanceConfigurationStore {
             putBoolean(key(appWidgetId, "show_glucose_unit"), value.showGlucoseUnit)
             putBoolean(key(appWidgetId, "glucose_bold"), value.glucoseBold)
             putBoolean(key(appWidgetId, "delta_unit_bold"), value.deltaUnitBold)
+            putBoolean(key(appWidgetId, "show_delta"), value.showDelta)
+            putBoolean(key(appWidgetId, "show_age"), value.showAge)
+            putInt(key(appWidgetId, "delta_scale"), value.deltaScalePercent)
+            putInt(key(appWidgetId, "delta_x"), value.deltaOffsetXDp)
+            putInt(key(appWidgetId, "delta_y"), value.deltaOffsetYDp)
+            putInt(key(appWidgetId, "age_scale"), value.ageScalePercent)
+            putInt(key(appWidgetId, "age_x"), value.ageOffsetXDp)
+            putInt(key(appWidgetId, "age_y"), value.ageOffsetYDp)
+            putInt(key(appWidgetId, "unit_scale"), value.unitScalePercent)
+            putInt(key(appWidgetId, "unit_x"), value.unitOffsetXDp)
+            putInt(key(appWidgetId, "unit_y"), value.unitOffsetYDp)
             putFloat(key(appWidgetId, "cgm_dot_radius_dp"), value.cgmDotRadiusDp.coerceIn(1.5f, 6f))
             putBoolean(key(appWidgetId, "historical_dot_outline_enabled"), value.historicalDotOutlineEnabled)
             putBoolean(key(appWidgetId, "current_dot_outline_enabled"), true)
@@ -423,9 +512,11 @@ internal object WidgetInstanceConfigurationStore {
     ): TrendArrowStyleOverride {
         val p = key(id, "${mode.storageKey}.trend.")
         return TrendArrowStyleOverride(
+            fillColor = prefs.getInt(p + "fillColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
             outlineEnabled = if (prefs.contains(p + "outlineEnabled")) prefs.getBoolean(p + "outlineEnabled", false) else null,
             outlineColor = prefs.getInt(p + "outlineColor", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
             outlineThicknessDp = prefs.getFloat(p + "outlineThickness", Float.NaN).takeUnless { it.isNaN() },
+            sizePercent = prefs.getInt(p + "sizePercent", Int.MIN_VALUE).takeUnless { it == Int.MIN_VALUE },
             alpha = prefs.getFloat(p + "alpha", Float.NaN).takeUnless { it.isNaN() },
         )
     }
@@ -437,9 +528,11 @@ internal object WidgetInstanceConfigurationStore {
         style: TrendArrowStyleOverride,
     ) {
         val p = key(id, "${mode.storageKey}.trend.")
+        style.fillColor?.let { editor.putInt(p + "fillColor", it) } ?: editor.remove(p + "fillColor")
         style.outlineEnabled?.let { editor.putBoolean(p + "outlineEnabled", it) } ?: editor.remove(p + "outlineEnabled")
         style.outlineColor?.let { editor.putInt(p + "outlineColor", it) } ?: editor.remove(p + "outlineColor")
         style.outlineThicknessDp?.let { editor.putFloat(p + "outlineThickness", it) } ?: editor.remove(p + "outlineThickness")
+        style.sizePercent?.let { editor.putInt(p + "sizePercent", it) } ?: editor.remove(p + "sizePercent")
         style.alpha?.let { editor.putFloat(p + "alpha", it) } ?: editor.remove(p + "alpha")
     }
 
@@ -529,9 +622,9 @@ class WidgetConfigurationActivity : ComponentActivity() {
         val widgetKind = configurableWidgetKind(manager.getAppWidgetInfo(appWidgetId)?.provider?.className)
         val initial =
             if (WidgetInstanceConfigurationStore.hasStoredConfiguration(this, appWidgetId)) {
-                WidgetInstanceConfigurationStore.read(this, appWidgetId)
+                WidgetInstanceConfigurationStore.readIsolated(this, appWidgetId, widgetKind)
             } else {
-                WidgetSystemDefaults.forKind(widgetKind)
+                WidgetSystemDefaults.forNewInstance(this, widgetKind)
             }
         currentWidgetKind = widgetKind
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
@@ -549,6 +642,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 val appearance = value.resolvedAppearance(selectedMode)
                 val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
+                val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
                 currentConfiguration = value
                 LaunchedEffect(value) {
                     WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)
@@ -617,7 +711,35 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                             role
                                     },
                                 ) {
-                                    value = value.withColorOverride(selectedMode, role, null)
+                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                }
+                            }
+                        }
+                        if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
+                            WidgetSettingsSection("Delta und Alter") {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.showDelta, { value = value.copy(showDelta = it) })
+                                    Text("Delta anzeigen", color = ComposeColor.White)
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(value.showAge, { value = value.copy(showAge = it) })
+                                    Text("Alter anzeigen", color = ComposeColor.White)
+                                }
+                                listOf(
+                                    Triple("Delta", value.deltaScalePercent, { v: Int -> value = value.copy(deltaScalePercent = v) }),
+                                    Triple("Alter", value.ageScalePercent, { v: Int -> value = value.copy(ageScalePercent = v) }),
+                                    Triple("Maßeinheit", value.unitScalePercent, { v: Int -> value = value.copy(unitScalePercent = v) }),
+                                ).forEach { (label, setting, update) -> WidgetPercentSlider("$label Größe", setting, onChange = update) }
+                                WidgetPercentSlider("Delta X", value.deltaOffsetXDp, -40..40, "dp") { value = value.copy(deltaOffsetXDp = it) }
+                                WidgetPercentSlider("Delta Y", value.deltaOffsetYDp, -40..40, "dp") { value = value.copy(deltaOffsetYDp = it) }
+                                WidgetPercentSlider("Alter X", value.ageOffsetXDp, -40..40, "dp") { value = value.copy(ageOffsetXDp = it) }
+                                WidgetPercentSlider("Alter Y", value.ageOffsetYDp, -40..40, "dp") { value = value.copy(ageOffsetYDp = it) }
+                                WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
+                                WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
+                                listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT).forEach { role ->
+                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role }) {
+                                        value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
+                                    }
                                 }
                             }
                         }
@@ -633,7 +755,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                             role
                                     },
                                 ) {
-                                    value = value.withColorOverride(selectedMode, role, null)
+                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
                                 }
                             }
                             val trendOverride = if (selectedMode == AppearanceMode.LIGHT) value.lightTrendStyle else value.darkTrendStyle
@@ -646,7 +768,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             }
                             if (trendAppearance.outlineEnabled) {
                                 WidgetColorSetting("Trend-Kontur", trendAppearance.outlineColor, { editTrendOutline = true }) {
-                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineColor = null))
+                                    value = value.withTrendStyle(selectedMode, trendOverride.copy(outlineColor = parentTrendStyle.outlineColor))
                                 }
                                 WidgetPercentSlider(
                                     "Konturdicke",
@@ -671,7 +793,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                             value =
                                                 value.withTrendStyle(
                                                     selectedMode,
-                                                    TrendArrowStyleOverride(),
+                                                    parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride(),
                                                 )
                                         }.padding(vertical = 8.dp),
                             )
@@ -773,7 +895,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                             role
                                     },
                                 ) {
-                                    value = value.withColorOverride(selectedMode, role, null)
+                                    value = value.withColorOverride(selectedMode, role, resetPalette.argb(role))
                                 }
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -790,7 +912,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                                 selectedMode,
                                             ).argb(WidgetColorRole.DOT_OUTLINE),
                                     { editRole = WidgetColorRole.DOT_OUTLINE },
-                                ) { value = value.withColorOverride(selectedMode, WidgetColorRole.DOT_OUTLINE, null) }
+                                ) {
+                                    value =
+                                        value.withColorOverride(
+                                            selectedMode,
+                                            WidgetColorRole.DOT_OUTLINE,
+                                            resetPalette.argb(WidgetColorRole.DOT_OUTLINE),
+                                        )
+                                }
                                 WidgetPercentSlider(
                                     label = app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
                                     value = (value.historicalDotOutlineWidthDp * 100f).roundToInt(),
@@ -814,7 +943,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                                 selectedMode,
                                             ).argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
                                     { editRole = WidgetColorRole.CURRENT_DOT_OUTLINE },
-                                ) { value = value.withColorOverride(selectedMode, WidgetColorRole.CURRENT_DOT_OUTLINE, null) }
+                                ) {
+                                    value =
+                                        value.withColorOverride(
+                                            selectedMode,
+                                            WidgetColorRole.CURRENT_DOT_OUTLINE,
+                                            resetPalette.argb(WidgetColorRole.CURRENT_DOT_OUTLINE),
+                                        )
+                                }
                                 WidgetPercentSlider(
                                     label = app.aapswear.model.AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
                                     value = (value.currentDotOutlineWidthDp * 100f).roundToInt(),
@@ -899,20 +1035,12 @@ class WidgetConfigurationActivity : ComponentActivity() {
         setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
     }
 
-    override fun onStop() {
+    override fun onPause() {
         currentConfiguration?.let { configuration ->
             WidgetInstanceConfigurationStore.save(this, appWidgetId, configuration)
-            lifecycleScope.launch {
-                val (target, revision) =
-                    SugarliciousWidgetUpdateCoordinator.submitInstance(
-                        this@WidgetConfigurationActivity,
-                        appWidgetId,
-                        currentWidgetKind,
-                    )
-                SugarliciousWidgetUpdateCoordinator.flush(this@WidgetConfigurationActivity, target, revision)
-            }
+            SugarliciousWidgetUpdateCoordinator.requestInstanceUpdate(this, appWidgetId, currentWidgetKind)
         }
-        super.onStop()
+        super.onPause()
     }
 }
 

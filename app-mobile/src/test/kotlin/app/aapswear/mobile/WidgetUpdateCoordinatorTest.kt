@@ -2,7 +2,10 @@ package app.aapswear.mobile
 
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -11,6 +14,25 @@ import org.junit.Test
 import java.util.Collections
 
 class WidgetUpdateCoordinatorTest {
+    @Test
+    fun `durable dispatcher completes update after activity scope is cancelled`() =
+        runBlocking {
+            val activityScope = CoroutineScope(coroutineContext + SupervisorJob())
+            val processScope = CoroutineScope(coroutineContext + SupervisorJob())
+            val rendered = CompletableDeferred<Int>()
+            val dispatcher =
+                DurableUpdateDispatcher<Int>(processScope) { value ->
+                    delay(1)
+                    rendered.complete(value)
+                }
+
+            dispatcher.request(42)
+            activityScope.cancel()
+
+            assertEquals(42, rendered.await())
+            processScope.cancel()
+        }
+
     @Test
     fun `active render is followed only by newest pending revision`() =
         runBlocking {
