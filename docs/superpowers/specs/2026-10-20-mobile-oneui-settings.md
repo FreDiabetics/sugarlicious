@@ -68,3 +68,36 @@ accent, chevron, card spacing and child-page top inset follow the reference.
   hardware matrix is not claimed as validated.
 - Existing additional widget providers remain directly selectable per the
   user's explicit decision; no aggregate provider introduced.
+
+## Late styling override root cause
+
+Physical comparison additionally exposed the obsolete custom
+SugarliciousDashboardContent.onViewAdded pass: it overwrote headings, fonts,
+card geometry, divider alpha and Switch tints after the factory configured
+them, using user therapy colors. The only XML use is replaced with a plain
+LinearLayout and the obsolete class removed. A regression using red primary
+and green therapy text failed with a green settings heading before removal,
+then passed with the device accent. Native settings values/persistence remain
+unchanged. Row ripple feedback is explicitly owned by the menu factory now.
+
+The shared native Switch keeps Android interaction/accessibility while using
+the measured reference geometry: 16dp knob within a 20dp-high, 32dp-wide track.
+The thumb has explicit vertical insets; matching public track padding prevents
+Android Switch optical-inset handling from shrinking the painted track. The
+measure/layout/draw regression detected both the initial 16x20 oval and the
+subsequent track shrink, then passed with a 16x16 knob and 2dp top gap. No hidden
+APIs/assets are used. Final root-cause results below supersede earlier counts.
+
+## Final root-cause verification
+
+- 458 Mobile tests, zero failures/errors. Debug/release APKs, lint, detekt and
+  ktlintCheck passed together (`mobile-oneui-complete-gates.log`, 2m08).
+  Two test formatting violations were corrected; no checks were weakened.
+- Installed successfully on SM_S948B Android17. Final root, Allgemein and
+  Übersicht und Graphen pages were inspected on the physical device, including
+  palette, typography, radio rows, sliders and switch geometry. No setting
+  values were changed for inspection. Light-mode/large-font hardware matrix
+  remains open; exact private Samsung component parity is not asserted.
+- Read-only follow-up review found no further concrete geometry/regression
+  issue after accounting for Switch optical insets. Two pre-existing
+  notification lint warnings remain outside this menu change.

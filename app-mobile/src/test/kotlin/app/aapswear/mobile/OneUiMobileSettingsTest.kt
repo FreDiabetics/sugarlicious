@@ -1,6 +1,7 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -13,6 +14,31 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class OneUiMobileSettingsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
+
+    @Test
+    fun `Samsung switch thumb stays inside its taller rounded track`() {
+        val toggle = mobileSettingsSwitch(context, true) {}
+        val density = context.resources.displayMetrics.density
+        val width = (64 * density).toInt()
+        val height = (48 * density).toInt()
+        toggle.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
+        toggle.layout(0, 0, width, height)
+        val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        try {
+            toggle.draw(android.graphics.Canvas(bitmap))
+            val thumb = toggle.thumbDrawable
+            val visibleThumb = if (thumb is android.graphics.drawable.InsetDrawable) thumb.drawable!! else thumb
+            assertEquals((16 * density).toInt(), visibleThumb.bounds.width())
+            assertEquals((16 * density).toInt(), visibleThumb.bounds.height())
+            assertEquals((20 * density).toInt(), toggle.trackDrawable.bounds.height())
+            assertEquals((2 * density).toInt(), visibleThumb.bounds.top - toggle.trackDrawable.bounds.top)
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     @Test
     @Config(sdk = [26])

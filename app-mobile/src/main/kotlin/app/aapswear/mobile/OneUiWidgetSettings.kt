@@ -376,6 +376,7 @@ internal fun WidgetSettingsToggle(checked: Boolean, onCheckedChange: ((Boolean) 
         factory = { context ->
             android.widget.Switch(context).apply {
                 showText = false
+                styleMobileSettingsSwitch(this)
                 gravity = Gravity.CENTER_VERTICAL or Gravity.END
                 setOnCheckedChangeListener { _, value -> if (value != currentChecked) callback?.invoke(value) }
             }

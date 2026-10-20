@@ -1,19 +1,79 @@
 package app.aapswear.mobile
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.InsetDrawable
 import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.widget.Switch
+import kotlin.math.roundToInt
 
 /** Public device widgets retain Samsung's installed theme and accessibility. */
 internal fun mobileSettingsSwitch(context: Context, checked: Boolean, onChanged: (Boolean) -> Unit): Switch =
     Switch(mobileSettingsControlContext(context)).apply {
         showText = false
         gravity = Gravity.CENTER_VERTICAL or Gravity.END
+        styleMobileSettingsSwitch(this)
         isChecked = checked
         setOnCheckedChangeListener { _, selected -> onChanged(selected) }
+    }
+
+/** Native interaction/accessibility, with the reference's 16dp knob inside a 20dp track. */
+internal fun styleMobileSettingsSwitch(view: Switch) =
+    with(view) {
+        val density = resources.displayMetrics.density
+        val dark = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        val accent =
+            app.aapswear.mobile.ui.theme
+                .mobileMenuAccentArgb(context, dark)
+        val inactive = if (dark) Color.rgb(100, 100, 106) else Color.rgb(180, 180, 186)
+        trackDrawable =
+            object : GradientDrawable() {
+                override fun getPadding(padding: android.graphics.Rect): Boolean {
+                    // Match thumb optical insets so Switch keeps the full painted track height.
+                    val inset = (2f * density).roundToInt()
+                    padding.set(0, inset, 0, inset)
+                    return true
+                }
+            }.apply {
+                cornerRadius = 10f * density
+                setColor(inactive)
+                setSize((32f * density).roundToInt(), (20f * density).roundToInt())
+            }
+        thumbDrawable =
+            InsetDrawable(
+                GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(Color.WHITE)
+                    setSize((16f * density).roundToInt(), (16f * density).roundToInt())
+                },
+                0,
+                (2f * density).roundToInt(),
+                0,
+                (2f * density).roundToInt(),
+            )
+        switchMinWidth = (32f * density).roundToInt()
+        thumbTextPadding = 0
+        switchPadding = 0
+        splitTrack = false
+        trackTintList =
+            ColorStateList(
+                arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_checked), intArrayOf()),
+                intArrayOf(
+                    androidx.core.graphics.ColorUtils
+                        .setAlphaComponent(inactive, 100),
+                    accent,
+                    inactive,
+                ),
+            )
+        thumbTintList =
+            ColorStateList(
+                arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf()),
+                intArrayOf(0xAAFFFFFF.toInt(), Color.WHITE),
+            )
     }
 
 internal fun mobileSettingsControlContext(context: Context, dark: Boolean = !app.aapswear.mobile.ui.theme.SugarliciousColors.palette.isLight): Context {

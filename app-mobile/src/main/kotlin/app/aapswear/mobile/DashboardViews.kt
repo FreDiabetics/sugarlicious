@@ -1121,6 +1121,7 @@ class DashboardViewFactory(
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
+        foreground = menuRipple()
         background =
             roundedBackground(
                 SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
@@ -1162,6 +1163,7 @@ class DashboardViewFactory(
                 minimumHeight = 64.dp
                 isClickable = true
                 isFocusable = true
+                foreground = menuRipple()
                 addView(
                     sugarliciousIconView(context, icon, title, tintArgb = accent),
                     LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 10.dp },
@@ -1195,6 +1197,7 @@ class DashboardViewFactory(
                         setPadding(0, 5.dp, 0, 5.dp)
                         isClickable = true
                         isFocusable = true
+                        foreground = menuRipple()
                         setOnClickListener { item.action() }
                         addView(
                             sugarliciousIconView(
@@ -1267,6 +1270,7 @@ class DashboardViewFactory(
         setPadding(0, 5.dp, 0, 5.dp)
         isClickable = true
         isFocusable = true
+        foreground = menuRipple()
         setOnClickListener { action() }
         addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         valueText?.let {
@@ -1480,6 +1484,17 @@ class DashboardViewFactory(
             clipToOutline = true
             title?.let { addView(sectionLabel(it)) }
         }
+
+    private fun menuRipple() =
+        android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList
+                .valueOf(
+                    androidx.core.graphics.ColorUtils
+                        .setAlphaComponent(accent, 0x24),
+                ),
+            null,
+            null,
+        )
 
     private fun roundedBackground(
         fillColor: Int,

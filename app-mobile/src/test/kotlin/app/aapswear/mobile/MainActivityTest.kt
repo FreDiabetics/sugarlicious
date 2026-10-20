@@ -28,6 +28,38 @@ import org.robolectric.shadows.ShadowAlarmManager
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
+    @Test fun `settings container preserves device styling independently from therapy palette overrides`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .putBoolean("showDetails", true)
+            .putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)
+            .commit()
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.PRIMARY, Color.RED)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.TEXT_PRIMARY, Color.GREEN)
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
+        val heading = (root.getChildAt(0) as ViewGroup).getChildAt(0) as TextView
+        val accent =
+            app.aapswear.mobile.ui.theme
+                .mobileMenuAccentArgb(activity, dark = true)
+        assertEquals(accent, heading.currentTextColor)
+        openSettingsCategory(activity, "overview_graphs")
+        val actual = activity.findViewById<android.widget.Switch>(R.id.dashboard_details_switch)
+        val expected = mobileSettingsSwitch(activity, actual.isChecked) {}
+        val checkedState = intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked)
+        assertEquals(expected.trackTintList?.getColorForState(checkedState, 0), actual.trackTintList?.getColorForState(checkedState, 0))
+        controller.pause().stop().destroy()
+        preferences.edit().clear().commit()
+        app.aapswear.mobile.ui.theme.SugarliciousColors
+            .apply(SugarliciousColorStore.load(preferences))
+    }
+
     @Test fun `watch config uses mobile therapy icon colors`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
