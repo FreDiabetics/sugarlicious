@@ -698,6 +698,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(dashboardPreferences)) }
                 val appearance = value.resolvedAppearance(selectedMode)
                 val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
+
+                fun resetTrendStyle() {
+                    value = value.withTrendStyle(selectedMode, parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride())
+                }
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
                 val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
                 OneUiWidgetSettingsSurface { reportPreviewBounds ->
@@ -827,21 +831,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetPercentSlider("Deckkraft", (trendAppearance.alpha * 100).roundToInt(), 0..100, "%") {
                                     value = value.withTrendStyle(selectedMode, trendOverride.copy(alpha = it / 100f))
                                 }
-                                Text(
-                                    "TREND-STIL ZURÜCKSETZEN",
-                                    color = OneUiWidgetStyle.link,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier =
-                                        Modifier
-                                            .clickable {
-                                                value =
-                                                    value.withTrendStyle(
-                                                        selectedMode,
-                                                        parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride(),
-                                                    )
-                                            }.padding(vertical = 8.dp),
-                                )
                             }
                         }
                         if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
@@ -1057,6 +1046,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         widgetStyle = LocalOneUiWidgetSettingsColors.current,
                         role = null,
                         label = "Trendpfeil-Kontur",
+                        actions =
+                            listOf(
+                                ColorPickerAction("Trendstil zurücksetzen") {
+                                    resetTrendStyle()
+                                    parentTrendStyle.outlineColor
+                                },
+                            ),
                         resetArgb = parentTrendStyle.outlineColor,
                         initialArgb = trendAppearance.outlineColor,
                         onDismiss = { editTrendOutline = false },
@@ -1072,6 +1068,17 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         widgetStyle = LocalOneUiWidgetSettingsColors.current,
                         role = null,
                         label = role.label,
+                        actions =
+                            if (role in setOf(WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW)) {
+                                listOf(
+                                    ColorPickerAction("Trendstil zurücksetzen") {
+                                        resetTrendStyle()
+                                        appearance.colorOverrides[role] ?: palette.argb(role)
+                                    },
+                                )
+                            } else {
+                                emptyList()
+                            },
                         resetArgb = palette.argb(role),
                         initialArgb = appearance.colorOverrides[role] ?: palette.argb(role),
                         onDismiss = { editRole = null },
