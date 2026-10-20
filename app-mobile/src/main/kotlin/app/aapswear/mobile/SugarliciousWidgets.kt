@@ -754,7 +754,7 @@ internal fun renderAdaptiveGlucoseWidget(
                     Triple(text.age.orEmpty(), agePaint, WidgetColorRole.AGE_ICON),
                     Triple(text.tir.orEmpty(), tirPaint, WidgetColorRole.TIR_ICON),
                 )
-            val iconSize = 16f * safeDensity
+            val iconSize = 22f * safeDensity
             val gap = 6f * safeDensity
             val blockWidth = iconSize + gap + rows.maxOf { it.second.measureText(it.first) }
             val left = centerX - blockWidth / 2f
@@ -1396,7 +1396,7 @@ internal fun renderWidgetGraph(
                         tick.hoursBack == 0,
                         safeWidth.toFloat(),
                         metrics.edgeGapPx,
-                        roundedWidgetContourInset(configuration.cornerRadiusDp * renderDensity, safeHeight - metrics.axisBaselinePx - textPaint.fontMetrics.descent),
+                        widgetTimeAxisInkInset(configuration.cornerRadiusDp * renderDensity, safeHeight.toFloat(), metrics.axisBaselinePx, tick.label, textPaint),
                     )
                 line.color = palette.argb(if (tick.hoursBack == 0) WidgetColorRole.DIVIDER else WidgetColorRole.AXIS_TICK)
                 canvas.drawLine(tickX, graphBounds.bottom, tickX, graphBounds.bottom + 5f * renderDensity, line)
@@ -1442,6 +1442,11 @@ internal fun roundedWidgetContourInset(radius: Float, distanceFromEdge: Float): 
 }
 
 internal fun widgetGraphHeaderStartDp(radiusDp: Float): Float = maxOf(10f, roundedWidgetContourInset(radiusDp, 6f) + 2f)
+
+internal fun widgetTimeAxisInkInset(radius: Float, height: Float, baseline: Float, label: String, paint: Paint): Float {
+    val ink = Rect().also { paint.getTextBounds(label, 0, label.length, it) }
+    return roundedWidgetContourInset(radius, height - baseline - ink.bottom)
+}
 
 internal fun widgetTimeAxisLabelX(
     tickX: Float,

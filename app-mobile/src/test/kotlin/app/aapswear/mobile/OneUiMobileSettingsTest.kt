@@ -35,6 +35,11 @@ class OneUiMobileSettingsTest {
             assertEquals((16 * density).toInt(), visibleThumb.bounds.height())
             assertEquals((20 * density).toInt(), toggle.trackDrawable.bounds.height())
             assertEquals((2 * density).toInt(), visibleThumb.bounds.top - toggle.trackDrawable.bounds.top)
+            assertEquals((2 * density).toInt(), toggle.trackDrawable.bounds.right - visibleThumb.bounds.right)
+            toggle.isChecked = false
+            toggle.jumpDrawablesToCurrentState()
+            toggle.draw(android.graphics.Canvas(bitmap))
+            assertEquals((2 * density).toInt(), visibleThumb.bounds.left - toggle.trackDrawable.bounds.left)
         } finally {
             bitmap.recycle()
         }

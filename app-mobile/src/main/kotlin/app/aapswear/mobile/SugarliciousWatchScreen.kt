@@ -31,7 +31,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.TherapyDisplayState
 import kotlinx.coroutines.launch
 
@@ -109,19 +108,21 @@ internal fun SugarliciousWatchScreen(
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        OverviewWatchFaceTile(
-            state,
-            diagnostics,
-            activeFaceIndex,
-            onSelectedFace = ::selectFace,
-            onEdit = { editingFaceIndex = activeFaceIndex },
-        )
+        Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(28.dp)) {
+            OverviewWatchFaceTile(
+                state,
+                diagnostics,
+                activeFaceIndex,
+                onSelectedFace = ::selectFace,
+                onEdit = { editingFaceIndex = activeFaceIndex },
+            )
+        }
         Text(
             text = "Ziffernblätter",
             modifier = Modifier.fillMaxWidth(),
-            color = SugarliciousColors.TextPrimary,
+            color = OneUiWidgetStyle.primary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Start,
@@ -151,7 +152,7 @@ internal fun SugarliciousWatchScreen(
         Text(
             text = "Complications",
             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            color = SugarliciousColors.TextPrimary,
+            color = OneUiWidgetStyle.primary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Start,
@@ -160,8 +161,8 @@ internal fun SugarliciousWatchScreen(
         key(editingFaceIndex) {
             if (editingFaceIndex == DIRECT_TO_WATCH_FACE_INDEX) {
                 Surface(
-                    color = SugarliciousColors.SurfaceHigh,
-                    shape = RoundedCornerShape(18.dp),
+                    color = OneUiWidgetStyle.card,
+                    shape = RoundedCornerShape(28.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
@@ -171,8 +172,8 @@ internal fun SugarliciousWatchScreen(
                             } else {
                                 "SugarWear wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
                             },
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = 12.sp,
+                        color = OneUiWidgetStyle.secondary,
+                        fontSize = 13.sp,
                         modifier = Modifier.padding(14.dp),
                     )
                 }
@@ -207,7 +208,7 @@ private fun WatchFaceTile(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
 
     Surface(
         modifier =
@@ -217,9 +218,9 @@ private fun WatchFaceTile(
                     width = if (selected) 2.dp else 1.dp,
                     color =
                         if (selected) {
-                            SugarliciousColors.Primary
+                            OneUiWidgetStyle.accent
                         } else {
-                            SugarliciousColors.Border.copy(alpha = if (enabled) 0.58f else 0.32f)
+                            OneUiWidgetStyle.secondary.copy(alpha = if (enabled) 0.58f else 0.32f)
                         },
                     shape = shape,
                 ).clickable(enabled = enabled) {
@@ -237,9 +238,9 @@ private fun WatchFaceTile(
         shape = shape,
         color =
             when {
-                selected -> SugarliciousColors.SurfaceSelected
-                enabled -> SugarliciousColors.Surface
-                else -> SugarliciousColors.Surface.copy(alpha = 0.55f)
+                selected -> OneUiWidgetStyle.accent.copy(alpha = 0.14f)
+                enabled -> OneUiWidgetStyle.card
+                else -> OneUiWidgetStyle.card.copy(alpha = 0.55f)
             },
     ) {
         Column(
@@ -257,7 +258,7 @@ private fun WatchFaceTile(
             Text(
                 text = face.name,
                 modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
-                color = if (enabled) SugarliciousColors.TextPrimary else SugarliciousColors.TextSecondary,
+                color = if (enabled) OneUiWidgetStyle.primary else OneUiWidgetStyle.secondary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -266,8 +267,8 @@ private fun WatchFaceTile(
             if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
                     text = if (enabled) "SugarWear Ziffernblatt" else "SugarWear erforderlich",
-                    color = if (enabled) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
-                    fontSize = 9.sp,
+                    color = if (enabled) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = TextAlign.Center,
                 )

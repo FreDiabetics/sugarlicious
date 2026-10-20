@@ -120,7 +120,7 @@ internal fun WatchMenuHeader(
     onSettings: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(38.dp),
+        modifier = Modifier.fillMaxWidth().height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -128,10 +128,10 @@ internal fun WatchMenuHeader(
             contentAlignment = Alignment.Center,
         ) {
             SugarliciousIcon(
-                drawableRes = R.drawable.ic_arrow_back,
+                drawableRes = R.drawable.ic_oneui_back,
                 contentDescription = "Zurück",
                 modifier = Modifier.size(22.dp),
-                tint = SugarliciousColors.TextPrimary,
+                tint = OneUiWidgetStyle.accent,
                 colored = false,
             )
         }
@@ -140,18 +140,18 @@ internal fun WatchMenuHeader(
 
         Text(
             text = "Watch",
-            color = SugarliciousColors.TextPrimary,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold,
+            color = OneUiWidgetStyle.accent,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Normal,
         )
 
         Spacer(Modifier.weight(1f))
-        SettingsHeaderButton(onSettings)
+        SettingsHeaderButton(onSettings, OneUiWidgetStyle.accent)
     }
 }
 
 @Composable
-private fun SettingsHeaderButton(onSettings: () -> Unit) {
+private fun SettingsHeaderButton(onSettings: () -> Unit, tint: androidx.compose.ui.graphics.Color = SugarliciousColors.TextSecondary) {
     Box(
         modifier = Modifier.size(38.dp).clickable(onClick = onSettings),
         contentAlignment = Alignment.Center,
@@ -160,7 +160,7 @@ private fun SettingsHeaderButton(onSettings: () -> Unit) {
             drawableRes = R.drawable.ic_settings,
             contentDescription = "Einstellungen",
             modifier = Modifier.size(23.dp).offset(x = 7.dp),
-            tint = SugarliciousColors.TextSecondary,
+            tint = tint,
             colored = false,
         )
     }

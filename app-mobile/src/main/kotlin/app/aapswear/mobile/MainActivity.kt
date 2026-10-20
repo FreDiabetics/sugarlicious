@@ -552,7 +552,7 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     private fun applyRuntimeColors() {
         val backgroundColor =
-            if (screen == DashboardScreen.SETTINGS) {
+            if (screen == DashboardScreen.SETTINGS || screen == DashboardScreen.WATCH) {
                 MobileSettingsStyle.page(SugarliciousColors.palette.isLight)
             } else {
                 SugarliciousColors.argb(SugarliciousColorRole.BACKGROUND)
@@ -678,7 +678,7 @@ class MainActivity : ComponentActivity() {
                     androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow,
                 )
                 setContent {
-                    app.aapswear.mobile.ui.theme.SugarliciousTheme {
+                    OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) {
                         WatchMenuHeader(
                             onBack = { navigate(DashboardScreen.OVERVIEW) },
                             onSettings = { navigate(DashboardScreen.SETTINGS) },

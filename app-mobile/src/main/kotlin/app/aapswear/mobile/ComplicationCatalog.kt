@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,9 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -247,6 +246,18 @@ internal val SugarliciousComplicationVariantIds: Set<Int> =
 
 private fun catalogEntryForVariant(id: Int): ComplicationCatalogEntry? = SugarliciousComplicationCatalog.firstOrNull { entry -> entry.variants.any { it.id == id } }
 
+internal fun complicationCatalogColumns(availableWidthDp: Float): Int = ((availableWidthDp + 7f) / 155f).toInt().coerceIn(1, 3)
+
+@Composable
+private fun SugarliciousSettingSliderControl(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    label: String,
+) {
+    MobileSettingsSeekBar(label, value, valueRange, onValueChange, {})
+}
+
 @Composable
 internal fun ComplicationStudio(
     state: TherapyDisplayState?,
@@ -281,7 +292,7 @@ internal fun ComplicationStudio(
         }
     }
 
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(28.dp)
     val previewState =
         (state ?: previewTherapyState(System.currentTimeMillis())).let { source ->
             source.copy(glucose = source.glucose?.copy(trend = previewTrend))
@@ -291,17 +302,16 @@ internal fun ComplicationStudio(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.Surface, shape)
-                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.75f), shape)
-                .padding(12.dp),
+                .background(OneUiWidgetStyle.card, shape)
+                .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         PresetStrip(selected)
 
         Text(
             "PREVIEW-TREND",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 9.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
         Row(
@@ -320,13 +330,13 @@ internal fun ComplicationStudio(
                 Surface(
                     modifier = Modifier.weight(1f).clickable { previewTrend = trend },
                     shape = RoundedCornerShape(10.dp),
-                    color = if (previewTrend == trend) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
+                    color = if (previewTrend == trend) OneUiWidgetStyle.accent.copy(alpha = 0.14f) else OneUiWidgetStyle.action,
                 ) {
                     Box(Modifier.height(34.dp), contentAlignment = Alignment.Center) {
                         SugarliciousTrendIndicator(
                             trend = trend,
                             arrowSize = 17.dp,
-                            color = if (previewTrend == trend) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
+                            color = if (previewTrend == trend) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
                         )
                     }
                 }
@@ -349,23 +359,23 @@ internal fun ComplicationStudio(
             shape = RoundedCornerShape(16.dp),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = SugarliciousColors.SurfaceHigh,
-                    contentColor = SugarliciousColors.Primary,
+                    containerColor = OneUiWidgetStyle.action,
+                    contentColor = OneUiWidgetStyle.accent,
                 ),
         ) {
-            Text("PRESET AN WATCH SENDEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("PRESET AN WATCH SENDEN", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
             syncLabel,
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 9.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
         )
 
         Text(
             "CGM-GRAPH ZEITRAUM",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 9.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
         Row(
@@ -385,13 +395,13 @@ internal fun ComplicationStudio(
                             }
                         },
                     shape = RoundedCornerShape(12.dp),
-                    color = if (graphHours == hours) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh,
+                    color = if (graphHours == hours) OneUiWidgetStyle.accent.copy(alpha = 0.14f) else OneUiWidgetStyle.action,
                 ) {
                     Text(
                         "${hours}h",
                         modifier = Modifier.padding(vertical = 8.dp),
-                        color = if (graphHours == hours) SugarliciousColors.Primary else SugarliciousColors.TextSecondary,
-                        fontSize = 9.sp,
+                        color = if (graphHours == hours) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
@@ -399,35 +409,40 @@ internal fun ComplicationStudio(
             }
         }
 
-        SugarliciousComplicationCatalog.chunked(3).forEach { entries ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                entries.forEach { entry ->
-                    val selectedVariant = entry.selectedVariant(selected)
-                    ComplicationCatalogTile(
-                        modifier = Modifier.weight(1f),
-                        entry = entry,
-                        variant = selectedVariant,
-                        state = previewState,
-                        graphHours = graphHours,
-                        selected = entry.variants.any { it.id in selected },
-                        onToggle = {
-                            val updated = togglePresetEntry(context, selected, selectedVariant.id)
-                            if (updated == selected && selectedVariant.id !in selected && selected.size >= 4) {
-                                Toast.makeText(context, "Das Watch-Preset hat maximal 4 Plätze.", Toast.LENGTH_SHORT).show()
-                            } else {
-                                applySelection(updated)
-                            }
-                        },
-                        onLongPress = {
-                            if (entry.variants.size > 1) variantDialogEntry = entry
-                        },
-                        onSettings = { settingsDialogEntry = entry },
-                    )
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val columns = complicationCatalogColumns(maxWidth.value)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SugarliciousComplicationCatalog.chunked(columns).forEach { entries ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    ) {
+                        entries.forEach { entry ->
+                            val selectedVariant = entry.selectedVariant(selected)
+                            ComplicationCatalogTile(
+                                modifier = Modifier.weight(1f),
+                                entry = entry,
+                                variant = selectedVariant,
+                                state = previewState,
+                                graphHours = graphHours,
+                                selected = entry.variants.any { it.id in selected },
+                                onToggle = {
+                                    val updated = togglePresetEntry(context, selected, selectedVariant.id)
+                                    if (updated == selected && selectedVariant.id !in selected && selected.size >= 4) {
+                                        Toast.makeText(context, "Das Watch-Preset hat maximal 4 Plätze.", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        applySelection(updated)
+                                    }
+                                },
+                                onLongPress = {
+                                    if (entry.variants.size > 1) variantDialogEntry = entry
+                                },
+                                onSettings = { settingsDialogEntry = entry },
+                            )
+                        }
+                        repeat(columns - entries.size) { Spacer(Modifier.weight(1f)) }
+                    }
                 }
-                repeat(3 - entries.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
@@ -478,7 +493,7 @@ private fun PresetStrip(selected: List<Int>) {
             Surface(
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(14.dp),
-                color = SugarliciousColors.SurfaceHigh,
+                color = OneUiWidgetStyle.action,
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 7.dp),
@@ -488,18 +503,20 @@ private fun PresetStrip(selected: List<Int>) {
                         entry?.let { catalogNumber(it).toString().padStart(2, '0') } ?: "—",
                         color =
                             if (entry != null) {
-                                SugarliciousColors.Primary
+                                OneUiWidgetStyle.accent
                             } else {
-                                SugarliciousColors.TextSecondary
+                                OneUiWidgetStyle.secondary
                             },
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
                         entry?.let { "${it.name} ${variant?.type?.shortLabel.orEmpty()}" } ?: "frei",
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = 7.sp,
-                        maxLines = 1,
+                        color = OneUiWidgetStyle.secondary,
+                        fontSize = 11.sp,
+                        maxLines = 2,
+                        lineHeight = 14.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -525,10 +542,10 @@ private fun ComplicationCatalogTile(
         modifier =
             modifier
                 .aspectRatio(1f)
-                .background(if (selected) SugarliciousColors.SurfaceSelected else SugarliciousColors.SurfaceHigh, shape)
+                .background(if (selected) OneUiWidgetStyle.accent.copy(alpha = 0.14f) else OneUiWidgetStyle.action, shape)
                 .border(
                     1.dp,
-                    if (selected) SugarliciousColors.Primary.copy(alpha = 0.62f) else SugarliciousColors.Border.copy(alpha = 0.55f),
+                    if (selected) OneUiWidgetStyle.accent.copy(alpha = 0.62f) else OneUiWidgetStyle.secondary.copy(alpha = 0.55f),
                     shape,
                 ).combinedClickable(onClick = onToggle, onLongClick = onLongPress)
                 .padding(horizontal = 6.dp, vertical = 8.dp),
@@ -538,31 +555,25 @@ private fun ComplicationCatalogTile(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
-            Text(
-                entry.name,
-                modifier = Modifier.padding(horizontal = 24.dp),
-                color = SugarliciousColors.TextPrimary,
-                fontSize = 8.5.sp,
-                lineHeight = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    entry.name,
+                    modifier = Modifier.weight(1f),
+                    color = OneUiWidgetStyle.primary,
+                    fontSize = 14.sp,
+                    lineHeight = 17.sp,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Box(Modifier.size(36.dp).clickable(onClick = onSettings), contentAlignment = Alignment.Center) {
+                    SugarliciousIcon(R.drawable.ic_settings, "${entry.name} · Darstellung", Modifier.size(20.dp), tint = OneUiWidgetStyle.accent, colored = false)
+                }
+            }
             Spacer(Modifier.weight(1f))
             CompactComplicationPreview(entry, variant, state, graphHours)
             Spacer(Modifier.weight(1f))
-            Text(variant.type.shortLabel, color = SugarliciousColors.TextSecondary, fontSize = 7.sp, fontWeight = FontWeight.Bold)
-        }
-        Surface(
-            modifier = Modifier.align(Alignment.TopEnd).size(30.dp).clickable(onClick = onSettings),
-            shape = CircleShape,
-            color = SugarliciousColors.Surface.copy(alpha = 0.94f),
-            border = androidx.compose.foundation.BorderStroke(1.dp, SugarliciousColors.Border),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("⚙", color = SugarliciousColors.Primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
+            Text(variant.type.shortLabel, color = OneUiWidgetStyle.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -589,13 +600,13 @@ private fun ComplicationAppearanceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("${entry.name} · Darstellung", color = SugarliciousColors.TextPrimary, fontWeight = FontWeight.Bold) },
+        title = { Text("${entry.name} · Darstellung", color = OneUiWidgetStyle.primary, fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Surface(
                     modifier = Modifier.fillMaxWidth().height(100.dp),
                     shape = RoundedCornerShape(18.dp),
-                    color = SugarliciousColors.SurfaceHigh,
+                    color = OneUiWidgetStyle.action,
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         CompactComplicationPreview(entry, variant, state, graphHours, appearance)
@@ -605,11 +616,12 @@ private fun ComplicationAppearanceDialog(
                     val systemDefault = appearance.trendScalePercent == null
                     Text(
                         "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = 10.sp,
+                        color = OneUiWidgetStyle.secondary,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                     )
-                    Slider(
+                    SugarliciousSettingSliderControl(
+                        label = "Trendpfeil-Größe",
                         value = (appearance.trendScalePercent ?: GlucoseTrendSizing.DEFAULT_SCALE_PERCENT).toFloat(),
                         onValueChange = {
                             val size = it.toInt().coerceIn(70, 200)
@@ -622,15 +634,17 @@ private fun ComplicationAppearanceDialog(
                         },
                         valueRange = 70f..200f,
                     )
-                    Text("POSITION X · ${appearance.trendOffsetXPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
-                    Slider(
+                    Text("POSITION X · ${appearance.trendOffsetXPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                    SugarliciousSettingSliderControl(
+                        label = "Trendpfeil Position X",
                         value = appearance.trendOffsetXPercent.toFloat(),
                         onValueChange = { update(appearance.copy(trendOffsetXPercent = it.toInt())) },
                         valueRange =
                             -50f..50f,
                     )
-                    Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
-                    Slider(
+                    Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                    SugarliciousSettingSliderControl(
+                        label = "Trendpfeil Position Y",
                         value = appearance.trendOffsetYPercent.toFloat(),
                         onValueChange = { update(appearance.copy(trendOffsetYPercent = it.toInt())) },
                         valueRange =
@@ -638,8 +652,8 @@ private fun ComplicationAppearanceDialog(
                     )
                     val resolvedTrend = appearance.trendStyleOverride.resolve(MobileTrendArrowAppearance.style)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("KONTUR", color = SugarliciousColors.TextSecondary, fontSize = 9.sp, modifier = Modifier.weight(1f))
-                        Switch(
+                        Text("KONTUR", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        WidgetSettingsToggle(
                             checked = resolvedTrend.outlineEnabled,
                             onCheckedChange = {
                                 update(
@@ -651,10 +665,11 @@ private fun ComplicationAppearanceDialog(
                     if (resolvedTrend.outlineEnabled) {
                         Text(
                             "KONTURDICKE · ${String.format(Locale.GERMANY, "%.2f", resolvedTrend.outlineThicknessDp)} dp",
-                            color = SugarliciousColors.TextSecondary,
-                            fontSize = 9.sp,
+                            color = OneUiWidgetStyle.secondary,
+                            fontSize = 13.sp,
                         )
-                        Slider(
+                        SugarliciousSettingSliderControl(
+                            label = "Trendpfeil-Konturdicke",
                             value = resolvedTrend.outlineThicknessDp,
                             onValueChange = {
                                 update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it)))
@@ -663,8 +678,8 @@ private fun ComplicationAppearanceDialog(
                                 0.25f..4f,
                         )
                     }
-                    Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
-                    Slider(value = resolvedTrend.alpha * 100f, onValueChange = {
+                    Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                    SugarliciousSettingSliderControl(label = "Trendpfeil-Deckkraft", value = resolvedTrend.alpha * 100f, onValueChange = {
                         update(
                             appearance.copy(
                                 trendStyleOverride =
@@ -678,19 +693,19 @@ private fun ComplicationAppearanceDialog(
                     Button(
                         onClick = { update(ComplicationAppearanceSettings()) },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = SugarliciousColors.SurfaceSelected),
+                        colors = ButtonDefaults.buttonColors(containerColor = OneUiWidgetStyle.accent.copy(alpha = 0.14f)),
                     ) {
                         Text(
                             if (systemDefault) "SYSTEMSTANDARD AKTIV" else "SYSTEMSTANDARD VERWENDEN",
-                            color = SugarliciousColors.Primary,
-                            fontSize = 10.sp,
+                            color = OneUiWidgetStyle.accent,
+                            fontSize = 14.sp,
                         )
                     }
                 } else {
                     Text(
                         "Textgröße und Position werden bei Standard-Complications vom aktiven Watchface-Slot bestimmt. Dieses Menü zeigt deshalb nur Einstellungen, die die Runtime tatsächlich anwenden kann.",
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = 10.sp,
+                        color = OneUiWidgetStyle.secondary,
+                        fontSize = 14.sp,
                     )
                 }
             }
@@ -698,6 +713,7 @@ private fun ComplicationAppearanceDialog(
         confirmButton = {
             Button(onClick = onDismiss) { Text("FERTIG") }
         },
+        containerColor = OneUiWidgetStyle.card,
     )
 }
 
@@ -840,11 +856,11 @@ private fun ComplicationVariantDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text(entry.name, color = SugarliciousColors.TextPrimary, fontWeight = FontWeight.Bold)
+                Text(entry.name, color = OneUiWidgetStyle.primary, fontWeight = FontWeight.Bold)
                 Text(
                     "Aktiv: ${currentVariant.type.displayLabel}",
-                    color = SugarliciousColors.TextSecondary,
-                    fontSize = 10.sp,
+                    color = OneUiWidgetStyle.secondary,
+                    fontSize = 14.sp,
                 )
             }
         },
@@ -854,7 +870,7 @@ private fun ComplicationVariantDialog(
                     Surface(
                         modifier = Modifier.fillMaxWidth().clickable { onSelect(variant) },
                         shape = RoundedCornerShape(16.dp),
-                        color = SugarliciousColors.SurfaceHigh,
+                        color = OneUiWidgetStyle.action,
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -866,7 +882,7 @@ private fun ComplicationVariantDialog(
                             Spacer(Modifier.width(12.dp))
                             Text(
                                 variant.type.displayLabel,
-                                color = SugarliciousColors.TextPrimary,
+                                color = OneUiWidgetStyle.primary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
@@ -879,7 +895,7 @@ private fun ComplicationVariantDialog(
         dismissButton = {
             Button(onClick = onDismiss) { Text("Schließen") }
         },
-        containerColor = SugarliciousColors.Surface,
+        containerColor = OneUiWidgetStyle.card,
     )
 }
 

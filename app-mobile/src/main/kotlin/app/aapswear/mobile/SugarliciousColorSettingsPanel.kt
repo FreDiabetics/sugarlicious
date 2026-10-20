@@ -171,20 +171,6 @@ internal fun SugarliciousColorSettingsPanel(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-
-            TextButton(
-                onClick = {
-                    SugarliciousColorStore.resetAll(preferences)
-                    reload()
-                },
-            ) {
-                Text(
-                    "ALLES RESET",
-                    color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
         }
 
         AppearanceModeSelector(selectedMode) { mode ->
@@ -195,19 +181,13 @@ internal fun SugarliciousColorSettingsPanel(
         AppearanceThemePreview(palette)
 
         Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, false, { editingTrendColor = "fill" }) {
-            trendStyle = TrendArrowStyle.defaults(selectedMode, palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE))
-            MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
-        }
+        ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
         GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
             trendStyle = trendStyle.copy(outlineEnabled = it)
             MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
         }
         if (trendStyle.outlineEnabled) {
-            ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, false, { editingTrendColor = "outline" }) {
-                trendStyle = trendStyle.copy(outlineColor = TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor)
-                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
-            }
+            ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, { editingTrendColor = "outline" })
             SugarliciousSettingSlider(
                 "Konturdicke",
                 "Trendpfeil-Kontur",
@@ -370,12 +350,7 @@ internal fun SugarliciousColorSettingsPanel(
                 ColorSettingRow(
                     role = role,
                     argb = argb,
-                    isDefault = argb == if (palette.isLight) role.lightArgb else role.defaultArgb,
                     onEdit = { editingRole = role },
-                    onReset = {
-                        SugarliciousColorStore.reset(preferences, selectedMode, role)
-                        reload()
-                    },
                 )
             }
         }
@@ -386,6 +361,19 @@ internal fun SugarliciousColorSettingsPanel(
             role = role,
             label = role.label,
             initialArgb = palette.argb(role),
+            onReset = {
+                SugarliciousColorStore.reset(preferences, selectedMode, role)
+                reload()
+                palette.argb(role)
+            },
+            actions =
+                listOf(
+                    ColorPickerAction("Alle Farben zurücksetzen") {
+                        SugarliciousColorStore.resetAll(preferences)
+                        reload()
+                        palette.argb(role)
+                    },
+                ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
                 SugarliciousColorStore.save(preferences, selectedMode, role, argb)
@@ -398,6 +386,7 @@ internal fun SugarliciousColorSettingsPanel(
             role = null,
             label = if (field == "fill") "Trendpfeil · Füllfarbe" else "Trendpfeil · Konturfarbe",
             initialArgb = if (field == "fill") trendStyle.fillColor else trendStyle.outlineColor,
+            resetArgb = if (field == "fill") palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE) else TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor,
             onDismiss = { editingTrendColor = null },
             onChange = { color ->
                 trendStyle = if (field == "fill") trendStyle.copy(fillColor = color) else trendStyle.copy(outlineColor = color)
@@ -457,39 +446,11 @@ internal fun WidgetColorSettingsPanel() {
             color = OneUiWidgetStyle.secondary,
             fontSize = 13.sp,
         )
-        Button(
-            onClick = {
-                WidgetColorStore.copyFromMobileGraph(context, selectedMode)
-                refreshWidgets()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
-                ),
-        ) {
-            Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
-        TextButton(
-            onClick = {
-                WidgetColorStore.resetAll(context)
-                refreshWidgets()
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
         WidgetColorRole.entries.filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }.forEach { role ->
             WidgetColorSettingRow(
                 role = role,
                 argb = palette.argb(role),
-                isDefault = !WidgetColorStore.hasOverride(context, selectedMode, role),
                 onEdit = { editingRole = role },
-                onReset = {
-                    WidgetColorStore.reset(context, selectedMode, role)
-                    refreshWidgets()
-                },
             )
         }
     }
@@ -499,6 +460,24 @@ internal fun WidgetColorSettingsPanel() {
             role = null,
             label = "Widget: ${role.label}",
             initialArgb = palette.argb(role),
+            onReset = {
+                WidgetColorStore.reset(context, selectedMode, role)
+                refreshWidgets()
+                WidgetColorStore.load(context, selectedMode).argb(role)
+            },
+            actions =
+                listOf(
+                    ColorPickerAction("Aus Mobile-Graph übernehmen") {
+                        WidgetColorStore.copyFromMobileGraph(context, selectedMode)
+                        refreshWidgets()
+                        WidgetColorStore.load(context, selectedMode).argb(role)
+                    },
+                    ColorPickerAction("Alle Widget-Farben zurücksetzen") {
+                        WidgetColorStore.resetAll(context)
+                        refreshWidgets()
+                        WidgetColorStore.load(context, selectedMode).argb(role)
+                    },
+                ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
                 WidgetColorStore.save(context, selectedMode, role, argb)
@@ -512,9 +491,7 @@ internal fun WidgetColorSettingsPanel() {
 private fun WidgetColorSettingRow(
     role: WidgetColorRole,
     argb: Int,
-    isDefault: Boolean,
     onEdit: () -> Unit,
-    onReset: () -> Unit,
 ) {
     Row(
         modifier =
@@ -535,11 +512,6 @@ private fun WidgetColorSettingRow(
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
             Text(role.label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
-        }
-        if (!isDefault) {
-            TextButton(onClick = onReset) {
-                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
         }
     }
 }
@@ -698,9 +670,7 @@ private fun ColorSettingRow(
     role: SugarliciousColorRole?,
     label: String = role?.label ?: "Farbe",
     argb: Int,
-    isDefault: Boolean,
     onEdit: () -> Unit,
-    onReset: () -> Unit,
 ) {
     Row(
         modifier =
@@ -721,11 +691,6 @@ private fun ColorSettingRow(
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
             Text(text = label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
-        }
-        if (!isDefault) {
-            TextButton(onClick = onReset, modifier = Modifier.padding(horizontal = 2.dp)) {
-                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
         }
         Spacer(Modifier.width(6.dp))
         if (role != null) {
@@ -964,8 +929,10 @@ internal fun ColorEditorDialog(
     onChange: (Int) -> Unit,
     widgetStyle: OneUiWidgetSettingsColors? = null,
     resetArgb: Int? = null,
+    onReset: (() -> Int)? = null,
+    actions: List<ColorPickerAction> = emptyList(),
 ) {
-    OneUiWidgetColorPicker(label, initialArgb, widgetStyle ?: LocalOneUiWidgetSettingsColors.current, resetArgb, onDismiss, onChange)
+    OneUiWidgetColorPicker(label, initialArgb, widgetStyle ?: LocalOneUiWidgetSettingsColors.current, resetArgb, onDismiss, onChange, onReset, actions)
 }
 
 @Composable
@@ -1230,20 +1197,6 @@ internal fun NotificationGraphSettingsPanel() {
                     fontSize = 9.sp,
                 )
             }
-            TextButton(
-                onClick = {
-                    NotificationGraphDotStyleStore.resetProfiles(preferences)
-                    preferences.edit {
-                        roles.forEach {
-                            remove(key(it))
-                            remove(legacyOverrideKey(it))
-                        }
-                    }
-                    revision++
-                },
-            ) {
-                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            }
         }
 
         AppearanceModeSelector(selectedMode) {
@@ -1269,23 +1222,6 @@ internal fun NotificationGraphSettingsPanel() {
             },
             {},
         )
-
-        Button(
-            onClick = {
-                preferences.edit {
-                    roles.forEach { role -> putInt(key(role), palette.argb(role)) }
-                }
-                revision++
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
-                ),
-        ) {
-            Text("FARBEN AUS MOBILE ÜBERNEHMEN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        }
 
         Text(
             "EINGEKLAPPT",
@@ -1417,17 +1353,7 @@ internal fun NotificationGraphSettingsPanel() {
             ColorSettingRow(
                 role = role,
                 argb = resolved(role),
-                isDefault =
-                    !preferences.contains(key(role)) &&
-                        !preferences.contains(legacyOverrideKey(role)),
                 onEdit = { editingRole = role },
-                onReset = {
-                    preferences.edit {
-                        remove(key(role))
-                        remove(legacyOverrideKey(role))
-                    }
-                    revision++
-                },
             )
         }
     }
@@ -1437,6 +1363,35 @@ internal fun NotificationGraphSettingsPanel() {
             role = role,
             label = role.label,
             initialArgb = resolved(role),
+            onReset = {
+                preferences.edit {
+                    remove(key(role))
+                    remove(legacyOverrideKey(role))
+                }
+                revision++
+                resolved(role)
+            },
+            actions =
+                listOf(
+                    ColorPickerAction("Farben aus Mobile übernehmen") {
+                        preferences.edit {
+                            roles.forEach { source -> putInt(key(source), palette.argb(source)) }
+                        }
+                        revision++
+                        resolved(role)
+                    },
+                    ColorPickerAction("Notification-Graph zurücksetzen") {
+                        NotificationGraphDotStyleStore.resetProfiles(preferences)
+                        preferences.edit {
+                            roles.forEach {
+                                remove(key(it))
+                                remove(legacyOverrideKey(it))
+                            }
+                        }
+                        revision++
+                        resolved(role)
+                    },
+                ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
                 preferences.edit { putInt(key(role), argb) }

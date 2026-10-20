@@ -298,34 +298,34 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `first high colors value immediately and second high confirms excursion`() {
+    fun `first high colors value and graph immediately`() {
         val configured = thresholds.copy(highMgDl = 160.0)
         val first = state(listOf(sample(150.0, -10), sample(162.0, -5)), 162.0)
         val second = state(listOf(sample(162.0, -10), sample(165.0, -5)), 165.0)
         assertEquals(WidgetColorRole.HIGH, presentation(first, configured).visibleRole)
-        assertEquals(null, presentation(first, configured).excursion)
+        assertEquals(app.aapswear.model.RangeExcursion.HIGH, presentation(first, configured).excursion)
         assertEquals(WidgetColorRole.HIGH, presentation(second, configured).visibleRole)
         assertEquals(app.aapswear.model.RangeExcursion.HIGH, presentation(second, configured).excursion)
     }
 
     @Test
-    fun `first low colors value immediately and second low confirms excursion`() {
+    fun `first low colors value and graph immediately`() {
         val first = state(listOf(sample(100.0, -10), sample(65.0, -5)), 65.0)
         val second = state(listOf(sample(65.0, -10), sample(60.0, -5)), 60.0)
         assertEquals(WidgetColorRole.LOW, presentation(first).visibleRole)
-        assertEquals(null, presentation(first).excursion)
+        assertEquals(app.aapswear.model.RangeExcursion.LOW, presentation(first).excursion)
         assertEquals(WidgetColorRole.LOW, presentation(second).visibleRole)
         assertEquals(app.aapswear.model.RangeExcursion.LOW, presentation(second).excursion)
     }
 
     @Test
-    fun `return in range resets immediately and duplicate only colors the value`() {
+    fun `return in range resets immediately and duplicate does not change range tint`() {
         val returned = state(listOf(sample(190.0, -15), sample(195.0, -10), sample(150.0, -5)), 150.0)
         val duplicate = sample(190.0, -5, sequence = 7)
         val duplicates = state(listOf(duplicate, duplicate.copy()), 190.0)
         assertEquals(WidgetColorRole.IN_RANGE, presentation(returned).visibleRole)
         assertEquals(WidgetColorRole.HIGH, presentation(duplicates).visibleRole)
-        assertEquals(null, presentation(duplicates).excursion)
+        assertEquals(app.aapswear.model.RangeExcursion.HIGH, presentation(duplicates).excursion)
     }
 
     @Test

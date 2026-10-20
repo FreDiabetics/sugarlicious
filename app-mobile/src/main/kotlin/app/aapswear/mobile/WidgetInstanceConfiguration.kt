@@ -698,6 +698,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(dashboardPreferences)) }
                 val appearance = value.resolvedAppearance(selectedMode)
                 val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
+
+                fun resetTrendStyle() {
+                    value = value.withTrendStyle(selectedMode, parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride())
+                }
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
                 val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
                 OneUiWidgetSettingsSurface { reportPreviewBounds ->
@@ -768,9 +772,8 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetSettingsSection("Delta und Alter") {
                                     WidgetToggleSetting("Delta fett", value.deltaBold) { value = value.copy(deltaBold = it) }
                                     WidgetToggleSetting("Alter fett", value.ageBold) { value = value.copy(ageBold = it) }
-                                    if (automaticShape) {
+                                    if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) {
                                         WidgetToggleSetting("Zeit im Ziel fett", value.tirBold) { value = value.copy(tirBold = it) }
-                                        WidgetToggleSetting("Graphbeschriftung fett", value.graphLabelBold) { value = value.copy(graphLabelBold = it) }
                                     }
                                     if (!automaticShape) {
                                         WidgetToggleSetting("Delta anzeigen", value.showDelta) { value = value.copy(showDelta = it) }
@@ -790,7 +793,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                         WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
                                         WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
                                     }
-                                    (listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT) + if (automaticShape) listOf(WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON) else emptyList())
+                                    (listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT) + if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) listOf(WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON) else emptyList())
                                         .filter { !automaticShape || it != WidgetColorRole.UNIT }
                                         .forEach { role ->
                                             WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role })
@@ -828,21 +831,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetPercentSlider("Deckkraft", (trendAppearance.alpha * 100).roundToInt(), 0..100, "%") {
                                     value = value.withTrendStyle(selectedMode, trendOverride.copy(alpha = it / 100f))
                                 }
-                                Text(
-                                    "TREND-STIL ZURÜCKSETZEN",
-                                    color = OneUiWidgetStyle.link,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier =
-                                        Modifier
-                                            .clickable {
-                                                value =
-                                                    value.withTrendStyle(
-                                                        selectedMode,
-                                                        parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride(),
-                                                    )
-                                            }.padding(vertical = 8.dp),
-                                )
                             }
                         }
                         if (widgetKind == ConfigurableWidgetKind.GLUCOSE_GRAPH) {
@@ -1058,6 +1046,13 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         widgetStyle = LocalOneUiWidgetSettingsColors.current,
                         role = null,
                         label = "Trendpfeil-Kontur",
+                        actions =
+                            listOf(
+                                ColorPickerAction("Trendstil zurücksetzen") {
+                                    resetTrendStyle()
+                                    parentTrendStyle.outlineColor
+                                },
+                            ),
                         resetArgb = parentTrendStyle.outlineColor,
                         initialArgb = trendAppearance.outlineColor,
                         onDismiss = { editTrendOutline = false },
@@ -1073,6 +1068,17 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         widgetStyle = LocalOneUiWidgetSettingsColors.current,
                         role = null,
                         label = role.label,
+                        actions =
+                            if (role in setOf(WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW)) {
+                                listOf(
+                                    ColorPickerAction("Trendstil zurücksetzen") {
+                                        resetTrendStyle()
+                                        appearance.colorOverrides[role] ?: palette.argb(role)
+                                    },
+                                )
+                            } else {
+                                emptyList()
+                            },
                         resetArgb = palette.argb(role),
                         initialArgb = appearance.colorOverrides[role] ?: palette.argb(role),
                         onDismiss = { editRole = null },

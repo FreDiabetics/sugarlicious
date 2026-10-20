@@ -8,8 +8,8 @@ class CgmGraphPolicyTest {
     private val minute = 60_000L
 
     @Test
-    fun `two consecutive valid low readings activate low and one does not`() {
-        assertNull(CgmGraphPolicy.rangeExcursion(listOf(sample(1, 65.0)), 70.0, 180.0))
+    fun `first valid low reading activates low`() {
+        assertEquals(RangeExcursion.LOW, CgmGraphPolicy.rangeExcursion(listOf(sample(1, 65.0)), 70.0, 180.0))
         assertEquals(
             RangeExcursion.LOW,
             CgmGraphPolicy.rangeExcursion(listOf(sample(1, 65.0), sample(6, 60.0)), 70.0, 180.0),
@@ -17,8 +17,8 @@ class CgmGraphPolicyTest {
     }
 
     @Test
-    fun `two consecutive valid high readings activate high and one does not`() {
-        assertNull(CgmGraphPolicy.rangeExcursion(listOf(sample(1, 190.0)), 70.0, 180.0))
+    fun `first valid high reading activates high`() {
+        assertEquals(RangeExcursion.HIGH, CgmGraphPolicy.rangeExcursion(listOf(sample(1, 190.0)), 70.0, 180.0))
         assertEquals(
             RangeExcursion.HIGH,
             CgmGraphPolicy.rangeExcursion(listOf(sample(1, 190.0), sample(6, 200.0)), 70.0, 180.0),
@@ -66,18 +66,21 @@ class CgmGraphPolicyTest {
     }
 
     @Test
-    fun `invalid points gaps and session switches cannot activate a tint`() {
-        assertNull(
+    fun `invalid points are ignored while gaps and session changes do not delay current tint`() {
+        assertEquals(
+            RangeExcursion.LOW,
             CgmGraphPolicy.rangeExcursion(
                 listOf(sample(1, 60.0), sample(6, 61.0, quality = CgmQuality.INVALID)),
                 70.0,
                 180.0,
             ),
         )
-        assertNull(
+        assertEquals(
+            RangeExcursion.LOW,
             CgmGraphPolicy.rangeExcursion(listOf(sample(1, 60.0), sample(10, 61.0)), 70.0, 180.0),
         )
-        assertNull(
+        assertEquals(
+            RangeExcursion.LOW,
             CgmGraphPolicy.rangeExcursion(
                 listOf(sample(1, 60.0, session = "one"), sample(6, 61.0, session = "two")),
                 70.0,
@@ -87,7 +90,7 @@ class CgmGraphPolicyTest {
     }
 
     @Test
-    fun `unknown cross source boundary requires two readings from the new stream`() {
+    fun `latest valid source value determines tint without confirmation`() {
         val phone =
             sample(1, 60.0, source = DataSourceId.ANDROID_APS).copy(
                 sensorId = null,
@@ -95,7 +98,16 @@ class CgmGraphPolicyTest {
             )
         val watch = sample(6, 61.0, source = DataSourceId.DEXCOM_G7_WATCH)
 
-        assertNull(CgmGraphPolicy.rangeExcursion(listOf(phone, watch), 70.0, 180.0))
+        assertEquals(RangeExcursion.LOW, CgmGraphPolicy.rangeExcursion(listOf(phone, watch), 70.0, 180.0))
+    }
+
+    @Test
+    fun `latest event determines tint even if backfill arrives last and opposite range precedes it`() {
+        assertEquals(
+            RangeExcursion.HIGH,
+            CgmGraphPolicy.rangeExcursion(listOf(sample(6, 190.0), sample(1, 60.0)), 70.0, 180.0),
+        )
+        assertNull(CgmGraphPolicy.rangeExcursion(listOf(sample(1, Double.NaN), sample(6, 9999.0)), 70.0, 180.0))
     }
 
     private fun sample(

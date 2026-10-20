@@ -98,8 +98,22 @@ internal fun widgetPickerSwatches(): List<Int> =
         AndroidColor.HSVToColor(floatArrayOf((column - 1).coerceAtLeast(0) * 60f, saturation, brightness))
     }
 
+internal data class ColorPickerAction(
+    val label: String,
+    val run: () -> Int,
+)
+
 @Composable
-internal fun OneUiWidgetColorPicker(label: String, initialArgb: Int, colors: OneUiWidgetSettingsColors, resetArgb: Int?, onDismiss: () -> Unit, onChange: (Int) -> Unit) {
+internal fun OneUiWidgetColorPicker(
+    label: String,
+    initialArgb: Int,
+    colors: OneUiWidgetSettingsColors,
+    resetArgb: Int?,
+    onDismiss: () -> Unit,
+    onChange: (Int) -> Unit,
+    onReset: (() -> Int)? = null,
+    actions: List<ColorPickerAction> = emptyList(),
+) {
     val context = LocalContext.current
     val openingArgb = remember(label) { initialArgb }
     var selected by remember(label) { mutableStateOf(WidgetPickerColor.fromArgb(openingArgb)) }
@@ -180,10 +194,23 @@ internal fun OneUiWidgetColorPicker(label: String, initialArgb: Int, colors: One
                     TextButton(onClick = { copyWidgetColorHex(context, selected.argb) }, modifier = Modifier.fillMaxWidth()) {
                         Text("HEX kopieren", color = colors.accent)
                     }
+                    actions.forEach { action ->
+                        TextButton(onClick = {
+                            selected = WidgetPickerColor.fromArgb(action.run())
+                            hex = ArgbColor.format(selected.argb)
+                        }, modifier = Modifier.fillMaxWidth()) { Text(action.label, color = colors.accent) }
+                    }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { resetArgb?.let { update(WidgetPickerColor.fromArgb(it)) } }, enabled = resetArgb != null, modifier = Modifier.weight(1f)) {
-                        Text("Zurücksetzen", color = if (resetArgb == null) colors.secondary else colors.accent, fontSize = 15.sp)
+                    TextButton(onClick = {
+                        if (onReset != null) {
+                            selected = WidgetPickerColor.fromArgb(onReset())
+                            hex = ArgbColor.format(selected.argb)
+                        } else {
+                            resetArgb?.let { update(WidgetPickerColor.fromArgb(it)) }
+                        }
+                    }, enabled = resetArgb != null || onReset != null, modifier = Modifier.weight(1f)) {
+                        Text("Zurücksetzen", color = if (resetArgb == null && onReset == null) colors.secondary else colors.accent, fontSize = 15.sp)
                     }
                     Box(Modifier.height(20.dp).width(1.dp).background(colors.secondary.copy(alpha = .3f)))
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Fertig", color = colors.accent, fontSize = 15.sp) }
