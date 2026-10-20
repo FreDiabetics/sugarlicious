@@ -57,7 +57,7 @@ class WidgetGraphVisualQaTest {
     }
 
     @Test
-    fun `widget uses same two-reading high activation and clears on first in-range reading`() {
+    fun `widget colors first high and clears on first in-range reading`() {
         val width = 440
         val height = 280
         val layout = responsiveWidgetLayout(width / density, height / density)
@@ -72,8 +72,8 @@ class WidgetGraphVisualQaTest {
         val twoHigh = render(stateFromHistory(listOf(186.0, 191.0)), width, height)
         val backInRange = render(stateFromHistory(listOf(186.0, 191.0, 178.0)), width, height)
 
-        assertNotEquals(oneHigh.getPixel(x, y), twoHigh.getPixel(x, y))
-        assertEquals(oneHigh.getPixel(x, y), backInRange.getPixel(x, y))
+        assertEquals(oneHigh.getPixel(x, y), twoHigh.getPixel(x, y))
+        assertNotEquals(oneHigh.getPixel(x, y), backInRange.getPixel(x, y))
     }
 
     @Test

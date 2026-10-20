@@ -334,7 +334,7 @@ internal fun OverviewWatchFaceTile(
             ) {
                 Text(
                     text = "Galaxy Watch Ultra",
-                    color = SugarliciousColors.TextPrimary,
+                    color = OneUiWidgetStyle.primary,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 )

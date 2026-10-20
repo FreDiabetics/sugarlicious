@@ -10,14 +10,14 @@ class WidgetGraphRangePolicyTest {
     private val now = 2_000_000_000L
 
     @Test
-    fun `single high does not activate and second consecutive high does`() {
-        assertNull(sustainedRangeExcursion(samples(120.0, 166.0), 80.0, 160.0))
+    fun `first high immediately activates high`() {
+        assertEquals(RangeExcursion.HIGH, sustainedRangeExcursion(samples(120.0, 166.0), 80.0, 160.0))
         assertEquals(RangeExcursion.HIGH, sustainedRangeExcursion(samples(166.0, 171.0), 80.0, 160.0))
     }
 
     @Test
-    fun `single low does not activate and second consecutive low does`() {
-        assertNull(sustainedRangeExcursion(samples(120.0, 77.0), 80.0, 160.0))
+    fun `first low immediately activates low`() {
+        assertEquals(RangeExcursion.LOW, sustainedRangeExcursion(samples(120.0, 77.0), 80.0, 160.0))
         assertEquals(RangeExcursion.LOW, sustainedRangeExcursion(samples(77.0, 73.0), 80.0, 160.0))
     }
 

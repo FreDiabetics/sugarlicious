@@ -768,9 +768,8 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetSettingsSection("Delta und Alter") {
                                     WidgetToggleSetting("Delta fett", value.deltaBold) { value = value.copy(deltaBold = it) }
                                     WidgetToggleSetting("Alter fett", value.ageBold) { value = value.copy(ageBold = it) }
-                                    if (automaticShape) {
+                                    if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) {
                                         WidgetToggleSetting("Zeit im Ziel fett", value.tirBold) { value = value.copy(tirBold = it) }
-                                        WidgetToggleSetting("Graphbeschriftung fett", value.graphLabelBold) { value = value.copy(graphLabelBold = it) }
                                     }
                                     if (!automaticShape) {
                                         WidgetToggleSetting("Delta anzeigen", value.showDelta) { value = value.copy(showDelta = it) }
@@ -790,7 +789,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                         WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
                                         WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
                                     }
-                                    (listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT) + if (automaticShape) listOf(WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON) else emptyList())
+                                    (listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT) + if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) listOf(WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON) else emptyList())
                                         .filter { !automaticShape || it != WidgetColorRole.UNIT }
                                         .forEach { role ->
                                             WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role })

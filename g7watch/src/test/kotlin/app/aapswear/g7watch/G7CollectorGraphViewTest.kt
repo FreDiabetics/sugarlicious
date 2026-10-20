@@ -62,7 +62,7 @@ class G7CollectorGraphViewTest {
     }
 
     @Test
-    fun `second consecutive high reading turns on configured high area`() {
+    fun `first high reading turns on configured high area`() {
         val oneHigh = render(listOf(reading("1", 166.0, now)))
         val twoHigh =
             render(
@@ -74,7 +74,7 @@ class G7CollectorGraphViewTest {
 
         val x = 137
         val y = 12
-        assertNotEquals(highArea, oneHigh.getPixel(x, y))
+        assertEquals(highArea, oneHigh.getPixel(x, y))
         assertEquals(highArea, twoHigh.getPixel(x, y))
     }
 

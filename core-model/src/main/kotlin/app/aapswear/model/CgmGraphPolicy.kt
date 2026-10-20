@@ -6,65 +6,30 @@ enum class RangeExcursion {
 }
 
 /**
- * Visual range status is deliberately conservative: one out-of-range point is not enough, while
- * two consecutive, validated points from one compatible stream activate the corresponding tint.
+ * Visual range status follows the newest validated measurement immediately, without confirmation.
  *
  * The canonical threshold policy owns the boundary semantics. VERY_LOW/VERY_HIGH do not create
  * additional graph regions; they collapse into the existing LOW/HIGH background excursion.
  */
 object CgmGraphPolicy {
-    private const val REQUIRED_POINTS = 2
-    private const val MAX_GAP_MS = 8L * 60_000L
-
     fun rangeExcursion(
         samples: List<GlucoseSample>,
         thresholds: CgmThresholds,
     ): RangeExcursion? {
         if (!thresholds.isValid) return null
 
-        // The graph state is derived from canonical sensor event time, not arrival order. This is
-        // important after reconnect/backfill: two already persisted consecutive readings must tint
-        // the graph immediately instead of waiting for two additional LIVE callbacks.
-        val chronological =
+        // Backfill arrival order must not override the latest measured state.
+        val latest =
             samples
                 .asSequence()
                 .filter {
                     it.quality == CgmQuality.VALID &&
                         it.valueMgDl.isFinite() &&
                         it.valueMgDl in 20.0..1_000.0
-                }.sortedBy(GlucoseSample::measuredAtEpochMs)
-                .distinctBy { listOf(it.sensorId, it.sessionId, it.measuredAtEpochMs, it.source) }
-                .toList()
-
-        val recent = mutableListOf<GlucoseSample>()
-        chronological.forEach { sample ->
-            val previous = recent.lastOrNull()
-            if (previous != null) {
-                val sensorChanged = previous.sensorId != null && sample.sensorId != null && previous.sensorId != sample.sensorId
-                val sessionChanged = previous.sessionId != null && sample.sessionId != null && previous.sessionId != sample.sessionId
-                val sourceChanged = previous.source != sample.source
-                val gap = sample.measuredAtEpochMs - previous.measuredAtEpochMs
-                if (sensorChanged || sessionChanged || sourceChanged || gap !in 1L..MAX_GAP_MS) recent.clear()
-            }
-            recent += sample
-            if (recent.size > REQUIRED_POINTS) recent.removeAt(0)
-        }
-
-        if (recent.size < REQUIRED_POINTS) return null
-        val first = recent.first()
-        val second = recent.last()
-        if (second.measuredAtEpochMs - first.measuredAtEpochMs !in 1L..MAX_GAP_MS) return null
-        if (first.sensorId != null && second.sensorId != null && first.sensorId != second.sensorId) return null
-        if (first.sessionId != null && second.sessionId != null && first.sessionId != second.sessionId) return null
-        return when {
-            recent.all {
-                thresholds.classify(it.valueMgDl) == CgmRangeClass.LOW ||
-                    thresholds.classify(it.valueMgDl) == CgmRangeClass.VERY_LOW
-            } -> RangeExcursion.LOW
-            recent.all {
-                thresholds.classify(it.valueMgDl) == CgmRangeClass.HIGH ||
-                    thresholds.classify(it.valueMgDl) == CgmRangeClass.VERY_HIGH
-            } -> RangeExcursion.HIGH
+                }.maxByOrNull(GlucoseSample::measuredAtEpochMs) ?: return null
+        return when (thresholds.classify(latest.valueMgDl)) {
+            CgmRangeClass.LOW, CgmRangeClass.VERY_LOW -> RangeExcursion.LOW
+            CgmRangeClass.HIGH, CgmRangeClass.VERY_HIGH -> RangeExcursion.HIGH
             else -> null
         }
     }

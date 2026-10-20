@@ -430,7 +430,7 @@ class DashboardChartsTest {
         assertEquals(417f, currentTimeLabelAnchor(dividerX = 425f, plotRight = 420f, edgePadding = 3f))
     }
 
-    @Test fun `range excursion requires two consecutive valid values`() {
+    @Test fun `range excursion follows the first valid out of range value`() {
         val now = 10_000_000L
 
         fun samples(vararg values: Double) =
@@ -438,7 +438,7 @@ class DashboardChartsTest {
                 GlucoseSample(value, now - (values.lastIndex - index) * 5 * 60_000L)
             }
 
-        assertNull(sustainedRangeExcursion(samples(79.0), 80.0, 160.0))
+        assertEquals(RangeExcursion.LOW, sustainedRangeExcursion(samples(79.0), 80.0, 160.0))
         assertEquals(RangeExcursion.LOW, sustainedRangeExcursion(samples(79.0, 70.0), 80.0, 160.0))
         assertEquals(RangeExcursion.HIGH, sustainedRangeExcursion(samples(161.0, 172.0), 80.0, 160.0))
         assertNull(sustainedRangeExcursion(samples(161.0, 159.0), 80.0, 160.0))

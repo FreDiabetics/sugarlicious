@@ -421,12 +421,14 @@ class DashboardViewFactory(
                 setContent {
                     SugarliciousTheme {
                         watchRenderState.value?.let { rendered ->
-                            SugarliciousWatchScreen(
-                                state = rendered.state,
-                                preferences = rendered.preferences,
-                                diagnostics = rendered.diagnostics,
-                                onSelectedFace = callbacks.setWatchFaceIndex,
-                            )
+                            OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) {
+                                SugarliciousWatchScreen(
+                                    state = rendered.state,
+                                    preferences = rendered.preferences,
+                                    diagnostics = rendered.diagnostics,
+                                    onSelectedFace = callbacks.setWatchFaceIndex,
+                                )
+                            }
                         }
                     }
                 }

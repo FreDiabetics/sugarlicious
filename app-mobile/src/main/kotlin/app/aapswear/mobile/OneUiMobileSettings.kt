@@ -35,7 +35,7 @@ internal fun styleMobileSettingsSwitch(view: Switch) =
                 override fun getPadding(padding: android.graphics.Rect): Boolean {
                     // Match thumb optical insets so Switch keeps the full painted track height.
                     val inset = (2f * density).roundToInt()
-                    padding.set(0, inset, 0, inset)
+                    padding.set(inset, inset, inset, inset)
                     return true
                 }
             }.apply {

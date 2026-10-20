@@ -11,6 +11,13 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class ComplicationAppearanceSettingsTest {
+    @Test
+    fun `catalog preserves readable cell widths on narrow phones and wider displays`() {
+        assertEquals(1, complicationCatalogColumns(260f))
+        assertEquals(2, complicationCatalogColumns(350f))
+        assertEquals(3, complicationCatalogColumns(600f))
+    }
+
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test fun `provider override persists independently and reset restores system default`() {

@@ -101,3 +101,39 @@ APIs/assets are used. Final root-cause results below supersede earlier counts.
 - Read-only follow-up review found no further concrete geometry/regression
   issue after accounting for Switch optical insets. Two pre-existing
   notification lint warnings remain outside this menu change.
+
+## Follow-up: Watch menu, picker actions and graph behavior
+
+- Mobile Watch navigation now reuses the device-palette One UI theme, header,
+  rounded surfaces and shared native sliders/switches. FaceDial/CGM preview
+  colors, selection, presets and synchronization remain canonical/unmodified.
+- All color reset/HEX-copy/color-transfer controls live inside the shared
+  picker, including Notification colors. Per-role reset removes overrides
+  rather than materializing an inherited color. Non-color geometry actions
+  remain with their settings.
+- Graph excursion tint follows the newest valid measured value immediately;
+  no two-reading confirmation. Invalid values remain excluded, arrival order
+  cannot supersede measured event order, and return to target clears tint.
+  Resolver hysteresis, alarm debounce and Collector BLE logic are unchanged.
+- Historical widget time labels use actual glyph ink bounds for rounded-corner
+  clearance instead of unused font descender space, reducing the left inset
+  without discarding the contour guard.
+- Glucose 2x2/4x2 detail circles grow from 16dp to 22dp with black symbols.
+  Glucose 2x1 hides TIR/icon-only controls; 2x1/2x2 hide graph-only controls.
+  The separate compact Glucose+Graph widget retains its graph controls.
+- Shared switches also have 2dp horizontal knob clearance in both checked
+  states; real measure/layout/draw assertions cover all sides.
+
+Follow-up verification: 137 core-model, 9 ui-shared, 302 SugarWear and 460
+Mobile tests passed (908 total, no failures/errors). Mobile debug/release,
+Wear and SugarWear debug builds and relevant lint/static/format checks passed.
+The last Mobile-only layout refinement passed all 460 tests and Mobile gates
+again. No checks were weakened. Existing notification lint warnings remain.
+
+Physical inspection on SM_S948B exposed a too-narrow three-column complication
+catalog; it now reserves readable cell widths, uses two columns on this phone,
+and separates title/gear in a row. Final APK was installed and inspected:
+Watch menu/cards, larger glucose detail icons, widget preview/switches and
+picker-contained HEX-copy/reset. Settings were exited without saving changes.
+Only the phone is ADB-discoverable; Watch installation and first-crossing
+hardware validation remain open. Light/large-font matrix remains open.
