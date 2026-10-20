@@ -79,6 +79,8 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
             }
         val auth =
             Spinner(this).apply {
+                // Keep the selection and popup interaction while omitting the platform arrow.
+                background = null
                 adapter =
                     ArrayAdapter(
                         this@NightscoutTreatmentSettingsActivity,

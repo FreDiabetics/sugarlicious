@@ -8,12 +8,14 @@ import androidx.compose.runtime.Composable
 @Composable
 fun SugarliciousTheme(content: @Composable () -> Unit) {
     val palette = SugarliciousColors.palette
+    val menuAccent = mobileMenuAccent(dark = !palette.isLight)
+    val menuOnAccent = mobileMenuOnAccent(dark = !palette.isLight)
 
     val colorScheme =
         if (palette.isLight) {
             lightColorScheme(
-                primary = SugarliciousColors.Primary,
-                onPrimary = SugarliciousColors.OnPrimary,
+                primary = menuAccent,
+                onPrimary = menuOnAccent,
                 primaryContainer = SugarliciousColors.SurfaceHigh,
                 onPrimaryContainer = SugarliciousColors.TextPrimary,
                 secondary = SugarliciousColors.Secondary,
@@ -32,8 +34,8 @@ fun SugarliciousTheme(content: @Composable () -> Unit) {
             )
         } else {
             darkColorScheme(
-                primary = SugarliciousColors.Primary,
-                onPrimary = SugarliciousColors.OnPrimary,
+                primary = menuAccent,
+                onPrimary = menuOnAccent,
                 primaryContainer = SugarliciousColors.SurfaceHigh,
                 onPrimaryContainer = SugarliciousColors.TextPrimary,
                 secondary = SugarliciousColors.Secondary,

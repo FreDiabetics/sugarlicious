@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,6 +47,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -179,7 +188,7 @@ internal fun SugarliciousColorSettingsPanel(
             ) {
                 Text(
                     "ALLES RESET",
-                    color = SugarliciousColors.Primary,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                 )
@@ -242,8 +251,8 @@ internal fun SugarliciousColorSettingsPanel(
             modifier = Modifier.fillMaxWidth(),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = SugarliciousColors.Primary,
-                    contentColor = SugarliciousColors.OnPrimary,
+                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
             Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
@@ -465,8 +474,8 @@ internal fun WidgetColorSettingsPanel() {
             modifier = Modifier.fillMaxWidth(),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = SugarliciousColors.Primary,
-                    contentColor = SugarliciousColors.OnPrimary,
+                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
             Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -478,9 +487,9 @@ internal fun WidgetColorSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = SugarliciousColors.Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
-        WidgetColorRole.entries.forEach { role ->
+        WidgetColorRole.entries.filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }.forEach { role ->
             WidgetColorSettingRow(
                 role = role,
                 argb = palette.argb(role),
@@ -539,7 +548,7 @@ private fun WidgetColorSettingRow(
         }
         if (!isDefault) {
             TextButton(onClick = onReset) {
-                Text("RESET", color = SugarliciousColors.Primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -555,14 +564,14 @@ internal fun AppearanceModeSelector(
             val active = mode == selected
             Text(
                 text = if (mode == AppearanceMode.LIGHT) "LIGHT" else "DARK",
-                color = if (active) SugarliciousColors.OnPrimary else SugarliciousColors.TextPrimary,
+                color = if (active) androidx.compose.material3.MaterialTheme.colorScheme.onPrimary else SugarliciousColors.TextPrimary,
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.Bold,
                 modifier =
                     Modifier
                         .weight(1f)
                         .background(
-                            if (active) SugarliciousColors.Primary else SugarliciousColors.SurfaceHigh,
+                            if (active) androidx.compose.material3.MaterialTheme.colorScheme.primary else SugarliciousColors.SurfaceHigh,
                             RoundedCornerShape(14.dp),
                         ).clickable { onSelected(mode) }
                         .padding(vertical = 11.dp),
@@ -619,7 +628,7 @@ private fun GraphSettingSwitch(
             colors =
                 SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = SugarliciousColors.Primary,
+                    checkedTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                     uncheckedThumbColor = SugarliciousColors.TextSecondary,
                     uncheckedTrackColor = SugarliciousColors.SurfaceRaised,
                     uncheckedBorderColor = SugarliciousColors.Border,
@@ -655,7 +664,7 @@ internal fun SugarliciousSettingSlider(
             }
             Text(
                 valueText,
-                color = SugarliciousColors.Primary,
+                color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier =
@@ -673,8 +682,8 @@ internal fun SugarliciousSettingSlider(
             modifier = Modifier.height(32.dp),
             colors =
                 SliderDefaults.colors(
-                    thumbColor = SugarliciousColors.Primary,
-                    activeTrackColor = SugarliciousColors.Primary,
+                    thumbColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                    activeTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                     inactiveTrackColor = SugarliciousColors.SurfaceRaised,
                     activeTickColor = Color.Transparent,
                     inactiveTickColor = Color.Transparent,
@@ -743,7 +752,7 @@ private fun ColorSettingRow(
         }
         if (!isDefault) {
             TextButton(onClick = onReset, modifier = Modifier.padding(horizontal = 2.dp)) {
-                Text("RESET", color = SugarliciousColors.Primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.width(6.dp))
@@ -981,7 +990,17 @@ internal fun ColorEditorDialog(
     initialArgb: Int,
     onDismiss: () -> Unit,
     onChange: (Int) -> Unit,
+    widgetStyle: OneUiWidgetSettingsColors? = null,
+    resetArgb: Int? = null,
 ) {
+    if (widgetStyle != null) {
+        OneUiWidgetColorPicker(label, initialArgb, widgetStyle, resetArgb, onDismiss, onChange)
+        return
+    }
+    val dialogPrimary = SugarliciousColors.TextPrimary
+    val dialogSecondary = SugarliciousColors.TextSecondary
+    val dialogAccent = androidx.compose.material3.MaterialTheme.colorScheme.primary
+    val dialogSurface = SugarliciousColors.Surface
     val initialHsv =
         remember(role, label) {
             FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
@@ -1020,7 +1039,7 @@ internal fun ColorEditorDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(label, color = SugarliciousColors.TextPrimary) },
+        title = { Text(label, color = dialogPrimary) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (role != null) {
@@ -1083,7 +1102,7 @@ internal fun ColorEditorDialog(
                 })
                 Text(
                     text = "Transparenz ${(100f - alpha * 100f).roundToInt()} %",
-                    color = SugarliciousColors.TextSecondary,
+                    color = dialogSecondary,
                     fontSize = 11.sp,
                 )
                 AlphaPicker(
@@ -1099,17 +1118,17 @@ internal fun ColorEditorDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("FERTIG", color = SugarliciousColors.Primary)
+                Text("FERTIG", color = dialogAccent)
             }
         },
-        containerColor = SugarliciousColors.Surface,
-        titleContentColor = SugarliciousColors.TextPrimary,
-        textContentColor = SugarliciousColors.TextPrimary,
+        containerColor = dialogSurface,
+        titleContentColor = dialogPrimary,
+        textContentColor = dialogPrimary,
     )
 }
 
 @Composable
-private fun SaturationBrightnessPicker(
+internal fun SaturationBrightnessPicker(
     hue: Float,
     saturation: Float,
     brightness: Float,
@@ -1121,7 +1140,33 @@ private fun SaturationBrightnessPicker(
             Modifier
                 .fillMaxWidth()
                 .height(180.dp)
-                .pointerInput(Unit) {
+                .semantics {
+                    contentDescription = "Farbspektrum"
+                    stateDescription = "Sättigung ${(saturation * 100).roundToInt()} %, Helligkeit ${(brightness * 100).roundToInt()} %"
+                    customActions =
+                        listOf(
+                            CustomAccessibilityAction("Sättigung erhöhen") {
+                                currentOnChange((saturation + .05f).coerceAtMost(1f), brightness)
+                                true
+                            },
+                            CustomAccessibilityAction("Sättigung verringern") {
+                                currentOnChange((saturation - .05f).coerceAtLeast(0f), brightness)
+                                true
+                            },
+                            CustomAccessibilityAction("Helligkeit erhöhen") {
+                                currentOnChange(saturation, (brightness + .05f).coerceAtMost(1f))
+                                true
+                            },
+                            CustomAccessibilityAction("Helligkeit verringern") {
+                                currentOnChange(saturation, (brightness - .05f).coerceAtLeast(0f))
+                                true
+                            },
+                        )
+                }.pointerInput(Unit) {
+                    detectTapGestures { offset ->
+                        currentOnChange((offset.x / size.width).coerceIn(0f, 1f), (1f - offset.y / size.height).coerceIn(0f, 1f))
+                    }
+                }.pointerInput(Unit) {
                     fun update(offset: Offset) {
                         currentOnChange(
                             (offset.x / size.width).coerceIn(0f, 1f),
@@ -1133,14 +1178,15 @@ private fun SaturationBrightnessPicker(
     ) {
         drawRect(Brush.horizontalGradient(listOf(Color.White, Color(AndroidColor.HSVToColor(floatArrayOf(hue, 1f, 1f))))))
         drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-        val marker = Offset(saturation * size.width, (1f - brightness) * size.height)
+        val inset = 9.dp.toPx()
+        val marker = Offset((saturation * size.width).coerceIn(inset, size.width - inset), ((1f - brightness) * size.height).coerceIn(inset, size.height - inset))
         drawCircle(Color.White, 7.dp.toPx(), marker, style = Stroke(2.dp.toPx()))
         drawCircle(Color.Black.copy(alpha = 0.65f), 9.dp.toPx(), marker, style = Stroke(1.dp.toPx()))
     }
 }
 
 @Composable
-private fun HuePicker(
+internal fun HuePicker(
     hue: Float,
     onChange: (Float) -> Unit,
 ) {
@@ -1150,7 +1196,16 @@ private fun HuePicker(
             Modifier
                 .fillMaxWidth()
                 .height(28.dp)
-                .pointerInput(Unit) {
+                .semantics {
+                    contentDescription = "Farbton"
+                    progressBarRangeInfo = ProgressBarRangeInfo(hue, 0f..360f)
+                    setProgress { value ->
+                        if (value.isFinite()) currentOnChange(value.coerceIn(0f, 360f))
+                        value.isFinite()
+                    }
+                }.pointerInput(Unit) {
+                    detectTapGestures { offset -> currentOnChange((offset.x / size.width).coerceIn(0f, 1f) * 360f) }
+                }.pointerInput(Unit) {
                     fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f) * 360f)
                     detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
                 },
@@ -1164,14 +1219,14 @@ private fun HuePicker(
                 androidx.compose.ui.geometry
                     .CornerRadius(size.height / 2f),
         )
-        val x = hue / 360f * size.width
+        val x = (hue / 360f * size.width).coerceIn(9.dp.toPx(), size.width - 9.dp.toPx())
         drawCircle(Color.White, 7.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(2.dp.toPx()))
         drawCircle(Color.Black.copy(alpha = 0.55f), 9.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(1.dp.toPx()))
     }
 }
 
 @Composable
-private fun AlphaPicker(
+internal fun AlphaPicker(
     color: Color,
     alpha: Float,
     onChange: (Float) -> Unit,
@@ -1182,7 +1237,17 @@ private fun AlphaPicker(
             Modifier
                 .fillMaxWidth()
                 .height(28.dp)
-                .pointerInput(Unit) {
+                .semantics {
+                    contentDescription = "Deckkraft"
+                    progressBarRangeInfo = ProgressBarRangeInfo(alpha, 0f..1f)
+                    stateDescription = "Transparenz ${(100 - alpha * 100).roundToInt()} %"
+                    setProgress { value ->
+                        if (value.isFinite()) currentOnChange(value.coerceIn(0f, 1f))
+                        value.isFinite()
+                    }
+                }.pointerInput(Unit) {
+                    detectTapGestures { offset -> currentOnChange((offset.x / size.width).coerceIn(0f, 1f)) }
+                }.pointerInput(Unit) {
                     fun update(offset: Offset) = currentOnChange((offset.x / size.width).coerceIn(0f, 1f))
                     detectDragGestures(onDragStart = ::update) { change, _ -> update(change.position) }
                 },
@@ -1213,7 +1278,7 @@ private fun AlphaPicker(
                 androidx.compose.ui.geometry
                     .CornerRadius(size.height / 2f),
         )
-        val x = alpha * size.width
+        val x = (alpha * size.width).coerceIn(9.dp.toPx(), size.width - 9.dp.toPx())
         drawCircle(Color.White, 7.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(2.dp.toPx()))
         drawCircle(Color.Black.copy(alpha = 0.55f), 9.dp.toPx(), Offset(x, size.height / 2f), style = Stroke(1.dp.toPx()))
     }
@@ -1237,8 +1302,7 @@ internal fun NotificationGraphSettingsPanel() {
     fun resolved(role: SugarliciousColorRole): Int =
         when {
             preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
-            role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
-            else -> palette.argb(role)
+            else -> NotificationGraphColorDefaults.argb(palette, role)
         }
 
     val collapsedInitial =
@@ -1338,7 +1402,7 @@ internal fun NotificationGraphSettingsPanel() {
                     revision++
                 },
             ) {
-                Text("RESET", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -1376,8 +1440,8 @@ internal fun NotificationGraphSettingsPanel() {
             modifier = Modifier.fillMaxWidth(),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = SugarliciousColors.Primary,
-                    contentColor = SugarliciousColors.OnPrimary,
+                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
             Text("FARBEN AUS MOBILE ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -1499,7 +1563,7 @@ internal fun NotificationGraphSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = SugarliciousColors.Primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
@@ -1567,7 +1631,7 @@ private fun NotificationLayoutControls(
         {},
     )
     TextButton(onClick = { onChange(value.copy(trendScalePercent = null)) }) {
-        Text("SYSTEMSTANDARD VERWENDEN", color = SugarliciousColors.Primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("SYSTEMSTANDARD VERWENDEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
     SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", {
         onChange(value.copy(trendXPercent = it.toInt()))
@@ -1593,5 +1657,11 @@ private fun NotificationLayoutControls(
 }
 
 internal fun toHex(argb: Int): String = ArgbColor.format(argb)
+
+internal fun copyWidgetColorHex(context: android.content.Context, argb: Int) {
+    context
+        .getSystemService(android.content.ClipboardManager::class.java)
+        .setPrimaryClip(android.content.ClipData.newPlainText("HEX", toHex(argb)))
+}
 
 private fun parseHex(value: String): Int? = ArgbColor.parse(value)

@@ -14,6 +14,8 @@ import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TargetState
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyProgressAppearance
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.Trend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -25,12 +27,67 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
+    @Test
+    fun `compact value and supplement use a centered group with equal outer margins`() {
+        val columns = compactGlucoseColumns(308f, 160f, 40f, 2f)
+        assertTrue(columns.valueLeft > 28f)
+        assertTrue(columns.supplementCenter < 308f * .82f)
+        assertEquals(columns.valueLeft, 308f - columns.supplementCenter - 20f, .001f)
+    }
+
+    @Test
+    fun `adaptive compact glucose value and trend are optically centered vertically`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = 1_792_411_200_000L
+        val bitmap =
+            renderAdaptiveGlucoseWidget(
+                state = widgetPreviewState(now),
+                palette = WidgetColorStore.load(context, app.aapswear.model.AppearanceMode.DARK),
+                width = 308,
+                height = 138,
+                now = now,
+                pixelDensity = 2f,
+                configuration = WidgetInstanceConfiguration(),
+                trendStyle =
+                    app.aapswear.model.TrendArrowStyle
+                        .defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+            )
+        val rows =
+            (0 until bitmap.height).filter { y ->
+                (28 until 215).any { x ->
+                    val color = bitmap.getPixel(x, y)
+                    Color.alpha(color) > 240 && Color.red(color) > 240 && Color.green(color) > 240 && Color.blue(color) > 240
+                }
+            }
+        assertTrue(rows.isNotEmpty())
+        assertEquals(bitmap.height / 2f, (rows.first() + rows.last() + 1) / 2f, 2f)
+    }
+
+    @Test
+    fun `native Samsung family bounds must not have compact padding subtracted twice`() {
+        val insets = widgetContentInsetsDp(WidgetKind.METABOLIC, samsungCompact = true, nativeHostSized = true)
+        val actual = widgetRenderSizeDp(154.28572f, 68.85714f, insets)
+        assertEquals(154.28572f, actual.widthDp, .001f)
+        assertEquals(68.85714f, actual.heightDp, .001f)
+        val options =
+            android.os.Bundle().apply {
+                putInt("semWidgetSize", 2)
+                putFloat("hsResizeRatio", 1f)
+            }
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
+        assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.TherapyFamily2x1Receiver", options))
+        options.putFloat("hsResizeRatio", .8333333f)
+        assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
+    }
+
     @Test
     fun `glucose widget uses the full host surface`() {
         assertEquals(WidgetContentInsets.ZERO, widgetContentInsetsDp(WidgetKind.GLUCOSE, samsungCompact = false))
@@ -121,6 +178,126 @@ class WidgetPresentationTest {
     }
 
     @Test
+    fun `widget family layout maps samsung 2x1 2x2 and 4x2 content sizes`() {
+        assertEquals(WidgetFamilyLayout.COMPACT_2X1, widgetFamilyLayout(185.6f, 82.8f))
+        assertEquals(WidgetFamilyLayout.DETAIL_2X2, widgetFamilyLayout(185.6f, 183.6f))
+        assertEquals(WidgetFamilyLayout.WIDE_4X2, widgetFamilyLayout(413.9f, 183.6f))
+        assertEquals(WidgetFamilyLayout.COMPACT_2X1, widgetFamilyLayout(299.9f, 120f))
+        assertEquals(WidgetFamilyLayout.WIDE_4X2, widgetFamilyLayout(300f, 120f))
+    }
+
+    @Test
+    fun `glucose family text follows compact and detail contracts`() {
+        assertEquals(
+            WidgetGlucoseFamilyText(age = "5m", delta = "-5"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.COMPACT_2X1, "5m", "-5", "mg/dL", 89),
+        )
+        assertEquals(
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m", tir = "89%"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.DETAIL_2X2, "5m", "+10", "mg/dL", 89),
+        )
+        assertEquals(
+            WidgetGlucoseFamilyText(delta = "+10 mg/dL", age = "5m", tir = "--"),
+            widgetGlucoseFamilyText(WidgetFamilyLayout.WIDE_4X2, "5m", "+10", "mg/dL", null),
+        )
+    }
+
+    @Test
+    fun `current day tir excludes yesterday future and invalid samples`() {
+        val zone = ZoneId.of("Europe/Berlin")
+        val now = Instant.parse("2026-10-19T12:00:00Z").toEpochMilli()
+        val samples =
+            listOf(
+                GlucoseSample(100.0, Instant.parse("2026-10-19T06:00:00Z").toEpochMilli()),
+                GlucoseSample(120.0, Instant.parse("2026-10-19T07:00:00Z").toEpochMilli()),
+                GlucoseSample(200.0, Instant.parse("2026-10-19T08:00:00Z").toEpochMilli()),
+                GlucoseSample(110.0, Instant.parse("2026-10-18T20:00:00Z").toEpochMilli()),
+                GlucoseSample(100.0, Instant.parse("2026-10-19T13:00:00Z").toEpochMilli()),
+                GlucoseSample(1_200.0, Instant.parse("2026-10-19T09:00:00Z").toEpochMilli()),
+            )
+
+        assertEquals(67, currentDayTirPercent(samples, 80.0, 160.0, now, zone))
+        assertEquals(null, currentDayTirPercent(emptyList(), 80.0, 160.0, now, zone))
+    }
+
+    @Test
+    fun `adaptive glucose geometry reserves a graph only for the 4x2 layout`() {
+        val compact = adaptiveGlucoseGeometry(202f, 101f, WidgetFamilyLayout.COMPACT_2X1)
+        val detail = adaptiveGlucoseGeometry(202f, 228f, WidgetFamilyLayout.DETAIL_2X2)
+        val wide = adaptiveGlucoseGeometry(430f, 228f, WidgetFamilyLayout.WIDE_4X2)
+
+        assertEquals(null, compact.graphBounds)
+        assertEquals(null, detail.graphBounds)
+        assertEquals(null, compact.dividerX)
+        assertEquals(215f, wide.dividerX!!, 0.01f)
+        assertEquals(230.05f, wide.graphBounds!!.left, 0.01f)
+        assertEquals(228f * .70f, wide.graphBounds.height(), 0.01f)
+        assertTrue(wide.valueBounds.right < wide.graphBounds.left)
+    }
+
+    @Test
+    fun `adaptive glucose forces pill only for compact layout`() {
+        assertEquals(50f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.COMPACT_2X1, 100f, 28f), 0.01f)
+        assertEquals(28f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.DETAIL_2X2, 200f, 28f), 0.01f)
+        assertEquals(28f, adaptiveGlucoseCornerRadius(WidgetFamilyLayout.WIDE_4X2, 200f, 28f), 0.01f)
+    }
+
+    @Test
+    fun `adaptive glucose renderer produces every supported surface`() {
+        val current = state(listOf(sample(110.0, -10), sample(115.0, -5)), 115.0)
+        listOf(202 to 101, 202 to 228, 430 to 228).forEach { (width, height) ->
+            val bitmap =
+                renderAdaptiveGlucoseWidget(
+                    state = current,
+                    palette = palette,
+                    width = width,
+                    height = height,
+                    now = now,
+                    thresholds = thresholds,
+                    pixelDensity = 1f,
+                    configuration = WidgetInstanceConfiguration(),
+                    trendStyle =
+                        app.aapswear.model.TrendArrowStyle
+                            .defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+                )
+            assertEquals(width, bitmap.width)
+            assertEquals(height, bitmap.height)
+            assertFalse(bitmap.isRecycled)
+        }
+    }
+
+    @Test
+    fun `graph label uses dark contrast only on confirmed high area`() {
+        assertEquals(WidgetColorRole.HIGH_REGION_LABEL, graphScaleAgeColorRole(app.aapswear.model.RangeExcursion.HIGH))
+        assertEquals(WidgetColorRole.AXIS, graphScaleAgeColorRole(null))
+        assertEquals("3h · 5m", graphScaleAgeText(3, 5))
+        assertEquals("3h", graphScaleAgeText(3, null))
+    }
+
+    @Test
+    fun `graph scale mode cycles and wraps in canonical order`() {
+        assertEquals(6, nextWidgetGraphHours(3))
+        assertEquals(1, nextWidgetGraphHours(24))
+        assertEquals(WidgetScaleMode.DYNAMIC, nextWidgetScaleMode(WidgetScaleMode.STATIC))
+        assertEquals(WidgetScaleMode.LOGARITHMIC, nextWidgetScaleMode(WidgetScaleMode.DYNAMIC))
+        assertEquals(WidgetScaleMode.STATIC, nextWidgetScaleMode(WidgetScaleMode.LOGARITHMIC))
+    }
+
+    @Test
+    fun `therapy widget uses two slots at 2x1 and a centered one plus two at 2x2`() {
+        val compact = resolveWidgetTherapyLayout(202f, 101f, TherapyProgressAppearance())
+        val detail = resolveWidgetTherapyLayout(202f, 228f, TherapyProgressAppearance())
+
+        assertEquals(listOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB), compact.map { it.metric })
+        assertEquals(1, compact.map { it.slot.centerYDp }.distinct().size)
+        assertEquals(TherapyProgressMetric.entries, detail.map { it.metric })
+        assertEquals(101f, detail.first().slot.centerXDp, 0.01f)
+        assertTrue(detail[0].slot.centerYDp < detail[1].slot.centerYDp)
+        assertEquals(detail[1].slot.centerYDp, detail[2].slot.centerYDp, 0.01f)
+        assertTrue(detail[1].slot.centerXDp < detail[2].slot.centerXDp)
+    }
+
+    @Test
     fun `first high colors value immediately and second high confirms excursion`() {
         val configured = thresholds.copy(highMgDl = 160.0)
         val first = state(listOf(sample(150.0, -10), sample(162.0, -5)), 162.0)
@@ -171,6 +348,29 @@ class WidgetPresentationTest {
             assertFalse(graph.isRecycled)
             assertFalse(glucose.isRecycled)
         }
+    }
+
+    @Test
+    fun `glucose supplement composes delta age and unit in the approved rows`() {
+        assertEquals(
+            WidgetGlucoseSupplement(topLeft = "−2", bottomRight = "mg/dL"),
+            widgetGlucoseSupplement(showDelta = true, showAge = false, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(
+            WidgetGlucoseSupplement(topLeft = "−2", separator = "·", topRight = "2m", bottomRight = "mg/dL"),
+            widgetGlucoseSupplement(showDelta = true, showAge = true, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(
+            WidgetGlucoseSupplement(topRight = "2m"),
+            widgetGlucoseSupplement(showDelta = false, showAge = true, delta = "−2", age = "2m", unit = "mg/dL"),
+        )
+        assertEquals(null, widgetGlucoseSupplement(false, false, "−2", "2m", "mg/dL"))
+    }
+
+    @Test
+    fun `glucose and trend move into the left region when a supplement is visible`() {
+        assertEquals(100f, widgetGlucoseGroupStartX(300f, 100f, hasSupplement = false), 0.01f)
+        assertEquals(43f, widgetGlucoseGroupStartX(300f, 100f, hasSupplement = true), 0.01f)
     }
 
     @Test

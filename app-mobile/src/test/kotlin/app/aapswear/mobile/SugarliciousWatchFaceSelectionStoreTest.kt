@@ -15,6 +15,18 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class SugarliciousWatchFaceSelectionStoreTest {
+    @Test
+    fun `reading a legacy face during composition never writes preferences`() {
+        val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        preferences.edit().putInt("watchFaceIndex", 6).commit()
+        val before = preferences.all.toMap()
+        assertEquals(DIRECT_TO_WATCH_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
+        assertEquals(before, preferences.all)
+        SugarliciousWatchFaceSelectionStore.migrate(context)
+        assertEquals(2, preferences.getInt("watchFaceCatalogVersion", 0))
+        assertEquals(DIRECT_TO_WATCH_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
+    }
+
     private lateinit var context: Context
 
     @Before

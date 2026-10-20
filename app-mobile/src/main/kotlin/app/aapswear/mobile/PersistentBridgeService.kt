@@ -664,13 +664,35 @@ internal fun notificationGraphColor(
     val overrideKey = "notification.color.override." + role.preferenceKey
     val legacyModeKey = notificationColorPrefix + role.preferenceKey
     return when {
-        palette.isLight && role == SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
-        palette.isLight && role == SugarliciousColorRole.CGM_DOT_IN_RANGE -> Color.BLACK
-        role == SugarliciousColorRole.RANGE_IN_RANGE -> palette.argb(role)
         preferences.contains(legacyModeKey) -> preferences.getInt(legacyModeKey, palette.argb(role))
         !palette.isLight && preferences.contains(overrideKey) -> preferences.getInt(overrideKey, palette.argb(role))
-        else -> palette.argb(role)
+        else -> NotificationGraphColorDefaults.argb(palette, role)
     }
+}
+
+internal object NotificationGraphColorDefaults {
+    fun argb(
+        palette: SugarliciousPalette,
+        role: SugarliciousColorRole,
+    ): Int =
+        if (palette.isLight) {
+            when (role) {
+                SugarliciousColorRole.GRAPH_BACKGROUND -> Color.WHITE
+                SugarliciousColorRole.CGM_DOT_LOW,
+                SugarliciousColorRole.CGM_DOT_IN_RANGE,
+                SugarliciousColorRole.CGM_DOT_HIGH,
+                SugarliciousColorRole.GRAPH_CURRENT_OUTLINE,
+                -> Color.BLACK
+                SugarliciousColorRole.GRAPH_DIVIDER -> 0xFF747474.toInt()
+                SugarliciousColorRole.TARGET_VALUE -> 0xFFF0F0F0.toInt()
+                else -> palette.argb(role)
+            }
+        } else {
+            when (role) {
+                SugarliciousColorRole.RANGE_IN_RANGE -> 0xFF282828.toInt()
+                else -> palette.argb(role)
+            }
+        }
 }
 
 internal data class NotificationGraphDotStyle(

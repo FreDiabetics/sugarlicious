@@ -219,6 +219,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SugarliciousWatchFaceSelectionStore.migrate(this)
         uiPreferences.ensureSettingsSchema(SettingsSchemaVersions.APPEARANCE)
         // The target band is canonical graph content, not a user-toggleable stream.
         uiPreferences.edit { remove("cgm.targetRange") }

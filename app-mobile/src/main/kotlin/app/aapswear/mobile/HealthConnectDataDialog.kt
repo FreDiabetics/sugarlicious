@@ -168,7 +168,9 @@ internal object HealthConnectDataDialog {
         val status = HealthConnectIntegration.status(context)
         val textPrimary = SugarliciousColors.argb(SugarliciousColorRole.TEXT_PRIMARY)
         val textSecondary = SugarliciousColors.argb(SugarliciousColorRole.TEXT_SECONDARY)
-        val accent = SugarliciousColors.argb(SugarliciousColorRole.PRIMARY)
+        val accent =
+            app.aapswear.mobile.ui.theme
+                .mobileMenuAccentArgb(context, dark = !SugarliciousColors.palette.isLight)
         val border = SugarliciousColors.argb(SugarliciousColorRole.BORDER)
         val surface = SugarliciousColors.argb(SugarliciousColorRole.SURFACE)
 

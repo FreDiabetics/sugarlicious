@@ -717,6 +717,10 @@ internal class GlucoseDashboardChart
                 canvas.clipPath(Path().apply { addRoundRect(plot, radius, radius, Path.Direction.CW) })
 
                 if (showTargetRange && targetLeft < targetRight) {
+                    // Adjacent fractional rectangle edges must not independently blend with the
+                    // background: two half-covered edges otherwise leave a dark one-pixel seam
+                    // even when both bands have the same color and their boundary is transparent.
+                    fillPaint.isAntiAlias = false
                     if (excursion == RangeExcursion.HIGH) {
                         fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_VERY_HIGH)
                         canvas.drawRect(targetLeft, plot.top, targetRight, targetVeryTop, fillPaint)
@@ -731,6 +735,7 @@ internal class GlucoseDashboardChart
                         fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.RANGE_VERY_LOW)
                         canvas.drawRect(targetLeft, targetVeryBottom, targetRight, plot.bottom, fillPaint)
                     }
+                    fillPaint.isAntiAlias = true
                 }
 
                 if (signalLost) {

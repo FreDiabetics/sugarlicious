@@ -20,6 +20,39 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
     @Test
+    fun `detail font weights and all icon colors persist per widget and theme`() {
+        val roles = listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON, WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)
+        val saved =
+            WidgetInstanceConfiguration(
+                deltaBold = true,
+                ageBold = true,
+                tirBold = true,
+                graphLabelBold = true,
+                colorOverrides = roles.associateWith { Color.RED },
+                lightColorOverrides = roles.associateWith { Color.BLUE },
+            )
+        WidgetInstanceConfigurationStore.save(context, 9921, saved)
+        val restored = WidgetInstanceConfigurationStore.read(context, 9921)
+        assertTrue(restored.deltaBold && restored.ageBold && restored.tirBold && restored.graphLabelBold)
+        roles.forEach { role ->
+            assertEquals(Color.RED, restored.resolvedAppearance(AppearanceMode.DARK).colorOverrides[role])
+            assertEquals(Color.BLUE, restored.resolvedAppearance(AppearanceMode.LIGHT).colorOverrides[role])
+        }
+        assertFalse(WidgetInstanceConfigurationStore.read(context, 9922).tirBold)
+    }
+
+    @Test
+    fun `new widgets start with fully opaque backgrounds in both themes`() {
+        ConfigurableWidgetKind.entries.forEach { kind ->
+            val value = WidgetSystemDefaults.forNewInstance(context, kind)
+            AppearanceMode.entries.forEach { mode ->
+                assertEquals("$kind $mode", 255, Color.alpha(value.resolvedAppearance(mode).backgroundArgb))
+                if (mode == AppearanceMode.LIGHT) assertEquals("$kind light background", Color.WHITE, value.resolvedAppearance(mode).backgroundArgb)
+            }
+        }
+    }
+
+    @Test
     fun `fresh widgets use the approved provider specific templates`() {
         val glucose = WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GLUCOSE)
         assertEquals(WidgetShapeMode.PILL, glucose.shapeMode)
@@ -45,12 +78,18 @@ class WidgetInstanceConfigurationTest {
     }
 
     @Test
-    fun `settings changes use latest wins coordinator and leaving flushes final instance`() {
+    fun `settings changes remain local until the explicit action pill saves them`() {
         val source = File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
 
-        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.submitInstance"))
-        assertTrue(source.contains("SugarliciousWidgetUpdateCoordinator.flush"))
-        assertFalse(source.contains("LaunchedEffect(value) {\n                    WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, value)\n                    SugarliciousWidgets.update"))
+        assertTrue(source.contains("WidgetSettingsActionPill("))
+        assertTrue(source.contains("setResult(RESULT_CANCELED)"))
+        assertTrue(source.contains("WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)"))
+        val prepare = source.indexOf("SugarliciousWidgets.prepareInstance(this@WidgetConfigurationActivity, appWidgetId, widgetKind, saved)")
+        val commit = source.indexOf("commit = { WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)")
+        assertTrue(prepare >= 0 && commit > prepare)
+        assertTrue(source.contains("updateAppWidget(appWidgetId, views)"))
+        assertFalse(source.contains("override fun onPause()"))
+        assertFalse(source.contains("LaunchedEffect(value)"))
     }
 
     @Test
@@ -112,10 +151,21 @@ class WidgetInstanceConfigurationTest {
     @Test
     fun `configuration options follow the concrete widget provider`() {
         assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind("app.aapswear.mobile.GlucoseWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind("app.aapswear.mobile.GlucoseWidget2x2Receiver"))
+        assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind("app.aapswear.mobile.GlucoseWidget4x2Receiver"))
         assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind("app.aapswear.mobile.GraphWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind("app.aapswear.mobile.GraphWidget2x2Receiver"))
+        assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind("app.aapswear.mobile.GraphWidget4x2Receiver"))
         assertEquals(ConfigurableWidgetKind.GLUCOSE_GRAPH, configurableWidgetKind("app.aapswear.mobile.GlucoseGraphWidgetReceiver"))
         assertFalse(ConfigurableWidgetKind.GLUCOSE.hasGraph)
         assertTrue(ConfigurableWidgetKind.GRAPH.hasGraph)
+    }
+
+    @Test
+    fun `provider presets retain their requested initial layout`() {
+        assertEquals(WidgetFamilyLayout.COMPACT_2X1, widgetProviderPreset("app.aapswear.mobile.GlucoseWidgetReceiver"))
+        assertEquals(WidgetFamilyLayout.DETAIL_2X2, widgetProviderPreset("app.aapswear.mobile.GlucoseWidget2x2Receiver"))
+        assertEquals(WidgetFamilyLayout.WIDE_4X2, widgetProviderPreset("app.aapswear.mobile.GraphWidget4x2Receiver"))
     }
 
     @Test
@@ -125,6 +175,126 @@ class WidgetInstanceConfigurationTest {
     }
 
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+    @Test
+    fun `existing widgets materialize every inherited setting once and remain isolated`() {
+        val id = 9121
+        val originalDark = Color.rgb(12, 34, 56)
+        val changedDark = Color.rgb(210, 45, 67)
+        try {
+            WidgetColorStore.save(context, AppearanceMode.DARK, WidgetColorRole.DOT_IN_RANGE, originalDark)
+            WidgetInstanceConfigurationStore.save(
+                context,
+                id,
+                WidgetInstanceConfiguration(cgmDotRadiusDp = 5.25f),
+            )
+
+            val migrated =
+                WidgetInstanceConfigurationStore.readIsolated(
+                    context,
+                    id,
+                    ConfigurableWidgetKind.GRAPH,
+                )
+            assertEquals(WidgetColorRole.entries.toSet(), migrated.colorOverrides.keys)
+            assertEquals(WidgetColorRole.entries.toSet(), migrated.lightColorOverrides.keys)
+            assertEquals(originalDark, migrated.colorOverrides[WidgetColorRole.DOT_IN_RANGE])
+            assertEquals(5.25f, migrated.cgmDotRadiusDp, 0.001f)
+            assertFalse(migrated.darkTrendStyle.isEmpty)
+            assertFalse(migrated.lightTrendStyle.isEmpty)
+            assertTrue(migrated.darkTrendStyle.fillColor != null)
+            assertTrue(migrated.darkTrendStyle.sizePercent != null)
+
+            WidgetColorStore.save(context, AppearanceMode.DARK, WidgetColorRole.DOT_IN_RANGE, changedDark)
+            val reread =
+                WidgetInstanceConfigurationStore.readIsolated(
+                    context,
+                    id,
+                    ConfigurableWidgetKind.GRAPH,
+                )
+            assertEquals(originalDark, reread.colorOverrides[WidgetColorRole.DOT_IN_RANGE])
+            assertEquals(5.25f, reread.cgmDotRadiusDp, 0.001f)
+            assertEquals(migrated.darkTrendStyle.fillColor, reread.darkTrendStyle.fillColor)
+            assertEquals(migrated.darkTrendStyle.sizePercent, reread.darkTrendStyle.sizePercent)
+        } finally {
+            WidgetInstanceConfigurationStore.delete(context, id)
+            WidgetColorStore.reset(context, AppearanceMode.DARK, WidgetColorRole.DOT_IN_RANGE)
+        }
+    }
+
+    @Test
+    fun `new widget captures a complete independent settings profile`() {
+        val configuration = WidgetSystemDefaults.forNewInstance(context, ConfigurableWidgetKind.GLUCOSE_GRAPH)
+
+        assertEquals(WidgetColorRole.entries.toSet(), configuration.colorOverrides.keys)
+        assertEquals(WidgetColorRole.entries.toSet(), configuration.lightColorOverrides.keys)
+        assertFalse(configuration.darkTrendStyle.isEmpty)
+        assertFalse(configuration.lightTrendStyle.isEmpty)
+        assertEquals(38, configuration.glucoseGraphValuePercent)
+    }
+
+    @Test
+    fun `glucose widget supplement settings round trip independently per instance`() {
+        val first =
+            WidgetInstanceConfiguration(
+                showDelta = true,
+                showAge = true,
+                deltaScalePercent = 115,
+                deltaOffsetXDp = -4,
+                deltaOffsetYDp = 3,
+                ageScalePercent = 90,
+                ageOffsetXDp = 2,
+                ageOffsetYDp = -1,
+                unitScalePercent = 85,
+                unitOffsetXDp = 1,
+                unitOffsetYDp = 4,
+            )
+        val second = WidgetInstanceConfiguration(showDelta = false, showAge = true, ageScalePercent = 130)
+
+        WidgetInstanceConfigurationStore.save(context, 9231, first)
+        WidgetInstanceConfigurationStore.save(context, 9232, second)
+
+        assertEquals(first, WidgetInstanceConfigurationStore.read(context, 9231))
+        assertEquals(second, WidgetInstanceConfigurationStore.read(context, 9232))
+        WidgetInstanceConfigurationStore.delete(context, 9231)
+        WidgetInstanceConfigurationStore.delete(context, 9232)
+    }
+
+    @Test
+    fun `version one widget profile gains newly introduced supplement colors`() {
+        val id = 9240
+        val prefs = context.getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+        WidgetInstanceConfigurationStore.save(context, id, WidgetInstanceConfiguration())
+        prefs.edit().putInt("$id.isolated_profile_version", 1).commit()
+
+        val migrated = WidgetInstanceConfigurationStore.readIsolated(context, id, ConfigurableWidgetKind.GLUCOSE)
+
+        assertTrue(WidgetColorRole.DELTA in migrated.colorOverrides)
+        assertTrue(WidgetColorRole.AGE in migrated.colorOverrides)
+        assertTrue(WidgetColorRole.UNIT in migrated.colorOverrides)
+        WidgetInstanceConfigurationStore.delete(context, id)
+    }
+
+    @Test
+    fun `version two graph profile gains high region label color`() {
+        val id = 9241
+        val prefs = context.getSharedPreferences("widget_instance_configuration", android.content.Context.MODE_PRIVATE)
+        WidgetInstanceConfigurationStore.save(context, id, WidgetInstanceConfiguration())
+        prefs.edit().putInt("$id.isolated_profile_version", 2).commit()
+
+        val migrated = WidgetInstanceConfigurationStore.readIsolated(context, id, ConfigurableWidgetKind.GRAPH)
+
+        assertTrue(WidgetColorRole.HIGH_REGION_LABEL in migrated.colorOverrides)
+        WidgetInstanceConfigurationStore.delete(context, id)
+    }
+
+    @Test
+    fun `widget settings only keep edited values when save is chosen`() {
+        val initial = WidgetInstanceConfiguration(graphHours = 3)
+        val edited = initial.copy(graphHours = 24)
+
+        assertEquals(initial, resolvedWidgetConfigurationOnExit(initial, edited, save = false))
+        assertEquals(edited, resolvedWidgetConfigurationOnExit(initial, edited, save = true))
+    }
 
     @Test
     fun `two widget instances retain independent appearance and graph settings`() {

@@ -7,6 +7,8 @@ import android.view.LayoutInflater
 import android.widget.ImageView
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import app.aapswear.mobile.ui.theme.SugarliciousColorStore
+import app.aapswear.model.AppearanceMode
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TargetState
@@ -27,6 +29,20 @@ import kotlin.math.abs
 class NotificationGraphProfilesTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+
+    @Test
+    fun `fresh install uses approved notification graph colors`() {
+        preferences.edit().clear().commit()
+
+        val dark = SugarliciousColorStore.load(preferences, AppearanceMode.DARK)
+        val light = SugarliciousColorStore.load(preferences, AppearanceMode.LIGHT)
+
+        assertEquals(0xFF282828.toInt(), notificationGraphColor(preferences, dark, SugarliciousColorRole.RANGE_IN_RANGE))
+        assertEquals(Color.WHITE, notificationGraphColor(preferences, light, SugarliciousColorRole.GRAPH_BACKGROUND))
+        assertEquals(Color.BLACK, notificationGraphColor(preferences, light, SugarliciousColorRole.CGM_DOT_IN_RANGE))
+        assertEquals(0xFF747474.toInt(), notificationGraphColor(preferences, light, SugarliciousColorRole.GRAPH_DIVIDER))
+        assertEquals(0xFFF0F0F0.toInt(), notificationGraphColor(preferences, light, SugarliciousColorRole.TARGET_VALUE))
+    }
 
     @Test
     fun `notification graph advances a fixed reading with the wall clock`() {

@@ -41,6 +41,36 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DashboardChartsTest {
+    @Test
+    fun `transparent very high line leaves no antialias seam between identical range fills`() {
+        val preferences = context.getSharedPreferences("seam_regression", android.content.Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val yellow = Color.rgb(252, 201, 59)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_HIGH, yellow)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.RANGE_VERY_HIGH, yellow)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GRAPH_VERY_HIGH_LINE, Color.TRANSPARENT)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        try {
+            val now = 50L * 60 * 60_000
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(205.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory = listOf(GlucoseSample(201.0, now - 300_000), GlucoseSample(205.0, now)),
+                )
+            val bitmap = render(GlucoseDashboardChart(context).apply { bind(state, GlucoseUnit.MG_DL, false, 2, clockEpochMs = now) }, 237)
+            val yellowRows = (0 until bitmap.height).filter { bitmap.getPixel(180, it) == yellow }
+            assertTrue(yellowRows.size > 5)
+            (yellowRows.first()..yellowRows.last()).forEach { y -> assertEquals("range seam at y=$y", yellow, bitmap.getPixel(180, y)) }
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
     private val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test
@@ -712,7 +742,7 @@ class DashboardChartsTest {
             listOf(
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB),
                 SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB),
-                Color.rgb(242, 201, 76),
+                SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY),
             )
 
         streamColors.forEach { color ->
@@ -1065,7 +1095,9 @@ class DashboardChartsTest {
             }
         val activityTop =
             (0 until bitmap.height).firstOrNull { y ->
-                (0 until bitmap.width).any { x -> bitmap.getPixel(x, y) == Color.rgb(242, 201, 76) }
+                (0 until bitmap.width).any { x ->
+                    bitmap.getPixel(x, y) == SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY)
+                }
             } ?: bitmap.height
         assertTrue("activityTop=$activityTop", activityTop in (bitmap.height * 0.20).toInt()..(bitmap.height * 0.65).toInt())
     }
@@ -1111,7 +1143,7 @@ class DashboardChartsTest {
                     },
                     230,
                 )
-            val activityPixels = count(bitmap) { it == Color.rgb(242, 201, 76) }
+            val activityPixels = count(bitmap) { it == SugarliciousColors.argb(SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY) }
             assertTrue("mode=$mode activity=$activityPixels", activityPixels > 4)
         }
     }

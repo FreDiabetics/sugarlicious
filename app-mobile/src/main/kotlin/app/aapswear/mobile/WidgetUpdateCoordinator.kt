@@ -10,6 +10,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -87,9 +88,17 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
             try {
                 render(key, current.value)
             } catch (error: CancellationException) {
+                cancelLane(key, current.revision, error)
                 throw error
             } catch (error: Throwable) {
-                onFailure(key, current.revision, error)
+                try {
+                    onFailure(key, current.revision, error)
+                } catch (cancelled: CancellationException) {
+                    cancelLane(key, current.revision, cancelled)
+                    throw cancelled
+                } catch (reportingError: Throwable) {
+                    error.addSuppressed(reportingError)
+                }
             }
 
             val next =
@@ -110,6 +119,22 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
             current = next
         }
     }
+
+    private fun cancelLane(key: K, revision: Long, error: CancellationException) {
+        val next =
+            synchronized(lock) {
+                val slot = slots.getValue(key)
+                slot.completedRevision = maxOf(slot.completedRevision, revision)
+                val cancelled = slot.waiters.filter { it.revision <= revision || !scope.isActive }
+                slot.waiters.removeAll(cancelled.toSet())
+                cancelled.forEach { it.completion.completeExceptionally(error) }
+                val pending = slot.pending.takeIf { scope.isActive }
+                slot.pending = null
+                slot.runningRevision = pending?.revision
+                pending
+            }
+        if (next != null) scope.launch(start = CoroutineStart.UNDISPATCHED) { drain(key, next) }
+    }
 }
 
 internal object WidgetSurfaceRevision {
@@ -119,6 +144,14 @@ internal object WidgetSurfaceRevision {
         sequence.updateAndGet { previous ->
             maxOf(previous + 1L, System.currentTimeMillis())
         }
+}
+
+/** Same-ID compose, preference commit and publication must be one transaction. */
+internal object WidgetRenderTransactions {
+    private val locks = Array(32) { Mutex() }
+
+    suspend fun <T> run(appWidgetId: Int, block: suspend () -> T): T =
+        locks[(appWidgetId and Int.MAX_VALUE) % locks.size].withLock { block() }
 }
 
 internal sealed interface WidgetUpdateTarget {
@@ -134,17 +167,21 @@ internal sealed interface WidgetUpdateTarget {
 
 internal data class WidgetRenderRequest(
     val context: Context,
-    val state: TherapyDisplayState?,
 )
 
 internal object WidgetRenderStateCache {
-    private val latest = AtomicReference<TherapyDisplayState?>()
+    private data class Snapshot(
+        val revision: Long,
+        val state: TherapyDisplayState,
+    )
 
-    fun publish(state: TherapyDisplayState) {
-        latest.set(state)
+    private val latest = AtomicReference<Snapshot?>()
+
+    fun publish(state: TherapyDisplayState, revision: Long) {
+        latest.updateAndGet { previous -> if (previous == null || revision > previous.revision) Snapshot(revision, state) else previous }
     }
 
-    fun latest(): TherapyDisplayState? = latest.get()
+    fun latest(): TherapyDisplayState? = latest.get()?.state
 }
 
 internal object SugarliciousWidgetUpdateCoordinator {
@@ -162,7 +199,6 @@ internal object SugarliciousWidgetUpdateCoordinator {
         LatestWinsSurfaceCoordinator<WidgetUpdateTarget, WidgetRenderRequest>(
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             render = { target, request ->
-                request.state?.let(WidgetRenderStateCache::publish)
                 when (target) {
                     is WidgetUpdateTarget.Family -> SugarliciousWidgets.renderFamily(request.context, target.kind)
                     is WidgetUpdateTarget.Instance ->
@@ -194,9 +230,10 @@ internal object SugarliciousWidgetUpdateCoordinator {
         state: TherapyDisplayState,
     ) = coroutineScope {
         val revision = WidgetSurfaceRevision.next()
+        WidgetRenderStateCache.publish(state, revision)
         val coordinator = instance(context)
         val targets = WidgetKind.entries.map(WidgetUpdateTarget::Family)
-        targets.forEach { target -> coordinator.submit(target, revision, WidgetRenderRequest(context.applicationContext, state)) }
+        targets.forEach { target -> coordinator.submit(target, revision, WidgetRenderRequest(context.applicationContext)) }
         targets.forEach { target -> coordinator.flush(target, revision) }
     }
 
@@ -207,7 +244,7 @@ internal object SugarliciousWidgetUpdateCoordinator {
     ): Pair<WidgetUpdateTarget.Instance, Long> {
         val target = WidgetUpdateTarget.Instance(appWidgetId, kind)
         val revision = WidgetSurfaceRevision.next()
-        instance(context).submit(target, revision, WidgetRenderRequest(context.applicationContext, null))
+        instance(context).submit(target, revision, WidgetRenderRequest(context.applicationContext))
         return target to revision
     }
 

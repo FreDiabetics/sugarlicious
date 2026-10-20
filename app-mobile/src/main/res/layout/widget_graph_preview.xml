@@ -1,14 +1,7 @@
-<?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Generated from the production renderer by WidgetPickerPreviewTest. -->
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_widget_preview_surface">
-
-    <ImageView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:contentDescription="@string/widget_graph_description"
-        android:scaleType="fitXY"
-        android:src="@drawable/widget_graph_preview_plot" />
-
-</FrameLayout>
+    android:scaleType="fitEnd"
+    android:contentDescription="@null"
+    android:src="@drawable/widget_picker_graph_small" />
