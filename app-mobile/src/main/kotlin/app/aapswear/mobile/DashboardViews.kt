@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.content.res.ColorStateList
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
@@ -11,7 +10,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import androidx.core.content.edit
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
@@ -316,6 +314,7 @@ data class DashboardCallbacks(
 class DashboardViewFactory(
     private val context: Context,
     private val callbacks: DashboardCallbacks,
+    private val onSettingsPageChanged: () -> Unit = {},
 ) {
     private data class ComposeRenderState(
         val state: TherapyDisplayState?,
@@ -330,11 +329,18 @@ class DashboardViewFactory(
     private var activeComposeView: androidx.compose.ui.platform.ComposeView? = null
     private var colorSettingsExpanded = false
     private var notificationGraphSettingsExpanded = false
-    private val expandedSettingsCategories = linkedSetOf<String>()
+    private val settingsNavigation = MobileSettingsNavigation()
+    val settingsTitle: String get() = settingsNavigation.title
+    val settingsIsRoot: Boolean get() = settingsNavigation.category == null
+    val settingsCategory: String? get() = settingsNavigation.category
+
+    fun restoreSettingsPage(category: String, title: String) = settingsNavigation.open(category, title)
+
+    fun backWithinSettings(): Boolean = settingsNavigation.back()
 
     private val density = context.resources.displayMetrics.density
-    private val text: Int get() = SugarliciousColors.argb(SugarliciousColorRole.TEXT_PRIMARY)
-    private val secondary: Int get() = SugarliciousColors.argb(SugarliciousColorRole.TEXT_SECONDARY)
+    private val text: Int get() = MobileSettingsStyle.text(SugarliciousColors.palette.isLight)
+    private val secondary: Int get() = MobileSettingsStyle.secondary(SugarliciousColors.palette.isLight)
     private val accent: Int get() =
         app.aapswear.mobile.ui.theme
             .mobileMenuAccentArgb(context, dark = !SugarliciousColors.palette.isLight)
@@ -440,7 +446,7 @@ class DashboardViewFactory(
         watchRenderState.value = null
         activeComposeScreen = null
         activeComposeView = null
-        parent.addView(screenTitle())
+        if (settingsIsRoot) parent.addView(screenTitle())
 
         val colorContainer =
             LinearLayout(context).apply {
@@ -450,7 +456,7 @@ class DashboardViewFactory(
                     androidx.compose.ui.platform.ComposeView(context).apply {
                         setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
                         setContent {
-                            SugarliciousTheme {
+                            OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) {
                                 SugarliciousColorSettingsPanel(
                                     showCgmGraph = preferences.showCgmGraph,
                                     showMetabolicGraph = preferences.showMetabolicGraph,
@@ -482,7 +488,7 @@ class DashboardViewFactory(
                 addView(
                     androidx.compose.ui.platform.ComposeView(context).apply {
                         setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-                        setContent { SugarliciousTheme { NotificationGraphSettingsPanel() } }
+                        setContent { OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) { NotificationGraphSettingsPanel() } }
                     },
                     fullWidth(),
                 )
@@ -1016,7 +1022,7 @@ class DashboardViewFactory(
                             orientation = LinearLayout.HORIZONTAL
                             gravity = Gravity.END
                             setPadding(0, 8.dp, 0, 4.dp)
-                            addView(chip("Alle Health-Daten", true) { HealthConnectDataDialog.show(context) })
+                            addView(actionRow("Alle Health-Daten", null) { HealthConnectDataDialog.show(context) })
                         },
                     )
                     addView(helper(HealthConnectIntegration.detailLabel(context), 3))
@@ -1064,7 +1070,7 @@ class DashboardViewFactory(
     private fun collapseSettingsSections() {
         colorSettingsExpanded = false
         notificationGraphSettingsExpanded = false
-        expandedSettingsCategories.clear()
+        settingsNavigation.back()
     }
 
     private fun aboutCard(): View =
@@ -1136,37 +1142,37 @@ class DashboardViewFactory(
         icon: Int,
         buildContent: LinearLayout.() -> Unit,
     ) {
-        val content =
-            LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                visibility = if (key in expandedSettingsCategories) View.VISIBLE else View.GONE
-                buildContent()
+        if (!settingsIsRoot) {
+            if (settingsNavigation.category == key) {
+                parent.addView(
+                    LinearLayout(context).apply {
+                        orientation = LinearLayout.VERTICAL
+                        buildContent()
+                    },
+                    fullWidth(),
+                )
             }
+            return
+        }
         val header =
             tile(null).apply {
                 tag = "settings-category-$key"
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = 60.dp
+                minimumHeight = 64.dp
                 isClickable = true
                 isFocusable = true
                 addView(
                     sugarliciousIconView(context, icon, title, tintArgb = accent),
                     LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 10.dp },
                 )
-                addView(value(title, text, 17f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                androidx.core.view.ViewCompat
-                    .setStateDescription(this, if (key in expandedSettingsCategories) "Ausgeklappt" else "Eingeklappt")
+                addView(value(title, text, 18f, 2), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 setOnClickListener {
-                    val expanded = key in expandedSettingsCategories
-                    if (expanded) expandedSettingsCategories.remove(key) else expandedSettingsCategories.add(key)
-                    content.visibility = if (expanded) View.GONE else View.VISIBLE
-                    androidx.core.view.ViewCompat
-                        .setStateDescription(this, if (expanded) "Eingeklappt" else "Ausgeklappt")
+                    settingsNavigation.open(key, title)
+                    onSettingsPageChanged()
                 }
             }
-        parent.addView(header, cardParams(top = 7))
-        parent.addView(content, fullWidth())
+        parent.addView(header, cardParams(top = 20))
     }
 
     private data class SourceChoice(
@@ -1185,14 +1191,8 @@ class DashboardViewFactory(
                     LinearLayout(context).apply {
                         orientation = LinearLayout.HORIZONTAL
                         gravity = Gravity.CENTER_VERTICAL
-                        minimumHeight = 43.dp
-                        setPadding(12.dp, 5.dp, 12.dp, 5.dp)
-                        background =
-                            roundedBackground(
-                                SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
-                                SugarliciousColors.argb(SugarliciousColorRole.BORDER),
-                                999,
-                            )
+                        minimumHeight = 56.dp
+                        setPadding(0, 5.dp, 0, 5.dp)
                         isClickable = true
                         isFocusable = true
                         setOnClickListener { item.action() }
@@ -1211,8 +1211,16 @@ class DashboardViewFactory(
                             LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 9.dp },
                         )
                         addView(
-                            value(item.label, if (item.selected) accent else secondary, 13f, 1),
+                            value(item.label, text, 18f, 3),
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                        )
+                        addView(
+                            android.widget.RadioButton(mobileSettingsControlContext(context)).apply {
+                                isChecked = item.selected
+                                isClickable = false
+                                isFocusable = false
+                                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                            },
                         )
                     },
                     LinearLayout
@@ -1227,16 +1235,14 @@ class DashboardViewFactory(
     private fun settingsGroupLabel(label: String) =
         TextView(context).apply {
             text = label
-            textSize = 11f
-            setTextColor(accent)
-            typeface = Typeface.create("sans", Typeface.BOLD)
-            letterSpacing = 0.04f
-            setPadding(4.dp, 12.dp, 4.dp, 3.dp)
+            textSize = 13f
+            setTextColor(secondary)
+            setPadding(0, 12.dp, 0, 8.dp)
         }
 
     private fun divider() =
         View(context).apply {
-            setBackgroundColor(SugarliciousColors.argb(SugarliciousColorRole.BORDER))
+            setBackgroundColor(MobileSettingsStyle.divider(SugarliciousColors.palette.isLight))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp)
         }
 
@@ -1246,7 +1252,7 @@ class DashboardViewFactory(
     ) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(0, 5.dp, 0, 5.dp)
-        addView(value(title, text, 14f, 1))
+        addView(value(title, text, 18f, 3))
         addView(chipRow(items))
     }
 
@@ -1262,7 +1268,7 @@ class DashboardViewFactory(
         isClickable = true
         isFocusable = true
         setOnClickListener { action() }
-        addView(value(title, text, 15f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         valueText?.let {
             addView(
                 TextView(context).apply {
@@ -1274,13 +1280,6 @@ class DashboardViewFactory(
                 },
             )
         }
-        addView(
-            TextView(context).apply {
-                text = "\u203a"
-                textSize = 21f
-                setTextColor(secondary)
-            },
-        )
     }
 
     private fun statusRow(
@@ -1291,7 +1290,7 @@ class DashboardViewFactory(
         gravity = Gravity.CENTER_VERTICAL
         minimumHeight = 44.dp
         setPadding(0, 3.dp, 0, 3.dp)
-        addView(value(title, text, 14f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(
             TextView(context).apply {
                 text = valueText
@@ -1313,28 +1312,12 @@ class DashboardViewFactory(
         gravity = Gravity.CENTER_VERTICAL
         minimumHeight = 52.dp
         setPadding(0, 5.dp, 0, 5.dp)
-        addView(value(title, text, 15f, 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(
-            Switch(context).apply {
+            mobileSettingsSwitch(context, checked, callback).apply {
                 this.id = id
-                isChecked = checked
-                minWidth = 50.dp
-                minimumHeight = 30.dp
-                splitTrack = false
-                scaleX = 0.92f
-                scaleY = 0.92f
-                thumbTintList =
-                    ColorStateList(
-                        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                        intArrayOf(android.graphics.Color.WHITE, SugarliciousColors.argb(SugarliciousColorRole.TEXT_SECONDARY)),
-                    )
-                trackTintList =
-                    ColorStateList(
-                        arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                        intArrayOf(accent, SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH)),
-                    )
-                setOnCheckedChangeListener { _, newValue -> callback(newValue) }
             },
+            LinearLayout.LayoutParams(64.dp, 48.dp),
         )
     }
 
@@ -1352,13 +1335,7 @@ class DashboardViewFactory(
     ) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         minimumHeight = 72.dp
-        setPadding(12.dp, 10.dp, 12.dp, 10.dp)
-        background =
-            roundedBackground(
-                SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
-                SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
-                16,
-            )
+        setPadding(0, 12.dp, 0, 12.dp)
         val valueLabel =
             TextView(context).apply {
                 textSize = 12f
@@ -1374,12 +1351,12 @@ class DashboardViewFactory(
                     LinearLayout(context).apply {
                         orientation = LinearLayout.VERTICAL
                         addView(
-                            this@DashboardViewFactory.value(title, text, 13f, 1).apply {
+                            this@DashboardViewFactory.value(title, text, 18f, 3).apply {
                                 typeface = Typeface.create(typeface, Typeface.NORMAL)
                             },
                         )
                         if (!description.isNullOrBlank()) {
-                            addView(helper(description, 1).apply { textSize = 10f })
+                            addView(helper(description, 3).apply { textSize = 13f })
                         }
                     },
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
@@ -1417,13 +1394,10 @@ class DashboardViewFactory(
                 }.show()
         }
         addView(
-            SeekBar(context).apply {
+            OneUiSeekBar(mobileSettingsControlContext(context), showTicks = false).apply {
                 max = steps
                 progress = valueToProgress(value)
-                progressTintList = ColorStateList.valueOf(accent)
-                progressBackgroundTintList =
-                    ColorStateList.valueOf(SugarliciousColors.argb(SugarliciousColorRole.SURFACE_RAISED))
-                thumbTintList = ColorStateList.valueOf(accent)
+                palette(accent, MobileSettingsStyle.card(SugarliciousColors.palette.isLight))
                 setOnTouchListener { view, event ->
                     view.parent?.requestDisallowInterceptTouchEvent(
                         event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
@@ -1434,19 +1408,24 @@ class DashboardViewFactory(
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         private var currentValue = value.coerceIn(minimum, maximum)
+                        private val interaction =
+                            SettingsSliderInteraction(
+                                { currentValue = progressToValue(it) },
+                                { callback(currentValue) },
+                            )
 
                         override fun onProgressChanged(
                             seekBar: SeekBar?,
                             progress: Int,
                             fromUser: Boolean,
                         ) {
-                            currentValue = progressToValue(progress)
-                            valueLabel.text = valueFormatter(currentValue)
+                            valueLabel.text = valueFormatter(progressToValue(progress))
+                            interaction.changed(progress, fromUser)
                         }
 
-                        override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) = interaction.started()
 
-                        override fun onStopTrackingTouch(seekBar: SeekBar?) = callback(currentValue)
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) = interaction.stopped()
                     },
                 )
             },
@@ -1456,15 +1435,20 @@ class DashboardViewFactory(
 
     private fun chipRow(items: List<Triple<String, Boolean, () -> Unit>>) =
         LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
+            val choices = items.map { (label, selected, click) -> chip(label, selected, click) }
+            val unspecified = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            choices.forEach { it.measure(unspecified, unspecified) }
+            val horizontal = choices.sumOf { it.measuredWidth + 7.dp } <= context.resources.configuration.screenWidthDp.dp - 72.dp
+            orientation = if (horizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
             gravity = Gravity.START
             setPadding(0, 7.dp, 0, 4.dp)
-            items.forEach { (label, selected, click) ->
+            choices.forEach { choice ->
                 addView(
-                    chip(label, selected, click),
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                        marginEnd =
-                            7.dp
+                    choice,
+                    if (horizontal) {
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    } else {
+                        LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
                     },
                 )
             }
@@ -1474,39 +1458,24 @@ class DashboardViewFactory(
         label: String,
         selected: Boolean,
         click: () -> Unit,
-    ) = TextView(context).apply {
+    ) = android.widget.RadioButton(mobileSettingsControlContext(context)).apply {
         text = label
-        textSize = 11f
-        minHeight = 36.dp
+        textSize = 14f
+        minHeight = 48.dp
         setTextColor(if (selected) accent else secondary)
-        background =
-            roundedBackground(
-                if (selected) {
-                    SugarliciousColors.argb(
-                        SugarliciousColorRole.SURFACE_SELECTED,
-                    )
-                } else {
-                    SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH)
-                },
-                if (selected) accent else SugarliciousColors.argb(SugarliciousColorRole.BORDER),
-                999,
-            )
-        gravity = Gravity.CENTER
-        isClickable = true
-        isFocusable = true
-        setPadding(12.dp, 0, 12.dp, 0)
+        isChecked = selected
         setOnClickListener { click() }
     }
 
     private fun tile(title: String?): LinearLayout =
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(12.dp, 11.dp, 12.dp, 11.dp)
+            setPadding(18.dp, 8.dp, 18.dp, 8.dp)
             background =
                 roundedBackground(
-                    SugarliciousColors.argb(SugarliciousColorRole.SURFACE),
-                    SugarliciousColors.argb(SugarliciousColorRole.BORDER),
-                    22,
+                    MobileSettingsStyle.card(SugarliciousColors.palette.isLight),
+                    MobileSettingsStyle.card(SugarliciousColors.palette.isLight),
+                    28,
                 )
             clipToOutline = true
             title?.let { addView(sectionLabel(it)) }
@@ -1527,8 +1496,9 @@ class DashboardViewFactory(
     private fun screenTitle() =
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(4.dp, 4.dp, 4.dp, 10.dp)
-            addView(value("Einstellungen", text, 26f, 1))
+            gravity = Gravity.CENTER
+            minimumHeight = minOf(250, (context.resources.configuration.screenHeightDp * .28f).toInt()).dp
+            addView(value("Einstellungen", accent, 34f, 2).apply { gravity = Gravity.CENTER })
         }
 
     private fun sectionLabel(label: String) =
@@ -1536,7 +1506,6 @@ class DashboardViewFactory(
             text = label
             textSize = 12f
             setTextColor(this@DashboardViewFactory.text)
-            typeface = Typeface.create("sans", Typeface.NORMAL)
             letterSpacing = 0.03f
         }
 
@@ -1549,7 +1518,6 @@ class DashboardViewFactory(
         text = value
         textSize = size
         setTextColor(color)
-        typeface = Typeface.create("sans", Typeface.NORMAL)
         this.maxLines = maxLines
         if (maxLines == 1) ellipsize = TextUtils.TruncateAt.END
     }
@@ -1560,7 +1528,7 @@ class DashboardViewFactory(
         color: Int = secondary,
     ) = TextView(context).apply {
         text = value
-        textSize = 11f
+        textSize = 13f
         setTextColor(color)
         this.maxLines = maxLines
     }

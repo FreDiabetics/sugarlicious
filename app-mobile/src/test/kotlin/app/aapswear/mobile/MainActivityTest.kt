@@ -111,16 +111,19 @@ class MainActivityTest {
         activity.findViewById<View>(R.id.top_settings).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
-        assertTrue(settingsText.contains("Datenquelle"))
-        assertTrue(settingsText.contains("AndroidAPS"))
         assertTrue(settingsText.contains("Datenverwaltung"))
-        assertTrue(settingsText.contains("Dauerbetrieb"))
-        assertTrue(settingsText.contains("Einstellungen sichern"))
-        assertTrue(settingsText.contains("Einstellungen wiederherstellen"))
+        openSettingsCategory(activity, "general")
+        assertTrue(textOf(activity.findViewById(R.id.dashboard_content)).contains("AndroidAPS"))
+        activity.findViewById<View>(R.id.top_back).performClick()
+        openSettingsCategory(activity, "data")
+        val dataText = textOf(activity.findViewById(R.id.dashboard_content))
+        assertTrue(dataText.contains("Dauerbetrieb"))
+        assertTrue(dataText.contains("Einstellungen sichern"))
+        assertTrue(dataText.contains("Einstellungen wiederherstellen"))
         controller.pause().stop().destroy()
     }
 
-    @Test fun `inline settings persist without submenu`() {
+    @Test fun `settings persist from their category pages`() {
         ShadowAlarmManager.setCanScheduleExactAlarms(true)
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -136,12 +139,15 @@ class MainActivityTest {
 
         activity.findViewById<View>(R.id.top_settings).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
+        openSettingsCategory(activity, "overview_graphs")
         val details = activity.findViewById<android.widget.Switch>(R.id.dashboard_details_switch)
         assertTrue(details.isChecked)
         details.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertFalse(preferences.getBoolean("showDetails", true))
 
+        activity.findViewById<View>(R.id.top_back).performClick()
+        openSettingsCategory(activity, "notifications")
         val live = activity.findViewById<android.widget.Switch>(R.id.dashboard_live_notification_switch)
         assertFalse(live.isChecked)
         live.performClick()
@@ -294,6 +300,7 @@ class MainActivityTest {
         val activity = controller.get()
 
         activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "overview_graphs")
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
 
@@ -358,6 +365,7 @@ class MainActivityTest {
         val activity = controller.get()
 
         activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "about")
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
         assertTrue(settingsText.contains("Sugarlicious"))
@@ -417,61 +425,38 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
-    @Test fun `settings accordion keeps exact order allows multiple sections and resets after leaving`() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        context
-            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
-            .commit()
+    @Test fun `settings categories keep order and back returns from a page before leaving settings`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
-        val activity = controller.get()
+        var activity = controller.get()
         activity.findViewById<View>(R.id.top_settings).performClick()
-        shadowOf(android.os.Looper.getMainLooper()).idle()
 
-        fun categories(): List<View> {
+        fun categories(): List<String> {
             val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
             return (0 until root.childCount)
                 .map(root::getChildAt)
-                .filter { it.tag?.toString()?.startsWith("settings-category-") == true }
+                .mapNotNull {
+                    it.tag
+                        ?.toString()
+                        ?.takeIf { tag -> tag.startsWith("settings-category-") }
+                        ?.removePrefix("settings-category-")
+                }
         }
-
-        fun contentAfter(header: View): View {
-            val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
-            return root.getChildAt(root.indexOfChild(header) + 1)
-        }
-
-        var headers = categories()
-        assertEquals(
-            listOf(
-                "general",
-                "glucose_ranges",
-                "overview_graphs",
-                "notifications",
-                "data",
-                "diagnostics",
-                "about",
-            ),
-            headers.map { it.tag.toString().removePrefix("settings-category-") },
-        )
-        assertTrue(headers.all { contentAfter(it).visibility == View.GONE })
+        val expected = listOf("general", "glucose_ranges", "overview_graphs", "notifications", "data", "diagnostics", "about")
+        assertEquals(expected, categories())
+        openSettingsCategory(activity, "general")
+        assertTrue(categories().isEmpty())
+        assertEquals("Allgemein", activity.findViewById<TextView>(R.id.app_title).text.toString())
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "AndroidAPS"))
-
-        headers[0].performClick()
-        headers[1].performClick()
-        assertEquals(View.VISIBLE, contentAfter(headers[0]).visibility)
-        assertEquals(View.VISIBLE, contentAfter(headers[1]).visibility)
-        headers[0].performClick()
-        assertEquals(View.GONE, contentAfter(headers[0]).visibility)
-        assertEquals(View.VISIBLE, contentAfter(headers[1]).visibility)
-
+        controller.recreate()
+        activity = controller.get()
+        assertEquals("Allgemein", activity.findViewById<TextView>(R.id.app_title).text.toString())
+        activity.onBackPressedDispatcher.onBackPressed()
+        assertEquals(expected, categories())
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
         activity.findViewById<View>(R.id.top_back).performClick()
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_app_bar).visibility)
         activity.findViewById<View>(R.id.top_settings).performClick()
-        shadowOf(android.os.Looper.getMainLooper()).idle()
-        headers = categories()
-        assertTrue(headers.all { contentAfter(it).visibility == View.GONE })
-        assertTrue(textOf(activity.findViewById(R.id.dashboard_content)).contains("Über"))
+        assertEquals(expected, categories())
         controller.pause().stop().destroy()
     }
 
@@ -511,6 +496,7 @@ class MainActivityTest {
         val activity = controller.get()
 
         activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "notifications")
         activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
 
@@ -565,6 +551,7 @@ class MainActivityTest {
         val activity = controller.get()
 
         activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "notifications")
         activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
 
@@ -605,6 +592,11 @@ class MainActivityTest {
         assertEquals("noch nicht erfolgt", status.lastPostAttempt)
         assertEquals("nicht erforderlich", status.exactFreshnessAlarm)
         assertEquals("nicht durchgeführt", status.hardwareValidation)
+    }
+
+    private fun openSettingsCategory(activity: MainActivity, key: String) {
+        activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("settings-category-$key").performClick()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
     }
 
     private fun textOf(view: View): String =

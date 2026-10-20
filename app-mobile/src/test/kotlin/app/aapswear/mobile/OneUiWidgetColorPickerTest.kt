@@ -53,10 +53,10 @@ class OneUiWidgetColorPickerTest {
     }
 
     @Test
-    fun `widget editor routes to reconstructed picker without replacing other callers`() {
+    fun `mobile and widget color editors share the reconstructed picker`() {
         val source = java.io.File("src/main/kotlin/app/aapswear/mobile/SugarliciousColorSettingsPanel.kt").readText()
         val editor = source.substringAfter("internal fun ColorEditorDialog(").substringBefore("internal fun SaturationBrightnessPicker(")
         assertTrue(editor.contains("OneUiWidgetColorPicker("))
-        assertTrue(editor.contains("if (widgetStyle != null)"))
+        assertTrue(editor.contains("widgetStyle ?: LocalOneUiWidgetSettingsColors.current"))
     }
 }

@@ -16,7 +16,7 @@ class OneUiWidgetSettingsTest {
         val toggle = source.substringAfter("internal fun WidgetSettingsToggle(").substringBefore("internal fun WidgetToggleSetting(")
         assertTrue(toggle.contains("Modifier.width(64.dp).height(48.dp).padding(end = 10.dp)"))
         assertTrue(toggle.contains("gravity = Gravity.CENTER_VERTICAL or Gravity.END"))
-        assertTrue(toggle.contains("android.R.style.Theme_DeviceDefault_DayNight"))
+        assertTrue(toggle.contains("android.widget.Switch(context)"))
         org.junit.Assert.assertFalse(toggle.contains("trackDrawable ="))
         org.junit.Assert.assertFalse(toggle.contains("thumbDrawable ="))
     }
