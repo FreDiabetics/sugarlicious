@@ -24,10 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -151,13 +147,9 @@ internal fun SugarliciousColorSettingsPanel(
             Modifier
                 .fillMaxWidth()
                 .background(
-                    SugarliciousColors.Surface,
-                    RoundedCornerShape(24.dp),
-                ).border(
-                    1.dp,
-                    SugarliciousColors.Border,
-                    RoundedCornerShape(24.dp),
-                ).padding(14.dp),
+                    OneUiWidgetStyle.card,
+                    RoundedCornerShape(28.dp),
+                ).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Row(
@@ -167,15 +159,15 @@ internal fun SugarliciousColorSettingsPanel(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = "FARBEN",
-                    color = SugarliciousColors.TextSecondary,
-                    fontSize = 10.sp,
+                    color = OneUiWidgetStyle.secondary,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 0.6.sp,
                 )
                 Text(
                     text = "Darstellung & Farben",
-                    color = SugarliciousColors.TextPrimary,
-                    fontSize = 17.sp,
+                    color = OneUiWidgetStyle.primary,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -189,7 +181,7 @@ internal fun SugarliciousColorSettingsPanel(
                 Text(
                     "ALLES RESET",
                     color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    fontSize = 10.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
@@ -202,7 +194,7 @@ internal fun SugarliciousColorSettingsPanel(
 
         AppearanceThemePreview(palette)
 
-        Text("TRENDPFEIL", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, false, { editingTrendColor = "fill" }) {
             trendStyle = TrendArrowStyle.defaults(selectedMode, palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE))
             MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
@@ -255,17 +247,17 @@ internal fun SugarliciousColorSettingsPanel(
                     contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
-            Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+            Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
         watchSyncStatus?.let { status ->
-            Text(status, color = SugarliciousColors.TextSecondary, fontSize = 10.sp)
+            Text(status, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
         }
 
         if (showCgmGraph) {
             Text(
                 text = "CGM-PUNKTE",
-                color = SugarliciousColors.TextSecondary,
-                fontSize = 10.sp,
+                color = OneUiWidgetStyle.secondary,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -366,9 +358,9 @@ internal fun SugarliciousColorSettingsPanel(
                 }
             if (roles.isEmpty()) return@forEach
             Text(
-                text = group.label.uppercase(),
-                color = SugarliciousColors.TextSecondary,
-                fontSize = 10.sp,
+                text = group.label,
+                color = OneUiWidgetStyle.secondary,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -435,15 +427,14 @@ internal fun WidgetColorSettingsPanel() {
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
-                .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
-                .padding(14.dp),
+                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
+                .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("WIDGET-STANDARDFARBEN", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-        Text("Farben", color = SugarliciousColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text("WIDGET-STANDARDFARBEN", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("Farben", color = OneUiWidgetStyle.primary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(
+            WidgetSettingsToggle(
                 checked = samsungCompact,
                 onCheckedChange = { enabled ->
                     samsungCompact = enabled
@@ -452,19 +443,19 @@ internal fun WidgetColorSettingsPanel() {
                 },
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text("Samsung-kompakte Widgetgröße", color = SugarliciousColors.TextPrimary, fontSize = 13.sp)
+                Text("Samsung-kompakte Widgetgröße", color = OneUiWidgetStyle.primary, fontSize = 13.sp)
                 Text(
                     "Gleicher Innenabstand wie bei Samsung-Widgets; gilt für alle Mobile-Widgets.",
-                    color = SugarliciousColors.TextSecondary,
-                    fontSize = 10.sp,
+                    color = OneUiWidgetStyle.secondary,
+                    fontSize = 13.sp,
                 )
             }
         }
         AppearanceModeSelector(selectedMode) { selectedMode = it }
         Text(
             "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 10.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
         )
         Button(
             onClick = {
@@ -478,7 +469,7 @@ internal fun WidgetColorSettingsPanel() {
                     contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
-            Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("AUS MOBILE-GRAPH ÜBERNEHMEN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         TextButton(
             onClick = {
@@ -487,7 +478,7 @@ internal fun WidgetColorSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("WIDGET-FARBEN ZURÜCKSETZEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
         WidgetColorRole.entries.filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }.forEach { role ->
             WidgetColorSettingRow(
@@ -529,9 +520,9 @@ private fun WidgetColorSettingRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
                 .clickable(onClick = onEdit)
-                .padding(horizontal = 11.dp, vertical = 9.dp),
+                .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -543,12 +534,11 @@ private fun WidgetColorSettingRow(
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text(role.label, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Text(toHex(argb), color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+            Text(role.label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
         }
         if (!isDefault) {
             TextButton(onClick = onReset) {
-                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -559,25 +549,34 @@ internal fun AppearanceModeSelector(
     selected: AppearanceMode,
     onSelected: (AppearanceMode) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        AppearanceMode.entries.forEach { mode ->
-            val active = mode == selected
-            Text(
-                text = if (mode == AppearanceMode.LIGHT) "LIGHT" else "DARK",
-                color = if (active) androidx.compose.material3.MaterialTheme.colorScheme.onPrimary else SugarliciousColors.TextPrimary,
-                textAlign = TextAlign.Center,
-                fontWeight = FontWeight.Bold,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .background(
-                            if (active) androidx.compose.material3.MaterialTheme.colorScheme.primary else SugarliciousColors.SurfaceHigh,
-                            RoundedCornerShape(14.dp),
-                        ).clickable { onSelected(mode) }
-                        .padding(vertical = 11.dp),
-            )
-        }
-    }
+    val callback by rememberUpdatedState(onSelected)
+    val currentSelected by rememberUpdatedState(selected)
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { context ->
+            val themed = context
+            android.widget.RadioGroup(themed).apply {
+                orientation = android.widget.RadioGroup.HORIZONTAL
+                AppearanceMode.entries.forEach { mode ->
+                    addView(
+                        android.widget.RadioButton(themed).apply {
+                            id = mode.ordinal + 1
+                            text = if (mode == AppearanceMode.LIGHT) "Hell" else "Dunkel"
+                            textSize = 16f
+                        },
+                        android.widget.RadioGroup.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                    )
+                }
+                setOnCheckedChangeListener { _, checkedId ->
+                    AppearanceMode.entries
+                        .getOrNull(checkedId - 1)
+                        ?.takeIf { it != currentSelected }
+                        ?.let(callback)
+                }
+            }
+        },
+        update = { it.check(selected.ordinal + 1) },
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+    )
 }
 
 @Composable
@@ -613,27 +612,15 @@ private fun GraphSettingSwitch(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
+                .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Text(description, color = SugarliciousColors.TextSecondary, fontSize = 10.sp)
+            Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+            Text(description, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.size(width = 50.dp, height = 30.dp),
-            colors =
-                SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    uncheckedThumbColor = SugarliciousColors.TextSecondary,
-                    uncheckedTrackColor = SugarliciousColors.SurfaceRaised,
-                    uncheckedBorderColor = SugarliciousColors.Border,
-                ),
-        )
+        WidgetSettingsToggle(checked, onCheckedChange, label = title)
     }
 }
 
@@ -653,19 +640,19 @@ internal fun SugarliciousSettingSlider(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
+                .padding(horizontal = 18.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text(description, color = SugarliciousColors.TextSecondary, fontSize = 10.sp)
+                Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+                Text(description, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
             }
             Text(
                 valueText,
                 color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                fontSize = 11.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier =
                     Modifier
@@ -674,21 +661,7 @@ internal fun SugarliciousSettingSlider(
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            onValueChangeFinished = onValueChangeFinished,
-            valueRange = valueRange,
-            modifier = Modifier.height(32.dp),
-            colors =
-                SliderDefaults.colors(
-                    thumbColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    activeTrackColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = SugarliciousColors.SurfaceRaised,
-                    activeTickColor = Color.Transparent,
-                    inactiveTickColor = Color.Transparent,
-                ),
-        )
+        MobileSettingsSeekBar(title, value, valueRange, onValueChange, onValueChangeFinished)
     }
     if (editingValue) {
         AlertDialog(
@@ -733,9 +706,9 @@ private fun ColorSettingRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(SugarliciousColors.SurfaceHigh, RoundedCornerShape(16.dp))
+                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
                 .clickable(onClick = onEdit)
-                .padding(horizontal = 11.dp, vertical = 9.dp),
+                .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -747,12 +720,11 @@ private fun ColorSettingRow(
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text(text = label, color = SugarliciousColors.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-            Text(text = toHex(argb), color = SugarliciousColors.TextSecondary, fontSize = 9.sp)
+            Text(text = label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
         }
         if (!isDefault) {
             TextButton(onClick = onReset, modifier = Modifier.padding(horizontal = 2.dp)) {
-                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("RESET", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(Modifier.width(6.dp))
@@ -986,145 +958,14 @@ private fun ColorRoleExample(
 @Composable
 internal fun ColorEditorDialog(
     role: SugarliciousColorRole?,
-    label: String,
+    label: String = role?.label ?: "Farbe",
     initialArgb: Int,
     onDismiss: () -> Unit,
     onChange: (Int) -> Unit,
     widgetStyle: OneUiWidgetSettingsColors? = null,
     resetArgb: Int? = null,
 ) {
-    if (widgetStyle != null) {
-        OneUiWidgetColorPicker(label, initialArgb, widgetStyle, resetArgb, onDismiss, onChange)
-        return
-    }
-    val dialogPrimary = SugarliciousColors.TextPrimary
-    val dialogSecondary = SugarliciousColors.TextSecondary
-    val dialogAccent = androidx.compose.material3.MaterialTheme.colorScheme.primary
-    val dialogSurface = SugarliciousColors.Surface
-    val initialHsv =
-        remember(role, label) {
-            FloatArray(3).also { AndroidColor.colorToHSV(initialArgb, it) }
-        }
-    var hue by remember(role, label) { mutableFloatStateOf(initialHsv[0]) }
-    var saturation by remember(role, label) { mutableFloatStateOf(initialHsv[1]) }
-    var brightness by remember(role, label) { mutableFloatStateOf(initialHsv[2]) }
-    var alpha by remember(role, label) {
-        mutableFloatStateOf(AndroidColor.alpha(initialArgb) / 255f)
-    }
-    var hex by remember(role, label) { mutableStateOf(toHex(initialArgb)) }
-
-    fun currentArgb(): Int =
-        AndroidColor.HSVToColor(
-            (alpha * 255f).roundToInt().coerceIn(0, 255),
-            floatArrayOf(hue, saturation, brightness),
-        )
-
-    fun syncHex() {
-        hex = toHex(currentArgb())
-    }
-
-    fun persist(
-        h: Float = hue,
-        s: Float = saturation,
-        v: Float = brightness,
-        a: Float = alpha,
-    ) {
-        onChange(
-            AndroidColor.HSVToColor(
-                (a * 255f).roundToInt().coerceIn(0, 255),
-                floatArrayOf(h, s, v),
-            ),
-        )
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(label, color = dialogPrimary) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (role != null) {
-                    ColorRoleExample(
-                        role = role,
-                        argb = currentArgb(),
-                        modifier = Modifier.fillMaxWidth().height(62.dp),
-                    )
-                } else {
-                    Box(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .height(62.dp)
-                                .background(Color(currentArgb()), RoundedCornerShape(12.dp))
-                                .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(12.dp)),
-                    )
-                }
-
-                OutlinedTextField(
-                    value = hex,
-                    onValueChange = { value ->
-                        val normalized =
-                            value
-                                .trim()
-                                .uppercase()
-                                .let {
-                                    if (it.startsWith("#")) it else "#$it"
-                                }.take(9)
-                        hex = normalized
-                        parseHex(normalized)?.let { parsed ->
-                            val hsv = FloatArray(3).also { AndroidColor.colorToHSV(parsed, it) }
-                            hue = hsv[0]
-                            saturation = hsv[1]
-                            brightness = hsv[2]
-                            alpha = AndroidColor.alpha(parsed) / 255f
-                            onChange(parsed)
-                        }
-                    },
-                    label = { Text("HEX") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                SaturationBrightnessPicker(
-                    hue = hue,
-                    saturation = saturation,
-                    brightness = brightness,
-                    onChange = { newSaturation, newBrightness ->
-                        saturation = newSaturation
-                        brightness = newBrightness
-                        syncHex()
-                        persist(s = newSaturation, v = newBrightness)
-                    },
-                )
-                HuePicker(hue = hue, onChange = {
-                    hue = it
-                    syncHex()
-                    persist(h = it)
-                })
-                Text(
-                    text = "Transparenz ${(100f - alpha * 100f).roundToInt()} %",
-                    color = dialogSecondary,
-                    fontSize = 11.sp,
-                )
-                AlphaPicker(
-                    color = Color(AndroidColor.HSVToColor(floatArrayOf(hue, saturation, brightness))),
-                    alpha = alpha,
-                    onChange = {
-                        alpha = it
-                        syncHex()
-                        persist(a = it)
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("FERTIG", color = dialogAccent)
-            }
-        },
-        containerColor = dialogSurface,
-        titleContentColor = dialogPrimary,
-        textContentColor = dialogPrimary,
-    )
+    OneUiWidgetColorPicker(label, initialArgb, widgetStyle ?: LocalOneUiWidgetSettingsColors.current, resetArgb, onDismiss, onChange)
 }
 
 @Composable
@@ -1375,18 +1216,17 @@ internal fun NotificationGraphSettingsPanel() {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(SugarliciousColors.Surface, RoundedCornerShape(24.dp))
-            .border(1.dp, SugarliciousColors.Border, RoundedCornerShape(24.dp))
+            .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("NOTIFICATION-GRAPH", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text("CGM-Dots & Farben", color = SugarliciousColors.TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("NOTIFICATION-GRAPH", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("CGM-Dots & Farben", color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     if (palette.isLight) "Aktuelle Farbvariante: Hell" else "Aktuelle Farbvariante: Dunkel",
-                    color = SugarliciousColors.TextSecondary,
+                    color = OneUiWidgetStyle.secondary,
                     fontSize = 9.sp,
                 )
             }
@@ -1413,8 +1253,8 @@ internal fun NotificationGraphSettingsPanel() {
 
         Text(
             "Farben gelten gemeinsam für eingeklappt und ausgeklappt. Punktgeometrie wird getrennt gespeichert.",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 10.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
         )
         SugarliciousSettingSlider(
             "Skalenbereich",
@@ -1444,13 +1284,13 @@ internal fun NotificationGraphSettingsPanel() {
                     contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
                 ),
         ) {
-            Text("FARBEN AUS MOBILE ÜBERNEHMEN", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("FARBEN AUS MOBILE ÜBERNEHMEN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
             "EINGEKLAPPT",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 10.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 5.dp),
         )
@@ -1502,8 +1342,8 @@ internal fun NotificationGraphSettingsPanel() {
 
         Text(
             "AUSGEKLAPPT",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 10.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -1563,13 +1403,13 @@ internal fun NotificationGraphSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
 
         Text(
             "FARBEN",
-            color = SugarliciousColors.TextSecondary,
-            fontSize = 10.sp,
+            color = OneUiWidgetStyle.secondary,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 6.dp),
         )
@@ -1663,5 +1503,3 @@ internal fun copyWidgetColorHex(context: android.content.Context, argb: Int) {
         .getSystemService(android.content.ClipboardManager::class.java)
         .setPrimaryClip(android.content.ClipData.newPlainText("HEX", toHex(argb)))
 }
-
-private fun parseHex(value: String): Int? = ArgbColor.parse(value)

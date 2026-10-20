@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -14,7 +13,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Spinner
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -51,6 +49,7 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         title = "Nightscout Treatments"
         val configuration = NightscoutConfigurationStore.read(this)
+        val light = app.aapswear.mobile.ui.theme.SugarliciousColors.palette.isLight
         val padding = (20 * resources.displayMetrics.density).toInt()
         val content =
             LinearLayout(this).apply {
@@ -61,18 +60,21 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
         fun label(value: String) =
             TextView(this).apply {
                 text = value
-                setTextColor(Color.LTGRAY)
-                textSize = 14f
+                setTextColor(MobileSettingsStyle.secondary(light))
+                textSize = 13f
                 setPadding(0, padding / 2, 0, padding / 4)
             }
         val enabled =
-            Switch(this).apply {
+            mobileSettingsSwitch(this, configuration.enabled) {}.apply {
                 text = "Nightscout Treatment-Anreicherung aktivieren"
-                isChecked = configuration.enabled
+                textSize = 18f
+                setTextColor(MobileSettingsStyle.text(light))
             }
         val url =
             EditText(this).apply {
                 hint = "https://dein-nightscout.example"
+                setTextColor(MobileSettingsStyle.text(light))
+                setHintTextColor(MobileSettingsStyle.secondary(light))
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
                 setText(configuration.baseUrl)
                 setSingleLine(true)
@@ -91,6 +93,8 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
             }
         val secret =
             EditText(this).apply {
+                setTextColor(MobileSettingsStyle.text(light))
+                setHintTextColor(MobileSettingsStyle.secondary(light))
                 hint =
                     if (NightscoutSecretStore
                             .read(
@@ -182,13 +186,32 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
                     }
                 }
             }
-        content.addView(enabled, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-        content.addView(label("Nightscout URL"))
-        content.addView(url)
-        content.addView(label("Authentifizierung"))
-        content.addView(auth)
-        content.addView(label("Zugangsdaten (verschlüsselt gespeichert)"))
-        content.addView(secret)
+
+        fun card(vararg views: android.view.View) =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(padding, padding / 2, padding, padding / 2)
+                background =
+                    android.graphics.drawable.GradientDrawable().apply {
+                        setColor(MobileSettingsStyle.card(light))
+                        cornerRadius = 28 * resources.displayMetrics.density
+                    }
+                views.forEach { addView(it, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)) }
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = padding }
+            }
+        content.addView(
+            TextView(this).apply {
+                text = "‹  Nightscout Treatments"
+                textSize = 20f
+                setTextColor(MobileSettingsStyle.text(light))
+                setPadding(0, padding / 2, 0, padding)
+                contentDescription = "Zurück – Nightscout Treatments"
+                isFocusable = true
+                setOnClickListener { finish() }
+            },
+        )
+        content.addView(card(enabled))
+        content.addView(card(label("Nightscout URL"), url, label("Authentifizierung"), auth, label("Zugangsdaten (verschlüsselt gespeichert)"), secret))
         content.addView(status)
         content.addView(test)
         content.addView(saveButton)
@@ -200,7 +223,13 @@ class NightscoutTreatmentSettingsActivity : ComponentActivity() {
                 setPadding(0, padding, 0, padding)
             },
         )
-        setContentView(ScrollView(this).apply { addView(content) })
+        setContentView(
+            ScrollView(this).apply {
+                fitsSystemWindows = true
+                setBackgroundColor(MobileSettingsStyle.page(light))
+                addView(content)
+            },
+        )
     }
 
     override fun onDestroy() {

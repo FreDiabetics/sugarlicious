@@ -230,6 +230,11 @@ class MainActivity : ComponentActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (screen == DashboardScreen.SETTINGS && factory.backWithinSettings()) {
+                        scroll.scrollTo(0, 0)
+                        refresh(forceSettingsRender = true)
+                        return
+                    }
                     if (screen != DashboardScreen.OVERVIEW) {
                         navigate(DashboardScreen.OVERVIEW)
                     }
@@ -329,8 +334,20 @@ class MainActivity : ComponentActivity() {
                     openProjectGitHub = ::openProjectGitHub,
                     openContactEmail = ::openContactEmail,
                 ),
+                onSettingsPageChanged = {
+                    scroll.scrollTo(0, 0)
+                    refresh(forceSettingsRender = true)
+                },
             )
+        savedInstanceState?.getString("settingsCategory")?.let { category ->
+            factory.restoreSettingsPage(category, savedInstanceState.getString("settingsTitle", "Einstellungen"))
+        }
         bindTopNavigation()
+        scroll.setOnScrollChangeListener { _, _, y, _, _ ->
+            if (screen == DashboardScreen.SETTINGS) {
+                findViewById<TextView>(R.id.app_title).text = if (factory.settingsIsRoot && y < 180.dp) "" else factory.settingsTitle
+            }
+        }
         PersistentBridgeService.start(this)
         scope.launch(Dispatchers.IO) {
             applicationContext.recordMobileDiagnostic("APP", "APP-START-100", "Mobile overview started")
@@ -428,7 +445,8 @@ class MainActivity : ComponentActivity() {
         if (screen == DashboardScreen.SETTINGS) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
-                    val safeStartArea = resources.displayMetrics.widthPixels * 0.70f
+                    // A settings slider drag is not a Back gesture. Reserve only the edge.
+                    val safeStartArea = 24.dp.toFloat()
                     settingsSwipeTracking = event.pointerCount == 1 && event.rawX <= safeStartArea
                     settingsSwipeStartX = event.rawX
                     settingsSwipeStartY = event.rawY
@@ -460,7 +478,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val handled = super.dispatchTouchEvent(event)
-        swipeTarget?.let(::navigate)
+        swipeTarget?.let { onBackPressedDispatcher.onBackPressed() }
         return handled
     }
 
@@ -507,6 +525,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("screen", screen.name)
+        outState.putString("settingsCategory", factory.settingsCategory)
+        outState.putString("settingsTitle", factory.settingsTitle)
         super.onSaveInstanceState(outState)
     }
 
@@ -532,9 +552,11 @@ class MainActivity : ComponentActivity() {
     @Suppress("DEPRECATION")
     private fun applyRuntimeColors() {
         val backgroundColor =
-            SugarliciousColors.argb(
-                SugarliciousColorRole.BACKGROUND,
-            )
+            if (screen == DashboardScreen.SETTINGS) {
+                MobileSettingsStyle.page(SugarliciousColors.palette.isLight)
+            } else {
+                SugarliciousColors.argb(SugarliciousColorRole.BACKGROUND)
+            }
         val text =
             SugarliciousColors.argb(
                 SugarliciousColorRole.TEXT_PRIMARY,
@@ -575,7 +597,7 @@ class MainActivity : ComponentActivity() {
 
     private fun bindTopNavigation() {
         findViewById<View>(R.id.top_settings).setOnClickListener { navigate(DashboardScreen.SETTINGS) }
-        findViewById<View>(R.id.top_back).setOnClickListener { navigate(DashboardScreen.OVERVIEW) }
+        findViewById<View>(R.id.top_back).setOnClickListener { onBackPressedDispatcher.onBackPressed() }
     }
 
     private fun navigate(target: DashboardScreen) {
@@ -617,7 +639,17 @@ class MainActivity : ComponentActivity() {
                 back.visibility = View.VISIBLE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
-                title.setText(R.string.screen_settings)
+                title.text = if (factory.settingsIsRoot && scroll.scrollY < 180.dp) "" else factory.settingsTitle
+                title.textSize = 20f
+                title.typeface = android.graphics.Typeface.DEFAULT
+                val accent =
+                    app.aapswear.mobile.ui.theme
+                        .mobileMenuAccentArgb(this, dark = !SugarliciousColors.palette.isLight)
+                title.setTextColor(accent)
+                findViewById<ImageView>(R.id.top_back).apply {
+                    setImageResource(R.drawable.ic_oneui_back)
+                    imageTintList = ColorStateList.valueOf(accent)
+                }
             }
         }
 
@@ -626,7 +658,7 @@ class MainActivity : ComponentActivity() {
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(
             content.paddingLeft,
-            content.paddingTop,
+            if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) 20.dp else 2.dp,
             content.paddingRight,
             if (screen == DashboardScreen.OVERVIEW) 0 else 24.dp,
         )

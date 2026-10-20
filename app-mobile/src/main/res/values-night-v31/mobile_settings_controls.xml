@@ -1,0 +1,7 @@
+<resources>
+    <color name="mobile_settings_accent">@android:color/system_accent1_200</color>
+    <style name="MobileSettingsControls">
+        <item name="android:colorAccent">@android:color/system_accent1_200</item>
+        <item name="android:colorControlActivated">@android:color/system_accent1_200</item>
+    </style>
+</resources>

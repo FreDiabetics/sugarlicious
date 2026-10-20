@@ -69,7 +69,7 @@ import androidx.compose.ui.graphics.Color as UiColor
 
 internal data class OneUiWidgetSettingsColors(
     val page: UiColor = UiColor.Black,
-    val card: UiColor = UiColor(0xFF171719),
+    val card: UiColor = UiColor(0xFF1C1C1C),
     val primary: UiColor = UiColor(0xFFFAFAFA),
     val secondary: UiColor = UiColor(0xFFB7B7BE),
     val accent: UiColor = UiColor(0xFFADC5C9),
@@ -106,8 +106,7 @@ internal fun configureOneUiWidgetSettingsWindow(window: Window) {
 }
 
 @Composable
-internal fun OneUiWidgetSettingsTheme(content: @Composable () -> Unit) {
-    val dark = isSystemInDarkTheme()
+internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val context = LocalContext.current
     val platformScheme =
         if (Build.VERSION.SDK_INT >= 31) {
@@ -142,7 +141,9 @@ internal fun OneUiWidgetSettingsTheme(content: @Composable () -> Unit) {
                 action = UiColor(0xFFE7E7E7),
             )
         }
-    CompositionLocalProvider(LocalOneUiWidgetSettingsColors provides colors) {
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val controlContext = remember(context, configuration, dark) { mobileSettingsControlContext(context, dark) }
+    CompositionLocalProvider(LocalOneUiWidgetSettingsColors provides colors, LocalContext provides controlContext) {
         MaterialTheme(colorScheme = scheme) {
             ProvideTextStyle(TextStyle(color = colors.primary, fontSize = 18.sp, fontFamily = FontFamily.Default)) { content() }
         }
@@ -269,60 +270,103 @@ internal fun OneUiWidgetSeekBar(label: String, value: Int, range: IntRange, onCh
     )
 }
 
-private class OneUiSeekBar(
-    context: Context,
-) : SeekBar(context) {
-    private val density = resources.displayMetrics.density
-    private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private var currentPalette: Pair<Int, Int>? = null
+@Composable
+internal fun MobileSettingsSeekBar(label: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit, onFinished: () -> Unit) {
+    val callback by rememberUpdatedState(onChange)
+    val finished by rememberUpdatedState(onFinished)
+    val currentRange by rememberUpdatedState(range)
+    val colors = LocalOneUiWidgetSettingsColors.current
+    AndroidView(
+        factory = { context ->
+            OneUiSeekBar(context, showTicks = false).apply {
+                max = 1000
+                val interaction =
+                    SettingsSliderInteraction(
+                        { progress -> callback(currentRange.start + (currentRange.endInclusive - currentRange.start) * progress / 1000f) },
+                        { finished() },
+                    )
+                setOnSeekBarChangeListener(
+                    object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                            interaction.changed(progress, fromUser)
+                        }
 
-    fun palette(accent: Int, surface: Int) {
-        if (currentPalette == (accent to surface)) return
-        currentPalette = accent to surface
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) = interaction.started()
 
-        fun track(alpha: Int) =
-            GradientDrawable().apply {
-                setColor((accent and 0x00FFFFFF) or (alpha shl 24))
-                cornerRadius = 7f * density
-                setSize(1, (14f * density).roundToInt())
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) = interaction.stopped()
+                    },
+                )
             }
-        progressDrawable =
-            LayerDrawable(arrayOf(track(60), ClipDrawable(track(130), Gravity.START, ClipDrawable.HORIZONTAL))).apply {
-                setId(0, android.R.id.background)
-                setId(1, android.R.id.progress)
-                for (index in 0..1) {
-                    setLayerHeight(index, (14f * density).roundToInt())
-                    setLayerGravity(index, Gravity.CENTER_VERTICAL)
+        },
+        update = { view ->
+            view.contentDescription = label
+            val span = range.endInclusive - range.start
+            val progress = if (span > 0f) ((value - range.start) / span * 1000).roundToInt().coerceIn(0, 1000) else 0
+            if (view.progress != progress) view.progress = progress
+            view.palette(colors.accent.toArgb(), colors.card.toArgb())
+        },
+        modifier = Modifier.fillMaxWidth().height(48.dp),
+    )
+}
+
+internal class OneUiSeekBar
+    @JvmOverloads
+    constructor(
+        context: Context,
+        private val showTicks: Boolean = true,
+    ) : SeekBar(context) {
+        private val density = resources.displayMetrics.density
+        private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+        private var currentPalette: Pair<Int, Int>? = null
+
+        fun palette(accent: Int, surface: Int) {
+            if (currentPalette == (accent to surface)) return
+            currentPalette = accent to surface
+
+            fun track(alpha: Int) =
+                GradientDrawable().apply {
+                    setColor((accent and 0x00FFFFFF) or (alpha shl 24))
+                    cornerRadius = 7f * density
+                    setSize(1, (14f * density).roundToInt())
                 }
-            }
-        thumb =
-            GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(surface)
-                setStroke((2f * density).roundToInt(), accent)
-                setSize((20f * density).roundToInt(), (20f * density).roundToInt())
-            }
-        thumbOffset = (10f * density).roundToInt()
-        splitTrack = false
-        thumbTintList = null
-        progressTintList = null
-        progressBackgroundTintList = null
-        tickMark = null
-        setPadding(thumbOffset, 0, thumbOffset, 0)
-        tickPaint.color = accent
-    }
+            progressDrawable =
+                LayerDrawable(arrayOf(track(60), ClipDrawable(track(130), Gravity.START, ClipDrawable.HORIZONTAL))).apply {
+                    setId(0, android.R.id.background)
+                    setId(1, android.R.id.progress)
+                    for (index in 0..1) {
+                        setLayerHeight(index, (14f * density).roundToInt())
+                        setLayerGravity(index, Gravity.CENTER_VERTICAL)
+                    }
+                }
+            thumb =
+                GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(surface)
+                    setStroke((2f * density).roundToInt(), accent)
+                    setSize((20f * density).roundToInt(), (20f * density).roundToInt())
+                }
+            thumbOffset = (10f * density).roundToInt()
+            splitTrack = false
+            thumbTintList = null
+            progressTintList = null
+            progressBackgroundTintList = null
+            tickMark = null
+            setPadding(thumbOffset, 0, thumbOffset, 0)
+            tickPaint.color = accent
+        }
 
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val inset = 8f * density
-        val trackWidth = width - paddingLeft - paddingRight - 2f * inset
-        val currentX = paddingLeft + (width - paddingLeft - paddingRight) * progress / max.coerceAtLeast(1).toFloat()
-        listOf(0f, .5f, 1f).forEach { fraction ->
-            val x = paddingLeft + inset + trackWidth * fraction
-            if (abs(x - currentX) > 12f * density) canvas.drawCircle(x, height / 2f, 4f * density, tickPaint)
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            if (!showTicks) return
+            val inset = 8f * density
+            val trackWidth = width - paddingLeft - paddingRight - 2f * inset
+            val currentX = paddingLeft + (width - paddingLeft - paddingRight) * progress / max.coerceAtLeast(1).toFloat()
+            listOf(0f, .5f, 1f).forEach { fraction ->
+                val x = paddingLeft + inset + trackWidth * fraction
+                if (abs(x - currentX) > 12f * density) canvas.drawCircle(x, height / 2f, 4f * density, tickPaint)
+            }
         }
     }
-}
 
 @Composable
 internal fun WidgetSettingsToggle(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, enabled: Boolean = true, label: String? = null) {
@@ -330,8 +374,9 @@ internal fun WidgetSettingsToggle(checked: Boolean, onCheckedChange: ((Boolean) 
     val currentChecked by rememberUpdatedState(checked)
     AndroidView(
         factory = { context ->
-            android.widget.Switch(android.view.ContextThemeWrapper(context, android.R.style.Theme_DeviceDefault_DayNight)).apply {
+            android.widget.Switch(context).apply {
                 showText = false
+                styleMobileSettingsSwitch(this)
                 gravity = Gravity.CENTER_VERTICAL or Gravity.END
                 setOnCheckedChangeListener { _, value -> if (value != currentChecked) callback?.invoke(value) }
             }

@@ -3,15 +3,18 @@ package app.aapswear.mobile.ui.theme
 import android.content.Context
 import android.os.Build
 import androidx.annotation.ColorRes
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 
 @ColorRes
+@RequiresApi(31)
 private fun menuAccentResource(dark: Boolean): Int =
     if (dark) android.R.color.system_accent1_200 else android.R.color.system_accent1_600
 
 @ColorRes
+@RequiresApi(31)
 private fun menuOnAccentResource(dark: Boolean): Int =
     if (dark) android.R.color.system_accent1_800 else android.R.color.system_accent1_0
 
