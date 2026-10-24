@@ -160,15 +160,15 @@ internal fun SugarliciousColorSettingsPanel(
                 Text(
                     text = "FARBEN",
                     color = OneUiWidgetStyle.secondary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = oneUiMenuTypography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 0.6.sp,
                 )
                 Text(
                     text = "Darstellung & Farben",
                     color = OneUiWidgetStyle.primary,
                     fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Bold,
                 )
             }
         }
@@ -180,7 +180,7 @@ internal fun SugarliciousColorSettingsPanel(
 
         AppearanceThemePreview(palette)
 
-        Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
         ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
         GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
             trendStyle = trendStyle.copy(outlineEnabled = it)
@@ -230,14 +230,14 @@ internal fun SugarliciousColorSettingsPanel(
             Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
         }
         watchSyncStatus?.let { status ->
-            Text(status, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+            Text(status, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
         }
 
         if (showCgmGraph) {
             Text(
                 text = "CGM-PUNKTE",
                 color = OneUiWidgetStyle.secondary,
-                fontSize = 13.sp,
+                style = oneUiMenuTypography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -340,7 +340,7 @@ internal fun SugarliciousColorSettingsPanel(
             Text(
                 text = group.label,
                 color = OneUiWidgetStyle.secondary,
-                fontSize = 13.sp,
+                style = oneUiMenuTypography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(top = 6.dp),
             )
@@ -420,8 +420,8 @@ internal fun WidgetColorSettingsPanel() {
                 .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("WIDGET-STANDARDFARBEN", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-        Text("Farben", color = OneUiWidgetStyle.primary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text("WIDGET-STANDARDFARBEN", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
+        Text("Farben", color = OneUiWidgetStyle.primary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         Row(verticalAlignment = Alignment.CenterVertically) {
             WidgetSettingsToggle(
                 checked = samsungCompact,
@@ -432,11 +432,11 @@ internal fun WidgetColorSettingsPanel() {
                 },
             )
             Column(modifier = Modifier.weight(1f)) {
-                Text("Samsung-kompakte Widgetgröße", color = OneUiWidgetStyle.primary, fontSize = 13.sp)
+                Text("Samsung-kompakte Widgetgröße", color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodyLarge)
                 Text(
                     "Gleicher Innenabstand wie bei Samsung-Widgets; gilt für alle Mobile-Widgets.",
                     color = OneUiWidgetStyle.secondary,
-                    fontSize = 13.sp,
+                    style = oneUiMenuTypography.bodyMedium,
                 )
             }
         }
@@ -444,7 +444,7 @@ internal fun WidgetColorSettingsPanel() {
         Text(
             "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
             color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
+            style = oneUiMenuTypography.bodyMedium,
         )
         WidgetColorRole.entries.filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }.forEach { role ->
             WidgetColorSettingRow(
@@ -521,34 +521,9 @@ internal fun AppearanceModeSelector(
     selected: AppearanceMode,
     onSelected: (AppearanceMode) -> Unit,
 ) {
-    val callback by rememberUpdatedState(onSelected)
-    val currentSelected by rememberUpdatedState(selected)
-    androidx.compose.ui.viewinterop.AndroidView(
-        factory = { context ->
-            val themed = context
-            android.widget.RadioGroup(themed).apply {
-                orientation = android.widget.RadioGroup.HORIZONTAL
-                AppearanceMode.entries.forEach { mode ->
-                    addView(
-                        android.widget.RadioButton(themed).apply {
-                            id = mode.ordinal + 1
-                            text = if (mode == AppearanceMode.LIGHT) "Hell" else "Dunkel"
-                            textSize = 16f
-                        },
-                        android.widget.RadioGroup.LayoutParams(0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-                    )
-                }
-                setOnCheckedChangeListener { _, checkedId ->
-                    AppearanceMode.entries
-                        .getOrNull(checkedId - 1)
-                        ?.takeIf { it != currentSelected }
-                        ?.let(callback)
-                }
-            }
-        },
-        update = { it.check(selected.ordinal + 1) },
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-    )
+    OneUiSettingsModeSelector(if (selected == AppearanceMode.LIGHT) DashboardThemeMode.LIGHT else DashboardThemeMode.DARK, showSystemChoice = false) {
+        onSelected(if (it == DashboardThemeMode.LIGHT) AppearanceMode.LIGHT else AppearanceMode.DARK)
+    }
 }
 
 @Composable
@@ -590,7 +565,7 @@ private fun GraphSettingSwitch(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
-            Text(description, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+            Text(description, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
         }
         WidgetSettingsToggle(checked, onCheckedChange, label = title)
     }
@@ -619,13 +594,13 @@ internal fun SugarliciousSettingSlider(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
-                Text(description, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                Text(description, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
             }
             Text(
                 valueText,
                 color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 modifier =
                     Modifier
                         .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(10.dp))
@@ -1189,8 +1164,8 @@ internal fun NotificationGraphSettingsPanel() {
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("NOTIFICATION-GRAPH", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("CGM-Dots & Farben", color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("NOTIFICATION-GRAPH", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
+                Text("CGM-Dots & Farben", color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 Text(
                     if (palette.isLight) "Aktuelle Farbvariante: Hell" else "Aktuelle Farbvariante: Dunkel",
                     color = OneUiWidgetStyle.secondary,
@@ -1207,7 +1182,7 @@ internal fun NotificationGraphSettingsPanel() {
         Text(
             "Farben gelten gemeinsam für eingeklappt und ausgeklappt. Punktgeometrie wird getrennt gespeichert.",
             color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
+            style = oneUiMenuTypography.bodyMedium,
         )
         SugarliciousSettingSlider(
             "Skalenbereich",
@@ -1226,7 +1201,7 @@ internal fun NotificationGraphSettingsPanel() {
         Text(
             "EINGEKLAPPT",
             color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
+            style = oneUiMenuTypography.bodyMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 5.dp),
         )
@@ -1279,7 +1254,7 @@ internal fun NotificationGraphSettingsPanel() {
         Text(
             "AUSGEKLAPPT",
             color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
+            style = oneUiMenuTypography.bodyMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 8.dp),
         )
@@ -1339,13 +1314,13 @@ internal fun NotificationGraphSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
         }
 
         Text(
             "FARBEN",
             color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
+            style = oneUiMenuTypography.bodyMedium,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(top = 6.dp),
         )
@@ -1425,9 +1400,7 @@ private fun NotificationLayoutControls(
         { onChange(value.copy(trendScalePercent = it.toInt())) },
         {},
     )
-    TextButton(onClick = { onChange(value.copy(trendScalePercent = null)) }) {
-        Text("SYSTEMSTANDARD VERWENDEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-    }
+    OneUiResetIcon(onClick = { onChange(value.copy(trendScalePercent = null)) }, description = "Trendpfeilgröße auf Systemstandard zurücksetzen")
     SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", {
         onChange(value.copy(trendXPercent = it.toInt()))
     }, {})

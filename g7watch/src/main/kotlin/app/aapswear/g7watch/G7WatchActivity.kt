@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.graphics.Color
 import android.graphics.PorterDuff
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
@@ -922,7 +921,8 @@ class G7WatchActivity : Activity() {
         gravity = Gravity.CENTER
         minHeight = 40.dp
         setPadding(13.dp, 8.dp, 13.dp, 8.dp)
-        setTypeface(typeface, Typeface.BOLD)
+        app.aapswear.uishared.SystemTypography
+            .apply(this, true)
         val (fill, textColor, stroke) =
             when (style) {
                 PillStyle.PRIMARY ->
@@ -960,7 +960,8 @@ class G7WatchActivity : Activity() {
         setTextColor(color)
         gravity = Gravity.CENTER
         setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-        typeface = Typeface.create(app.aapswear.model.SugarWearTypography.APP_FONT_FAMILY, if (bold) Typeface.BOLD else Typeface.NORMAL)
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
     private fun rounded(

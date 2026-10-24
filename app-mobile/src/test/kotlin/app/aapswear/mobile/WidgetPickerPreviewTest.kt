@@ -38,7 +38,6 @@ class WidgetPickerPreviewTest {
         ConfigurableWidgetKind.entries.forEach { kind ->
             val supported =
                 when (kind) {
-                    ConfigurableWidgetKind.METABOLIC -> sizes.filterKeys { it != "large" }
                     ConfigurableWidgetKind.GLUCOSE_GRAPH -> sizes.filterKeys { it == "medium" }
                     else -> sizes
                 }
@@ -142,6 +141,6 @@ class WidgetPickerPreviewTest {
                 assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
             }
         }
-        assertEquals(11, output.listFiles { file -> file.extension == "png" }?.size)
+        assertEquals(12, output.listFiles { file -> file.extension == "png" }?.size)
     }
 }

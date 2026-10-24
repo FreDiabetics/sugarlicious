@@ -345,7 +345,7 @@ private fun GlucoseHeroCard(
                                     visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP /
                                         GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP
                                 ).sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = (-0.8).sp,
                         )
 
@@ -512,7 +512,7 @@ private fun TirProgress(
             color = SugarliciousColors.TextPrimary,
             fontSize = 12.sp,
             lineHeight = 12.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.End,
             maxLines = 1,
         )
@@ -575,7 +575,7 @@ private fun LoopStateCard(
                 .padding(horizontal = 11.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text("LOOP", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text("LOOP", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
         Row(verticalAlignment = Alignment.Bottom) {
             SugarliciousIcon(state.iconRes, state.label, Modifier.size(28.dp), state.accent)
             Spacer(Modifier.width(6.dp))
@@ -583,7 +583,7 @@ private fun LoopStateCard(
                 state.label,
                 color = SugarliciousColors.TextPrimary,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -609,7 +609,7 @@ private fun CombinedIobCobCard(
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
-            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_carbs, "COB", SugarliciousColors.Orange)
+            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_cob, "COB", SugarliciousColors.Orange)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             InlineMetricValue(TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state, includeUnit = false), "U")
@@ -627,7 +627,7 @@ private fun QuickMetricHeader(
     Row(verticalAlignment = Alignment.CenterVertically) {
         SugarliciousIcon(iconRes, null, Modifier.size(13.dp), accent)
         Spacer(Modifier.width(3.dp))
-        Text(label, color = SugarliciousColors.TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, color = SugarliciousColors.TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -642,7 +642,7 @@ private fun InlineMetricValue(
             modifier = Modifier.alignByBaseline(),
             color = SugarliciousColors.TextPrimary,
             fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             maxLines = 1,
         )
         Spacer(Modifier.width(3.dp))
@@ -682,7 +682,7 @@ private fun QuickStatCard(
                 text = title,
                 color = SugarliciousColors.TextSecondary,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
             )
         }
@@ -723,7 +723,7 @@ private fun GlucoseGraphSurface(
             text = formatVisibleGraphHours(visibleHours),
             color = Color.Transparent,
             fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             modifier =
                 Modifier
                     .align(Alignment.TopStart)

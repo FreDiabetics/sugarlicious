@@ -10,6 +10,7 @@ import app.aapswear.model.AppearanceTerminology
 internal enum class WidgetColorRole(
     val preferenceKey: String,
     val label: String,
+    val sourceRole: SugarliciousColorRole? = null,
 ) {
     HIGH("high", AppearanceTerminology.GLUCOSE_HIGH),
     IN_RANGE("in_range", AppearanceTerminology.GLUCOSE_IN_RANGE),
@@ -18,6 +19,22 @@ internal enum class WidgetColorRole(
     VERY_HIGH("very_high", AppearanceTerminology.GLUCOSE_VERY_HIGH),
     BACKGROUND("background", "Hintergrund"),
     GRAPH_BACKGROUND("graph_background", AppearanceTerminology.GRAPH_BACKGROUND),
+    GRAPH_OUTLINE("graph_outline", "Graphkontur"),
+    IOB_PROGRESS("iob_progress", "IOB · Progressbar", SugarliciousColorRole.THERAPY_IOB_PROGRESS),
+    IOB_TRACK("iob_track", "IOB · Ringhintergrund", SugarliciousColorRole.THERAPY_IOB_PROGRESS),
+    IOB_ICON("iob_icon", "IOB · Icon", SugarliciousColorRole.THERAPY_IOB_PROGRESS),
+    IOB_VALUE("iob_value", "IOB · Wert", SugarliciousColorRole.TEXT_PRIMARY),
+    IOB_SECONDARY("iob_secondary", "IOB · Zusatzzeile", SugarliciousColorRole.TEXT_SECONDARY),
+    COB_PROGRESS("cob_progress", "COB · Progressbar", SugarliciousColorRole.THERAPY_COB_PROGRESS),
+    COB_TRACK("cob_track", "COB · Ringhintergrund", SugarliciousColorRole.THERAPY_COB_PROGRESS),
+    COB_ICON("cob_icon", "COB · Icon", SugarliciousColorRole.THERAPY_COB_PROGRESS),
+    COB_VALUE("cob_value", "COB · Wert", SugarliciousColorRole.TEXT_PRIMARY),
+    COB_SECONDARY("cob_secondary", "COB · Zusatzzeile", SugarliciousColorRole.TEXT_SECONDARY),
+    BASAL_PROGRESS("basal_progress", "Basal · Progressbar", SugarliciousColorRole.THERAPY_BASAL_PROGRESS),
+    BASAL_TRACK("basal_track", "Basal · Ringhintergrund", SugarliciousColorRole.THERAPY_BASAL_PROGRESS),
+    BASAL_ICON("basal_icon", "Basal · Icon", SugarliciousColorRole.THERAPY_BASAL_PROGRESS),
+    BASAL_VALUE("basal_value", "Basal · Wert", SugarliciousColorRole.TEXT_PRIMARY),
+    BASAL_SECONDARY("basal_secondary", "Basal · Zusatzzeile", SugarliciousColorRole.TEXT_SECONDARY),
     RANGE_HIGH("range_high", AppearanceTerminology.GRAPH_HIGH_AREA),
     RANGE_IN_RANGE("range_in_range", AppearanceTerminology.GRAPH_TARGET_AREA),
     RANGE_LOW("range_low", AppearanceTerminology.GRAPH_LOW_AREA),
@@ -170,7 +187,7 @@ internal object WidgetColorStore {
                         WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
                         WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
                         WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
-                        WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                        WidgetColorRole.DOT_OUTLINE, WidgetColorRole.GRAPH_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                         WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                         WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                         WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
@@ -186,8 +203,10 @@ internal object WidgetColorStore {
                         WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                         WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
                         WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
+                        else -> requireNotNull(role.sourceRole)
                     }
-                putInt(key(mode, role), mobile.argb(sourceRole))
+                val source = mobile.argb(sourceRole)
+                putInt(key(mode, role), if (role.name.endsWith("_TRACK")) (source and 0x00FFFFFF) or (((android.graphics.Color.alpha(source) * .30f).toInt()) shl 24) else source)
             }
         }
     }
@@ -263,8 +282,15 @@ internal object WidgetColorStore {
         role: WidgetColorRole,
         color: (SugarliciousColorRole) -> Int,
     ): Int {
+        role.sourceRole?.let { source ->
+            val value = color(source)
+            return if (role.name.endsWith("_TRACK")) (value and 0x00FFFFFF) or (((android.graphics.Color.alpha(value) * .30f).toInt()) shl 24) else value
+        }
+        if (role in listOf(WidgetColorRole.TREND, WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW)) return android.graphics.Color.WHITE
         if (role in listOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)) return android.graphics.Color.BLACK
-        if (role in listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON)) return android.graphics.Color.WHITE
+        if (role == WidgetColorRole.DELTA_ICON) return 0xFFCCCCCC.toInt()
+        if (role == WidgetColorRole.AGE_ICON) return 0xFF59FFFF.toInt()
+        if (role == WidgetColorRole.TIR_ICON) return 0xFF59FF59.toInt()
         if (role == WidgetColorRole.HIGH_REGION_LABEL) return 0xFF151515.toInt()
         return color(
             when (role) {
@@ -281,7 +307,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.RANGE_LOW -> SugarliciousColorRole.RANGE_LOW
                 WidgetColorRole.HIGH_LINE -> SugarliciousColorRole.GRAPH_HIGH_LINE
                 WidgetColorRole.LOW_LINE -> SugarliciousColorRole.GRAPH_LOW_LINE
-                WidgetColorRole.DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
+                WidgetColorRole.DOT_OUTLINE, WidgetColorRole.GRAPH_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                 WidgetColorRole.CURRENT_DOT_OUTLINE -> SugarliciousColorRole.GRAPH_CURRENT_OUTLINE
                 WidgetColorRole.DOT_HIGH -> SugarliciousColorRole.CGM_DOT_HIGH
                 WidgetColorRole.DOT_IN_RANGE -> SugarliciousColorRole.CGM_DOT_IN_RANGE
@@ -297,6 +323,7 @@ internal object WidgetColorStore {
                 WidgetColorRole.TREND_HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
                 WidgetColorRole.TREND_IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
                 WidgetColorRole.TREND_LOW -> SugarliciousColorRole.GLUCOSE_LOW
+                else -> requireNotNull(role.sourceRole)
             },
         )
     }

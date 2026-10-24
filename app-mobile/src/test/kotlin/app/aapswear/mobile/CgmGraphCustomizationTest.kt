@@ -33,6 +33,40 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CgmGraphCustomizationTest {
     @Test
+    fun `urgent dots render their independent colors instead of glucose text colors`() {
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val low = Color.rgb(12, 210, 91)
+        val high = Color.rgb(131, 24, 211)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_VERY_LOW, low)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_VERY_HIGH, high)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GLUCOSE_VERY_LOW, Color.RED)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.GLUCOSE_VERY_HIGH, Color.YELLOW)
+        SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+        try {
+            listOf(SugarliciousColorRole.CGM_DOT_VERY_LOW, SugarliciousColorRole.CGM_DOT_VERY_HIGH).forEach { role ->
+                assertTrue(colorRoleVisible(role, showCgmGraph = true, showMetabolicGraph = false))
+                assertFalse(colorRoleVisible(role, showCgmGraph = false, showMetabolicGraph = false))
+            }
+            val now = System.currentTimeMillis()
+            val state =
+                TherapyDisplayState(
+                    receivedAtEpochMs = now,
+                    glucose = GlucoseState(300.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                    glucoseHistory = listOf(GlucoseSample(45.0, now - 10 * 60_000L), GlucoseSample(300.0, now)),
+                )
+            val bitmap = renderPrediction(state, now)
+            assertTrue("very-low dot fill must use its own picker", count(bitmap) { it == low } > 0)
+            assertTrue("very-high dot fill must use its own picker", count(bitmap) { it == high } > 0)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
     fun `fresh appearance profiles reproduce approved mobile dot settings`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("fresh_approved_dot_profiles", android.content.Context.MODE_PRIVATE)

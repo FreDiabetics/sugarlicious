@@ -1,6 +1,7 @@
 param(
     [string]$ValidatorCommit = "702e9bdf050df800a6469cd2155c5c123fd54cb7",
-    [string[]]$WatchfaceFiles
+    [string[]]$WatchfaceFiles,
+    [ValidateRange(0, 5)][int]$FormatVersion = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -68,9 +69,31 @@ if (-not $WatchfaceFiles) {
 }
 if (-not $WatchfaceFiles) { throw "No WFF watchface.xml files found" }
 
-$output = & java -jar $validatorJar 1 $WatchfaceFiles 2>&1
-$output | ForEach-Object { Write-Host $_ }
-if (($output | Out-String) -match "FAILED") {
-    throw "At least one Watch Face Format document failed schema validation"
+$batches = @{}
+foreach ($path in $WatchfaceFiles) {
+    $version = $FormatVersion
+    if ($version -eq 0) {
+        $absolutePath = (Resolve-Path -LiteralPath $path).Path
+        $mainDirectory = Split-Path (Split-Path (Split-Path $absolutePath))
+        $manifestPath = Join-Path $mainDirectory 'AndroidManifest.xml'
+        [xml]$manifest = Get-Content -LiteralPath $manifestPath -Raw
+        $androidNamespace = 'http://schemas.android.com/apk/res/android'
+        $property = @(@($manifest.manifest.application.property) | Where-Object {
+            $_.GetAttribute('name', $androidNamespace) -eq 'com.google.wear.watchface.format.version'
+        })
+        if ($property.Count -ne 1) { throw "Missing or ambiguous WFF version: $manifestPath" }
+        $version = [int]$property[0].GetAttribute('value', $androidNamespace)
+        if ($version -lt 1 -or $version -gt 5) { throw "Unsupported WFF version $version in $manifestPath" }
+    }
+    $batches[$version] = @($batches[$version]) + @($path)
+}
+foreach ($version in ($batches.Keys | Sort-Object)) {
+    $files = @($batches[$version] | Where-Object { $_ })
+    $output = & java -jar $validatorJar $version $files 2>&1
+    $exitCode = $LASTEXITCODE
+    $output | ForEach-Object { Write-Host $_ }
+    if ($exitCode -ne 0 -or ($output | Out-String) -match 'FAILED') {
+        throw "At least one WFF $version document failed schema validation"
+    }
 }
 

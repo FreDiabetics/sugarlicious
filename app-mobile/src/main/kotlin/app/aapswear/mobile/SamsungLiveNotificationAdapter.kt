@@ -8,6 +8,7 @@ import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.graphics.createBitmap
 
 internal data class SamsungLiveTexts(
     val drawerPrimary: String,
@@ -67,7 +68,11 @@ internal object SamsungLiveNotificationAdapter {
                     putParcelable(
                         EXTRA_CHIP_EXPANDED_VIEW,
                         RemoteViews(context.packageName, R.layout.notification_samsung_live_chip).apply {
-                            setTextViewText(R.id.live_chip_text, texts.chipExpandedText)
+                            setTextViewText(
+                                R.id.live_chip_text,
+                                app.aapswear.uishared.SystemTypography
+                                    .emphasizedText(texts.chipExpandedText),
+                            )
                         },
                     )
                 }
@@ -89,7 +94,7 @@ internal object SamsungLiveNotificationAdapter {
         val drawable = requireNotNull(context.getDrawable(iconRes)).mutate()
         drawable.setTint(Color.WHITE)
         val size = (24f * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(size, size, Bitmap.Config.ARGB_8888)
         drawable.setBounds(0, 0, size, size)
         drawable.draw(Canvas(bitmap))
         return Icon.createWithBitmap(bitmap)

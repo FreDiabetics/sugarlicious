@@ -9,16 +9,63 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 class WidgetCatalogContractTest {
     @Test
+    fun `picker headings have no redundant provider description subtitle`() {
+        File("src/main/res/xml").listFiles()!!.filter { it.name.endsWith("_info.xml") }.forEach {
+            assertFalse(it.name, it.readText().contains("android:description="))
+        }
+    }
+
+    @Test
     fun `compact widget has its own native Samsung card and additional widgets sort last`() {
         val manifest = File("src/main/AndroidManifest.xml").readText()
         assertTrue(manifest.contains("@xml/samsung_compact_family"))
         val strings = File("src/main/res/values/strings.xml").readText()
-        assertEquals(3, Regex(">Zusätzliche Widgets<").findAll(strings).count())
+        assertEquals(3, Regex(">Zusätzlich<").findAll(strings).count())
         listOf("glucose", "graph").forEach { family ->
             val layout = if (family == "graph") "widget_graph_preview" else "widget_glucose_family_small_preview"
             val preview = File("src/main/res/layout/$layout.xml").readText()
             assertTrue(preview.contains("android:scaleType=\"fitEnd\""))
         }
+    }
+
+    @Test
+    fun `additional widgets use one visible provider while legacy instances remain supported`() {
+        val manifest = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
+        val receivers = manifest.getElementsByTagName("receiver")
+        listOf("GlucoseFamily2x1Receiver", "GraphFamily2x1Receiver", "TherapyFamily2x1Receiver").forEach { name ->
+            val receiver =
+                (0 until receivers.length)
+                    .map { receivers.item(it) as org.w3c.dom.Element }
+                    .single { it.getAttribute("android:name") == ".$name" }
+            val entries = receiver.getElementsByTagName("meta-data")
+            val providerResource =
+                (0 until entries.length)
+                    .map { entries.item(it) as org.w3c.dom.Element }
+                    .single { it.getAttribute("android:name") == "android.appwidget.provider" }
+                    .getAttribute("android:resource")
+                    .removePrefix("@xml/")
+            val provider =
+                DocumentBuilderFactory
+                    .newInstance()
+                    .newDocumentBuilder()
+                    .parse(File("src/main/res/xml/$providerResource.xml"))
+                    .documentElement
+            assertTrue(provider.getAttribute("android:widgetFeatures").contains("hide_from_picker"))
+            assertEquals("horizontal|vertical", provider.getAttribute("android:resizeMode"))
+            assertFalse(
+                (0 until entries.length)
+                    .map { entries.item(it) as org.w3c.dom.Element }
+                    .any { it.getAttribute("android:name") == "samsung.appwidget.colorful.info" },
+            )
+        }
+        assertEquals(1, Regex("android:name=\".AdditionalWidgetReceiver\"").findAll(File("src/main/AndroidManifest.xml").readText()).count())
+        val additional = File("src/main/res/xml/additional_widget_info.xml").readText()
+        assertFalse(additional.contains("hide_from_picker"))
+        assertTrue(additional.contains("android:resizeMode=\"horizontal|vertical\""))
+        assertTrue(File("src/main/AndroidManifest.xml").readText().contains("@xml/samsung_additional_family"))
+        val samsung = File("src/main/res/xml/samsung_additional_family.xml").readText()
+        assertTrue(samsung.contains("app:widgetSize=\"0x02\""))
+        assertTrue(samsung.contains("app:previewLayoutSmall="))
     }
 
     @Test
@@ -41,7 +88,7 @@ class WidgetCatalogContractTest {
                     .documentElement
             assertEquals("samsung-appwidget-info", root.tagName)
             // One UI transports these values as strings and interprets the mask as hexadecimal.
-            assertEquals(if (family == "therapy") "0x0a" else "0x1a", root.getAttribute("app:widgetSize"))
+            assertEquals("0x1a", root.getAttribute("app:widgetSize"))
             assertEquals("0x15", root.getAttribute("app:targetHost"))
             assertTrue(root.getAttribute("app:previewLayoutSmall").startsWith("@layout/"))
             assertTrue(root.getAttribute("app:previewLayoutMedium").startsWith("@layout/"))
@@ -76,8 +123,10 @@ class WidgetCatalogContractTest {
         assertTargetCells("graph_widget_4x2_info.xml", 4, 2)
         assertEquals("@xml/therapy_family_2x1_info", names[".TherapyFamily2x1Receiver"])
         assertEquals("@xml/therapy_family_2x2_info", names[".TherapyFamily2x2Receiver"])
+        assertEquals("@xml/therapy_family_4x2_info", names[".TherapyFamily4x2Receiver"])
         assertTargetCells("therapy_family_2x1_info.xml", 2, 1)
         assertTargetCells("therapy_family_2x2_info.xml", 2, 2)
+        assertTargetCells("therapy_family_4x2_info.xml", 4, 2)
     }
 
     @Test

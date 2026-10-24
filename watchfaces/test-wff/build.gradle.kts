@@ -8,8 +8,8 @@ android {
             "app.aapswear.watchface.test"
         ; minSdk = 33
         targetSdk = 37
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     buildTypes {
         release {

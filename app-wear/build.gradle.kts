@@ -126,6 +126,10 @@ val directToWatchFaceApk =
         "watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/release/sugarlicious-direct-to-watch-release.apk",
     )
 val validatorDirectory = rootProject.layout.buildDirectory.dir("watchface-push/tools")
+val orbitWatchFaceApk =
+    rootProject.layout.projectDirectory.file(
+        "watchfaces/sugarlicious-orbit/build/outputs/apk/release/sugarlicious-orbit-release.apk",
+    )
 
 val prepareDefaultWatchFace =
     tasks.register<PrepareDefaultWatchFaceTask>("prepareDefaultWatchFace") {
@@ -189,18 +193,29 @@ val prepareDirectToWatchFace =
         tokenResourceName.set("")
     }
 
+val prepareOrbitWatchFace =
+    tasks.register<PrepareDefaultWatchFaceTask>("prepareOrbitWatchFace") {
+        dependsOn(":watchfaces:sugarlicious-orbit:assembleRelease", ":prepareWatchFaceValidatorCli")
+        watchFaceApk.set(orbitWatchFaceApk)
+        validatorJars.from(rootProject.fileTree(validatorDirectory) { include("validator-push-cli-*.jar") })
+        outputApk.set(generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_orbit.apk") })
+        outputTokenResource.set(generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_orbit_token.txt") })
+        tokenResourceName.set("")
+    }
+
 tasks.configureEach {
     if (
         name != prepareDefaultWatchFace.name &&
         name != prepareAnalogWatchFace.name &&
         name != prepareDirectToWatchFace.name &&
+        name != prepareOrbitWatchFace.name &&
         (
             name.contains("Assets") ||
                 name.contains("Resources") ||
                 name.endsWith("SourceSetPaths")
         )
     ) {
-        dependsOn(prepareDefaultWatchFace, prepareAnalogWatchFace, prepareDirectToWatchFace)
+        dependsOn(prepareDefaultWatchFace, prepareAnalogWatchFace, prepareDirectToWatchFace, prepareOrbitWatchFace)
     }
 }
 

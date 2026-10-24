@@ -7,8 +7,8 @@ android {
         applicationId = "app.aapswear.watchfacepush.digital"
         minSdk = 33
         targetSdk = 37
-        versionCode = 6
-        versionName = "0.5.0"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     buildTypes {
         release {

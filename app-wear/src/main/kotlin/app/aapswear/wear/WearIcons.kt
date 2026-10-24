@@ -25,6 +25,16 @@ internal fun ImageView.renderSugarliciousWearIcon(
     colored: Boolean = true,
     trendStyle: TrendArrowStyle? = null,
 ) {
+    val backgroundIcon = context.getDrawable(drawableRes)?.mutate() as? android.graphics.drawable.LayerDrawable
+    if (backgroundIcon?.findDrawableByLayerId(app.aapswear.uishared.R.id.therapy_icon_background) != null) {
+        imageTintList = null
+        setImageDrawable(backgroundIcon)
+        // ImageView clears a previous whole-image tint while attaching the drawable. Apply the
+        // independent layer colors afterwards, otherwise both layers lose their chosen colors.
+        backgroundIcon.findDrawableByLayerId(app.aapswear.uishared.R.id.therapy_icon_background).setTint(tintArgb ?: android.graphics.Color.WHITE)
+        backgroundIcon.findDrawableByLayerId(app.aapswear.uishared.R.id.therapy_icon_symbol).setTint(android.graphics.Color.BLACK)
+        return
+    }
     val renderSpec = trendStyle?.renderSpec()
     val outlined = renderSpec?.outlineThicknessDp?.let { it > 0f } ?: shouldOutlineWearIcon(backgroundArgb, colored)
     if (outlined) {

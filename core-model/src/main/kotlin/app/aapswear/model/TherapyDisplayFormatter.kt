@@ -23,11 +23,13 @@ object TherapyDisplayFormatter {
             glucose.valueMgDl in 20.0..1_000.0
     }
 
-    fun glucose(glucose: GlucoseState): String =
-        if (glucose.displayUnit == GlucoseUnit.MMOL_L) {
-            String.format(Locale.US, "%.1f", glucose.valueMgDl / 18.0)
+    fun glucose(glucose: GlucoseState): String = glucose(glucose.valueMgDl, glucose.displayUnit)
+
+    fun glucose(valueMgDl: Double, unit: GlucoseUnit): String =
+        if (unit == GlucoseUnit.MMOL_L) {
+            String.format(Locale.US, "%.1f", valueMgDl / 18.0)
         } else {
-            glucose.valueMgDl.roundToInt().toString()
+            valueMgDl.roundToInt().toString()
         }
 
     fun signedDelta(

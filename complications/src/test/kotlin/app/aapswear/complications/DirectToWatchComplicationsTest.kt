@@ -339,6 +339,8 @@ class DirectToWatchComplicationsTest {
         assertTrue(DirectToWatchPreferences.graphStyle(context).targetLabelsInsidePlot)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
 
+        DirectToWatchPreferences.saveGraphStyle(context, style.copy(timeAxisEnabled = false))
+        assertFalse(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         DirectToWatchPreferences.resetGraphAppearance(context)
         assertEquals(
             DirectToWatchGraphColorDefaults.create().graphBackground,
@@ -346,7 +348,7 @@ class DirectToWatchComplicationsTest {
         )
         assertEquals(DirectToWatchGraphDefaults.style().dotRadiusDp, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
         assertFalse(DirectToWatchPreferences.graphStyle(context).borderEnabled)
-        assertFalse(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
+        assertTrue(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))
     }
 

@@ -45,7 +45,7 @@ internal fun overviewWatchReplacementHeightDp(statusTextHeightDp: Float, section
 @Composable
 internal fun OverviewInlineHeader(onSettings: () -> Unit, diagnostics: DiagnosticsSnapshot, onWatch: () -> Unit, sectionGapDp: Int = 5) {
     val density = LocalDensity.current
-    val statusText = rememberTextMeasurer().measure("Verbunden", style = LocalTextStyle.current.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold))
+    val statusText = rememberTextMeasurer().measure("Verbunden", style = LocalTextStyle.current.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold))
     val replacementHeight =
         overviewWatchReplacementHeightDp(
             with(density) {
@@ -112,42 +112,6 @@ private fun SugarliciousWordmark() {
         fontSize = 42.sp,
         fontWeight = FontWeight.Bold,
     )
-}
-
-@Composable
-internal fun WatchMenuHeader(
-    onBack: () -> Unit,
-    onSettings: () -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier.size(36.dp).clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
-            SugarliciousIcon(
-                drawableRes = R.drawable.ic_oneui_back,
-                contentDescription = "Zurück",
-                modifier = Modifier.size(22.dp),
-                tint = OneUiWidgetStyle.accent,
-                colored = false,
-            )
-        }
-
-        Spacer(Modifier.width(7.dp))
-
-        Text(
-            text = "Watch",
-            color = OneUiWidgetStyle.accent,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Normal,
-        )
-
-        Spacer(Modifier.weight(1f))
-        SettingsHeaderButton(onSettings, OneUiWidgetStyle.accent)
-    }
 }
 
 @Composable

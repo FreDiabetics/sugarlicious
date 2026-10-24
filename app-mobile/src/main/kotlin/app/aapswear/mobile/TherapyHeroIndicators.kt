@@ -74,8 +74,8 @@ internal fun therapyIndicatorPresentations(
             label = "COB",
             value = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, cob, state),
             progress = cob?.let { TherapyProgressSemantics.scaled(it, safeCobMaximum) },
-            iconRes = SharedUiR.drawable.ic_carbs,
-            iconSizeDp = 17,
+            iconRes = SharedUiR.drawable.ic_cob,
+            iconSizeDp = 16,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
@@ -84,6 +84,7 @@ internal fun therapyIndicatorPresentations(
             secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
             progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
+            iconSizeDp = 16,
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
         ),
     )

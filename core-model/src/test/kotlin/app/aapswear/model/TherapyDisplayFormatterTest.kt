@@ -7,6 +7,12 @@ import kotlin.test.assertTrue
 
 class TherapyDisplayFormatterTest {
     @Test
+    fun `graph thresholds share the glucose unit format without constructing a synthetic reading`() {
+        assertEquals("180", TherapyDisplayFormatter.glucose(180.0, GlucoseUnit.MG_DL))
+        assertEquals("10.0", TherapyDisplayFormatter.glucose(180.0, GlucoseUnit.MMOL_L))
+    }
+
+    @Test
     fun `formats every AndroidAPS therapy field with one canonical visible contract`() {
         val semantics = AapsDisplaySemantics()
 

@@ -38,7 +38,7 @@ class SugarliciousTilesTest {
 
     @Test
     fun `tile emphasis is calibrated to the Wear app system font`() {
-        assertEquals(500, sugarliciousTileWeight(true))
+        assertEquals(700, sugarliciousTileWeight(true))
         assertEquals(400, sugarliciousTileWeight(false))
     }
 

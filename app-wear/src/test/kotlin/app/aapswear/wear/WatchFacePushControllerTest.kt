@@ -98,15 +98,16 @@ class WatchFacePushControllerTest {
     }
 
     @Test
-    fun `ApeX and Vigil align with the two visible selection cards`() {
+    fun `ApeX Vigil and Orbit align with the visible selection cards`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
-        assertEquals(2, active.size)
+        assertEquals(3, active.size)
         assertEquals(
             listOf(
                 "app.aapswear.watchfacepush.analog",
                 "app.aapswear.watchfacepush.g6style",
+                "app.aapswear.watchfacepush.orbit",
             ),
             active.map { it.packageName },
         )

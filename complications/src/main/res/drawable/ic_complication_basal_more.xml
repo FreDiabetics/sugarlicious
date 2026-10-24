@@ -1,10 +1,1 @@
-<?xml version="1.0" encoding="utf-8"?>
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="70"
-    android:viewportHeight="70">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M64.27,54.7h-12.76c-1.51,0 -2.73,-1.22 -2.73,-2.73v-29.67c0,-0.85 -0.69,-1.54 -1.54,-1.54h-2.92c-0.85,0 -1.55,0.7 -1.55,1.55v29.66c0,1.51 -1.22,2.73 -2.73,2.73H9.73c-1.51,0 -2.73,-1.22 -2.73,-2.73s1.22,-2.73 2.73,-2.73h26.11c0.79,0 1.42,-0.64 1.42,-1.42v-29.79c0,-1.51 1.22,-2.73 2.73,-2.73h11.52c1.52,0 2.75,1.23 2.75,2.75v29.77c0,0.79 0.64,1.42 1.42,1.42h8.57c1.51,0 2.73,1.22 2.73,2.73s-1.22,2.73 -2.73,2.73Z" />
-</vector>
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_basalmore" />

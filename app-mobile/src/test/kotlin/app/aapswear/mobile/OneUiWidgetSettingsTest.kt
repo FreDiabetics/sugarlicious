@@ -11,6 +11,14 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class OneUiWidgetSettingsTest {
     @Test
+    fun `complication defaults use the shared reset icon instead of a text button`() {
+        val source = java.io.File("src/main/kotlin/app/aapswear/mobile/ComplicationCatalog.kt").readText()
+        org.junit.Assert.assertFalse(source.contains("SYSTEMSTANDARD VERWENDEN"))
+        assertTrue(source.contains("OneUiResetIcon("))
+        assertTrue(source.contains("update(ComplicationAppearanceSettings())"))
+    }
+
+    @Test
     fun `all widget switches share a fixed trailing column`() {
         val source = java.io.File("src/main/kotlin/app/aapswear/mobile/OneUiWidgetSettings.kt").readText()
         val toggle = source.substringAfter("internal fun WidgetSettingsToggle(").substringBefore("internal fun WidgetToggleSetting(")
@@ -46,10 +54,24 @@ class OneUiWidgetSettingsTest {
     }
 
     @Test
-    fun `widget settings do not override the device font family`() {
-        val source = java.io.File("src/main/kotlin/app/aapswear/mobile/OneUiWidgetSettings.kt").readText()
-        org.junit.Assert.assertFalse(source.contains("Typeface.create("))
-        assertTrue(source.contains("fontFamily = FontFamily.Default"))
+    @org.robolectric.annotation.Config(sdk = [35])
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `widget settings resolve system font to real bold without changing normal text weight`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        val resolver =
+            androidx.compose.ui.text.font
+                .createFontFamilyResolver(context)
+        listOf("Samsung", "Google").forEach { manufacturer ->
+            val family =
+                app.aapswear.mobile.ui.theme
+                    .systemFontFamilyForDevice(manufacturer)
+            val bold = resolver.resolve(family, androidx.compose.ui.text.font.FontWeight.Bold).value as android.graphics.Typeface
+            val normal = resolver.resolve(family, androidx.compose.ui.text.font.FontWeight.Normal).value as android.graphics.Typeface
+            assertEquals("$manufacturer bold", 700, bold.weight)
+            assertEquals("$manufacturer normal", 400, normal.weight)
+        }
     }
 
     @Test

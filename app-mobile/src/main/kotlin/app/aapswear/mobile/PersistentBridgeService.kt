@@ -1031,7 +1031,8 @@ internal object NotificationGraphRenderer {
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = graphColor(SugarliciousColorRole.GRAPH_LABEL)
                 textSize = dp(if (profile == NotificationGraphProfile.COLLAPSED) 7f else 8.5f)
-                typeface = android.graphics.Typeface.DEFAULT_BOLD
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
             }
         val widestYLabel =
             maxOf(axisText.measureText(targetHigh.roundToInt().toString()), axisText.measureText(targetLow.roundToInt().toString()))

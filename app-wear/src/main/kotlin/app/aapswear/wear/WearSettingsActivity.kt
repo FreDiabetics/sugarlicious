@@ -50,7 +50,7 @@ class WearSettingsActivity : Activity() {
         current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         val ui = current.uiColors
         val scroll =
-            ScrollView(this).apply {
+            app.aapswear.uishared.WearSettingsScrollView(this).apply {
                 isFillViewport = true
                 setBackgroundColor(ui.background)
                 isVerticalScrollBarEnabled = false
@@ -60,7 +60,7 @@ class WearSettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(24.dp, 14.dp, 24.dp, 32.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
             }
         scroll.addView(root, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
@@ -95,18 +95,24 @@ class WearSettingsActivity : Activity() {
                         addView(
                             TextView(this@WearSettingsActivity).apply {
                                 setText(R.string.app_name)
-                                textSize = 8f
+                                textSize =
+                                    app.aapswear.uishared.WearSettingsUi
+                                        .textSize(8f)
                                 setTextColor(ui.accent)
-                                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                                app.aapswear.uishared.SystemTypography
+                                    .apply(this, true)
                                 letterSpacing = 0.08f
                             },
                         )
                         addView(
                             TextView(this@WearSettingsActivity).apply {
                                 setText(R.string.watch_settings_title)
-                                textSize = 14f
+                                textSize =
+                                    app.aapswear.uishared.WearSettingsUi
+                                        .textSize(14f)
                                 setTextColor(ui.textPrimary)
-                                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                                app.aapswear.uishared.SystemTypography
+                                    .apply(this, true)
                             },
                         )
                     },
@@ -116,7 +122,7 @@ class WearSettingsActivity : Activity() {
         root.addView(header, fullWidth())
         root.addView(
             choiceRow(
-                listOf("Light" to AppearanceMode.LIGHT, "Dark" to AppearanceMode.DARK),
+                listOf("Hell" to AppearanceMode.LIGHT, "Dunkel" to AppearanceMode.DARK),
                 selectedAppearanceMode,
             ) { mode ->
                 selectedAppearanceMode = mode
@@ -128,25 +134,25 @@ class WearSettingsActivity : Activity() {
 
         settingsCategory("display", "Anzeige", "App-Flächen, Texte und Therapiefarben") {
             section("APP")
-            colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background) { updateUiColors { c -> c.copy(background = it) } }
-            colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground) {
+            colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background, WatchUiColors().background) { updateUiColors { c -> c.copy(background = it) } }
+            colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground, WatchUiColors().tileBackground) {
                 updateUiColors { c ->
                     c.copy(tileBackground = it)
                 }
             }
-            colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
-            colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
-            colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary) {
+            colorRow(AppearanceTerminology.SURFACE_BORDER, current.uiColors.tileBorder, WatchUiColors().tileBorder) { updateUiColors { c -> c.copy(tileBorder = it) } }
+            colorRow(AppearanceTerminology.PRIMARY_TEXT, current.uiColors.textPrimary, WatchUiColors().textPrimary) { updateUiColors { c -> c.copy(textPrimary = it) } }
+            colorRow(AppearanceTerminology.SECONDARY_TEXT, current.uiColors.textSecondary, WatchUiColors().textSecondary) {
                 updateUiColors { c ->
                     c.copy(textSecondary = it)
                 }
             }
-            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
-            colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent) { updateUiColors { c -> c.copy(accent = it) } }
+            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit, WatchUiColors().deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
+            colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent, WatchUiColors().accent) { updateUiColors { c -> c.copy(accent = it) } }
             section("THERAPIE")
-            colorRow("IOB", current.uiColors.iob) { updateUiColors { c -> c.copy(iob = it) } }
-            colorRow("COB", current.uiColors.cob) { updateUiColors { c -> c.copy(cob = it) } }
-            colorRow("Basal", current.uiColors.basal) { updateUiColors { c -> c.copy(basal = it) } }
+            colorRow("IOB", current.uiColors.iob, WatchUiColors().iob) { updateUiColors { c -> c.copy(iob = it) } }
+            colorRow("COB", current.uiColors.cob, WatchUiColors().cob) { updateUiColors { c -> c.copy(cob = it) } }
+            colorRow("Basal", current.uiColors.basal, WatchUiColors().basal) { updateUiColors { c -> c.copy(basal = it) } }
         }
 
         settingsCategory("glucose", "Glukose", "Einheit und Bereichsfarben") {
@@ -184,13 +190,13 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             section("FARBEN")
-            colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
-            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange) {
+            colorRow(AppearanceTerminology.GLUCOSE_LOW, current.uiColors.glucoseLow, WatchUiColors().glucoseLow) { updateUiColors { c -> c.copy(glucoseLow = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, current.uiColors.glucoseInRange, WatchUiColors().glucoseInRange) {
                 updateUiColors { c ->
                     c.copy(glucoseInRange = it)
                 }
             }
-            colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
+            colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh, WatchUiColors().glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
             section("GRÖSSE")
             root.addView(
                 sliderCard("Glukosewert", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.glucoseScalePercent, {
@@ -211,7 +217,13 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
-            colorRow("Trendpfeil · Füllfarbe", current.trendArrowStyle.fillColor) {
+            colorRow(
+                "Trendpfeil · Füllfarbe",
+                current.trendArrowStyle.fillColor,
+                app.aapswear.model.TrendArrowStyle
+                    .defaults(selectedAppearanceMode, 0xFFFFFFFF.toInt())
+                    .fillColor,
+            ) {
                 save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(fillColor = it)))
             }
             root.addView(
@@ -221,7 +233,13 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             if (current.trendArrowStyle.outlineEnabled) {
-                colorRow("Trendpfeil · Konturfarbe", current.trendArrowStyle.outlineColor) {
+                colorRow(
+                    "Trendpfeil · Konturfarbe",
+                    current.trendArrowStyle.outlineColor,
+                    app.aapswear.model.TrendArrowStyle
+                        .defaults(selectedAppearanceMode, 0xFFFFFFFF.toInt())
+                        .outlineColor,
+                ) {
                     save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineColor = it)))
                 }
                 root.addView(
@@ -266,7 +284,9 @@ class WearSettingsActivity : Activity() {
                 hoursRow.addView(
                     Button(this).apply {
                         text = getString(R.string.graph_hours, hours)
-                        textSize = 9f
+                        textSize =
+                            app.aapswear.uishared.WearSettingsUi
+                                .textSize(9f)
                         minWidth = 0
                         minimumWidth = 0
                         setPadding(1.dp, 0, 1.dp, 0)
@@ -291,7 +311,7 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             root.addView(
-                switchRow("Graphkontur", current.graphStyle.borderEnabled) {
+                switchRow("Kachelkontur", current.graphStyle.borderEnabled) {
                     save(current.copy(graphStyle = current.graphStyle.copy(borderEnabled = it)))
                 },
                 cardParams(),
@@ -380,74 +400,73 @@ class WearSettingsActivity : Activity() {
             )
 
             section("FARBEN")
-            colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground) {
+            colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground, WatchGraphColors().graphBackground) {
                 updateGraphColors { c ->
                     c.copy(graphBackground = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_LOW_AREA, current.graphColors.rangeLow) {
+            colorRow(AppearanceTerminology.GRAPH_LOW_AREA, current.graphColors.rangeLow, WatchGraphColors().rangeLow) {
                 updateGraphColors { c ->
                     c.copy(rangeLow = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_TARGET_AREA, current.graphColors.rangeInRange) {
+            colorRow(AppearanceTerminology.GRAPH_TARGET_AREA, current.graphColors.rangeInRange, WatchGraphColors().rangeInRange) {
                 updateGraphColors { c ->
                     c.copy(rangeInRange = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_HIGH_AREA, current.graphColors.rangeHigh) {
+            colorRow(AppearanceTerminology.GRAPH_HIGH_AREA, current.graphColors.rangeHigh, WatchGraphColors().rangeHigh) {
                 updateGraphColors { c ->
                     c.copy(rangeHigh = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
-            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange) {
+            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow, WatchGraphColors().cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange, WatchGraphColors().cgmInRange) {
                 updateGraphColors { c ->
                     c.copy(cgmInRange = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
-            colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, current.graphColors.highLine) {
+            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh, WatchGraphColors().cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
+            colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, current.graphColors.highLine, WatchGraphColors().highLine) {
                 updateGraphColors { c ->
                     c.copy(highLine = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_LOW_LINE, current.graphColors.lowLine) { updateGraphColors { c -> c.copy(lowLine = it) } }
-            colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.axisLabel) {
+            colorRow(AppearanceTerminology.GRAPH_LOW_LINE, current.graphColors.lowLine, WatchGraphColors().lowLine) { updateGraphColors { c -> c.copy(lowLine = it) } }
+            colorRow(AppearanceTerminology.GRAPH_AXIS_TEXT, current.graphColors.axisLabel, WatchGraphColors().axisLabel) {
                 updateGraphColors { c ->
                     c.copy(axisLabel = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_AXIS_TICK, current.graphColors.axisTick) {
+            colorRow(AppearanceTerminology.GRAPH_AXIS_TICK, current.graphColors.axisTick, WatchGraphColors().axisTick) {
                 updateGraphColors { c ->
                     c.copy(axisTick = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
-            colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider) { updateGraphColors { c -> c.copy(divider = it) } }
-            colorRow(AppearanceTerminology.GRAPH_BORDER, current.graphColors.border) { updateGraphColors { c -> c.copy(border = it) } }
-            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline) {
+            colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine, WatchGraphColors().nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider, WatchGraphColors().divider) { updateGraphColors { c -> c.copy(divider = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline, WatchGraphColors().outline) {
                 updateGraphColors { c ->
                     c.copy(outline = it)
                 }
             }
             section("PROGNOSEN")
-            colorRow(AppearanceTerminology.PREDICTION_IOB, current.graphColors.predictionIob) {
+            colorRow(AppearanceTerminology.PREDICTION_IOB, current.graphColors.predictionIob, WatchGraphColors().predictionIob) {
                 updateGraphColors { c ->
                     c.copy(predictionIob = it)
                 }
             }
-            colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob) {
+            colorRow(AppearanceTerminology.PREDICTION_COB, current.graphColors.predictionCob, WatchGraphColors().predictionCob) {
                 updateGraphColors { c ->
                     c.copy(predictionCob = it)
                 }
             }
-            colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam) {
+            colorRow(AppearanceTerminology.PREDICTION_UAM, current.graphColors.predictionUam, WatchGraphColors().predictionUam) {
                 updateGraphColors { c ->
                     c.copy(predictionUam = it)
                 }
             }
-            colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp) {
+            colorRow(AppearanceTerminology.PREDICTION_ZERO_TEMP, current.graphColors.predictionZeroTemp, WatchGraphColors().predictionZeroTemp) {
                 updateGraphColors { c ->
                     c.copy(predictionZeroTemp = it)
                 }
@@ -460,13 +479,13 @@ class WearSettingsActivity : Activity() {
             tileContentRows(WearTileKind.GLUCOSE)
             section("TILE 1 · FARBEN")
             tileBaseColorRows(WearTileKind.GLUCOSE, glucoseTileColors)
-            colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow) {
+            colorRow(AppearanceTerminology.GLUCOSE_LOW, glucoseTileColors.glucoseLow, WatchUiColors().glucoseLow) {
                 updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseLow = it) }
             }
-            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange) {
+            colorRow(AppearanceTerminology.GLUCOSE_IN_RANGE, glucoseTileColors.glucoseInRange, WatchUiColors().glucoseInRange) {
                 updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseInRange = it) }
             }
-            colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh) {
+            colorRow(AppearanceTerminology.GLUCOSE_HIGH, glucoseTileColors.glucoseHigh, WatchUiColors().glucoseHigh) {
                 updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) }
             }
 
@@ -477,9 +496,9 @@ class WearSettingsActivity : Activity() {
             therapyGeometryRows()
             section("TILE 2 · FARBEN")
             tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
-            colorRow("IOB", therapyTileColors.iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
-            colorRow("COB", therapyTileColors.cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
-            colorRow("Basal", therapyTileColors.basal) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(basal = it) } }
+            colorRow("IOB", therapyTileColors.iob, WatchUiColors().iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
+            colorRow("COB", therapyTileColors.cob, WatchUiColors().cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
+            colorRow("Basal", therapyTileColors.basal, WatchUiColors().basal) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(basal = it) } }
         }
 
         settingsCategory("watchfaces", "Watchfaces", "Auswahl und weitere Gestaltung in der Mobile-App") {
@@ -500,8 +519,14 @@ class WearSettingsActivity : Activity() {
             )
         }
         settingsCategory("about", "Über", "Sugarlicious Wear") {
-            val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-            root.addView(infoCard("Sugarlicious Wear", "Version $version · Einstellungen werden lokal gespeichert."), cardParams())
+            root.addView(
+                infoCard(
+                    "Sugarlicious Wear",
+                    app.aapswear.uishared.AppReleaseInfo
+                        .summary(this, app.aapswear.uishared.AppReleaseInfo.Product.WEAR),
+                ),
+                cardParams(),
+            )
         }
         scroll.post { scroll.scrollTo(0, restoreScrollY) }
     }
@@ -518,25 +543,25 @@ class WearSettingsActivity : Activity() {
         kind: WearTileKind,
         colors: WatchUiColors,
     ) {
-        colorRow(AppearanceTerminology.APP_BACKGROUND, colors.background) {
+        colorRow(AppearanceTerminology.APP_BACKGROUND, colors.background, WatchUiColors().background) {
             updateTileColors(kind) { value -> value.copy(background = it) }
         }
-        colorRow(AppearanceTerminology.SURFACE_BACKGROUND, colors.tileBackground) {
+        colorRow(AppearanceTerminology.SURFACE_BACKGROUND, colors.tileBackground, WatchUiColors().tileBackground) {
             updateTileColors(kind) { value -> value.copy(tileBackground = it) }
         }
-        colorRow(AppearanceTerminology.SURFACE_BORDER, colors.tileBorder) {
+        colorRow(AppearanceTerminology.SURFACE_BORDER, colors.tileBorder, WatchUiColors().tileBorder) {
             updateTileColors(kind) { value -> value.copy(tileBorder = it) }
         }
-        colorRow(AppearanceTerminology.PRIMARY_TEXT, colors.textPrimary) {
+        colorRow(AppearanceTerminology.PRIMARY_TEXT, colors.textPrimary, WatchUiColors().textPrimary) {
             updateTileColors(kind) { value -> value.copy(textPrimary = it) }
         }
-        colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary) {
+        colorRow(AppearanceTerminology.SECONDARY_TEXT, colors.textSecondary, WatchUiColors().textSecondary) {
             updateTileColors(kind) { value -> value.copy(textSecondary = it) }
         }
-        colorRow(AppearanceTerminology.DELTA_UNIT, colors.deltaUnit) {
+        colorRow(AppearanceTerminology.DELTA_UNIT, colors.deltaUnit, WatchUiColors().deltaUnit) {
             updateTileColors(kind) { value -> value.copy(deltaUnit = it) }
         }
-        colorRow(AppearanceTerminology.ACCENT, colors.accent) {
+        colorRow(AppearanceTerminology.ACCENT, colors.accent, WatchUiColors().accent) {
             updateTileColors(kind) { value -> value.copy(accent = it) }
         }
     }
@@ -653,7 +678,9 @@ class WearSettingsActivity : Activity() {
         val chevron =
             TextView(this).apply {
                 text = "›"
-                textSize = 19f
+                textSize =
+                    app.aapswear.uishared.WearSettingsUi
+                        .textSize(19f)
                 gravity = Gravity.CENTER
                 setTextColor(current.uiColors.textSecondary)
             }
@@ -673,15 +700,20 @@ class WearSettingsActivity : Activity() {
                         addView(
                             TextView(this@WearSettingsActivity).apply {
                                 text = title
-                                textSize = 11f
+                                textSize =
+                                    app.aapswear.uishared.WearSettingsUi
+                                        .textSize(11f)
                                 setTextColor(current.uiColors.textPrimary)
-                                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                                app.aapswear.uishared.SystemTypography
+                                    .apply(this, true)
                             },
                         )
                         addView(
                             TextView(this@WearSettingsActivity).apply {
                                 text = summary
-                                textSize = 8f
+                                textSize =
+                                    app.aapswear.uishared.WearSettingsUi
+                                        .textSize(8f)
                                 maxLines = 2
                                 setTextColor(current.uiColors.textSecondary)
                             },
@@ -709,15 +741,20 @@ class WearSettingsActivity : Activity() {
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = title
-                    textSize = 10f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(10f)
                     setTextColor(current.uiColors.textPrimary)
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                 },
             )
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = detail
-                    textSize = 8.5f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(8.5f)
                     setTextColor(current.uiColors.textSecondary)
                 },
             )
@@ -739,18 +776,24 @@ class WearSettingsActivity : Activity() {
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = title
-                    textSize = 10f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(10f)
                     setTextColor(current.uiColors.textPrimary)
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                 },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = value
-                    textSize = 9f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(9f)
                     setTextColor(current.uiColors.accent)
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                 },
             )
         }
@@ -759,9 +802,12 @@ class WearSettingsActivity : Activity() {
         root.addView(
             TextView(this).apply {
                 this.text = text
-                textSize = 8.5f
+                textSize =
+                    app.aapswear.uishared.WearSettingsUi
+                        .textSize(8.5f)
                 setTextColor(current.uiColors.accent)
-                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
                 letterSpacing = 0.08f
                 setPadding(5.dp, 15.dp, 5.dp, 6.dp)
             },
@@ -782,9 +828,12 @@ class WearSettingsActivity : Activity() {
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = title
-                    textSize = 10f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(10f)
                     setTextColor(current.uiColors.textPrimary)
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                 },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
@@ -801,6 +850,8 @@ class WearSettingsActivity : Activity() {
                             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
                             intArrayOf(current.uiColors.accent, current.uiColors.tileBorder),
                         )
+                    app.aapswear.uishared.WearSettingsUi
+                        .toggle(this, current.uiColors.accent, current.uiColors.textPrimary)
                     setOnCheckedChangeListener { _, value -> changed(value) }
                 },
             )
@@ -821,7 +872,9 @@ class WearSettingsActivity : Activity() {
                 addView(
                     Button(this@WearSettingsActivity).apply {
                         text = label
-                        textSize = 9f
+                        textSize =
+                            app.aapswear.uishared.WearSettingsUi
+                                .textSize(9f)
                         isAllCaps = false
                         minWidth = 0
                         minimumWidth = 0
@@ -855,10 +908,13 @@ class WearSettingsActivity : Activity() {
             val valueText =
                 TextView(this@WearSettingsActivity).apply {
                     text = value(progress)
-                    textSize = 9f
+                    textSize =
+                        app.aapswear.uishared.WearSettingsUi
+                            .textSize(9f)
                     gravity = Gravity.END
                     setTextColor(current.uiColors.accent)
-                    setTypeface(typeface, android.graphics.Typeface.BOLD)
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                     setPadding(10.dp, 5.dp, 10.dp, 5.dp)
                     background = cardBackground()
                     setOnClickListener {
@@ -874,9 +930,12 @@ class WearSettingsActivity : Activity() {
                     addView(
                         TextView(this@WearSettingsActivity).apply {
                             text = title
-                            textSize = 10f
+                            textSize =
+                                app.aapswear.uishared.WearSettingsUi
+                                    .textSize(10f)
                             setTextColor(current.uiColors.textPrimary)
-                            setTypeface(typeface, android.graphics.Typeface.BOLD)
+                            app.aapswear.uishared.SystemTypography
+                                .apply(this, true)
                         },
                         LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
                     )
@@ -885,19 +944,14 @@ class WearSettingsActivity : Activity() {
                 fullWidth(),
             )
             addView(
-                SeekBar(this@WearSettingsActivity).apply {
+                app.aapswear.uishared.ScrollSafeSeekBar(this@WearSettingsActivity).apply {
                     this.max = max - min
                     this.progress = progress.coerceIn(min, max) - min
                     progressTintList = ColorStateList.valueOf(current.uiColors.accent)
                     progressBackgroundTintList = ColorStateList.valueOf(current.uiColors.tileBorder)
                     thumbTintList = ColorStateList.valueOf(current.uiColors.accent)
-                    setOnTouchListener { view, event ->
-                        view.parent?.requestDisallowInterceptTouchEvent(
-                            event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
-                                event.actionMasked == android.view.MotionEvent.ACTION_MOVE,
-                        )
-                        false
-                    }
+                    app.aapswear.uishared.WearSettingsUi
+                        .slider(this, current.uiColors.accent, current.uiColors.tileBorder)
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             private var pendingValue = progress.coerceIn(min, max)
@@ -925,6 +979,7 @@ class WearSettingsActivity : Activity() {
     private fun colorRow(
         title: String,
         color: Int,
+        defaultColor: Int,
         changed: (Int) -> Unit,
     ) {
         root.addView(
@@ -936,16 +991,19 @@ class WearSettingsActivity : Activity() {
                 addView(
                     TextView(this@WearSettingsActivity).apply {
                         text = title
-                        textSize = 10f
+                        textSize =
+                            app.aapswear.uishared.WearSettingsUi
+                                .textSize(10f)
                         setTextColor(current.uiColors.textPrimary)
-                        setTypeface(typeface, android.graphics.Typeface.BOLD)
+                        app.aapswear.uishared.SystemTypography
+                            .apply(this, true)
                     },
                     LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
                 )
                 addView(
                     View(this@WearSettingsActivity).apply {
                         background = colorCircle(color)
-                        setOnClickListener { showColorPicker(title, color, changed) }
+                        setOnClickListener { showColorPicker(title, color, defaultColor, changed) }
                     },
                     LinearLayout.LayoutParams(32.dp, 32.dp),
                 )
@@ -957,6 +1015,7 @@ class WearSettingsActivity : Activity() {
     private fun showColorPicker(
         title: String,
         selected: Int,
+        defaultColor: Int,
         changed: (Int) -> Unit,
     ) {
         colorEditorOpen = true
@@ -967,9 +1026,9 @@ class WearSettingsActivity : Activity() {
             current.uiColors.tileBackground,
             current.uiColors.textPrimary,
             current.uiColors.tileBorder,
-            selected,
+            defaultColor,
             onChange = changed,
-            onReset = { changed(selected) },
+            onReset = { changed(defaultColor) },
             onDismiss = {
                 colorEditorOpen = false
                 buildUi()
@@ -1012,9 +1071,9 @@ class WearSettingsActivity : Activity() {
 
     private fun cardBackground(radiusDp: Float = 20f): GradientDrawable =
         GradientDrawable().apply {
-            cornerRadius = radiusDp * resources.displayMetrics.density
+            cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
             setColor(this@WearSettingsActivity.current.uiColors.tileBackground)
-            setStroke(1.dp, this@WearSettingsActivity.current.uiColors.tileBorder)
+            setStroke(0, this@WearSettingsActivity.current.uiColors.tileBorder)
         }
 
     private fun pillBackground(selected: Boolean): GradientDrawable =

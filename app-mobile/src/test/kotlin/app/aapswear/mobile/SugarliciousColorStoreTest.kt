@@ -19,6 +19,27 @@ class SugarliciousColorStoreTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
     @Test
+    fun `very high and very low dots have independent persistent color pickers`() {
+        val preferences = context.getSharedPreferences("urgent_dot_colors", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        listOf("low", "high").forEach { range ->
+            val dot = SugarliciousColorRole.entries.singleOrNull { it.preferenceKey == "cgm_dot_very_$range" }
+            org.junit.Assert.assertNotNull("missing independent very-$range dot picker", dot)
+            val role = requireNotNull(dot)
+            assertTrue(role.configurable)
+            val text = SugarliciousColorRole.entries.single { it.preferenceKey == "glucose_very_$range" }
+            listOf(AppearanceMode.DARK, AppearanceMode.LIGHT).forEach { mode ->
+                SugarliciousColorStore.save(preferences, mode, text, Color.MAGENTA)
+                assertEquals("existing colors must survive migration", Color.MAGENTA, SugarliciousColorStore.load(preferences, mode).argb(role))
+                SugarliciousColorStore.save(preferences, mode, role, Color.CYAN)
+                val palette = SugarliciousColorStore.load(preferences, mode)
+                assertEquals(Color.CYAN, palette.argb(role))
+                assertEquals("changing dots must not recolor the glucose value", Color.MAGENTA, palette.argb(text))
+            }
+        }
+    }
+
+    @Test
     fun `fresh install uses approved mobile color profiles`() {
         val preferences = context.getSharedPreferences("approved_color_defaults", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()

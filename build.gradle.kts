@@ -92,8 +92,8 @@ subprojects {
 // Mobile and Wear deliberately share app.aapswear because they are companion variants on
 // different devices. Keep their version monotonically aligned so an in-place update never
 // becomes a downgrade merely because one variant was built later than the other.
-extra["sugarliciousSuiteVersionCode"] = 20
-extra["sugarliciousSuiteVersionName"] = "0.6.10"
+extra["sugarliciousSuiteVersionCode"] = 70
+extra["sugarliciousSuiteVersionName"] = "0.7.0"
 
 abstract class InstallSugarliciousDebugTask
     @Inject
@@ -280,12 +280,18 @@ tasks.register<InstallSugarliciousDebugTask>("installSugarliciousDebug") {
     vigilApk.set(layout.projectDirectory.file("watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/debug/sugarlicious-direct-to-watch-debug.apk"))
 }
 
-tasks.register("verifyArchitecture") {
-    group = "verification"
-    description = "Verifies Sugarlicious module direction and Wear-only G7 collector boundaries."
-    notCompatibleWithConfigurationCache("Inspects the configured cross-project dependency graph.")
+abstract class VerifyArchitectureTask : DefaultTask() {
+    @get:org.gradle.api.tasks.Input
+    abstract val dependencyGraph: org.gradle.api.provider.MapProperty<String, List<String>>
 
-    doLast {
+    @get:InputFile
+    abstract val mobileManifest: RegularFileProperty
+
+    @get:InputFile
+    abstract val watchManifest: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
         val applicationModules = setOf(":app-mobile", ":app-wear", ":g7watch")
         val sharedModules =
             setOf(
@@ -299,12 +305,8 @@ tasks.register("verifyArchitecture") {
                 ":complications",
             )
 
-        fun projectDependencies(module: String): Set<String> =
-            project(module)
-                .configurations
-                .flatMap { configuration ->
-                    configuration.dependencies.withType(ProjectDependency::class.java).map { it.path }
-                }.toSet()
+        val graph = dependencyGraph.get()
+        fun projectDependencies(module: String): Set<String> = graph.getValue(module).toSet()
 
         sharedModules.forEach { module ->
             val forbidden = projectDependencies(module).intersect(applicationModules)
@@ -319,7 +321,7 @@ tasks.register("verifyArchitecture") {
         }
 
         fun manifestValues(
-            relativePath: String,
+            manifestFile: File,
             element: String,
             attribute: String,
         ): Set<String> {
@@ -328,18 +330,18 @@ tasks.register("verifyArchitecture") {
                     .newInstance()
                     .apply { isNamespaceAware = true }
                     .newDocumentBuilder()
-                    .parse(rootProject.file(relativePath))
+                    .parse(manifestFile)
             val nodes = document.getElementsByTagName(element)
             return buildSet {
                 repeat(nodes.length) { index ->
-                    val value = nodes.item(index).attributes?.getNamedItemNS(androidNamespace, attribute)?.nodeValue
+                    val value = nodes.item(index).attributes?.getNamedItemNS("http://schemas.android.com/apk/res/android", attribute)?.nodeValue
                     if (!value.isNullOrBlank()) add(value)
                 }
             }
         }
 
         val mobilePermissions =
-            manifestValues("app-mobile/src/main/AndroidManifest.xml", "uses-permission", "name")
+            manifestValues(mobileManifest.get().asFile, "uses-permission", "name")
         check("android.permission.BLUETOOTH_SCAN" !in mobilePermissions) {
             "Mobile must not request BLE scan permission; direct collection is Wear-only"
         }
@@ -347,10 +349,30 @@ tasks.register("verifyArchitecture") {
             "Mobile must not request BLE connect permission; direct collection is Wear-only"
         }
 
-        val watchFeatures = manifestValues("g7watch/src/main/AndroidManifest.xml", "uses-feature", "name")
+        val watchFeatures = manifestValues(watchManifest.get().asFile, "uses-feature", "name")
         check("android.hardware.type.watch" in watchFeatures) { "SugarWear must remain Watch-only" }
         check("android.hardware.bluetooth_le" in watchFeatures) { "SugarWear must require BLE hardware" }
     }
 }
 
-val androidNamespace = "http://schemas.android.com/apk/res/android"
+val architectureModules = setOf(
+    ":app-mobile", ":app-wear", ":g7watch", ":core-model", ":data-source-api",
+    ":data-source-aaps", ":dexcom-g7", ":wear-protocol", ":wear-storage",
+    ":ui-shared", ":complications",
+)
+val verifyArchitecture = tasks.register<VerifyArchitectureTask>("verifyArchitecture") {
+    group = "verification"
+    description = "Verifies Sugarlicious module direction and Wear-only G7 collector boundaries."
+    mobileManifest.set(layout.projectDirectory.file("app-mobile/src/main/AndroidManifest.xml"))
+    watchManifest.set(layout.projectDirectory.file("g7watch/src/main/AndroidManifest.xml"))
+}
+// Snapshot the configured dependency graph once, before execution. The verification task
+// receives plain values and declared file inputs, never live Project/script references.
+gradle.projectsEvaluated {
+    val graph = architectureModules.associateWith { module ->
+        project(module).configurations.flatMap { configuration ->
+            configuration.dependencies.withType(ProjectDependency::class.java).map { it.path }
+        }.distinct().sorted()
+    }
+    verifyArchitecture.configure { dependencyGraph.set(graph) }
+}

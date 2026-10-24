@@ -13,6 +13,42 @@ import org.robolectric.RobolectricTestRunner
 class DashboardScrollViewGestureTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `vertical scrolling cancels switches and clickable menu rows`() {
+        listOf(android.widget.Switch(context), android.widget.Button(context)).forEach { control ->
+            var actions = 0
+            if (control is android.widget.Switch) {
+                control.setOnCheckedChangeListener { _, _ -> actions++ }
+            } else {
+                control.setOnClickListener { actions++ }
+            }
+            val body =
+                android.widget.LinearLayout(context).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    addView(control, android.widget.LinearLayout.LayoutParams(300, 80))
+                    addView(android.view.View(context), android.widget.LinearLayout.LayoutParams(300, 1000))
+                }
+            val parent =
+                DashboardScrollView(context).apply {
+                    addView(body)
+                    measure(
+                        android.view.View.MeasureSpec
+                            .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                        android.view.View.MeasureSpec
+                            .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                    )
+                    layout(0, 0, 300, 300)
+                }
+            listOf(MotionEvent.ACTION_DOWN to 40f, MotionEvent.ACTION_MOVE to -60f, MotionEvent.ACTION_MOVE to -120f, MotionEvent.ACTION_UP to -160f).forEachIndexed { index, (action, y) ->
+                MotionEvent.obtain(1, 1L + index * 32, action, 200f, y, 0).also {
+                    parent.dispatchTouchEvent(it)
+                    it.recycle()
+                }
+            }
+            org.junit.Assert.assertEquals(0, actions)
+            assertTrue(parent.scrollY > 0)
+        }
+    }
+
     @Test fun `horizontal chart gesture is not intercepted by vertical dashboard scroll`() {
         val view = DashboardScrollView(context)
         val down = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 50f, 50f, 0)

@@ -55,14 +55,12 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
+import app.aapswear.uishared.ScrollSafeSeekBar
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as UiColor
@@ -144,14 +142,14 @@ internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), con
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val controlContext = remember(context, configuration, dark) { mobileSettingsControlContext(context, dark) }
     CompositionLocalProvider(LocalOneUiWidgetSettingsColors provides colors, LocalContext provides controlContext) {
-        MaterialTheme(colorScheme = scheme) {
-            ProvideTextStyle(TextStyle(color = colors.primary, fontSize = 18.sp, fontFamily = FontFamily.Default)) { content() }
+        MaterialTheme(colorScheme = scheme, typography = oneUiMenuTypography) {
+            ProvideTextStyle(oneUiMenuTypography.bodyLarge.copy(color = colors.primary)) { content() }
         }
     }
 }
 
 @Composable
-internal fun OneUiWidgetSettingsSurface(content: @Composable BoxScope.((Rect) -> Unit) -> Unit) {
+internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.ScrollState? = null, onBack: () -> Unit = {}, content: @Composable BoxScope.((Rect) -> Unit) -> Unit) {
     var previewBounds by remember { mutableStateOf<Rect?>(null) }
     val colors = LocalOneUiWidgetSettingsColors.current
     val context = LocalContext.current
@@ -173,18 +171,7 @@ internal fun OneUiWidgetSettingsSurface(content: @Composable BoxScope.((Rect) ->
         },
     ) {
         content { previewBounds = it }
-        Box(
-            Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .background(colors.page)
-                .statusBarsPadding()
-                .height(60.dp)
-                .padding(horizontal = 28.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Text("Widget-Einstellungen", color = colors.primary, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-        }
+        if (scroll != null) OneUiScrollingSettingsBack(scroll, onBack, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 4.dp))
     }
 }
 
@@ -219,7 +206,7 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
         Row(Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(label, color = colors.primary, fontSize = 18.sp)
-                Text(display(value), color = colors.link, fontSize = 13.sp, fontWeight = FontWeight.Normal)
+                Text(display(value), color = colors.link, style = oneUiMenuTypography.bodyMedium)
             }
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = colors.card) {
@@ -235,7 +222,8 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
 
 @Composable
 internal fun WidgetAppearanceModeRow(selected: app.aapswear.model.AppearanceMode, onSelected: (app.aapswear.model.AppearanceMode) -> Unit) {
-    OneUiWidgetChoiceRow("Farben", selected, app.aapswear.model.AppearanceMode.entries, { if (it == app.aapswear.model.AppearanceMode.LIGHT) "Helle Farbpalette bearbeiten" else "Dunkle Farbpalette bearbeiten" }, onSelected)
+    Text("Farbpalette bearbeiten", color = OneUiWidgetStyle.secondary)
+    AppearanceModeSelector(selected, onSelected)
 }
 
 @Composable
@@ -314,7 +302,7 @@ internal class OneUiSeekBar
     constructor(
         context: Context,
         private val showTicks: Boolean = true,
-    ) : SeekBar(context) {
+    ) : ScrollSafeSeekBar(context) {
         private val density = resources.displayMetrics.density
         private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         private var currentPalette: Pair<Int, Int>? = null

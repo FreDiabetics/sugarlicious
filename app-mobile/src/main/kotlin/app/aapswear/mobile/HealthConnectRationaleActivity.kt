@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.app.Activity
 import android.content.Context
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -94,7 +93,10 @@ class HealthConnectRationaleActivity : Activity() {
         textSize = size
         setTextColor(color(role))
         gravity = Gravity.START
-        if (bold) typeface = Typeface.create("sans", Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun cardBackground() =

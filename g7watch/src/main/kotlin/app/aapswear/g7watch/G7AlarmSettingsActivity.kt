@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
@@ -58,7 +57,7 @@ class G7AlarmSettingsActivity : Activity() {
             removeAllViews()
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 8.dp, 18.dp, 28.dp)
+            setPadding(18.dp, 32.dp, 18.dp, 44.dp)
             setBackgroundColor(background)
             addView(topBar(palette), fullWidth())
             addView(dndCard(palette), cardParams(7))
@@ -237,11 +236,14 @@ class G7AlarmSettingsActivity : Activity() {
         palette: G7AppearancePalette,
         changed: (Boolean) -> Unit,
     ) = Switch(this).apply {
+        app.aapswear.uishared.WearSettingsUi
+            .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         text = title
         isChecked = checked
         setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-        textSize = 10f
-        setTypeface(typeface, Typeface.BOLD)
+        textSize = 16f
+        app.aapswear.uishared.SystemTypography
+            .apply(this, true)
         setOnCheckedChangeListener { _, value -> if (value != checked) changed(value) }
     }
 
@@ -289,9 +291,14 @@ class G7AlarmSettingsActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
-        textSize = size
+        textSize =
+            app.aapswear.uishared.WearSettingsUi
+                .textSize(size)
         setTextColor(color)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun rounded(
@@ -301,8 +308,8 @@ class G7AlarmSettingsActivity : Activity() {
     ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        setStroke(1.dp, stroke)
-        cornerRadius = radiusDp * resources.displayMetrics.density
+        setStroke(0, stroke)
+        cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
     }
 
     private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

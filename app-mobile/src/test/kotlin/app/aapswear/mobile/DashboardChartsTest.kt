@@ -202,7 +202,7 @@ class DashboardChartsTest {
     }
 
     @Test
-    fun `insulin activity lane is shifted upward with symmetric headroom`() {
+    fun `insulin activity lane shares the IOB zero instead of an arbitrary vertical offset`() {
         val plot = RectF(0f, 0f, 100f, 100f)
         val scale =
             app.aapswear.model.GraphAxisScale(
@@ -210,8 +210,8 @@ class DashboardChartsTest {
                 app.aapswear.model.GraphBounds(0.0, 1.0),
             )
 
-        assertEquals(90f, mapActivityY(0.0, scale, plot), 0.001f)
-        assertEquals(10f, mapActivityY(1.0, scale, plot), 0.001f)
+        assertEquals(100f, mapActivityY(0.0, scale, plot), 0.001f)
+        assertEquals(20f, mapActivityY(1.0, scale, plot), 0.001f)
     }
 
     @Test
@@ -829,7 +829,16 @@ class DashboardChartsTest {
         assertEquals(0.8, scales.activity.ratio(0.04), 0.000001)
     }
 
-    @Test fun `configured iob maximum also controls the regular iob graph`() {
+    @Test fun `activity zero aligns with negative IOB axis and peak stays within its space`() {
+        val plot = RectF(0f, 0f, 100f, 100f)
+        val activity = app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.DYNAMIC, app.aapswear.model.GraphBounds(-.01, .04))
+        val iob = app.aapswear.model.GraphAxisScale(CgmGraphScaleMode.DYNAMIC, app.aapswear.model.GraphBounds(-2.0, 8.0))
+        assertEquals(80f, mapActivityY(0.0, activity, plot, iob), .001f)
+        assertTrue(mapActivityY(.04, activity, plot, iob) in 0f..80f)
+        assertTrue(mapActivityY(-.01, activity, plot, iob) in 80f..100f)
+    }
+
+    @Test fun `dynamic iob ignores the configured static maximum`() {
         val scales =
             resolveMetabolicScales(
                 session = app.aapswear.model.GraphScaleSession(),
@@ -839,7 +848,7 @@ class DashboardChartsTest {
                 iobMaximumUnits = 12.0,
             )
 
-        assertTrue(scales.iob.bounds.maximum >= 12.0)
+        assertTrue(scales.iob.bounds.maximum <= 2.0)
     }
 
     @Test
@@ -905,7 +914,7 @@ class DashboardChartsTest {
         assertEquals(plot, cgmBasalOverlayBounds(plot))
     }
 
-    @Test fun `dynamic cob maximum includes relevant meal plus fifty grams but ignores expired meals`() {
+    @Test fun `dynamic cob maximum includes relevant meal without fixed fifty gram padding`() {
         val now = 12 * 60 * 60_000L
         val start = now - 3 * 60 * 60_000L
         val events =
@@ -924,8 +933,8 @@ class DashboardChartsTest {
                 viewportEndEpochMs = now,
             )
 
-        assertTrue(scales.cob.bounds.maximum >= 130.0)
-        assertTrue(scales.cob.bounds.maximum < 350.0)
+        assertTrue(scales.cob.bounds.maximum >= 80.0)
+        assertTrue(scales.cob.bounds.maximum < 130.0)
     }
 
     @Test fun `static axis bounds survive graph session recreation`() {

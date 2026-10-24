@@ -75,13 +75,15 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
-private const val TILE_RESOURCES_VERSION = "sugarlicious-10-centered-therapy-values"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-11-system-font-700"
 private const val TILE_GRAPH_RESOURCE_ID = "live_cgm_graph"
 private const val TILE_GRAPH_WIDTH_PX = 296
 private const val TILE_GRAPH_HEIGHT_PX = 120
 
-/** ProtoLayout's 700 weight is optically heavier than the same system face in a TextView. */
-internal fun sugarliciousTileWeight(emphasized: Boolean): Int = if (emphasized) 500 else 400
+/** Use the same real bold weight as native, bitmap and Compose rendering. */
+internal fun sugarliciousTileWeight(emphasized: Boolean): Int =
+    app.aapswear.model.SystemTypographyTokens
+        .weight(emphasized)
 
 internal data class WearGlucoseTilePresentation(
     val value: String,
@@ -825,7 +827,7 @@ internal fun wearTherapyIcon(
 private fun wearTherapyIconResource(icon: TherapyIndicatorIcon): Int =
     when (icon) {
         TherapyIndicatorIcon.IOB -> app.aapswear.uishared.R.drawable.ic_iob
-        TherapyIndicatorIcon.COB -> app.aapswear.uishared.R.drawable.ic_carbs
+        TherapyIndicatorIcon.COB -> app.aapswear.uishared.R.drawable.ic_cob
         TherapyIndicatorIcon.BASAL -> app.aapswear.uishared.R.drawable.ic_basal
         TherapyIndicatorIcon.BASAL_LESS -> app.aapswear.uishared.R.drawable.ic_basalless
         TherapyIndicatorIcon.BASAL_MORE -> app.aapswear.uishared.R.drawable.ic_basalmore

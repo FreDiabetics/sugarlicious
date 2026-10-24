@@ -23,6 +23,7 @@ class WearDisplaySystemDefaultsTest {
             .commit()
 
         val defaults = WearDisplayPreferences.read(context)
+        assertEquals(android.graphics.Color.WHITE, defaults.trendArrowStyle.fillColor)
 
         assertEquals(6, defaults.graphHours)
         assertFalse(defaults.showPredictions)

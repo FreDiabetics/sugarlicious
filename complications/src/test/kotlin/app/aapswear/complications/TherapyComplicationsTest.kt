@@ -21,6 +21,35 @@ import java.time.Instant
 @Config(sdk = [34])
 class TherapyComplicationsTest {
     @Test
+    fun `TIR ranged provider exposes measured percent and icon without changing short provider`() {
+        val provider = AllProviders.classes.singleOrNull { it.simpleName == "TirRangedValueComplication" }
+        assertNotNull("ApeX requires a WFF1 compatible TIR ranged provider", provider)
+        val service = Robolectric.buildService(requireNotNull(provider).asSubclass(TherapyComplicationService::class.java)).create().get()
+        val data = service.getPreviewData(ComplicationType.RANGED_VALUE) as RangedValueComplicationData
+        assertEquals(0f, data.min, 0f)
+        assertEquals(100f, data.max, 0f)
+        assertNotNull(data.text)
+        assertNotNull(data.monochromaticImage)
+        val short =
+            Robolectric
+                .buildService(TirComplication::class.java)
+                .create()
+                .get()
+                .getPreviewData(ComplicationType.SHORT_TEXT)
+        assertTrue(short is ShortTextComplicationData)
+    }
+
+    @Test
+    fun `therapy and TIR providers supply icons to text and ranged watchface layouts`() {
+        listOf(TirComplication::class.java, ReservoirComplication::class.java, IobCobBasalComplication::class.java).forEach { provider ->
+            val service = Robolectric.buildService(provider).create().get()
+            assertNotNull(provider.simpleName, (service.getPreviewData(ComplicationType.SHORT_TEXT) as ShortTextComplicationData).monochromaticImage)
+        }
+        val reservoir = Robolectric.buildService(ReservoirRangedValueComplication::class.java).create().get()
+        assertNotNull((reservoir.getPreviewData(ComplicationType.RANGED_VALUE) as RangedValueComplicationData).monochromaticImage)
+    }
+
+    @Test
     fun `all standard Watchface graph slots advance by measured time and wall clock`() {
         val minute = 60_000L
         val readingAt = 50_000_000L
@@ -35,7 +64,7 @@ class TherapyComplicationsTest {
 
     @Test
     fun `all documented providers remain active`() {
-        assertEquals(41, AllProviders.classes.distinct().size)
+        assertEquals(44, AllProviders.classes.distinct().size)
         assertEquals(GlucoseComplication::class.java, AllProviders.classes.first())
         assertTrue(DateComplication::class.java in AllProviders.classes)
         assertTrue(PumpBatteryComplication::class.java in AllProviders.classes)

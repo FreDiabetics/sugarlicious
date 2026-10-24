@@ -11,7 +11,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.Typeface
 import android.graphics.drawable.Icon
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
@@ -608,7 +607,8 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = if (ambient) 0xFFD0D0D0.toInt() else Color.WHITE
                 textSize = 61f
-                typeface = if (glucoseBold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, glucoseBold)
                 textAlign = Paint.Align.LEFT
             }
         val mode = DirectToWatchPreferences.activeAppearanceMode(this)
@@ -617,7 +617,8 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                 color =
                     if (ambient) AMBIENT_SECONDARY else DirectToWatchPreferences.deltaUnitColor(this@DirectToWatchHeaderComplication, mode)
                 textSize = 23f
-                typeface = Typeface.DEFAULT_BOLD
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
                 textAlign = Paint.Align.LEFT
             }
         if (presentation.glucose == "-" && !presentation.sensorDisconnected) {
@@ -633,7 +634,8 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                             Color.WHITE
                         }
                     textSize = if (showsPairingButton) 17f else 22f
-                    typeface = Typeface.DEFAULT_BOLD
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, true)
                     textAlign = Paint.Align.CENTER
                 }
             val lines = presentation.secondary.lines()
@@ -651,9 +653,9 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                         color = if (ambient) 0xFF555555.toInt() else 0xFF30303A.toInt()
                         style = Paint.Style.FILL
                     }
-                canvas.drawRoundRect(90f, 76f, 250f, 107f, 15f, 15f, button)
+                canvas.drawRoundRect(watchFaceCenterX - 80f, 76f, watchFaceCenterX + 80f, 107f, 15f, 15f, button)
                 messagePaint.textSize = 14f
-                canvas.drawText("Sensor koppeln", width / 2f, 97f, messagePaint)
+                canvas.drawText("Sensor koppeln", watchFaceCenterX, 97f, messagePaint)
             }
             return bitmap
         }
@@ -680,7 +682,11 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                 valuePaint.getTextBounds(presentation.glucose, 0, presentation.glucose.length, it)
             }
         val valueCenterY = valueBaseline + (valueBounds.top + valueBounds.bottom) / 2f
-        val contentLeft = 6f
+        // Local center compensates the WFF slot's x=90 offset on the 450px face.
+        val centerX = 135f
+        val unavailableWidth = if (arrow == null && presentation.trendUnavailable && !presentation.signalLoss) 8f + secondaryPaint.measureText("-") else 0f
+        val groupWidth = valueWidth + (arrow?.let { gap + it.width } ?: unavailableWidth)
+        val contentLeft = centerX - groupWidth / 2f
         canvas.drawText(presentation.glucose, contentLeft, valueBaseline, valuePaint)
         if (presentation.signalLoss) {
             canvas.drawLine(contentLeft, valueCenterY, contentLeft + valueWidth, valueCenterY, Paint(valuePaint).apply { strokeWidth = 4f })
@@ -692,7 +698,8 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         if (arrow == null && presentation.trendUnavailable && !presentation.signalLoss) {
             canvas.drawText("-", contentLeft + valueWidth + 8f, valueBaseline, secondaryPaint)
         }
-        canvas.drawText(presentation.secondary, contentLeft, 96f, secondaryPaint)
+        secondaryPaint.textAlign = Paint.Align.CENTER
+        canvas.drawText(presentation.secondary, centerX, 96f, secondaryPaint)
         return bitmap
     }
 
@@ -815,7 +822,8 @@ private fun renderWatchfaceText(
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
             textSize = 18f * sizePercent.coerceIn(75, 150) / 100f
-            typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            app.aapswear.uishared.SystemTypography
+                .apply(this, bold)
             textAlign = align
         }
     val x = if (align == Paint.Align.CENTER) width / 2f else 0f
@@ -914,7 +922,8 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 val semantic = if (label == "Signalverlust") colors.signalLoss else colors.axisLabel
                 color = Color.argb(255, Color.red(semantic), Color.green(semantic), Color.blue(semantic))
                 textSize = 17f
-                typeface = Typeface.DEFAULT_BOLD
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
                 textAlign = Paint.Align.CENTER
             }
         val bounds = RectF(54f, 10f, 396f, 48f)

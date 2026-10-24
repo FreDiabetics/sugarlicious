@@ -24,7 +24,7 @@ internal fun selectManagedWatchFaceSlot(
         ?: slots.firstOrNull { it.packageName == requestedPackageName }
         ?: slots.firstOrNull()
 
-internal const val SUGARLICIOUS_MANAGED_FACE_COUNT = 2
+internal const val SUGARLICIOUS_MANAGED_FACE_COUNT = 3
 
 internal object SugarliciousWatchFacePush {
     const val ACTIVE_PERMISSION =
@@ -56,6 +56,11 @@ internal object SugarliciousWatchFacePush {
                 "app.aapswear.watchfacepush.g6style",
                 "watchfaces/sugarlicious_direct_to_watch.apk",
                 "watchfaces/sugarlicious_direct_to_watch_token.txt",
+            ),
+            FaceSpec(
+                "app.aapswear.watchfacepush.orbit",
+                "watchfaces/sugarlicious_orbit.apk",
+                "watchfaces/sugarlicious_orbit_token.txt",
             ),
         )
 

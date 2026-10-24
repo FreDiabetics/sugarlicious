@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -144,7 +143,7 @@ internal fun OneUiWidgetColorPicker(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(label, color = colors.primary, fontFamily = FontFamily.Default, fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                Text(label, color = colors.primary, fontFamily = app.aapswear.mobile.ui.theme.SystemFontFamily, fontSize = 20.sp, fontWeight = FontWeight.Medium)
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         PickerPreview("Aktuell", openingArgb, colors, Modifier.weight(1f))
@@ -195,23 +194,21 @@ internal fun OneUiWidgetColorPicker(
                         Text("HEX kopieren", color = colors.accent)
                     }
                     actions.forEach { action ->
-                        TextButton(onClick = {
+                        OneUiResetIcon(onClick = {
                             selected = WidgetPickerColor.fromArgb(action.run())
                             hex = ArgbColor.format(selected.argb)
-                        }, modifier = Modifier.fillMaxWidth()) { Text(action.label, color = colors.accent) }
+                        }, description = action.label)
                     }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = {
+                    OneUiResetIcon(onClick = {
                         if (onReset != null) {
                             selected = WidgetPickerColor.fromArgb(onReset())
                             hex = ArgbColor.format(selected.argb)
                         } else {
                             resetArgb?.let { update(WidgetPickerColor.fromArgb(it)) }
                         }
-                    }, enabled = resetArgb != null || onReset != null, modifier = Modifier.weight(1f)) {
-                        Text("Zurücksetzen", color = if (resetArgb == null && onReset == null) colors.secondary else colors.accent, fontSize = 15.sp)
-                    }
+                    }, enabled = resetArgb != null || onReset != null, modifier = Modifier.weight(1f))
                     Box(Modifier.height(20.dp).width(1.dp).background(colors.secondary.copy(alpha = .3f)))
                     TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Fertig", color = colors.accent, fontSize = 15.sp) }
                 }
@@ -223,7 +220,7 @@ internal fun OneUiWidgetColorPicker(
 @Composable
 private fun PickerPreview(label: String, argb: Int, colors: OneUiWidgetSettingsColors, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = colors.secondary, fontSize = 13.sp)
+        Text(label, color = colors.secondary, style = oneUiMenuTypography.bodyMedium)
         Box(
             Modifier
                 .fillMaxWidth()

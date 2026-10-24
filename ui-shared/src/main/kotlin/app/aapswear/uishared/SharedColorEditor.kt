@@ -41,6 +41,10 @@ object SharedColorEditor {
         onReset: () -> Unit,
         onDismiss: () -> Unit = {},
     ) {
+        if (activity.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_WATCH)) {
+            WearColorPicker.show(activity, title, initialArgb, defaultArgb, onChange, onReset, onDismiss)
+            return
+        }
         val density = activity.resources.displayMetrics.density
 
         fun dp(value: Int) = (value * density).roundToInt()
@@ -142,7 +146,7 @@ object SharedColorEditor {
                 },
             )
             val seek =
-                SeekBar(activity).apply {
+                ScrollSafeSeekBar(activity).apply {
                     // Rotary input scrolls the picker; it must never silently alter hue/brightness.
                     isFocusable = false
                     isFocusableInTouchMode = false
@@ -157,12 +161,6 @@ object SharedColorEditor {
                     thumbTintList =
                         android.content.res.ColorStateList
                             .valueOf(initialArgb)
-                    setOnTouchListener { view, event ->
-                        view.parent?.requestDisallowInterceptTouchEvent(
-                            event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE,
-                        )
-                        false
-                    }
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             override fun onProgressChanged(

@@ -82,7 +82,9 @@ object SugarliciousComplicationIds {
     const val TIR_GOAL = 50
     const val TIR_WEIGHTED = 51
     const val GRAPH_LARGE = 52
+    const val GRAPH_ORBIT = 57
     const val IOB_COB_LONG = 55
+    const val TIR_RANGED = 56
 
     val ordered =
         listOf(
@@ -123,8 +125,8 @@ object SugarliciousComplicationIds {
             LOOP to listOf(LOOP, LOOP_ICON),
             RESERVOIR to listOf(RESERVOIR, RESERVOIR_RANGED),
             SENSOR_AGE to listOf(SENSOR_AGE, SENSOR_AGE_RANGED),
-            TIR to listOf(TIR, TIR_GOAL, TIR_WEIGHTED),
-            GRAPH to listOf(GRAPH, GRAPH_LARGE),
+            TIR to listOf(TIR, TIR_GOAL, TIR_WEIGHTED, TIR_RANGED),
+            GRAPH to listOf(GRAPH, GRAPH_LARGE, GRAPH_ORBIT),
         )
 
     val all: List<Int> =

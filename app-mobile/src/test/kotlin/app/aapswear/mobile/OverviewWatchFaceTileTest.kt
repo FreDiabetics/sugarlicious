@@ -94,8 +94,13 @@ class OverviewWatchFaceTileTest {
     fun `multi type complications expose one selectable provider per type`() {
         val variants = SugarliciousComplicationCatalog.flatMap { it.variants }
 
-        assertEquals(38, variants.size)
-        assertEquals(38, variants.map { it.id }.distinct().size)
+        assertEquals(40, variants.size)
+        assertEquals(40, variants.map { it.id }.distinct().size)
+        assertTrue(
+            SugarliciousComplicationCatalog.first { it.name == "TIR" }.variants.any {
+                it.type == ComplicationVariantType.RANGED_VALUE
+            },
+        )
         assertEquals(
             listOf(
                 ComplicationVariantType.SHORT_TEXT,

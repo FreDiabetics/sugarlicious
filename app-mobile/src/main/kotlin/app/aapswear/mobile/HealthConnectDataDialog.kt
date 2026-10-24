@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.app.AlertDialog
 import android.content.Context
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -184,7 +183,8 @@ internal object HealthConnectDataDialog {
                         setText(R.string.health_connect_data_title)
                         textSize = 20f
                         setTextColor(textPrimary)
-                        typeface = Typeface.create("sans", Typeface.BOLD)
+                        app.aapswear.uishared.SystemTypography
+                            .apply(this, true)
                     },
                 )
                 addView(

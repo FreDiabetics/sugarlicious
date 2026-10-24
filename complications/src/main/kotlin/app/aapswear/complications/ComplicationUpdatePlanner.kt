@@ -108,6 +108,7 @@ object ComplicationUpdatePlanner {
     private val graphProviders =
         listOf(
             GlucoseGraphComplication::class.java,
+            OrbitGlucoseGraphComplication::class.java,
             GlucoseGraphLargeComplication::class.java,
             DirectToWatchGraphComplication::class.java,
         )
@@ -115,8 +116,10 @@ object ComplicationUpdatePlanner {
     private val tirProviders =
         listOf(
             TirComplication::class.java,
+            OrbitDailyTirComplication::class.java,
             TirGoalProgressComplication::class.java,
             TirWeightedElementsComplication::class.java,
+            TirRangedValueComplication::class.java,
         )
 
     private val basalProviders = listOf(BasalComplication::class.java)

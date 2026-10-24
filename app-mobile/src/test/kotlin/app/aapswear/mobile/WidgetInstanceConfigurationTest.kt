@@ -15,10 +15,90 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
+    @Test
+    fun `new glucose family retains captured icon defaults without replacing saved instances`() {
+        val defaults = WidgetSystemDefaults.forNewInstance(context, ConfigurableWidgetKind.GLUCOSE)
+        assertEquals(0xFFCCCCCC.toInt(), defaults.colorOverrides[WidgetColorRole.DELTA_ICON])
+        assertEquals(0xFF59FFFF.toInt(), defaults.lightColorOverrides[WidgetColorRole.AGE_ICON])
+        assertEquals(0xFF59FF59.toInt(), defaults.colorOverrides[WidgetColorRole.TIR_ICON])
+        WidgetInstanceConfigurationStore.save(context, 9983, defaults.copy(colorOverrides = defaults.colorOverrides + (WidgetColorRole.AGE_ICON to Color.RED)))
+        WidgetSystemDefaults.forNewInstance(context, ConfigurableWidgetKind.GLUCOSE)
+        assertEquals(Color.RED, WidgetInstanceConfigurationStore.read(context, 9983).colorOverrides[WidgetColorRole.AGE_ICON])
+    }
+
+    @Test
+    fun `graph contour persists independently of outer contour and other instances`() {
+        WidgetInstanceConfigurationStore.save(context, 9981, WidgetInstanceConfiguration(graphOutlineEnabled = true, graphOutlineWidthDp = 2.3f, outlineEnabled = false))
+        val stored = WidgetInstanceConfigurationStore.read(context, 9981)
+        assertTrue(stored.graphOutlineEnabled)
+        assertEquals(2.3f, stored.graphOutlineWidthDp)
+        assertFalse(stored.outlineEnabled)
+        assertFalse(WidgetInstanceConfigurationStore.read(context, 9982).graphOutlineEnabled)
+    }
+
+    @Test
+    fun `additional widget kinds survive resolution independently without changing legacy providers`() {
+        val manager = android.appwidget.AppWidgetManager.getInstance(context)
+        val component = android.content.ComponentName(context, AdditionalWidgetReceiver::class.java)
+        org.robolectric.Shadows
+            .shadowOf(manager)
+            .addInstalledProvider(android.appwidget.AppWidgetProviderInfo().apply { provider = component })
+        org.robolectric.Shadows
+            .shadowOf(manager)
+            .setAllowedToBindAppWidgets(true)
+        manager.bindAppWidgetIdIfAllowed(9940, component)
+        manager.bindAppWidgetIdIfAllowed(9941, component)
+        manager.updateAppWidgetOptions(9940, android.os.Bundle().apply { putString(ADDITIONAL_WIDGET_KIND, "GRAPH") })
+        manager.updateAppWidgetOptions(9941, android.os.Bundle().apply { putString(ADDITIONAL_WIDGET_KIND, "METABOLIC") })
+        assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind(context, 9940, "AdditionalWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.METABOLIC, configurableWidgetKind(context, 9941, "AdditionalWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind(context, 9942, "AdditionalWidgetReceiver"))
+        assertEquals(ConfigurableWidgetKind.GLUCOSE, configurableWidgetKind(context, 9940, "GlucoseFamily2x1Receiver"))
+        assertEquals(ConfigurableWidgetKind.GRAPH, configurableWidgetKind(context, 9941, "GraphFamily2x1Receiver"))
+    }
+
+    @Test
+    fun `split divider color and height persist per widget without changing outline`() {
+        val config = WidgetInstanceConfiguration(splitDividerArgb = Color.LTGRAY, splitDividerHeightPercent = 75)
+        WidgetInstanceConfigurationStore.save(context, 9930, config)
+        val restored = WidgetInstanceConfigurationStore.read(context, 9930)
+        assertEquals(Color.LTGRAY, restored.splitDividerArgb)
+        assertEquals(75, restored.splitDividerHeightPercent)
+        assertEquals(config.outlineArgb, restored.outlineArgb)
+        assertEquals(90, WidgetInstanceConfigurationStore.read(context, 9931).splitDividerHeightPercent)
+    }
+
+    @Test
+    fun `time axis defaults on and axis weights persist independently`() {
+        assertTrue(WidgetInstanceConfiguration().showTimeAxis)
+        assertFalse(WidgetInstanceConfiguration().graphTimeAxisBold)
+        assertFalse(WidgetInstanceConfiguration().graphValueAxisBold)
+        WidgetInstanceConfigurationStore.save(context, 9928, WidgetInstanceConfiguration(graphTimeAxisBold = true))
+        val restored = WidgetInstanceConfigurationStore.read(context, 9928)
+        assertTrue(restored.graphTimeAxisBold)
+        assertFalse(restored.graphValueAxisBold)
+    }
+
+    @Test
+    fun `detail text defaults bold without changing compact delta and age defaults`() {
+        val defaults = WidgetInstanceConfiguration()
+        assertTrue(defaults.tirBold)
+        assertTrue(defaults.detailDeltaBold && defaults.detailAgeBold)
+        assertFalse(defaults.deltaBold)
+        assertFalse(defaults.ageBold)
+    }
+
+    @Test
+    fun `detail bold switches remain independently editable and persisted`() {
+        WidgetInstanceConfigurationStore.save(context, 9923, WidgetInstanceConfiguration(detailDeltaBold = false, detailAgeBold = false, tirBold = false))
+        val saved = WidgetInstanceConfigurationStore.read(context, 9923)
+        assertFalse(saved.detailDeltaBold || saved.detailAgeBold || saved.tirBold)
+        assertTrue(WidgetInstanceConfigurationStore.read(context, 9924).detailDeltaBold)
+    }
+
     @Test
     fun `detail font weights and all icon colors persist per widget and theme`() {
         val roles = listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON, WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)
@@ -38,7 +118,7 @@ class WidgetInstanceConfigurationTest {
             assertEquals(Color.RED, restored.resolvedAppearance(AppearanceMode.DARK).colorOverrides[role])
             assertEquals(Color.BLUE, restored.resolvedAppearance(AppearanceMode.LIGHT).colorOverrides[role])
         }
-        assertFalse(WidgetInstanceConfigurationStore.read(context, 9922).tirBold)
+        assertTrue(WidgetInstanceConfigurationStore.read(context, 9922).tirBold)
     }
 
     @Test
@@ -79,17 +159,29 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `settings changes remain local until the explicit action pill saves them`() {
-        val source = File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
-
-        assertTrue(source.contains("WidgetSettingsActionPill("))
-        assertTrue(source.contains("setResult(RESULT_CANCELED)"))
-        assertTrue(source.contains("WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)"))
-        val prepare = source.indexOf("SugarliciousWidgets.prepareInstance(this@WidgetConfigurationActivity, appWidgetId, widgetKind, saved)")
-        val commit = source.indexOf("commit = { WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved)")
-        assertTrue(prepare >= 0 && commit > prepare)
-        assertTrue(source.contains("updateAppWidget(appWidgetId, views)"))
-        assertFalse(source.contains("override fun onPause()"))
-        assertFalse(source.contains("LaunchedEffect(value)"))
+        val id = 9931
+        val initial = WidgetInstanceConfiguration(graphHours = 3)
+        val edited = initial.copy(graphHours = 6)
+        WidgetInstanceConfigurationStore.save(context, id, initial)
+        assertEquals(initial, resolvedWidgetConfigurationOnExit(initial, edited, save = false))
+        assertEquals(initial, WidgetInstanceConfigurationStore.read(context, id))
+        val saved = resolvedWidgetConfigurationOnExit(initial, edited, save = true)
+        var published = false
+        commitWidgetSettings(
+            commit = { WidgetInstanceConfigurationStore.save(context, id, saved) },
+            publish = {
+                publishWidgetSurface(context, id, testNativeWidgetFrame(context, Color.BLUE)) { frame ->
+                    // The new settings must already be committed when the completed view is sent.
+                    assertEquals(6, WidgetInstanceConfigurationStore.read(context, id).graphHours)
+                    val root = frame.apply(context, null)
+                    assertTrue(root.findViewById<android.widget.ImageView>(R.id.widget_bitmap).drawable != null)
+                    published = true
+                }
+            },
+            rollback = { WidgetInstanceConfigurationStore.save(context, id, initial) },
+        )
+        assertTrue("Save must publish immediately, not wait for a data update", published)
+        assertEquals(6, WidgetInstanceConfigurationStore.read(context, id).graphHours)
     }
 
     @Test

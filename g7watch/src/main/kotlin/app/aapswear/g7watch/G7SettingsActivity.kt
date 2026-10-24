@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -50,7 +49,7 @@ class G7SettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 8.dp, 18.dp, 30.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
                 setBackgroundColor(background)
                 addView(topBar(palette), fullWidth())
                 addView(
@@ -102,8 +101,16 @@ class G7SettingsActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 visibility = if (isAbout && aboutExpanded) View.VISIBLE else View.GONE
                 if (isAbout) {
-                    val version = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
-                    addView(infoCard("SugarWear", "Version $version", "Eigenständiger Sensorempfang auf der Watch.", palette), cardParams())
+                    addView(
+                        infoCard(
+                            "SugarWear",
+                            app.aapswear.uishared.AppReleaseInfo
+                                .summary(this@G7SettingsActivity, app.aapswear.uishared.AppReleaseInfo.Product.COLLECTOR),
+                            "Eigenständiger Sensorempfang auf der Watch.",
+                            palette,
+                        ),
+                        cardParams(),
+                    )
                 }
             }
         val chevron =
@@ -195,9 +202,14 @@ class G7SettingsActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
-        textSize = size
+        textSize =
+            app.aapswear.uishared.WearSettingsUi
+                .textSize(size)
         setTextColor(color)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun rounded(
@@ -207,8 +219,8 @@ class G7SettingsActivity : Activity() {
     ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        setStroke(1.dp, stroke)
-        cornerRadius = radiusDp * resources.displayMetrics.density
+        setStroke(0, stroke)
+        cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
     }
 
     private fun fullWidth() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
