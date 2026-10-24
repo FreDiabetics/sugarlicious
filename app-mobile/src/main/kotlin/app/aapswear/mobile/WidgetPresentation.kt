@@ -39,6 +39,21 @@ internal data class WidgetGlucoseFamilyText(
     val tir: String? = null,
 )
 
+internal data class WidgetDetailText(
+    val prefix: String,
+    val value: String,
+    val suffix: String,
+)
+
+internal fun widgetDetailText(index: Int, label: String): WidgetDetailText =
+    when (index) {
+        0 -> WidgetDetailText("", label.substringBefore(' '), label.substringAfter(' ', "").let { if (it.isEmpty()) "" else " $it" })
+        1 ->
+            label.removeSuffix("m").toLongOrNull()?.let { WidgetDetailText("vor ", it.toString(), " Min.") }
+                ?: WidgetDetailText("", label, "")
+        else -> WidgetDetailText("", label, if (label.contains('%')) " im Ziel" else "")
+    }
+
 internal fun widgetGlucoseFamilyText(
     layout: WidgetFamilyLayout,
     age: String,

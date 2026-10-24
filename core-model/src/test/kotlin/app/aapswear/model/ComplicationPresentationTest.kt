@@ -9,8 +9,9 @@ import kotlin.test.assertTrue
 class ComplicationPresentationTest {
     @Test
     fun `typed provider ids remain unique and resolve to their presentation family`() {
-        assertEquals(38, SugarliciousComplicationIds.all.size)
-        assertEquals(38, SugarliciousComplicationIds.all.distinct().size)
+        assertEquals(40, SugarliciousComplicationIds.all.size)
+        assertEquals(40, SugarliciousComplicationIds.all.distinct().size)
+        assertEquals(SugarliciousComplicationIds.GRAPH, SugarliciousComplicationIds.baseId(SugarliciousComplicationIds.GRAPH_ORBIT))
         assertEquals(
             SugarliciousComplicationIds.GLUCOSE_TREND,
             SugarliciousComplicationIds.baseId(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED),

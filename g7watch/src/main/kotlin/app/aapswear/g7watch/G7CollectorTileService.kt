@@ -431,7 +431,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-16-trend-optical-alignment"
+        private const val RESOURCES_VERSION = "g7-collector-17-system-font-700"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

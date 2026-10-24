@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/therapy_icon_background"><shape android:shape="oval"><solid android:color="#FFFFFFFF" /><size android:width="66dp" android:height="66dp" /></shape></item>
+    <item android:id="@+id/therapy_icon_symbol"><vector android:width="66dp" android:height="66dp" android:viewportWidth="66" android:viewportHeight="66"><path android:fillColor="#FF000000" android:pathData="M49.17,20.92h-4.87c-.57,0-1.03.46-1.03,1.03v20.66c0,3.81-3.08,6.89-6.89,6.89h0c-3.81,0-6.89-3.08-6.89-6.89v-20.65c0-.57-.46-1.03-1.03-1.03h-11.63c-1.22,0-2.21-.99-2.21-2.21h0c0-1.23.99-2.22,2.21-2.22h14.45c1.47,0,2.67,1.2,2.67,2.67v23.7c0,1.22.99,2.21,2.21,2.21h.45c1.22,0,2.21-.99,2.21-2.21v-23.7c0-1.47,1.2-2.67,2.67-2.67h7.68c1.22,0,2.21.99,2.21,2.21h0c0,1.22-.99,2.21-2.21,2.21Z" /></vector></item>
+</layer-list>

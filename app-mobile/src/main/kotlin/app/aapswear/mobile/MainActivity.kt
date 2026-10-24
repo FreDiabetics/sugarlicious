@@ -28,7 +28,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.edit
 import androidx.core.net.toUri
-import androidx.core.view.isNotEmpty
+import androidx.core.view.isVisible
 import androidx.health.connect.client.HealthConnectClient
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
@@ -66,6 +66,15 @@ class MainActivity : ComponentActivity() {
     private lateinit var content: LinearLayout
     private lateinit var scroll: DashboardScrollView
     private lateinit var factory: DashboardViewFactory
+    private val settingsBackCircle =
+        android.graphics.drawable
+            .GradientDrawable()
+            .apply { shape = android.graphics.drawable.GradientDrawable.OVAL }
+    private val settingsTopShade =
+        android.graphics.drawable
+            .GradientDrawable()
+            .apply { orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM }
+    private var settingsShadeColor: Int? = null
     private var state: app.aapswear.model.TherapyDisplayState? = null
     private var screen = DashboardScreen.OVERVIEW
     private var clockJob: Job? = null
@@ -226,6 +235,8 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         setContentView(R.layout.activity_main)
+        app.aapswear.uishared.SystemTypography
+            .applyDeclaredWeights(findViewById(android.R.id.content))
         onBackPressedDispatcher.addCallback(
             this,
             object : OnBackPressedCallback(true) {
@@ -344,8 +355,8 @@ class MainActivity : ComponentActivity() {
         }
         bindTopNavigation()
         scroll.setOnScrollChangeListener { _, _, y, _, _ ->
-            if (screen == DashboardScreen.SETTINGS) {
-                findViewById<TextView>(R.id.app_title).text = if (factory.settingsIsRoot && y < 180.dp) "" else factory.settingsTitle
+            if (screen == DashboardScreen.SETTINGS || screen == DashboardScreen.WATCH) {
+                updateSettingsScrollHeader(y)
             }
         }
         PersistentBridgeService.start(this)
@@ -621,25 +632,21 @@ class MainActivity : ComponentActivity() {
         val brand = findViewById<View>(R.id.brand_logo)
         val title = findViewById<TextView>(R.id.app_title)
         val settings = findViewById<View>(R.id.top_settings)
+        (bar.layoutParams as android.widget.LinearLayout.LayoutParams).apply {
+            bottomMargin = if (screen == DashboardScreen.SETTINGS) -height else 0
+            bar.layoutParams = this
+        }
+        bar.translationZ = if (screen != DashboardScreen.OVERVIEW) 8.dp.toFloat() else 0f
         when (screen) {
             DashboardScreen.OVERVIEW -> {
                 bar.visibility = View.GONE
             }
-            DashboardScreen.WATCH -> {
-                // The Watch screen has its own inline back/title row below the connected-watch
-                // summary. Hiding the native bar avoids the duplicated header.
-                bar.visibility = View.GONE
-                back.visibility = View.GONE
-                brand.visibility = View.GONE
-                settings.visibility = View.GONE
-                title.setText(R.string.screen_watch)
-            }
-            DashboardScreen.SETTINGS -> {
+            DashboardScreen.SETTINGS, DashboardScreen.WATCH -> {
                 bar.visibility = View.VISIBLE
                 back.visibility = View.VISIBLE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
-                title.text = if (factory.settingsIsRoot && scroll.scrollY < 180.dp) "" else factory.settingsTitle
+                title.text = if (screen == DashboardScreen.WATCH) "Watch" else ""
                 title.textSize = 20f
                 title.typeface = android.graphics.Typeface.DEFAULT
                 val accent =
@@ -647,52 +654,114 @@ class MainActivity : ComponentActivity() {
                         .mobileMenuAccentArgb(this, dark = !SugarliciousColors.palette.isLight)
                 title.setTextColor(accent)
                 findViewById<ImageView>(R.id.top_back).apply {
+                    layoutParams =
+                        layoutParams.apply {
+                            width = 48.dp
+                            height = 48.dp
+                        }
+                    setPadding(13.dp, 13.dp, 13.dp, 13.dp)
                     setImageResource(R.drawable.ic_oneui_back)
                     imageTintList = ColorStateList.valueOf(accent)
                 }
             }
         }
 
-        scroll.isUserScrollEnabled = true
+        scroll.isUserScrollEnabled = screen != DashboardScreen.WATCH
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(
             content.paddingLeft,
-            if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) 20.dp else 2.dp,
+            if (screen != DashboardScreen.OVERVIEW) 0 else 2.dp,
             content.paddingRight,
-            if (screen == DashboardScreen.OVERVIEW) 0 else 24.dp,
+            // The settings runway allows the last card to reach the compact header.
+            // A diagnostic/data refresh must not temporarily collapse it: ScrollView
+            // clamps scrollY before the posted header update can restore that space.
+            when (screen) {
+                DashboardScreen.SETTINGS -> content.paddingBottom.coerceAtLeast(24.dp)
+                DashboardScreen.WATCH -> 0
+                DashboardScreen.OVERVIEW -> 0
+            },
         )
+        if (screen != DashboardScreen.OVERVIEW) content.post { updateSettingsScrollHeader(scroll.scrollY) }
+    }
+
+    private fun updateSettingsScrollHeader(scrollY: Int) {
+        if (screen == DashboardScreen.OVERVIEW) return
+        val density = resources.displayMetrics.density
+        val heading = content.findViewWithTag<View>("settings_scroll_title") ?: return
+        val titleView = heading as? TextView
+        val compactTextPaint =
+            android.text.TextPaint(titleView?.paint).apply {
+                textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 20f, resources.displayMetrics)
+            }
+        val compactWidth = settingsCompactTitleLayout(heading.width / density, 0f).widthDp
+        val compactText = titleView?.text ?: ""
+        val compactTextHeight =
+            android.text.StaticLayout.Builder
+                .obtain(compactText, 0, compactText.length, compactTextPaint, (compactWidth * density).toInt().coerceAtLeast(1))
+                .setMaxLines(2)
+                .build()
+                .height / density
+        val compact = settingsCompactTitleLayout(heading.width / density, compactTextHeight)
+        val bar = findViewById<View>(R.id.top_app_bar)
+        (bar.layoutParams as android.widget.LinearLayout.LayoutParams).also {
+            val heightPx = (compact.heightDp * density).toInt()
+            if (it.height != heightPx || it.bottomMargin != -heightPx) {
+                it.height = heightPx
+                it.bottomMargin = -heightPx
+                bar.layoutParams = it
+            }
+        }
+        if (scroll.height > 0) {
+            val lastCard = lastVisibleSettingsCard(content)
+            val padding =
+                (
+                    settingsBottomScrollPaddingDp(
+                        scroll.height / density,
+                        (lastCard?.height ?: 0) / density,
+                        headerHeightDp = compact.heightDp,
+                        naturalContentHeightDp =
+                            (0 until content.childCount)
+                                .map { content.getChildAt(it) }
+                                .filter { it.visibility != View.GONE }
+                                .maxOfOrNull { it.bottom + ((it.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0) }
+                                ?.div(density) ?: 0f,
+                        expandedTitleHeightDp = heading.height / density,
+                    ) * density
+                ).toInt()
+            if (content.paddingBottom != padding) content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, padding)
+        }
+        val firstCard = (0 until content.childCount).map { content.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
+        val state = settingsScrollHeaderState(scrollY / density, heading.height / density, (firstCard?.top ?: heading.bottom) / density, compact.heightDp)
+        heading.alpha = state.titleAlpha
+        heading.translationY = state.titleOffsetDp * density
+        (heading as? TextView)?.apply {
+            // Keep the scroll child's measured geometry unchanged during a gesture.
+            // Text size/padding mutations request layout and let ScrollView re-anchor focus.
+            pivotX = 0f
+            pivotY = height / 2f
+            scaleX = state.titleScale
+            scaleY = state.titleScale
+            val textWidth = layout?.let { lines -> (0 until lines.lineCount).maxOfOrNull { lines.getLineWidth(it) } } ?: paint.measureText(text.toString())
+            val originalLeft = ((width - textWidth) / 2f).coerceAtLeast(0f)
+            val centeredLeft = (width - textWidth * state.titleScale) / 2f
+            val targetLeft = centeredLeft * (1f - state.collapseFraction) + 52.dp * state.collapseFraction
+            translationX = targetLeft - originalLeft * state.titleScale
+        }
+        settingsBackCircle.setColor(SugarliciousColors.argb(app.aapswear.mobile.ui.theme.SugarliciousColorRole.SURFACE))
+        settingsBackCircle.alpha = (state.backCircleAlpha * 255).toInt()
+        findViewById<View>(R.id.top_back).background = settingsBackCircle
+        val shadeColor = SugarliciousColors.argb(app.aapswear.mobile.ui.theme.SugarliciousColorRole.BACKGROUND)
+        if (settingsShadeColor != shadeColor) {
+            settingsTopShade.colors = intArrayOf(shadeColor, android.graphics.Color.TRANSPARENT)
+            settingsShadeColor = shadeColor
+        }
+        settingsTopShade.alpha = 0 // The title scrolls out naturally; only the back button gets an opaque surface.
+        findViewById<View>(R.id.top_app_bar).background = settingsTopShade
     }
 
     private fun renderFixedWatchHeader() {
-        val container = findViewById<android.widget.FrameLayout>(R.id.watch_fixed_header)
-        if (screen != DashboardScreen.WATCH) {
-            container.visibility = View.GONE
-            return
-        }
-        container.visibility = View.VISIBLE
-        if (container.isNotEmpty()) return
-        val composeView =
-            androidx.compose.ui.platform.ComposeView(this).apply {
-                setViewCompositionStrategy(
-                    androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow,
-                )
-                setContent {
-                    OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) {
-                        WatchMenuHeader(
-                            onBack = { navigate(DashboardScreen.OVERVIEW) },
-                            onSettings = { navigate(DashboardScreen.SETTINGS) },
-                        )
-                    }
-                }
-            }
-        container.addView(
-            composeView,
-            android.widget.FrameLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
-        )
+        findViewById<View>(R.id.watch_fixed_header).visibility = View.GONE
     }
 
     private fun styleTitle() {

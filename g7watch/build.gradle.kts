@@ -10,8 +10,8 @@ android {
         applicationId = "app.aapswear.g7watch"
         minSdk = 33
         targetSdk = 37
-        versionCode = 22
-        versionName = "0.1.21"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
@@ -24,7 +24,7 @@ dependencies {
     implementation(project(":complications"))
     implementation("androidx.activity:activity-ktx:1.13.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     implementation("androidx.wear.tiles:tiles:1.6.2")
     implementation("androidx.wear.protolayout:protolayout:1.4.2")
     implementation("com.google.guava:guava:33.7.2-android")

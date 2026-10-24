@@ -46,6 +46,15 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
+    fun `Orbit appends without moving existing faces and persists independently`() {
+        assertEquals(listOf("ApeX", "Vigil", "Orbit"), sugarliciousWatchFaceCards.map { it.name })
+        assertEquals(sugarliciousWatchFaceCards.map { it.name }, sugarliciousWatchFaceNames)
+        SugarliciousWatchFaceSelectionStore.write(context, 2)
+        assertEquals(2, SugarliciousWatchFaceSelectionStore.read(context))
+        assertEquals(2, reduceWatchFaceSelection(2, 0, WatchFaceSelectionEvent.CGM_REFRESH))
+    }
+
+    @Test
     fun `direct to watch becomes relevant for explicit collector source`() {
         val preferences = DashboardUiPreferences(dataSource = DataSourcePreference.DEXCOM_G7_WATCH)
         assertTrue(SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(context, null, preferences))

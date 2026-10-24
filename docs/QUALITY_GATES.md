@@ -2,11 +2,13 @@
 
 ## Local gate
 
-The supported toolchain is JDK 21 with Android SDK 36. Before a change is
+The supported CI toolchain is JDK 21 with Android SDK 37. Before a change is
 declared complete, run from the repository root:
 
 ```powershell
-.\gradlew.bat test assembleDebug lint --continue --no-daemon --no-problems-report
+.\gradlew.bat verifyArchitecture detekt ktlintCheck test assembleDebug lint :watchfaces:test-wff:assembleRelease --continue --no-daemon --no-problems-report
+python -m unittest discover -s tools/tests -p "test_*.py"
+.\tools\tests\watchface-product-matrix.tests.ps1
 .\tools\wff-validator\validate.ps1
 .\tools\verify-codefree-watchfaces.ps1
 ```

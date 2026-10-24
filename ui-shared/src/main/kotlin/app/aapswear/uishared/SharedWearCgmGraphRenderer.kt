@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
-import android.graphics.Typeface
 import app.aapswear.model.CgmGraphPolicy
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmRangeClass
@@ -60,6 +59,9 @@ data class SharedWearCgmGraphStyle(
     val targetLabelsInsidePlot: Boolean = false,
     val rangeBackgroundEnabled: Boolean = true,
     val scaleLaneOpacityPercent: Int = 30,
+    val axisTextSizeSp: Float = 8.5f,
+    val plotToScaleGapDp: Float = 4f,
+    val scaleLaneWidthDp: Float = 25f,
 )
 
 object DirectToWatchGraphDefaults {
@@ -69,10 +71,13 @@ object DirectToWatchGraphDefaults {
             historicalDotOutlineWidthDp = 0.35f,
             currentDotOutlineWidthDp = 0.35f,
             borderEnabled = false,
-            timeAxisEnabled = false,
+            timeAxisEnabled = true,
             targetTicksEnabled = false,
             targetLabelsOutsideRange = true,
             targetLabelsInsidePlot = true,
+            axisTextSizeSp = 11f,
+            plotToScaleGapDp = 0f,
+            scaleLaneWidthDp = 35f,
         )
 }
 
@@ -140,7 +145,7 @@ internal fun wearMaximumScaleLayout(
     val centerY = 7f * density
     val labelX =
         if (style.targetLabelsInsidePlot) {
-            metrics.plot.right + 2f * density
+            metrics.axisLeftPx + 2f * density
         } else {
             minOf(
                 metrics.axisLeftPx + spec.plotToTickGapDp * density + 1.5f * density,
@@ -175,11 +180,11 @@ object SharedWearCgmGraphRenderer {
         // Reserve one explicit label lane so data cannot run through the target values.
         // Keep the target-value lane only as wide as a three-digit value needs. The live edge
         // remains visibly separate from that (invisible) lane boundary.
-        val axisLeft = widthPx - dp(25f)
+        val axisLeft = widthPx - dp(style.scaleLaneWidthDp)
         val top = dotInset
         val visualBottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
         val bottom = visualBottom - dotInset
-        val plot = RectF(left, top, axisLeft - dp(4f) - dotInset, bottom)
+        val plot = RectF(left, top, axisLeft - dp(style.plotToScaleGapDp.coerceAtLeast(0f)) - dotInset, bottom)
 
         fun y(value: Double): Float = plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
         return SharedWearCgmGraphMetrics(
@@ -213,8 +218,9 @@ object SharedWearCgmGraphRenderer {
         val axisText =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = palette.axisText
-                textSize = 8.5f * scaledDensity
-                typeface = Typeface.DEFAULT_BOLD
+                textSize = input.style.axisTextSizeSp * scaledDensity
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
             }
         val emptyText =
             Paint(axisText).apply {

@@ -9,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.drawable.Icon
+import androidx.wear.watchface.complications.data.ColorRamp
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.GoalProgressComplicationData
@@ -102,11 +103,19 @@ internal fun standardWearGraphWindow(
     windowMs: Long,
 ): GraphTimeWindow = GraphTimeWindow.live(nowEpochMs, windowMs)
 
-internal fun complicationImageSize(kind: ProviderKind): Pair<Int, Int> =
+enum class WatchfaceGraphProfile(
+    val width: Int,
+    val height: Int,
+) {
+    APEX(400, 140),
+    ORBIT(660, 330),
+}
+
+internal fun complicationImageSize(kind: ProviderKind, profile: WatchfaceGraphProfile = WatchfaceGraphProfile.APEX): Pair<Int, Int> =
     when (kind) {
         // Every WFF consumer presents this as a wide chart. Rendering the bitmap in that native
         // aspect ratio prevents WFF from stretching circular dots and horizontal range bands.
-        ProviderKind.GRAPH -> 400 to 140
+        ProviderKind.GRAPH -> profile.width to profile.height
         ProviderKind.GRAPH_LARGE -> 400 to 240
         ProviderKind.GLUCOSE_IMAGE -> 400 to 200
         else -> 400 to 240
@@ -116,6 +125,7 @@ abstract class TherapyComplicationService(
     private val kind: ProviderKind,
     private val declaredType: ComplicationType? = null,
     private val declaredCatalogId: Int? = null,
+    private val graphProfile: WatchfaceGraphProfile = WatchfaceGraphProfile.APEX,
 ) : SuspendingComplicationDataSourceService() {
     private val catalogId: Int?
         get() =
@@ -160,7 +170,11 @@ abstract class TherapyComplicationService(
         super.onComplicationDeactivated(complicationInstanceId)
     }
 
-    override fun getPreviewData(type: ComplicationType): ComplicationData = build(declaredType ?: type, preview())
+    override fun getPreviewData(type: ComplicationType): ComplicationData {
+        // One instant for both fixture samples and viewport boundaries, including the oldest dot.
+        val now = System.currentTimeMillis()
+        return build(declaredType ?: type, preview(now), now)
+    }
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
         ActiveComplicationRegistry.activate(this, request.complicationInstanceId, catalogId)
@@ -174,8 +188,8 @@ abstract class TherapyComplicationService(
     private fun build(
         type: ComplicationType,
         state: TherapyDisplayState?,
+        now: Long = System.currentTimeMillis(),
     ): ComplicationData {
-        val now = System.currentTimeMillis()
         val thresholds = readCgmThresholds()
         val glucose = state?.glucose
         val freshness = TherapyDisplayFormatter.freshness(state, now)
@@ -298,6 +312,16 @@ abstract class TherapyComplicationService(
 
         if (kind == ProviderKind.TIR) {
             val stats = tirStats(state, now, thresholds)
+            if (type == ComplicationType.RANGED_VALUE) {
+                val builder =
+                    RangedValueComplicationData
+                        .Builder(stats.inRangePercent, 0f, 100f, description)
+                        .setText(PlainComplicationText.Builder(stats.text).build())
+                        .setTitle(PlainComplicationText.Builder(pair.second).build())
+                        .setTapAction(tap)
+                complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
+                return builder.build()
+            }
             if (type == ComplicationType.GOAL_PROGRESS) {
                 return GoalProgressComplicationData
                     .Builder(
@@ -417,6 +441,11 @@ abstract class TherapyComplicationService(
                     }
                     complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
 
+                    if (displayable && glucose != null) {
+                        (applicationContext as? ComplicationGlucoseColorSource)
+                            ?.outOfRangeGlucoseColor(glucose.valueMgDl)
+                            ?.let { builder.setColorRamp(ColorRamp(intArrayOf(it), false)) }
+                    }
                     return builder.build()
                 }
 
@@ -478,6 +507,7 @@ abstract class TherapyComplicationService(
                                     pair.first,
                                 ).build(),
                         ).setTapAction(tap)
+                        .apply { complicationIcon(kind, therapyState)?.let(::setMonochromaticImage) }
                         .build()
                 }
 
@@ -585,7 +615,7 @@ abstract class TherapyComplicationService(
         now: Long,
     ): Bitmap {
         val valueOnly = kind == ProviderKind.GLUCOSE_IMAGE
-        val (width, height) = complicationImageSize(kind)
+        val (width, height) = complicationImageSize(kind, graphProfile)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.TRANSPARENT)
@@ -609,6 +639,7 @@ abstract class TherapyComplicationService(
             height = height,
             now = now,
             windowMs = windowMs,
+            watchface = kind == ProviderKind.GRAPH,
         )
         return bitmap
     }
@@ -625,7 +656,8 @@ abstract class TherapyComplicationService(
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = glucoseColor(glucose)
                 textAlign = Paint.Align.CENTER
-                typeface = Typeface.DEFAULT_BOLD
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
                 textSize = 88f
             }
         val metaPaint =
@@ -661,12 +693,15 @@ abstract class TherapyComplicationService(
         height: Int,
         now: Long,
         windowMs: Long,
+        watchface: Boolean,
     ) {
         val width = canvas.width
         val colors = readGraphColors()
         val graphStyle = readGraphStyle()
         val thresholds = readCgmThresholds()
-        val density = resources.displayMetrics.density
+        // This is a fixed-pixel image, not a physical watch View. Device DPI otherwise
+        // inflates text/dots and consumes the short chart's entire plot area.
+        val density = width / 200f
         val timeWindow = standardWearGraphWindow(now, windowMs)
         val samples =
             buildList {
@@ -686,17 +721,24 @@ abstract class TherapyComplicationService(
                     )
                 }
             }
+        if (watchface) {
+            app.aapswear.uishared.WatchfaceCgmGraphRenderer.render(
+                canvas,
+                width,
+                height,
+                samples,
+                timeWindow,
+                thresholds,
+                semicircle = graphProfile == WatchfaceGraphProfile.ORBIT,
+            )
+            return
+        }
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
             widthPx = width,
             heightPx = height,
             density = density,
-            scaledDensity =
-                android.util.TypedValue.applyDimension(
-                    android.util.TypedValue.COMPLEX_UNIT_SP,
-                    1f,
-                    resources.displayMetrics,
-                ),
+            scaledDensity = density * resources.configuration.fontScale,
             input =
                 SharedWearCgmGraphInput(
                     history = samples,
@@ -801,15 +843,7 @@ abstract class TherapyComplicationService(
         )
     }
 
-    private fun readCgmThresholds(): CgmThresholds {
-        val preferences = getSharedPreferences("watch_display", Context.MODE_PRIVATE)
-        return CgmThresholds(
-            veryHighMgDl = preferences.getFloat("threshold_very_high", 250f).toDouble(),
-            highMgDl = preferences.getFloat("threshold_high", 180f).toDouble(),
-            lowMgDl = preferences.getFloat("threshold_low", 70f).toDouble(),
-            veryLowMgDl = preferences.getFloat("threshold_very_low", 50f).toDouble(),
-        ).takeIf(CgmThresholds::isValid) ?: CgmThresholds.DEFAULT
-    }
+    private fun readCgmThresholds(): CgmThresholds = complicationCgmThresholds()
 
     private fun complicationIcon(
         kind: ProviderKind,
@@ -819,8 +853,13 @@ abstract class TherapyComplicationService(
             when (kind) {
                 ProviderKind.GLUCOSE -> R.drawable.ic_complication_glucose
                 ProviderKind.BASAL -> basalIconResource(state?.basal)
-                ProviderKind.IOB -> R.drawable.ic_complication_iob
-                ProviderKind.COB -> R.drawable.ic_complication_carbs
+                ProviderKind.IOB -> app.aapswear.uishared.R.drawable.ic_iob
+                ProviderKind.IOB_COB,
+                ProviderKind.IOB_COB_BASAL,
+                -> app.aapswear.uishared.R.drawable.ic_iob
+                ProviderKind.COB -> app.aapswear.uishared.R.drawable.ic_cob
+                ProviderKind.TIR -> app.aapswear.uishared.R.drawable.ic_tir
+                ProviderKind.RESERVOIR -> app.aapswear.uishared.R.drawable.ic_reservoir
                 ProviderKind.LOOP -> return loopComplicationIcon(state)
                 else -> return null
             }
@@ -972,8 +1011,7 @@ abstract class TherapyComplicationService(
         u: GlucoseUnit,
     ) = TherapyDisplayFormatter.target(t, u)
 
-    private fun preview(): TherapyDisplayState {
-        val now = System.currentTimeMillis()
+    private fun preview(now: Long): TherapyDisplayState {
         val history =
             (0..36).map { index ->
                 val minutesAgo = (36 - index) * 5L
@@ -1097,6 +1135,8 @@ class SensorAgeRangedValueComplication :
 
 class TirComplication : TherapyComplicationService(ProviderKind.TIR, ComplicationType.SHORT_TEXT)
 
+class TirRangedValueComplication : TherapyComplicationService(ProviderKind.TIR, ComplicationType.RANGED_VALUE, SugarliciousComplicationIds.TIR_RANGED)
+
 class TirGoalProgressComplication :
     TherapyComplicationService(
         ProviderKind.TIR,
@@ -1142,6 +1182,14 @@ class GlucoseRangeComplication : TherapyComplicationService(ProviderKind.GLUCOSE
 class GlucoseRangedComplication : TherapyComplicationService(ProviderKind.GLUCOSE_RANGED)
 
 class GlucoseGraphComplication : TherapyComplicationService(ProviderKind.GRAPH, ComplicationType.SMALL_IMAGE)
+
+class OrbitGlucoseGraphComplication :
+    TherapyComplicationService(
+        ProviderKind.GRAPH,
+        ComplicationType.SMALL_IMAGE,
+        SugarliciousComplicationIds.GRAPH_ORBIT,
+        WatchfaceGraphProfile.ORBIT,
+    )
 
 class GlucoseGraphLargeComplication :
     TherapyComplicationService(
@@ -1247,6 +1295,8 @@ object AllProviders {
             GlucoseTrendDeltaAgeComplication::class.java,
             GlucoseTrendDeltaAgeLongTextComplication::class.java,
             GlucoseGraphComplication::class.java,
+            OrbitGlucoseGraphComplication::class.java,
+            OrbitDailyTirComplication::class.java,
             GlucoseGraphLargeComplication::class.java,
             TrendOnlyComplication::class.java,
             DeltaOnlyComplication::class.java,
@@ -1270,6 +1320,7 @@ object AllProviders {
             TirComplication::class.java,
             TirGoalProgressComplication::class.java,
             TirWeightedElementsComplication::class.java,
+            TirRangedValueComplication::class.java,
             DateComplication::class.java,
             PumpBatteryComplication::class.java,
             PhoneBatteryComplication::class.java,

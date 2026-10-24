@@ -28,6 +28,7 @@ include(
     ":watchfaces:test-wff",
     ":watchfaces:sugarlicious-digital",
     ":watchfaces:sugarlicious-analog",
+    ":watchfaces:sugarlicious-orbit",
     ":watchfaces:sugarlicious-direct-to-watch",
     ":tools:aaps-cwf-parser",
     ":tools:wff-generator",

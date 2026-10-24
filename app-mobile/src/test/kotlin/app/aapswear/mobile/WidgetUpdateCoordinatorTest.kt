@@ -15,6 +15,25 @@ import java.util.Collections
 
 class WidgetUpdateCoordinatorTest {
     @Test
+    fun `failed publication is reported to flush and a later update can recover`() =
+        runBlocking {
+            val expected = IllegalStateException("publication failed")
+            val rendered = mutableListOf<Int>()
+            val coordinator =
+                LatestWinsSurfaceCoordinator<String, Int>(CoroutineScope(coroutineContext), { _, value ->
+                    if (value == 1) throw expected
+                    rendered += value
+                })
+            coordinator.submit("widget", 1, 1)
+            val result = runCatching { kotlinx.coroutines.withTimeout(1000) { coordinator.flush("widget", 1) } }
+            assertTrue("failed publication must not be acknowledged as successful: $result", result.exceptionOrNull() is IllegalStateException)
+            assertEquals("publication failed", result.exceptionOrNull()?.message)
+            coordinator.submit("widget", 2, 2)
+            coordinator.flush("widget", 2)
+            assertEquals(listOf(2), rendered)
+        }
+
+    @Test
     fun `cancelled composition releases lane and renders newest pending update`() =
         runBlocking {
             val scope = CoroutineScope(coroutineContext + SupervisorJob())

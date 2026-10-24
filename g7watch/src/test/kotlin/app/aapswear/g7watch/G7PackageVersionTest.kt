@@ -10,10 +10,15 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class G7PackageVersionTest {
     @Test
-    fun `schema seven release has a new package version`() {
+    fun `suite release exposes the unified version through installed metadata`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
 
-        assertEquals(22L, packageInfo.longVersionCode)
+        assertEquals(70L, packageInfo.longVersionCode)
+        assertEquals(
+            "0.7.0",
+            app.aapswear.uishared.AppReleaseInfo
+                .version(context),
+        )
     }
 }

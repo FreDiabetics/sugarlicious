@@ -110,6 +110,9 @@ class WearActivity : Activity() {
             }
 
         setContentView(R.layout.activity_wear)
+        configureTherapyOverviewLayout(findViewById(R.id.wear_root))
+        app.aapswear.uishared.SystemTypography
+            .applyDeclaredWeights(findViewById(android.R.id.content))
         bindViews()
 
         findViewById<View>(R.id.wear_connection_card).setOnClickListener { requestPhoneRefresh() }
@@ -264,7 +267,7 @@ class WearActivity : Activity() {
         val previousPreferences = lastRenderedPreferences
         val firstRender = !hasRendered
 
-        if (firstRender || previousPreferences?.uiColors != preferences.uiColors) {
+        if (firstRender || previousPreferences == null || previousPreferences.uiColors != preferences.uiColors || previousPreferences.graphStyle.borderEnabled != preferences.graphStyle.borderEnabled) {
             applyUiColors(preferences)
         }
 
@@ -296,7 +299,8 @@ class WearActivity : Activity() {
                 previousPreferences.glucoseUnit != preferences.glucoseUnit ||
                 previousPreferences.glucoseScalePercent != preferences.glucoseScalePercent ||
                 previousPreferences.trendScalePercent != preferences.trendScalePercent ||
-                previousPreferences.uiColors != preferences.uiColors
+                previousPreferences.uiColors != preferences.uiColors ||
+                previousPreferences.graphStyle.borderEnabled != preferences.graphStyle.borderEnabled
 
         if (glucoseSectionChanged) {
             val presentation = glucosePresentation
@@ -326,14 +330,14 @@ class WearActivity : Activity() {
             age.visibility = View.GONE
 
             findViewById<View>(R.id.wear_glucose_card).background =
-                roundedBackground(glucoseFill, preferences.uiColors.tileBorder, WearGlucoseCardStyle.CARD_RADIUS_DP)
+                roundedBackground(glucoseFill, if (preferences.graphStyle.borderEnabled) preferences.uiColors.tileBorder else android.graphics.Color.TRANSPARENT, WearGlucoseCardStyle.CARD_RADIUS_DP)
         }
 
         chart.bind(
             newState = state,
             graphHours = preferences.graphHours,
             showPredictions = preferences.showPredictions,
-            colors = preferences.graphColors,
+            colors = preferences.graphColors.copy(border = preferences.uiColors.tileBorder),
             style = preferences.graphStyle,
             thresholds = preferences.cgmThresholds,
         )
@@ -348,9 +352,13 @@ class WearActivity : Activity() {
             firstRender ||
             refreshClock ||
             previousPreferences?.showTherapyStats != preferences.showTherapyStats ||
+            previousPreferences.uiColors != preferences.uiColors ||
+            previousState?.glucose != state?.glucose ||
             previousState?.insulin != state?.insulin ||
             previousState?.carbs != state?.carbs ||
-            previousState?.basal != state?.basal
+            previousState?.basal != state?.basal ||
+            previousState?.therapyHistory != state?.therapyHistory ||
+            previousState?.therapyEvents != state?.therapyEvents
         ) {
             therapyRow.visibility = if (preferences.showTherapyStats) View.VISIBLE else View.GONE
             findViewById<View>(R.id.wear_basal_card).visibility =
@@ -370,6 +378,29 @@ class WearActivity : Activity() {
                 tintArgb = preferences.uiColors.basal,
                 backgroundArgb = preferences.uiColors.tileBackground,
             )
+            val presentation = wearTherapyTilePresentation(state, now)
+            listOf(
+                Triple(TherapyTileMetric.IOB, R.id.wear_iob_progress, preferences.uiColors.iob),
+                Triple(TherapyTileMetric.COB, R.id.wear_cob_progress, preferences.uiColors.cob),
+                Triple(TherapyTileMetric.BASAL, R.id.wear_basal_progress, preferences.uiColors.basal),
+            ).forEach { (metric, id, color) ->
+                findViewById<WearTherapyProgressView>(id).bind(if (canShowValue) wearTherapyProgress(metric, state, now) else null, color)
+            }
+            findViewById<TextView>(R.id.wear_iob_secondary).apply {
+                text = if (canShowValue) presentation.iobSecondary.orEmpty() else ""
+                visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+            }
+            val basalDetails = wearBasalDetails(if (canShowValue) state?.basal else null, now)
+            findViewById<TextView>(R.id.wear_basal_base).text = basalDetails.base
+            findViewById<TextView>(R.id.wear_basal_secondary).text = basalDetails.temporary
+            val detailIcon =
+                when (currentBasalIconRes) {
+                    ComplicationR.drawable.ic_complication_basal_more -> app.aapswear.uishared.R.drawable.ic_basalmore_bckgrnd
+                    ComplicationR.drawable.ic_complication_basal_less -> app.aapswear.uishared.R.drawable.ic_basalless_bckgrnd
+                    else -> app.aapswear.uishared.R.drawable.ic_basal_bckgrnd
+                }
+            findViewById<ImageView>(R.id.wear_basal_base_icon).renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_basal_bckgrnd, preferences.uiColors.basal, preferences.uiColors.tileBackground)
+            findViewById<ImageView>(R.id.wear_basal_temp_icon).renderSugarliciousWearIcon(detailIcon, preferences.uiColors.basal, preferences.uiColors.tileBackground)
         }
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
@@ -430,16 +461,17 @@ class WearActivity : Activity() {
         findViewById<View>(R.id.wear_root).setBackgroundColor(ui.background)
 
         listOf(R.id.wear_basal_card, R.id.wear_iob_card, R.id.wear_cob_card).forEach { id ->
-            findViewById<View>(id).background = roundedBackground(ui.tileBackground, ui.tileBorder, 20f)
+            findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 20f)
         }
         listOf(R.id.wear_connection_card, R.id.wear_settings_action).forEach { id ->
-            findViewById<View>(id).background = roundedBackground(ui.tileBackground, ui.tileBorder, 22f)
+            findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 22f)
         }
         findViewById<View>(R.id.wear_graph_card).background = null
 
         listOf(
             R.id.wear_glucose,
             R.id.wear_basal,
+            R.id.wear_basal_base,
             R.id.wear_iob,
             R.id.wear_cob,
             R.id.wear_source,
@@ -451,10 +483,13 @@ class WearActivity : Activity() {
             R.id.wear_delta,
             R.id.wear_age,
             R.id.wear_sync_hint,
+            R.id.wear_iob_secondary,
+            R.id.wear_cob_secondary,
+            R.id.wear_basal_secondary,
             R.id.wear_watchface_push_status,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textSecondary) }
-        iobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_iob, ui.iob, ui.tileBackground)
-        cobIcon.renderSugarliciousWearIcon(ComplicationR.drawable.ic_complication_carbs, ui.cob, ui.tileBackground)
+        iobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_iob, ui.iob, ui.tileBackground)
+        cobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_cob, ui.cob, ui.tileBackground)
         basalIcon.renderSugarliciousWearIcon(currentBasalIconRes, ui.basal, ui.tileBackground)
         findViewById<ImageView>(R.id.wear_settings_icon).renderSugarliciousWearIcon(
             R.drawable.ic_settings,

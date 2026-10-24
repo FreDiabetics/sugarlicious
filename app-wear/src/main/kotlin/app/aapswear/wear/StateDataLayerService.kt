@@ -817,7 +817,7 @@ class StateDataLayerService : WearableListenerService() {
         val batteryUnrestricted = WearBackgroundAccess.isBatteryUnrestricted(this)
         return Notification
             .Builder(this, RUNTIME_CHANNEL)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("Sugarlicious Wear")
             .setContentText(
                 if (batteryUnrestricted) {

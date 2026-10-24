@@ -137,7 +137,7 @@ class G7GraphTileTest {
         val tile = service.onTileRequest(request).get()
         val resources = request.scope.collectResources()
 
-        assertTrue(tile.resourcesVersion.startsWith("g7-graph-12-header-scale-age-"))
+        assertTrue(tile.resourcesVersion.startsWith("g7-graph-13-system-font-700-"))
         assertTrue(request.scope.hasResources())
         val inline = resources.idToImageMapping.getValue("sugarwear_graph").inlineResource!!
         val content = g7GraphTileContentSpec(192, 192)

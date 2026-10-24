@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.app.Activity
 import android.app.AlertDialog
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
@@ -19,7 +18,6 @@ import android.widget.TextView
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
-import app.aapswear.model.ArgbColor
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.protocol.WatchGraphColors
@@ -58,7 +56,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(18.dp, 12.dp, 18.dp, 30.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
                 setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
             }
         root.addView(topBar(palette))
@@ -73,7 +71,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             params(5),
         )
         root.addView(
-            colorRow(AppearanceTerminology.DELTA_UNIT, settings.deltaUnitColor(mode), palette) {
+            colorRow(AppearanceTerminology.DELTA_UNIT, settings.deltaUnitColor(mode), palette, if (mode == AppearanceMode.LIGHT) 0xFF666666.toInt() else 0xFFA8A8BA.toInt()) {
                 settings.saveDeltaUnitColor(mode, it)
             },
             params(5),
@@ -85,7 +83,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             },
             params(5),
         )
-        root.addView(colorRow("Farbe", settings.statusColor(), palette, settings::saveStatusColor), params(5))
+        root.addView(colorRow("Farbe", settings.statusColor(), palette, 0xFFA8A8BA.toInt(), settings::saveStatusColor), params(5))
         root.addView(toggle("Fett", settings.statusBold(), palette, settings::saveStatusBold), params(5))
         section(root, "WATCHFACE · UHRZEIT", palette)
         root.addView(
@@ -94,7 +92,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             },
             params(5),
         )
-        root.addView(colorRow("Farbe", settings.clockColor(), palette, settings::saveClockColor), params(5))
+        root.addView(colorRow("Farbe", settings.clockColor(), palette, 0xFFA8A8BA.toInt(), settings::saveClockColor), params(5))
         root.addView(toggle("Fett", settings.clockBold(), palette, settings::saveClockBold), params(5))
         val thresholds = settings.thresholds()
         section(root, "GLUKOSE · ZIELBEREICH", palette)
@@ -196,6 +194,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 "Füllfarbe",
                 trend.fillColor,
                 palette,
+                app.aapswear.model.TrendArrowStyle
+                    .defaults(mode, 0xFFFFFFFF.toInt())
+                    .fillColor,
             ) { value -> settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(fillColor = value)) },
             params(5),
         )
@@ -210,6 +211,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 "Konturfarbe",
                 trend.outlineColor,
                 palette,
+                app.aapswear.model.TrendArrowStyle
+                    .defaults(mode, 0xFFFFFFFF.toInt())
+                    .outlineColor,
             ) { value -> settings.saveTrendStyle(mode, settings.trendStyle(mode).copy(outlineColor = value)) },
             params(5),
         )
@@ -241,34 +245,39 @@ class G7DirectToWatchSettingsActivity : Activity() {
         c: WatchGraphColors,
         p: G7AppearancePalette,
     ) {
+        val defaults =
+            app.aapswear.protocol.DirectToWatchGraphColorDefaults
+                .create()
+
         fun add(
             title: String,
             value: Int,
+            defaultColor: Int,
             update: (WatchGraphColors, Int) -> WatchGraphColors,
-        ) = root.addView(colorRow(title, value, p) { settings.saveGraphColors(update(settings.graphColors(), it)) }, params(5))
-        add("Hintergrund", c.graphBackground) { x, v -> x.copy(graphBackground = v) }
-        add("LOW-Bereich", c.rangeLow) { x, v -> x.copy(rangeLow = v) }
-        add("Zielbereich", c.rangeInRange) { x, v -> x.copy(rangeInRange = v) }
-        add("HIGH-Bereich", c.rangeHigh) { x, v -> x.copy(rangeHigh = v) }
-        add("LOW-Punkte", c.cgmLow) { x, v -> x.copy(cgmLow = v) }
-        add("IN-RANGE-Punkte", c.cgmInRange) { x, v -> x.copy(cgmInRange = v) }
-        add("HIGH-Punkte", c.cgmHigh) { x, v -> x.copy(cgmHigh = v) }
-        add("VERY-LOW-Punkte", c.cgmVeryLow) { x, v -> x.copy(cgmVeryLow = v) }
-        add("VERY-HIGH-Punkte", c.cgmVeryHigh) { x, v -> x.copy(cgmVeryHigh = v) }
-        add("Punktkontur", c.outline) { x, v -> x.copy(outline = v) }
-        add("HIGH-Linie", c.highLine) { x, v -> x.copy(highLine = v) }
-        add("LOW-Linie", c.lowLine) { x, v -> x.copy(lowLine = v) }
-        add("Achsentext", c.axisLabel) { x, v -> x.copy(axisLabel = v) }
-        add("Achsenmarken", c.axisTick) { x, v -> x.copy(axisTick = v) }
-        add("Jetzt-Linie", c.nowLine) { x, v -> x.copy(nowLine = v) }
-        add("Graph-Trennlinie", c.divider) { x, v -> x.copy(divider = v) }
-        add("Graphkontur", c.border) { x, v -> x.copy(border = v) }
-        add("Zielwert", c.targetValue) { x, v -> x.copy(targetValue = v) }
-        add("Signalverlust", c.signalLoss) { x, v -> x.copy(signalLoss = v) }
-        add("Prognose · IOB", c.predictionIob) { x, v -> x.copy(predictionIob = v) }
-        add("Prognose · COB", c.predictionCob) { x, v -> x.copy(predictionCob = v) }
-        add("Prognose · UAM", c.predictionUam) { x, v -> x.copy(predictionUam = v) }
-        add("Prognose · Zero Temp", c.predictionZeroTemp) { x, v -> x.copy(predictionZeroTemp = v) }
+        ) = root.addView(colorRow(title, value, p, defaultColor) { settings.saveGraphColors(update(settings.graphColors(), it)) }, params(5))
+        add("Hintergrund", c.graphBackground, defaults.graphBackground) { x, v -> x.copy(graphBackground = v) }
+        add("LOW-Bereich", c.rangeLow, defaults.rangeLow) { x, v -> x.copy(rangeLow = v) }
+        add("Zielbereich", c.rangeInRange, defaults.rangeInRange) { x, v -> x.copy(rangeInRange = v) }
+        add("HIGH-Bereich", c.rangeHigh, defaults.rangeHigh) { x, v -> x.copy(rangeHigh = v) }
+        add("LOW-Punkte", c.cgmLow, defaults.cgmLow) { x, v -> x.copy(cgmLow = v) }
+        add("IN-RANGE-Punkte", c.cgmInRange, defaults.cgmInRange) { x, v -> x.copy(cgmInRange = v) }
+        add("HIGH-Punkte", c.cgmHigh, defaults.cgmHigh) { x, v -> x.copy(cgmHigh = v) }
+        add("VERY-LOW-Punkte", c.cgmVeryLow, defaults.cgmVeryLow) { x, v -> x.copy(cgmVeryLow = v) }
+        add("VERY-HIGH-Punkte", c.cgmVeryHigh, defaults.cgmVeryHigh) { x, v -> x.copy(cgmVeryHigh = v) }
+        add("Punktkontur", c.outline, defaults.outline) { x, v -> x.copy(outline = v) }
+        add("HIGH-Linie", c.highLine, defaults.highLine) { x, v -> x.copy(highLine = v) }
+        add("LOW-Linie", c.lowLine, defaults.lowLine) { x, v -> x.copy(lowLine = v) }
+        add("Achsentext", c.axisLabel, defaults.axisLabel) { x, v -> x.copy(axisLabel = v) }
+        add("Achsenmarken", c.axisTick, defaults.axisTick) { x, v -> x.copy(axisTick = v) }
+        add("Jetzt-Linie", c.nowLine, defaults.nowLine) { x, v -> x.copy(nowLine = v) }
+        add("Graph-Trennlinie", c.divider, defaults.divider) { x, v -> x.copy(divider = v) }
+        add("Graphkontur", c.border, defaults.border) { x, v -> x.copy(border = v) }
+        add("Zielwert", c.targetValue, defaults.targetValue) { x, v -> x.copy(targetValue = v) }
+        add("Signalverlust", c.signalLoss, defaults.signalLoss) { x, v -> x.copy(signalLoss = v) }
+        add("Prognose · IOB", c.predictionIob, defaults.predictionIob) { x, v -> x.copy(predictionIob = v) }
+        add("Prognose · COB", c.predictionCob, defaults.predictionCob) { x, v -> x.copy(predictionCob = v) }
+        add("Prognose · UAM", c.predictionUam, defaults.predictionUam) { x, v -> x.copy(predictionUam = v) }
+        add("Prognose · Zero Temp", c.predictionZeroTemp, defaults.predictionZeroTemp) { x, v -> x.copy(predictionZeroTemp = v) }
     }
 
     private fun topBar(p: G7AppearancePalette) = g7SettingsHeader("Watchface", p)
@@ -456,7 +465,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
             }
         }
         addView(
-            SeekBar(this@G7DirectToWatchSettingsActivity).apply {
+            app.aapswear.uishared.ScrollSafeSeekBar(this@G7DirectToWatchSettingsActivity).apply {
+                app.aapswear.uishared.WearSettingsUi
+                    .slider(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 progressTintList =
@@ -468,13 +479,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 thumbTintList =
                     android.content.res.ColorStateList
                         .valueOf(p.argb(G7AppearanceRole.MENU_PRIMARY))
-                setOnTouchListener { view, event ->
-                    view.parent?.requestDisallowInterceptTouchEvent(
-                        event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
-                            event.actionMasked == android.view.MotionEvent.ACTION_MOVE,
-                    )
-                    false
-                }
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         override fun onProgressChanged(
@@ -512,6 +516,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         )
         addView(
             Switch(this@G7DirectToWatchSettingsActivity).apply {
+                app.aapswear.uishared.WearSettingsUi
+                    .toggle(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
                 setOnCheckedChangeListener {
                     _,
@@ -527,12 +533,12 @@ class G7DirectToWatchSettingsActivity : Activity() {
         title: String,
         color: Int,
         p: G7AppearancePalette,
+        defaultColor: Int,
         save: (Int) -> Unit,
     ) = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
         background = card(p)
-        val valueLabel = label(ArgbColor.format(color), 8f, p.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
         val swatch =
             View(this@G7DirectToWatchSettingsActivity).apply {
                 background =
@@ -542,7 +548,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
             LinearLayout(this@G7DirectToWatchSettingsActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 addView(label(title, 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-                addView(valueLabel)
             },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
@@ -557,10 +562,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 ),
                 p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
                 p.argb(G7AppearanceRole.MENU_BORDER),
-                color,
+                defaultColor,
                 onChange = { changed ->
                     save(changed)
-                    valueLabel.text = ArgbColor.format(changed)
                     swatch.background = rounded(changed, p.argb(G7AppearanceRole.MENU_BORDER), 10f)
                 },
                 onReset = {},
@@ -609,9 +613,14 @@ class G7DirectToWatchSettingsActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
-        textSize = size
+        textSize =
+            app.aapswear.uishared.WearSettingsUi
+                .textSize(size)
         setTextColor(color)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun card(p: G7AppearancePalette) = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 18f)
@@ -622,9 +631,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
         radius: Float,
     ) = GradientDrawable().apply {
         setColor(fill)
-        setStroke(1.dp, stroke)
+        setStroke(0, stroke)
         cornerRadius =
-            radius * resources.displayMetrics.density
+            maxOf(radius, 26f) * resources.displayMetrics.density
     }
 
     private fun params(top: Int = 0) =

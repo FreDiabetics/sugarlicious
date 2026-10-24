@@ -36,6 +36,8 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
         var runningRevision: Long? = null
         var pending: Request<V>? = null
         var completedRevision: Long = Long.MIN_VALUE
+        var failedRevision: Long = Long.MIN_VALUE
+        var failure: Throwable? = null
         val waiters = mutableListOf<Waiter>()
     }
 
@@ -50,7 +52,7 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
         val initial =
             synchronized(lock) {
                 val slot = slots.getOrPut(key) { Slot() }
-                val newestKnown = maxOf(slot.completedRevision, slot.runningRevision ?: Long.MIN_VALUE, slot.pending?.revision ?: Long.MIN_VALUE)
+                val newestKnown = maxOf(slot.completedRevision, slot.failedRevision, slot.runningRevision ?: Long.MIN_VALUE, slot.pending?.revision ?: Long.MIN_VALUE)
                 if (revision < newestKnown) return
                 val request = Request(revision, value)
                 if (slot.runningRevision != null) {
@@ -74,6 +76,7 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
             synchronized(lock) {
                 val slot = slots.getOrPut(key) { Slot() }
                 if (slot.completedRevision >= revision) return
+                if (slot.failedRevision >= revision) throw checkNotNull(slot.failure)
                 CompletableDeferred<Unit>().also { slot.waiters += Waiter(revision, it) }
             }
         completion.await()
@@ -85,12 +88,14 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
     ) {
         var current = initial
         while (true) {
+            var failure: Throwable? = null
             try {
                 render(key, current.value)
             } catch (error: CancellationException) {
                 cancelLane(key, current.revision, error)
                 throw error
             } catch (error: Throwable) {
+                failure = error
                 try {
                     onFailure(key, current.revision, error)
                 } catch (cancelled: CancellationException) {
@@ -104,10 +109,18 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
             val next =
                 synchronized(lock) {
                     val slot = checkNotNull(slots[key])
-                    slot.completedRevision = maxOf(slot.completedRevision, current.revision)
-                    val completed = slot.waiters.filter { it.revision <= slot.completedRevision }
+                    if (failure == null) {
+                        slot.completedRevision = maxOf(slot.completedRevision, current.revision)
+                    } else {
+                        slot.failedRevision = current.revision
+                        slot.failure = failure
+                    }
+                    val completed = slot.waiters.filter { it.revision <= current.revision }
                     slot.waiters.removeAll(completed.toSet())
-                    completed.forEach { it.completion.complete(Unit) }
+                    completed.forEach {
+                        val error = failure
+                        if (error == null) it.completion.complete(Unit) else it.completion.completeExceptionally(error)
+                    }
                     slot.pending?.also {
                         slot.pending = null
                         slot.runningRevision = it.revision
@@ -124,7 +137,8 @@ internal class LatestWinsSurfaceCoordinator<K : Any, V : Any>(
         val next =
             synchronized(lock) {
                 val slot = slots.getValue(key)
-                slot.completedRevision = maxOf(slot.completedRevision, revision)
+                slot.failedRevision = revision
+                slot.failure = error
                 val cancelled = slot.waiters.filter { it.revision <= revision || !scope.isActive }
                 slot.waiters.removeAll(cancelled.toSet())
                 cancelled.forEach { it.completion.completeExceptionally(error) }

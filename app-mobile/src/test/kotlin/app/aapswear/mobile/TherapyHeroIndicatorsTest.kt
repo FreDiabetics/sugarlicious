@@ -21,6 +21,14 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class TherapyHeroIndicatorsTest {
     @Test
+    fun `COB and basal overview icons use compact bounds without shrinking IOB`() {
+        val indicators = therapyIndicatorPresentations(state(), 10f, 1_000L)
+        assertEquals(19, indicators[0].iconSizeDp)
+        assertEquals(16, indicators[1].iconSizeDp)
+        assertEquals(16, indicators[2].iconSizeDp)
+    }
+
+    @Test
     fun `therapy mode suppresses separate details without changing stored choice`() {
         val preferences = DashboardUiPreferences(showDetails = true, glucoseTileDetailMode = GlucoseTileDetailMode.THERAPY)
         assertTrue(preferences.showDetails)

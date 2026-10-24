@@ -19,6 +19,12 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
+    @Test fun `Vigil live edge leaves only the dot safety inset before the scale`() {
+        val style = DirectToWatchGraphDefaults.style()
+        val metrics = SharedWearCgmGraphRenderer.metrics(450, 250, 2f, CgmThresholds.DEFAULT, style)
+        assertTrue(metrics.axisLeftPx - metrics.liveX <= (style.dotRadiusDp + style.currentDotOutlineWidthDp) * 2f + 0.01f)
+    }
+
     @Test
     fun `current dot outline is permanent and widths are selected independently`() {
         val style =
@@ -105,6 +111,14 @@ class SharedWearCgmGraphRendererTest {
                 200f - GraphAxisLayoutSpec.COMPACT.outerEdgePaddingDp - 18f,
             )
         assertEquals(expected, layout.labelX, 0.01f)
+    }
+
+    @Test
+    fun `Vigil maximum value shares the left anchor of the high and low labels`() {
+        val style = DirectToWatchGraphDefaults.style()
+        val metrics = SharedWearCgmGraphRenderer.metrics(450, 250, 2f, CgmThresholds.DEFAULT, style)
+        val maximum = wearMaximumScaleLayout(metrics, 450, 2f, 30f, style)
+        assertEquals(metrics.axisLeftPx + 4f, maximum.labelX, .01f)
     }
 
     @Test

@@ -24,6 +24,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -35,6 +36,18 @@ import kotlin.math.roundToInt
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ComplicationStaticPreviewTest {
+    @Test
+    fun `picker labels describe content without numeric codes or Android type jargon`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val labels = mutableSetOf<String>()
+        AllProviders.classes.forEach { provider ->
+            val info = context.packageManager.getServiceInfo(ComponentName(context, provider), 0)
+            val label = info.loadLabel(context.packageManager).toString()
+            assertTrue("Ambiguous duplicate picker label: $label", labels.add(label))
+            assertFalse(label, Regex("^(\\d)|Short Text|Long Text|Ranged Value|Small Image|Goal Progress|Weighted Elements").containsMatchIn(label))
+        }
+    }
+
     private val expectedTypes =
         listOf(
             ComplicationType.SHORT_TEXT,
@@ -51,6 +64,8 @@ class ComplicationStaticPreviewTest {
             ComplicationType.SHORT_TEXT,
             ComplicationType.LONG_TEXT,
             ComplicationType.SMALL_IMAGE,
+            ComplicationType.SMALL_IMAGE,
+            ComplicationType.MONOCHROMATIC_IMAGE,
             ComplicationType.PHOTO_IMAGE,
             ComplicationType.SHORT_TEXT,
             ComplicationType.SHORT_TEXT,
@@ -74,6 +89,7 @@ class ComplicationStaticPreviewTest {
             ComplicationType.SHORT_TEXT,
             ComplicationType.GOAL_PROGRESS,
             ComplicationType.WEIGHTED_ELEMENTS,
+            ComplicationType.RANGED_VALUE,
             ComplicationType.SHORT_TEXT,
             ComplicationType.SHORT_TEXT,
             ComplicationType.SHORT_TEXT,
@@ -82,7 +98,7 @@ class ComplicationStaticPreviewTest {
 
     @Test
     fun `all providers expose their declared dynamic preview type`() {
-        assertEquals(41, AllProviders.classes.size)
+        assertEquals(44, AllProviders.classes.size)
         assertEquals(AllProviders.classes.size, expectedTypes.size)
 
         AllProviders.classes.zip(expectedTypes).forEach { (provider, expectedType) ->
@@ -128,8 +144,8 @@ class ComplicationStaticPreviewTest {
             assertMatchingFields(provider, staticData, dynamicData)
         }
 
-        assertEquals(39, staticResourceIds.size)
-        assertEquals(41, providerIconIds.size)
+        assertEquals(42, staticResourceIds.size)
+        assertEquals(44, providerIconIds.size)
     }
 
     private fun assertMatchingFields(

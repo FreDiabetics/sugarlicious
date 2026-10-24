@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
@@ -12,6 +11,7 @@ import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.content.edit
+import androidx.core.view.isNotEmpty
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
@@ -327,7 +327,6 @@ class DashboardViewFactory(
     private val watchRenderState = androidx.compose.runtime.mutableStateOf<ComposeRenderState?>(null)
     private var activeComposeScreen: DashboardScreen? = null
     private var activeComposeView: androidx.compose.ui.platform.ComposeView? = null
-    private var colorSettingsExpanded = false
     private var notificationGraphSettingsExpanded = false
     private val settingsNavigation = MobileSettingsNavigation()
     val settingsTitle: String get() = settingsNavigation.title
@@ -434,6 +433,27 @@ class DashboardViewFactory(
                 }
             }
         parent.addView(composeView, fullWidth())
+        // Watch owns a bounded list with a fixed overview and native sticky sections.
+        // The surrounding dashboard scroller must not measure it at infinite height.
+        val viewport = parent.parent as View
+        val resize =
+            android.view.View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                val height = (viewport.height - parent.paddingTop - parent.paddingBottom).coerceAtLeast(1)
+                if (composeView.layoutParams.height != height) {
+                    composeView.layoutParams = composeView.layoutParams.apply { this.height = height }
+                }
+            }
+        viewport.addOnLayoutChangeListener(resize)
+        composeView.addOnAttachStateChangeListener(
+            object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) = Unit
+
+                override fun onViewDetachedFromWindow(view: View) {
+                    viewport.removeOnLayoutChangeListener(resize)
+                }
+            },
+        )
+        composeView.post { resize.onLayoutChange(viewport, 0, 0, 0, 0, 0, 0, 0, 0) }
         activeComposeScreen = DashboardScreen.WATCH
         activeComposeView = composeView
     }
@@ -448,12 +468,11 @@ class DashboardViewFactory(
         watchRenderState.value = null
         activeComposeScreen = null
         activeComposeView = null
-        if (settingsIsRoot) parent.addView(screenTitle())
+        parent.addView(screenTitle(if (settingsIsRoot) "Einstellungen" else settingsTitle).apply { tag = "settings_scroll_title" })
 
         val colorContainer =
             LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
-                visibility = if (colorSettingsExpanded) View.VISIBLE else View.GONE
                 val colorSettings =
                     androidx.compose.ui.platform.ComposeView(context).apply {
                         setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
@@ -500,25 +519,7 @@ class DashboardViewFactory(
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("DARSTELLUNG"))
-                    addView(
-                        choiceRow(
-                            "Darstellung",
-                            listOf(
-                                Triple(
-                                    "System",
-                                    preferences.themeMode == DashboardThemeMode.SYSTEM,
-                                ) { callbacks.setThemeMode(DashboardThemeMode.SYSTEM) },
-                                Triple(
-                                    "Hell",
-                                    preferences.themeMode == DashboardThemeMode.LIGHT,
-                                ) { callbacks.setThemeMode(DashboardThemeMode.LIGHT) },
-                                Triple(
-                                    "Dunkel",
-                                    preferences.themeMode == DashboardThemeMode.DARK,
-                                ) { callbacks.setThemeMode(DashboardThemeMode.DARK) },
-                            ),
-                        ),
-                    )
+                    addView(composeSettingsControl { OneUiSettingsModeSelector(preferences.themeMode, onSelected = callbacks.setThemeMode) }, fullWidth())
                     addView(divider())
                     addView(settingsGroupLabel("AKTIVE DATENQUELLE"))
                     addView(
@@ -550,25 +551,7 @@ class DashboardViewFactory(
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("GLUKOSE-EINHEIT"))
-                    addView(
-                        choiceRow(
-                            "Glukose-Einheit",
-                            listOf(
-                                Triple(
-                                    "Wie Datenquelle",
-                                    preferences.unit == DisplayUnitPreference.AAPS,
-                                ) { callbacks.setUnit(DisplayUnitPreference.AAPS) },
-                                Triple(
-                                    "mg/dL",
-                                    preferences.unit == DisplayUnitPreference.MG_DL,
-                                ) { callbacks.setUnit(DisplayUnitPreference.MG_DL) },
-                                Triple(
-                                    "mmol/L",
-                                    preferences.unit == DisplayUnitPreference.MMOL_L,
-                                ) { callbacks.setUnit(DisplayUnitPreference.MMOL_L) },
-                            ),
-                        ),
-                    )
+                    addView(composeSettingsControl { OneUiGlucoseUnitSelector(preferences.unit, callbacks.setUnit) }, fullWidth())
                     addView(divider())
                     addView(settingsGroupLabel("GLUKOSEBEREICHE"))
 
@@ -917,18 +900,14 @@ class DashboardViewFactory(
                             ) { callbacks.openNightscoutTreatments() },
                         )
                     }
-                    addView(divider())
-                    addView(settingsGroupLabel("FARBEN & DARSTELLUNG"))
-                    addView(
-                        actionRow("Farben & Darstellung", "Anpassen") {
-                            colorSettingsExpanded = !colorSettingsExpanded
-                            colorContainer.visibility = if (colorSettingsExpanded) View.VISIBLE else View.GONE
-                        },
-                    )
                 },
                 cardParams(top = 4),
             )
-            addView(colorContainer, cardParams(top = 4))
+        }
+
+        addSettingsCategory(parent, "appearance", "Farben & Darstellung", R.drawable.ic_settings) {
+            colorContainer.visibility = View.VISIBLE
+            addView(colorContainer, fullWidth())
         }
 
         addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
@@ -1070,7 +1049,6 @@ class DashboardViewFactory(
     }
 
     private fun collapseSettingsSections() {
-        colorSettingsExpanded = false
         notificationGraphSettingsExpanded = false
         settingsNavigation.back()
     }
@@ -1093,7 +1071,17 @@ class DashboardViewFactory(
             )
             header.addView(value("Sugarlicious", text, 20f, 1).apply { gravity = Gravity.CENTER })
             header.addView(helper("by FreDiabetics", 1).apply { gravity = Gravity.CENTER })
+            header.addView(helper("Version ${app.aapswear.uishared.AppReleaseInfo.version(context)}", 1).apply { gravity = Gravity.CENTER })
             addView(header)
+            addView(
+                helper(
+                    "Neu\n" +
+                        app.aapswear.uishared.AppReleaseInfo
+                            .changes(app.aapswear.uishared.AppReleaseInfo.Product.MOBILE)
+                            .joinToString("\n") { "• $it" },
+                    10,
+                ),
+            )
             addView(
                 LinearLayout(context).apply {
                     orientation = LinearLayout.HORIZONTAL
@@ -1158,16 +1146,18 @@ class DashboardViewFactory(
             return
         }
         val header =
-            tile(null).apply {
+            LinearLayout(context).apply {
                 tag = "settings-category-$key"
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = 64.dp
+                minimumHeight = 52.dp
+                setPadding(0, 8.dp, 0, 8.dp)
                 isClickable = true
                 isFocusable = true
                 foreground = menuRipple()
                 addView(
-                    sugarliciousIconView(context, icon, title, tintArgb = accent),
+                    settingsCategoryIcon(context, key, title)
+                        ?: sugarliciousIconView(context, icon, title, tintArgb = accent),
                     LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 10.dp },
                 )
                 addView(value(title, text, 18f, 2), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -1176,7 +1166,24 @@ class DashboardViewFactory(
                     onSettingsPageChanged()
                 }
             }
-        parent.addView(header, cardParams(top = 20))
+        val groupKey =
+            when (key) {
+                "general", "glucose_ranges" -> "general_glucose"
+                "overview_graphs", "appearance" -> "overview_appearance"
+                "data", "diagnostics" -> "data_diagnostics"
+                else -> key
+            }
+        val group =
+            parent.findViewWithTag<LinearLayout>("settings-group-$groupKey")
+                ?: tile(null).also {
+                    it.tag = "settings-group-$groupKey"
+                    it.setPadding(18.dp, 0, 18.dp, 0)
+                    parent.addView(it, cardParams(top = 20))
+                }
+        if (group.isNotEmpty()) {
+            group.addView(divider(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply { marginStart = 37.dp })
+        }
+        group.addView(header, fullWidth())
     }
 
     private data class SourceChoice(
@@ -1347,7 +1354,8 @@ class DashboardViewFactory(
                 textSize = 12f
                 gravity = Gravity.END
                 setTextColor(accent)
-                typeface = Typeface.create(typeface, Typeface.BOLD)
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
             }
         val titleRow =
             LinearLayout(context).apply {
@@ -1358,7 +1366,8 @@ class DashboardViewFactory(
                         orientation = LinearLayout.VERTICAL
                         addView(
                             this@DashboardViewFactory.value(title, text, 18f, 3).apply {
-                                typeface = Typeface.create(typeface, Typeface.NORMAL)
+                                app.aapswear.uishared.SystemTypography
+                                    .apply(this, false)
                             },
                         )
                         if (!description.isNullOrBlank()) {
@@ -1404,13 +1413,6 @@ class DashboardViewFactory(
                 max = steps
                 progress = valueToProgress(value)
                 palette(accent, MobileSettingsStyle.card(SugarliciousColors.palette.isLight))
-                setOnTouchListener { view, event ->
-                    view.parent?.requestDisallowInterceptTouchEvent(
-                        event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
-                            event.actionMasked == android.view.MotionEvent.ACTION_MOVE,
-                    )
-                    false
-                }
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         private var currentValue = value.coerceIn(minimum, maximum)
@@ -1473,8 +1475,15 @@ class DashboardViewFactory(
         setOnClickListener { click() }
     }
 
+    private fun composeSettingsControl(content: @androidx.compose.runtime.Composable () -> Unit) =
+        androidx.compose.ui.platform.ComposeView(context).apply {
+            setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            setContent { OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight, content = content) }
+        }
+
     private fun tile(title: String?): LinearLayout =
         LinearLayout(context).apply {
+            tag = "oneui_settings_card"
             orientation = LinearLayout.VERTICAL
             setPadding(18.dp, 8.dp, 18.dp, 8.dp)
             background =
@@ -1510,12 +1519,10 @@ class DashboardViewFactory(
             setStroke(1.dp, strokeColor)
         }
 
-    private fun screenTitle() =
-        LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
+    private fun screenTitle(title: String = "Einstellungen") =
+        value(title, accent, 34f, 2).apply {
             gravity = Gravity.CENTER
             minimumHeight = minOf(250, (context.resources.configuration.screenHeightDp * .28f).toInt()).dp
-            addView(value("Einstellungen", accent, 34f, 2).apply { gravity = Gravity.CENTER })
         }
 
     private fun sectionLabel(label: String) =

@@ -68,6 +68,11 @@ jobs:
         shell: pwsh
         run: ./tools/watchface-push/Prepare-WatchFacePushAssets.ps1
 
+      - name: Check Orbit geometry and editor assets
+        run: |
+          python3 -m pip install Pillow==11.3.0
+          python3 -m unittest discover -s tools/tests -p test_orbit_face.py
+
       - name: Enforce Kotlin static analysis and formatting
         run: ./gradlew detekt ktlintCheck
 
@@ -76,7 +81,9 @@ jobs:
           ./gradlew verifyArchitecture test assembleDebug
           :watchfaces:test-wff:assembleRelease
           :watchfaces:sugarlicious-digital:assembleRelease
+          :watchfaces:sugarlicious-analog:assembleRelease
           :watchfaces:sugarlicious-direct-to-watch:assembleRelease
+          :watchfaces:sugarlicious-orbit:assembleRelease
 
       - name: Upload G7 Collector visual QA previews
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

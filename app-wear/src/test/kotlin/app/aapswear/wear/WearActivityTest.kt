@@ -30,6 +30,21 @@ import app.aapswear.complications.R as ComplicationR
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    fun `therapy overview keeps separate cards with IOB and COB side by side`() {
+        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        listOf(
+            R.id.wear_iob_progress to R.id.wear_iob_card,
+            R.id.wear_cob_progress to R.id.wear_cob_card,
+            R.id.wear_basal_progress to R.id.wear_basal_card,
+        ).forEach { (ringId, cardId) ->
+            val ring = activity.findViewById<WearTherapyProgressView>(ringId)
+            assertNotNull(ring)
+            assertEquals(activity.findViewById<View>(cardId), (ring.parent as View).parent)
+        }
+        assertEquals(LinearLayout.HORIZONTAL, activity.findViewById<LinearLayout>(R.id.wear_therapy_row).orientation)
+    }
+
+    @Test
     fun `brand is shown once at the end of the wearable menu`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
         val footerIcon = activity.findViewById<ImageView>(R.id.wear_footer_icon)
@@ -150,7 +165,7 @@ class WearActivityTest {
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_iob).currentTextColor)
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_cob).currentTextColor)
         assertEquals(colors.textPrimary, activity.findViewById<TextView>(R.id.wear_basal).currentTextColor)
-        assertEquals(Gravity.CENTER, activity.findViewById<LinearLayout>(R.id.wear_basal_card).gravity)
+        assertEquals(Gravity.START or Gravity.CENTER_VERTICAL, activity.findViewById<LinearLayout>(R.id.wear_basal_card).gravity)
     }
 
     @Test

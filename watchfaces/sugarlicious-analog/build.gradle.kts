@@ -5,10 +5,10 @@ android {
     compileSdk = 37
     defaultConfig {
         applicationId = "app.aapswear.watchfacepush.analog"
-        minSdk = 33
+        minSdk = 34
         targetSdk = 35
-        versionCode = 12
-        versionName = "0.6.4"
+        versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
+        versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }
     buildTypes {
         release {

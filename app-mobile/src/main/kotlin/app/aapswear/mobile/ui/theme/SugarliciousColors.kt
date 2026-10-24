@@ -16,6 +16,7 @@ enum class SugarliciousColorGroup(
     val label: String,
 ) {
     APP("App-Oberfläche"),
+    SETTINGS_ICONS("Einstellungen · Icon-Hintergründe"),
     GLUCOSE("Glukose & Zielbereich"),
     THERAPY("Therapie-Akzente"),
     GRAPH("Graphen & Prognosen"),
@@ -30,6 +31,14 @@ enum class SugarliciousColorRole(
     val configurable: Boolean = false,
 ) {
     BRAND_GREEN("brand_green", "Marken-Grün", SugarliciousColorGroup.APP, 0xFF5FC479.toInt()),
+    SETTINGS_GENERAL("settings_general", "Allgemein · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF86C852.toInt(), configurable = true),
+    SETTINGS_GLUCOSE("settings_glucose", "Glukose und Zielbereiche · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFFFF7994.toInt(), configurable = true),
+    SETTINGS_GRAPH("settings_graph", "Übersicht und Graphen · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF5B94FF.toInt(), configurable = true),
+    SETTINGS_APPEARANCE("settings_appearance", "Farben & Darstellung · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF8477FF.toInt(), configurable = true),
+    SETTINGS_NOTIFICATION("settings_notification", "Benachrichtigungen und Alarme · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFFAD73FF.toInt(), configurable = true),
+    SETTINGS_DATA("settings_data", "Datenverwaltung · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF43C9C8.toInt(), configurable = true),
+    SETTINGS_DIAGNOSIS("settings_diagnosis", "Diagnose · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFFFFAD55.toInt(), configurable = true),
+    SETTINGS_ABOUT("settings_about", "Über · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF8477FF.toInt(), configurable = true),
     PRIMARY("primary", "Primär / Hauptakzent", SugarliciousColorGroup.APP, 0xFF6DE892.toInt()),
     ON_PRIMARY("on_primary", "Text auf Primärfarbe", SugarliciousColorGroup.APP, 0xFF181818.toInt(), 0xFF102114.toInt()),
     SECONDARY("secondary", "Sekundär / Cyan", SugarliciousColorGroup.APP, 0xFF19D7E8.toInt()),
@@ -154,6 +163,14 @@ enum class SugarliciousColorRole(
         0xFFF3C404.toInt(),
         true,
     ),
+    CGM_DOT_VERY_LOW(
+        "cgm_dot_very_low",
+        AppearanceTerminology.GRAPH_DOT_VERY_LOW,
+        SugarliciousColorGroup.GLUCOSE,
+        0xFFF73D45.toInt(),
+        0xFFFF5C69.toInt(),
+        configurable = true,
+    ),
     CGM_DOT_LOW(
         "cgm_dot_low",
         AppearanceTerminology.GRAPH_DOT_LOW,
@@ -169,6 +186,14 @@ enum class SugarliciousColorRole(
         0xFFFFFFFF.toInt(),
         0xFF000000.toInt(),
         true,
+    ),
+    CGM_DOT_VERY_HIGH(
+        "cgm_dot_very_high",
+        AppearanceTerminology.GRAPH_DOT_VERY_HIGH,
+        SugarliciousColorGroup.GLUCOSE,
+        0xFFFCC93B.toInt(),
+        0xFFD47D00.toInt(),
+        configurable = true,
     ),
     CGM_DOT_HIGH(
         "cgm_dot_high",
@@ -409,6 +434,13 @@ object SugarliciousColorStore {
         }
         if (!hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_HIGH) && hasExplicit(SugarliciousColorRole.GLUCOSE_HIGH)) {
             values[SugarliciousColorRole.GLUCOSE_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_HIGH)
+        }
+        // Preserve existing graph colors until an independent dot color is chosen.
+        if (!hasExplicit(SugarliciousColorRole.CGM_DOT_VERY_LOW)) {
+            values[SugarliciousColorRole.CGM_DOT_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_LOW)
+        }
+        if (!hasExplicit(SugarliciousColorRole.CGM_DOT_VERY_HIGH)) {
+            values[SugarliciousColorRole.CGM_DOT_VERY_HIGH] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_HIGH)
         }
         if (!hasExplicit(SugarliciousColorRole.RANGE_VERY_LOW) && hasExplicit(SugarliciousColorRole.GLUCOSE_VERY_LOW)) {
             values[SugarliciousColorRole.RANGE_VERY_LOW] = values.getValue(SugarliciousColorRole.GLUCOSE_VERY_LOW)

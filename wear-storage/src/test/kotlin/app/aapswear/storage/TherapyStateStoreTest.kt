@@ -23,6 +23,20 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class TherapyStateStoreTest {
     @Test
+    fun `daily tir archive survives new state without extending the live graph history`() =
+        runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val now = System.currentTimeMillis()
+            val yesterday = GlucoseSample(110.0, now - 30 * 60 * 60_000)
+            val state = TherapyDisplayState(receivedAtEpochMs = now, glucoseHistory = listOf(yesterday))
+            TherapyStateStore(context).save(state)
+            val current = state.copy(glucoseHistory = emptyList())
+            TherapyStateStore(context).save(current)
+            assertEquals(current, TherapyStateStore(context).state.first())
+            assertEquals(listOf(yesterday), TherapyStateStore(context).recordHistory(current, now))
+        }
+
+    @Test
     fun `last state survives repository recreation`() =
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()

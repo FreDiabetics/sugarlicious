@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -75,6 +78,12 @@ internal val sugarliciousWatchFaceCards =
             slots = 3,
             features = listOf("SugarWear", "3h Graph", "AOD", "Fixed Layout"),
         ),
+        SugarliciousWatchFaceCard(
+            name = "Orbit",
+            style = "Analog",
+            slots = 7,
+            features = listOf("Arc / Graph", "Themes", "Anzeiger", "AOD"),
+        ),
     )
 
 @Composable
@@ -107,8 +116,8 @@ internal fun SugarliciousWatchScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 2.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(28.dp)) {
             OverviewWatchFaceTile(
@@ -117,78 +126,87 @@ internal fun SugarliciousWatchScreen(
                 activeFaceIndex,
                 onSelectedFace = ::selectFace,
                 onEdit = { editingFaceIndex = activeFaceIndex },
+                compactLayout = true,
             )
         }
-        Text(
-            text = "Ziffernblätter",
-            modifier = Modifier.fillMaxWidth(),
-            color = OneUiWidgetStyle.primary,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Start,
-        )
-        sugarliciousWatchFaceCards.indices.chunked(2).forEach { indices ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                indices.forEach { index ->
-                    val enabled = index != DIRECT_TO_WATCH_FACE_INDEX || directToWatchRelevant
-                    WatchFaceTile(
-                        modifier = Modifier.weight(1f),
-                        face = sugarliciousWatchFaceCards[index],
-                        index = index,
-                        state = state,
-                        activeComplicationIds = facePresets.getOrElse(index) { emptyList() },
-                        selected = activeFaceIndex == index,
-                        enabled = enabled,
-                        onSelected = { selectFace(index) },
-                    )
-                }
-                if (indices.size == 1) Spacer(Modifier.weight(1f))
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            item {
+                Text(
+                    text = "Ziffernblätter",
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    color = OneUiWidgetStyle.primary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Start,
+                )
             }
-        }
-
-        Text(
-            text = "Complications",
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            color = OneUiWidgetStyle.primary,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Start,
-        )
-
-        key(editingFaceIndex) {
-            if (editingFaceIndex == DIRECT_TO_WATCH_FACE_INDEX) {
-                Surface(
-                    color = OneUiWidgetStyle.card,
-                    shape = RoundedCornerShape(28.dp),
+            items(sugarliciousWatchFaceCards.indices.chunked(2)) { indices ->
+                Row(
                     modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
-                        text =
-                            if (directToWatchRelevant) {
-                                "SugarWear nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten Sensor-Datenstrom der Watch."
-                            } else {
-                                "SugarWear wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
-                            },
-                        color = OneUiWidgetStyle.secondary,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(14.dp),
-                    )
+                    indices.forEach { index ->
+                        val enabled = index != DIRECT_TO_WATCH_FACE_INDEX || directToWatchRelevant
+                        WatchFaceTile(
+                            modifier = Modifier.weight(1f),
+                            face = sugarliciousWatchFaceCards[index],
+                            index = index,
+                            state = state,
+                            activeComplicationIds = facePresets.getOrElse(index) { emptyList() },
+                            selected = activeFaceIndex == index,
+                            enabled = enabled,
+                            onSelected = { selectFace(index) },
+                        )
+                    }
+                    if (indices.size == 1) Spacer(Modifier.weight(1f))
                 }
-            } else {
-                CompositionLocalProvider(LocalSugarliciousTrendArrowMaxSize provides 8.dp) {
-                    ComplicationStudio(
-                        state = state,
-                        onPresetChanged = { updated ->
-                            WatchFacePresetStore.save(appContext, editingFaceIndex, updated)
-                            facePresets =
-                                facePresets.toMutableList().also { presets ->
-                                    presets[editingFaceIndex] = updated
-                                }
-                        },
-                    )
+            }
+
+            item {
+                Text(
+                    text = "Complications",
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    color = OneUiWidgetStyle.primary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Start,
+                )
+            }
+
+            item {
+                key(editingFaceIndex) {
+                    if (editingFaceIndex == DIRECT_TO_WATCH_FACE_INDEX) {
+                        Surface(
+                            color = OneUiWidgetStyle.card,
+                            shape = RoundedCornerShape(28.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                text =
+                                    if (directToWatchRelevant) {
+                                        "SugarWear nutzt feste Slots für Glukose/Trend/Delta, den skalierbaren Graphen und Skala/Alter. Es zeigt ausschließlich den direkten Sensor-Datenstrom der Watch."
+                                    } else {
+                                        "SugarWear wird verfügbar, sobald der direkte Collector eingerichtet oder als Datenquelle aktiv ist."
+                                    },
+                                color = OneUiWidgetStyle.secondary,
+                                style = oneUiMenuTypography.bodyMedium,
+                                modifier = Modifier.padding(14.dp),
+                            )
+                        }
+                    } else {
+                        CompositionLocalProvider(LocalSugarliciousTrendArrowMaxSize provides 32.dp) {
+                            ComplicationStudio(
+                                state = state,
+                                onPresetChanged = { updated ->
+                                    WatchFacePresetStore.save(appContext, editingFaceIndex, updated)
+                                    facePresets =
+                                        facePresets.toMutableList().also { presets ->
+                                            presets[editingFaceIndex] = updated
+                                        }
+                                },
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -252,24 +270,24 @@ private fun WatchFaceTile(
                 index = index,
                 state = state,
                 activeComplicationIds = activeComplicationIds,
-                modifier = Modifier.size(116.dp),
+                modifier = Modifier.weight(1f).aspectRatio(1f, matchHeightConstraintsFirst = true),
             )
 
             Text(
                 text = face.name,
                 modifier = Modifier.fillMaxWidth().padding(top = 7.dp),
                 color = if (enabled) OneUiWidgetStyle.primary else OneUiWidgetStyle.secondary,
-                fontSize = 13.sp,
+                style = oneUiMenuTypography.bodyMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
             )
             if (index == DIRECT_TO_WATCH_FACE_INDEX) {
                 Text(
-                    text = if (enabled) "SugarWear Ziffernblatt" else "SugarWear erforderlich",
+                    text = "SugarWear only",
                     color = if (enabled) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = oneUiMenuTypography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
             }

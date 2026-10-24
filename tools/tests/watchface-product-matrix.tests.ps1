@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repoRoot 'tools/watchface-catalog.ps1')
 
-$expectedProducts = @('sugarlicious-digital', 'sugarlicious-direct-to-watch')
+$expectedProducts = @('sugarlicious-digital', 'sugarlicious-analog', 'sugarlicious-direct-to-watch', 'sugarlicious-orbit')
 $actualProducts = @($ACTIVE_WATCHFACES.Module)
 if (Compare-Object $expectedProducts $actualProducts) {
     throw "Active product watchfaces differ: $($actualProducts -join ', ')"
@@ -50,4 +50,4 @@ if ($controller -match 'legacyFaceSpecs|watchfacepush\.aaps|watchfacepush\.aimic
     throw 'Retired watchface deployment metadata remains in the Wear runtime.'
 }
 
-Write-Host 'PASS: product watchface matrix contains only Digital, Vigil, and the validator fixture.'
+Write-Host 'PASS: product watchface matrix contains Digital, ApeX, Vigil, Orbit, and the validator fixture.'

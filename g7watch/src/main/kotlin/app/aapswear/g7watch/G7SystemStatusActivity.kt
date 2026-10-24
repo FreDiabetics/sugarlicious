@@ -6,7 +6,6 @@ import android.app.AlarmManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
@@ -651,7 +650,8 @@ class G7SystemStatusActivity : Activity() {
         gravity = Gravity.CENTER
         minHeight = 40.dp
         setPadding(13.dp, 8.dp, 13.dp, 8.dp)
-        setTypeface(typeface, Typeface.BOLD)
+        app.aapswear.uishared.SystemTypography
+            .apply(this, true)
         val color = if (danger) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
         setTextColor(color)
         background =
@@ -674,7 +674,10 @@ class G7SystemStatusActivity : Activity() {
         setTextColor(color)
         gravity = Gravity.CENTER
         setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun rounded(

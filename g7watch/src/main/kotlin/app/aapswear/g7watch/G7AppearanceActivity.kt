@@ -1,7 +1,6 @@
 package app.aapswear.g7watch
 
 import android.app.Activity
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -53,7 +52,7 @@ class G7AppearanceActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(18.dp, 18.dp, 18.dp, 28.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
                 setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
             }
         content.addView(topBar(palette))
@@ -77,11 +76,12 @@ class G7AppearanceActivity : Activity() {
                     palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
                     palette.argb(G7AppearanceRole.MENU_BORDER),
                     TrendArrowStyle.defaults(selectedMode, palette.argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
-                    onChange = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(fillColor = it)) },
+                    onChange = { store.saveTrendArrowStyle(selectedMode, store.trendArrowStyle(selectedMode).copy(fillColor = it)) },
                     onReset = {
                         store.resetTrendArrowStyle(selectedMode)
                         render()
                     },
+                    onDismiss = { render() },
                 )
             },
             params(top = 5),
@@ -104,7 +104,7 @@ class G7AppearanceActivity : Activity() {
                         palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
                         palette.argb(G7AppearanceRole.MENU_BORDER),
                         TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor,
-                        onChange = { store.saveTrendArrowStyle(selectedMode, trendStyle.copy(outlineColor = it)) },
+                        onChange = { store.saveTrendArrowStyle(selectedMode, store.trendArrowStyle(selectedMode).copy(outlineColor = it)) },
                         onReset = {
                             store.saveTrendArrowStyle(
                                 selectedMode,
@@ -112,6 +112,7 @@ class G7AppearanceActivity : Activity() {
                             )
                             render()
                         },
+                        onDismiss = { render() },
                     )
                 },
                 params(top = 5),
@@ -164,6 +165,7 @@ class G7AppearanceActivity : Activity() {
                         store.resetTileTrendArrowStyle(selectedMode)
                         render()
                     },
+                    onDismiss = { render() },
                 )
             },
             params(top = 5),
@@ -194,6 +196,7 @@ class G7AppearanceActivity : Activity() {
                             )
                             render()
                         },
+                        onDismiss = { render() },
                     )
                 },
                 params(top = 5),
@@ -230,6 +233,7 @@ class G7AppearanceActivity : Activity() {
                                 store.saveTileGlucoseColor(selectedMode, role, store.load(selectedMode).argb(role))
                                 render()
                             },
+                            onDismiss = { render() },
                         )
                     },
                     params(top = 5),
@@ -451,24 +455,11 @@ class G7AppearanceActivity : Activity() {
                     addView(
                         label(role.label, 12f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.START },
                     )
-                    addView(
-                        label(toHex(palette.argb(role)), 9f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
-                            gravity =
-                                Gravity.START
-                        },
-                    )
                     setOnClickListener { openColorEditor(role) }
                 },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
             )
 
-            addView(
-                pill("RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
-                    store.reset(selectedMode, role)
-                    render()
-                },
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, 34.dp),
-            )
             setOnClickListener { openColorEditor(role) }
         }
 
@@ -498,7 +489,9 @@ class G7AppearanceActivity : Activity() {
         }
         addView(valueLabel)
         addView(
-            SeekBar(this@G7AppearanceActivity).apply {
+            app.aapswear.uishared.ScrollSafeSeekBar(this@G7AppearanceActivity).apply {
+                app.aapswear.uishared.WearSettingsUi
+                    .slider(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 progressTintList =
@@ -510,13 +503,6 @@ class G7AppearanceActivity : Activity() {
                 thumbTintList =
                     android.content.res.ColorStateList
                         .valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
-                setOnTouchListener { view, event ->
-                    view.parent?.requestDisallowInterceptTouchEvent(
-                        event.actionMasked == android.view.MotionEvent.ACTION_DOWN ||
-                            event.actionMasked == android.view.MotionEvent.ACTION_MOVE,
-                    )
-                    false
-                }
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         override fun onProgressChanged(
@@ -554,6 +540,8 @@ class G7AppearanceActivity : Activity() {
         )
         addView(
             android.widget.Switch(this@G7AppearanceActivity).apply {
+                app.aapswear.uishared.WearSettingsUi
+                    .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
                 setOnCheckedChangeListener { _, value -> save(value) }
             },
@@ -600,6 +588,7 @@ class G7AppearanceActivity : Activity() {
                 store.reset(selectedMode, role)
                 render()
             },
+            onDismiss = { render() },
         )
     }
 
@@ -619,6 +608,7 @@ class G7AppearanceActivity : Activity() {
                 store.saveTileGraphColor(role, palette.argb(role), selectedMode)
                 render()
             },
+            onDismiss = { render() },
         )
     }
 
@@ -631,7 +621,8 @@ class G7AppearanceActivity : Activity() {
         text = textValue
         textSize = 10f
         gravity = Gravity.CENTER
-        setTypeface(typeface, Typeface.BOLD)
+        app.aapswear.uishared.SystemTypography
+            .apply(this, true)
         setTextColor(textColor)
         setPadding(13.dp, 7.dp, 13.dp, 7.dp)
         background = rounded(fill, textColor, 999f)
@@ -641,7 +632,7 @@ class G7AppearanceActivity : Activity() {
     private fun themeSelector(palette: G7AppearancePalette) =
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            listOf(AppearanceMode.LIGHT to "LIGHT", AppearanceMode.DARK to "DARK").forEach { (mode, title) ->
+            listOf(AppearanceMode.LIGHT to "Hell", AppearanceMode.DARK to "Dunkel").forEach { (mode, title) ->
                 addView(
                     pill(
                         title,
@@ -676,9 +667,14 @@ class G7AppearanceActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
-        textSize = size
+        textSize =
+            app.aapswear.uishared.WearSettingsUi
+                .textSize(size)
         setTextColor(color)
-        if (bold) setTypeface(typeface, Typeface.BOLD)
+        if (bold) {
+            app.aapswear.uishared.SystemTypography
+                .apply(this, true)
+        }
     }
 
     private fun params(top: Int = 0) =
@@ -693,8 +689,8 @@ class G7AppearanceActivity : Activity() {
     ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        setStroke(1.dp, stroke)
-        cornerRadius = radiusDp * resources.displayMetrics.density
+        setStroke(0, stroke)
+        cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
     }
 
     private fun toHex(argb: Int): String = ArgbColor.format(argb)

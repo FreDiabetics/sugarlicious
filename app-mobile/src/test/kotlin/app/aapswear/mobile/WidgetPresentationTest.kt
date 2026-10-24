@@ -36,6 +36,51 @@ import kotlin.math.roundToInt
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
     @Test
+    fun `widget supplements share the stronger configurable numeric emphasis`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = 1_792_411_200_000L
+
+        fun grayInk(bold: Boolean): Int {
+            val frame =
+                renderAdaptiveGlucoseWidget(
+                    state = widgetPreviewState(now),
+                    palette = WidgetColorStore.load(context, app.aapswear.model.AppearanceMode.DARK),
+                    width = 308,
+                    height = 350,
+                    now = now,
+                    pixelDensity = 2f,
+                    configuration = WidgetInstanceConfiguration(detailDeltaBold = bold, detailAgeBold = bold, tirBold = bold),
+                    trendStyle =
+                        app.aapswear.model.TrendArrowStyle
+                            .defaults(app.aapswear.model.AppearanceMode.DARK, Color.WHITE),
+                )
+            return (0 until frame.height).sumOf { y -> (0 until frame.width).count { x -> frame.getPixel(x, y) == 0xFFB3B3B3.toInt() } }
+        }
+        val normal = grayInk(false)
+        assertTrue(normal > 0)
+        assertTrue(grayInk(true) > normal)
+    }
+
+    @Test
+    fun `detail text supports real bold and explicitly disabled emphasis`() {
+        val number = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 40f }
+        val suffix = Paint(number)
+        applyWidgetDetailWeight(number, true)
+        applyWidgetDetailWeight(suffix, false)
+        assertEquals(700, number.typeface.weight)
+        assertEquals(400, suffix.typeface.weight)
+        assertTrue(number.measureText("538") > suffix.measureText("538"))
+    }
+
+    @Test
+    fun `detail rows separate numeric emphasis from descriptive text`() {
+        assertEquals(WidgetDetailText("", "−5", " mg/dL"), widgetDetailText(0, "−5 mg/dL"))
+        assertEquals(WidgetDetailText("vor ", "5", " Min."), widgetDetailText(1, "5m"))
+        assertEquals(WidgetDetailText("", "89%", " im Ziel"), widgetDetailText(2, "89%"))
+        assertEquals(WidgetDetailText("", "--", ""), widgetDetailText(1, "--"))
+    }
+
+    @Test
     fun `compact value and supplement use a centered group with equal outer margins`() {
         val columns = compactGlucoseColumns(308f, 160f, 40f, 2f)
         assertTrue(columns.valueLeft > 28f)
@@ -83,7 +128,10 @@ class WidgetPresentationTest {
                 putFloat("hsResizeRatio", 1f)
             }
         assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
-        assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.TherapyFamily2x1Receiver", options))
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.TherapyFamily2x1Receiver", options))
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.GraphFamily2x1Receiver", options))
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.GlucoseFamily2x1Receiver", options))
+        assertTrue(widgetUsesNativeHostBounds("app.aapswear.mobile.AdditionalWidgetReceiver", options))
         options.putFloat("hsResizeRatio", .8333333f)
         assertFalse(widgetUsesNativeHostBounds("app.aapswear.mobile.MetabolicWidgetReceiver", options))
     }
@@ -284,17 +332,20 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `therapy widget uses two slots at 2x1 and a centered one plus two at 2x2`() {
+    fun `therapy widget uses two slots at 2x1 and IOB COB above centered Basal at 2x2`() {
         val compact = resolveWidgetTherapyLayout(202f, 101f, TherapyProgressAppearance())
         val detail = resolveWidgetTherapyLayout(202f, 228f, TherapyProgressAppearance())
 
         assertEquals(listOf(TherapyProgressMetric.IOB, TherapyProgressMetric.COB), compact.map { it.metric })
         assertEquals(1, compact.map { it.slot.centerYDp }.distinct().size)
         assertEquals(TherapyProgressMetric.entries, detail.map { it.metric })
-        assertEquals(101f, detail.first().slot.centerXDp, 0.01f)
-        assertTrue(detail[0].slot.centerYDp < detail[1].slot.centerYDp)
-        assertEquals(detail[1].slot.centerYDp, detail[2].slot.centerYDp, 0.01f)
-        assertTrue(detail[1].slot.centerXDp < detail[2].slot.centerXDp)
+        assertEquals(101f, detail[2].slot.centerXDp, 0.01f)
+        assertEquals(detail[0].slot.centerYDp, detail[1].slot.centerYDp, 0.01f)
+        assertTrue(detail[0].slot.centerYDp < detail[2].slot.centerYDp)
+        assertTrue(detail[0].slot.centerXDp < detail[1].slot.centerXDp)
+        val horizontal = detail[1].slot.centerXDp - detail[0].slot.centerXDp
+        val diagonal = kotlin.math.hypot(detail[2].slot.centerXDp - detail[0].slot.centerXDp, detail[2].slot.centerYDp - detail[0].slot.centerYDp)
+        assertEquals("equidistant indicator centers", horizontal, diagonal, .01f)
     }
 
     @Test
@@ -665,7 +716,7 @@ class WidgetPresentationTest {
     }
 
     @Test
-    fun `combined widget graph applies equal visual margins without moving standalone graph`() {
+    fun `combined and standalone graph bands share full width surface edges`() {
         val layout = responsiveWidgetLayout(220f, 130f)
         val standalone = widgetGraphMetrics(440, 260, 2f, layout, Paint())
         val combined =
@@ -676,13 +727,12 @@ class WidgetPresentationTest {
                 layout,
                 Paint(),
                 graphLeftInsetDp = 12f,
-                graphHorizontalInsetDp = 5f,
             )
 
         assertEquals(0f, standalone.graphBounds.left, 0.01f)
         assertEquals(440f, standalone.graphBounds.right, 0.01f)
-        assertEquals(10f, combined.graphBounds.left, 0.01f)
-        assertEquals(430f, combined.graphBounds.right, 0.01f)
+        assertEquals(0f, combined.graphBounds.left, 0.01f)
+        assertEquals(440f, combined.graphBounds.right, 0.01f)
         assertTrue(combined.plot.left > combined.graphBounds.left)
     }
 

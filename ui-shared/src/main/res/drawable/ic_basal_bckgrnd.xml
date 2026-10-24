@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/therapy_icon_background"><shape android:shape="oval"><solid android:color="#FFFFFFFF" /><size android:width="66dp" android:height="66dp" /></shape></item>
+    <item android:id="@+id/therapy_icon_symbol"><vector android:width="66dp" android:height="66dp" android:viewportWidth="66" android:viewportHeight="66"><path android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="5" android:strokeLineCap="round" android:pathData="M15.74,33L50.26,33" /></vector></item>
+</layer-list>

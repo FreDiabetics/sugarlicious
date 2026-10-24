@@ -23,6 +23,55 @@ import java.io.FileOutputStream
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetGraphVisualQaTest {
+    @Test
+    fun `combined graph colored bands reach both horizontal surface edges`() {
+        val state = stateFromHistory(listOf(120.0, 190.0))
+        val config = WidgetInstanceConfiguration(graphCornerRadiusDp = 0)
+        val bitmap = renderGlucoseGraphWidget(state, palette, 440, 440, now, pixelDensity = 2f, configuration = config)
+        val graphTop = combinedWidgetMetrics(440, 440, 2f, config.glucoseGraphValuePercent).graphFrame.top
+        val y = graphTop + 50
+        assertEquals("left background must not overhang colored band", bitmap.getPixel(30, y), bitmap.getPixel(2, y))
+        assertNotEquals("right scale band must extend through surface edge", palette.argb(WidgetColorRole.GRAPH_BACKGROUND), bitmap.getPixel(437, y))
+    }
+
+    @Test
+    fun `compact glucose graph renders larger white delta and smaller gray unit`() {
+        val source = stateWithTerminalValues(129.0, 124.0)
+        val state = source.copy(glucose = source.glucose!!.copy(deltaMgDl = -5.0))
+        val configuration = WidgetInstanceConfiguration()
+        val bitmap = renderGlucoseGraphWidget(state, palette, 440, 440, now, pixelDensity = 2f, configuration = configuration)
+        val baseline = combinedWidgetTopHeight(440, configuration.glucoseGraphValuePercent) - 12
+        val whiteRows = mutableSetOf<Int>()
+        val grayRows = mutableSetOf<Int>()
+        for (y in baseline - 28 until baseline) {
+            for (x in 24 until 230) {
+                when (bitmap.getPixel(x, y)) {
+                    android.graphics.Color.WHITE -> whiteRows.add(y)
+                    0xFFB3B3B3.toInt() -> grayRows.add(y)
+                }
+            }
+        }
+        assertTrue("Delta must be white", whiteRows.isNotEmpty())
+        assertTrue("Unit must be gray", grayRows.isNotEmpty())
+        assertTrue("Unit must be smaller than delta", whiteRows.size > grayRows.size)
+    }
+
+    @Test
+    fun `axis lanes retain opaque graph surface independently of transparent widget background`() {
+        val bitmap =
+            renderWidgetGraph(
+                state = null,
+                palette = palette,
+                width = 440,
+                height = 280,
+                now = now,
+                configuration = WidgetInstanceConfiguration(backgroundArgb = android.graphics.Color.TRANSPARENT),
+                forceOpaqueGraphSurface = true,
+            )
+        assertEquals(255, android.graphics.Color.alpha(bitmap.getPixel(220, 275)))
+        assertEquals(255, android.graphics.Color.alpha(bitmap.getPixel(425, 100)))
+    }
+
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val palette = WidgetColorStore.load(context)
     private val now = 2_000_000_000L

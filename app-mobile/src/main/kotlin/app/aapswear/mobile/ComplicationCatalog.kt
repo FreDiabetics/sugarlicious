@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,7 +31,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,13 +39,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
-import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import androidx.core.graphics.withSave
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.ComplicationPresentationFormatter
 import app.aapswear.model.GlucoseGraphScale
@@ -69,7 +71,7 @@ internal data class ComplicationCatalogEntry(
     val variants: List<ComplicationVariant>,
 ) {
     val id: Int get() = variants.first().id
-    val types: String get() = variants.joinToString(" · ") { it.type.shortLabel }
+    val types: String get() = variants.joinToString(" · ") { it.label }
 
     fun selectedVariant(selectedIds: List<Int>): ComplicationVariant = variants.firstOrNull { it.id in selectedIds } ?: variants.first()
 }
@@ -77,20 +79,27 @@ internal data class ComplicationCatalogEntry(
 internal data class ComplicationVariant(
     val id: Int,
     val type: ComplicationVariantType,
-)
+) {
+    val label: String get() =
+        when (id) {
+            SugarliciousComplicationIds.GRAPH -> "ApeX"
+            SugarliciousComplicationIds.GRAPH_ORBIT -> "Orbit"
+            else -> type.shortLabel
+        }
+}
 
 internal enum class ComplicationVariantType(
     val shortLabel: String,
     val displayLabel: String,
 ) {
-    SHORT_TEXT("SHORT", "Short Text"),
-    LONG_TEXT("LONG", "Long Text"),
-    RANGED_VALUE("RANGED", "Ranged Value"),
-    MONOCHROMATIC_IMAGE("ICON", "Icon"),
-    GOAL_PROGRESS("GOAL", "Goal Progress"),
-    WEIGHTED_ELEMENTS("WEIGHTED", "Weighted Elements"),
-    SMALL_IMAGE("SMALL", "Small Image"),
-    PHOTO_IMAGE("LARGE", "Large Image"),
+    SHORT_TEXT("Kompakt", "Kompakt"),
+    LONG_TEXT("Details", "Ausführlich"),
+    RANGED_VALUE("Fortschritt", "Fortschritt"),
+    MONOCHROMATIC_IMAGE("Symbol", "Symbol"),
+    GOAL_PROGRESS("Ziel", "Ziel"),
+    WEIGHTED_ELEMENTS("Anteile", "Anteile"),
+    SMALL_IMAGE("Verlauf", "Verlauf"),
+    PHOTO_IMAGE("Groß", "Großer Verlauf"),
 }
 
 private fun variant(
@@ -156,6 +165,7 @@ internal val SugarliciousComplicationCatalog =
             "CGM Graph",
             ComplicationCategory.GLUCOSE,
             variant(SugarliciousComplicationIds.GRAPH, ComplicationVariantType.SMALL_IMAGE),
+            variant(SugarliciousComplicationIds.GRAPH_ORBIT, ComplicationVariantType.SMALL_IMAGE),
             variant(SugarliciousComplicationIds.GRAPH_LARGE, ComplicationVariantType.PHOTO_IMAGE),
         ),
         entry(
@@ -229,6 +239,7 @@ internal val SugarliciousComplicationCatalog =
             "TIR",
             ComplicationCategory.GLUCOSE,
             variant(SugarliciousComplicationIds.TIR, ComplicationVariantType.SHORT_TEXT),
+            variant(SugarliciousComplicationIds.TIR_RANGED, ComplicationVariantType.RANGED_VALUE),
             variant(SugarliciousComplicationIds.TIR_GOAL, ComplicationVariantType.GOAL_PROGRESS),
             variant(SugarliciousComplicationIds.TIR_WEIGHTED, ComplicationVariantType.WEIGHTED_ELEMENTS),
         ),
@@ -266,8 +277,7 @@ internal fun ComplicationStudio(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf(loadComplicationPreset(context)) }
-    var graphHours by remember { mutableIntStateOf(loadComplicationGraphHours(context)) }
-    var previewTrend by remember { mutableStateOf(Trend.FORTY_FIVE_UP) }
+    val graphHours = remember { loadComplicationGraphHours(context) }
     var variantDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
     var settingsDialogEntry by remember { mutableStateOf<ComplicationCatalogEntry?>(null) }
     var syncLabel by remember {
@@ -293,10 +303,7 @@ internal fun ComplicationStudio(
     }
 
     val shape = RoundedCornerShape(28.dp)
-    val previewState =
-        (state ?: previewTherapyState(System.currentTimeMillis())).let { source ->
-            source.copy(glucose = source.glucose?.copy(trend = previewTrend))
-        }
+    val previewState = state ?: previewTherapyState(System.currentTimeMillis())
 
     Column(
         modifier =
@@ -306,42 +313,7 @@ internal fun ComplicationStudio(
                 .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        PresetStrip(selected)
-
-        Text(
-            "PREVIEW-TREND",
-            color = OneUiWidgetStyle.secondary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            listOf(
-                Trend.DOUBLE_UP,
-                Trend.SINGLE_UP,
-                Trend.FORTY_FIVE_UP,
-                Trend.FLAT,
-                Trend.FORTY_FIVE_DOWN,
-                Trend.SINGLE_DOWN,
-                Trend.DOUBLE_DOWN,
-            ).forEach { trend ->
-                Surface(
-                    modifier = Modifier.weight(1f).clickable { previewTrend = trend },
-                    shape = RoundedCornerShape(10.dp),
-                    color = if (previewTrend == trend) OneUiWidgetStyle.accent.copy(alpha = 0.14f) else OneUiWidgetStyle.action,
-                ) {
-                    Box(Modifier.height(34.dp), contentAlignment = Alignment.Center) {
-                        SugarliciousTrendIndicator(
-                            trend = trend,
-                            arrowSize = 17.dp,
-                            color = if (previewTrend == trend) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
-                        )
-                    }
-                }
-            }
-        }
+        PresetStrip(selected, previewState, graphHours)
 
         Button(
             onClick = {
@@ -378,36 +350,7 @@ internal fun ComplicationStudio(
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            listOf(1, 2, 6, 12, 24).forEach { hours ->
-                Surface(
-                    modifier =
-                        Modifier.weight(1f).clickable {
-                            graphHours = hours
-                            saveComplicationGraphHours(context, hours)
-                            scope.launch {
-                                runCatching { syncComplicationPreset(context, selected, hours) }
-                                    .onSuccess { syncLabel = "Graph auf $hours h synchronisiert" }
-                                    .onFailure { syncLabel = "Graph lokal auf $hours h gesetzt" }
-                            }
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (graphHours == hours) OneUiWidgetStyle.accent.copy(alpha = 0.14f) else OneUiWidgetStyle.action,
-                ) {
-                    Text(
-                        "${hours}h",
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        color = if (graphHours == hours) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
-                }
-            }
-        }
+        Text("Watchface-Graph: fest 1,5h · Großer Graph: 24h", color = OneUiWidgetStyle.secondary, fontSize = 12.sp)
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val columns = complicationCatalogColumns(maxWidth.value)
@@ -480,7 +423,7 @@ internal fun ComplicationStudio(
 }
 
 @Composable
-private fun PresetStrip(selected: List<Int>) {
+private fun PresetStrip(selected: List<Int>, state: TherapyDisplayState?, graphHours: Int) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -499,26 +442,11 @@ private fun PresetStrip(selected: List<Int>) {
                     modifier = Modifier.padding(horizontal = 7.dp, vertical = 7.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        entry?.let { catalogNumber(it).toString().padStart(2, '0') } ?: "—",
-                        color =
-                            if (entry != null) {
-                                OneUiWidgetStyle.accent
-                            } else {
-                                OneUiWidgetStyle.secondary
-                            },
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Text(
-                        entry?.let { "${it.name} ${variant?.type?.shortLabel.orEmpty()}" } ?: "frei",
-                        color = OneUiWidgetStyle.secondary,
-                        fontSize = 11.sp,
-                        maxLines = 2,
-                        lineHeight = 14.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    if (entry != null && variant != null) {
+                        CompactComplicationPreview(entry, variant, state, graphHours)
+                    } else {
+                        Box(Modifier.size(72.dp).background(Color(0xFF262626), CircleShape))
+                    }
                 }
             }
         }
@@ -573,7 +501,7 @@ private fun ComplicationCatalogTile(
             Spacer(Modifier.weight(1f))
             CompactComplicationPreview(entry, variant, state, graphHours)
             Spacer(Modifier.weight(1f))
-            Text(variant.type.shortLabel, color = OneUiWidgetStyle.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(variant.label, color = OneUiWidgetStyle.secondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -613,7 +541,6 @@ private fun ComplicationAppearanceDialog(
                     }
                 }
                 if (hasTrend) {
-                    val systemDefault = appearance.trendScalePercent == null
                     Text(
                         "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
                         color = OneUiWidgetStyle.secondary,
@@ -690,17 +617,11 @@ private fun ComplicationAppearanceDialog(
                             ),
                         )
                     }, valueRange = 0f..100f)
-                    Button(
+                    OneUiResetIcon(
                         onClick = { update(ComplicationAppearanceSettings()) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = OneUiWidgetStyle.accent.copy(alpha = 0.14f)),
-                    ) {
-                        Text(
-                            if (systemDefault) "SYSTEMSTANDARD AKTIV" else "SYSTEMSTANDARD VERWENDEN",
-                            color = OneUiWidgetStyle.accent,
-                            fontSize = 14.sp,
-                        )
-                    }
+                        modifier = Modifier.align(Alignment.End),
+                        description = "Complication-Darstellung auf Systemstandard zurücksetzen",
+                    )
                 } else {
                     Text(
                         "Textgröße und Position werden bei Standard-Complications vom aktiven Watchface-Slot bestimmt. Dieses Menü zeigt deshalb nur Einstellungen, die die Runtime tatsächlich anwenden kann.",
@@ -728,8 +649,10 @@ private fun CompactComplicationPreview(
     if (SugarliciousComplicationIds.baseId(variant.id) == SugarliciousComplicationIds.GRAPH) {
         MiniGlucosePreview(
             samples = state?.glucoseHistory.orEmpty(),
-            current = state?.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs) },
-            windowMinutes = if (variant.type == ComplicationVariantType.PHOTO_IMAGE) 360 else 90,
+            current = state?.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, it.source, it.sensorId, it.sessionId, it.sequenceNumber, it.receivedAtEpochMs, it.quality) },
+            windowMinutes = if (variant.type == ComplicationVariantType.PHOTO_IMAGE) 1440 else 90,
+            semicircle = variant.id == SugarliciousComplicationIds.GRAPH_ORBIT,
+            allowExampleData = state == null,
         )
         return
     }
@@ -737,36 +660,29 @@ private fun CompactComplicationPreview(
     val preview = previewFor(variant.id, state)
     val previewTrendStyle = appearance?.trendStyleOverride?.resolve(MobileTrendArrowAppearance.style) ?: MobileTrendArrowAppearance.style
 
+    if (variant.type == ComplicationVariantType.SHORT_TEXT) {
+        ApexCatalogTemplate(preview, ranged = false, previewTrendStyle, appearance, iconOnly = SugarliciousComplicationIds.baseId(variant.id) == SugarliciousComplicationIds.TREND_ONLY, iconRes = catalogPreviewIcon(variant.id))
+        return
+    }
+
     when (variant.type) {
         ComplicationVariantType.RANGED_VALUE,
         ComplicationVariantType.GOAL_PROGRESS,
         -> {
-            Box(
-                modifier =
-                    Modifier
-                        .size(52.dp)
-                        .border(4.dp, SugarliciousColors.Primary, CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    preview.primary,
-                    color = preview.color,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                )
-            }
+            ApexCatalogTemplate(preview, ranged = true, previewTrendStyle, appearance, iconRes = catalogPreviewIcon(variant.id))
             return
         }
 
         ComplicationVariantType.MONOCHROMATIC_IMAGE -> {
-            Text("↻", color = SugarliciousColors.Primary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Box(Modifier.size(64.dp).background(Color(0xFF262626), CircleShape).border(.6.dp, Color.Gray, CircleShape), contentAlignment = Alignment.Center) {
+                SugarliciousIcon(overviewLoopTileState(state).iconRes, entry.name, Modifier.size(32.dp), tint = Color.White, colored = false)
+            }
             return
         }
 
         ComplicationVariantType.WEIGHTED_ELEMENTS -> {
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                listOf(SugarliciousColors.GlucoseLow, SugarliciousColors.GlucoseInRange, SugarliciousColors.GlucoseHigh)
+            Row(Modifier.background(Color(0xFF262626), RoundedCornerShape(18.dp)).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                listOf(Color.White.copy(alpha = .35f), Color.White, Color.White.copy(alpha = .65f))
                     .forEach { color ->
                         Box(Modifier.size(width = 12.dp, height = 28.dp).background(color, RoundedCornerShape(5.dp)))
                     }
@@ -778,6 +694,12 @@ private fun CompactComplicationPreview(
     }
 
     Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 72.dp)
+                .background(Color(0xFF262626), RoundedCornerShape(18.dp))
+                .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -790,7 +712,7 @@ private fun CompactComplicationPreview(
                         y = (appearance?.trendOffsetYPercent ?: 0).dp / 5,
                     ),
                 arrowSize = (25f * GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100)).dp,
-                color = preview.color,
+                color = Color.White,
                 style = previewTrendStyle,
             )
         } else {
@@ -800,11 +722,11 @@ private fun CompactComplicationPreview(
             ) {
                 Text(
                     preview.primary,
-                    color = preview.color,
-                    fontSize = 14.sp,
+                    color = if (preview.secondary.isNotBlank()) Color.LightGray else Color.White,
+                    fontSize = 12.sp,
                     lineHeight = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = if (variant.type == ComplicationVariantType.LONG_TEXT) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
@@ -822,7 +744,7 @@ private fun CompactComplicationPreview(
                                     14f,
                                     GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100),
                                 ).dp,
-                        color = preview.color,
+                        color = Color.White,
                         style = previewTrendStyle,
                     )
                 }
@@ -832,15 +754,94 @@ private fun CompactComplicationPreview(
             Text(
                 preview.secondary,
                 modifier = Modifier.offset(y = (-2).dp),
-                color = SugarliciousColors.TextSecondary,
+                color = Color.White,
                 fontSize = 9.sp,
                 lineHeight = 9.sp,
+                fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
     }
 }
+
+@Composable
+private fun ApexCatalogTemplate(
+    preview: PhonePreview,
+    ranged: Boolean,
+    trendStyle: app.aapswear.model.TrendArrowStyle,
+    appearance: ComplicationAppearanceSettings?,
+    iconOnly: Boolean = false,
+    iconRes: Int? = null,
+) {
+    Box(
+        Modifier.size(72.dp).background(Color(0xFF262626), CircleShape).border(.6.dp, Color.Gray, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (ranged) {
+            Canvas(Modifier.fillMaxSize().padding(8.dp)) {
+                // The template shows the open track, not an invented live progress value.
+                drawArc(
+                    Color.LightGray,
+                    130f,
+                    280f,
+                    false,
+                    style =
+                        androidx.compose.ui.graphics.drawscope
+                            .Stroke(5.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round),
+                )
+            }
+        }
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 9.dp, vertical = if (ranged) 15.dp else 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (!iconOnly) {
+                if (!ranged && iconRes != null) {
+                    SugarliciousIcon(iconRes, null, Modifier.size(12.dp), tint = Color.LightGray, colored = false)
+                }
+                Text(preview.primary, color = if (preview.secondary.isNotBlank()) Color.LightGray else Color.White, fontSize = if (ranged) 17.sp else 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (preview.secondary.isNotBlank()) {
+                    Text(preview.secondary, color = Color.White, fontSize = if (ranged) 11.sp else 16.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            preview.trend?.let {
+                SugarliciousTrendIndicator(
+                    it,
+                    modifier = Modifier.offset(x = (appearance?.trendOffsetXPercent ?: 0).dp / 5, y = (appearance?.trendOffsetYPercent ?: 0).dp / 5 + if (ranged) 9.dp else 0.dp),
+                    arrowSize =
+                        (
+                            (
+                                if (iconOnly) {
+                                    28f
+                                } else if (ranged) {
+                                    GlucoseTrendSizing.arrowHeightForGlucoseHeight(17f, 1f)
+                                } else {
+                                    GlucoseTrendSizing.arrowHeightForGlucoseHeight(14f, 1f)
+                                }
+                            ) * GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100)
+                        ).dp,
+                    color = Color.White,
+                    style = trendStyle,
+                )
+            }
+        }
+        if (ranged && preview.trend == null && iconRes != null) {
+            SugarliciousIcon(iconRes, null, Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp).size(13.dp), tint = Color.LightGray, colored = false)
+        }
+    }
+}
+
+internal fun catalogPreviewIcon(id: Int): Int? =
+    when (SugarliciousComplicationIds.baseId(id)) {
+        SugarliciousComplicationIds.IOB -> app.aapswear.uishared.R.drawable.ic_iob
+        SugarliciousComplicationIds.COB -> app.aapswear.uishared.R.drawable.ic_cob
+        SugarliciousComplicationIds.BASAL -> app.aapswear.uishared.R.drawable.ic_basal
+        SugarliciousComplicationIds.TIR -> app.aapswear.uishared.R.drawable.ic_tir
+        SugarliciousComplicationIds.RESERVOIR -> app.aapswear.uishared.R.drawable.ic_reservoir
+        else -> null
+    }
 
 @Composable
 private fun ComplicationVariantDialog(
@@ -876,7 +877,7 @@ private fun ComplicationVariantDialog(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(Modifier.size(width = 78.dp, height = 58.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(width = 78.dp, height = 78.dp), contentAlignment = Alignment.Center) {
                                 CompactComplicationPreview(entry, variant, state, graphHours)
                             }
                             Spacer(Modifier.width(12.dp))
@@ -884,7 +885,7 @@ private fun ComplicationVariantDialog(
                                 variant.type.displayLabel,
                                 color = OneUiWidgetStyle.primary,
                                 fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
@@ -904,6 +905,8 @@ private fun MiniGlucosePreview(
     samples: List<GlucoseSample>,
     current: GlucoseSample?,
     windowMinutes: Int,
+    semicircle: Boolean,
+    allowExampleData: Boolean,
 ) {
     val context = LocalContext.current
     val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
@@ -913,21 +916,40 @@ private fun MiniGlucosePreview(
     val cutoff = timeWindow.startEpochMs
     val demoHours = maxOf(1, (windowMinutes + 59) / 60)
     val merged =
-        (samples + listOfNotNull(current))
-            .filter { it.measuredAtEpochMs in cutoff..(now + 5 * 60_000L) && it.valueMgDl in 20.0..1000.0 }
-            .distinctBy { it.measuredAtEpochMs }
-            .sortedBy { it.measuredAtEpochMs }
-            .ifEmpty { demoHistory(now, demoHours).filter { it.measuredAtEpochMs >= cutoff } }
-    val graphStyle = readMobileGraphStyle(preferences)
-    val dotRadiusDp =
-        (graphStyle.cgmDotRadiusDp - 0.5f)
-            .coerceIn(1.0f, 5.5f)
+        app.aapswear.model.CanonicalCgmHistory
+            .merge(
+                samples + listOfNotNull(current),
+                now,
+                windowMs = windowMs,
+                futureToleranceMs = 0,
+                maxPoints = 9_000,
+            ).ifEmpty { if (allowExampleData) demoHistory(now, demoHours).filter { it.measuredAtEpochMs >= cutoff } else emptyList() }
+    val thresholds = CgmThresholdPreferences.read(preferences)
+    val dotRadiusDp = 1.6f
     Canvas(
         Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .background(SugarliciousColors.color(SugarliciousColorRole.GRAPH_BACKGROUND)),
+            .background(Color(0xFF262626), RoundedCornerShape(16.dp))
+            .border(.6.dp, Color.White.copy(alpha = .3f), RoundedCornerShape(16.dp)),
     ) {
+        if (windowMinutes == 90) {
+            drawIntoCanvas { native ->
+                val canvas = native.nativeCanvas
+                canvas.withSave {
+                    if (semicircle) {
+                        canvas.clipPath(
+                            android.graphics.Path().apply {
+                                addOval(android.graphics.RectF(0f, 0f, size.width, size.height * 2), android.graphics.Path.Direction.CW)
+                            },
+                        )
+                    }
+                    app.aapswear.uishared.WatchfaceCgmGraphRenderer
+                        .render(canvas, size.width.toInt(), size.height.toInt(), merged, timeWindow, thresholds, semicircle = semicircle)
+                }
+            }
+            return@Canvas
+        }
         val left = 3.dp.toPx()
         val right = size.width - 3.dp.toPx()
         val top = 3.dp.toPx()
@@ -936,30 +958,24 @@ private fun MiniGlucosePreview(
         fun x(timestamp: Long) = timeWindow.plotX(timestamp, left, right - left)
 
         fun y(value: Double) = bottom - (GlucoseGraphScale.ratio(value) * (bottom - top)).toFloat()
-        val low = 80.0
-        val high = 160.0
+        val low = thresholds.lowMgDl
+        val high = thresholds.highMgDl
         drawLine(
-            SugarliciousColors.color(SugarliciousColorRole.GRAPH_DIVIDER),
+            Color.White.copy(alpha = .3f),
             Offset(left, y(high)),
             Offset(right, y(high)),
             0.7.dp.toPx(),
         )
-        drawLine(SugarliciousColors.color(SugarliciousColorRole.GRAPH_DIVIDER), Offset(left, y(low)), Offset(right, y(low)), 0.7.dp.toPx())
+        drawLine(Color.White.copy(alpha = .3f), Offset(left, y(low)), Offset(right, y(low)), 0.7.dp.toPx())
         merged.forEachIndexed { index, sample ->
             val radius = dotRadiusDp.dp.toPx() * if (index == merged.lastIndex) 1.25f else 1f
             val center = Offset(x(sample.measuredAtEpochMs), y(sample.valueMgDl))
             val currentPoint = index == merged.lastIndex
-            if (currentPoint || graphStyle.cgmHistoricalDotOutlineEnabled) {
-                val outlineWidthDp = if (currentPoint) graphStyle.cgmCurrentDotOutlineWidthDp else graphStyle.cgmHistoricalDotOutlineWidthDp
-                drawCircle(SugarliciousColors.color(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE), radius + outlineWidthDp.dp.toPx(), center)
+            if (currentPoint) {
+                val outlineWidthDp = 0.8f
+                drawCircle(Color.Black, radius + outlineWidthDp.dp.toPx(), center)
             }
-            val dotColor =
-                when {
-                    sample.valueMgDl < low -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_LOW)
-                    sample.valueMgDl > high -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_HIGH)
-                    else -> SugarliciousColors.color(SugarliciousColorRole.CGM_DOT_IN_RANGE)
-                }
-            drawCircle(dotColor, radius, center)
+            drawCircle(Color.White, radius, center)
         }
     }
 }
@@ -1071,20 +1087,11 @@ internal fun loadComplicationPreset(context: Context): List<Int> =
         ?.take(4)
         .orEmpty()
 
-private fun loadComplicationGraphHours(context: Context): Int =
+internal fun loadComplicationGraphHours(context: Context): Int =
     context
         .getSharedPreferences(PRESET_PREFS, Context.MODE_PRIVATE)
         .getInt(COMPLICATION_GRAPH_HOURS_KEY, 3)
-        .takeIf { it in listOf(1, 2, 6, 12, 24) } ?: 3
-
-private fun saveComplicationGraphHours(
-    context: Context,
-    hours: Int,
-) {
-    context.getSharedPreferences(PRESET_PREFS, Context.MODE_PRIVATE).edit {
-        putInt(COMPLICATION_GRAPH_HOURS_KEY, hours.takeIf { it in listOf(1, 2, 6, 12, 24) } ?: 3)
-    }
-}
+        .takeIf { it in listOf(1, 2, 3, 6, 12, 24) } ?: 3
 
 private fun togglePresetEntry(
     context: Context,

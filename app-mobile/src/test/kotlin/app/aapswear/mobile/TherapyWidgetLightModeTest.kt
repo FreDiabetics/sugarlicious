@@ -19,9 +19,4 @@ class TherapyWidgetLightModeTest {
     fun `therapy text keeps configured palette color in dark mode`() {
         assertEquals(0xFF252525.toInt(), therapyWidgetTextArgb(AppearanceMode.DARK, palette))
     }
-
-    @Test
-    fun `secondary therapy text stays fully opaque in light mode`() {
-        assertEquals(255, therapyWidgetSecondaryTextAlpha(AppearanceMode.LIGHT, 0xFF000000.toInt()))
-    }
 }

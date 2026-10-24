@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -38,6 +39,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -59,11 +61,7 @@ import java.util.Calendar
 import java.util.TimeZone
 import kotlin.math.abs
 
-internal val sugarliciousWatchFaceNames =
-    listOf(
-        "ApeX",
-        "Vigil",
-    )
+internal val sugarliciousWatchFaceNames = sugarliciousWatchFaceCards.map { it.name }
 
 private const val carouselPages = 400
 
@@ -371,15 +369,17 @@ internal fun FaceDial(
     modifier: Modifier = Modifier,
     activeComplicationIds: List<Int> = emptyList(),
 ) {
+    val faceModifier = modifier.clip(CircleShape)
     when (index) {
-        0 -> SugarliciousAnalogFacePreview(state = state, modifier = modifier)
-        DIRECT_TO_WATCH_FACE_INDEX -> DirectToWatchFacePreview(state = state, modifier = modifier)
+        0 -> SugarliciousAnalogFacePreview(state = state, modifier = faceModifier)
+        DIRECT_TO_WATCH_FACE_INDEX -> DirectToWatchFacePreview(state = state, modifier = faceModifier)
+        2 -> OrbitFacePreview(modifier = faceModifier)
         else ->
             SugarliciousFacePreview(
                 index = index,
                 state = state,
                 complicationIds = activeComplicationIds,
-                modifier = modifier,
+                modifier = faceModifier,
             )
     }
 }
@@ -428,7 +428,7 @@ internal fun WatchConnectionPill(diagnostics: DiagnosticsSnapshot, compact: Bool
                 text = statusText,
                 color = statusColor,
                 fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
             )
         }
     }

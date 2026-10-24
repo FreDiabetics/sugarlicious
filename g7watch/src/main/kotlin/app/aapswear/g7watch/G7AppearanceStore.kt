@@ -159,7 +159,7 @@ class G7AppearanceStore(
         TrendArrowStylePreferences.read(
             preferences,
             mode,
-            load(mode).argb(G7AppearanceRole.GLUCOSE_TREND),
+            0xFFFFFFFF.toInt(),
             legacyScaleKey = KEY_TREND_SCALE,
             legacyFillKey = colorKey(mode, G7AppearanceRole.GLUCOSE_TREND),
         )
@@ -213,7 +213,7 @@ class G7AppearanceStore(
         TrendArrowStylePreferences.read(
             tileGlucosePreferences,
             mode,
-            tileGlucosePalette(mode).argb(G7AppearanceRole.GLUCOSE_TREND),
+            0xFFFFFFFF.toInt(),
         )
 
     fun saveTileTrendArrowStyle(

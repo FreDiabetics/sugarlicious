@@ -39,7 +39,7 @@ internal data class WearDisplayPreferences(
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
     val trendScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
-    val trendArrowStyle: TrendArrowStyle = TrendArrowStyle.defaults(AppearanceMode.DARK, WatchUiColors().glucoseInRange),
+    val trendArrowStyle: TrendArrowStyle = TrendArrowStyle.defaults(AppearanceMode.DARK, 0xFFFFFFFF.toInt()),
 ) {
     companion object {
         const val PREFS = "watch_display"
@@ -135,7 +135,7 @@ internal data class WearDisplayPreferences(
                 TrendArrowStylePreferences.read(
                     preferences,
                     mode,
-                    uiDefaults.glucoseInRange,
+                    0xFFFFFFFF.toInt(),
                     legacyScaleKey = KEY_TREND_SCALE,
                 )
             return WearDisplayPreferences(

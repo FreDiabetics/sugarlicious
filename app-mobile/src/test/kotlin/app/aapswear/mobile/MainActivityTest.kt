@@ -28,6 +28,71 @@ import org.robolectric.shadows.ShadowAlarmManager
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
+    @Test fun `background refresh does not collapse settings scroll padding and jump to top`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "general")
+        val root = activity.findViewById<View>(R.id.root)
+        val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
+        val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
+
+        fun layout() {
+            root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 1080, 2400)
+        }
+        layout()
+        val update = MainActivity::class.java.getDeclaredMethod("updateSettingsScrollHeader", Int::class.javaPrimitiveType).apply { isAccessible = true }
+        update.invoke(activity, 0)
+        layout()
+        val padding = content.paddingBottom
+        assertTrue(padding > 24 * activity.resources.displayMetrics.density)
+        scroll.scrollTo(0, 250)
+        val position = scroll.scrollY
+        assertTrue(position > 0)
+        MainActivity::class.java
+            .getDeclaredMethod("refresh", Boolean::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+            .invoke(activity, false)
+        assertEquals("Data/status refresh must not remove the scroll runway", padding, content.paddingBottom)
+        layout()
+        assertEquals(position, scroll.scrollY)
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `settings scrolling transforms the title without requesting another layout`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        val root = activity.findViewById<View>(R.id.root)
+
+        fun layout() {
+            root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 1080, 2400)
+        }
+
+        layout()
+        val update = MainActivity::class.java.getDeclaredMethod("updateSettingsScrollHeader", Int::class.javaPrimitiveType).apply { isAccessible = true }
+        update.invoke(activity, 0)
+        layout()
+        val heading = activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<TextView>("settings_scroll_title")
+        val height = heading.height
+        update.invoke(activity, (40 * activity.resources.displayMetrics.density).toInt())
+        assertFalse("The first drag must not remeasure the scrolling title", heading.isLayoutRequested)
+        assertEquals(height, heading.height)
+        assertTrue(heading.scaleX < 1f)
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `settings category rows match Samsung compact height`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        val row = activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("settings-category-general")
+        assertEquals((52 * activity.resources.displayMetrics.density).toInt(), row.minimumHeight)
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `settings container preserves device styling independently from therapy palette overrides`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
@@ -44,7 +109,7 @@ class MainActivityTest {
         val activity = controller.get()
         activity.findViewById<View>(R.id.top_settings).performClick()
         val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
-        val heading = (root.getChildAt(0) as ViewGroup).getChildAt(0) as TextView
+        val heading = root.findViewWithTag<TextView>("settings_scroll_title")
         val accent =
             app.aapswear.mobile.ui.theme
                 .mobileMenuAccentArgb(activity, dark = true)
@@ -71,9 +136,9 @@ class MainActivityTest {
         val iob = Color.rgb(10, 20, 30)
         val cob = Color.rgb(40, 50, 60)
         val basal = Color.rgb(70, 80, 90)
-        SugarliciousColorStore.save(preferences, SugarliciousColorRole.BLUE, iob)
-        SugarliciousColorStore.save(preferences, SugarliciousColorRole.ORANGE, cob)
-        SugarliciousColorStore.save(preferences, SugarliciousColorRole.SECONDARY, basal)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.THERAPY_IOB_PROGRESS, iob)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.THERAPY_COB_PROGRESS, cob)
+        SugarliciousColorStore.save(preferences, SugarliciousColorRole.THERAPY_BASAL_PROGRESS, basal)
 
         val colors = readWatchConfig(context).uiColors
 
@@ -464,8 +529,11 @@ class MainActivityTest {
 
         fun categories(): List<String> {
             val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
-            return (0 until root.childCount)
-                .map(root::getChildAt)
+
+            fun descendants(view: View): List<View> =
+                listOf(view) +
+                    if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
+            return descendants(root)
                 .mapNotNull {
                     it.tag
                         ?.toString()
@@ -473,15 +541,36 @@ class MainActivityTest {
                         ?.removePrefix("settings-category-")
                 }
         }
-        val expected = listOf("general", "glucose_ranges", "overview_graphs", "notifications", "data", "diagnostics", "about")
+        val expected = listOf("general", "glucose_ranges", "overview_graphs", "appearance", "notifications", "data", "diagnostics", "about")
         assertEquals(expected, categories())
+        val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
+        listOf("general" to "glucose_ranges", "overview_graphs" to "appearance", "data" to "diagnostics").forEach { (first, second) ->
+            val firstRow = root.findViewWithTag<View>("settings-category-$first")
+            val secondRow = root.findViewWithTag<View>("settings-category-$second")
+            assertSame(firstRow.parent, secondRow.parent)
+            assertEquals(3, (firstRow.parent as ViewGroup).childCount)
+        }
         openSettingsCategory(activity, "general")
         assertTrue(categories().isEmpty())
-        assertEquals("Allgemein", activity.findViewById<TextView>(R.id.app_title).text.toString())
+        assertEquals(
+            "Allgemein",
+            activity
+                .findViewById<ViewGroup>(R.id.dashboard_content)
+                .findViewWithTag<TextView>("settings_scroll_title")
+                .text
+                .toString(),
+        )
         assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "AndroidAPS"))
         controller.recreate()
         activity = controller.get()
-        assertEquals("Allgemein", activity.findViewById<TextView>(R.id.app_title).text.toString())
+        assertEquals(
+            "Allgemein",
+            activity
+                .findViewById<ViewGroup>(R.id.dashboard_content)
+                .findViewWithTag<TextView>("settings_scroll_title")
+                .text
+                .toString(),
+        )
         activity.onBackPressedDispatcher.onBackPressed()
         assertEquals(expected, categories())
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
@@ -492,7 +581,7 @@ class MainActivityTest {
         controller.pause().stop().destroy()
     }
 
-    @Test fun `overview remains scrollable and watch menu has only its inline header`() {
+    @Test fun `watch menu keeps its header outside the scrolling sections`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
         val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
@@ -507,9 +596,10 @@ class MainActivityTest {
         }
         shadowOf(android.os.Looper.getMainLooper()).idle()
 
-        assertTrue(scroll.isUserScrollEnabled)
-        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_app_bar).visibility)
-        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.watch_fixed_header).visibility)
+        assertFalse(scroll.isUserScrollEnabled)
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.watch_fixed_header).visibility)
+        assertEquals("Watch", activity.findViewById<TextView>(R.id.app_title).text.toString())
         controller.pause().stop().destroy()
     }
 

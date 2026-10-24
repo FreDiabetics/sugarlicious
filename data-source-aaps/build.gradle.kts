@@ -10,7 +10,7 @@ android {
 }
 dependencies {
     api(project(":data-source-api"))
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     testImplementation(kotlin("test-junit5"))
     testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
     testImplementation("org.robolectric:robolectric:4.17")
