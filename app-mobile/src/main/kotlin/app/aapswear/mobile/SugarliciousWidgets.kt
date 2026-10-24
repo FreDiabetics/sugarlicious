@@ -838,7 +838,7 @@ internal fun renderAdaptiveGlucoseWidget(
                 val parts = widgetDetailText(index, label)
                 val secondary =
                     Paint(paint).apply {
-                        color = 0xFFB3B3B3.toInt()
+                        color = palette.argb(WidgetColorRole.UNIT)
                         textSize = paint.textSize * (10.5f / 13f)
                         applyWidgetDetailWeight(
                             this,
@@ -851,7 +851,6 @@ internal fun renderAdaptiveGlucoseWidget(
                     }
                 val primary =
                     Paint(paint).apply {
-                        color = AndroidColor.WHITE
                         applyWidgetDetailWeight(
                             this,
                             when (index) {

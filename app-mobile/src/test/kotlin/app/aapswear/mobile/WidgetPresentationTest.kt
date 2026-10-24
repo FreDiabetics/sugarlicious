@@ -36,6 +36,48 @@ import kotlin.math.roundToInt
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetPresentationTest {
     @Test
+    fun `adaptive detail rows preserve palette colors in light and dark layouts`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val now = 1_792_411_200_000L
+        app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+            listOf(308 to 350, 640 to 350).forEach { (width, height) ->
+                val colors = listOf(0xFF990099.toInt(), 0xFF006600.toInt(), 0xFF000099.toInt())
+                val palette =
+                    WidgetColorStore.load(context, mode).with(
+                        mapOf(
+                            WidgetColorRole.BACKGROUND to Color.WHITE,
+                            WidgetColorRole.DELTA to colors[0],
+                            WidgetColorRole.AGE to colors[1],
+                            WidgetColorRole.TIR to colors[2],
+                            WidgetColorRole.UNIT to 0xFF665544.toInt(),
+                        ),
+                    )
+                val frame =
+                    renderAdaptiveGlucoseWidget(
+                        state = widgetPreviewState(now),
+                        palette = palette,
+                        width = width,
+                        height = height,
+                        now = now,
+                        pixelDensity = 2f,
+                        configuration = WidgetInstanceConfiguration(),
+                        trendStyle =
+                            app.aapswear.model.TrendArrowStyle
+                                .defaults(mode, Color.BLACK),
+                    )
+                (colors + 0xFF665544.toInt()).forEach { expected ->
+                    assertTrue(
+                        "Missing detail color $expected in $mode at $width",
+                        (height / 2 until height).any { y ->
+                            (0 until if (width > 400) width / 2 else width).any { x -> frame.getPixel(x, y) == expected }
+                        },
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun `widget supplements share the stronger configurable numeric emphasis`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val now = 1_792_411_200_000L
@@ -44,7 +86,7 @@ class WidgetPresentationTest {
             val frame =
                 renderAdaptiveGlucoseWidget(
                     state = widgetPreviewState(now),
-                    palette = WidgetColorStore.load(context, app.aapswear.model.AppearanceMode.DARK),
+                    palette = WidgetColorStore.load(context, app.aapswear.model.AppearanceMode.DARK).with(WidgetColorRole.UNIT, 0xFFB3B3B3.toInt()),
                     width = 308,
                     height = 350,
                     now = now,
