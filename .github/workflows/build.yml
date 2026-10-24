@@ -80,7 +80,6 @@ jobs:
       - name: Install Android API 37
         run: |
           test -s "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
-          test -s "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
           android --no-metrics sdk install "platforms;android-37" "build-tools;37.0.0" --canary
 
       - name: Validate branch protection helper with PowerShell 7
