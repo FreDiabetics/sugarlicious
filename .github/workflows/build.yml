@@ -14,9 +14,39 @@ jobs:
         with:
           fetch-depth: 0
       - name: Reject committed secrets
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --location --retry 3 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$archive"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git merge-base origin/main "$HEAD_SHA")"
+          fi
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          if [[ "$BASE_SHA" == "$HEAD_SHA" ]]; then
+            log_opts="-1 $HEAD_SHA"
+          else
+            log_opts="$BASE_SHA..$HEAD_SHA"
+          fi
+          "$RUNNER_TEMP/gitleaks" git --redact --exit-code=2 \
+            --log-opts="$log_opts" --report-format=sarif \
+            --report-path="$RUNNER_TEMP/gitleaks.sarif" .
+      - name: Upload redacted secret-scan report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gitleaks-report
+          path: ${{ runner.temp }}/gitleaks.sarif
+          if-no-files-found: error
+          retention-days: 14
 
   dependency-review:
     if: github.event_name == 'pull_request'
@@ -45,9 +75,13 @@ jobs:
         with:
           packages: ''
           cmdline-tools-version: '15859902'
+          accept-android-sdk-licenses: false
 
       - name: Install Android API 37
-        run: android sdk install "platforms;android-37" "build-tools;37.0.0" --canary
+        run: |
+          test -s "$ANDROID_SDK_ROOT/licenses/android-sdk-license"
+          test -s "$ANDROID_SDK_ROOT/licenses/android-sdk-preview-license"
+          android --no-metrics sdk install "platforms;android-37" "build-tools;37.0.0" --canary
 
       - name: Validate branch protection helper with PowerShell 7
         shell: pwsh
@@ -86,7 +120,7 @@ jobs:
           :watchfaces:sugarlicious-orbit:assembleRelease
 
       - name: Upload G7 Collector visual QA previews
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: g7-collector-visual-qa
           path: g7watch/build/reports/g7-visual-qa/*.png
@@ -94,7 +128,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Android widget visual QA previews
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android-widget-visual-qa
           path: app-mobile/build/reports/widget-visual-qa/*.png
