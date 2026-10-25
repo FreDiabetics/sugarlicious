@@ -46,7 +46,18 @@ internal data class NativeSlotTemplate(
     val iconColor: Int = 0xFFFFFFFF.toInt(),
     val trackColor: Int = 0xFF454545.toInt(),
     val fillColor: Int = 0xFFFFFFFF.toInt(),
+    val trackClockwise: Boolean = true,
+    val fillStartAngle: Float? = null,
+    val fillClockwise: Boolean = true,
+    val trackGapDegrees: Float = 0f,
 )
+
+internal fun nativeArcSweep(start: Float, end: Float, clockwise: Boolean): Float {
+    val difference = if (clockwise) end - start else start - end
+    val normalized = ((difference % 360f) + 360f) % 360f
+    val sweep = if (normalized == 0f && difference != 0f) 360f else normalized
+    return if (clockwise) sweep else -sweep
+}
 
 private fun Element.elements(tag: String): List<Element> = getElementsByTagName(tag).let { nodes -> (0 until nodes.length).mapNotNull { nodes.item(it) as? Element } }
 
@@ -127,6 +138,21 @@ private fun templateFor(element: Element, palettes: Map<String, List<Int>>): Nat
         iconColor = artworkColor(image, "tintColor"),
         trackColor = artworkColor(track?.elements("Stroke")?.firstOrNull(), "color"),
         fillColor = artworkColor(fill?.elements("Stroke")?.firstOrNull(), "color"),
+        trackClockwise = track?.getAttribute("direction") != "COUNTER_CLOCKWISE",
+        fillStartAngle = fill?.num("startAngle"),
+        fillClockwise = fill?.getAttribute("direction") != "COUNTER_CLOCKWISE",
+        trackGapDegrees =
+            track
+                ?.elements("Transform")
+                ?.firstOrNull { it.getAttribute("target") == "endAngle" }
+                ?.getAttribute("value")
+                ?.let {
+                    Regex("clamp\\([0-9.]+\\s*\\+\\s*([0-9.]+)\\s*\\+")
+                        .find(it)
+                        ?.groupValues
+                        ?.get(1)
+                        ?.toFloatOrNull()
+                } ?: 0f,
     )
 }
 

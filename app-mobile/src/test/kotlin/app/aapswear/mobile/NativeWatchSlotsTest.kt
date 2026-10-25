@@ -7,6 +7,21 @@ import java.io.File
 
 class NativeWatchSlotsTest {
     @Test
+    fun `Orbit lower left preview preserves the 280 degree counterclockwise track and clockwise fill`() {
+        val slot = source("sugarlicious-orbit").inputStream().use(::readNativeWatchSlots).single { it.id == 3 }
+        for (type in listOf("RANGED_VALUE", "GOAL_PROGRESS")) {
+            val template = slot.templates.getValue(type)
+            val track = requireNotNull(template.track)
+            assertEquals(-280f, nativeArcSweep(track.startAngle, track.endAngle, template.trackClockwise), .001f)
+            assertEquals(220f, requireNotNull(template.fillStartAngle), .001f)
+            assertTrue(template.fillClockwise)
+            assertEquals(19.5f, template.trackGapDegrees, .001f)
+        }
+        assertEquals(57f, nativeArcSweep(284f, 341f, true), .001f)
+        assertEquals(-90f, nativeArcSweep(180f, 90f, false), .001f)
+    }
+
+    @Test
     fun `isolated slot icons and tracks resolve each face palette and native track alpha`() {
         val apex =
             source("sugarlicious-analog")

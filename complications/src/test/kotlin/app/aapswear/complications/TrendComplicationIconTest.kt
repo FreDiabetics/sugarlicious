@@ -18,6 +18,39 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TrendComplicationIconTest {
     @Test
+    fun `legacy phone preview and Wear app geometry do not alter watchface icons`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val before = requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, Trend.DOUBLE_UP, 60))
+        context
+            .getSharedPreferences("complication_appearance", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("2.trendScale", 200)
+            .putInt("2.trendX", 50)
+            .putInt("2.trendY", -50)
+            .apply()
+        context
+            .getSharedPreferences("watch_display", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putInt("trend_scale_percent", 200)
+            .apply()
+        val after = requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, Trend.DOUBLE_UP, 60))
+        assertTrue(before.sameAs(after))
+    }
+
+    @Test
+    fun `watchface single and double arrows have identical visible heights on identical host canvases`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bitmaps = listOf(Trend.SINGLE_UP, Trend.DOUBLE_UP, Trend.SINGLE_DOWN, Trend.DOUBLE_DOWN).map { requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, it, 60)) }
+
+        fun inkHeight(bitmap: android.graphics.Bitmap): Int {
+            val rows = (0 until bitmap.height).filter { y -> (0 until bitmap.width).any { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 } }
+            return rows.last() - rows.first() + 1
+        }
+        assertEquals(1, bitmaps.map { it.width to it.height }.distinct().size)
+        assertTrue(bitmaps.all { inkHeight(it) in 59..61 })
+    }
+
+    @Test
     fun `all complication trends preserve supplied canvas geometry`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val expected =
@@ -53,8 +86,8 @@ class TrendComplicationIconTest {
     fun `double arrows are letterboxed into a square payload without horizontal compression`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
-            val wide = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
-            val normalized = TrendComplicationIcon.normalizeComplicationCanvas(wide)
+            val wide = requireNotNull(TrendComplicationIcon.render(context, trend, 60))
+            val normalized = requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, trend, 60))
             assertEquals(normalized.height, normalized.width)
             assertEquals(wide.width, normalized.width)
             assertEquals(nonTransparentAspectRatio(wide), nonTransparentAspectRatio(normalized), 0.02f)
@@ -69,24 +102,6 @@ class TrendComplicationIconTest {
                         0
                 },
             )
-        }
-    }
-
-    @Test
-    fun `double arrow runtime payload uses a square letterbox and preserves configured offset`() {
-        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        listOf(Trend.DOUBLE_UP, Trend.DOUBLE_DOWN).forEach { trend ->
-            val centered = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100))
-            val shifted = requireNotNull(TrendComplicationIcon.renderScaled(context, trend, 60, 100, offsetXPercent = 25))
-            val centeredHost = TrendComplicationIcon.runtimeHostBitmap(centered)
-            val shiftedHost = TrendComplicationIcon.runtimeHostBitmap(shifted)
-
-            assertEquals(centered.width, centeredHost.width)
-            assertEquals(centered.width, centeredHost.height)
-            assertEquals(shifted.width, shiftedHost.width)
-            assertEquals(shifted.width, shiftedHost.height)
-            assertEquals(nonTransparentAspectRatio(centered), nonTransparentAspectRatio(centeredHost), 0.02f)
-            assertTrue(nonTransparentCenterX(shiftedHost) > nonTransparentCenterX(centeredHost))
         }
     }
 
@@ -145,13 +160,5 @@ class TrendComplicationIconTest {
                 (0 until bitmap.height).any { y -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
             }
         return if (xs.isEmpty()) 0f else (xs.last() - xs.first() + 1).toFloat() / nonTransparentHeight(bitmap)
-    }
-
-    private fun nonTransparentCenterX(bitmap: android.graphics.Bitmap): Float {
-        val xs =
-            (0 until bitmap.width).filter { x ->
-                (0 until bitmap.height).any { y -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 0 }
-            }
-        return if (xs.isEmpty()) 0f else (xs.first() + xs.last()) / 2f
     }
 }

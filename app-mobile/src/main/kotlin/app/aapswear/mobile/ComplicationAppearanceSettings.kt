@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.core.content.edit
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TrendArrowStyleOverride
-import app.aapswear.protocol.WearProtocol
-import com.google.android.gms.wearable.PutDataMapRequest
 
 internal data class ComplicationAppearanceSettings(
     val trendScalePercent: Int? = null,
@@ -89,29 +87,4 @@ internal object ComplicationAppearanceSettingsStore {
             putFloatOrRemove("$catalogId.trendAlpha", value.trendStyleOverride.alpha)
         }
     }
-}
-
-internal suspend fun syncComplicationAppearance(
-    context: Context,
-    catalogId: Int,
-    value: ComplicationAppearanceSettings,
-) {
-    val request =
-        PutDataMapRequest
-            .create(WearProtocol.COMPLICATION_APPEARANCE_PATH)
-            .apply {
-                dataMap.putInt("catalogId", catalogId)
-                dataMap.putInt("trendScale", value.trendScalePercent ?: 0)
-                dataMap.putInt("trendX", value.trendOffsetXPercent)
-                dataMap.putInt("trendY", value.trendOffsetYPercent)
-                dataMap.putInt("trendFill", value.trendStyleOverride.fillColor ?: Int.MIN_VALUE)
-                dataMap.putBoolean("trendOutlinePresent", value.trendStyleOverride.outlineEnabled != null)
-                dataMap.putBoolean("trendOutlineEnabled", value.trendStyleOverride.outlineEnabled ?: false)
-                dataMap.putInt("trendOutlineColor", value.trendStyleOverride.outlineColor ?: Int.MIN_VALUE)
-                dataMap.putFloat("trendOutlineThickness", value.trendStyleOverride.outlineThicknessDp ?: Float.NaN)
-                dataMap.putFloat("trendAlpha", value.trendStyleOverride.alpha ?: Float.NaN)
-                dataMap.putLong("updatedAt", System.currentTimeMillis())
-            }.asPutDataRequest()
-            .setUrgent()
-    context.putLoggedWearData(request, "Complication-Darstellung", mapOf("catalogId" to catalogId, "keys" to 11))
 }
