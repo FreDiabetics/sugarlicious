@@ -447,7 +447,7 @@ private fun ComplicationCatalogTile(
                 complicationDisplayName(entry.name),
                 modifier = Modifier.fillMaxWidth(),
                 color = OneUiWidgetStyle.primary,
-                style = oneUiMenuTypography.bodyLarge,
+                style = oneUiMenuTypography.bodyLarge.copy(fontSize = 14.sp, lineHeight = 18.sp),
                 minLines = 2,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )

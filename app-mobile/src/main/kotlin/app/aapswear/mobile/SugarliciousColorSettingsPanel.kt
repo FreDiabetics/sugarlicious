@@ -511,7 +511,7 @@ private fun WidgetColorSettingRow(
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text(role.label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+            Text(role.label, color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Normal)
         }
     }
 }
@@ -565,7 +565,7 @@ private fun GraphSettingSwitch(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+            Text(title, color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Normal)
             Text(description, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
         }
         WidgetSettingsToggle(checked, onCheckedChange, label = title)
@@ -594,7 +594,7 @@ internal fun SugarliciousSettingSlider(
     ) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+                Text(title, color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Normal)
                 Text(description, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
             }
             Text(
@@ -666,7 +666,7 @@ private fun ColorSettingRow(
         )
         Spacer(Modifier.width(9.dp))
         Column(Modifier.weight(1f)) {
-            Text(text = label, color = OneUiWidgetStyle.primary, fontSize = 18.sp, fontWeight = FontWeight.Normal)
+            Text(text = label, color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Normal)
         }
         Spacer(Modifier.width(6.dp))
         if (role != null) {

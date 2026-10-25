@@ -208,7 +208,7 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
     Box(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = colors.primary, fontSize = 18.sp)
+                Text(label, color = colors.primary, fontSize = 16.sp)
                 Text(display(value), color = colors.link, style = oneUiMenuTypography.bodyMedium)
             }
         }
@@ -388,7 +388,7 @@ internal fun WidgetSettingsToggle(checked: Boolean, onCheckedChange: ((Boolean) 
 @Composable
 internal fun WidgetToggleSetting(label: String, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, modifier = Modifier.weight(1f), color = OneUiWidgetStyle.primary, fontSize = 18.sp)
+        Text(label, modifier = Modifier.weight(1f), color = OneUiWidgetStyle.primary, fontSize = 16.sp)
         WidgetSettingsToggle(checked, onCheckedChange, enabled, label)
     }
 }

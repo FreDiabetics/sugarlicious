@@ -1173,7 +1173,7 @@ class DashboardViewFactory(
                         ?: sugarliciousIconView(context, icon, title, tintArgb = accent),
                     LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 10.dp },
                 )
-                addView(value(title, text, 18f, 2), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(value(title, text, 16f, 2), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 setOnClickListener {
                     settingsNavigation.open(key, title)
                     onSettingsPageChanged()
@@ -1236,7 +1236,7 @@ class DashboardViewFactory(
                             LinearLayout.LayoutParams(27.dp, 27.dp).apply { marginEnd = 9.dp },
                         )
                         addView(
-                            value(item.label, text, 18f, 3),
+                            value(item.label, text, 16f, 3),
                             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
                         )
                         addView(
@@ -1278,7 +1278,7 @@ class DashboardViewFactory(
     ) = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(0, 5.dp, 0, 5.dp)
-        addView(value(title, text, 18f, 3))
+        addView(value(title, text, 16f, 3))
         addView(chipRow(items))
     }
 
@@ -1295,7 +1295,7 @@ class DashboardViewFactory(
         isFocusable = true
         foreground = menuRipple()
         setOnClickListener { action() }
-        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 16f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         valueText?.let {
             addView(
                 TextView(context).apply {
@@ -1317,7 +1317,7 @@ class DashboardViewFactory(
         gravity = Gravity.CENTER_VERTICAL
         minimumHeight = 44.dp
         setPadding(0, 3.dp, 0, 3.dp)
-        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 16f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(
             TextView(context).apply {
                 text = valueText
@@ -1339,7 +1339,7 @@ class DashboardViewFactory(
         gravity = Gravity.CENTER_VERTICAL
         minimumHeight = 52.dp
         setPadding(0, 5.dp, 0, 5.dp)
-        addView(value(title, text, 18f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        addView(value(title, text, 16f, 3), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         addView(
             mobileSettingsSwitch(context, checked, callback).apply {
                 this.id = id
@@ -1379,7 +1379,7 @@ class DashboardViewFactory(
                     LinearLayout(context).apply {
                         orientation = LinearLayout.VERTICAL
                         addView(
-                            this@DashboardViewFactory.value(title, text, 18f, 3).apply {
+                            this@DashboardViewFactory.value(title, text, 16f, 3).apply {
                                 app.aapswear.uishared.SystemTypography
                                     .apply(this, false)
                             },
