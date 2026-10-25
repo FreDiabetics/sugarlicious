@@ -49,6 +49,27 @@ class G7ReadingDatabaseTest {
         }
 
     @Test
+    @Suppress("DEPRECATION")
+    fun `coalesced publication waits for complete state and refreshes Vigil only once`() =
+        runBlocking {
+            val application = org.robolectric.Shadows.shadowOf(context as android.app.Application)
+
+            fun headerRequests() =
+                application.broadcastIntents.count {
+                    it.getParcelableExtra<android.content.ComponentName>("android.support.wearable.complications.EXTRA_PROVIDER_COMPONENT") == android.content.ComponentName(context, app.aapswear.complications.DirectToWatchHeaderComplication::class.java)
+                }
+            val before = headerRequests()
+            database.coalesceChangeNotifications {
+                val now = System.currentTimeMillis()
+                repeat(2) { index ->
+                    database.insert(CgmReading(id = "batch-$index", source = DataSourceId.DEXCOM_G7_WATCH, sensorId = "sensor", sessionId = "session", glucoseMgDl = 123.0, timestampEpochMs = now - index * 300_000L, receivedAtEpochMs = now, status = CgmReadingStatus.VALID))
+                }
+                assertEquals(before, headerRequests())
+            }
+            assertEquals(before + 1, headerRequests())
+        }
+
+    @Test
     fun `thirty day retention does not discard a ten day history at two thousand rows`() =
         runBlocking {
             val now = System.currentTimeMillis()

@@ -52,3 +52,10 @@ The user observed a signal-loss label and only one old dot after an otherwise su
 2. Database publication notified Sugarlicious Wear (`app.aapswear`) and tiles, but the active Vigil WFF points to providers hosted by SugarWear (`app.aapswear.g7watch`). The compatibility receiver requested components in its own Sugarlicious package. Consequently, the actual providers could retain old images until their next system refresh. The existing post-commit/coalesced database publication now directly requests the Vigil providers in the collector package as well. No timer or extra polling is introduced, and historical batches retain their single fanout.
 
 The Vigil signal-loss label is explicitly red in active and ambient rendering. This does not change sensor state, authentication, freshness, alarm thresholds or timestamps. Regression tests verify red pixels and immediate requests for the collector-hosted header, graph and ambient graph components.
+
+
+### Verification and device proof
+
+The initial update/history fix passed 49 targeted tests (provider outcome, canonical history, Vigil rendering and collector database), build, Detekt, ktlint and Lint (no issues). Installed on Galaxy Watch Ultra without sensor reset. At 19:13:20 attempt 9265 completed SUCCESS_FRESH; the immediately captured Vigil frame showed 0m and the retained multi-point history. Raw screenshots remain private.
+
+Live provisional publication is additionally coalesced until the matching persisted sensor state has been saved. This prevents the first update racing an UNKNOWN/previous error state before optional backfill completes. A regression checks that a coalesced pair of inserts produces no early Vigil request and exactly one header request after the block.

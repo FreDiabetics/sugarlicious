@@ -510,35 +510,31 @@ class G7CollectorService : Service() {
                     allowFallbackScan = G7CollectorReliability.shouldRunPresenceScan(store.read().health),
                     onLiveReading = { live ->
                         liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
-                        val provisional =
-                            G7ReadingDatabase(this).let { database ->
-                                try {
-                                    val previous =
-                                        database.getLatestValidBefore(
-                                            live.sensorId,
-                                            live.sessionId,
-                                            live.sensorTimestampEpochMs,
+                        G7ReadingDatabase(this).let { database ->
+                            try {
+                                database.coalesceChangeNotifications {
+                                    val previous = database.getLatestValidBefore(live.sensorId, live.sessionId, live.sensorTimestampEpochMs)
+                                    val provisional = live.toCgm(previous)
+                                    if (provisional.status == CgmReadingStatus.VALID) {
+                                        liveCommittedBeforeBackfill = database.insertOrIgnore(provisional)
+                                        val current = store.read()
+                                        // Publish only after both the measurement and sensor state are
+                                        // visible. A first reading must not refresh Vigil with UNKNOWN
+                                        // or the preceding sensor-error state while backfill is running.
+                                        store.save(
+                                            current.copy(
+                                                sensor = collectionSensor.copy(state = live.sensorState),
+                                                lastReading = provisional,
+                                                sessionState = app.aapswear.g7.G7SessionState.ACTIVE,
+                                                protocolState = G7ProtocolState.BACKFILL,
+                                                lastSuccessfulConnectionEpochMs = System.currentTimeMillis(),
+                                            ),
                                         )
-                                    live.toCgm(previous).also { candidate ->
-                                        if (candidate.status == CgmReadingStatus.VALID) {
-                                            liveCommittedBeforeBackfill = database.insertOrIgnore(candidate)
-                                        }
                                     }
-                                } finally {
-                                    database.close()
                                 }
+                            } finally {
+                                database.close()
                             }
-                        if (provisional.status == CgmReadingStatus.VALID) {
-                            val current = store.read()
-                            store.save(
-                                current.copy(
-                                    sensor = collectionSensor.copy(state = live.sensorState),
-                                    lastReading = provisional,
-                                    sessionState = app.aapswear.g7.G7SessionState.ACTIVE,
-                                    protocolState = G7ProtocolState.BACKFILL,
-                                    lastSuccessfulConnectionEpochMs = System.currentTimeMillis(),
-                                ),
-                            )
                         }
                     },
                 )
