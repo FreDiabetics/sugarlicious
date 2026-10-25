@@ -28,11 +28,11 @@ import org.robolectric.shadows.ShadowAlarmManager
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
-    @Test fun `background refresh does not collapse settings scroll padding and jump to top`() {
+    @Test fun `background refresh preserves long submenu position without synthetic scroll padding`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
         activity.findViewById<View>(R.id.top_settings).performClick()
-        openSettingsCategory(activity, "general")
+        openSettingsCategory(activity, "appearance")
         val root = activity.findViewById<View>(R.id.root)
         val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
         val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
@@ -46,7 +46,7 @@ class MainActivityTest {
         update.invoke(activity, 0)
         layout()
         val padding = content.paddingBottom
-        assertTrue(padding > 24 * activity.resources.displayMetrics.density)
+        assertEquals((24 * activity.resources.displayMetrics.density).toInt(), padding)
         scroll.scrollTo(0, 250)
         val position = scroll.scrollY
         assertTrue(position > 0)
@@ -54,7 +54,7 @@ class MainActivityTest {
             .getDeclaredMethod("refresh", Boolean::class.javaPrimitiveType)
             .apply { isAccessible = true }
             .invoke(activity, false)
-        assertEquals("Data/status refresh must not remove the scroll runway", padding, content.paddingBottom)
+        assertEquals("Data/status refresh must preserve the natural content bounds", padding, content.paddingBottom)
         layout()
         assertEquals(position, scroll.scrollY)
         controller.pause().stop().destroy()
@@ -555,8 +555,7 @@ class MainActivityTest {
         assertEquals(
             "Allgemein",
             activity
-                .findViewById<ViewGroup>(R.id.dashboard_content)
-                .findViewWithTag<TextView>("settings_scroll_title")
+                .findViewById<TextView>(R.id.app_title)
                 .text
                 .toString(),
         )
@@ -566,8 +565,7 @@ class MainActivityTest {
         assertEquals(
             "Allgemein",
             activity
-                .findViewById<ViewGroup>(R.id.dashboard_content)
-                .findViewWithTag<TextView>("settings_scroll_title")
+                .findViewById<TextView>(R.id.app_title)
                 .text
                 .toString(),
         )

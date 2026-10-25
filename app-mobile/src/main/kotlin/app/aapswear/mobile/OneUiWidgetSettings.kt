@@ -173,7 +173,7 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
             },
         ) {
             content { previewBounds = it }
-            if (scroll != null) OneUiScrollingSettingsBack(scroll, onBack, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 4.dp))
+            if (scroll != null) OneUiCompactSettingsHeader(onBack, Modifier.align(Alignment.TopStart).statusBarsPadding())
         }
     }
 }

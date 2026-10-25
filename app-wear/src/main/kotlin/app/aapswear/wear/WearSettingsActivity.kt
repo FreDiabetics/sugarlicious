@@ -12,7 +12,6 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
@@ -838,7 +837,7 @@ class WearSettingsActivity : Activity() {
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
             addView(
-                Switch(this@WearSettingsActivity).apply {
+                app.aapswear.uishared.ScrollSafeSwitch(this@WearSettingsActivity).apply {
                     isChecked = checked
                     thumbTintList =
                         ColorStateList(

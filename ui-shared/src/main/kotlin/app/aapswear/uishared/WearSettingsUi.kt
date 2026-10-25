@@ -21,9 +21,8 @@ object WearSettingsUi {
     fun textSize(legacySp: Float): Float =
         when {
             legacySp >= 16f -> 20f
-            legacySp >= 12f -> 17f
-            legacySp >= 10f -> 16f
-            else -> 13f
+            legacySp >= 10f -> 15f
+            else -> 12f
         }
 
     fun background(context: Context, color: Int, radiusDp: Float = 26f): GradientDrawable =
@@ -41,34 +40,45 @@ object WearSettingsUi {
 
     fun slider(view: SeekBar, accent: Int, muted: Int) {
         val context = view.context
+        val inactive = if (Color.alpha(muted) < 128 || Color.luminance(muted) < .025f) Color.rgb(70, 70, 73) else muted
+
+        view.progressTintList = null
+        view.progressBackgroundTintList = null
+        view.secondaryProgressTintList = null
 
         fun track(color: Int) = background(context, color, 5f).apply { setSize(dp(context, 120), dp(context, 10)) }
         view.progressDrawable =
-            LayerDrawable(arrayOf(track(muted), ClipDrawable(track(accent), Gravity.START, ClipDrawable.HORIZONTAL))).apply {
+            LayerDrawable(arrayOf(track(inactive), ClipDrawable(track(accent), Gravity.START, ClipDrawable.HORIZONTAL))).apply {
                 setId(0, android.R.id.background)
                 setId(1, android.R.id.progress)
+                for (index in 0..1) {
+                    setLayerHeight(index, dp(context, 10))
+                    setLayerGravity(index, Gravity.CENTER_VERTICAL or Gravity.FILL_HORIZONTAL)
+                }
             }
         view.thumb =
             swatch(context, Color.WHITE).apply {
                 setSize(dp(context, 20), dp(context, 20))
                 setStroke(0, Color.TRANSPARENT)
             }
-        view.progressTintList = ColorStateList.valueOf(accent)
-        view.progressBackgroundTintList = ColorStateList.valueOf(muted)
         view.thumbTintList = ColorStateList.valueOf(Color.WHITE)
         view.minimumHeight = dp(context, 48)
         view.setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
         view.isFocusable = false
         view.isFocusableInTouchMode = false
+        view.splitTrack = false
     }
 
     @Suppress("DEPRECATION")
     fun toggle(view: Switch, accent: Int, textColor: Int) {
         val context = view.context
         view.showText = false
+        view.splitTrack = false
+        view.switchPadding = dp(context, 12)
         view.switchMinWidth = dp(context, 44)
         view.minimumHeight = dp(context, 48)
-        view.textSize = 16f
+        view.textSize = 15f
+        view.includeFontPadding = false
         view.setTextColor(textColor)
         view.thumbDrawable =
             swatch(context, Color.WHITE).apply {
@@ -78,6 +88,7 @@ object WearSettingsUi {
         view.trackDrawable = background(context, Color.DKGRAY, 14f).apply { setSize(dp(context, 44), dp(context, 28)) }
         view.trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Color.DKGRAY))
         view.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+        SystemTypography.apply(view, false)
     }
 
     fun header(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
@@ -101,6 +112,7 @@ object WearSettingsUi {
                 TextView(context).apply {
                     text = title
                     textSize = 20f
+                    includeFontPadding = false
                     maxLines = 2
                     ellipsize = android.text.TextUtils.TruncateAt.END
                     setTextColor(textColor)

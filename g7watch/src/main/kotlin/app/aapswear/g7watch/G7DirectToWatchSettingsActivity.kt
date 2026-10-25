@@ -13,7 +13,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
@@ -56,7 +55,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
                 setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
             }
         root.addView(topBar(palette))
@@ -302,7 +301,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
     private fun modeSelector(p: G7AppearancePalette) =
         LinearLayout(this).apply {
-            listOf(AppearanceMode.LIGHT to "LIGHT", AppearanceMode.DARK to "DARK").forEach { (item, title) ->
+            listOf(AppearanceMode.LIGHT to "Hell", AppearanceMode.DARK to "Dunkel").forEach { (item, title) ->
                 addView(
                     button(title, p, item == mode) {
                         mode = item
@@ -318,14 +317,19 @@ class G7DirectToWatchSettingsActivity : Activity() {
         current: Int,
         p: G7AppearancePalette,
     ) = LinearLayout(this).apply {
-        G7DirectToWatchSettingsStore.HOUR_OPTIONS.forEach { hour ->
-            addView(
-                button("${hour}h", p, hour == current) {
-                    settings.saveGraphHours(hour)
-                    restyleChoices(this, hour, p)
-                }.apply { tag = hour },
-                LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp },
-            )
+        orientation = LinearLayout.VERTICAL
+        G7DirectToWatchSettingsStore.HOUR_OPTIONS.chunked(3).forEach { hours ->
+            val row = LinearLayout(this@G7DirectToWatchSettingsActivity)
+            hours.forEach { hour ->
+                row.addView(
+                    button("${hour}h", p, hour == current) {
+                        settings.saveGraphHours(hour)
+                        restyleChoices(this, hour, p)
+                    }.apply { tag = hour },
+                    LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp },
+                )
+            }
+            addView(row, params(3))
         }
     }
 
@@ -350,6 +354,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         p: G7AppearancePalette,
     ) {
         for (index in 0 until row.childCount) {
+            (row.getChildAt(index) as? LinearLayout)?.let { restyleChoices(it, selected, p) }
             val choice = row.getChildAt(index) as? TextView ?: continue
             val active = choice.tag == selected
             choice.setTextColor(if (active) p.argb(G7AppearanceRole.MENU_BACKGROUND) else p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
@@ -461,7 +466,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         background = card(p)
         val value = label(format(initial), 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
         addView(value)
-        value.setPadding(8.dp, 4.dp, 8.dp, 4.dp)
+        value.setPadding(4.dp, 4.dp, 4.dp, 4.dp)
         value.background = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 10f)
         value.setOnClickListener {
             SharedNumberEditor.show(this@G7DirectToWatchSettingsActivity, title, initial.coerceIn(min, max), min, max) { selected ->
@@ -475,15 +480,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
                     .slider(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
-                progressTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(p.argb(G7AppearanceRole.MENU_PRIMARY))
-                progressBackgroundTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(p.argb(G7AppearanceRole.MENU_BORDER))
-                thumbTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(p.argb(G7AppearanceRole.MENU_PRIMARY))
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         override fun onProgressChanged(
@@ -520,7 +516,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
-            Switch(this@G7DirectToWatchSettingsActivity).apply {
+            app.aapswear.uishared.ScrollSafeSwitch(this@G7DirectToWatchSettingsActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
                     .toggle(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
@@ -583,9 +579,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         p: G7AppearancePalette,
     ) = root.addView(
         label(title, 9f, p.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-            letterSpacing =
-                .08f
-            ; setPadding(4.dp, 15.dp, 4.dp, 4.dp)
+            letterSpacing = 0f
+            setPadding(16.dp, 16.dp, 16.dp, 8.dp)
         },
     )
 
@@ -596,12 +591,13 @@ class G7DirectToWatchSettingsActivity : Activity() {
         action: () -> Unit,
     ) = label(
         title,
-        9f,
+        10f,
         if (selected) p.argb(G7AppearanceRole.MENU_BACKGROUND) else p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
         true,
     ).apply {
         gravity =
             Gravity.CENTER
+        textSize = 13f
         ; background =
             rounded(
                 if (selected) p.argb(G7AppearanceRole.MENU_PRIMARY) else p.argb(G7AppearanceRole.MENU_SURFACE),
@@ -618,6 +614,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
+        includeFontPadding = false
         textSize =
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)

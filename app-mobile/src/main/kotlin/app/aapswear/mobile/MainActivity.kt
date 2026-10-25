@@ -681,9 +681,16 @@ class MainActivity : ComponentActivity() {
         val back = findViewById<View>(R.id.top_back)
         val brand = findViewById<View>(R.id.brand_logo)
         val title = findViewById<TextView>(R.id.app_title)
+        if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) {
+            bar.layoutParams = bar.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
+            bar.minimumHeight = 56.dp
+            title.maxLines = 2
+        } else if (screen == DashboardScreen.SETTINGS) {
+            bar.layoutParams = bar.layoutParams.apply { height = 56.dp }
+        }
         val settings = findViewById<View>(R.id.top_settings)
         (bar.layoutParams as android.widget.LinearLayout.LayoutParams).apply {
-            bottomMargin = if (screen == DashboardScreen.SETTINGS) -height else 0
+            bottomMargin = if (screen == DashboardScreen.SETTINGS && factory.settingsIsRoot) -height else 0
             bar.layoutParams = this
         }
         bar.translationZ = if (screen != DashboardScreen.OVERVIEW) 8.dp.toFloat() else 0f
@@ -696,7 +703,14 @@ class MainActivity : ComponentActivity() {
                 back.visibility = View.VISIBLE
                 brand.visibility = View.GONE
                 settings.visibility = View.GONE
-                title.text = if (screen == DashboardScreen.WATCH) "Watch" else ""
+                title.text =
+                    if (screen == DashboardScreen.WATCH) {
+                        "Watch"
+                    } else if (!factory.settingsIsRoot) {
+                        factory.settingsTitle
+                    } else {
+                        ""
+                    }
                 title.textSize = 20f
                 title.typeface = android.graphics.Typeface.DEFAULT
                 val accent =
@@ -717,18 +731,15 @@ class MainActivity : ComponentActivity() {
         }
 
         scroll.isUserScrollEnabled = screen != DashboardScreen.WATCH
-        scroll.sectionSnapEnabled = screen == DashboardScreen.SETTINGS
+        scroll.sectionSnapEnabled = screen == DashboardScreen.SETTINGS && factory.settingsIsRoot
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(
             content.paddingLeft,
             if (screen != DashboardScreen.OVERVIEW) 0 else 2.dp,
             content.paddingRight,
-            // The settings runway allows the last card to reach the compact header.
-            // A diagnostic/data refresh must not temporarily collapse it: ScrollView
-            // clamps scrollY before the posted header update can restore that space.
             when (screen) {
-                DashboardScreen.SETTINGS -> content.paddingBottom.coerceAtLeast(24.dp)
+                DashboardScreen.SETTINGS -> 24.dp
                 DashboardScreen.WATCH -> 0
                 DashboardScreen.OVERVIEW -> 0
             },
@@ -738,6 +749,11 @@ class MainActivity : ComponentActivity() {
 
     private fun updateSettingsScrollHeader(scrollY: Int) {
         if (screen == DashboardScreen.OVERVIEW) return
+        if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) {
+            findViewById<View>(R.id.top_app_bar).setBackgroundColor(MobileSettingsStyle.page(SugarliciousColors.palette.isLight))
+            findViewById<View>(R.id.top_back).background = null
+            return
+        }
         val density = resources.displayMetrics.density
         val heading = content.findViewWithTag<View>("settings_scroll_title") ?: return
         val titleView = heading as? TextView
@@ -762,25 +778,6 @@ class MainActivity : ComponentActivity() {
                 it.bottomMargin = -heightPx
                 bar.layoutParams = it
             }
-        }
-        if (scroll.height > 0) {
-            val lastCard = lastVisibleSettingsCard(content)
-            val padding =
-                (
-                    settingsBottomScrollPaddingDp(
-                        scroll.height / density,
-                        (lastCard?.height ?: 0) / density,
-                        headerHeightDp = compact.heightDp,
-                        naturalContentHeightDp =
-                            (0 until content.childCount)
-                                .map { content.getChildAt(it) }
-                                .filter { it.visibility != View.GONE }
-                                .maxOfOrNull { it.bottom + ((it.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0) }
-                                ?.div(density) ?: 0f,
-                        expandedTitleHeightDp = heading.height / density,
-                    ) * density
-                ).toInt()
-            if (content.paddingBottom != padding) content.setPadding(content.paddingLeft, content.paddingTop, content.paddingRight, padding)
         }
         val firstCard = (0 until content.childCount).map { content.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
         val state = settingsScrollHeaderState(scrollY / density, heading.height / density, (firstCard?.top ?: heading.bottom) / density, compact.heightDp)

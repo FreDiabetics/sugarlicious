@@ -11,6 +11,17 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WidgetGraphLayoutTest {
+    @Test
+    fun `system text scaling reserves larger axis lanes without clipping the plot`() {
+        val layout = responsiveWidgetLayout(220f, 140f)
+        val normal = widgetGraphMetrics(440, 280, 2f, layout, fontScale = 1f)
+        val large = widgetGraphMetrics(440, 280, 2f, layout, fontScale = 2f)
+        assertTrue(large.axisTextSizePx > normal.axisTextSizePx)
+        assertTrue(large.plot.right < normal.plot.right)
+        assertTrue(large.plot.height() > 0f)
+        assertTrue(large.plot.left >= 0f && large.plot.right <= 440f)
+    }
+
     private val density = 2f
     private val scaledDensity = 2f
 

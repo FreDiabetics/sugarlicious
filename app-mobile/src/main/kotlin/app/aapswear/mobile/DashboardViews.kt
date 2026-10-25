@@ -472,7 +472,7 @@ class DashboardViewFactory(
         watchRenderState.value = null
         activeComposeScreen = null
         activeComposeView = null
-        parent.addView(screenTitle(if (settingsIsRoot) "Einstellungen" else settingsTitle).apply { tag = "settings_scroll_title" })
+        if (settingsIsRoot) parent.addView(screenTitle("Einstellungen").apply { tag = "settings_scroll_title" })
 
         val colorContainer =
             LinearLayout(context).apply {

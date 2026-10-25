@@ -52,15 +52,16 @@ class G7AppearanceActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
                 setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
             }
         content.addView(topBar(palette))
         content.addView(themeSelector(palette), params(top = 8))
         content.addView(
             label("GRÖSSE", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                letterSpacing = 0.10f
-                setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+                textSize = 12f
+                letterSpacing = 0f
+                setPadding(16.dp, 16.dp, 16.dp, 8.dp)
             },
         )
         content.addView(scaleRow("Glukosewert", store.glucoseScalePercent(), palette, store::setGlucoseScalePercent), params(top = 5))
@@ -249,8 +250,9 @@ class G7AppearanceActivity : Activity() {
 
         content.addView(
             label("GRAPH · PUNKTKONTUREN", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                letterSpacing = 0.10f
-                setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+                textSize = 12f
+                letterSpacing = 0f
+                setPadding(16.dp, 16.dp, 16.dp, 8.dp)
             },
         )
         content.addView(
@@ -410,26 +412,31 @@ class G7AppearanceActivity : Activity() {
         title: String,
         palette: G7AppearancePalette,
     ) = label(title.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-        letterSpacing = 0.10f
-        setPadding(4.dp, 14.dp, 4.dp, 5.dp)
+        textSize = 12f
+        letterSpacing = 0f
+        setPadding(16.dp, 16.dp, 16.dp, 8.dp)
     }
 
     private fun tileHoursRow(palette: G7AppearancePalette) =
         LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            G7AppearanceStore.ALLOWED_GRAPH_HOURS.forEach { hours ->
-                val active = store.tileGraphHours() == hours
-                addView(
-                    pill(
-                        "${hours}h",
-                        if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
-                        if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                    ) {
-                        store.setTileGraphHours(hours)
-                        render()
-                    },
-                    LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
-                )
+            orientation = LinearLayout.VERTICAL
+            G7AppearanceStore.ALLOWED_GRAPH_HOURS.chunked(3).forEach { group ->
+                val row = LinearLayout(this@G7AppearanceActivity)
+                group.forEach { hours ->
+                    val active = store.tileGraphHours() == hours
+                    row.addView(
+                        pill(
+                            "${hours}h",
+                            if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                            if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                        ) {
+                            store.setTileGraphHours(hours)
+                            render()
+                        },
+                        LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
+                    )
+                }
+                addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 3.dp })
             }
         }
 
@@ -479,7 +486,7 @@ class G7AppearanceActivity : Activity() {
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
         background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
         val valueLabel = label(format(initial), 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
-        valueLabel.setPadding(8.dp, 4.dp, 8.dp, 4.dp)
+        valueLabel.setPadding(4.dp, 4.dp, 4.dp, 4.dp)
         valueLabel.background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 10f)
         valueLabel.setOnClickListener {
             SharedNumberEditor.show(this@G7AppearanceActivity, title, initial.coerceIn(min, max), min, max) { value ->
@@ -494,15 +501,6 @@ class G7AppearanceActivity : Activity() {
                     .slider(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
-                progressTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
-                progressBackgroundTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_BORDER))
-                thumbTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         override fun onProgressChanged(
@@ -539,7 +537,7 @@ class G7AppearanceActivity : Activity() {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
-            android.widget.Switch(this@G7AppearanceActivity).apply {
+            app.aapswear.uishared.ScrollSafeSwitch(this@G7AppearanceActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
                     .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
@@ -619,12 +617,12 @@ class G7AppearanceActivity : Activity() {
         action: () -> Unit,
     ) = TextView(this).apply {
         text = textValue
-        textSize = 10f
+        textSize = 13f
         gravity = Gravity.CENTER
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
         setTextColor(textColor)
-        setPadding(13.dp, 7.dp, 13.dp, 7.dp)
+        setPadding(8.dp, 7.dp, 8.dp, 7.dp)
         background = rounded(fill, textColor, 999f)
         setOnClickListener { action() }
     }
@@ -667,6 +665,7 @@ class G7AppearanceActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
+        includeFontPadding = false
         textSize =
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)

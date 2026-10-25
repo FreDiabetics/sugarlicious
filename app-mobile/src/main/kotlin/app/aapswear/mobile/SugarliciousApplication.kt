@@ -27,9 +27,14 @@ class SugarliciousApplication : Application() {
         val current = configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         val preferences = getSharedPreferences("widget_system_appearance", MODE_PRIVATE)
         val previous = if (nightMode == Configuration.UI_MODE_NIGHT_UNDEFINED) preferences.getInt("night", current) else nightMode
+        val scaleChanged = preferences.getFloat("font_scale", configuration.fontScale) != configuration.fontScale || preferences.getInt("density_dpi", configuration.densityDpi) != configuration.densityDpi
         nightMode = current
-        preferences.edit { putInt("night", current) }
-        if (current != previous) {
+        preferences.edit {
+            putInt("night", current)
+            putFloat("font_scale", configuration.fontScale)
+            putInt("density_dpi", configuration.densityDpi)
+        }
+        if (current != previous || scaleChanged) {
             appearanceScope.launch {
                 try {
                     SugarliciousWidgets.update(applicationContext)

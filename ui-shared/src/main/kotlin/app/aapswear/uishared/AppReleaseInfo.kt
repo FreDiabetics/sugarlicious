@@ -10,9 +10,9 @@ object AppReleaseInfo {
 
     fun changes(product: Product): List<String> =
         when (product) {
-            Product.MOBILE -> listOf("Slot-Vorschauen passen sich der ausgewählten Complication an.", "Watch-Aktionen im Header und überarbeitete Vorschauen.", "Übertragungsprotokoll unter Datenverwaltung.", "Verbesserte Darstellung bei größerer Systemschrift.")
-            Product.WEAR -> listOf("Mehr Abstand innerhalb der Menü-Icons.", "Überarbeitete ApeX-Graphfläche oberhalb der mittleren Complications.", "Aktualisierte Watchface-Vorlagen und Vorschauen.")
-            Product.COLLECTOR -> listOf("Vigil mit transparenter Zeigerauswahl und äußeren Markierungen.", "Besser lesbare Graphskalen und systemabhängiges Uhrzeitformat.", "Neues SugarWear-Vektoricon.", "Uhrzeit wird auch nach Zeit- und Zeitzonenänderungen aktualisiert.")
+            Product.MOBILE -> listOf("Kompakte Untermenüs mit begrenztem Scrollbereich.", "Systemskalierung für Widgets und Vorschauen.", "Kleinere Complication-Vorschautexte im Einstellungsstil.", "Übertragungsprotokoll unter Datenverwaltung.")
+            Product.WEAR -> listOf("Übersicht passt sich größerer Systemschrift an.", "Einheitliche Regler und scrollsichere Schalter.", "Graph-Texte in Tiles folgen der Systemschriftgröße.", "Aktualisierte Watchface-Vorlagen und Vorschauen.")
+            Product.COLLECTOR -> listOf("Einheitliche Regler und scrollsichere Schalter.", "Besser lesbare Auswahlmenüs.", "Vigil mit überarbeiteten Minutenmarkierungen und einheitlicher Vorschau-Zeigerstellung.", "Stabile Vorschau im nativen Watchface-Auswahlmenü.")
         }
 
     fun summary(context: Context, product: Product): String =

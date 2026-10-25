@@ -308,7 +308,7 @@ abstract class SugarliciousTileService : TileService() {
                     } else {
                         when (content) {
                             WearTileContent.GLUCOSE -> glucoseTileContent(requestParams.scope, state, colors, now, preferences)
-                            WearTileContent.GRAPH -> graphTileContent(requestParams.scope, state, colors, now, preferences)
+                            WearTileContent.GRAPH -> graphTileContent(requestParams.scope, state, colors, now, preferences, resources.configuration.fontScale)
                         }
                     },
                 ),
@@ -386,8 +386,9 @@ private fun graphTileContent(
     colors: WatchUiColors,
     now: Long,
     preferences: WearDisplayPreferences,
+    fontScale: Float,
 ): LayoutElementBuilders.LayoutElement {
-    val bitmap = renderWearTileGraph(state, preferences, now)
+    val bitmap = renderWearTileGraph(state, preferences, now, fontScale)
     val graphPixels =
         try {
             bitmap.toRgb565Image()
@@ -427,6 +428,7 @@ internal fun renderWearTileGraph(
     state: TherapyDisplayState?,
     preferences: WearDisplayPreferences,
     now: Long,
+    fontScale: Float = 1f,
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(TILE_GRAPH_WIDTH_PX, TILE_GRAPH_HEIGHT_PX, Bitmap.Config.ARGB_8888)
     val graphColors = preferences.graphColors
@@ -435,7 +437,7 @@ internal fun renderWearTileGraph(
         widthPx = bitmap.width,
         heightPx = bitmap.height,
         density = 2f,
-        scaledDensity = 2f,
+        scaledDensity = 2f * fontScale,
         input =
             SharedWearCgmGraphInput(
                 history = wearTileGraphPoints(state, now, preferences.graphHours, bitmap.width.toFloat()).map(WearTileGraphPoint::sample),

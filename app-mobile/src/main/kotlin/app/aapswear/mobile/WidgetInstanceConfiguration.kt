@@ -39,7 +39,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -785,25 +784,17 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
                 val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
                 val settingsScroll = rememberScrollState()
-                var settingsViewportHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                var lastSettingsCardHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                var settingsContentHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                var settingsFooterHeight by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-                val expandedSettingsTitleHeight = settingsTitleHeightDp()
-                val settingsDensity = androidx.compose.ui.platform.LocalDensity.current
                 val compactSettingsTitle = measuredSettingsCompactTitle("Widget-Einstellungen", settingsWindowWidthDp() - 20f)
                 OneUiWidgetSettingsSurface(settingsScroll, onBack = { finish() }) { reportPreviewBounds ->
                     Column(
                         Modifier
                             .fillMaxSize()
                             .statusBarsPadding()
-                            .onSizeChanged { settingsViewportHeight = it.height }
+                            .padding(top = compactSettingsTitle.heightDp.dp)
                             .padding(horizontal = 10.dp)
-                            .verticalScroll(settingsScroll)
-                            .onSizeChanged { settingsContentHeight = it.height },
+                            .verticalScroll(settingsScroll),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
-                        OneUiScrollingSettingsTitle("Widget-Einstellungen", settingsScroll)
                         WidgetConfigurationPreview(
                             widgetKind,
                             value,
@@ -1103,26 +1094,12 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        WidgetSettingsSection("Beim Antippen öffnen", Modifier.onSizeChanged { lastSettingsCardHeight = it.height }) {
+                        WidgetSettingsSection("Beim Antippen öffnen") {
                             val targets = WidgetLaunchTargetStore.available(this@WidgetConfigurationActivity)
                             val selected = targets.firstOrNull { it.packageName == (value.launchPackage ?: packageName) } ?: targets.first()
                             OneUiWidgetChoiceRow("App", selected, targets, { it.label }) { value = value.copy(launchPackage = it.packageName) }
                         }
-                        Spacer(
-                            Modifier
-                                .height(
-                                    with(settingsDensity) {
-                                        settingsBottomScrollPaddingDp(
-                                            settingsViewportHeight.toDp().value,
-                                            lastSettingsCardHeight.toDp().value,
-                                            84f,
-                                            compactSettingsTitle.heightDp,
-                                            (settingsContentHeight - settingsFooterHeight).toDp().value,
-                                            expandedSettingsTitleHeight,
-                                        ).dp
-                                    },
-                                ).onSizeChanged { settingsFooterHeight = it.height },
-                        )
+                        Spacer(Modifier.height(84.dp))
                     }
                     WidgetSettingsActionPill(
                         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp),
@@ -1436,8 +1413,9 @@ private fun WidgetConfigurationPreview(
             mode,
             MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode),
         )
+    val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
     val bitmap =
-        remember(kind, renderConfiguration, state, palette, previewTrendStyle, previewWidth, previewHeight, automaticShape) {
+        remember(kind, renderConfiguration, state, palette, previewTrendStyle, previewWidth, previewHeight, automaticShape, fontScale) {
             when (kind) {
                 ConfigurableWidgetKind.GRAPH ->
                     renderWidgetGraph(
@@ -1451,6 +1429,7 @@ private fun WidgetConfigurationPreview(
                         2f,
                         renderConfiguration,
                         showScaleAndAge = true,
+                        scaledDensity = 2f * fontScale,
                     )
                 ConfigurableWidgetKind.GLUCOSE_GRAPH ->
                     renderGlucoseGraphWidget(
@@ -1464,6 +1443,7 @@ private fun WidgetConfigurationPreview(
                         2f,
                         renderConfiguration,
                         previewTrendStyle,
+                        fontScale = fontScale,
                     )
                 ConfigurableWidgetKind.METABOLIC ->
                     renderTherapyIndicatorWidget(
@@ -1492,6 +1472,7 @@ private fun WidgetConfigurationPreview(
                             renderConfiguration,
                             previewTrendStyle,
                             systemWidgetCornerRadiusDp(context),
+                            fontScale = fontScale,
                         )
                     } else {
                         renderMinimalGlucoseWidget(
@@ -1512,6 +1493,7 @@ private fun WidgetConfigurationPreview(
                                 trendStyle = previewTrendStyle,
                                 configuration = renderConfiguration,
                             ),
+                            fontScale = fontScale,
                         )
                     }
             }

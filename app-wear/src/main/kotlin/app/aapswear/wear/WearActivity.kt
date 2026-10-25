@@ -450,8 +450,8 @@ class WearActivity : Activity() {
         val density = resources.displayMetrics.density
         trendArrow1.layoutParams =
             trendArrow1.layoutParams.apply {
-                height = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * density).roundToInt()
-                width = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * spec.aspectRatio * density).roundToInt()
+                height = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * density * resources.configuration.fontScale).roundToInt()
+                width = (WearGlucoseCardStyle.TREND_SIZE_DP * scale * spec.aspectRatio * density * resources.configuration.fontScale).roundToInt()
             }
         trendArrow1.visibility = View.VISIBLE
     }

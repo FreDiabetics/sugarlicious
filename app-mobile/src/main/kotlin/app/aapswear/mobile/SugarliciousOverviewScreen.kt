@@ -299,64 +299,57 @@ private fun GlucoseHeroCard(
     heightDp: Int,
 ) {
     val shape = RoundedCornerShape(28.dp)
+    val fontScale = LocalDensity.current.fontScale
+    val stacked = fontScale > 1.2f
+
+    @Composable
+    fun GlucosePane(modifier: Modifier) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                GlucoseValueAndTrend(glucoseText, glucoseColor, trend, visualSpec)
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    buildAnnotatedString {
+                        withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) { append("$delta $unitLabel") }
+                        append(" · $age")
+                    },
+                    color = SugarliciousColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun DetailsPane(modifier: Modifier) {
+        if (detailMode == GlucoseTileDetailMode.TIR) {
+            TirProgressColumn(stats = tirStats, modifier = modifier)
+        } else {
+            TherapyIndicatorRow(indicators = therapyIndicators, modifier = modifier)
+        }
+    }
 
     Box(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(heightDp.dp)
-                .background(SugarliciousColors.Surface, shape)
-                .border(
-                    1.dp,
-                    SugarliciousColors.Border.copy(alpha = 0.85f),
-                    shape,
-                ).clip(shape)
-                .padding(
-                    horizontal = 18.dp,
-                    vertical = 2.dp,
-                ),
+        Modifier
+            .fillMaxWidth()
+            .height((heightDp * if (stacked) fontScale * 2.2f else 1f).dp)
+            .background(SugarliciousColors.Surface, shape)
+            .border(1.dp, SugarliciousColors.Border.copy(alpha = .85f), shape)
+            .clip(shape)
+            .padding(horizontal = 18.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier =
-                    Modifier
-                        .weight(132f)
-                        .fillMaxHeight(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    GlucoseValueAndTrend(glucoseText, glucoseColor, trend, visualSpec)
-
-                    Spacer(Modifier.height(3.dp))
-
-                    Text(
-                        text =
-                            buildAnnotatedString {
-                                withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) {
-                                    append("$delta $unitLabel")
-                                }
-                                append(" · $age")
-                            },
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                    )
-                }
+        if (stacked) {
+            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                GlucosePane(Modifier.fillMaxWidth().weight(1f))
+                DetailsPane(Modifier.fillMaxWidth().weight(2f))
             }
-
-            if (detailMode == GlucoseTileDetailMode.TIR) {
-                TirProgressColumn(stats = tirStats, modifier = Modifier.weight(210f).fillMaxHeight())
-            } else {
-                TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.weight(210f).fillMaxHeight())
+        } else {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                GlucosePane(Modifier.weight(132f).fillMaxHeight())
+                DetailsPane(Modifier.weight(210f).fillMaxHeight())
             }
         }
     }
