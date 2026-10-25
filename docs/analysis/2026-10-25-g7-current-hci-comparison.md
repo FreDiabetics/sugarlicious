@@ -59,3 +59,13 @@ The Vigil signal-loss label is explicitly red in active and ambient rendering. T
 The initial update/history fix passed 49 targeted tests (provider outcome, canonical history, Vigil rendering and collector database), build, Detekt, ktlint and Lint (no issues). Installed on Galaxy Watch Ultra without sensor reset. At 19:13:20 attempt 9265 completed SUCCESS_FRESH; the immediately captured Vigil frame showed 0m and the retained multi-point history. Raw screenshots remain private.
 
 Live provisional publication is additionally coalesced until the matching persisted sensor state has been saved. This prevents the first update racing an UNKNOWN/previous error state before optional backfill completes. A regression checks that a coalesced pair of inserts produces no early Vigil request and exactly one header request after the block.
+
+
+## Follow-up: collector radio recovery fixes
+
+Two additional defects were found in the real AndroidG7Collector loop (not UI code):
+
+1. A cached earlier GATT-133 exception could replace a later terminal failure after a successful fallback scan/reconnect. A real Robolectric BluetoothGatt sequence reproduces two 133 responses, one successful discovery, then missing G7 service. Before the fix it incorrectly returned G7-GATT-133; after the fix it returns G7-GATT-204 and closes every platform client. Authentication errors at the same terminal boundary likewise retain their actual cause rather than being hidden behind stale radio state. Existing empty-fallback classification and bounded retries are preserved.
+2. The bond-reconnect catch delayed and published RECOVERING before its finally block closed the old GATT client. It now closes immediately on entering that catch, before persistence, delay or another connection. A regression injects the real bond-reconnect exception at the registered-client boundary and checks that the platform client is closed when RECOVERING is delivered. Existing cleanup remains idempotent.
+
+These are code-path/reproduction-proven defects; the retained historical logs do not permit assigning every old 133 or authentication error to them. Out-of-range failures, package replacement and low-memory process deaths remain separately classified. No sensor reset, bond deletion, authentication bypass, unbounded scan or new polling was introduced.

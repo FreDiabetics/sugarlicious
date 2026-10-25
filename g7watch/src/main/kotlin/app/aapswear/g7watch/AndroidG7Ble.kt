@@ -451,7 +451,6 @@ internal class AndroidG7Collector(
         var bondReconnectAttempts = 0
         var gatt133Retries = 0
         var noCallbackRetries = 0
-        var pendingGatt133: G7BleException? = null
         var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
         var sensorFoundPending = false
@@ -543,12 +542,12 @@ internal class AndroidG7Collector(
                     }
                 return G7CollectionResult(sensor, outcome.first, outcome.second, sharedKey)
             } catch (rebond: G7BondReconnectRequired) {
+                connection.close()
                 sharedKey = rebond.sharedKey
                 bondReconnectAttempts += 1
                 if (bondReconnectAttempts >= MAX_BOND_RECONNECT_ATTEMPTS) {
                     throw G7BleException("G7-AUTH-207", "Sensor wurde gekoppelt, die erneute Verbindung schlug aber fehl", true, rebond)
                 }
-                pendingGatt133 = null
                 discoveryRequired = false
                 onState(G7ProtocolState.RECOVERING)
                 delay(BOND_RECONNECT_DELAY_MS)
@@ -561,7 +560,6 @@ internal class AndroidG7Collector(
                     sensor = initialSensor
                     sharedKey = null
                     discoveryRequired = true
-                    pendingGatt133 = null
                     onState(G7ProtocolState.RECOVERING)
                 } else if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
                     noCallbackRetries += 1
@@ -571,7 +569,6 @@ internal class AndroidG7Collector(
                 } else if (error.errorCode == G7_GATT_133_ERROR_CODE &&
                     gatt133Retries < maxGatt133RetriesForCycle(fallbackUsed)
                 ) {
-                    pendingGatt133 = error
                     gatt133Retries += 1
                     discoveryRequired = false
                     onState(G7ProtocolState.RECOVERING)
@@ -579,12 +576,11 @@ internal class AndroidG7Collector(
                 } else if (allowFallbackScan &&
                     shouldUseFallbackDiscovery(reconnectStrategy, sensor.deviceAddress, fallbackUsed, error.recoverable)
                 ) {
-                    pendingGatt133 = error.takeIf { it.errorCode == G7_GATT_133_ERROR_CODE }
                     fallbackUsed = true
                     discoveryRequired = true
                     onState(G7ProtocolState.RECOVERING)
                 } else {
-                    throw pendingGatt133 ?: error
+                    throw error
                 }
             } catch (timeout: TimeoutCancellationException) {
                 connection.close()
@@ -602,7 +598,7 @@ internal class AndroidG7Collector(
                     discoveryRequired = true
                     onState(G7ProtocolState.RECOVERING)
                 } else {
-                    throw pendingGatt133 ?: error
+                    throw error
                 }
             } finally {
                 connection.close()
