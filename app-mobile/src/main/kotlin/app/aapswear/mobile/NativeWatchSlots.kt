@@ -181,9 +181,17 @@ internal fun nativeSlotEditorOrder(faceIndex: Int, slots: List<NativeWatchSlot>)
     return order.mapNotNull { id -> entries.firstOrNull { it.id == id } } + entries.filter { it.id !in order }
 }
 
+internal fun isNativeSlotEditable(slot: NativeWatchSlot): Boolean =
+    slot.provider.substringBefore('/') == "app.aapswear" &&
+        slot.provider.substringAfter('/', "").startsWith("app.aapswear.complications.")
+
 internal fun eligibleNativeVariants(slot: NativeWatchSlot): List<ComplicationVariant> =
-    SugarliciousComplicationCatalog.flatMap { it.variants }.filter { variant ->
-        (if (variant.type == ComplicationVariantType.PHOTO_IMAGE) "LARGE_IMAGE" else variant.type.name) in slot.supportedTypes
+    if (!isNativeSlotEditable(slot)) {
+        emptyList()
+    } else {
+        SugarliciousComplicationCatalog.flatMap { it.variants }.filter { variant ->
+            (if (variant.type == ComplicationVariantType.PHOTO_IMAGE) "LARGE_IMAGE" else variant.type.name) in slot.supportedTypes
+        }
     }
 
 internal fun readNativeWatchSlots(input: InputStream): List<NativeWatchSlot> {

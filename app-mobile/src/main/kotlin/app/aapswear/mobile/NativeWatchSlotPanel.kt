@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -101,9 +102,10 @@ internal fun NativeWatchSlotPanel(faceIndex: Int, slots: List<NativeWatchSlot>, 
 
 @Composable
 private fun NativeSlotChoice(faceIndex: Int, slot: NativeWatchSlot, selected: Boolean, variantId: Int?, bounds: List<NativeSlotBounds>, modifier: Modifier, onSelected: (Int) -> Unit) {
-    Surface(modifier = modifier.semantics { this.selected = selected }.clickable { onSelected(slot.id) }, shape = RoundedCornerShape(12.dp), color = OneUiWidgetStyle.action) {
+    val enabled = isNativeSlotEditable(slot)
+    Surface(modifier = modifier.alpha(if (enabled) 1f else .35f).semantics { this.selected = selected && enabled }.clickable(enabled = enabled) { onSelected(slot.id) }, shape = RoundedCornerShape(12.dp), color = OneUiWidgetStyle.action) {
         Column(Modifier.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            IsolatedNativeSlotPreview(faceIndex, slot, selected, Modifier.size((72f * LocalDensity.current.fontScale).dp), bounds, variantId)
+            IsolatedNativeSlotPreview(faceIndex, slot, selected && enabled, Modifier.size((72f * LocalDensity.current.fontScale).dp), bounds, variantId)
             Text(slot.displayName, color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodySmall, textAlign = TextAlign.Center)
         }
     }

@@ -120,9 +120,9 @@ internal fun SugarliciousWatchScreen(
                 else -> emptyList()
             }
         }
-    var selectedSlotId by remember(editingFaceIndex) { mutableStateOf(nativeSlotPreviewEntries(nativeSlots).firstOrNull()?.id) }
+    var selectedSlotId by remember(editingFaceIndex) { mutableStateOf(nativeSlotPreviewEntries(nativeSlots).firstOrNull(::isNativeSlotEditable)?.id) }
     var slotAssignments by remember(editingFaceIndex) { mutableStateOf(WatchFacePresetStore.readSlots(appContext, editingFaceIndex)) }
-    val selectedSlot = nativeSlots.firstOrNull { it.id == selectedSlotId }
+    val selectedSlot = nativeSlots.firstOrNull { it.id == selectedSlotId && isNativeSlotEditable(it) }
     val listState = rememberLazyListState()
     val snapConnection = rememberWatchSectionSnap(listState, setOf(0, 2, 4))
 
@@ -155,7 +155,7 @@ internal fun SugarliciousWatchScreen(
                         onSelectedFace = ::selectFace,
                         onEdit = { editingFaceIndex = activeFaceIndex },
                         compactLayout = true,
-                        highlightedSlot = nativeSlots.firstOrNull { it.id == selectedSlotId },
+                        highlightedSlot = nativeSlots.firstOrNull { it.id == selectedSlotId && isNativeSlotEditable(it) },
                         showConnection = false,
                         slotAssignments = slotAssignments,
                         editableSlots = nativeSlots,
