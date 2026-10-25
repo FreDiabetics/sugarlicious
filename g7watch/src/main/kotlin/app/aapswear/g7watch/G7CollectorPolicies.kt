@@ -1,8 +1,10 @@
 package app.aapswear.g7watch
 
+import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.CollectorDiagnosticAttempt
 import app.aapswear.g7.G7CollectorHealth
 import app.aapswear.g7.G7ConnectionState
@@ -24,15 +26,39 @@ internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean = act
 
 internal fun shouldCoalesceG7CollectorTrigger(automatic: Boolean, activeCycle: Boolean): Boolean = automatic && activeCycle
 
+private fun trustedG7CadenceReading(state: G7PersistedState, nowEpochMs: Long): CgmReading? {
+    if (!state.collectorEnabled) return null
+    val sensor = state.sensor ?: return null
+    val reading = state.lastReading ?: return null
+    if (reading.status != CgmReadingStatus.VALID || reading.origin != CgmReadingOrigin.LIVE) return null
+    if (reading.sensorId != sensor.sensorId || reading.sessionId != (sensor.sessionId ?: sensor.sensorId)) return null
+    return reading.takeIf { it.timestampEpochMs <= nowEpochMs }
+}
+
 internal fun shouldAwaitG7SensorWindow(state: G7PersistedState, nowEpochMs: Long): Boolean {
-    if (!state.collectorEnabled) return false
-    val sensor = state.sensor ?: return false
-    val reading = state.lastReading ?: return false
-    if (reading.status != CgmReadingStatus.VALID || reading.origin != CgmReadingOrigin.LIVE) return false
-    if (reading.sensorId != sensor.sensorId || reading.sessionId != (sensor.sessionId ?: sensor.sensorId)) return false
-    if (reading.timestampEpochMs > nowEpochMs) return false
+    val reading = trustedG7CadenceReading(state, nowEpochMs) ?: return false
     val nextLeadAt = reading.timestampEpochMs + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS - G7ReconnectScheduler.PRECONNECT_LEAD_MS
     return nowEpochMs < nextLeadAt
+}
+
+/** Restore the armed current-session window even when its last LIVE value is stale. */
+internal fun g7StartupSensorWindow(state: G7PersistedState, pending: CollectorCycleTiming?, nowEpochMs: Long): CollectorCycleTiming? {
+    val reading = trustedG7CadenceReading(state, nowEpochMs) ?: return null
+    pending?.let { cycle ->
+        val expected = cycle.expectedReadingEpoch
+        val requested = cycle.requestedReconnectEpoch
+        if (expected != null &&
+            requested != null &&
+            requested > nowEpochMs &&
+            expected >= requested &&
+            cycle.expectedWindowId == expectedWindowId(reading.sensorId, reading.sessionId, expected)
+        ) {
+            return cycle
+        }
+    }
+    if (!shouldAwaitG7SensorWindow(state, nowEpochMs)) return null
+    val expected = reading.timestampEpochMs + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS
+    return CollectorCycleTiming(expectedReadingEpoch = expected, requestedReconnectEpoch = expected - G7ReconnectScheduler.PRECONNECT_LEAD_MS)
 }
 
 internal fun needsG7FollowUpRepair(collectorEnabled: Boolean, pendingReconnectEpochMs: Long?, nowEpochMs: Long): Boolean =

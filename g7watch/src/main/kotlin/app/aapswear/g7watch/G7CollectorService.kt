@@ -158,24 +158,16 @@ class G7CollectorService : Service() {
             }
         }
 
-        // Process/package restoration can happen in the middle of the five-minute silence.
-        // A fresh validated LIVE value already provides the next radio phase: do not turn an
-        // expected lack of advertisements into a failed scan or a degraded-radio streak.
-        if (request == CycleRequest.AUTOMATIC &&
-            scheduledCycle == null &&
-            collectionJob?.isActive != true &&
-            shouldAwaitG7SensorWindow(persisted, serviceStartAt)
-        ) {
-            val expectedAt = requireNotNull(persisted.lastReading).timestampEpochMs + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS
-            val restored =
-                G7ReconnectAlarmScheduler.rearmScheduledCycle(
-                    this,
-                    CollectorCycleTiming(
-                        expectedReadingEpoch = expectedAt,
-                        requestedReconnectEpoch = expectedAt - G7ReconnectScheduler.PRECONNECT_LEAD_MS,
-                    ),
-                    persisted,
-                )
+        // A process restored during sensor silence must not consume/rewrite the
+        // already armed real window, including after a signal-loss gap.
+        val startupWindow =
+            if (request == CycleRequest.AUTOMATIC && scheduledCycle == null && collectionJob?.isActive != true) {
+                g7StartupSensorWindow(persisted, attemptStore.pendingScheduledCycle(), serviceStartAt)
+            } else {
+                null
+            }
+        if (startupWindow != null) {
+            val restored = G7ReconnectAlarmScheduler.rearmScheduledCycle(this, startupWindow, persisted)
             restored.requestedReconnectEpoch?.let { reconnectAt ->
                 store.save(
                     clearG7ScanRuntime(store.read()).copy(
