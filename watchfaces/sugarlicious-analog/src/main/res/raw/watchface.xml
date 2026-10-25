@@ -1394,6 +1394,11 @@
         </Group>
         <PartImage x="244" y="124" width="24" height="24" tintColor="[CONFIGURATION.materialSubTheme.1]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 231 : 244" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 111 : 124" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 50 : 24" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 50 : 24" />
         </PartImage>
         <PartText x="211" y="148" width="90" height="28">
           <Text align="CENTER">
@@ -1503,6 +1508,11 @@
       <Complication type="RANGED_VALUE">
         <PartImage x="50" y="221" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.0]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 36.5 : 50" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 207.5 : 221" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
         </PartImage>
         <PartDraw alpha="55" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressGap] == &quot;TRUE&quot; &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN]) ? 0 : 55" />
@@ -1641,6 +1651,11 @@
       <Complication type="RANGED_VALUE">
         <PartImage x="268" y="47" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.0]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 254.5 : 268" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 33.5 : 47" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
         </PartImage>
         <PartDraw alpha="55" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressGap] == &quot;TRUE&quot; &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] &amp;&amp; [CONFIGURATION.upperRightMarkers] != &quot;TRUE&quot;) ? 0 : 55" />
@@ -1989,6 +2004,11 @@
       <Complication type="RANGED_VALUE">
         <PartImage x="440" y="259" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.0]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 426.5 : 440" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 245.5 : 259" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
         </PartImage>
         <PartDraw alpha="55" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressGap] == &quot;TRUE&quot; &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN]) ? 0 : 55" />
@@ -2180,6 +2200,11 @@
         </Group>
         <PartImage x="229" y="438" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.0]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 215.5 : 229" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 424.5 : 438" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 52 : 25" />
         </PartImage>
         <Condition>
           <Expressions>
@@ -2811,6 +2836,11 @@
         </Condition>
         <PartImage tintColor="[CONFIGURATION.materialSubTheme.1]" x="59" y="114" width="32" height="32">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 41.5 : 59" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 96.5 : 114" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
         </PartImage>
       </Complication>
       <Complication type="EMPTY" />

@@ -643,6 +643,8 @@ def generate(output):
         E.indent(tree, space="  ")
         E.ElementTree(tree).write(target, encoding="utf-8", xml_declaration=True)
 
+    runpy.run_path(str(ROOT / "tools/watchface-assets/configure_trend_icon_geometry.py"))["configure"](output / "raw/watchface.xml")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -31,6 +31,20 @@ internal object TrendComplicationIcon {
     /** Every direction shares one host canvas and one ink height, including the wide double arrows. */
     internal fun watchFaceBitmap(context: Context, trend: Trend, sizePx: Int): Bitmap? {
         val glyph = render(context, trend, sizePx) ?: return null
+        return watchFaceCanvas(glyph, sizePx)
+    }
+
+    /** Plain glucose ranged values share the same host geometry as glucose + trend. */
+    internal fun glucoseValueImage(context: Context, sizePx: Int = 72): MonochromaticImage? {
+        val drawable = context.getDrawable(R.drawable.ic_complication_glucose)?.mutate() ?: return null
+        drawable.setTint(Color.WHITE)
+        val glyph = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
+        drawable.setBounds(0, 0, sizePx, sizePx)
+        drawable.draw(Canvas(glyph))
+        return MonochromaticImage.Builder(Icon.createWithBitmap(watchFaceCanvas(glyph, sizePx))).build()
+    }
+
+    private fun watchFaceCanvas(glyph: Bitmap, sizePx: Int): Bitmap {
         val widest = requireNotNull(TrendVisuals.spec(Trend.DOUBLE_UP)).aspectRatio
         val side = (sizePx * widest).roundToInt().coerceAtLeast(1)
         return Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888).also { output ->

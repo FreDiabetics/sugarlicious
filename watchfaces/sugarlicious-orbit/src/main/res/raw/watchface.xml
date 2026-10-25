@@ -4282,6 +4282,11 @@
         </PartText>
         <PartImage x="58" y="188" width="32" height="32" tintColor="[CONFIGURATION.secondary.0]" angle="-74">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 40.5 : 58" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 170.5 : 188" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
         </PartImage>
       </Complication>
     </ComplicationSlot>
@@ -4449,6 +4454,11 @@
         </PartText>
         <PartImage x="308" y="64" width="32" height="32" tintColor="[CONFIGURATION.secondary.0]" angle="21">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 290.5 : 308" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 46.5 : 64" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
         </PartImage>
       </Complication>
     </ComplicationSlot>
@@ -4528,6 +4538,11 @@
         </PartText>
         <PartImage x="420" y="292" width="32" height="32" tintColor="[CONFIGURATION.secondary.0]" angle="286">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 402.5 : 420" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 274.5 : 292" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
         </PartImage>
       </Complication>
     </ComplicationSlot>
@@ -4642,6 +4657,11 @@
         </Condition>
         <PartImage x="132" y="405" width="32" height="32" tintColor="[CONFIGURATION.secondary.1]" angle="0">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <!-- trend-host-canvas: equal ink height for single and double arrows -->
+          <Transform target="x" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 114.5 : 132" />
+          <Transform target="y" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 387.5 : 405" />
+          <Transform target="width" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
+          <Transform target="height" value="[COMPLICATION.RANGED_VALUE_MIN] == 40 &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] == 260 ? 67 : 32" />
         </PartImage>
       </Complication>
       <Complication type="GOAL_PROGRESS">

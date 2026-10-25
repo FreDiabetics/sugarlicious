@@ -18,6 +18,15 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TrendComplicationIconTest {
     @Test
+    fun `plain glucose ranged icon shares trend canvas without enlarging its ink`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val glucose = requireNotNull(TrendComplicationIcon.glucoseValueImage(context, 60)).image.loadDrawable(context)!!
+        val trend = requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, Trend.SINGLE_DOWN, 60))
+        assertEquals(trend.width, glucose.intrinsicWidth)
+        assertEquals(trend.height, glucose.intrinsicHeight)
+    }
+
+    @Test
     fun `legacy phone preview and Wear app geometry do not alter watchface icons`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val before = requireNotNull(TrendComplicationIcon.watchFaceBitmap(context, Trend.DOUBLE_UP, 60))
