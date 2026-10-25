@@ -34,6 +34,42 @@ class G7ReadingDatabaseTest {
     }
 
     @Test
+    fun `thirty day retention does not discard a ten day history at two thousand rows`() =
+        runBlocking {
+            val now = System.currentTimeMillis()
+            val db = database.writableDatabase
+            db.beginTransaction()
+            try {
+                repeat(3_000) { index ->
+                    val at = now - (index + 1L) * 300_000L
+                    db.execSQL(
+                        "INSERT INTO readings (id,sensor_id,session_id,glucose,measured_at,received_at,trend,status) VALUES (?,?,?,?,?,?,?,?)",
+                        arrayOf<Any>("historical-$index", "sensor", "session", 123.0, at, at, "FLAT", "VALID"),
+                    )
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+            database.insert(
+                CgmReading(
+                    id = "latest",
+                    source = DataSourceId.DEXCOM_G7_WATCH,
+                    sensorId = "sensor",
+                    sessionId = "session",
+                    glucoseMgDl = 123.0,
+                    timestampEpochMs = now,
+                    receivedAtEpochMs = now,
+                    status = CgmReadingStatus.VALID,
+                ),
+            )
+            db.rawQuery("SELECT COUNT(*) FROM readings", null).use {
+                it.moveToFirst()
+                assertEquals(3_001, it.getInt(0))
+            }
+        }
+
+    @Test
     fun `retains all decoded sensor documentation fields`() =
         runBlocking {
             val now = System.currentTimeMillis()

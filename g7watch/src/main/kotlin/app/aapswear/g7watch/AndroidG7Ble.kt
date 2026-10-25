@@ -37,6 +37,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -197,6 +198,12 @@ internal class AndroidG7Scanner(
     fun rejectCandidate(address: String) = rejectedCandidates.add(address)
 
     var telemetryListener: (G7BleTelemetry) -> Unit = {}
+    private val pendingTelemetry = AtomicReference<G7ScanTelemetry?>(null)
+
+    fun flushTelemetry(radioEvent: G7BleTelemetry? = null) {
+        if (radioEvent != null && radioEvent !is G7DirectConnectStarted && radioEvent !is G7GattCleanupTelemetry) return
+        pendingTelemetry.getAndSet(null)?.let(telemetryListener)
+    }
 
     @SuppressLint("MissingPermission")
     override suspend fun findKnownSensor(
@@ -240,7 +247,7 @@ internal class AndroidG7Scanner(
                 runCatching { scanner.stopScan(callback) }
                 clearActiveScan(scanner, callback)
                 val endedAt = System.currentTimeMillis()
-                telemetryListener(
+                pendingTelemetry.set(
                     G7ScanTelemetry(
                         scanStartedAt,
                         endedAt,
@@ -447,6 +454,7 @@ internal class AndroidG7Collector(
         var pendingGatt133: G7BleException? = null
         var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
+        var sensorFoundPending = false
         (scanner as? AndroidG7Scanner)?.telemetryListener = onTelemetry
 
         while (true) {
@@ -469,6 +477,7 @@ internal class AndroidG7Collector(
                         val remainingScan = minOf(scanTimeout, remainingDiscoveryMs)
                         withTimeout(remainingScan + SCAN_TIMEOUT_GUARD_MS) { scanner.findKnownSensor(sensor, remainingScan) }
                     } catch (error: G7BleException) {
+                        (scanner as? AndroidG7Scanner)?.flushTelemetry()
                         if (fallbackUsed && error.errorCode == "G7-BLE-107") {
                             throw G7BleException(
                                 "G7-BLE-FALLBACK-107",
@@ -479,10 +488,11 @@ internal class AndroidG7Collector(
                         }
                         throw error
                     } catch (_: TimeoutCancellationException) {
+                        (scanner as? AndroidG7Scanner)?.flushTelemetry()
                         throw G7BleException("G7-BLE-111", "Sensorsuche hat ihr begrenztes Zeitfenster überschritten", true)
                     }
                 sensor = discovered ?: throw G7BleException("G7-BLE-107", "Kein sendender Dexcom-G7-Sensor gefunden", true)
-                onState(G7ProtocolState.SENSOR_FOUND)
+                sensorFoundPending = true
                 discoveryRequired = false
             }
             if (sharedKey != null &&
@@ -501,7 +511,19 @@ internal class AndroidG7Collector(
                 G7GattConnection(
                     context,
                     sensor,
-                    onTelemetry,
+                    { event ->
+                        // A successful scan must hand off to actual connectGatt first. Its
+                        // callback only captured telemetry; serialize it here off the UI/BLE
+                        // callback thread, after radio registration (or physical cleanup).
+                        if (event is G7DirectConnectStarted || event is G7GattCleanupTelemetry) {
+                            (scanner as? AndroidG7Scanner)?.flushTelemetry(event)
+                            if (sensorFoundPending) {
+                                sensorFoundPending = false
+                                onState(G7ProtocolState.SENSOR_FOUND)
+                            }
+                        }
+                        onTelemetry(event)
+                    },
                     G7GattGenerationRegistry.acquire(attemptId),
                 )
             try {
@@ -615,14 +637,21 @@ internal fun g7BondWaitDecision(
         else -> G7BondWaitDecision.KEEP_WAITING
     }
 
-private class G7GattConnection(
+private data class G7ConnectionCallback(
+    val status: Int,
+    val state: Int,
+    val epochMs: Long,
+    val elapsedMs: Long,
+)
+
+internal class G7GattConnection(
     private val context: Context,
     private val sensor: G7Sensor,
     private val onTelemetry: (G7BleTelemetry) -> Unit,
     private val ownership: G7GattOwnership,
 ) {
     private val manager = context.getSystemService(BluetoothManager::class.java)
-    private val connectionEvents = Channel<Pair<Int, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val connectionEvents = Channel<G7ConnectionCallback>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val serviceEvents = Channel<Int>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val descriptorEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val writeEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
@@ -644,9 +673,9 @@ private class G7GattConnection(
             ) {
                 if (!acceptCallback(gatt, "CONNECTION_STATE")) return
                 connected = status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED
-                val result = classifyDirectConnectCallback(status, newState)
-                recordDirectResult(result, status, newState)
-                connectionEvents.trySend(status to newState)
+                // Never serialize diagnostics on Android's BLE callback thread. Preserve the
+                // actual arrival time and let the collector consume/persist it off that thread.
+                connectionEvents.trySend(G7ConnectionCallback(status, newState, System.currentTimeMillis(), SystemClock.elapsedRealtime()))
             }
 
             override fun onServicesDiscovered(
@@ -715,9 +744,17 @@ private class G7GattConnection(
                     throw G7BleException("G7-BLE-110", "Sensoradresse ist ungültig", false, it)
                 }
 
-        onState(G7ProtocolState.CONNECTING)
         connectStartedAtEpochMs = System.currentTimeMillis()
         connectStartedElapsedMs = SystemClock.elapsedRealtime()
+        gatt =
+            try {
+                connectG7Gatt(device, context, callback)
+            } catch (security: SecurityException) {
+                recordDirectResult(DirectConnectResult.SECURITY_ERROR)
+                throw security
+            }
+        // Radio registration must precede preference/JSON work. Otherwise "connect started"
+        // measured diagnostic overhead rather than the real Android connectGatt invocation.
         onTelemetry(
             G7DirectConnectStarted(
                 requireNotNull(connectStartedAtEpochMs),
@@ -726,20 +763,17 @@ private class G7GattConnection(
                 ownership.generation,
             ),
         )
-        gatt =
-            try {
-                connectG7Gatt(device, context, callback)
-            } catch (security: SecurityException) {
-                recordDirectResult(DirectConnectResult.SECURITY_ERROR)
-                throw security
-            }
-        val (connectStatus, connectState) =
+        onState(G7ProtocolState.CONNECTING)
+        val event =
             try {
                 withTimeout(G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS) { connectionEvents.receive() }
             } catch (timeout: TimeoutCancellationException) {
                 recordDirectResult(DirectConnectResult.NO_CALLBACK)
                 throw G7BleException(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, "Direkter G7-Connect ohne Callback", true, timeout)
             }
+        val connectStatus = event.status
+        val connectState = event.state
+        recordDirectResult(classifyDirectConnectCallback(connectStatus, connectState), connectStatus, connectState, event.epochMs, event.elapsedMs)
         if (connectStatus != BluetoothGatt.GATT_SUCCESS || connectState != BluetoothProfile.STATE_CONNECTED) {
             if (connectStatus == GATT_ERROR_133) {
                 throw G7BleException(G7_GATT_133_ERROR_CODE, "Temporärer BLE-Verbindungsfehler (133)", true)
@@ -1027,20 +1061,21 @@ private class G7GattConnection(
     fun close() {
         if (!closeStarted.compareAndSet(false, true)) return
         val current = gatt
+        val cleanupStartedAt = System.currentTimeMillis()
+        G7GattGenerationRegistry.invalidate(ownership)
+        gatt = null
+        connected = false
+        runCatching { current?.disconnect() }
+        runCatching { current?.close() }
         onTelemetry(
             G7GattCleanupTelemetry(
-                System.currentTimeMillis(),
+                cleanupStartedAt,
                 ownership.attemptId,
                 ownership.generation,
                 disconnected = current != null,
                 started = true,
             ),
         )
-        G7GattGenerationRegistry.invalidate(ownership)
-        gatt = null
-        connected = false
-        runCatching { current?.disconnect() }
-        runCatching { current?.close() }
         onTelemetry(
             G7GattCleanupTelemetry(
                 System.currentTimeMillis(),
@@ -1080,14 +1115,16 @@ private class G7GattConnection(
         result: DirectConnectResult,
         status: Int? = null,
         newState: Int? = null,
+        epochMs: Long = System.currentTimeMillis(),
+        elapsedMs: Long = SystemClock.elapsedRealtime(),
     ) {
         if (!directResultRecorded.compareAndSet(false, true)) return
         val startElapsed = connectStartedElapsedMs ?: SystemClock.elapsedRealtime()
         onTelemetry(
             G7DirectConnectCompleted(
-                timestampEpochMs = System.currentTimeMillis(),
-                elapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                durationMs = (SystemClock.elapsedRealtime() - startElapsed).coerceAtLeast(0L),
+                timestampEpochMs = epochMs,
+                elapsedRealtimeMs = elapsedMs,
+                durationMs = (elapsedMs - startElapsed).coerceAtLeast(0L),
                 result = result,
                 status = status,
                 newState = newState,

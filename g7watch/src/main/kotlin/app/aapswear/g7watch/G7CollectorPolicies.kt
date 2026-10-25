@@ -1,5 +1,7 @@
 package app.aapswear.g7watch
 
+import app.aapswear.g7.CgmReadingOrigin
+import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.CollectorCycleClassification
 import app.aapswear.g7.CollectorDiagnosticAttempt
 import app.aapswear.g7.G7CollectorHealth
@@ -7,6 +9,7 @@ import app.aapswear.g7.G7ConnectionState
 import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
+import app.aapswear.g7.G7ReconnectScheduler
 import app.aapswear.g7.G7Sensor
 
 internal fun shouldKeepG7RuntimeForeground(collectorEnabled: Boolean): Boolean = collectorEnabled
@@ -20,6 +23,17 @@ internal fun restoreAuthenticatedG7Address(sensor: G7Sensor, sharedKeyAddress: S
 internal fun shouldRepairG7RuntimeOnServiceStart(action: String?): Boolean = action != G7CollectorService.ACTION_RECONNECT
 
 internal fun shouldCoalesceG7CollectorTrigger(automatic: Boolean, activeCycle: Boolean): Boolean = automatic && activeCycle
+
+internal fun shouldAwaitG7SensorWindow(state: G7PersistedState, nowEpochMs: Long): Boolean {
+    if (!state.collectorEnabled) return false
+    val sensor = state.sensor ?: return false
+    val reading = state.lastReading ?: return false
+    if (reading.status != CgmReadingStatus.VALID || reading.origin != CgmReadingOrigin.LIVE) return false
+    if (reading.sensorId != sensor.sensorId || reading.sessionId != (sensor.sessionId ?: sensor.sensorId)) return false
+    if (reading.timestampEpochMs > nowEpochMs) return false
+    val nextLeadAt = reading.timestampEpochMs + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS - G7ReconnectScheduler.PRECONNECT_LEAD_MS
+    return nowEpochMs < nextLeadAt
+}
 
 internal fun needsG7FollowUpRepair(collectorEnabled: Boolean, pendingReconnectEpochMs: Long?, nowEpochMs: Long): Boolean =
     collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
@@ -87,6 +101,7 @@ internal fun effectiveG7ReconnectStrategy(
 ): G7ReconnectStrategy =
     when {
         configured != G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT -> configured
+        health.consecutiveFailures > 0 && health.lastFailureClass == G7FailureClass.DIRECT_NO_CALLBACK -> G7ReconnectStrategy.BOUNDED_SCAN
         health.consecutiveFailures < RADIO_DEGRADED_CLUSTER_THRESHOLD -> configured
         health.lastFailureClass !in RADIO_FAILURE_CLASSES -> configured
         else -> {

@@ -439,7 +439,7 @@ abstract class TherapyComplicationService(
                                 catalogId = appearanceCatalogId,
                             )?.let(builder::setMonochromaticImage)
                     }
-                    complicationIcon(kind, therapyState)?.let(builder::setMonochromaticImage)
+                    complicationIcon(kind, therapyState, glucoseRanged = true)?.let(builder::setMonochromaticImage)
 
                     if (displayable && glucose != null) {
                         (applicationContext as? ComplicationGlucoseColorSource)
@@ -849,7 +849,9 @@ abstract class TherapyComplicationService(
     private fun complicationIcon(
         kind: ProviderKind,
         state: TherapyDisplayState?,
+        glucoseRanged: Boolean = false,
     ): MonochromaticImage? {
+        if (kind == ProviderKind.GLUCOSE && glucoseRanged) return TrendComplicationIcon.glucoseValueImage(this)
         val resource =
             when (kind) {
                 ProviderKind.GLUCOSE -> R.drawable.ic_complication_glucose

@@ -510,7 +510,10 @@ internal class G7ReadingDatabase(
         const val SUGARLICIOUS_PACKAGE = "app.aapswear"
         const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
-        const val MAX_ROWS = 2_000
+
+        // Thirty days contain 8,640 five-minute readings. The old 2,000-row cap silently
+        // shortened the declared 30-day retention to under seven days, including audit data.
+        const val MAX_ROWS = 10_000
         const val IDENTITY_TOLERANCE_MS = 60_000L
     }
 

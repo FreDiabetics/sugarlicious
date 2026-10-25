@@ -3,6 +3,7 @@ package app.aapswear.g7watch
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CollectorCycleClassification
+import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.G7CollectorHealth
 import app.aapswear.g7.G7FailureClass
 import app.aapswear.g7.G7GapRecoveryState
@@ -12,6 +13,7 @@ import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SensorAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,6 +30,25 @@ class G7CollectorRecoveryIntegrationTest {
             .clear()
             .commit()
         G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("sensor", "session"), collectorEnabled = true))
+    }
+
+    @Test fun `restoring half a second before scan lead never skips the known next sensor window`() {
+        val now = System.currentTimeMillis()
+        val expected = now + 30_500L
+        G7ReconnectStrategyStore.write(context, G7ReconnectStrategy.BOUNDED_SCAN)
+        try {
+            val cycle =
+                G7ReconnectAlarmScheduler.rearmScheduledCycle(
+                    context,
+                    CollectorCycleTiming(expectedReadingEpoch = expected, requestedReconnectEpoch = expected - 30_000L),
+                    G7SensorStateStore(context).read(),
+                )
+            assertEquals(expected, cycle.expectedReadingEpoch)
+            assertTrue(requireNotNull(cycle.requestedReconnectEpoch) >= now + 1_000L)
+            assertTrue(requireNotNull(cycle.requestedReconnectEpoch) < expected)
+        } finally {
+            G7ReconnectStrategyStore.write(context, G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT)
+        }
     }
 
     @Test fun `real hardware failure sequence self heals and closes every available gap`() {
