@@ -9,6 +9,7 @@ Captured from the Galaxy Watch Ultra on 2026-10-25, before the changes below. Ra
 - Old session: 1,758 stored readings, 1,319 valid LIVE; 433 BACKFILL including invalid readings. There are 116 gaps over 7.5 minutes between stored valid LIVE readings. The largest is about 670 minutes; missing process/event history prevents attributing that entire interval to a radio failure.
 - Current session: 242 stored readings at the capture boundary, 14 valid LIVE and 228 BACKFILL. Most of those historical measurements predate watch setup. They are not evidence that the watch missed 228 scheduled cycles.
 - The 192 attempts include 146 SUCCESS_FRESH, 16 FALLBACK_SCAN_FAILED, 14 GATT_CONNECT_FAILED, six CANCELLED, six AUTH_FAILED, three PROCESS_INTERRUPTED and one NO_ADVERTISEMENT. Installation interruptions, explicit setup and rejected old-sensor candidates must not be counted as steady-state failures.
+- The retained Android process-exit history contains 14 package-update stops, one Settings-origin force-stop, and one LOW_MEMORY exit (2026-10-23). It contains no crash/ANR record. This does not prove that no earlier crash ever happened; it separates the available exit evidence from radio failures. The existing scheduled-window recovery is required after low-memory process death.
 
 The earlier search/unlink fixes are already installed and merged in PR #90. In particular, initial discovery now has real Android scan filters instead of an unfiltered screen-off scan; rejected authentication candidates cannot become the active sensor.
 
@@ -48,6 +49,12 @@ Targeted regression coverage includes actual Robolectric GATT registration/callb
 - CODE/BUILD VALIDATED: 102 targeted tests, zero failures/errors; `:g7watch:assembleDebug`, lint, Detekt and ktlint passed. Independent review found no important issues.
 - INSTALLED on the Galaxy Watch Ultra with `adb install -r`, preserving the active sensor. APK SHA-256: `A6C65A7326821562079641BF9135713B4EFD50CBD4BA4895C1D40AED9A0B4D02`.
 - HARDWARE OBSERVED: first post-install cycle 9182 stored a fresh LIVE reading at 11:53 UTC after one successful presence scan; cycle 9183 stored the next fresh LIVE reading at 11:58 UTC via direct reconnect. No unpair, credential reset or manual sensor setup was performed. This is a short functional check, not proof of multi-day reliability.
+
+## Scan callback follow-up
+
+Final path inspection found the same persistence-before-handoff pattern in scan completion. A successful scan now captures its counters/timestamps in an atomic pending value, stops the platform scan and resumes its result without writing diagnostics. The collector flushes that value exactly once after actual GATT registration/physical cleanup. Failed scans flush on the collector coroutine before propagating their failure. `SENSOR_FOUND` persistence is deferred to the same safe boundary.
+
+Late stale callbacks are explicitly forbidden from consuming this pending handoff or changing the pending state flag. The real scanner regression test verifies result delivery, stopped scan, refusal of a stale callback, then exact-once flushing at a genuine collector radio boundary. The 103-case targeted suite passed; both critical-path cases passed again after the stale-callback guard, as did build, lint, Detekt and ktlint. Independent final review found no remaining important issue. Installed final Collector APK SHA-256: `3D23684273D4E86F0CF4F95000AA390A5EAE668E2C26A32A4716FFC61F607507`.
 
 ## Watchface follow-up
 

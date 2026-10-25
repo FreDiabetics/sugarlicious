@@ -37,6 +37,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -197,6 +198,12 @@ internal class AndroidG7Scanner(
     fun rejectCandidate(address: String) = rejectedCandidates.add(address)
 
     var telemetryListener: (G7BleTelemetry) -> Unit = {}
+    private val pendingTelemetry = AtomicReference<G7ScanTelemetry?>(null)
+
+    fun flushTelemetry(radioEvent: G7BleTelemetry? = null) {
+        if (radioEvent != null && radioEvent !is G7DirectConnectStarted && radioEvent !is G7GattCleanupTelemetry) return
+        pendingTelemetry.getAndSet(null)?.let(telemetryListener)
+    }
 
     @SuppressLint("MissingPermission")
     override suspend fun findKnownSensor(
@@ -240,7 +247,7 @@ internal class AndroidG7Scanner(
                 runCatching { scanner.stopScan(callback) }
                 clearActiveScan(scanner, callback)
                 val endedAt = System.currentTimeMillis()
-                telemetryListener(
+                pendingTelemetry.set(
                     G7ScanTelemetry(
                         scanStartedAt,
                         endedAt,
@@ -447,6 +454,7 @@ internal class AndroidG7Collector(
         var pendingGatt133: G7BleException? = null
         var discoveryRequired = pairingRecoveryRequired || !shouldUseDirectReconnect(reconnectStrategy, sensor.deviceAddress)
         var fallbackUsed = false
+        var sensorFoundPending = false
         (scanner as? AndroidG7Scanner)?.telemetryListener = onTelemetry
 
         while (true) {
@@ -469,6 +477,7 @@ internal class AndroidG7Collector(
                         val remainingScan = minOf(scanTimeout, remainingDiscoveryMs)
                         withTimeout(remainingScan + SCAN_TIMEOUT_GUARD_MS) { scanner.findKnownSensor(sensor, remainingScan) }
                     } catch (error: G7BleException) {
+                        (scanner as? AndroidG7Scanner)?.flushTelemetry()
                         if (fallbackUsed && error.errorCode == "G7-BLE-107") {
                             throw G7BleException(
                                 "G7-BLE-FALLBACK-107",
@@ -479,10 +488,11 @@ internal class AndroidG7Collector(
                         }
                         throw error
                     } catch (_: TimeoutCancellationException) {
+                        (scanner as? AndroidG7Scanner)?.flushTelemetry()
                         throw G7BleException("G7-BLE-111", "Sensorsuche hat ihr begrenztes Zeitfenster überschritten", true)
                     }
                 sensor = discovered ?: throw G7BleException("G7-BLE-107", "Kein sendender Dexcom-G7-Sensor gefunden", true)
-                onState(G7ProtocolState.SENSOR_FOUND)
+                sensorFoundPending = true
                 discoveryRequired = false
             }
             if (sharedKey != null &&
@@ -501,7 +511,19 @@ internal class AndroidG7Collector(
                 G7GattConnection(
                     context,
                     sensor,
-                    onTelemetry,
+                    { event ->
+                        // A successful scan must hand off to actual connectGatt first. Its
+                        // callback only captured telemetry; serialize it here off the UI/BLE
+                        // callback thread, after radio registration (or physical cleanup).
+                        if (event is G7DirectConnectStarted || event is G7GattCleanupTelemetry) {
+                            (scanner as? AndroidG7Scanner)?.flushTelemetry(event)
+                            if (sensorFoundPending) {
+                                sensorFoundPending = false
+                                onState(G7ProtocolState.SENSOR_FOUND)
+                            }
+                        }
+                        onTelemetry(event)
+                    },
                     G7GattGenerationRegistry.acquire(attemptId),
                 )
             try {
