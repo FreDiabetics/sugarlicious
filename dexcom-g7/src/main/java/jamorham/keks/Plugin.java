@@ -240,7 +240,7 @@ public class Plugin implements IPluginDA {
                 if (!verifyChallenge(data)) {
                     context.reset();
                     if (context.sequence > 1) {
-                        throw new SecurityException("Mismatch - wait");
+                        throw new AuthenticationMismatchException();
                     } else {
                         return false;
                     }

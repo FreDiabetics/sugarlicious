@@ -2,6 +2,14 @@ package app.aapswear.g7watch
 
 /** Persist identifiers only: exception messages and protocol/authentication material are excluded. */
 internal fun authenticationProcessingFailure(code: String, error: Throwable): G7BleException {
+    if (error is jamorham.keks.AuthenticationMismatchException) {
+        return G7BleException(
+            "G7-AUTH-MISMATCH",
+            "G7-Kandidat passt nicht zum Authentifizierungsnachweis; Suche wird fortgesetzt",
+            true,
+            error,
+        )
+    }
     val stage =
         when (code) {
             "G7-AUTH-202" -> "EXTRA_DATA"

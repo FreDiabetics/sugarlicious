@@ -409,7 +409,6 @@ internal fun ComplicationStudio(
                     val catalogId = SugarliciousComplicationIds.baseId(variant.id)
                     if (appearance != ComplicationAppearanceSettingsStore.load(context, catalogId)) {
                         ComplicationAppearanceSettingsStore.save(context, catalogId, appearance)
-                        scope.launch { runCatching { syncComplicationAppearance(context, catalogId, appearance) } }
                     }
                     applySelection(updated)
                     variantDialogEntry = null
@@ -470,6 +469,7 @@ private fun ComplicationAppearanceControls(
     fun update(value: ComplicationAppearanceSettings) = onChange(value)
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Diese Einstellungen ändern nur die Vorschauen im Watch-Menü. Die Darstellung auf der Uhr bestimmt das Ziffernblatt.", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
         if (hasTrend) {
             Text(
                 "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
@@ -554,7 +554,7 @@ private fun ComplicationAppearanceControls(
             )
         } else {
             Text(
-                "Textgröße und Position werden bei Standard-Complications vom aktiven Watchface-Slot bestimmt. Dieses Menü zeigt deshalb nur Einstellungen, die die Runtime tatsächlich anwenden kann.",
+                "Textgröße und Position dieser Vorlage werden vom jeweiligen Watchface-Slot bestimmt.",
                 color = OneUiWidgetStyle.secondary,
                 fontSize = 14.sp,
             )
@@ -834,7 +834,7 @@ private fun ShortTextCatalogTemplate(
                         .spec(trend)
                         ?.aspectRatio ?: 1f
                 val requestedHeight = baseHeight * GlucoseTrendSizing.scaleFactor(appearance?.trendScalePercent ?: 100)
-                val fittedHeight = minOf(requestedHeight, contentWidth.value / aspect, if (iconOnly) diameter * .65f else diameter * .27f)
+                val fittedHeight = minOf(requestedHeight, diameter * .94f / aspect, if (iconOnly) diameter * .65f else diameter * .27f)
                 SugarliciousTrendIndicator(trend, modifier = Modifier.offset(x = (appearance?.trendOffsetXPercent ?: 0).dp / 5, y = (appearance?.trendOffsetYPercent ?: 0).dp / 5), arrowSize = fittedHeight.dp, color = Color.White, style = trendStyle)
             }
         }

@@ -8,6 +8,14 @@ import org.junit.Test
 
 class G7AuthenticationDiagnosticsTest {
     @Test
+    fun `candidate mismatch remains recoverable without accepting the peer`() {
+        val error = authenticationProcessingFailure("G7-AUTH-204", jamorham.keks.AuthenticationMismatchException())
+        assertEquals("G7-AUTH-MISMATCH", error.errorCode)
+        assertTrue(error.recoverable)
+        assertFalse(error.message.contains("Mismatch - wait"))
+    }
+
+    @Test
     fun `response diagnostics preserve error policy while excluding secret-bearing exception text`() {
         val cause = SecurityException("pairing=123456 payload=deadbeef key=top-secret")
         cause.stackTrace = arrayOf(StackTraceElement("com.example.Plugin", "receivedResponse", "secret-code-123456.kt", 42))

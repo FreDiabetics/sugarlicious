@@ -187,6 +187,15 @@ internal class AndroidG7Scanner(
     private val context: Context,
     private val matcher: G7DeviceMatcher = KnownG7DeviceMatcher(),
 ) : G7Scanner {
+    private val retiredSensors = G7RetiredSensors(context)
+    private val rejectedCandidates =
+        java.util.concurrent.ConcurrentHashMap
+            .newKeySet<String>()
+
+    fun clearRejectedCandidates() = rejectedCandidates.clear()
+
+    fun rejectCandidate(address: String) = rejectedCandidates.add(address)
+
     var telemetryListener: (G7BleTelemetry) -> Unit = {}
 
     @SuppressLint("MissingPermission")
@@ -279,7 +288,10 @@ internal class AndroidG7Scanner(
                             return
                         }
                         connectableResults.incrementAndGet()
-                        if (!matcher.matches(result.device, advertisedName, sensor)) {
+                        if (result.device.address in rejectedCandidates ||
+                            retiredSensors.contains(result.device.address) ||
+                            !matcher.matches(result.device, advertisedName, sensor)
+                        ) {
                             rejectedByIdentity.incrementAndGet()
                             return
                         }
@@ -304,7 +316,7 @@ internal class AndroidG7Scanner(
             runCatching {
                 replaceActiveScan(scanner, callback)
                 scanner.startScan(
-                    null,
+                    g7ScanFilters(sensor?.deviceAddress),
                     ScanSettings
                         .Builder()
                         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
@@ -408,6 +420,11 @@ internal class AndroidG7Collector(
         allowFallbackScan: Boolean = true,
     ): G7CollectionResult {
         var sensor = initialSensor
+        if (G7RetiredSensors(context).contains(sensor.deviceAddress)) {
+            throw G7BleException("G7-SETUP-RETIRED", "Dieser Sensor wurde vollständig getrennt und wird nicht erneut verbunden", false)
+        }
+        (scanner as? AndroidG7Scanner)?.clearRejectedCandidates()
+        val discoveryDeadline = android.os.SystemClock.elapsedRealtime() + (scanTimeoutMsOverride ?: g7ScanTimeoutMs(initialSensor))
         var sharedKey =
             credentials.sharedKey?.takeIf {
                 credentials.sharedKeyAddress == null || credentials.sharedKeyAddress.equals(sensor.deviceAddress, true)
@@ -442,9 +459,15 @@ internal class AndroidG7Collector(
                         fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
                         else -> g7ScanTimeoutMs(sensor)
                     }
+                val remainingDiscoveryMs =
+                    if (initialSensor.deviceAddress.isNullOrBlank()) discoveryDeadline - android.os.SystemClock.elapsedRealtime() else scanTimeout
+                if (remainingDiscoveryMs <= 0L) {
+                    throw G7BleException("G7-BLE-107", "Kein authentifizierbarer G7 im Suchzeitfenster gefunden", true)
+                }
                 val discovered =
                     try {
-                        withTimeout(scanTimeout + SCAN_TIMEOUT_GUARD_MS) { scanner.findKnownSensor(sensor, scanTimeout) }
+                        val remainingScan = minOf(scanTimeout, remainingDiscoveryMs)
+                        withTimeout(remainingScan + SCAN_TIMEOUT_GUARD_MS) { scanner.findKnownSensor(sensor, remainingScan) }
                     } catch (error: G7BleException) {
                         if (fallbackUsed && error.errorCode == "G7-BLE-107") {
                             throw G7BleException(
@@ -511,7 +534,14 @@ internal class AndroidG7Collector(
                 // close-before-retry is deliberate: no delay or new connect may overlap the
                 // terminal lifecycle of the generation that just failed.
                 connection.close()
-                if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
+                if (error.errorCode == "G7-AUTH-MISMATCH" && initialSensor.deviceAddress.isNullOrBlank() && scanner is AndroidG7Scanner) {
+                    sensor.deviceAddress?.let(scanner::rejectCandidate)
+                    sensor = initialSensor
+                    sharedKey = null
+                    discoveryRequired = true
+                    pendingGatt133 = null
+                    onState(G7ProtocolState.RECOVERING)
+                } else if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
                     noCallbackRetries += 1
                     discoveryRequired = false
                     onState(G7ProtocolState.RECOVERING)
@@ -969,8 +999,9 @@ private class G7GattConnection(
         writeType: Int,
         awaitCallback: Boolean = true,
     ) {
-        if (gatt.writeCharacteristic(characteristic, value, writeType) != BluetoothStatusCodes.SUCCESS) {
-            throw G7BleException("G7-GATT-212", "G7-Daten konnten nicht gesendet werden", true)
+        val writeStatus = gatt.writeCharacteristic(characteristic, value, writeType)
+        if (writeStatus != BluetoothStatusCodes.SUCCESS) {
+            throw G7BleException("G7-GATT-212", "G7-Daten konnten nicht gesendet werden · status=$writeStatus · characteristic=${characteristic.uuid} · type=$writeType", true)
         }
         if (!awaitCallback) return
         try {

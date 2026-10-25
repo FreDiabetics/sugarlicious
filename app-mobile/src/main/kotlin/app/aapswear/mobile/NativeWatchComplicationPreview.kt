@@ -216,11 +216,21 @@ internal fun DrawScope.drawNativeSlotDemo(slot: NativeWatchSlot, variantId: Int?
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = b.thickness
             paint.strokeCap = Paint.Cap.ROUND
-            paint.color = template.trackColor
-            canvas.drawArc(rect, b.startAngle - 90f, (b.endAngle - b.startAngle + 360f) % 360f, false, paint)
-            paint.color = template.fillColor
             val fraction = nativeDemoProgress(id, demo?.let { it.secondary.ifBlank { it.primary } } ?: systemText, slot.systemProvider)
-            if (fraction != null) canvas.drawArc(rect, b.startAngle - 90f, ((b.endAngle - b.startAngle + 360f) % 360f) * fraction, false, paint)
+            val sweep = nativeArcSweep(b.startAngle, b.endAngle, template.trackClockwise)
+            val remaining =
+                if (template.trackGapDegrees > 0f && fraction != null && fraction > 0f) {
+                    (kotlin.math.abs(sweep) * (1 - fraction) - template.trackGapDegrees).coerceAtLeast(0f) * kotlin.math.sign(sweep)
+                } else {
+                    sweep
+                }
+            paint.color = template.trackColor
+            if (remaining != 0f) canvas.drawArc(rect, b.startAngle - 90f, remaining, false, paint)
+            paint.color = template.fillColor
+            if (fraction != null) {
+                val fillSweep = kotlin.math.abs(sweep) * fraction * if (template.fillClockwise) 1f else -1f
+                canvas.drawArc(rect, (template.fillStartAngle ?: b.startAngle) - 90f, fillSweep, false, paint)
+            }
             paint.style = Paint.Style.FILL
         }
         val title = demo?.primary?.takeIf { demo.secondary.isNotBlank() }.orEmpty()

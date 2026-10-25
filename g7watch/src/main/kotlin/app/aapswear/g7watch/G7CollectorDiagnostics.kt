@@ -241,6 +241,8 @@ internal class G7CollectorDiagnosticStore(
 
     fun pendingScheduledCycle(): CollectorCycleTiming? = synchronized(lock) { loadPendingCycle() }
 
+    fun discardScheduledCycle() = synchronized(lock) { controlPreferences.edit(commit = true) { remove(KEY_PENDING_CYCLE) } }
+
     fun snapshot(): List<CollectorDiagnosticAttempt> =
         synchronized(lock) {
             mergedAttempts().sortedByDescending(CollectorDiagnosticAttempt::attemptId)
