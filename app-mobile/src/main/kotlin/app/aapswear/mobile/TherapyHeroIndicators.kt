@@ -150,7 +150,7 @@ internal fun TherapyIndicatorRow(
     FlowRow(
         modifier = modifier.padding(horizontal = 1.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
     ) {
         indicators.forEach { indicator ->
             TherapyCircularIndicator(indicator, Modifier)
