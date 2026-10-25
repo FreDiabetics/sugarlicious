@@ -36,13 +36,13 @@ internal fun drawWidgetBasalDetails(context: Context, canvas: Canvas, details: B
         val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = palette.argb(WidgetColorRole.BASAL_VALUE)
-                textSize = minOf(10f * density, bounds.height() * .15f)
+                textSize = minOf(10f * density * context.resources.configuration.fontScale, bounds.height() * .2f)
                 SystemTypography.apply(this, bold)
             }
         listOf(details.base to SharedR.drawable.ic_basal_bckgrnd, details.temporary to tempIcon).forEachIndexed { index, (text, icon) ->
             val centerY = bounds.top + bounds.height() * (if (index == 0) .25f else .75f)
             drawTherapyWidgetIcon(context, canvas, icon, bounds.left, centerY - iconSize / 2f, iconSize, palette.argb(WidgetColorRole.BASAL_ICON))
-            paint.textSize = minOf(10f * density, bounds.height() * .15f)
+            paint.textSize = minOf(10f * density * context.resources.configuration.fontScale, bounds.height() * .2f)
             val parts = if (paint.measureText(text) > available && text.contains(' ')) listOf(text.substringBefore(' '), text.substringAfter(' ')) else listOf(text)
             val longest = parts.maxOf(paint::measureText)
             if (longest > available) paint.textSize *= available / longest

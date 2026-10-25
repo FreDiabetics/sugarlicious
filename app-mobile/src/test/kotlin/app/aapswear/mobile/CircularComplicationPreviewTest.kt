@@ -6,7 +6,7 @@ import org.junit.Test
 class CircularComplicationPreviewTest {
     @Test
     fun `ranged accessibility zoom preserves default geometry and grows with enlarged system text`() {
-        assertEquals(1f, rangedCatalogSystemZoom(.9f), 0f)
+        assertEquals(.9f, rangedCatalogSystemZoom(.9f), 0f)
         assertEquals(1f, rangedCatalogSystemZoom(1f), 0f)
         assertEquals(144f, 72f * rangedCatalogSystemZoom(2f), 0f)
         assertEquals(10f, 5f * rangedCatalogSystemZoom(2f), 0f)
@@ -21,13 +21,13 @@ class CircularComplicationPreviewTest {
     }
 
     @Test
-    fun `short text fills its background proportionally while ranged sizing stays unchanged`() {
+    fun `short text uses settings text roles while ranged sizing stays unchanged`() {
         val single = catalogPreviewSizing(72f, ranged = false, twoValues = false)
         val pair = catalogPreviewSizing(72f, ranged = false, twoValues = true)
-        org.junit.Assert.assertTrue(single.primary > 14f)
-        org.junit.Assert.assertTrue(pair.primary > 14f)
-        org.junit.Assert.assertTrue(pair.secondary > 16f)
-        org.junit.Assert.assertTrue(pair.icon > 12f)
+        assertEquals(18f, single.primary, .001f)
+        assertEquals(13f, pair.primary, .001f)
+        assertEquals(18f, pair.secondary, .001f)
+        assertEquals(16f, pair.icon, .001f)
         assertEquals(single.primary / 2, catalogPreviewSizing(36f, ranged = false, twoValues = false).primary, .001f)
         assertEquals(CatalogPreviewSizing(17f, 11f, 13f), catalogPreviewSizing(72f, ranged = true, twoValues = true))
     }

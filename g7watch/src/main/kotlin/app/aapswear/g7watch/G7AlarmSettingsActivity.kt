@@ -12,7 +12,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import app.aapswear.g7.CgmAlarmSettings
@@ -235,7 +234,7 @@ class G7AlarmSettingsActivity : Activity() {
         checked: Boolean,
         palette: G7AppearancePalette,
         changed: (Boolean) -> Unit,
-    ) = Switch(this).apply {
+    ) = app.aapswear.uishared.ScrollSafeSwitch(this).apply {
         app.aapswear.uishared.WearSettingsUi
             .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         text = title
@@ -270,7 +269,7 @@ class G7AlarmSettingsActivity : Activity() {
         action: () -> Unit,
     ) = Button(this).apply {
         text = title
-        textSize = 8.5f
+        textSize = 14f
         isAllCaps = false
         setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)

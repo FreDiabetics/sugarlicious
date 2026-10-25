@@ -781,10 +781,10 @@ internal data class CatalogPreviewSizing(
     val icon: Float,
 )
 
-internal fun rangedCatalogSystemZoom(fontScale: Float): Float = fontScale.coerceAtLeast(1f)
+internal fun rangedCatalogSystemZoom(fontScale: Float): Float = fontScale.coerceAtLeast(.1f)
 
 internal fun catalogPreviewSizing(diameter: Float, ranged: Boolean, twoValues: Boolean): CatalogPreviewSizing =
-    if (ranged) CatalogPreviewSizing(17f, 11f, 13f) else CatalogPreviewSizing(diameter * if (twoValues) .225f else .34f, diameter * .32f, diameter * .25f)
+    if (ranged) CatalogPreviewSizing(17f, 11f, 13f) else CatalogPreviewSizing(diameter * if (twoValues) 13f / 72f else 18f / 72f, diameter * 18f / 72f, diameter * 16f / 72f)
 
 @Composable
 private fun ShortTextCatalogTemplate(

@@ -5,8 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -147,13 +147,13 @@ internal fun TherapyIndicatorRow(
     indicators: List<TherapyIndicatorPresentation>,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    FlowRow(
         modifier = modifier.padding(horizontal = 1.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         indicators.forEach { indicator ->
-            TherapyCircularIndicator(indicator, Modifier.fillMaxHeight())
+            TherapyCircularIndicator(indicator, Modifier)
         }
     }
 }
@@ -177,7 +177,7 @@ private fun TherapyCircularIndicator(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size(66.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size((66f * LocalDensity.current.fontScale).dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val geometry = TherapyRingGeometry()
                 val stroke = geometry.strokeWidthDp.dp.toPx()
@@ -236,7 +236,7 @@ private fun TherapyCircularIndicator(
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).size(indicator.iconSizeDp.dp),
+                Modifier.align(Alignment.BottomCenter).size((indicator.iconSizeDp * LocalDensity.current.fontScale).dp),
                 accent,
             )
         }

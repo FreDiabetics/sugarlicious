@@ -416,20 +416,24 @@ class G7AppearanceActivity : Activity() {
 
     private fun tileHoursRow(palette: G7AppearancePalette) =
         LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            G7AppearanceStore.ALLOWED_GRAPH_HOURS.forEach { hours ->
-                val active = store.tileGraphHours() == hours
-                addView(
-                    pill(
-                        "${hours}h",
-                        if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
-                        if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                    ) {
-                        store.setTileGraphHours(hours)
-                        render()
-                    },
-                    LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
-                )
+            orientation = LinearLayout.VERTICAL
+            G7AppearanceStore.ALLOWED_GRAPH_HOURS.chunked(3).forEach { group ->
+                val row = LinearLayout(this@G7AppearanceActivity)
+                group.forEach { hours ->
+                    val active = store.tileGraphHours() == hours
+                    row.addView(
+                        pill(
+                            "${hours}h",
+                            if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
+                            if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                        ) {
+                            store.setTileGraphHours(hours)
+                            render()
+                        },
+                        LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
+                    )
+                }
+                addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 3.dp })
             }
         }
 
@@ -494,15 +498,6 @@ class G7AppearanceActivity : Activity() {
                     .slider(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
-                progressTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
-                progressBackgroundTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_BORDER))
-                thumbTintList =
-                    android.content.res.ColorStateList
-                        .valueOf(palette.argb(G7AppearanceRole.MENU_PRIMARY))
                 setOnSeekBarChangeListener(
                     object : SeekBar.OnSeekBarChangeListener {
                         override fun onProgressChanged(
@@ -539,7 +534,7 @@ class G7AppearanceActivity : Activity() {
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
-            android.widget.Switch(this@G7AppearanceActivity).apply {
+            app.aapswear.uishared.ScrollSafeSwitch(this@G7AppearanceActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
                     .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
@@ -619,12 +614,12 @@ class G7AppearanceActivity : Activity() {
         action: () -> Unit,
     ) = TextView(this).apply {
         text = textValue
-        textSize = 10f
+        textSize = 14f
         gravity = Gravity.CENTER
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
         setTextColor(textColor)
-        setPadding(13.dp, 7.dp, 13.dp, 7.dp)
+        setPadding(8.dp, 7.dp, 8.dp, 7.dp)
         background = rounded(fill, textColor, 999f)
         setOnClickListener { action() }
     }

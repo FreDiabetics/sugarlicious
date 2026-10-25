@@ -9,6 +9,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -30,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -71,20 +73,26 @@ internal fun NativeWatchSlotHighlight(slot: NativeWatchSlot, modifier: Modifier 
 @Composable
 internal fun NativeWatchSlotPanel(faceIndex: Int, slots: List<NativeWatchSlot>, selectedId: Int?, assignments: Map<Int, Int> = emptyMap(), compact: Boolean = false, onSelected: (Int) -> Unit) {
     val nativeBounds = slots.map { it.bounds }
+    val fontScale = LocalDensity.current.fontScale
     Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         if (compact) {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 nativeSlotEditorOrder(faceIndex, slots).forEach { slot ->
-                    NativeSlotChoice(faceIndex, slot, selectedId == slot.id, assignments[slot.id], nativeBounds, Modifier.width(104.dp), onSelected)
+                    NativeSlotChoice(faceIndex, slot, selectedId == slot.id, assignments[slot.id], nativeBounds, Modifier.width((104f * fontScale).dp), onSelected)
                 }
             }
         } else {
-            nativeSlotEditorOrder(faceIndex, slots).chunked(4).forEach { row ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    row.forEach { slot ->
-                        NativeSlotChoice(faceIndex, slot, selectedId == slot.id, assignments[slot.id], nativeBounds, Modifier.weight(1f), onSelected)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val columns = (maxWidth.value / (85f * fontScale)).toInt().coerceIn(1, 4)
+                Column {
+                    nativeSlotEditorOrder(faceIndex, slots).chunked(columns).forEach { row ->
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            row.forEach { slot ->
+                                NativeSlotChoice(faceIndex, slot, selectedId == slot.id, assignments[slot.id], nativeBounds, Modifier.weight(1f), onSelected)
+                            }
+                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+                        }
                     }
-                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
@@ -95,7 +103,7 @@ internal fun NativeWatchSlotPanel(faceIndex: Int, slots: List<NativeWatchSlot>, 
 private fun NativeSlotChoice(faceIndex: Int, slot: NativeWatchSlot, selected: Boolean, variantId: Int?, bounds: List<NativeSlotBounds>, modifier: Modifier, onSelected: (Int) -> Unit) {
     Surface(modifier = modifier.semantics { this.selected = selected }.clickable { onSelected(slot.id) }, shape = RoundedCornerShape(12.dp), color = OneUiWidgetStyle.action) {
         Column(Modifier.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            IsolatedNativeSlotPreview(faceIndex, slot, selected, Modifier.size(72.dp), bounds, variantId)
+            IsolatedNativeSlotPreview(faceIndex, slot, selected, Modifier.size((72f * LocalDensity.current.fontScale).dp), bounds, variantId)
             Text(slot.displayName, color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodySmall, textAlign = TextAlign.Center)
         }
     }

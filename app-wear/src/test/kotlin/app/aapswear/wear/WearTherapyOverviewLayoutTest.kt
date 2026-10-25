@@ -15,6 +15,26 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class WearTherapyOverviewLayoutTest {
     @Test
+    fun `large system text stacks therapy cards and grows their rings`() {
+        val base = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val configuration =
+            android.content.res
+                .Configuration(base.resources.configuration)
+                .apply { fontScale = 2f }
+        val context = base.createConfigurationContext(configuration)
+        val root = LayoutInflater.from(context).inflate(R.layout.activity_wear, null)
+        configureTherapyOverviewLayout(root, 226)
+        assertEquals(LinearLayout.VERTICAL, root.findViewById<LinearLayout>(R.id.wear_therapy_row).orientation)
+        assertEquals(LinearLayout.VERTICAL, root.findViewById<LinearLayout>(R.id.wear_basal_card).orientation)
+        val ring = root.findViewById<View>(R.id.wear_iob_progress).parent as View
+        assertEquals((132 * context.resources.displayMetrics.density).toInt(), ring.layoutParams.width)
+        root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, 480, 480)
+        val details = root.findViewById<TextView>(R.id.wear_basal_base)
+        assertTrue(details.width > 0)
+    }
+
+    @Test
     fun `empty secondary rows do not pull therapy values above ring centers`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val root = LayoutInflater.from(context).inflate(R.layout.activity_wear, null)

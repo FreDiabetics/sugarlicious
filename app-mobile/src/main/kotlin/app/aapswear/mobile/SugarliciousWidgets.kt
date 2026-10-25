@@ -646,6 +646,7 @@ private fun GlucoseWidgetContent(
                 configuration = instance,
                 trendStyle = trendStyle,
                 systemCornerRadiusDp = systemWidgetCornerRadiusDp(context),
+                fontScale = context.resources.configuration.fontScale,
             )
         } else {
             renderMinimalGlucoseWidget(
@@ -656,6 +657,7 @@ private fun GlucoseWidgetContent(
                 thresholds = thresholds,
                 layout = layout,
                 pixelDensity = pixelDensity,
+                fontScale = context.resources.configuration.fontScale,
                 options =
                     GlucoseWidgetRenderOptions(
                         glucoseScale = configurationScale(instance.glucoseScalePercent),
@@ -730,6 +732,7 @@ internal fun renderAdaptiveGlucoseWidget(
     configuration: WidgetInstanceConfiguration,
     trendStyle: app.aapswear.model.TrendArrowStyle,
     systemCornerRadiusDp: Float = SAMSUNG_WIDGET_RADIUS_FALLBACK_DP,
+    fontScale: Float = 1f,
 ): Bitmap {
     val safeDensity = pixelDensity.coerceAtLeast(1f)
     val widthDp = width / safeDensity
@@ -787,12 +790,13 @@ internal fun renderAdaptiveGlucoseWidget(
                     glucoseBold = configuration.glucoseBold,
                 ),
             onContentGeometry = { valueContent = it },
+            fontScale = fontScale,
         )
 
     fun centeredPaint(sizeSp: Float, role: WidgetColorRole, bold: Boolean = false) =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = palette.argb(role)
-            textSize = sizeSp * safeDensity
+            textSize = sizeSp * safeDensity * fontScale
             textAlign = Paint.Align.CENTER
             app.aapswear.uishared.SystemTypography
                 .apply(this, bold)
@@ -934,6 +938,7 @@ internal fun renderAdaptiveGlucoseWidget(
                 showAgeInHeader = false,
                 headerStartInsetDp = 10f,
                 headerTopInsetDp = 10f,
+                scaledDensity = safeDensity * fontScale,
             )
         canvas.drawBitmap(graph, bounds.left, bounds.top, null)
     }
@@ -1012,6 +1017,7 @@ private fun GraphWidgetContent(
             layout = layout,
             pixelDensity = pixelDensity,
             now = now,
+            scaledDensity = pixelDensity * LocalContext.current.resources.configuration.fontScale,
             configuration = instance,
             showScaleAndAge = true,
             headerTextSizePx =
@@ -1207,7 +1213,8 @@ internal fun renderTherapyIndicatorWidget(
         }
 
         valuePaint.textSize =
-            therapyIndicatorFontSizeSp(indicator.value) * renderDensity * (resolved.primaryTextSizeSp / 19f)
+            therapyIndicatorFontSizeSp(indicator.value) * renderDensity * context.resources.configuration.fontScale * (resolved.primaryTextSizeSp / 19f)
+        valuePaint.textSize *= minOf(1f, (diameter - stroke * 2f) / valuePaint.measureText(indicator.value).coerceAtLeast(1f))
         val valueBaseline = centerY - (valuePaint.ascent() + valuePaint.descent()) / 2f
         canvas.drawText(indicator.value, centerX, valueBaseline, valuePaint)
 
@@ -1490,7 +1497,7 @@ internal fun renderWidgetGraph(
     // LocalSize is expressed in dp while an ImageProvider bitmap is pixel based. Rendering at
     // dp resolution makes launchers upscale the bitmap, producing the blurred/stretched result.
     val renderDensity = density.coerceIn(0.5f, 4f)
-    val renderScaledDensity = scaledDensity.coerceIn(0.5f, 4f)
+    val renderScaledDensity = scaledDensity.coerceAtLeast(0.5f)
     val textPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = text
@@ -1512,6 +1519,7 @@ internal fun renderWidgetGraph(
                 configuration.historicalDotOutlineWidthDp.takeIf { configuration.historicalDotOutlineEnabled } ?: 0f,
                 configuration.currentDotOutlineWidthDp,
             ),
+            fontScale = renderScaledDensity / renderDensity,
         )
     val plot = metrics.plot
     val graphBounds = metrics.graphBounds
@@ -1777,11 +1785,12 @@ internal fun widgetGraphMetrics(
     graphCornerRadiusDp: Float = DEFAULT_WIDGET_GRAPH_CORNER_RADIUS_DP.toFloat(),
     graphLeftInsetDp: Float? = null,
     maxDotOutlineWidthDp: Float = CgmGraphVisualPolicy.DOT_OUTLINE_WIDTH_DP,
+    fontScale: Float = 1f,
 ): WidgetGraphMetrics {
     val safeDensity = density.coerceIn(1f, 4f)
     val lowSurface = heightPx / safeDensity < 110f
-    val axisText = (if (lowSurface) minOf(layout.graphAxisTextSp, 8f) else layout.graphAxisTextSp) * safeDensity
-    val nowText = (layout.graphAxisTextSp + 2f).coerceAtMost(13f) * safeDensity
+    val axisText = (if (lowSurface) minOf(layout.graphAxisTextSp, 8f) else layout.graphAxisTextSp) * safeDensity * fontScale
+    val nowText = (layout.graphAxisTextSp + 2f).coerceAtMost(13f) * safeDensity * fontScale
     textPaint.textSize = axisText
     // Axis text sits inside the full-bleed surface, but must also clear the launcher's rounded
     // clipping mask. A tiny edge clamp is insufficient near the lower corners (notably for 3h).
@@ -1801,7 +1810,7 @@ internal fun widgetGraphMetrics(
     val bottomBand =
         if (showTimeAxis) {
             maxOf(fontHeight + (if (lowSurface) 2f else 4f) * safeDensity, (if (lowSurface) 12f else 16f) * safeDensity)
-                .coerceAtMost(heightPx * 0.28f)
+                .coerceAtMost(heightPx * 0.45f)
         } else {
             2f * safeDensity
         }
@@ -1888,6 +1897,7 @@ private fun GlucoseGraphWidgetContent(
             density,
             instance,
             trendStyle,
+            fontScale = context.resources.configuration.fontScale,
         )
     WidgetBitmapImage(bitmap, "Glukose, Trend und CGM-Graph", GlanceModifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
 }
@@ -1907,6 +1917,7 @@ internal fun renderMinimalGlucoseWidget(
             trendScale = configurationScale(100),
         ),
     onContentGeometry: ((WidgetGlucoseContentGeometry) -> Unit)? = null,
+    fontScale: Float = 1f,
 ): Bitmap {
     val bitmap = createBitmap(width.coerceAtLeast(48), height.coerceAtLeast(48), Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
@@ -1932,10 +1943,20 @@ internal fun renderMinimalGlucoseWidget(
     val paint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
-            textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * options.glucoseScale
+            textSize = layout.glucoseTextSp * pixelDensity.coerceIn(1f, 4f) * fontScale * options.glucoseScale
             app.aapswear.uishared.SystemTypography
                 .apply(this, options.glucoseBold)
         }
+    if (fontScale != 1f) {
+        val bounds = Rect().also { paint.getTextBounds(value, 0, value.length, it) }
+        val valueHeight = bounds.height().toFloat().coerceAtLeast(paint.textSize * .65f)
+        val trend = if (displayable) glucose?.trend?.let(TrendVisuals::spec) else null
+        val arrowHeight = widgetTrendArrowTargetHeight(valueHeight, options.trendScale, pixelDensity)
+        val arrowWidth = trend?.let { trendArrowGeometry(arrowHeight, it).groupWidthPx } ?: 0f
+        val groupWidth = paint.measureText(value) + arrowWidth + if (trend != null) paint.textSize * (6f / 42f) else 0f
+        val availableWidth = bitmap.width * (if (supplement != null) .65f else .94f) - options.leftInsetDp * pixelDensity
+        paint.textSize *= minOf(1f, availableWidth.coerceAtLeast(1f) / groupWidth.coerceAtLeast(1f), bitmap.height * .82f / maxOf(valueHeight, arrowHeight))
+    }
     val textWidth = paint.measureText(value)
     val textBounds = Rect().also { paint.getTextBounds(value, 0, value.length, it) }
     val textHeight = textBounds.height().toFloat().coerceAtLeast(paint.textSize * 0.65f)
@@ -2230,6 +2251,7 @@ internal fun renderGlucoseGraphWidget(
     trendStyle: app.aapswear.model.TrendArrowStyle =
         app.aapswear.model.TrendArrowStyle
             .defaults(AppearanceMode.DARK, AndroidColor.WHITE),
+    fontScale: Float = 1f,
 ): Bitmap {
     val safeWidth = width.coerceAtLeast(96)
     val safeHeight = height.coerceAtLeast(96)
@@ -2266,6 +2288,7 @@ internal fun renderGlucoseGraphWidget(
                 glucoseBold = configuration.glucoseBold,
                 drawBackground = false,
             ),
+            fontScale = fontScale,
         )
     val graph =
         renderWidgetGraph(
@@ -2282,6 +2305,7 @@ internal fun renderGlucoseGraphWidget(
             graphLeftInsetDp = 12f,
             showScaleAndAge = true,
             forceOpaqueGraphSurface = true,
+            scaledDensity = pixelDensity * fontScale,
         )
     val bitmap = createBitmap(safeWidth, safeHeight, Bitmap.Config.ARGB_8888)
     val canvas = AndroidCanvas(bitmap)
@@ -2308,7 +2332,7 @@ internal fun renderGlucoseGraphWidget(
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = configuration.colorOverrides[WidgetColorRole.DELTA] ?: AndroidColor.WHITE
                 textAlign = Paint.Align.LEFT
-                textSize = (13f * pixelDensity).coerceAtMost(topHeight * 0.19f)
+                textSize = (13f * pixelDensity * fontScale).coerceAtMost(topHeight * 0.3f)
                 applyWidgetDetailWeight(this, configuration.deltaUnitBold)
             }
         val unitPaint =
