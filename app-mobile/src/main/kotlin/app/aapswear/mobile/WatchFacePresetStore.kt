@@ -12,6 +12,38 @@ internal object WatchFacePresetStore {
     internal val supportedFaceIndices: IntRange
         get() = sugarliciousWatchFaceCards.indices
 
+    /** Phone-side editor draft only; native provider assignment remains owned by Wear OS. */
+    fun readSlots(context: Context, faceIndex: Int): Map<Int, Int> {
+        val slots = nativeSlotPreviewEntries(slots(context, faceIndex))
+        val encoded =
+            context
+                .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString("face_${normalizeFaceIndex(faceIndex)}_native_slots", null) ?: return emptyMap()
+        return encoded
+            .split(',')
+            .mapNotNull { pair ->
+                val parts = pair.split(':')
+                val slot = parts.getOrNull(0)?.toIntOrNull()?.let { id -> slots.firstOrNull { it.id == id } }
+                val variant = parts.getOrNull(1)?.toIntOrNull()
+                if (slot != null && variant != null && eligibleNativeVariants(slot).any { it.id == variant }) slot.id to variant else null
+            }.toMap()
+    }
+
+    fun saveSlots(context: Context, faceIndex: Int, assignments: Map<Int, Int>) {
+        val slots = nativeSlotPreviewEntries(slots(context, faceIndex))
+        val valid = assignments.filter { (id, variant) -> slots.firstOrNull { it.id == id }?.let { slot -> eligibleNativeVariants(slot).any { it.id == variant } } == true }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString("face_${normalizeFaceIndex(faceIndex)}_native_slots", valid.toSortedMap().entries.joinToString(",") { "${it.key}:${it.value}" })
+        }
+    }
+
+    private fun slots(context: Context, faceIndex: Int): List<NativeWatchSlot> =
+        when (normalizeFaceIndex(faceIndex)) {
+            0 -> context.resources.openRawResource(R.raw.native_apex_slots).use(::readNativeWatchSlots)
+            2 -> context.resources.openRawResource(R.raw.native_orbit_slots).use(::readNativeWatchSlots)
+            else -> emptyList()
+        }
+
     fun read(
         context: Context,
         faceIndex: Int,
@@ -68,5 +100,4 @@ internal object WatchFacePresetStore {
     private fun List<Int>.validPresetIds(): List<Int> =
         filter { id -> id in SugarliciousComplicationVariantIds }
             .distinct()
-            .take(4)
 }

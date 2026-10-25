@@ -10,9 +10,9 @@ object AppReleaseInfo {
 
     fun changes(product: Product): List<String> =
         when (product) {
-            Product.MOBILE -> listOf("BR-/TBR-Details im 4×2-Therapiewidget und neue Therapie-Icons.", "Gemeinsame Zeitraumwahl für CGM- und Therapie-Widgets.", "Einstellungen mit gleitendem Titel und schwebendem Zurück-Button.", "Verbesserte IOB-/COB-Skalierung und Ausrichtung der Insulinaktivität.")
-            Product.WEAR -> listOf("Neue IOB- und Basal-Icons auch für Tiles und Complications.", "IOB und COB nebeneinander; Basal mit BR-/TBR-Zeitangaben.", "Gemeinsame Kachelkontur für Übersicht und Graph.", "Glukose-Farbinformation für ApeX.")
-            Product.COLLECTOR -> emptyList()
+            Product.MOBILE -> listOf("Slot-Vorschauen passen sich der ausgewählten Complication an.", "Watch-Aktionen im Header und überarbeitete Vorschauen.", "Übertragungsprotokoll unter Datenverwaltung.", "Verbesserte Darstellung bei größerer Systemschrift.")
+            Product.WEAR -> listOf("Mehr Abstand innerhalb der Menü-Icons.", "Überarbeitete ApeX-Graphfläche oberhalb der mittleren Complications.", "Aktualisierte Watchface-Vorlagen und Vorschauen.")
+            Product.COLLECTOR -> listOf("Vigil mit transparenter Zeigerauswahl und äußeren Markierungen.", "Besser lesbare Graphskalen und systemabhängiges Uhrzeitformat.", "Neues SugarWear-Vektoricon.", "Uhrzeit wird auch nach Zeit- und Zeitzonenänderungen aktualisiert.")
         }
 
     fun summary(context: Context, product: Product): String =

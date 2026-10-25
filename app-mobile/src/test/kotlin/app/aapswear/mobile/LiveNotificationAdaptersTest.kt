@@ -28,6 +28,27 @@ class LiveNotificationAdaptersTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Test
+    @Config(sdk = [35], qualifiers = "mdpi")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `live drawer brand icon shrinks while Now Bar bitmap remains identical`() {
+        val builder = builder()
+        SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung", R.drawable.ic_notification_outlined)
+        val extras = builder.build().extras
+
+        fun bitmap(key: String) = (extras.getParcelable(key, Icon::class.java)!!.loadDrawable(context) as android.graphics.drawable.BitmapDrawable).bitmap
+        val card = bitmap(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON)
+        val nowBar = bitmap(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_ICON)
+        val original = SamsungLiveNotificationAdapter.brandIconBitmap(context, R.drawable.ic_notification_outlined)
+        assertTrue("Now Bar must retain the exact prior full viewport artwork", nowBar.sameAs(original))
+        assertEquals(nowBar.width, card.width)
+        assertEquals(nowBar.height, card.height)
+
+        fun ink(bitmap: android.graphics.Bitmap) = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 128 } }
+        assertTrue("drawer must retain visible branding", ink(card) > 0)
+        assertTrue("only drawer branding should be smaller", ink(card) < ink(nowBar) * .75)
+    }
+
+    @Test
     @Config(sdk = [35])
     fun `api 35 does not request official android live update`() {
         val builder = builder()

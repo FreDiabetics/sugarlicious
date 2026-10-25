@@ -20,14 +20,12 @@ import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.DiagnosticEventStore
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.PutDataRequest
-import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 class MobileDataLayerService : WearableListenerService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -291,10 +289,7 @@ internal suspend fun publishWatchConfig(context: Context) {
                 ),
             ).setUrgent()
 
-    Wearable
-        .getDataClient(context)
-        .putDataItem(request)
-        .await()
+    context.putLoggedWearData(request, "Watch-Konfiguration")
 }
 
 internal suspend fun publishWatchColors(context: Context) {
@@ -315,14 +310,11 @@ internal suspend fun publishWatchColors(context: Context) {
                     ),
                 ),
             ).setUrgent()
-    Wearable.getDataClient(context).putDataItem(request).await()
+    context.putLoggedWearData(request, "Watch-Farben")
 }
 
 internal suspend fun requestWatchRuntimeStatus(context: Context) {
     refreshReachableWatchNodeIds(context).forEach { nodeId ->
-        Wearable
-            .getMessageClient(context)
-            .sendMessage(nodeId, WearProtocol.WATCH_RUNTIME_REQUEST_PATH, byteArrayOf())
-            .await()
+        context.sendLoggedWearMessage(nodeId, WearProtocol.WATCH_RUNTIME_REQUEST_PATH, byteArrayOf(), "Watch-Status anfordern")
     }
 }

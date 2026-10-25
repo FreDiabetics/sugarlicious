@@ -68,7 +68,7 @@ internal fun measuredSettingsCompactTitle(title: String, availableWidthDp: Float
 internal fun OneUiScrollingSettingsTitle(title: String, scroll: ScrollState) {
     val height = settingsTitleHeightDp()
     val density = LocalDensity.current
-    BoxWithConstraints(Modifier.fillMaxWidth().height(height.dp), contentAlignment = Alignment.Center) {
+    BoxWithConstraints(Modifier.fillMaxWidth().height(height.dp).settingsSnapHeading("page-title", height), contentAlignment = Alignment.Center) {
         val compact = measuredSettingsCompactTitle(title, maxWidth.value)
         val state by remember(scroll, density, height, compact) { derivedStateOf { settingsScrollHeaderState(with(density) { scroll.value.toDp().value }, height, height + 20f, compact.heightDp) } }
         Text(

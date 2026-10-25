@@ -137,14 +137,15 @@ internal class MobileSettingsNavigation {
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 internal object MobileSettingsStyle {
-    fun page(light: Boolean): Int = if (light) Color.rgb(245, 245, 245) else Color.BLACK
+    fun page(light: Boolean): Int = Color.BLACK
 
-    fun card(light: Boolean): Int = if (light) Color.WHITE else Color.rgb(28, 28, 28)
+    fun card(light: Boolean): Int = Color.rgb(28, 28, 28)
 
-    fun text(light: Boolean): Int = if (light) Color.rgb(20, 20, 20) else Color.rgb(250, 250, 250)
+    fun text(light: Boolean): Int = Color.WHITE
 
-    fun secondary(light: Boolean): Int = if (light) Color.rgb(96, 96, 96) else Color.rgb(183, 183, 190)
+    fun secondary(light: Boolean): Int = Color.WHITE
 
     fun divider(light: Boolean): Int = if (light) Color.rgb(224, 224, 224) else Color.rgb(52, 52, 52)
 }

@@ -76,15 +76,15 @@ class G7DirectToWatchSettingsStore(
 
     fun saveStatusBold(value: Boolean) = update { putBoolean(KEY_STATUS_BOLD, value) }
 
-    fun clockSizePercent(): Int = preferences.getInt(KEY_CLOCK_SIZE_PERCENT, 100).coerceIn(75, 150)
+    fun clockSizePercent(): Int = preferences.getInt(KEY_CLOCK_SIZE_PERCENT, 280).coerceIn(75, 450)
 
-    fun saveClockSizePercent(value: Int) = update { putInt(KEY_CLOCK_SIZE_PERCENT, value.coerceIn(75, 150)) }
+    fun saveClockSizePercent(value: Int) = update { putInt(KEY_CLOCK_SIZE_PERCENT, value.coerceIn(75, 450)) }
 
-    fun clockColor(): Int = preferences.getInt(KEY_CLOCK_COLOR, 0xFFA8A8BA.toInt())
+    fun clockColor(): Int = preferences.getInt(KEY_CLOCK_COLOR, 0xFFFFFFFF.toInt())
 
     fun saveClockColor(value: Int) = update { putInt(KEY_CLOCK_COLOR, value) }
 
-    fun clockBold(): Boolean = preferences.getBoolean(KEY_CLOCK_BOLD, false)
+    fun clockBold(): Boolean = preferences.getBoolean(KEY_CLOCK_BOLD, true)
 
     fun saveClockBold(value: Boolean) = update { putBoolean(KEY_CLOCK_BOLD, value) }
 
@@ -135,6 +135,7 @@ class G7DirectToWatchSettingsStore(
             targetLabelsInsidePlot = true,
             rangeBackgroundEnabled = true,
             scaleLaneOpacityPercent = preferences.getInt(KEY_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
+            maximumScaleEnabled = preferences.getBoolean("graph_style_maximum_scale_enabled", defaults.maximumScaleEnabled),
         )
     }
 
@@ -151,6 +152,7 @@ class G7DirectToWatchSettingsStore(
             putBoolean(KEY_BORDER_ENABLED, value.borderEnabled)
             putBoolean(KEY_TIME_AXIS_ENABLED, value.timeAxisEnabled)
             putInt(KEY_SCALE_LANE_OPACITY, value.scaleLaneOpacityPercent.coerceIn(0, 100))
+            putBoolean("graph_style_maximum_scale_enabled", value.maximumScaleEnabled)
             remove(KEY_TARGET_TICKS_ENABLED)
         }
 

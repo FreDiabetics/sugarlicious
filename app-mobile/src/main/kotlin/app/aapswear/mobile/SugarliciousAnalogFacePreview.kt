@@ -1,9 +1,21 @@
 package app.aapswear.mobile
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.IntSize
+import androidx.core.graphics.withScale
 import app.aapswear.model.TherapyDisplayState
 import kotlin.math.roundToInt
 
@@ -40,8 +52,8 @@ internal object SugarliciousAnalogGeometry {
     val handPivot = center
     val graph = fromWfsRect(51.8748f, 54.9999f, 346.2504f, 121.3336f)
 
-    // Transparent artwork uses the entire field between the ring and central complications.
-    val graphContent = AnalogRectGeometry(129f, 103f, 254f, 90f)
+    // Canonical Orbit graph fills the upper inner semicircle, centered on the hand pivot.
+    val graphContent = AnalogRectGeometry(91f, 91f, 330f, 97f)
     val middleLeft = fromWfsRect(73f, 171f, 108.3334f, 108.3334f)
     val middleRight = fromWfsRect(269f, 171f, 108.3334f, 108.3334f)
     val bottomCenter = fromWfsRect(158.9996f, 247f, 132.0008f, 130.9996f)
@@ -103,10 +115,53 @@ internal fun SugarliciousAnalogFacePreview(
     @Suppress("UNUSED_PARAMETER") state: TherapyDisplayState?,
     modifier: Modifier = Modifier,
 ) {
-    Image(
-        painter = painterResource(R.drawable.apex_template_preview),
-        contentDescription = "ApeX – gespeicherte Darstellungsvorlage, keine Live-Messwerte",
-        modifier = modifier,
-        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-    )
+    val native = ImageBitmap.imageResource(R.drawable.apex_slots_native)
+    Box(modifier) {
+        Image(
+            painter = painterResource(R.drawable.apex_template_preview),
+            contentDescription = "ApeX – gespeicherte Darstellungsvorlage, keine Live-Messwerte",
+            modifier = Modifier.matchParentSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+        )
+        Canvas(Modifier.matchParentSize()) {
+            drawIntoCanvas { target ->
+                val canvas = target.nativeCanvas
+                canvas.withScale(size.width / 512f, size.height / 512f) {
+                    val paint = android.graphics.Paint().apply { color = android.graphics.Color.BLACK }
+                    canvas.drawRect(128f, 102f, 384f, 194f, paint)
+                    val arc =
+                        android.graphics.Path().apply {
+                            addArc(android.graphics.RectF(91f, 91f, 421f, 421f), 180f, 180f)
+                            lineTo(421f, 256f)
+                            close()
+                        }
+                    canvas.clipPath(arc)
+                    canvas.clipRect(91f, 91f, 421f, 188f)
+                    canvas.drawColor(android.graphics.Color.BLACK)
+                    canvas.translate(91f, 91f)
+                    val demoNow = 1_700_000_000_000L
+                    app.aapswear.uishared.WatchfaceCgmGraphRenderer.render(
+                        canvas,
+                        330,
+                        97,
+                        previewTherapyState(demoNow).glucoseHistory,
+                        app.aapswear.model.GraphTimeWindow
+                            .live(demoNow, 5_400_000L),
+                        app.aapswear.model.CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0),
+                        color = 0xFFFFCCB1.toInt(),
+                        semicircle = true,
+                        showThresholdLabels = false,
+                    )
+                }
+            }
+            withTransform({ scale(size.width / 512f, size.height / 512f, Offset.Zero) }) {
+                listOf(SugarliciousAnalogGeometry.middleLeft, SugarliciousAnalogGeometry.middleRight, SugarliciousAnalogGeometry.bottomCenter).forEach { bounds ->
+                    val path = nativeWatchSlotPath(NativeSlotBounds("BoundingOval", bounds.x, bounds.y, bounds.width, bounds.height))
+                    drawPath(path, Color.Black)
+                    clipPath(path) { drawImage(native, dstSize = IntSize(512, 512)) }
+                }
+            }
+        }
+        NativePreviewHands(0, Modifier.matchParentSize())
+    }
 }

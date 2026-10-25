@@ -103,7 +103,8 @@ class SugarliciousAnalogPreviewGeometryTest {
             val ends = (0 until transforms.length).map { transforms.item(it) as Element }.filter { it.getAttribute("target") in setOf("endAngle", "endX") }
             assertTrue(ends.isNotEmpty())
             val endpoint = listOf(333, 63, 151, 243, 500, 500, 500, 90)[id]
-            assertTrue("no dark remainder in valid marker mode", ends.all { it.getAttribute("value").startsWith("[CONFIGURATION.progressMarker] == \"TRUE\" && [COMPLICATION.RANGED_VALUE_MAX] > [COMPLICATION.RANGED_VALUE_MIN] ? $endpoint :") })
+            val markerMode = if (id == 7) "[CONFIGURATION.progressMarker] == \"TRUE\"" else "([CONFIGURATION.progressMarker] == \"TRUE\" && [CONFIGURATION.progressGap] != \"TRUE\"${if (id == 1) " && [CONFIGURATION.upperRightMarkers] != \"TRUE\"" else ""})"
+            assertTrue("no dark remainder in valid marker mode", ends.all { it.getAttribute("value").startsWith("$markerMode && [COMPLICATION.RANGED_VALUE_MAX] > [COMPLICATION.RANGED_VALUE_MIN] ? $endpoint :") })
             if (id == 1) {
                 val segmentSwitches = (0 until transforms.length).map { transforms.item(it) as Element }.filter { it.getAttribute("target") == "alpha" && it.getAttribute("value").contains("upperRightMarkers") }
                 assertTrue(segmentSwitches.isNotEmpty())
@@ -113,7 +114,7 @@ class SugarliciousAnalogPreviewGeometryTest {
                 assertEquals("ring must render above segment artwork", marker, directGroups.last())
                 val segments = (0 until ranged.getElementsByTagName("PartDraw").length).map { ranged.getElementsByTagName("PartDraw").item(it) as Element }.filter { it.getAttribute("name").startsWith("upper-right-segment-") }
                 assertEquals(33, segments.size)
-                assertTrue("point mode keeps the complete segmented bar", segments.all { (it.getElementsByTagName("Transform").item(0) as Element).getAttribute("value").contains("[CONFIGURATION.progressMarker] == \"TRUE\" ||") })
+                assertTrue("segmented bars honor marker eligibility instead of forcing a full bar", segments.all { (it.getElementsByTagName("Transform").item(0) as Element).getAttribute("value").contains("$markerMode ||") })
             }
         }
     }
@@ -150,15 +151,21 @@ class SugarliciousAnalogPreviewGeometryTest {
         val variants = slot("7").getElementsByTagName("Complication")
         val image = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "SMALL_IMAGE" }
         val children = (0 until image.childNodes.length).mapNotNull { image.childNodes.item(it) as? Element }
-        assertEquals(listOf("PartDraw", "Group", "PartDraw"), children.map { it.tagName })
-        assertEquals("128", children.first().getAttribute("x"))
-        assertEquals("256", children.first().getAttribute("width"))
-        assertEquals("#FF000000", (children.first().getElementsByTagName("Fill").item(0) as Element).getAttribute("color"))
-        val group = children[1]
+        assertEquals(listOf("Group"), children.map { it.tagName })
+        val group = children.single()
+        val backing = group.getElementsByTagName("Rectangle").item(0) as Element
+        val backingDraw = backing.parentNode as Element
+        assertEquals("97", backingDraw.getAttribute("height"))
+        assertEquals("91", backingDraw.getAttribute("y"))
+        assertEquals("#FF000000", (backing.getElementsByTagName("Fill").item(0) as Element).getAttribute("color"))
         val mask = group.getElementsByTagName("PartDraw").item(0) as Element
         val graph = group.getElementsByTagName("PartImage").item(0) as Element
         assertEquals("MASK", mask.getAttribute("renderMode"))
-        listOf("x", "y", "width", "height").forEach { assertEquals(mask.getAttribute(it), graph.getAttribute(it)) }
+        val maskArc = mask.getElementsByTagName("Arc").item(0) as Element
+        assertEquals("256", maskArc.getAttribute("centerX"))
+        assertEquals("256", maskArc.getAttribute("centerY"))
+        assertEquals("165", maskArc.getAttribute("width"))
+        assertEquals("165", (maskArc.getElementsByTagName("Stroke").item(0) as Element).getAttribute("thickness"))
         assertEquals("[CONFIGURATION.materialAccent.0]", group.getAttribute("tintColor"))
         assertTrue("preserve neutral dot tones before theme tinting", !graph.hasAttribute("tintColor"))
     }
@@ -284,7 +291,7 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `opaque baked circle cleanup precedes both graph and fading contours`() {
+    fun `opaque circle cleanup follows graph and precedes clinical ink`() {
         val root = document()
         val parts = root.getElementsByTagName("PartDraw")
         val cleanup = (0 until parts.length).map { parts.item(it) as Element }.singleOrNull { it.getAttribute("name") == "erase-baked-circles" }
@@ -292,7 +299,10 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertEquals("Scene", cleanup!!.parentNode.nodeName)
         assertEquals(3, cleanup.getElementsByTagName("Ellipse").length)
         assertEquals(0, cleanup.getElementsByTagName("Variant").length)
-        assertTrue(cleanup.compareDocumentPosition(root.getElementsByTagName("ComplicationSlot").item(0)).toInt() and 4 != 0)
+        assertTrue(cleanup.compareDocumentPosition((root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot").item(0)).toInt() and 2 != 0)
+        val sceneSlots = (root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot")
+        val middleLeft = (0 until sceneSlots.length).map { sceneSlots.item(it) as Element }.single { it.getAttribute("slotId") == "4" }
+        assertTrue(cleanup.compareDocumentPosition(middleLeft).toInt() and 4 != 0)
     }
 
     @Test
@@ -301,7 +311,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         val user = root.getElementsByTagName("UserConfigurations").item(0) as Element
         val ids = (0 until user.childNodes.length).mapNotNull { user.childNodes.item(it) as? Element }.map { it.getAttribute("id") }.toSet()
         assertTrue(ids.containsAll(setOf("dialTheme", "nightMode", "backgroundPattern", "secondStyle", "indexStyle", "minuteMarkers", "aodStyle", "showAmPm", "unreadIndicator")))
-        assertEquals(8, root.getElementsByTagName("ComplicationSlot").length)
+        assertEquals(8, (root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot").length)
         val source = repoFile("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml").readText()
         listOf("nightMode", "backgroundPattern", "secondStyle", "indexStyle", "minuteMarkers", "aodStyle", "showAmPm", "unreadIndicator").forEach { id ->
             val scene = source.substringAfter("<Scene")
@@ -468,17 +478,17 @@ class SugarliciousAnalogPreviewGeometryTest {
             near(end.toDouble(), arc, "endAngle")
         }
         val graph = slot("7").getElementsByTagName("BoundingBox").item(0) as Element
-        near(128.0, graph, "x")
-        near(102.0, graph, "y")
-        near(256.0, graph, "width")
-        near(118.0, graph, "height")
+        near(91.0, graph, "x")
+        near(91.0, graph, "y")
+        near(330.0, graph, "width")
+        near(97.0, graph, "height")
         val configs = slot("6").ownerDocument.getElementsByTagName("BooleanConfiguration")
         assertTrue((0 until configs.length).none { (configs.item(it) as Element).getAttribute("id") in setOf("bottomIcon", "centerLeftIcon", "centerRightIcon") })
     }
 
     @Test
     fun `picker has exactly eight slots and excludes unsupported standalone icons and long text`() {
-        val nodes = slot("0").ownerDocument.getElementsByTagName("ComplicationSlot")
+        val nodes = (slot("0").ownerDocument.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot")
         assertEquals(8, nodes.length)
         assertEquals((0..7).map(Int::toString).toSet(), (0 until nodes.length).map { (nodes.item(it) as Element).getAttribute("slotId") }.toSet())
         (0..6).forEach { id ->
@@ -626,7 +636,7 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `large neutral graph clears outer arcs and central circles without scale lanes`() {
+    fun `neutral graph fills the same upper inner semicircle as Orbit`() {
         val variants = slot("7").getElementsByTagName("Complication")
         val image =
             (0 until variants.length)
@@ -639,19 +649,15 @@ class SugarliciousAnalogPreviewGeometryTest {
         val width = image.getAttribute("width").toInt()
         val height = image.getAttribute("height").toInt()
         assertTrue("graph must be larger than the previous 228x80 chart", width * height > 22_000)
-        assertTrue("clear the central circle outlines", top + height <= 193)
+        assertEquals("cap ends above middle complications", 188, top + height)
+        assertTrue("cap leaves clearance above both middle circles", top + height < SugarliciousAnalogGeometry.middleLeft.y && top + height < SugarliciousAnalogGeometry.middleRight.y)
         val frame = image.parentNode.parentNode as Element
-        val contour = frame.getElementsByTagName("RoundRectangle").item(0) as Element
-        val draw = contour.parentNode as Element
-        val contourTop = draw.getAttribute("y").toDouble()
-        val topStart = draw.getAttribute("x").toDouble() + contour.getAttribute("cornerRadiusX").toDouble()
-        assertTrue("rounded contour clears inner edge of outer progress arcs", kotlin.math.hypot(topStart - 256, contourTop - 256) < 185)
-        val outline = frame.getElementsByTagName("Stroke").item(0) as Element
-        assertEquals("[CONFIGURATION.materialSubTheme.1]", outline.getAttribute("color"))
-        assertEquals("2", outline.getAttribute("thickness"))
-        assertEquals("55", (outline.parentNode.parentNode as Element).getAttribute("alpha"))
+        assertEquals("no rectangular pill frame", 0, frame.getElementsByTagName("RoundRectangle").length)
+        assertEquals("curved cap height", 97, height)
         assertEquals(left.toFloat(), SugarliciousAnalogGeometry.graphContent.x)
         assertEquals(top.toFloat(), SugarliciousAnalogGeometry.graphContent.y)
+        assertEquals(width.toFloat(), SugarliciousAnalogGeometry.graphContent.width)
+        assertEquals(height.toFloat(), SugarliciousAnalogGeometry.graphContent.height)
     }
 
     @Test
@@ -662,7 +668,7 @@ class SugarliciousAnalogPreviewGeometryTest {
                 val variant = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == type }
                 assertTrue("slot $id $type needs an icon", variant.getElementsByTagName("PartImage").length + variant.getElementsByTagName("InlineImage").length > 0)
                 assertEquals("slot $id $type needs exclusive formatted, generic and optional glucose-color paths", if (type == "RANGED_VALUE") 3 else 2, variant.getElementsByTagName("TextCircular").length)
-                if (type == "RANGED_VALUE") assertEquals("slot $id needs track, opaque gradient base, color overlay and exclusive solid style", 4, variant.getElementsByTagName("Arc").length)
+                if (type == "RANGED_VALUE") assertEquals("slot $id needs track, remaining gap arc, opaque gradient base, color overlay and exclusive solid style", 5, variant.getElementsByTagName("Arc").length)
             }
         }
     }
@@ -672,7 +678,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         listOf("4", "5", "6").forEach { id ->
             val variants = slot(id).getElementsByTagName("Complication")
             val ranged = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "RANGED_VALUE" }
-            assertEquals("slot $id needs circular rather than linear progress", 4, ranged.getElementsByTagName("Arc").length)
+            assertEquals("slot $id needs circular rather than linear progress with a separate remainder", 5, ranged.getElementsByTagName("Arc").length)
             assertEquals(0, ranged.getElementsByTagName("Line").length)
             val parameters = ranged.getElementsByTagName("Parameter")
             assertTrue((0 until parameters.length).any { (parameters.item(it) as Element).getAttribute("expression") == "[COMPLICATION.TITLE]" })
@@ -745,14 +751,15 @@ class SugarliciousAnalogPreviewGeometryTest {
     fun `outer progress uses source outside diameter minus stroke`() {
         listOf("0" to 285.0, "1" to 15.0, "2" to 103.0, "3" to 195.0).forEach { (id, start) ->
             val arcs = slot(id).getElementsByTagName("Arc")
-            assertEquals(4, arcs.length)
+            assertEquals(5, arcs.length)
             (0 until arcs.length).forEach { index ->
                 val arc = arcs.item(index) as Element
                 near(391.3956, arc, "width")
-                near(start, arc, "startAngle")
+                near(if (arc.getAttribute("direction") == "COUNTER_CLOCKWISE") start + 48.0 else start, arc, "startAngle")
                 near(17.0667, arc.getElementsByTagName("Stroke").item(0) as Element, "thickness")
             }
-            val transform = (arcs.item(1) as Element).getElementsByTagName("Transform").item(0) as Element
+            val fillArc = (0 until arcs.length).map { arcs.item(it) as Element }.first { it.getAttribute("direction") == "CLOCKWISE" && it.getElementsByTagName("Transform").length > 0 }
+            val transform = fillArc.getElementsByTagName("Transform").item(0) as Element
             assertTrue(transform.getAttribute("value").contains("* 48"))
             assertTrue(transform.getAttribute("value").contains("=="))
         }
@@ -805,13 +812,13 @@ class SugarliciousAnalogPreviewGeometryTest {
     @Test
     fun `bottom ring retains WFS center stroke and open segment icon`() {
         val arcs = slot("6").getElementsByTagName("Arc")
-        assertEquals(4, arcs.length)
+        assertEquals(5, arcs.length)
         (0 until arcs.length).forEach { index ->
             val arc = arcs.item(index) as Element
             near(75.0, arc, "centerX")
             near(76.2622, arc, "centerY")
             near(125.1556, arc, "width")
-            near(220.0, arc, "startAngle")
+            near(if (arc.getAttribute("direction") == "COUNTER_CLOCKWISE") 500.0 else 220.0, arc, "startAngle")
             near(11.3778, arc.getElementsByTagName("Stroke").item(0) as Element, "thickness")
         }
         val variants = slot("6").getElementsByTagName("Complication")
@@ -860,7 +867,7 @@ class SugarliciousAnalogPreviewGeometryTest {
             .parse(repoFile("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml"))
 
     private fun slot(id: String): Element {
-        val nodes = document().getElementsByTagName("ComplicationSlot")
+        val nodes = (document().getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot")
         return (0 until nodes.length).map { nodes.item(it) as Element }.single { it.getAttribute("slotId") == id }
     }
 

@@ -866,7 +866,7 @@ class StateDataLayerService : WearableListenerService() {
             "selected_ids"
         private const val COMPLICATION_GRAPH_HOURS_KEY =
             "graph_hours"
-        private const val MAX_PRESET_ITEMS = 4
+        private const val MAX_PRESET_ITEMS = 8
         private const val STATE_DELIVERY_PREFS = "wear_state_delivery"
         private const val STATE_PAYLOAD_SIZE = "committed_payload_size"
         private const val STATE_PAYLOAD_SHA256 = "committed_payload_sha256"

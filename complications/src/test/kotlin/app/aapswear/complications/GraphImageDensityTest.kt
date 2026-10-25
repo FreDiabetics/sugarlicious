@@ -20,13 +20,17 @@ import kotlin.math.abs
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class GraphImageDensityTest {
     @Test
-    fun `Orbit graph is taller without changing Apex graph dimensions`() {
+    fun `Orbit and existing Apex provider render canonical semicircle dimensions`() {
         val orbit = Robolectric.buildService(OrbitGlucoseGraphComplication::class.java).create().get()
         val data = orbit.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
         val bitmap = (data.smallImage.image.loadDrawable(orbit) as BitmapDrawable).bitmap
         org.junit.Assert.assertEquals(660, bitmap.width)
         org.junit.Assert.assertEquals(330, bitmap.height)
-        org.junit.Assert.assertEquals(400 to 140, complicationImageSize(ProviderKind.GRAPH))
+        org.junit.Assert.assertEquals(660 to 194, complicationImageSize(ProviderKind.GRAPH))
+        val apex = preview("mdpi")
+        org.junit.Assert.assertEquals(660, apex.width)
+        org.junit.Assert.assertEquals(194, apex.height)
+        assertTrue("existing Apex provider must retain real chart ink", whitePixels(apex) > 0)
         assertTrue(whitePixels(bitmap) > 0)
         assertTrue(ComplicationUpdatePlanner.allManagedProviders.contains(OrbitGlucoseGraphComplication::class.java))
     }

@@ -16,6 +16,23 @@ android {
     testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
+val vigilPreviewDebugAssets = layout.buildDirectory.dir("generated/vigilPreviewDebug/assets")
+val syncVigilPreviewDebugAssets =
+    tasks.register<Sync>("syncVigilPreviewDebugAssets") {
+        into(vigilPreviewDebugAssets)
+        from(rootProject.file("watchfaces/sugarlicious-direct-to-watch/src/main/res/raw/watchface.xml")) {
+            // Reference application data, not a res/raw Watch Face Format application.
+            rename { "vigil_preview_definition.xml" }
+        }
+    }
+android.sourceSets
+    .getByName("debug")
+    .assets.directories
+    .add(vigilPreviewDebugAssets.get().asFile.path)
+tasks.configureEach {
+    if (name == "preDebugBuild") dependsOn(syncVigilPreviewDebugAssets)
+}
+
 dependencies {
     implementation(project(":dexcom-g7"))
     implementation(project(":wear-storage"))

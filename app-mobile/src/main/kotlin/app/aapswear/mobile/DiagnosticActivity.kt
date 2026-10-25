@@ -63,7 +63,16 @@ class DiagnosticActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SugarliciousColors.apply(SugarliciousColorStore.load(getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)))
+        if (intent.getBooleanExtra(WEAR_TRANSFER_ONLY, false)) configureOneUiWidgetSettingsWindow(window)
         setContent {
+            if (intent.getBooleanExtra(WEAR_TRANSFER_ONLY, false)) {
+                OneUiWidgetSettingsTheme {
+                    val events by store.events.collectAsState(initial = emptyList())
+                    val transfers = wearTransferEvents(events)
+                    WearTransferLogScreen(transfers, ::finish, { copyEvents(transfers) }, { shareEvents(transfers) })
+                }
+                return@setContent
+            }
             SugarliciousTheme {
                 val events by store.events.collectAsState(initial = emptyList())
                 DiagnosticScreen(

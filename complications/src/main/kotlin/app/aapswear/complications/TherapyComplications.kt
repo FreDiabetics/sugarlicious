@@ -107,7 +107,7 @@ enum class WatchfaceGraphProfile(
     val width: Int,
     val height: Int,
 ) {
-    APEX(400, 140),
+    APEX(660, 194),
     ORBIT(660, 330),
 }
 
@@ -729,7 +729,8 @@ abstract class TherapyComplicationService(
                 samples,
                 timeWindow,
                 thresholds,
-                semicircle = graphProfile == WatchfaceGraphProfile.ORBIT,
+                semicircle = true,
+                showThresholdLabels = graphProfile == WatchfaceGraphProfile.ORBIT,
             )
             return
         }

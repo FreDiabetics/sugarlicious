@@ -632,9 +632,11 @@ class G7WatchActivity : Activity() {
 
         content.addView(
             ImageView(this).apply {
-                setImageResource(R.drawable.ic_sensor_outline)
+                setImageResource(app.aapswear.uishared.R.drawable.ic_sugarwear_filled)
                 contentDescription = "SugarWear"
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
+                // Draw the vector at its actual display size; CENTER_INSIDE caps it at 24dp.
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setPadding(6.dp, 6.dp, 6.dp, 6.dp)
             },
             LinearLayout.LayoutParams(54.dp, 54.dp).apply {
                 topMargin = 9.dp

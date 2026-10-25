@@ -311,7 +311,7 @@ class TherapyComplicationsTest {
             ComplicationType.PHOTO_IMAGE,
             (large.getPreviewData(ComplicationType.SMALL_IMAGE) as PhotoImageComplicationData).type,
         )
-        assertEquals(400 to 140, complicationImageSize(ProviderKind.GRAPH))
+        assertEquals(660 to 194, complicationImageSize(ProviderKind.GRAPH))
         assertEquals(400 to 240, complicationImageSize(ProviderKind.GRAPH_LARGE))
     }
 

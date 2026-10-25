@@ -83,11 +83,10 @@ class G7DirectToWatchSettingsActivity : Activity() {
             },
             params(5),
         )
-        root.addView(colorRow("Farbe", settings.statusColor(), palette, 0xFFA8A8BA.toInt(), settings::saveStatusColor), params(5))
         root.addView(toggle("Fett", settings.statusBold(), palette, settings::saveStatusBold), params(5))
         section(root, "WATCHFACE · UHRZEIT", palette)
         root.addView(
-            slider("Größe", 75, 150, settings.clockSizePercent(), palette, { "Größe · $it %" }) {
+            slider("Größe", 75, 450, settings.clockSizePercent(), palette, { "Größe · $it %" }) {
                 settings.saveClockSizePercent(it)
             },
             params(5),
@@ -102,6 +101,12 @@ class G7DirectToWatchSettingsActivity : Activity() {
         section(root, "GRAPH · ZEITSKALA", palette)
         root.addView(choiceRow(settings.graphHours(), palette), params(5))
         val graphStyle = settings.graphStyle()
+        root.addView(
+            toggle("Obere Skala · 400", graphStyle.maximumScaleEnabled, palette) {
+                settings.saveGraphStyle(settings.graphStyle().copy(maximumScaleEnabled = it))
+            },
+            params(5),
+        )
         section(root, "GRAPH · PUNKTE", palette)
         root.addView(
             slider("Punktgröße", 15, 60, (graphStyle.dotRadiusDp * 10).roundToInt(), palette, { "Punktgröße · ${it / 10f} dp" }) {

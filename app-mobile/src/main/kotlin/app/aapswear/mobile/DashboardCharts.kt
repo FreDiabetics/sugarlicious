@@ -1710,11 +1710,15 @@ internal class MetabolicDashboardChart
                         else -> RectF(iobData.left, iobLaneTop, iobData.right, iobData.bottom)
                     }
                 canvas.withClip(eventPlot) {
+                    val upperRadius = if (event.kind == TherapyEventKind.MEAL_CARBS || event.kind == TherapyEventKind.ECARBS) 0f else GRAPH_CORNER_RADIUS_DP.dp
                     when (event.kind) {
                         TherapyEventKind.SMB -> {
                             fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
                             val x = mapX(event.timestampEpochMs, start, end, iobData)
-                            drawPath(roundedUpTriangle(x, (zeroY + height).coerceAtMost(iobData.bottom), half, height, 2.4f.dp), fillPaint)
+                            val bottomY = (zeroY + height).coerceAtMost(iobData.bottom)
+                            if (therapyInkClearsUpperContour(x - half, x + half, bottomY - height, eventPlot.left, eventPlot.right, eventPlot.top, upperRadius)) {
+                                drawPath(roundedUpTriangle(x, bottomY, half, height, 2.4f.dp), fillPaint)
+                            }
                         }
                         TherapyEventKind.MANUAL_CORRECTION ->
                             drawBolusMarkerAboveZero(
@@ -1726,6 +1730,8 @@ internal class MetabolicDashboardChart
                                 zeroY,
                                 side,
                                 showAmount = false,
+                                upperBoundary = eventPlot,
+                                upperRadius = upperRadius,
                             )
                         TherapyEventKind.MEAL_BOLUS ->
                             drawCurveMarker(
@@ -1740,6 +1746,8 @@ internal class MetabolicDashboardChart
                                 side,
                                 "U",
                                 labelGapDp = 2f,
+                                upperBoundary = eventPlot,
+                                upperRadius = upperRadius,
                             )
                         TherapyEventKind.MEAL_CARBS ->
                             drawCurveMarker(
@@ -1754,8 +1762,10 @@ internal class MetabolicDashboardChart
                                 side,
                                 "g",
                                 labelGapDp = 2f,
+                                upperBoundary = eventPlot,
+                                upperRadius = upperRadius,
                             )
-                        TherapyEventKind.ECARBS -> drawCarbMarkerAtZero(this, event, cobData, start, end, cobZeroY, side)
+                        TherapyEventKind.ECARBS -> drawCarbMarkerAtZero(this, event, cobData, start, end, cobZeroY, side, eventPlot, upperRadius)
                     }
                 }
             }
@@ -1770,23 +1780,17 @@ internal class MetabolicDashboardChart
             zeroY: Float,
             side: Float,
             showAmount: Boolean,
+            upperBoundary: RectF,
+            upperRadius: Float,
         ) {
             val half = side / 2f
             val height = side * (sqrt(3.0).toFloat() / 2f)
             val x = mapX(event.timestampEpochMs, start, end, plot)
+            if (!therapyInkClearsUpperContour(x - half, x + half, zeroY - height, upperBoundary.left, upperBoundary.right, upperBoundary.top, upperRadius)) return
             fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_IOB)
             canvas.drawPath(roundedDownTriangle(x, zeroY, half, height, 2.4f.dp), fillPaint)
             if (showAmount) {
-                drawText(
-                    canvas,
-                    formatEventAmount(event.amount, "U"),
-                    x,
-                    (zeroY - height - 3f.dp).coerceAtLeast(plot.top + 10f.dp),
-                    8f,
-                    fillPaint.color,
-                    Paint.Align.CENTER,
-                    bold = true,
-                )
+                drawMarkerLabel(canvas, formatEventAmount(event.amount, "U"), x, zeroY - height, 3f, 8f, fillPaint.color, upperBoundary, upperRadius)
             }
         }
 
@@ -1798,10 +1802,13 @@ internal class MetabolicDashboardChart
             end: Long,
             zeroY: Float,
             side: Float,
+            upperBoundary: RectF,
+            upperRadius: Float,
         ) {
             val half = side / 2f
             val height = side * (sqrt(3.0).toFloat() / 2f)
             val x = mapX(event.timestampEpochMs, start, end, plot)
+            if (!therapyInkClearsUpperContour(x - half, x + half, zeroY - height, upperBoundary.left, upperBoundary.right, upperBoundary.top, upperRadius)) return
             fillPaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_COB)
             canvas.drawPath(roundedDownTriangle(x, zeroY, half, height, 2.4f.dp), fillPaint)
             drawMarkerLabel(
@@ -1812,6 +1819,8 @@ internal class MetabolicDashboardChart
                 gapDp = 2f,
                 sizeSp = 7f,
                 color = fillPaint.color,
+                upperBoundary = upperBoundary,
+                upperRadius = upperRadius,
             )
         }
 
@@ -1827,12 +1836,15 @@ internal class MetabolicDashboardChart
             side: Float,
             unit: String?,
             labelGapDp: Float = 3f,
+            upperBoundary: RectF,
+            upperRadius: Float,
         ) {
             val value = interpolateTherapyValue(history, event.timestampEpochMs, iob) ?: 0.0
             val half = side / 2f
             val height = side * (sqrt(3.0).toFloat() / 2f)
             val x = mapX(event.timestampEpochMs, start, end, plot)
             val y = mapAxisY(value, range, plot)
+            if (!therapyInkClearsUpperContour(x - half, x + half, y - height, upperBoundary.left, upperBoundary.right, upperBoundary.top, upperRadius)) return
             fillPaint.color = SugarliciousColors.argb(if (iob) SugarliciousColorRole.GRAPH_IOB else SugarliciousColorRole.GRAPH_COB)
             canvas.drawPath(roundedDownTriangle(x, y, half, height, 2.4f.dp), fillPaint)
             unit?.let {
@@ -1844,6 +1856,8 @@ internal class MetabolicDashboardChart
                     gapDp = labelGapDp,
                     sizeSp = 8f,
                     color = fillPaint.color,
+                    upperBoundary = upperBoundary,
+                    upperRadius = upperRadius,
                 )
             }
         }
@@ -1856,6 +1870,8 @@ internal class MetabolicDashboardChart
             gapDp: Float,
             sizeSp: Float,
             color: Int,
+            upperBoundary: RectF,
+            upperRadius: Float,
         ) {
             val paint =
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -1869,6 +1885,7 @@ internal class MetabolicDashboardChart
             paint.getTextBounds(value, 0, value.length, visibleBounds)
             val left = markerCenterX - visibleBounds.exactCenterX()
             val baseline = markerTopY - gapDp.dp - visibleBounds.bottom
+            if (!therapyInkClearsUpperContour(left + visibleBounds.left, left + visibleBounds.right, baseline + visibleBounds.top, upperBoundary.left, upperBoundary.right, upperBoundary.top, upperRadius)) return
             canvas.drawText(value, left, baseline, paint)
         }
 

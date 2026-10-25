@@ -6,6 +6,7 @@ import android.graphics.ColorFilter
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.InsetDrawable
 import android.widget.ImageView
 import androidx.annotation.DrawableRes
 import app.aapswear.model.ArgbContrast
@@ -17,6 +18,12 @@ internal fun shouldOutlineWearIcon(
     colored: Boolean,
 ): Boolean = colored && ArgbContrast.isLight(backgroundArgb)
 
+/** Menu/branding padding only; therapy symbols and canonical trend glyphs keep their geometry. */
+internal fun wearUiIconInsetFraction(
+    @DrawableRes drawableRes: Int,
+): Float =
+    if (drawableRes == R.drawable.ic_settings || drawableRes == R.drawable.ic_foreground) .08f else 0f
+
 /** Shared classic-View icon renderer for the Wear app's user-configurable light surfaces. */
 internal fun ImageView.renderSugarliciousWearIcon(
     @DrawableRes drawableRes: Int,
@@ -25,6 +32,12 @@ internal fun ImageView.renderSugarliciousWearIcon(
     colored: Boolean = true,
     trendStyle: TrendArrowStyle? = null,
 ) {
+    val insetFraction = if (trendStyle == null) wearUiIconInsetFraction(drawableRes) else 0f
+
+    fun nativeIcon(): Drawable =
+        requireNotNull(context.getDrawable(drawableRes)).mutate().let { drawable ->
+            if (insetFraction > 0f) InsetDrawable(drawable, insetFraction) else drawable
+        }
     val backgroundIcon = context.getDrawable(drawableRes)?.mutate() as? android.graphics.drawable.LayerDrawable
     if (backgroundIcon?.findDrawableByLayerId(app.aapswear.uishared.R.id.therapy_icon_background) != null) {
         imageTintList = null
@@ -40,11 +53,11 @@ internal fun ImageView.renderSugarliciousWearIcon(
     if (outlined) {
         imageTintList = null
         val foreground =
-            requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
+            nativeIcon().apply {
                 setTint(renderSpec?.fillColor ?: tintArgb ?: 0xFFFFFFFF.toInt())
             }
         val outline =
-            requireNotNull(context.getDrawable(drawableRes)).mutate().apply {
+            nativeIcon().apply {
                 setTint(renderSpec?.outlineColor ?: 0xB2000000.toInt())
             }
         setImageDrawable(
@@ -55,7 +68,7 @@ internal fun ImageView.renderSugarliciousWearIcon(
             ),
         )
     } else {
-        setImageResource(drawableRes)
+        setImageDrawable(nativeIcon())
         imageTintList = (renderSpec?.fillColor ?: tintArgb)?.let(ColorStateList::valueOf)
     }
 }

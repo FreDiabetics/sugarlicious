@@ -594,7 +594,14 @@ class MainActivityTest {
             isAccessible = true
             invoke(activity, DashboardScreen.WATCH)
         }
-        shadowOf(android.os.Looper.getMainLooper()).idle()
+        // The first ScrollView measurement happens before any posted resize callback.
+        val watchContent = activity.findViewById<ViewGroup>(R.id.dashboard_content).getChildAt(0)
+        assertTrue("Watch must have a finite height before attachment is measured", watchContent.layoutParams.height > 0)
+        val root = activity.findViewById<View>(R.id.root)
+        root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, 1080, 2400)
+        // Do not drain an endlessly blinking Compose animation to idleness.
+        // Native navigation state is synchronous; this test exercises the first measure.
 
         assertFalse(scroll.isUserScrollEnabled)
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)

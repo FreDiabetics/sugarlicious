@@ -19,10 +19,26 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class SharedWearCgmGraphRendererTest {
-    @Test fun `Vigil live edge leaves only the dot safety inset before the scale`() {
+    @Test fun `Vigil live edge reaches the scale without an extra inset`() {
         val style = DirectToWatchGraphDefaults.style()
         val metrics = SharedWearCgmGraphRenderer.metrics(450, 250, 2f, CgmThresholds.DEFAULT, style)
-        assertTrue(metrics.axisLeftPx - metrics.liveX <= (style.dotRadiusDp + style.currentDotOutlineWidthDp) * 2f + 0.01f)
+        assertEquals(0f, metrics.axisLeftPx - metrics.liveX, .01f)
+    }
+
+    @Test fun `Vigil contour touches now tick and five minute age equals one sample interval`() {
+        val style = DirectToWatchGraphDefaults.style()
+        val metrics = SharedWearCgmGraphRenderer.metrics(450, 205, 2f, CgmThresholds.DEFAULT, style)
+        val now = 2_000_000_000_000L
+        val window = GraphTimeWindow.live(now, 2 * 3_600_000L)
+        val contourRadius = (style.dotRadiusDp + style.currentDotOutlineWidthDp) * 2f
+        val fresh = metrics.sampleXFor(window, now)
+        val previous = metrics.sampleXFor(window, now - 300_000L)
+        val older = metrics.sampleXFor(window, now - 600_000L)
+        assertEquals(metrics.liveX, fresh + contourRadius, .001f)
+        assertEquals(metrics.plot.width() / 24f, fresh - previous, .001f)
+        assertEquals(fresh - previous, previous - older, .001f)
+        assertEquals(fresh - previous, metrics.liveX - (previous + contourRadius), .001f)
+        assertEquals("The fresh contour reaches the scale without a gap", 0f, metrics.axisLeftPx - (fresh + contourRadius), .001f)
     }
 
     @Test

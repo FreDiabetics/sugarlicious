@@ -286,4 +286,10 @@
   <string name="slot_5">Innen</string>
   <string name="slot_8">Graph</string>
   <string name="slot_9">TIR · 5 Tage</string>
+  <string name="user_preset_0">Graph Orange</string>
+  <string name="user_preset_1">TIR Aqua</string>
+  <string name="user_preset_2">Graph Rot</string>
+  <string name="user_preset_3">TIR Violett</string>
+  <string name="user_preset_4">Graph Limette</string>
+  <string name="user_preset_5">TIR Eis</string>
 </resources>
