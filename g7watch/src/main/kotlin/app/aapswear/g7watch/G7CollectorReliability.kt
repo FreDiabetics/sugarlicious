@@ -160,9 +160,12 @@ internal fun g7FailureClass(
     errorCode: String,
     sensorAdvertisementSeen: Boolean,
     foreignAdvertisementsSeen: Boolean,
+    directResult: app.aapswear.g7.DirectConnectResult? = null,
 ): G7FailureClass =
     when {
         !sensorAdvertisementSeen && foreignAdvertisementsSeen -> G7FailureClass.SENSOR_NOT_ADVERTISING
+        errorCode == "G7-BLE-FALLBACK-107" && directResult == app.aapswear.g7.DirectConnectResult.NO_CALLBACK -> G7FailureClass.DIRECT_NO_CALLBACK
+        errorCode == "G7-BLE-FALLBACK-107" && directResult == app.aapswear.g7.DirectConnectResult.STATUS_133 -> G7FailureClass.DIRECT_GATT_133
         errorCode == G7_GATT_133_ERROR_CODE -> G7FailureClass.DIRECT_GATT_133
         errorCode == G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE || errorCode == "DIRECT_CONNECT_NO_CALLBACK" -> G7FailureClass.DIRECT_NO_CALLBACK
         errorCode.contains("AUTH") -> G7FailureClass.AUTH_FAILURE

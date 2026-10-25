@@ -17,6 +17,17 @@ import org.junit.Test
 import java.util.UUID
 
 class G7BlePolicyTest {
+    @Test fun `no callback remains the failure cause when the late fallback scan is empty`() {
+        val failure = g7FailureClass("G7-BLE-FALLBACK-107", false, false, DirectConnectResult.NO_CALLBACK)
+        assertEquals(G7FailureClass.DIRECT_NO_CALLBACK, failure)
+        val health = G7CollectorHealth(consecutiveFailures = 1, lastFailureClass = failure)
+        assertEquals(G7ReconnectStrategy.BOUNDED_SCAN, effectiveG7ReconnectStrategy(G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT, health))
+    }
+
+    @Test fun `fallback does not replace an authentication failure with a prior radio failure`() {
+        assertEquals(G7FailureClass.AUTH_FAILURE, g7FailureClass("G7-AUTH-204", true, false, DirectConnectResult.NO_CALLBACK))
+    }
+
     @Test fun `notification payload is copied before asynchronous delivery`() {
         val platformBuffer = byteArrayOf(1, 2, 3)
 

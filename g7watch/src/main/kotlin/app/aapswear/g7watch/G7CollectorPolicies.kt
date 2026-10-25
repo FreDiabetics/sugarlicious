@@ -87,6 +87,7 @@ internal fun effectiveG7ReconnectStrategy(
 ): G7ReconnectStrategy =
     when {
         configured != G7ReconnectStrategy.KNOWN_ADDRESS_DIRECT -> configured
+        health.consecutiveFailures > 0 && health.lastFailureClass == G7FailureClass.DIRECT_NO_CALLBACK -> G7ReconnectStrategy.BOUNDED_SCAN
         health.consecutiveFailures < RADIO_DEGRADED_CLUSTER_THRESHOLD -> configured
         health.lastFailureClass !in RADIO_FAILURE_CLASSES -> configured
         else -> {

@@ -892,7 +892,7 @@ class G7CollectorService : Service() {
         val softWindowFailure = error.recoverable && error.code in SOFT_WINDOW_ERRORS
         val sensorAdvertisementSeen = (cycle?.scanNamedG7Results ?: 0) > 0 || (cycle?.scanExactAddressResults ?: 0) > 0
         val foreignAdvertisementsSeen = (cycle?.scanTotalResults ?: 0) > 0 && !sensorAdvertisementSeen
-        val failureClass = g7FailureClass(error.code, sensorAdvertisementSeen, foreignAdvertisementsSeen)
+        val failureClass = g7FailureClass(error.code, sensorAdvertisementSeen, foreignAdvertisementsSeen, cycle?.directConnectResult)
         val reliability =
             G7CollectorReliability.failed(
                 health = state.health,
@@ -913,7 +913,10 @@ class G7CollectorService : Service() {
                 health = reliability,
             )
         store.save(next)
-        val scheduledReconnectAt = stagedSafety?.requestedReconnectEpoch ?: scheduleReconnect(next)
+        // The safety slot was armed with the PREVIOUS health/strategy. Reapply the same
+        // canonical slot after failure so presence-first recovery gets its full scan lead.
+        // scheduleReconnect replaces the PendingIntent directly; it never cancels first.
+        val scheduledReconnectAt = scheduleReconnect(next)
         scheduledReconnectAt?.let { reconnectAt ->
             attemptStore.record(
                 attemptId,

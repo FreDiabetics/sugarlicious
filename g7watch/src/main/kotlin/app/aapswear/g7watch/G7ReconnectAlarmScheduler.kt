@@ -247,9 +247,8 @@ private fun expectedWindowId(
     expectedAt: Long,
 ): String = expectedWindowId(state.sensor?.sensorId, state.sensor?.sessionId ?: state.sensor?.sensorId, expectedAt)
 
-// Hardware baseline 2026-08-24: a nominal 5 s alarm lead produced the actual GATT request only
-// ~3 s before the slot, while connection p50/p95 completed ~2.7/5.0 s after it. Ten seconds keeps
-// the bounded direct-first design but gives Android BLE scheduling enough reserve before fallback.
+// Healthy direct connections retain the short lead. A NO_CALLBACK failure switches the next
+// cycle to presence-first recovery, which preserves the canonical 30 s scan lead instead.
 internal const val G7_DIRECT_PRECONNECT_LEAD_MS = 10_000L
 
 internal fun alignReconnectRequestToStrategy(

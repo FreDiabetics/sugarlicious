@@ -615,14 +615,21 @@ internal fun g7BondWaitDecision(
         else -> G7BondWaitDecision.KEEP_WAITING
     }
 
-private class G7GattConnection(
+private data class G7ConnectionCallback(
+    val status: Int,
+    val state: Int,
+    val epochMs: Long,
+    val elapsedMs: Long,
+)
+
+internal class G7GattConnection(
     private val context: Context,
     private val sensor: G7Sensor,
     private val onTelemetry: (G7BleTelemetry) -> Unit,
     private val ownership: G7GattOwnership,
 ) {
     private val manager = context.getSystemService(BluetoothManager::class.java)
-    private val connectionEvents = Channel<Pair<Int, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
+    private val connectionEvents = Channel<G7ConnectionCallback>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val serviceEvents = Channel<Int>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val descriptorEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
     private val writeEvents = Channel<Pair<UUID, Int>>(CONTROL_EVENT_BUFFER_CAPACITY)
@@ -644,9 +651,9 @@ private class G7GattConnection(
             ) {
                 if (!acceptCallback(gatt, "CONNECTION_STATE")) return
                 connected = status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED
-                val result = classifyDirectConnectCallback(status, newState)
-                recordDirectResult(result, status, newState)
-                connectionEvents.trySend(status to newState)
+                // Never serialize diagnostics on Android's BLE callback thread. Preserve the
+                // actual arrival time and let the collector consume/persist it off that thread.
+                connectionEvents.trySend(G7ConnectionCallback(status, newState, System.currentTimeMillis(), SystemClock.elapsedRealtime()))
             }
 
             override fun onServicesDiscovered(
@@ -715,9 +722,17 @@ private class G7GattConnection(
                     throw G7BleException("G7-BLE-110", "Sensoradresse ist ungültig", false, it)
                 }
 
-        onState(G7ProtocolState.CONNECTING)
         connectStartedAtEpochMs = System.currentTimeMillis()
         connectStartedElapsedMs = SystemClock.elapsedRealtime()
+        gatt =
+            try {
+                connectG7Gatt(device, context, callback)
+            } catch (security: SecurityException) {
+                recordDirectResult(DirectConnectResult.SECURITY_ERROR)
+                throw security
+            }
+        // Radio registration must precede preference/JSON work. Otherwise "connect started"
+        // measured diagnostic overhead rather than the real Android connectGatt invocation.
         onTelemetry(
             G7DirectConnectStarted(
                 requireNotNull(connectStartedAtEpochMs),
@@ -726,20 +741,17 @@ private class G7GattConnection(
                 ownership.generation,
             ),
         )
-        gatt =
-            try {
-                connectG7Gatt(device, context, callback)
-            } catch (security: SecurityException) {
-                recordDirectResult(DirectConnectResult.SECURITY_ERROR)
-                throw security
-            }
-        val (connectStatus, connectState) =
+        onState(G7ProtocolState.CONNECTING)
+        val event =
             try {
                 withTimeout(G7_DIRECT_CONNECT_CALLBACK_TIMEOUT_MS) { connectionEvents.receive() }
             } catch (timeout: TimeoutCancellationException) {
                 recordDirectResult(DirectConnectResult.NO_CALLBACK)
                 throw G7BleException(G7_DIRECT_CONNECT_TIMEOUT_ERROR_CODE, "Direkter G7-Connect ohne Callback", true, timeout)
             }
+        val connectStatus = event.status
+        val connectState = event.state
+        recordDirectResult(classifyDirectConnectCallback(connectStatus, connectState), connectStatus, connectState, event.epochMs, event.elapsedMs)
         if (connectStatus != BluetoothGatt.GATT_SUCCESS || connectState != BluetoothProfile.STATE_CONNECTED) {
             if (connectStatus == GATT_ERROR_133) {
                 throw G7BleException(G7_GATT_133_ERROR_CODE, "Temporärer BLE-Verbindungsfehler (133)", true)
@@ -1027,20 +1039,21 @@ private class G7GattConnection(
     fun close() {
         if (!closeStarted.compareAndSet(false, true)) return
         val current = gatt
+        val cleanupStartedAt = System.currentTimeMillis()
+        G7GattGenerationRegistry.invalidate(ownership)
+        gatt = null
+        connected = false
+        runCatching { current?.disconnect() }
+        runCatching { current?.close() }
         onTelemetry(
             G7GattCleanupTelemetry(
-                System.currentTimeMillis(),
+                cleanupStartedAt,
                 ownership.attemptId,
                 ownership.generation,
                 disconnected = current != null,
                 started = true,
             ),
         )
-        G7GattGenerationRegistry.invalidate(ownership)
-        gatt = null
-        connected = false
-        runCatching { current?.disconnect() }
-        runCatching { current?.close() }
         onTelemetry(
             G7GattCleanupTelemetry(
                 System.currentTimeMillis(),
@@ -1080,14 +1093,16 @@ private class G7GattConnection(
         result: DirectConnectResult,
         status: Int? = null,
         newState: Int? = null,
+        epochMs: Long = System.currentTimeMillis(),
+        elapsedMs: Long = SystemClock.elapsedRealtime(),
     ) {
         if (!directResultRecorded.compareAndSet(false, true)) return
         val startElapsed = connectStartedElapsedMs ?: SystemClock.elapsedRealtime()
         onTelemetry(
             G7DirectConnectCompleted(
-                timestampEpochMs = System.currentTimeMillis(),
-                elapsedRealtimeMs = SystemClock.elapsedRealtime(),
-                durationMs = (SystemClock.elapsedRealtime() - startElapsed).coerceAtLeast(0L),
+                timestampEpochMs = epochMs,
+                elapsedRealtimeMs = elapsedMs,
+                durationMs = (elapsedMs - startElapsed).coerceAtLeast(0L),
                 result = result,
                 status = status,
                 newState = newState,

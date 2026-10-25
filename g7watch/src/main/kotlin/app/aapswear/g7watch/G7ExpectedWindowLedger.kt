@@ -412,8 +412,9 @@ internal class G7ExpectedWindowLedger(
         synchronized(lock) {
             var satisfiedByReading = 0
             var recoverableGaps = 0
+            val existing = load()
             val updated =
-                load().map { window ->
+                existing.map { window ->
                     if (
                         window.sensorId != sensorId ||
                         window.sessionId != sessionId ||
@@ -446,7 +447,7 @@ internal class G7ExpectedWindowLedger(
                         )
                     }
                 }
-            saveAll(updated)
+            if (updated != existing) saveAll(updated)
             G7LedgerReconciliationResult(satisfiedByReading, recoverableGaps)
         }
 
