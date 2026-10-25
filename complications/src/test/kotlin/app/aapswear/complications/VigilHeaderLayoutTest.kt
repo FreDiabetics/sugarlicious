@@ -12,6 +12,12 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VigilHeaderLayoutTest {
+    @Test fun `cached editor clock preview never expires into the system warning placeholder`() {
+        val service = Robolectric.buildService(DirectToWatchClockComplication::class.java).create().get()
+        val preview = service.getPreviewData(androidx.wear.watchface.complications.data.ComplicationType.SMALL_IMAGE)
+        assertEquals(androidx.wear.watchface.complications.data.TimeRange.ALWAYS, preview.validTimeRange)
+    }
+
     @Test fun `strong clock has visibly more ink than standard bold`() {
         val strong = renderWatchfaceText("12:42", 270, 78, 150, Color.WHITE, true, android.graphics.Paint.Align.CENTER)
         val standard = android.graphics.Bitmap.createBitmap(270, 78, android.graphics.Bitmap.Config.ARGB_8888)

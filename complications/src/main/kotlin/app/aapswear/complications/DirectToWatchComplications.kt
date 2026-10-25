@@ -540,7 +540,16 @@ object DirectToWatchPreferences {
 }
 
 abstract class DirectToWatchComplicationService : SuspendingComplicationDataSourceService() {
-    final override fun getPreviewData(type: ComplicationType): ComplicationData = build(previewState(), System.currentTimeMillis())
+    final override fun getPreviewData(type: ComplicationType): ComplicationData {
+        val preview = build(previewState(), System.currentTimeMillis()) as SmallImageComplicationData
+        // Native editors cache demo images. A live minute/reading validity window
+        // makes that cached artwork turn into the system's warning placeholder.
+        return SmallImageComplicationData
+            .Builder(preview.smallImage, requireNotNull(preview.contentDescription))
+            .setTapAction(preview.tapAction)
+            .setValidTimeRange(TimeRange.ALWAYS)
+            .build()
+    }
 
     final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build(G7LocalReadingResolver.resolveWatchDirect(this), System.currentTimeMillis())
 

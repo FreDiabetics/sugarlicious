@@ -20,3 +20,7 @@ Vigil's full-length red seconds hand, shared opacity toggle and native hands-off
 Combined repository verification passed: `verifyArchitecture test assembleDebug detekt ktlintCheck lint`, plus all five watchface release builds. The older provider-composite test was updated to render the reference hands rather than painting their new uniform opacity mask as artwork; the invisible center action is correctly excluded from its visible-slot list.
 
 Remaining delivery work: commit, PR, CI, merge and main-only synchronization. These steps must not be described as complete before their results are available.
+
+## Native selector warning placeholder
+
+The white oval with an information symbol occupied the digital-clock slot. Preview data inherited the live clock's next-minute expiry; Samsung caches the selector image longer and then substitutes its system warning image. Preview-only small images now have unlimited validity while live requests retain their original freshness/time ranges. A regression test first failed on the former minute-limited preview and passed after the fix. Complications tests, Lint, Detekt, formatting and the SugarWear build passed. SugarWear was installed and the native selector was inspected again across the minute boundary: the cached clock remained visible with no white warning object.
