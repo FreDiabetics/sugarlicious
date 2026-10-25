@@ -55,7 +55,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
                 setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
             }
         root.addView(topBar(palette))
@@ -466,7 +466,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         background = card(p)
         val value = label(format(initial), 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
         addView(value)
-        value.setPadding(8.dp, 4.dp, 8.dp, 4.dp)
+        value.setPadding(4.dp, 4.dp, 4.dp, 4.dp)
         value.background = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 10f)
         value.setOnClickListener {
             SharedNumberEditor.show(this@G7DirectToWatchSettingsActivity, title, initial.coerceIn(min, max), min, max) { selected ->
@@ -579,9 +579,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         p: G7AppearancePalette,
     ) = root.addView(
         label(title, 9f, p.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-            letterSpacing =
-                .08f
-            ; setPadding(4.dp, 15.dp, 4.dp, 4.dp)
+            letterSpacing = 0f
+            setPadding(16.dp, 16.dp, 16.dp, 8.dp)
         },
     )
 
@@ -598,6 +597,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
     ).apply {
         gravity =
             Gravity.CENTER
+        textSize = 13f
         ; background =
             rounded(
                 if (selected) p.argb(G7AppearanceRole.MENU_PRIMARY) else p.argb(G7AppearanceRole.MENU_SURFACE),
@@ -614,6 +614,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
+        includeFontPadding = false
         textSize =
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)

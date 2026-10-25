@@ -10,3 +10,7 @@
 - Sugarlicious Wear graph-tile bitmap text follows font scale. Its overview grows its glucose card and stacks therapy cards for large system text; rings, trend glyphs and their surrounding layout grow together. The native TextViews/Compose/protolayout text continue to use their system sp units. Clinical complication geometry remains owned by its watchface; preview settings are not sent as watchface sizing overrides.
 
 Validation covers vertical gestures across switches/sliders, shared track geometry, catalog typography, widget graph bounds, and the Wear overview at doubled system font size. Collector transport, authentication, readings and sensor pairing are unchanged.
+
+## Samsung Health reference comparison
+
+The connected Watch Ultra uses font scale 0.9 and density 340 dpi. The installed Samsung Health settings use 15 sp primary list text, 12 sp secondary/category text, 13 sp buttons, 14 dp inner horizontal list padding, and 16/8 dp category top/bottom spacing. The reference was checked in the visible app and its matching decoded `seslw` dimension resources. SugarWear now uses those typography roles, removes extra font padding, widens settings cards with approximately 7 dp outer insets, and retains the previous round-safe header inset. System font scaling remains enabled; no device setting was changed for this comparison.

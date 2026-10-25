@@ -56,7 +56,7 @@ class G7AlarmSettingsActivity : Activity() {
             removeAllViews()
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+            setPadding(7.dp, 32.dp, 7.dp, 56.dp)
             setBackgroundColor(background)
             addView(topBar(palette), fullWidth())
             addView(dndCard(palette), cardParams(7))
@@ -240,7 +240,7 @@ class G7AlarmSettingsActivity : Activity() {
         text = title
         isChecked = checked
         setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-        textSize = 16f
+        textSize = 15f
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
         setOnCheckedChangeListener { _, value -> if (value != checked) changed(value) }
@@ -269,7 +269,7 @@ class G7AlarmSettingsActivity : Activity() {
         action: () -> Unit,
     ) = Button(this).apply {
         text = title
-        textSize = 14f
+        textSize = 13f
         isAllCaps = false
         setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
@@ -289,6 +289,7 @@ class G7AlarmSettingsActivity : Activity() {
         color: Int,
         bold: Boolean = false,
     ) = TextView(this).apply {
+        includeFontPadding = false
         text = value
         textSize =
             app.aapswear.uishared.WearSettingsUi

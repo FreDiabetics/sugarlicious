@@ -21,9 +21,8 @@ object WearSettingsUi {
     fun textSize(legacySp: Float): Float =
         when {
             legacySp >= 16f -> 20f
-            legacySp >= 12f -> 17f
-            legacySp >= 10f -> 16f
-            else -> 13f
+            legacySp >= 10f -> 15f
+            else -> 12f
         }
 
     fun background(context: Context, color: Int, radiusDp: Float = 26f): GradientDrawable =
@@ -78,7 +77,8 @@ object WearSettingsUi {
         view.switchPadding = dp(context, 12)
         view.switchMinWidth = dp(context, 44)
         view.minimumHeight = dp(context, 48)
-        view.textSize = 16f
+        view.textSize = 15f
+        view.includeFontPadding = false
         view.setTextColor(textColor)
         view.thumbDrawable =
             swatch(context, Color.WHITE).apply {
@@ -112,6 +112,7 @@ object WearSettingsUi {
                 TextView(context).apply {
                     text = title
                     textSize = 20f
+                    includeFontPadding = false
                     maxLines = 2
                     ellipsize = android.text.TextUtils.TruncateAt.END
                     setTextColor(textColor)

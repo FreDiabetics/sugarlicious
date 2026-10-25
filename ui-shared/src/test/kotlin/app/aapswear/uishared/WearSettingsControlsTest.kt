@@ -19,6 +19,11 @@ import org.robolectric.annotation.Config
 class WearSettingsControlsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `wear list typography matches Samsung Health fifteen and twelve sp roles`() {
+        assertEquals(15f, WearSettingsUi.textSize(11f), 0f)
+        assertEquals(12f, WearSettingsUi.textSize(8.5f), 0f)
+    }
+
     @Test fun `slider track does not stretch to its touch target and stays visible on black`() {
         val slider = SeekBar(context)
         // The user's saved border is transparent gray, not opaque black.

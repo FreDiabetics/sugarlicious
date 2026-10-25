@@ -49,7 +49,7 @@ class G7SettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
                 setBackgroundColor(background)
                 addView(topBar(palette), fullWidth())
                 addView(
@@ -201,6 +201,7 @@ class G7SettingsActivity : Activity() {
         color: Int,
         bold: Boolean = false,
     ) = TextView(this).apply {
+        includeFontPadding = false
         text = value
         textSize =
             app.aapswear.uishared.WearSettingsUi
