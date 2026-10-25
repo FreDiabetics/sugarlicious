@@ -54,6 +54,7 @@ data class SharedWearCgmGraphStyle(
     val cornerRadiusDp: Float = 20f,
     val borderEnabled: Boolean = true,
     val timeAxisEnabled: Boolean = true,
+    val timeAxisVisible: Boolean = true,
     val targetTicksEnabled: Boolean = false,
     val targetLabelsOutsideRange: Boolean = true,
     val targetLabelsInsidePlot: Boolean = false,
@@ -406,7 +407,7 @@ object SharedWearCgmGraphRenderer {
             axisText.textAlign = Paint.Align.LEFT
             canvas.drawText(input.topLeftLabel, maxOf(3f * density, input.style.cornerRadiusDp * density * 0.7f), 7f * density - (axisText.ascent() + axisText.descent()) / 2f, axisText)
         }
-        if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
+        if (input.style.timeAxisEnabled && input.style.timeAxisVisible) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty() && input.emptyLabel.isNotBlank()) {
             emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)

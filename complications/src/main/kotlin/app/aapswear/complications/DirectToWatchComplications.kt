@@ -970,6 +970,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val graphStyle =
             baseStyle.copy(
                 axisTextSizeSp = baseStyle.axisTextSizeSp * if (DirectToWatchPreferences.scaleSizeEnabled(this)) DirectToWatchPreferences.scaleSizePercent(this) / 100f else 1f,
+                timeAxisVisible = !ambient,
                 timeHoursBold = false,
                 timeAxisBottomInsetDp = 1f,
             )
