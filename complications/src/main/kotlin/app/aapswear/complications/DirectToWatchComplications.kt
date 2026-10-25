@@ -47,6 +47,8 @@ import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
 
@@ -551,7 +553,10 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
             .build()
     }
 
-    final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build(G7LocalReadingResolver.resolveWatchDirect(this), System.currentTimeMillis())
+    final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData =
+        withContext(Dispatchers.IO) {
+            build(G7LocalReadingResolver.resolveWatchDirect(this@DirectToWatchComplicationService), System.currentTimeMillis())
+        }
 
     protected abstract fun build(
         state: TherapyDisplayState?,

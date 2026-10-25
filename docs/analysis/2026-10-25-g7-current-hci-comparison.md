@@ -95,3 +95,12 @@ Final restart-path validation: 46 focused runtime, receiver, integration and lif
 
 
 Hardware follow-up after reconnecting WLAN debugging: persisted attempts 9274 and 9275 both completed SUCCESS_FRESH in the automatically recreated process, with consecutive measurement sequences 338 and 339. Attempt 9274 used DIRECT_ONLY_SUCCESS; attempt 9275 used DIRECT_RETRY_SUCCESS. The collector is back in WAITING_FOR_NEXT_READING. This completes the physical process-death/restart reception check without manually starting the app or resetting sensor/session/bond state. It does not constitute a full OS-reboot test or proof that every historical radio failure is eliminated.
+
+
+## Full watch reboot: foreground-start timeout reproduced
+
+The subsequent full OS reboot changed boot ID from 702e5a55-248c-4fe1-b539-49fa4c5d0088 to 59a992c6-82d4-40e1-96b8-31bb0303b803. At uptime 313 seconds no new attempt after 9275 existed; the retained reconnect timestamp was overdue and AlarmManager had only the signal-loss alarm. This hardware test failed, unlike the preceding process-death test.
+
+The system broadcast history contains an ANR for G7CollectorService: startForegroundService did not call startForeground in time. Its recorded main stack is rendering DirectToWatchStatusComplication / SystemTypography while handling a complication update. The recreated process was serving tiles, not running the collector. Changes move live DirectToWatch complication resolution/rendering to Dispatchers.IO, promote the service immediately in onCreate before retained-store restoration, and restore the durable reconnect alarm in the boot receiver before requesting the foreground service. An asynchronous foreground timeout is not caught by the existing synchronous launch failure handler. No app UI was launched to obtain this evidence; no sensor/session/bond was reset. Repeat full-reboot proof is pending installation of this correction.
+
+Correction validation: 43 focused runtime/lifecycle/receiver tests passed; collector build, Lint, Detekt and ktlint passed, including complications Detekt/ktlint. The corrected collector APK was installed successfully; it restored WAITING_FOR_NEXT_READING without opening the UI. A second full reboot was then initiated for the hardware acceptance test.

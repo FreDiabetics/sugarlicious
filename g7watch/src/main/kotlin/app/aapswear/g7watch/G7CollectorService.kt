@@ -55,6 +55,16 @@ class G7CollectorService : Service() {
     override fun onCreate() {
         super.onCreate()
         serviceRunning = true
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(CHANNEL, "SugarWear", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Permanenter direkter Sensor-Collector"
+                setSound(null, null)
+                enableVibration(false)
+                setShowBadge(false)
+            },
+        )
+        // Promote before opening retained stores or restoring alarms on a cold boot.
+        startForegroundCollector()
         store = G7SensorStateStore(this)
         credentials = G7CredentialStore(this)
         attemptStore = G7CollectorDiagnosticStore(this)
@@ -63,14 +73,6 @@ class G7CollectorService : Service() {
             owner = this,
             activeCheck = { collectionJob?.isActive == true },
             cancelAction = { collectionJob?.cancel() },
-        )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "SugarWear", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Permanenter direkter Sensor-Collector"
-                setSound(null, null)
-                enableVibration(false)
-                setShowBadge(false)
-            },
         )
         G7ErrorNotifier.ensureChannel(this)
         G7CgmAlarmCoordinator.restore(this)
