@@ -58,13 +58,21 @@ class VigilHandsTest(unittest.TestCase):
 
     def test_native_visibility_switch_hides_hands_and_center_content(self):
         option = self.face.find("UserConfigurations/BooleanConfiguration[@id='showHands']")
-        self.assertEqual("TRUE", option.get("defaultValue"))
+        self.assertEqual("FALSE", option.get("defaultValue"))
         for slot_id in ("7", "8"):
             condition = self.face.find(f"Scene/ComplicationSlot[@slotId='{slot_id}']/Complication/Group/Condition")
             self.assertEqual('[CONFIGURATION.showHands] == "TRUE"', condition.find("Expressions/Expression").text)
             self.assertIsNone(condition.find("Default"))
         info = ET.parse(FACE / "src/main/res/xml/watch_face_info.xml").getroot()
         self.assertEqual("true", info.find("Editable").get("value"))
+
+    def test_digital_time_can_be_hidden_in_both_display_modes(self):
+        option = self.face.find("UserConfigurations/BooleanConfiguration[@id='showDigitalTime']")
+        self.assertEqual("TRUE", option.get("defaultValue"))
+        condition = self.face.find("Scene/ComplicationSlot[@slotId='5']/Complication/Condition")
+        self.assertEqual('[CONFIGURATION.showDigitalTime] == "TRUE"', condition.find("Expressions/Expression").text)
+        self.assertEqual(2, len(condition.findall("Compare/Group/PartImage")))
+        self.assertIsNone(condition.find("Default"))
 
     def test_markers_preserve_user_artwork_and_follow_hand_visibility(self):
         markers = self.face.find("Scene/Group[@name='vigil-perimeter-markers']")

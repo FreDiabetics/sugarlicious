@@ -21,6 +21,7 @@ def configure():
     root = tree.getroot()
     root.find("Metadata[@key='PREVIEW_TIME']").set("value", "10:08:32")
     configs = root.find("UserConfigurations")
+    configs.find("BooleanConfiguration[@id='showHands']").set("defaultValue", "FALSE")
     color = configs.find("ColorConfiguration[@id='secondColor']")
     if color is not None:
         configs.remove(color)

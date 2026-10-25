@@ -3,7 +3,8 @@
     <Metadata key="CLOCK_TYPE" value="ANALOG" />
     <Metadata key="PREVIEW_TIME" value="10:08:32" />
     <UserConfigurations>
-        <BooleanConfiguration id="showHands" displayName="hands_visibility" defaultValue="TRUE" />
+        <BooleanConfiguration id="showHands" displayName="hands_visibility" defaultValue="FALSE" />
+        <BooleanConfiguration id="showDigitalTime" displayName="digital_time_visibility" defaultValue="TRUE" />
         <ColorConfiguration id="secondColor" displayName="seconds_color" defaultValue="red">
             <ColorOption id="red" displayName="seconds_red" colors="#FFFF3B30" />
             <ColorOption id="gray" displayName="seconds_gray" colors="#FF9E9E9E" />
@@ -73,14 +74,23 @@
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchClockComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="270" height="78" />
             <Complication type="SMALL_IMAGE">
-                <PartImage x="0" y="0" width="270" height="78">
-                    <Variant mode="AMBIENT" target="alpha" value="0" />
-                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
-                </PartImage>
-                <PartImage x="0" y="0" width="270" height="78" alpha="0">
-                    <Variant mode="AMBIENT" target="alpha" value="255" />
-                    <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
-                </PartImage>
+                <Condition>
+                    <Expressions>
+                        <Expression name="digitalTimeVisible">[CONFIGURATION.showDigitalTime] == "TRUE"</Expression>
+                    </Expressions>
+                    <Compare expression="digitalTimeVisible">
+                        <Group name="vigil-digital-time" x="0" y="0" width="270" height="78">
+                            <PartImage x="0" y="0" width="270" height="78">
+                                <Variant mode="AMBIENT" target="alpha" value="0" />
+                                <Image resource="[COMPLICATION.SMALL_IMAGE]" />
+                            </PartImage>
+                            <PartImage x="0" y="0" width="270" height="78" alpha="0">
+                                <Variant mode="AMBIENT" target="alpha" value="255" />
+                                <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
+                            </PartImage>
+                        </Group>
+                    </Compare>
+                </Condition>
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
