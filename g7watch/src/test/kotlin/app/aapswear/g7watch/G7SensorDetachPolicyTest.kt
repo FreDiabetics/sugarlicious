@@ -19,6 +19,50 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7SensorDetachPolicyTest {
+    @Test fun `takeover cleanup removes existing bond without permanently excluding its target`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val target = "AA:BB:CC:DD:EE:11"
+        val alreadyRetired = "AA:BB:CC:DD:EE:12"
+        G7RetiredSensors(context).retire(setOf(alreadyRetired))
+        G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("transfer", "transfer", deviceAddress = target)))
+        val result =
+            unlinkG7Sensor(
+                context,
+                G7BondRemover { _, _ -> G7BondRemovalStatus.REMOVED },
+                bondedAddresses = { setOf(target) },
+                permanentlyRetire = false,
+            )
+        assertTrue(result.detached)
+        assertFalse(G7RetiredSensors(context).contains(target))
+        assertTrue(G7RetiredSensors(context).contains(alreadyRetired))
+    }
+
+    @Test fun `fully detached sensor stays excluded across store recreation`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val address = "AA:BB:CC:DD:EE:01"
+        G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("old", "old", deviceAddress = address), collectorEnabled = true))
+        G7CollectorDiagnosticStore(context).stageScheduledCycle(app.aapswear.g7.CollectorCycleTiming(expectedWindowId = "old-window"))
+        val removed = mutableListOf<String?>()
+        val legacy = "AA:BB:CC:DD:EE:03"
+        val result =
+            unlinkG7Sensor(
+                context,
+                G7BondRemover { _, candidate ->
+                    removed.add(candidate)
+                    G7BondRemovalStatus.REMOVED
+                },
+                bondedAddresses = { setOf(legacy) },
+            )
+        assertTrue(result.detached)
+        assertTrue(address in removed)
+        assertTrue(legacy in removed)
+        assertTrue(G7RetiredSensors(context).contains(address.lowercase()))
+        assertTrue(G7RetiredSensors(context).contains(legacy))
+        assertFalse(G7RetiredSensors(context).contains("AA:BB:CC:DD:EE:02"))
+        assertNull(G7SensorStateStore(context).read().sensor)
+        assertNull(G7CollectorDiagnosticStore(context).pendingScheduledCycle())
+    }
+
     @Test fun `detach stops only local collector and preserves history without ending sensor`() {
         val semantics = g7DetachSemantics()
 

@@ -61,7 +61,7 @@ internal fun moveG7SensorToThisWatch(
     bondRemover: G7BondRemover = G7BondRemover(::removeG7Bond),
 ): G7Sensor {
     val payload = G7SetupPayload(pairingCode)
-    check(unlinkG7Sensor(context, bondRemover).detached) {
+    check(unlinkG7Sensor(context, bondRemover, permanentlyRetire = false).detached) {
         "Der bisherige Sensor ist noch per Bluetooth gebondet"
     }
     G7CredentialStore(context.applicationContext).saveSetup(payload)
@@ -77,16 +77,32 @@ internal fun moveG7SensorToThisWatch(
 internal fun unlinkG7Sensor(
     context: Context,
     bondRemover: G7BondRemover = G7BondRemover(::removeG7Bond),
+    bondedAddresses: (Context) -> Set<String> = ::g7BondedSensorAddresses,
+    permanentlyRetire: Boolean = true,
 ): G7UnlinkResult {
     val app = context.applicationContext
     val stateStore = G7SensorStateStore(app)
     val beforeRelease = stateStore.read()
-    val address = beforeRelease.sensor?.deviceAddress
+    val addresses =
+        try {
+            bondedAddresses(app) + listOfNotNull(beforeRelease.sensor?.deviceAddress, G7CredentialStore(app).read()?.sharedKeyAddress)
+        } catch (_: SecurityException) {
+            releaseG7CollectorOwnership(app)
+            return G7UnlinkResult(G7BondRemovalStatus.FAILED)
+        }
     stateStore.save(beforeRelease.copy(health = G7CollectorReliability.releasePending(beforeRelease.health, System.currentTimeMillis())))
     // Cancel the live BLE owner before removing the Android bond. stopService() alone is
     // asynchronous and previously allowed the old watch to remain connected during takeover.
     releaseG7CollectorOwnership(app)
-    val bondRemovalStatus = bondRemover.remove(app, address)
+    G7CollectorDiagnosticStore(app).discardScheduledCycle()
+    if (permanentlyRetire) G7RetiredSensors(app).retire(addresses)
+    val removals = if (addresses.isEmpty()) listOf(bondRemover.remove(app, null)) else addresses.map { bondRemover.remove(app, it) }
+    val bondRemovalStatus =
+        when {
+            G7BondRemovalStatus.FAILED in removals -> G7BondRemovalStatus.FAILED
+            G7BondRemovalStatus.REMOVED in removals -> G7BondRemovalStatus.REMOVED
+            else -> G7BondRemovalStatus.NOT_REQUIRED
+        }
     if (!shouldClearG7Association(bondRemovalStatus)) {
         return G7UnlinkResult(bondRemovalStatus)
     }
@@ -105,6 +121,17 @@ internal fun unlinkG7Sensor(
     app.sendBroadcast(Intent(G7ReadingDatabase.ACTION_G7_READING_UPDATED).setPackage("app.aapswear"))
     return G7UnlinkResult(bondRemovalStatus)
 }
+
+@SuppressLint("MissingPermission")
+internal fun g7BondedSensorAddresses(context: Context): Set<String> =
+    context
+        .getSystemService(BluetoothManager::class.java)
+        ?.adapter
+        ?.bondedDevices
+        .orEmpty()
+        .filter { isG7AdvertisedName(it.name) }
+        .map { it.address }
+        .toSet()
 
 @SuppressLint("MissingPermission", "DiscouragedPrivateApi")
 private fun removeG7Bond(

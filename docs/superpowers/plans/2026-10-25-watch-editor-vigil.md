@@ -12,7 +12,7 @@
 - [x] Refine Vigil graph/axes/clock/units/400 toggle/system time.
 - [x] Focused tests, affected module builds, static checks and independent source review.
 - [x] Install Mobile and verify opening Watch and switching the selected face without another crash.
-- [ ] Final Watch installation and physical hit-dispatch/visibility checks, deferred by the user until the following day.
+- [x] Final Watch installation and physical hit-dispatch/visibility checks, completed on 2026-10-25 after direct sensor collection recovered.
 
 Native Samsung/Google binding is not overwritten by phone metadata. Sending a preset is described accordingly; source/data integrity stays unchanged.
 
@@ -34,3 +34,5 @@ Mobile, Sugarlicious Wear, SugarWear and ApeX were installed during implementati
 Vigil's eight fixed slots include lightweight cached action-only images above the full-size hand rendering, preserving header and graph actions without duplicate clinical bitmap generation. Header/graph/clock active and ambient images share their original provider identities; previous ambient provider classes remain for compatibility. The exact behavior of the hidden center slot when Zeiger is off is not established by schema or unit tests and remains part of the deferred device test.
 
 Sensor connection investigation: BLE connection and service discovery succeeded before an authentication-response processing failure (G7-AUTH-204). Its former rejection message did not distinguish local processing exceptions. Diagnostics now record only a fixed processing stage, exception class and sanitized stack identifiers; no protocol/retry/session/pairing behavior changed. No ANR was recorded. Successful sensor authentication remains unverified; neither sensor data nor pairing settings were reset.
+
+2026-10-25 follow-up: the final installed artifacts were matched against the built APK hashes. Vigil graph-scale and glucose-header taps, center opacity toggle, and native Zeiger off/on were confirmed on the Galaxy Watch Ultra; scale/visibility were restored and the user's Orbit reselected. Mobile Watch-menu opening and preview rendering were checked without a crash. Direct collector authentication and consecutive fresh readings were subsequently verified; see docs/analysis/2026-10-25-g7-search-abort.md for the new discovery, scan-filter and detach corrections. Earlier hardware-open notes above describe the overnight handoff, not the final follow-up status.

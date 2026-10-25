@@ -670,7 +670,7 @@ class G7CollectorService : Service() {
                 responseProcessedSuccessfully = backfillProcessedSuccessfully,
             )
             val ledgerUpdated = G7ExpectedWindowLedger(this).markReading(scheduledCycle?.expectedWindowId, storedAt)
-            if (scheduledCycle != null && !ledgerUpdated) {
+            if (scheduledCycle?.expectedWindowId != null && !ledgerUpdated) {
                 applicationContext.recordG7Diagnostic(
                     "G7-LEDGER-ID-MISMATCH",
                     "Successful collector cycle could not resolve its expected window",
@@ -932,7 +932,7 @@ class G7CollectorService : Service() {
                 else -> classifyG7CycleFailure(error.code, cycle)
             }
         val ledgerUpdated = G7ExpectedWindowLedger(this).markFinal(cycle?.expectedWindowId, classification, recoveryRequired = true)
-        if (cycle != null && !ledgerUpdated) {
+        if (cycle?.expectedWindowId != null && !ledgerUpdated) {
             scope.launch {
                 applicationContext.recordG7Diagnostic(
                     "G7-LEDGER-ID-MISMATCH",

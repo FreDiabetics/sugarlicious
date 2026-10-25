@@ -242,6 +242,13 @@ class G7WatchActivityLayoutTest {
                 lastError = app.aapswear.g7.G7CollectorError("G7-GATT-133", true, startedAt + 1_000L, "temporary"),
             )
         assertFalse(isTerminalG7PairingFailure(recoverable, startedAt, startedAt + 2_000L))
+        assertFalse(
+            isTerminalG7PairingFailure(
+                recoverable.copy(lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-MISMATCH", true, startedAt + 1_000L, "candidate mismatch")),
+                startedAt,
+                startedAt + 2_000L,
+            ),
+        )
         assertTrue(
             isTerminalG7PairingFailure(
                 recoverable.copy(lastError = app.aapswear.g7.G7CollectorError("G7-AUTH-204", false, startedAt + 1_000L, "rejected")),
