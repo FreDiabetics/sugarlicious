@@ -118,6 +118,14 @@ private val persistedBusyProtocolStates =
         G7ProtocolState.BACKFILL,
     )
 
+private fun hasLiveG7ScanBudget(state: G7PersistedState, attempt: CollectorDiagnosticAttempt?, liveCycle: Boolean, nowEpochMs: Long): Boolean {
+    if (!liveCycle || attempt == null || state.activeAttemptId != attempt.attemptId) return false
+    if (state.connectionState != G7ConnectionState.SCANNING || state.protocolState != G7ProtocolState.SCANNING || attempt.currentStage != app.aapswear.g7.CollectorDiagnosticStage.SCANNING) return false
+    val deadline = state.scanTimeoutAtEpochMs ?: return false
+    val attemptDeadline = attempt.deadlineEpochMs ?: return false
+    return nowEpochMs < deadline && nowEpochMs < attemptDeadline && deadline <= attempt.startedAtEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
+}
+
 internal fun assessG7Runtime(
     state: G7PersistedState,
     activeAttempt: CollectorDiagnosticAttempt?,
@@ -132,15 +140,22 @@ internal fun assessG7Runtime(
 
     val attemptAge = activeAttempt?.let { (nowEpochMs - it.startedAtEpochMs).coerceAtLeast(0L) }
     val progressAge = activeAttempt?.let { (nowEpochMs - it.lastProgressAtEpochMs).coerceAtLeast(0L) }
+    // Discovery may legitimately receive no callbacks until its bounded scan expires.
+    // A retained SCANNING flag is insufficient: require the real live job, matching
+    // attempt and explicit finite scan/attempt deadlines before relaxing inactivity.
+    val waitingForAdvertisement = hasLiveG7ScanBudget(state, activeAttempt, liveCycle, nowEpochMs)
     val attemptStale =
         activeAttempt?.let {
             it.deadlineEpochMs?.let { deadline -> nowEpochMs >= deadline } == true ||
-                progressAge?.let { age -> age >= maxProgressInactivityMs } == true
+                progressAge?.let { age -> age >= maxProgressInactivityMs && !waitingForAdvertisement } == true
         } == true
     // nextReconnectEpochMs is only the desired time. A pending diagnostic envelope is written
     // after AlarmManager accepted the request and is the durable evidence that the wake path was
     // actually armed. Persisted future intent without that envelope must be repaired.
-    val futureReconnect = pendingReconnectEpochMs?.takeIf { it > nowEpochMs + reconnectToleranceMs }
+    // Tolerance applies to overdue delivery, not to a still-future armed alarm.
+    // Discarding the final 30 seconds falsely broke the liveness invariant just
+    // before the receiver was due and could rewrite a healthy active runtime.
+    val futureReconnect = pendingReconnectEpochMs?.takeIf { it > nowEpochMs }
     val missedReconnect =
         listOfNotNull(pendingReconnectEpochMs, state.nextReconnectEpochMs)
             .any { it < nowEpochMs - reconnectToleranceMs }
