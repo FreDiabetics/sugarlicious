@@ -19,7 +19,7 @@ def visible(parent):
 def configure():
     tree = E.parse(PATH)
     root = tree.getroot()
-    root.find("Metadata[@key='PREVIEW_TIME']").set("value", "22:10:00")
+    root.find("Metadata[@key='PREVIEW_TIME']").set("value", "10:08:32")
     configs = root.find("UserConfigurations")
     color = configs.find("ColorConfiguration[@id='secondColor']")
     if color is not None:

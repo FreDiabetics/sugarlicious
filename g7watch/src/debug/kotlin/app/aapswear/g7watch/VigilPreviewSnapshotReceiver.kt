@@ -11,6 +11,7 @@ import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
+import androidx.core.graphics.withRotation
 import androidx.core.graphics.withTranslation
 import app.aapswear.complications.VigilHands
 import app.aapswear.complications.renderVigilClock
@@ -73,15 +74,19 @@ internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorat
     }
 
     paint.alpha = 255
-    canvas.drawBitmap(VigilHands.render(context, 22, 10), 0f, 0f, paint)
+    canvas.drawBitmap(VigilHands.render(context, 10, 8), 0f, 0f, paint)
     val seconds = context.assets.open("second_hand_transparent.png").use(BitmapFactory::decodeStream)
     canvas.withTranslation(2f, 3f) {
-        paint.colorFilter = PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
-        paint.alpha = (160 * VigilHands.opacity(context)).toInt()
-        canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
+        canvas.withRotation(192f, 225f, 225f) {
+            paint.colorFilter = PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
+            paint.alpha = (160 * VigilHands.opacity(context)).toInt()
+            canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
+        }
     }
     paint.colorFilter = PorterDuffColorFilter(0xFFFF3B30.toInt(), PorterDuff.Mode.MULTIPLY)
     paint.alpha = (255 * VigilHands.opacity(context)).toInt()
-    canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
+    canvas.withRotation(192f, 225f, 225f) {
+        canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
+    }
     return output
 }
