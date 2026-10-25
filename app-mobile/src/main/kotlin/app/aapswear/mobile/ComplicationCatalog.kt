@@ -448,10 +448,13 @@ private fun ComplicationCatalogTile(
                 modifier = Modifier.fillMaxWidth(),
                 color = OneUiWidgetStyle.primary,
                 style = oneUiMenuTypography.bodyLarge,
+                minLines = 2,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
             Spacer(Modifier.height(5.dp))
-            CompactComplicationPreview(entry, variant, state, graphHours)
+            Box(Modifier.fillMaxWidth().height((72f * LocalDensity.current.fontScale).dp), contentAlignment = Alignment.Center) {
+                CompactComplicationPreview(entry, variant, state, graphHours)
+            }
             Spacer(Modifier.height(5.dp))
             Text(variant.label, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodySmall, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
