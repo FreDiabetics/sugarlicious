@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -170,6 +171,11 @@ internal fun OverviewWatchFaceTile(
     onEdit: () -> Unit,
     interactive: Boolean = true,
     compactLayout: Boolean = false,
+    highlightedSlot: NativeWatchSlot? = null,
+    slotAssignments: Map<Int, Int> = emptyMap(),
+    editableSlots: List<NativeWatchSlot> = emptyList(),
+    constrainedLayout: Boolean = false,
+    showConnection: Boolean = true,
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
@@ -208,8 +214,22 @@ internal fun OverviewWatchFaceTile(
                     loadComplicationPreset(appContext)
                 }
             }
-    val faceSize = if (compactLayout) 104.dp else carouselFaceSize
-    val frameHeight = if (compactLayout) 154.dp else carouselHeight
+    val faceSize =
+        if (constrainedLayout) {
+            101.dp
+        } else if (compactLayout) {
+            135.dp
+        } else {
+            carouselFaceSize
+        }
+    val frameHeight =
+        if (constrainedLayout) {
+            150.dp
+        } else if (compactLayout) {
+            200.dp
+        } else {
+            carouselHeight
+        }
     val midpoint = carouselPages / 2
     val aligned = midpoint - midpoint % sugarliciousWatchFaceNames.size
     val pager =
@@ -307,6 +327,13 @@ internal fun OverviewWatchFaceTile(
                         activeComplicationIds = pageComplications,
                         modifier = Modifier.size(faceSize),
                     )
+                    if (index == selected && slotAssignments.isNotEmpty()) {
+                        NativeWatchComplicationPreview(index, editableSlots, slotAssignments, Modifier.size(faceSize))
+                        NativePreviewHands(index, Modifier.size(faceSize))
+                    }
+                    if (index == selected && highlightedSlot != null) {
+                        NativeWatchSlotHighlight(highlightedSlot, Modifier.size(faceSize))
+                    }
                 }
             }
 
@@ -327,7 +354,7 @@ internal fun OverviewWatchFaceTile(
             verticalArrangement = Arrangement.spacedBy(OverviewWatchHeroLayout.GAP_DP.dp),
         ) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(OverviewWatchHeroLayout.MODEL_HEIGHT_DP.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = OverviewWatchHeroLayout.MODEL_HEIGHT_DP.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
@@ -338,7 +365,7 @@ internal fun OverviewWatchFaceTile(
                 )
             }
 
-            WatchConnectionPill(diagnostics)
+            if (showConnection) WatchConnectionPill(diagnostics)
         }
     }
 }

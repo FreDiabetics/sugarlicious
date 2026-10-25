@@ -1250,7 +1250,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
 }
 
 @androidx.compose.runtime.Composable
-private fun WidgetSettingsActionPill(
+internal fun WidgetSettingsActionPill(
     modifier: Modifier = Modifier,
     onCancel: () -> Unit,
     onSave: () -> Unit,
@@ -1536,7 +1536,7 @@ private fun WidgetSettingsSection(
     modifier: Modifier = Modifier,
     content: @androidx.compose.runtime.Composable () -> Unit,
 ) {
-    Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(30.dp), modifier = modifier.fillMaxWidth()) {
+    Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(30.dp), modifier = modifier.fillMaxWidth().settingsSnapHeading(title)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, color = OneUiWidgetStyle.accent, fontWeight = FontWeight.Medium, fontSize = 18.sp)
             content()

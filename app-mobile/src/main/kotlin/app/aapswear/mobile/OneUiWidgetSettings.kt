@@ -21,14 +21,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
@@ -52,8 +55,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,14 +73,16 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as UiColor
 
+internal fun oneUiButtonContentColor(background: UiColor): UiColor = if (background.luminance() > .179f) UiColor.Black else UiColor.White
+
 internal data class OneUiWidgetSettingsColors(
     val page: UiColor = UiColor.Black,
     val card: UiColor = UiColor(0xFF1C1C1C),
-    val primary: UiColor = UiColor(0xFFFAFAFA),
-    val secondary: UiColor = UiColor(0xFFB7B7BE),
+    val primary: UiColor = UiColor.White,
+    val secondary: UiColor = UiColor.White,
     val accent: UiColor = UiColor(0xFFADC5C9),
-    val link: UiColor = UiColor(0xFF4D83FF),
-    val action: UiColor = UiColor(0xFF212121),
+    val link: UiColor = UiColor.White,
+    val action: UiColor = UiColor(0xFF1C1C1C),
 )
 
 internal val LocalOneUiWidgetSettingsColors = staticCompositionLocalOf { OneUiWidgetSettingsColors() }
@@ -96,10 +106,9 @@ internal fun configureOneUiWidgetSettingsWindow(window: Window) {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
     }
-    val light = window.context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK != android.content.res.Configuration.UI_MODE_NIGHT_YES
     WindowCompat.getInsetsController(window, window.decorView).also {
-        it.isAppearanceLightStatusBars = light
-        it.isAppearanceLightNavigationBars = light
+        it.isAppearanceLightStatusBars = false
+        it.isAppearanceLightNavigationBars = false
     }
 }
 
@@ -118,32 +127,20 @@ internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), con
         } else {
             platformScheme.primary
         }
-    val onAccent =
-        if (Build.VERSION.SDK_INT >= 31 && Build.MANUFACTURER.equals("samsung", true)) {
-            colorResource(if (dark) android.R.color.system_accent1_800 else android.R.color.system_accent1_0)
-        } else {
-            platformScheme.onPrimary
-        }
-    val scheme = platformScheme.copy(primary = accent, onPrimary = onAccent)
+    val scheme = platformScheme.copy(primary = accent, onPrimary = oneUiButtonContentColor(accent), surface = UiColor(0xFF1C1C1C), onSurface = UiColor.White, onSurfaceVariant = UiColor.White, secondary = UiColor.White)
     val colors =
         if (dark) {
-            OneUiWidgetSettingsColors(primary = scheme.onSurface, secondary = scheme.onSurfaceVariant, accent = scheme.primary, link = scheme.primary)
+            OneUiWidgetSettingsColors(accent = scheme.primary)
         } else {
             OneUiWidgetSettingsColors(
-                page = UiColor(0xFFF5F5F5),
-                card = UiColor.White,
-                primary = scheme.onSurface,
-                secondary = scheme.onSurfaceVariant,
                 accent = scheme.primary,
-                link = scheme.primary,
-                action = UiColor(0xFFE7E7E7),
             )
         }
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val controlContext = remember(context, configuration, dark) { mobileSettingsControlContext(context, dark) }
-    CompositionLocalProvider(LocalOneUiWidgetSettingsColors provides colors, LocalContext provides controlContext) {
+    CompositionLocalProvider(LocalOneUiWidgetSettingsColors provides colors, LocalContext provides controlContext, LocalContentColor provides colors.primary) {
         MaterialTheme(colorScheme = scheme, typography = oneUiMenuTypography) {
-            ProvideTextStyle(oneUiMenuTypography.bodyLarge.copy(color = colors.primary)) { content() }
+            ProvideTextStyle(oneUiMenuTypography.bodyLarge.copy(color = UiColor.Unspecified)) { content() }
         }
     }
 }
@@ -154,24 +151,30 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
     val colors = LocalOneUiWidgetSettingsColors.current
     val context = LocalContext.current
     val wallpaperSupported = remember(context) { runCatching { WallpaperManager.getInstance(context).isWallpaperSupported }.getOrDefault(false) }
-    Box(
-        Modifier.fillMaxSize().drawWithContent {
-            val aperture = previewBounds?.takeIf { it.width > 0f && it.height > 0f }
-            val path =
-                Path().apply {
-                    fillType = PathFillType.EvenOdd
-                    addRect(Rect(0f, 0f, size.width, size.height))
-                    aperture?.let { addRoundRect(RoundRect(it, CornerRadius(20.dp.toPx()))) }
+    val density = LocalDensity.current
+    val inset = WindowInsets.statusBars.getTop(density) + with(density) { 56.dp.toPx() }
+    val registry = remember(scroll, inset) { scroll?.let { SettingsHeadingRegistry(it, inset) } }
+    val snapConnection = rememberSettingsSnapConnection(registry)
+    CompositionLocalProvider(LocalSettingsHeadingRegistry provides registry) {
+        Box(
+            Modifier.fillMaxSize().nestedScroll(snapConnection).onGloballyPositioned { registry?.viewportTop = it.positionInWindow().y }.drawWithContent {
+                val aperture = previewBounds?.takeIf { it.width > 0f && it.height > 0f }
+                val path =
+                    Path().apply {
+                        fillType = PathFillType.EvenOdd
+                        addRect(Rect(0f, 0f, size.width, size.height))
+                        aperture?.let { addRoundRect(RoundRect(it, CornerRadius(20.dp.toPx()))) }
+                    }
+                drawPath(path, colors.page)
+                if (!wallpaperSupported && aperture != null) {
+                    drawRoundRect(colors.card, aperture.topLeft, aperture.size, CornerRadius(20.dp.toPx()))
                 }
-            drawPath(path, colors.page)
-            if (!wallpaperSupported && aperture != null) {
-                drawRoundRect(colors.card, aperture.topLeft, aperture.size, CornerRadius(20.dp.toPx()))
-            }
-            drawContent()
-        },
-    ) {
-        content { previewBounds = it }
-        if (scroll != null) OneUiScrollingSettingsBack(scroll, onBack, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 4.dp))
+                drawContent()
+            },
+        ) {
+            content { previewBounds = it }
+            if (scroll != null) OneUiScrollingSettingsBack(scroll, onBack, Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = 16.dp, top = 4.dp))
+        }
     }
 }
 
@@ -211,7 +214,7 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }, containerColor = colors.card) {
             choices.forEach { choice ->
-                DropdownMenuItem(text = { Text(display(choice), color = if (choice == value) colors.accent else colors.primary) }, onClick = {
+                DropdownMenuItem(text = { Text(display(choice), color = colors.primary) }, onClick = {
                     expanded = false
                     onSelected(choice)
                 })
@@ -223,7 +226,11 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
 @Composable
 internal fun WidgetAppearanceModeRow(selected: app.aapswear.model.AppearanceMode, onSelected: (app.aapswear.model.AppearanceMode) -> Unit) {
     Text("Farbpalette bearbeiten", color = OneUiWidgetStyle.secondary)
-    AppearanceModeSelector(selected, onSelected)
+    OneUiSettingsModeSelector(
+        if (selected == app.aapswear.model.AppearanceMode.LIGHT) DashboardThemeMode.LIGHT else DashboardThemeMode.DARK,
+        showSystemChoice = false,
+        showIllustrations = false,
+    ) { onSelected(if (it == DashboardThemeMode.LIGHT) app.aapswear.model.AppearanceMode.LIGHT else app.aapswear.model.AppearanceMode.DARK) }
 }
 
 @Composable

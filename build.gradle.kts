@@ -92,8 +92,8 @@ subprojects {
 // Mobile and Wear deliberately share app.aapswear because they are companion variants on
 // different devices. Keep their version monotonically aligned so an in-place update never
 // becomes a downgrade merely because one variant was built later than the other.
-extra["sugarliciousSuiteVersionCode"] = 70
-extra["sugarliciousSuiteVersionName"] = "0.7.0"
+extra["sugarliciousSuiteVersionCode"] = 71
+extra["sugarliciousSuiteVersionName"] = "0.7.1"
 
 abstract class InstallSugarliciousDebugTask
     @Inject

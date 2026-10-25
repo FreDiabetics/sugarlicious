@@ -22,13 +22,7 @@ internal suspend fun requestWatchFaceApply(
             .encodeToByteArray()
 
     nodes.forEach { node ->
-        Wearable
-            .getMessageClient(context)
-            .sendMessage(
-                node.id,
-                WearProtocol.WATCH_FACE_APPLY_PATH,
-                payload,
-            ).await()
+        context.sendLoggedWearMessage(node.id, WearProtocol.WATCH_FACE_APPLY_PATH, payload, "Watchface aktivieren", mapOf("index" to index.coerceAtLeast(0)))
     }
 
     return nodes.size

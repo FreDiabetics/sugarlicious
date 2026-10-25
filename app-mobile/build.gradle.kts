@@ -7,16 +7,82 @@ plugins {
 val generatedAnalogPreviewRes = layout.buildDirectory.dir("generated/sugarliciousAnalogPreviewRes")
 val generatedVigilPreviewRes = layout.buildDirectory.dir("generated/vigilPreviewRes")
 val generatedOrbitPreviewRes = layout.buildDirectory.dir("generated/orbitPreviewRes")
+val generatedNativeSlotRes = layout.buildDirectory.dir("generated/nativeWatchSlotRes")
+val nativeSlotSources =
+    mapOf(
+        "apex" to rootProject.file("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml"),
+        "orbit" to rootProject.file("watchfaces/sugarlicious-orbit/src/main/res/raw/watchface.xml"),
+    )
+val syncNativeWatchSlots =
+    tasks.register("syncNativeWatchSlots") {
+        val sourceFiles = nativeSlotSources
+        val targetDirectory = generatedNativeSlotRes
+        inputs.files(sourceFiles.values)
+        inputs.files(sourceFiles.values.map { it.parentFile.parentFile.resolve("values/strings.xml") })
+        outputs.dir(targetDirectory)
+        doLast {
+            val factory =
+                javax.xml.parsers.DocumentBuilderFactory
+                    .newInstance()
+            sourceFiles.forEach { (name, source) ->
+                val labelsDocument = factory.newDocumentBuilder().parse(source.parentFile.parentFile.resolve("values/strings.xml"))
+                val labels = labelsDocument.getElementsByTagName("string")
+                val displayNames =
+                    (0 until labels.length).associate { index ->
+                        val element = labels.item(index) as org.w3c.dom.Element
+                        element.getAttribute("name") to element.textContent
+                    }
+                val input = factory.newDocumentBuilder().parse(source)
+                val output = factory.newDocumentBuilder().newDocument()
+                val root = output.createElement("WatchFaceSlots")
+                output.appendChild(root)
+                val colorConfigurations = input.getElementsByTagName("ColorConfiguration")
+                (0 until colorConfigurations.length).forEach { colorIndex ->
+                    root.appendChild(output.importNode(colorConfigurations.item(colorIndex), true))
+                }
+                val scene = input.getElementsByTagName("Scene").item(0) as org.w3c.dom.Element
+                val slots = scene.getElementsByTagName("ComplicationSlot")
+                (0 until slots.length).forEach { index ->
+                    val slot = slots.item(index) as org.w3c.dom.Element
+                    if (slot.getAttribute("isCustomizable") == "TRUE") {
+                        val copy = output.importNode(slot, false) as org.w3c.dom.Element
+                        copy.setAttribute("displayName", displayNames[slot.getAttribute("displayName")] ?: slot.getAttribute("displayName"))
+                        (0 until slot.childNodes.length).forEach { childIndex ->
+                            val child = slot.childNodes.item(childIndex)
+                            if (child.nodeName.startsWith("Bounding") || child.nodeName == "DefaultProviderPolicy" || child.nodeName == "Complication") copy.appendChild(output.importNode(child, true))
+                        }
+                        root.appendChild(copy)
+                    }
+                }
+                val target = targetDirectory.get().file("raw/native_${name}_slots.xml").asFile
+                target.parentFile.mkdirs()
+                javax.xml.transform.TransformerFactory.newInstance().newTransformer().transform(
+                    javax.xml.transform.dom
+                        .DOMSource(output),
+                    javax.xml.transform.stream
+                        .StreamResult(target),
+                )
+            }
+        }
+    }
 val syncOrbitPreviewAsset =
     tasks.register<Sync>("syncOrbitPreviewAsset") {
-        from(rootProject.file("watchfaces/sugarlicious-orbit/src/main/res/drawable-nodpi/preview.png")) {
-            rename { "sugarlicious_orbit_preview.png" }
+        from(rootProject.file("watchfaces/sugarlicious-orbit/src/main/res/drawable-nodpi/preview.webp")) {
+            rename { "sugarlicious_orbit_preview.webp" }
         }
         into(generatedOrbitPreviewRes.map { it.dir("drawable-nodpi") })
     }
 val syncSugarliciousAnalogPreviewAssets =
     tasks.register<Sync>("syncSugarliciousAnalogPreviewAssets") {
-        from(rootProject.file("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/apex_template_preview.png"))
+        from(rootProject.file("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/apex_template_preview.webp"))
+        from(rootProject.file("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi")) {
+            include("hour_hand.png", "minute_hand.png", "second_hand.png")
+            rename { "apex_preview_$it" }
+        }
+        from(rootProject.file("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi")) {
+            include("hour_hand_transparent.png", "minute_hand_transparent.png", "second_hand_transparent.png")
+            rename { "orbit_preview_${it.replace("_transparent", "")}" }
+        }
         into(generatedAnalogPreviewRes)
         eachFile { path = "drawable-nodpi/$name" }
         includeEmptyDirs = false
@@ -48,12 +114,14 @@ android {
     sourceSets["main"].res.directories.add(generatedAnalogPreviewRes.get().asFile.path)
     sourceSets["main"].res.directories.add(generatedVigilPreviewRes.get().asFile.path)
     sourceSets["main"].res.directories.add(generatedOrbitPreviewRes.get().asFile.path)
+    sourceSets["main"].res.directories.add(generatedNativeSlotRes.get().asFile.path)
 }
 
 tasks.matching { task -> task.name == "preBuild" }.configureEach {
     dependsOn(syncSugarliciousAnalogPreviewAssets)
     dependsOn(syncVigilPreviewAsset)
     dependsOn(syncOrbitPreviewAsset)
+    dependsOn(syncNativeWatchSlots)
 }
 
 dependencies {

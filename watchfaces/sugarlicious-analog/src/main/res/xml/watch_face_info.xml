@@ -2,6 +2,6 @@
 <WatchFaceInfo>
     <Preview value="@drawable/preview" />
     <MultipleInstancesAllowed value="true" />
-    <FlavorsSupported value="false" />
+    <FlavorsSupported value="true" />
     <Editable value="true" />
 </WatchFaceInfo>

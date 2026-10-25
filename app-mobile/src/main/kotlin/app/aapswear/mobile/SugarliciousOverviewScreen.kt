@@ -333,30 +333,7 @@ private fun GlucoseHeroCard(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = glucoseText,
-                            color = glucoseColor,
-                            fontSize = visualSpec.glucoseTextSize.sp,
-                            lineHeight =
-                                (
-                                    visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP /
-                                        GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP
-                                ).sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.8).sp,
-                        )
-
-                        Spacer(Modifier.width(6.dp))
-
-                        SugarliciousTrendIndicator(
-                            trend,
-                            arrowSize = visualSpec.trendHeight.dp,
-                            color = glucoseColor,
-                        )
-                    }
+                    GlucoseValueAndTrend(glucoseText, glucoseColor, trend, visualSpec)
 
                     Spacer(Modifier.height(3.dp))
 
@@ -382,6 +359,28 @@ private fun GlucoseHeroCard(
                 TherapyIndicatorRow(indicators = therapyIndicators, modifier = Modifier.weight(210f).fillMaxHeight())
             }
         }
+    }
+}
+
+@Composable
+internal fun GlucoseValueAndTrend(
+    glucoseText: String,
+    glucoseColor: Color,
+    trend: Trend,
+    visualSpec: GlucoseVisualSpec,
+    trendStyle: app.aapswear.model.TrendArrowStyle = MobileTrendArrowAppearance.style,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = glucoseText,
+            color = glucoseColor,
+            fontSize = visualSpec.glucoseTextSize.sp,
+            lineHeight = (visualSpec.glucoseTextSize * GlucoseTrendSizing.REFERENCE_GLUCOSE_LINE_HEIGHT_SP / GlucoseTrendSizing.REFERENCE_GLUCOSE_TEXT_SP).sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.8).sp,
+        )
+        Spacer(Modifier.width(6.dp))
+        SugarliciousTrendIndicator(trend, arrowSize = visualSpec.trendHeight.dp, color = glucoseColor, style = trendStyle)
     }
 }
 

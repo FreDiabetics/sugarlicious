@@ -178,7 +178,7 @@ internal fun SugarliciousColorSettingsPanel(
             palette = SugarliciousColorStore.load(preferences, mode)
         }
 
-        AppearanceThemePreview(palette)
+        AppearanceThemePreview(palette, trendStyle, DashboardUiPreferences.read(preferences))
 
         Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
         ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
@@ -223,8 +223,8 @@ internal fun SugarliciousColorSettingsPanel(
             modifier = Modifier.fillMaxWidth(),
             colors =
                 ButtonDefaults.buttonColors(
-                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onPrimary,
+                    containerColor = OneUiWidgetStyle.action,
+                    contentColor = OneUiWidgetStyle.primary,
                 ),
         ) {
             Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -527,24 +527,25 @@ internal fun AppearanceModeSelector(
 }
 
 @Composable
-private fun AppearanceThemePreview(palette: app.aapswear.mobile.ui.theme.SugarliciousPalette) {
-    Row(
+private fun AppearanceThemePreview(palette: app.aapswear.mobile.ui.theme.SugarliciousPalette, trendStyle: TrendArrowStyle, preferences: DashboardUiPreferences) {
+    Column(
         Modifier
             .fillMaxWidth()
-            .background(Color(palette.argb(SugarliciousColorRole.BACKGROUND)), RoundedCornerShape(18.dp))
-            .border(1.dp, Color(palette.argb(SugarliciousColorRole.BORDER)), RoundedCornerShape(18.dp))
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(9.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(Color(palette.argb(SugarliciousColorRole.SURFACE)), RoundedCornerShape(28.dp))
+            .padding(18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("123", color = Color(palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE)), fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("→", color = Color(palette.argb(SugarliciousColorRole.PRIMARY)), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Box(
-            Modifier
-                .weight(1f)
-                .height(34.dp)
-                .background(Color(palette.argb(SugarliciousColorRole.GRAPH_BACKGROUND)), RoundedCornerShape(10.dp)),
+        GlucoseValueAndTrend(
+            "123",
+            Color(palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE)),
+            app.aapswear.model.Trend.FLAT,
+            app.aapswear.model.GlucoseVisualSpec
+                .twoByTwoWidgetReference()
+                .scaled(preferences.glucoseScalePercent, preferences.trendScalePercent),
+            trendStyle,
         )
+        Spacer(Modifier.height(3.dp))
+        Text("−2 mg/dL · 5m", color = Color(palette.argb(SugarliciousColorRole.TEXT_SECONDARY)), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -598,12 +599,12 @@ internal fun SugarliciousSettingSlider(
             }
             Text(
                 valueText,
-                color = androidx.compose.material3.MaterialTheme.colorScheme.primary,
+                color = OneUiWidgetStyle.primary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 modifier =
                     Modifier
-                        .background(SugarliciousColors.SurfaceRaised, RoundedCornerShape(10.dp))
+                        .background(OneUiWidgetStyle.action, RoundedCornerShape(10.dp))
                         .clickable { editingValue = true }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
@@ -1314,7 +1315,7 @@ internal fun NotificationGraphSettingsPanel() {
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = androidx.compose.material3.MaterialTheme.colorScheme.primary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text("VON EINGEKLAPPT ÜBERNEHMEN", color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
         }
 
         Text(

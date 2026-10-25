@@ -14,9 +14,9 @@ class G7PackageVersionTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
 
-        assertEquals(70L, packageInfo.longVersionCode)
+        assertEquals(71L, packageInfo.longVersionCode)
         assertEquals(
-            "0.7.0",
+            "0.7.1",
             app.aapswear.uishared.AppReleaseInfo
                 .version(context),
         )

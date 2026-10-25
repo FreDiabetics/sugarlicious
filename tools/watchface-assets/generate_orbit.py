@@ -8,6 +8,7 @@ import argparse
 import csv
 import json
 import math
+import runpy
 from pathlib import Path
 import xml.etree.ElementTree as E
 
@@ -329,7 +330,7 @@ def generate(output):
     choices("secondSweep", "Sekundenzeiger", ["Weiß", "Getönt", "Rot"], default="1")
     choices("dialIndex", "Index", ["Arabisch", "Römisch"])
     choices("dialInk", "Indexfarbe", ["Weiß", "Theme"])
-    choices("arcContent", "Arc", ["Datum", "Wetter", "Mond", "Graph", "TIR"], default="4")
+    choices("arcContent", "Arc", ["Datum", "Wetter", "Mond", "Graph", "TIR"], default="3")
     choices("weatherSymbols", "Wettersymbole", ["Samsung Weather", "Google Weather"])
     choices("weatherLaunch", "Wetter-App", ["Samsung Weather", "Google Weather"])
     weather_art = json.loads((ROOT / "watchfaces/sugarlicious-orbit/reference/weather/manifest.json").read_text(encoding="utf-8"))
@@ -447,11 +448,12 @@ def generate(output):
         bounds_start, bounds_end = ((280, 344), (14, 79), (100, 171))[identity]
         owner = slot(face, slot_id, label(f"slot_{identity}", name), "RANGED_VALUE SHORT_TEXT", providers+provider, (218.45, bounds_start, bounds_end, 17.07), curved=True)
         if identity == 1:
-            # Unlike the phone provider (SHORT_TEXT only), the platform watch
-            # battery provides a genuine range and is available without Phone sync.
+            # Captured favorite 240: Samsung Health steps, with a portable system fallback.
             policy = owner.find("DefaultProviderPolicy")
             policy.attrib.clear()
-            policy.set("defaultSystemProvider", "WATCH_BATTERY")
+            policy.set("primaryProvider", "com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService")
+            policy.set("primaryProviderType", "RANGED_VALUE")
+            policy.set("defaultSystemProvider", "STEP_COUNT")
             policy.set("defaultSystemProviderType", "RANGED_VALUE")
         short = node(owner, "Complication", type="SHORT_TEXT")
         value = node(owner, "Complication", type="RANGED_VALUE")
@@ -500,6 +502,9 @@ def generate(output):
 
     for identity, radius, start, end, provider in ((4, 144.5, 99, 173, "DateComplication"), (5, 95.57, 99, 173, "GlucoseDeltaComplication")):
         owner = slot(face, identity, label(f"slot_{identity}", "Innen außen" if identity == 4 else "Innen"), "SHORT_TEXT RANGED_VALUE MONOCHROMATIC_IMAGE", providers+provider, (radius, start, end, 36), curved=True)
+        if identity == 4:
+            policy = owner.find("DefaultProviderPolicy")
+            policy.attrib.update(primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService", primaryProviderType="SHORT_TEXT", defaultSystemProvider="NEXT_EVENT", defaultSystemProviderType="SHORT_TEXT")
         bounds = owner.find("BoundingArc")
         diameter = (radius + 40.96 / 2) * 2
         bounds.set("width", str(diameter))
@@ -631,6 +636,7 @@ def generate(output):
         configs.remove(item)
         configs.insert(order.index(key), item)
 
+    runpy.run_path(str(ROOT / "tools/watchface-assets/user_flavors.py"))["append_user_flavors"](root, strings, "orbit")
     for name, tree in (("raw/watchface.xml", root), ("values/strings.xml", strings)):
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)

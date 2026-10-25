@@ -8,11 +8,13 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class AppReleaseInfoTest {
-    @Test fun `about uses installed package version and does not invent collector changes`() {
+    @Test fun `about uses installed package version and includes current release changes`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val installed = context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "Unbekannt"
-        assertTrue(AppReleaseInfo.summary(context, AppReleaseInfo.Product.WEAR).startsWith("Version $installed"))
-        assertTrue(AppReleaseInfo.summary(context, AppReleaseInfo.Product.WEAR).contains("BR-/TBR"))
-        assertEquals("Version $installed", AppReleaseInfo.summary(context, AppReleaseInfo.Product.COLLECTOR))
+        AppReleaseInfo.Product.entries.forEach { product ->
+            val summary = AppReleaseInfo.summary(context, product)
+            assertTrue(summary.startsWith("Version $installed"))
+            assertTrue(summary.contains("\n\nNeu\n• "))
+        }
     }
 }

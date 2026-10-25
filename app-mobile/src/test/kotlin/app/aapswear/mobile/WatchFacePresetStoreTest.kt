@@ -35,4 +35,36 @@ class WatchFacePresetStoreTest {
 
         assertEquals(listOf(1), WatchFacePresetStore.read(context, faceIndex = 0))
     }
+
+    @Test
+    fun `native slot presets retain every editable slot and repeated providers independently per face`() {
+        val slots = context.resources.openRawResource(R.raw.native_apex_slots).use(::readNativeWatchSlots)
+        val assignments = nativeSlotPreviewEntries(slots).associate { it.id to eligibleNativeVariants(it).first().id }
+        WatchFacePresetStore.saveSlots(context, 0, assignments)
+        assertEquals(7, assignments.size)
+        assertEquals(assignments, WatchFacePresetStore.readSlots(context, 0))
+        assertEquals(emptyMap<Int, Int>(), WatchFacePresetStore.readSlots(context, 2))
+    }
+
+    @Test
+    fun `native slot presets reject unknown slots and incompatible graph providers`() {
+        val slots = context.resources.openRawResource(R.raw.native_apex_slots).use(::readNativeWatchSlots)
+        val outer = slots.first { it.bounds.kind == "BoundingArc" }
+        WatchFacePresetStore.saveSlots(context, 0, mapOf(999 to 1, outer.id to app.aapswear.model.SugarliciousComplicationIds.GRAPH))
+        assertEquals(emptyMap<Int, Int>(), WatchFacePresetStore.readSlots(context, 0))
+    }
+
+    @Test
+    fun `isolated middle preview uses a padded circular backdrop`() {
+        val slot =
+            context.resources
+                .openRawResource(R.raw.native_apex_slots)
+                .use(::readNativeWatchSlots)
+                .single { it.id == 4 }
+        val backdrop = nativeDynamicPreviewBackdrop(slot, null).getBounds()
+        val ink = nativeDynamicPreviewBounds(slot, null)
+        assertEquals(backdrop.width, backdrop.height, .01f)
+        org.junit.Assert.assertTrue(backdrop.width >= ink.width)
+        org.junit.Assert.assertTrue(backdrop.height >= ink.height)
+    }
 }

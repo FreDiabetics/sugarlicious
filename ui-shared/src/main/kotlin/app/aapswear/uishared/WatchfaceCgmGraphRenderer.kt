@@ -25,6 +25,7 @@ object WatchfaceCgmGraphRenderer {
         color: Int = Color.WHITE,
         targetLines: Boolean = true,
         semicircle: Boolean = false,
+        showThresholdLabels: Boolean = semicircle,
     ) {
         if (width <= 0 || height <= 0 || !thresholds.isValid) return
         val displayWindow = GraphTimeWindow.live(window.endEpochMs, 5_400_000L)
@@ -49,10 +50,17 @@ object WatchfaceCgmGraphRenderer {
         // Keep genuine samples inside the semicircle's inscribed plot rectangle. Clipping an
         // ordinary edge-to-edge rectangular plot would silently hide the oldest/newest dots.
         // Both axes remain linear; never bend equal glucose levels to follow the curved mask.
-        val inset = if (semicircle) width * .16f else 4.5f * unit
+        val top = if (semicircle) height * .36f else 0f
+        val inset =
+            if (semicircle) {
+                val radius = width / 2f
+                val safeTop = (top - 4.4f * unit).coerceAtLeast(0f)
+                maxOf(width * .16f, radius - sqrt((radius * radius - (radius - safeTop) * (radius - safeTop)).coerceAtLeast(0f)) + 4.4f * unit)
+            } else {
+                4.5f * unit
+            }
         val left = inset
         val right = width - inset
-        val top = if (semicircle) height * .36f else 0f
         val bottom = if (semicircle) height * .92f else height.toFloat()
         if (right <= left || bottom <= top) return
 
@@ -73,7 +81,7 @@ object WatchfaceCgmGraphRenderer {
             canvas.drawLine(0f, y(thresholds.highMgDl), width.toFloat(), y(thresholds.highMgDl), guide)
             guide.color = toneColor(120)
             canvas.drawLine(0f, y(thresholds.lowMgDl), width.toFloat(), y(thresholds.lowMgDl), guide)
-            if (semicircle) {
+            if (semicircle && showThresholdLabels) {
                 val label =
                     Paint(Paint.ANTI_ALIAS_FLAG).apply {
                         textSize = 12f * unit
@@ -121,7 +129,12 @@ object WatchfaceCgmGraphRenderer {
             }
         }
         canvas.restoreToCount(saved)
-        // A deliberately hollow ring marks the newest real sample, never the wall-clock edge.
+        // Orbit's opaque center hides guide labels beneath the newest sample; preserve its ring.
+        if (semicircle) {
+            dot.color = Color.BLACK
+            canvas.drawCircle(x(current), y(current.valueMgDl), 4.4f * unit, dot)
+        }
+        // The ring marks the newest real sample, never the wall-clock edge.
         val stroke =
             Paint(dot).apply {
                 this.color = pointColor(current.valueMgDl)

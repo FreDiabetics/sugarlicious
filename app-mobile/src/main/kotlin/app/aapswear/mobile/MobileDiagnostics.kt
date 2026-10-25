@@ -4,8 +4,6 @@ import android.content.Context
 import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.DiagnosticEventStore
-import com.google.android.gms.wearable.Wearable
-import kotlinx.coroutines.tasks.await
 
 internal suspend fun Context.recordMobileDiagnostic(
     module: String,
@@ -27,10 +25,7 @@ internal suspend fun Context.recordMobileDiagnostic(
 internal suspend fun requestWatchDiagnostics(context: Context): Int {
     val nodes = refreshReachableWatchNodeIds(context)
     nodes.forEach { nodeId ->
-        Wearable
-            .getMessageClient(context)
-            .sendMessage(nodeId, WearProtocol.DIAGNOSTICS_REQUEST_PATH, byteArrayOf())
-            .await()
+        context.sendLoggedWearMessage(nodeId, WearProtocol.DIAGNOSTICS_REQUEST_PATH, byteArrayOf(), "Watch-Diagnose anfordern")
     }
     return nodes.size
 }

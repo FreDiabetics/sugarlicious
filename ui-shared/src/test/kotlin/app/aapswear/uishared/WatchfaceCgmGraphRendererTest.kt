@@ -22,6 +22,14 @@ class WatchfaceCgmGraphRendererTest {
     private val minute = 60_000L
 
     @Test
+    fun `Orbit current marker has opaque black interior and retains its light outline`() {
+        val bitmap = Bitmap.createBitmap(660, 330, Bitmap.Config.ARGB_8888)
+        WatchfaceCgmGraphRenderer.render(Canvas(bitmap), 660, 330, listOf(GlucoseSample(120.0, now)), GraphTimeWindow.live(now, 90 * minute), CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0), targetLines = false, semicircle = true)
+        assertEquals(Color.BLACK, bitmap.getPixel(554, 211))
+        assertTrue((540..568).any { x -> Color.red(bitmap.getPixel(x, 211)) > 220 && Color.alpha(bitmap.getPixel(x, 211)) == 255 })
+    }
+
+    @Test
     fun `Orbit has readable right labels above high and below low while ApeX has none`() {
         val bitmap = Bitmap.createBitmap(660, 330, Bitmap.Config.ARGB_8888)
         WatchfaceCgmGraphRenderer.render(Canvas(bitmap), 660, 330, listOf(GlucoseSample(120.0, now)), GraphTimeWindow.live(now, 90 * minute), CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0), semicircle = true)
@@ -29,8 +37,36 @@ class WatchfaceCgmGraphRendererTest {
         fun count(left: Int, top: Int, right: Int, bottom: Int) = (left until right).sumOf { x -> (top until bottom).count { y -> Color.alpha(bitmap.getPixel(x, y)) > 128 } }
         assertTrue("high label must be visible above its guide", count(480, 110, 630, 142) > 100)
         assertTrue("low label must be visible beneath its guide", count(540, 280, 655, 329) > 100)
-        val apex = render(listOf(GlucoseSample(120.0, now)))
-        assertTrue("ApeX has no high label", (300 until 400).all { x -> (0..14).all { y -> Color.alpha(apex.getPixel(x, y)) == 0 } })
+        val apex = Bitmap.createBitmap(660, 330, Bitmap.Config.ARGB_8888)
+        WatchfaceCgmGraphRenderer.render(Canvas(apex), 660, 330, listOf(GlucoseSample(120.0, now)), GraphTimeWindow.live(now, 90 * minute), CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0), semicircle = true, showThresholdLabels = false)
+        assertTrue("ApeX has no high label", (480 until 630).all { x -> (110 until 142).all { y -> Color.alpha(apex.getPixel(x, y)) == 0 } })
+        assertTrue("ApeX has no low label", (540 until 655).all { x -> (280 until 329).all { y -> Color.alpha(apex.getPixel(x, y)) == 0 } })
+    }
+
+    @Test
+    fun `Apex cap retains samples inside original circle curvature above middle complications`() {
+        val bitmap = Bitmap.createBitmap(660, 194, Bitmap.Config.ARGB_8888)
+        WatchfaceCgmGraphRenderer.render(
+            Canvas(bitmap),
+            660,
+            194,
+            (0..18).map { GlucoseSample(if (it % 2 == 0) 250.0 else 50.0, now - (18 - it) * 5 * minute) },
+            GraphTimeWindow.live(now, 90 * minute),
+            CgmThresholds(lowMgDl = 80.0, highMgDl = 160.0),
+            targetLines = false,
+            semicircle = true,
+            showThresholdLabels = false,
+        )
+        var visible = 0
+        for (x in 0 until bitmap.width) {
+            for (y in 0 until bitmap.height) {
+                if (Color.alpha(bitmap.getPixel(x, y)) > 128) {
+                    visible++
+                    assertTrue("cap ink outside original circular curvature", (x - 330.0) * (x - 330.0) + (y - 330.0) * (y - 330.0) <= 330.0 * 330.0)
+                }
+            }
+        }
+        assertTrue("cap must retain genuine samples", visible > 100)
     }
 
     @Test

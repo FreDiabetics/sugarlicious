@@ -54,7 +54,7 @@ class OrbitFaceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
-        expected = {"secondSweep": "1", "arcContent": "4", "progressBars": "7", "backgroundGlow": "FALSE", "batteryIndicator": "TRUE", "glucoseColor": "TRUE"}
+        expected = {"secondSweep": "1", "arcContent": "3", "progressBars": "7", "backgroundGlow": "FALSE", "batteryIndicator": "TRUE", "glucoseColor": "TRUE"}
         actual = {item.get("id"): item.get("defaultValue") for item in xml.find("UserConfigurations")}
         self.assertEqual({key: actual[key] for key in expected}, expected)
 
@@ -160,9 +160,10 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertIsNotNone(xml.find(".//Group[@name='battery-graph']//Arc"))
         self.assertFalse(xml.findall(".//Tick"))
         for flavor in config.find("Flavors"):
-            for selected in flavor:
+            for selected in flavor.findall("Configuration"):
                 definition = next(item for item in config if item.get("id") == selected.get("id"))
-                self.assertIn(selected.get("optionId"), {option.get("id") for option in definition})
+                allowed = {"TRUE", "FALSE"} if definition.tag == "BooleanConfiguration" else {option.get("id") for option in definition}
+                self.assertIn(selected.get("optionId"), allowed)
 
     def test_weather_uses_vendor_images_and_day_night_conditions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -300,7 +301,7 @@ class OrbitFaceTest(unittest.TestCase):
             face.generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
             strings = ET.parse(Path(directory) / "values/strings.xml").getroot()
-        slots = xml.findall(".//ComplicationSlot")
+        slots = xml.findall("Scene//ComplicationSlot")
         self.assertEqual(sorted(int(slot.get("slotId")) for slot in slots), [0, 2, 3, 4, 5, 7, 8, 9])
         self.assertEqual(len(xml.findall(".//ComplicationSlot[@supportedTypes='MONOCHROMATIC_IMAGE EMPTY']")), 1)
         config = xml.find("UserConfigurations")
@@ -317,7 +318,7 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertTrue(all(g.get("name") for g in xml.findall(".//Group")))
         battery_slot = xml.find("Scene/ComplicationSlot[@slotId='7']")
         battery = battery_slot.find("DefaultProviderPolicy")
-        self.assertEqual(battery.get("defaultSystemProvider"), "WATCH_BATTERY")
+        self.assertEqual(battery.get("defaultSystemProvider"), "STEP_COUNT")
         self.assertEqual(battery.get("defaultSystemProviderType"), "RANGED_VALUE")
         for slot in slots:
             self.assertEqual(slot.find("Complication[@type='EMPTY']").tag, "Complication")
@@ -374,7 +375,7 @@ class OrbitFaceTest(unittest.TestCase):
             self.assertIsNotNone(choice.find(".//HourHand"))
             self.assertIsNotNone(choice.find(".//MinuteHand"))
             self.assertIsNone(choice.find(".//HourHand").get("tintColor"))
-        self.assertEqual(len(config.find("Flavors")), 6)
+        self.assertEqual(len(config.find("Flavors")), 12)
         self.assertEqual(len(config.find("ListConfiguration[@id='weatherSymbols']")), 2)
         self.assertEqual(len(config.find("ListConfiguration[@id='weatherLaunch']")), 2)
         weather = xml.find(".//Group[@name='weather']")

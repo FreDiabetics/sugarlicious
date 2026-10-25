@@ -1,30 +1,116 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Vigil renders only the validated local SugarWear collector stream. The package id remains stable so existing installations update in place. -->
 <WatchFace width="450" height="450" clipShape="CIRCLE">
-    <Metadata key="CLOCK_TYPE" value="DIGITAL" />
+    <Metadata key="CLOCK_TYPE" value="ANALOG" />
     <Metadata key="PREVIEW_TIME" value="12:42:00" />
+    <UserConfigurations>
+        <BooleanConfiguration id="showHands" displayName="hands_visibility" defaultValue="TRUE" />
+    </UserConfigurations>
     <Scene backgroundColor="#FF000000">
-        <ComplicationSlot slotId="0" displayName="Vigil glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <Group name="vigil-perimeter-markers" x="0" y="0" width="450" height="450">
+            <Variant mode="AMBIENT" target="alpha" value="110" />
+            <PartDraw name="vigil-marker-0" x="0" y="0" width="450" height="450">
+                <Line startX="225.0000" startY="18.0000" endX="225.0000" endY="8.0000"><Stroke color="#FFCCCCCC" thickness="3" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-1" x="0" y="0" width="450" height="450">
+                <Line startX="247.1600" startY="14.1614" endX="247.6827" endY="9.1887"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-2" x="0" y="0" width="450" height="450">
+                <Line startX="269.0773" startY="17.6327" endX="270.1168" endY="12.7420"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-3" x="0" y="0" width="450" height="450">
+                <Line startX="290.5116" startY="23.3760" endX="292.0567" endY="18.6207"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-6" x="0" y="0" width="450" height="450">
+                <Line startX="349.6105" startY="53.4884" endX="352.5494" endY="49.4433"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-7" x="0" y="0" width="450" height="450">
+                <Line startX="366.8557" startY="67.4533" endX="370.2013" endY="63.7376"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-8" x="0" y="0" width="450" height="450">
+                <Line startX="382.5467" startY="83.1443" endX="386.2624" endY="79.7987"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-9" x="0" y="0" width="450" height="450">
+                <Line startX="396.5116" startY="100.3895" endX="400.5567" endY="97.4506"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-10" x="0" y="0" width="450" height="450">
+                <Line startX="404.2673" startY="121.5000" endX="412.9275" endY="116.5000"><Stroke color="#FFCCCCCC" thickness="3" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-21" x="0" y="0" width="450" height="450">
+                <Line startX="396.5116" startY="349.6105" endX="400.5567" endY="352.5494"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-22" x="0" y="0" width="450" height="450">
+                <Line startX="382.5467" startY="366.8557" endX="386.2624" endY="370.2013"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-23" x="0" y="0" width="450" height="450">
+                <Line startX="366.8557" startY="382.5467" endX="370.2013" endY="386.2624"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-28" x="0" y="0" width="450" height="450">
+                <Line startX="269.0773" startY="432.3673" endX="270.1168" endY="437.2580"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-29" x="0" y="0" width="450" height="450">
+                <Line startX="247.1600" startY="435.8386" endX="247.6827" endY="440.8113"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-30" x="0" y="0" width="450" height="450">
+                <Line startX="225.0000" startY="432.0000" endX="225.0000" endY="442.0000"><Stroke color="#FFCCCCCC" thickness="3" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-31" x="0" y="0" width="450" height="450">
+                <Line startX="202.8400" startY="435.8386" endX="202.3173" endY="440.8113"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-32" x="0" y="0" width="450" height="450">
+                <Line startX="180.9227" startY="432.3673" endX="179.8832" endY="437.2580"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-37" x="0" y="0" width="450" height="450">
+                <Line startX="83.1443" startY="382.5467" endX="79.7987" endY="386.2624"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-38" x="0" y="0" width="450" height="450">
+                <Line startX="67.4533" startY="366.8557" endX="63.7376" endY="370.2013"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-39" x="0" y="0" width="450" height="450">
+                <Line startX="53.4884" startY="349.6105" endX="49.4433" endY="352.5494"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-50" x="0" y="0" width="450" height="450">
+                <Line startX="45.7327" startY="121.5000" endX="37.0725" endY="116.5000"><Stroke color="#FFCCCCCC" thickness="3" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-51" x="0" y="0" width="450" height="450">
+                <Line startX="53.4884" startY="100.3895" endX="49.4433" endY="97.4506"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-52" x="0" y="0" width="450" height="450">
+                <Line startX="67.4533" startY="83.1443" endX="63.7376" endY="79.7987"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-53" x="0" y="0" width="450" height="450">
+                <Line startX="83.1443" startY="67.4533" endX="79.7987" endY="63.7376"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-54" x="0" y="0" width="450" height="450">
+                <Line startX="100.3895" startY="53.4884" endX="97.4506" endY="49.4433"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-57" x="0" y="0" width="450" height="450">
+                <Line startX="159.4884" startY="23.3760" endX="157.9433" endY="18.6207"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-58" x="0" y="0" width="450" height="450">
+                <Line startX="180.9227" startY="17.6327" endX="179.8832" endY="12.7420"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+            <PartDraw name="vigil-marker-59" x="0" y="0" width="450" height="450">
+                <Line startX="202.8400" startY="14.1614" endX="202.3173" endY="9.1887"><Stroke color="#FFCCCCCC" thickness="1.5" cap="ROUND" /></Line>
+            </PartDraw>
+        </Group>
+        <ComplicationSlot slotId="0" displayName="Vigil glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108">
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="340" height="108" />
-            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <Complication type="SMALL_IMAGE">
+                <PartImage x="0" y="0" width="340" height="108"><Variant mode="AMBIENT" target="alpha" value="0" /><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage>
+                <PartImage x="0" y="0" width="340" height="108" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" /><Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" /></PartImage>
+            </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="250"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="205">
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="450" height="250" />
-            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="450" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
+            <BoundingBox x="0" y="0" width="450" height="205" />
+            <Complication type="SMALL_IMAGE">
+                <PartImage x="0" y="0" width="450" height="205"><Variant mode="AMBIENT" target="alpha" value="0" /><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage>
+                <PartImage x="0" y="0" width="450" height="205" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" /><Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" /></PartImage>
+            </Complication>
             <Complication type="EMPTY" />
-        </ComplicationSlot>
-        <ComplicationSlot slotId="3" displayName="Vigil AOD glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
-            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchAmbientHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="340" height="108" />
-            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
-        </ComplicationSlot>
-        <ComplicationSlot slotId="4" displayName="Vigil AOD graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="250" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
-            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchAmbientGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="450" height="250" />
-            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="450" height="250"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="16" y="146" width="180" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
@@ -32,13 +118,50 @@
             <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="180" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="5" displayName="Vigil clock" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="150" y="398" width="150" height="34"><Variant mode="AMBIENT" target="alpha" value="0" />
+        <ComplicationSlot slotId="5" displayName="Vigil clock" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="347" width="270" height="78">
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchClockComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="150" height="34" /><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="150" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+            <BoundingBox x="0" y="0" width="270" height="78" /><Complication type="SMALL_IMAGE">
+                <PartImage x="0" y="0" width="270" height="78"><Variant mode="AMBIENT" target="alpha" value="0" /><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage>
+                <PartImage x="0" y="0" width="270" height="78" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" /><Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" /></PartImage>
+            </Complication><Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="6" displayName="Vigil AOD clock" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="150" y="398" width="150" height="34" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" />
-            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchAmbientClockComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="150" height="34" /><Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="150" height="34"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        <ComplicationSlot slotId="7" displayName="Vigil hands" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="0" width="450" height="450">
+            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchHandsComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="450" height="450" />
+            <Complication type="SMALL_IMAGE">
+              <Group name="vigil-hands-visibility" x="0" y="0" width="450" height="450">
+                <Condition>
+                  <Expressions><Expression name="handsVisible">[CONFIGURATION.showHands] == &quot;TRUE&quot;</Expression></Expressions>
+                  <Compare expression="handsVisible"><Group name="vigil-visible-hands" x="0" y="0" width="450" height="450">
+                <PartImage x="0" y="0" width="450" height="450"><Variant mode="AMBIENT" target="alpha" value="0" /><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage>
+                <PartImage x="0" y="0" width="450" height="450" alpha="0"><Variant mode="AMBIENT" target="alpha" value="255" /><Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" /></PartImage>
+                  </Group></Compare>
+                </Condition>
+              </Group>
+            </Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <!-- Restore the existing action regions above the full-canvas hand image without repainting data. -->
+        <ComplicationSlot slotId="9" displayName="Vigil glucose action" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="90" y="28" width="340" height="108">
+            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchCollectorActionComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="340" height="108" />
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="340" height="108" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="10" displayName="Vigil graph action" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="205">
+            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchGraphActionComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="450" height="205" />
+            <Complication type="SMALL_IMAGE"><PartImage x="0" y="0" width="450" height="205" alpha="0"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Complication><Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="8" displayName="Vigil center tap" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="200" y="200" width="50" height="50">
+            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchHandsToggleComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingOval x="0" y="0" width="50" height="50" />
+            <Complication type="SMALL_IMAGE">
+              <Group name="vigil-center-visibility" x="0" y="0" width="50" height="50">
+                <Condition>
+                  <Expressions><Expression name="handsVisible">[CONFIGURATION.showHands] == &quot;TRUE&quot;</Expression></Expressions>
+                  <Compare expression="handsVisible"><PartImage x="0" y="0" width="50" height="50"><Image resource="[COMPLICATION.SMALL_IMAGE]" /></PartImage></Compare>
+                </Condition>
+              </Group>
+            </Complication><Complication type="EMPTY" />
         </ComplicationSlot>
     </Scene>
 </WatchFace>

@@ -11,7 +11,6 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.TherapyStateStore
 import com.google.android.gms.wearable.PutDataRequest
-import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -19,7 +18,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 internal const val G7_SOURCE_FALLBACK_MIGRATION_KEY = "g7SetupAutomaticFallbackMigratedV1"
@@ -146,17 +144,22 @@ suspend fun publishState(
             // DataClient durability and MessageClient latency are independent guarantees. Waiting for
             // Play services to persist/synchronize the DataItem before even starting the message path
             // created an avoidable head-of-line delay.
-            val durable = async { Wearable.getDataClient(context).putDataItem(request).await() }
+            val summary =
+                mapOf(
+                    "revision" to state.canonicalRevision,
+                    "source" to state.source.name,
+                    "cgmSamples" to state.glucoseHistory.size,
+                    "predictions" to state.glucosePredictions.size,
+                    "therapyEvents" to state.therapyEvents.size,
+                )
+            val durable = async { context.putLoggedWearData(request, "Therapiezustand", summary) }
             val immediate =
                 async {
                     withTimeoutOrNull(IMMEDIATE_WATCH_PUSH_TIMEOUT_MS) {
                         val nodeIds = runCatching { refreshReachableWatchNodeIds(context) }.getOrDefault(emptyList())
                         nodeIds.count { nodeId ->
                             runCatching {
-                                Wearable
-                                    .getMessageClient(context)
-                                    .sendMessage(nodeId, WearProtocol.STATE_PATH, payload)
-                                    .await()
+                                context.sendLoggedWearMessage(nodeId, WearProtocol.STATE_PATH, payload, "Therapiezustand", summary)
                             }.isSuccess
                         }
                     } ?: 0

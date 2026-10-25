@@ -261,7 +261,7 @@
       <ColorOption id="77" displayName="tertiary_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F" />
       <ColorOption id="78" displayName="tertiary_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91" />
     </ColorConfiguration>
-    <ListConfiguration id="arcContent" displayName="arcContent" defaultValue="4">
+    <ListConfiguration id="arcContent" displayName="arcContent" defaultValue="3">
       <ListOption id="0" displayName="arcContent_0" />
       <ListOption id="1" displayName="arcContent_1" />
       <ListOption id="2" displayName="arcContent_2" />
@@ -288,7 +288,7 @@
     </ListConfiguration>
     <BooleanConfiguration id="batteryIndicator" displayName="batteryIndicator" defaultValue="TRUE" />
     <BooleanConfiguration id="glucoseColor" displayName="glucoseColor" defaultValue="TRUE" />
-    <Flavors defaultValue="0">
+    <Flavors defaultValue="user_0">
       <Flavor id="0" displayName="preset_0">
         <Configuration id="primary" optionId="71" />
         <Configuration id="secondary" optionId="59" />
@@ -336,6 +336,222 @@
         <Configuration id="apexHands" optionId="2" />
         <Configuration id="dialIndex" optionId="0" />
         <Configuration id="arcContent" optionId="0" />
+      </Flavor>
+      <Flavor id="user_0" displayName="user_preset_0">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="70" />
+        <Configuration id="secondary" optionId="70" />
+        <Configuration id="tertiary" optionId="70" />
+        <Configuration id="arcContent" optionId="3" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="7" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+      </Flavor>
+      <Flavor id="user_1" displayName="user_preset_1">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="26" />
+        <Configuration id="secondary" optionId="26" />
+        <Configuration id="tertiary" optionId="26" />
+        <Configuration id="arcContent" optionId="4" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="0" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+      </Flavor>
+      <Flavor id="user_2" displayName="user_preset_2">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="65" />
+        <Configuration id="secondary" optionId="65" />
+        <Configuration id="tertiary" optionId="65" />
+        <Configuration id="arcContent" optionId="3" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="4" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+      </Flavor>
+      <Flavor id="user_3" displayName="user_preset_3">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="64" />
+        <Configuration id="secondary" optionId="64" />
+        <Configuration id="tertiary" optionId="64" />
+        <Configuration id="arcContent" optionId="4" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="1" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+      </Flavor>
+      <Flavor id="user_4" displayName="user_preset_4">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="69" />
+        <Configuration id="secondary" optionId="69" />
+        <Configuration id="tertiary" optionId="69" />
+        <Configuration id="arcContent" optionId="3" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="6" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+      </Flavor>
+      <Flavor id="user_5" displayName="user_preset_5">
+        <Configuration id="dialIndex" optionId="0" />
+        <Configuration id="dialInk" optionId="0" />
+        <Configuration id="apexHands" optionId="0" />
+        <Configuration id="secondSweep" optionId="1" />
+        <Configuration id="minuteStyle" optionId="2" />
+        <Configuration id="aodStyle" optionId="0" />
+        <Configuration id="backgroundGlow" optionId="FALSE" />
+        <Configuration id="primary" optionId="25" />
+        <Configuration id="secondary" optionId="25" />
+        <Configuration id="tertiary" optionId="25" />
+        <Configuration id="arcContent" optionId="4" />
+        <Configuration id="weatherSymbols" optionId="0" />
+        <Configuration id="weatherLaunch" optionId="0" />
+        <Configuration id="progressBars" optionId="3" />
+        <Configuration id="batteryIndicator" optionId="TRUE" />
+        <Configuration id="glucoseColor" optionId="TRUE" />
+        <ComplicationSlot slotId="0">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="7">
+          <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="2">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="3">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="4">
+          <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="5">
+          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+        </ComplicationSlot>
       </Flavor>
     </Flavors>
   </UserConfigurations>
@@ -4071,7 +4287,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="7" displayName="slot_1" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
+      <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
       <BoundingArc centerX="256" centerY="256" width="453.96999999999997" height="453.96999999999997" startAngle="14" endAngle="79" thickness="55.254999999999995" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -4511,7 +4727,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="4" displayName="slot_4" isCustomizable="TRUE" supportedTypes="SHORT_TEXT RANGED_VALUE MONOCHROMATIC_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
       <BoundingArc centerX="256" centerY="256" width="329.96" height="329.96" startAngle="90" endAngle="180" thickness="40.96" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">

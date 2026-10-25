@@ -72,6 +72,24 @@ internal data class DirectToWatchGraphStatusPresentation(
     val text: String,
 )
 
+internal fun vigilStatusContrastColor(state: TherapyDisplayState?, nowEpochMs: Long, context: Context): Int {
+    val colors = DirectToWatchPreferences.graphColors(context)
+    val history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, DirectToWatchPreferences.graphHours(context))
+    val high =
+        app.aapswear.model.CgmGraphPolicy
+            .rangeExcursion(history, DirectToWatchPreferences.thresholds(context)) == app.aapswear.model.RangeExcursion.HIGH
+
+    fun composite(foreground: Int, background: Int): Int {
+        val alpha = Color.alpha(foreground) / 255f
+
+        fun channel(front: Int, back: Int) = (front * alpha + back * (1f - alpha)).toInt()
+        return Color.rgb(channel(Color.red(foreground), Color.red(background)), channel(Color.green(foreground), Color.green(background)), channel(Color.blue(foreground), Color.blue(background)))
+    }
+    val background = composite(colors.graphBackground, Color.BLACK)
+    val surface = if (high) composite(colors.rangeHigh, background) else background
+    return if (Color.luminance(surface) > 0.179f) Color.BLACK else Color.WHITE
+}
+
 internal fun isVigilSensorDisconnected(state: TherapyDisplayState?): Boolean = state == null || G7LocalReadingResolver.directSensorState(state) in setOf("UNKNOWN", "ENDED", "NOT_ACTIVE")
 
 internal fun vigilSensorStatusPillText(
@@ -289,7 +307,7 @@ object DirectToWatchPreferences {
 
     fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, true)
 
-    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 150).coerceIn(75, 150)
+    fun clockSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_SIZE_PERCENT, 280).coerceIn(75, 450)
 
     fun clockColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_CLOCK_COLOR, Color.WHITE)
 
@@ -427,6 +445,7 @@ object DirectToWatchPreferences {
             // Vigil follows the canonical graph policy unconditionally; this is not a face-local toggle.
             rangeBackgroundEnabled = true,
             scaleLaneOpacityPercent = p.getInt(KEY_GRAPH_SCALE_LANE_OPACITY, defaults.scaleLaneOpacityPercent).coerceIn(0, 100),
+            maximumScaleEnabled = p.getBoolean("graph_style_maximum_scale_enabled", defaults.maximumScaleEnabled),
         )
     }
 
@@ -448,6 +467,7 @@ object DirectToWatchPreferences {
             .putBoolean("graph_style_border_enabled", style.borderEnabled)
             .putBoolean("graph_style_time_axis_enabled", style.timeAxisEnabled)
             .putInt(KEY_GRAPH_SCALE_LANE_OPACITY, style.scaleLaneOpacityPercent.coerceIn(0, 100))
+            .putBoolean("graph_style_maximum_scale_enabled", style.maximumScaleEnabled)
             .remove("graph_style_target_ticks_enabled")
             .remove("graph_style_range_background_enabled")
             .apply()
@@ -499,6 +519,11 @@ object DirectToWatchPreferences {
         requestUpdates(context)
     }
 
+    fun requestClockUpdate(context: Context, provider: Class<*>) {
+        require(provider == DirectToWatchClockComplication::class.java || provider == DirectToWatchAmbientClockComplication::class.java)
+        ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, provider)).requestUpdateAll()
+    }
+
     fun requestUpdates(context: Context) {
         listOf(
             DirectToWatchHeaderComplication::class.java,
@@ -524,22 +549,10 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
         nowEpochMs: Long,
     ): ComplicationData
 
-    protected fun collectorTapAction(): PendingIntent {
-        val intent =
-            packageManager.getLaunchIntentForPackage(G7_PACKAGE)?.apply {
-                component = ComponentName(G7_PACKAGE, G7_ACTIVITY)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            } ?: Intent().setComponent(ComponentName(G7_PACKAGE, G7_ACTIVITY))
-        return PendingIntent.getActivity(this, 701, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
+    protected fun collectorTapAction(): PendingIntent = DirectToWatchActions.collector(this)
 
     protected fun graphScaleTapAction(): PendingIntent =
-        PendingIntent.getBroadcast(
-            this,
-            702,
-            Intent(this, DirectToWatchGraphScaleReceiver::class.java).setAction(DirectToWatchGraphScaleReceiver.ACTION_CYCLE),
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-        )
+        DirectToWatchActions.graphScale(this)
 
     protected fun readThresholds(): CgmThresholds = DirectToWatchPreferences.thresholds(this)
 
@@ -571,11 +584,6 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
             target = TargetState(lowMgDl = 70.0, highMgDl = 180.0),
         )
     }
-
-    companion object {
-        private const val G7_PACKAGE = "app.aapswear.g7watch"
-        private const val G7_ACTIVITY = "app.aapswear.g7watch.G7WatchActivity"
-    }
 }
 
 open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() {
@@ -587,7 +595,10 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         val bitmap = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this))
         return SmallImageComplicationData
             .Builder(
-                SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+                SmallImage
+                    .Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO)
+                    .setAmbientImage(Icon.createWithBitmap(renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this), ambient = true)))
+                    .build(),
                 PlainComplicationText.Builder("SugarWear ${presentation.glucose}, ${presentation.secondary}").build(),
             ).setTapAction(collectorTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
@@ -698,8 +709,17 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         if (arrow == null && presentation.trendUnavailable && !presentation.signalLoss) {
             canvas.drawText("-", contentLeft + valueWidth + 8f, valueBaseline, secondaryPaint)
         }
-        secondaryPaint.textAlign = Paint.Align.CENTER
-        canvas.drawText(presentation.secondary, centerX, 96f, secondaryPaint)
+        val delta = presentation.secondary.substringBeforeLast(' ', presentation.secondary)
+        val unit = presentation.secondary.substringAfterLast(' ', "")
+        val deltaPaint =
+            Paint(secondaryPaint).apply {
+                color = if (ambient) AMBIENT_PRIMARY else Color.WHITE
+                textSize = 29f
+            }
+        val secondaryWidth = deltaPaint.measureText(delta) + if (unit.isBlank()) 0f else 6f + secondaryPaint.measureText(unit)
+        val secondaryLeft = centerX - secondaryWidth / 2f
+        canvas.drawText(delta, secondaryLeft, 96f, deltaPaint)
+        if (unit.isNotBlank()) canvas.drawText(unit, secondaryLeft + deltaPaint.measureText(delta) + 6f, 96f, secondaryPaint)
         return bitmap
     }
 
@@ -738,7 +758,7 @@ class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
                 180,
                 34,
                 DirectToWatchPreferences.statusSizePercent(this),
-                DirectToWatchPreferences.statusColor(this),
+                vigilStatusContrastColor(state, nowEpochMs, this),
                 DirectToWatchPreferences.statusBold(this),
                 Paint.Align.LEFT,
             )
@@ -752,26 +772,26 @@ class DirectToWatchStatusComplication : DirectToWatchComplicationService() {
     }
 }
 
+fun renderVigilClock(context: Context, text: String, ambient: Boolean = false): Bitmap {
+    val source = DirectToWatchPreferences.clockColor(context)
+    val color = if (ambient) Color.rgb(Color.red(source) * 3 / 5, Color.green(source) * 3 / 5, Color.blue(source) * 3 / 5) else source
+    return renderWatchfaceText(text, 270, 78, DirectToWatchPreferences.clockSizePercent(context), color, DirectToWatchPreferences.clockBold(context), Paint.Align.CENTER)
+}
+
 open class DirectToWatchClockComplication : DirectToWatchComplicationService() {
     override fun build(
         state: TherapyDisplayState?,
         nowEpochMs: Long,
     ): ComplicationData {
         val text = formatVigilSystemTime(this, nowEpochMs)
-        val bitmap =
-            renderWatchfaceText(
-                text,
-                150,
-                34,
-                DirectToWatchPreferences.clockSizePercent(this),
-                DirectToWatchPreferences.clockColor(this),
-                DirectToWatchPreferences.clockBold(this),
-                Paint.Align.CENTER,
-            )
+        val bitmap = renderVigilClock(this, text)
         val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
         return SmallImageComplicationData
             .Builder(
-                SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+                SmallImage
+                    .Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO)
+                    .setAmbientImage(Icon.createWithBitmap(renderVigilClock(this, text, ambient = true)))
+                    .build(),
                 PlainComplicationText.Builder(text).build(),
             ).setValidTimeRange(
                 TimeRange.between(java.time.Instant.ofEpochMilli(nowEpochMs), java.time.Instant.ofEpochMilli(nextMinute)),
@@ -785,18 +805,7 @@ class DirectToWatchAmbientClockComplication : DirectToWatchClockComplication() {
         nowEpochMs: Long,
     ): ComplicationData {
         val text = formatVigilSystemTime(this, nowEpochMs)
-        val source = DirectToWatchPreferences.clockColor(this)
-        val gray = Color.rgb(Color.red(source) * 3 / 5, Color.green(source) * 3 / 5, Color.blue(source) * 3 / 5)
-        val bitmap =
-            renderWatchfaceText(
-                text,
-                150,
-                34,
-                DirectToWatchPreferences.clockSizePercent(this),
-                gray,
-                DirectToWatchPreferences.clockBold(this),
-                Paint.Align.CENTER,
-            )
+        val bitmap = renderVigilClock(this, text, ambient = true)
         val nextMinute = ((nowEpochMs / 60_000L) + 1L) * 60_000L
         return SmallImageComplicationData
             .Builder(
@@ -808,7 +817,7 @@ class DirectToWatchAmbientClockComplication : DirectToWatchClockComplication() {
     }
 }
 
-private fun renderWatchfaceText(
+internal fun renderWatchfaceText(
     text: String,
     width: Int,
     height: Int,
@@ -821,11 +830,23 @@ private fun renderWatchfaceText(
     val paint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color
-            textSize = 18f * sizePercent.coerceIn(75, 150) / 100f
+            textSize = (if (height > 34) 28f else 18f) * sizePercent.coerceIn(75, 450) / 100f
             app.aapswear.uishared.SystemTypography
                 .apply(this, bold)
+            if (height > 34 && bold) {
+                typeface = android.graphics.Typeface.create(typeface, 900, false)
+                setFontVariationSettings("'wght' 900")
+                // Device font aliases can cap their supported weight; retain a strong clock there.
+                isFakeBoldText = true
+            }
             textAlign = align
         }
+    val maxWidth = width - 8f
+    val maxHeight = height - 6f
+    val measuredWidth = paint.measureText(text)
+    val measuredHeight = paint.descent() - paint.ascent()
+    val fit = minOf(1f, maxWidth / measuredWidth.coerceAtLeast(1f), maxHeight / measuredHeight.coerceAtLeast(1f))
+    paint.textSize *= fit
     val x = if (align == Paint.Align.CENTER) width / 2f else 0f
     val baseline = height / 2f - (paint.ascent() + paint.descent()) / 2f
     Canvas(bitmap).drawText(text, x, baseline, paint)
@@ -841,7 +862,10 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val bitmap = renderGraph(state, nowEpochMs, hours)
         return SmallImageComplicationData
             .Builder(
-                SmallImage.Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO).build(),
+                SmallImage
+                    .Builder(Icon.createWithBitmap(bitmap), SmallImageType.PHOTO)
+                    .setAmbientImage(Icon.createWithBitmap(renderGraph(state, nowEpochMs, hours, ambient = true)))
+                    .build(),
                 PlainComplicationText.Builder("$hours Stunden SugarWear-Glukoseverlauf").build(),
             ).setTapAction(graphScaleTapAction())
             .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
@@ -855,7 +879,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         ambient: Boolean = false,
     ): Bitmap {
         val width = 450
-        val height = 250
+        val height = 205
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val sensorStatusPill = vigilSensorStatusPillText(state)
@@ -884,7 +908,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                     timeWindow = directToWatchGraphWindow(nowEpochMs, hours),
                     nowEpochMs = nowEpochMs,
                     thresholds = thresholds,
-                    palette = colors.toSharedPalette(),
+                    palette = colors.toSharedPalette().let { if (ambient) it else it.copy(axisText = Color.WHITE, targetText = Color.WHITE) },
                     style = graphStyle,
                     emptyLabel = "",
                 ),

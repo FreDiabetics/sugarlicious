@@ -13,6 +13,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -48,7 +50,7 @@ internal fun OneUiResetIcon(onClick: () -> Unit, modifier: Modifier = Modifier, 
 }
 
 @Composable
-internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoice: Boolean = true, onSelected: (DashboardThemeMode) -> Unit) {
+internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoice: Boolean = true, showIllustrations: Boolean = true, onSelected: (DashboardThemeMode) -> Unit) {
     LocalConfiguration.current // Observe configuration; read actual device, not the forced menu ContextThemeWrapper.
     val deviceDark = deviceUsesDarkMode(LocalContext.current)
     val resolved = resolveSettingsAppearance(mode, deviceDark)
@@ -61,8 +63,8 @@ internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoic
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    OneUiThemeIllustration(option == DashboardThemeMode.DARK)
-                    Text(if (option == DashboardThemeMode.LIGHT) "Hell" else "Dunkel", color = if (selected) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary, fontSize = 18.sp)
+                    if (showIllustrations) OneUiThemeIllustration(option == DashboardThemeMode.DARK)
+                    Text(if (option == DashboardThemeMode.LIGHT) "Hell" else "Dunkel", color = OneUiWidgetStyle.primary, fontSize = 18.sp)
                     RadioButton(selected, null)
                 }
             }
@@ -80,8 +82,8 @@ internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoic
 @Composable
 private fun OneUiThemeIllustration(dark: Boolean) {
     val frame = if (dark) Color(0xFF30353D) else Color(0xFFE7E8EC)
-    val card = if (dark) Color(0xFF5B606B) else Color.White
-    val glyph = if (dark) Color(0xFFCACED5) else Color(0xFFC6CBD1)
+    val card = if (dark) Color(0xFF1C1C1C) else Color.White
+    val ink = if (dark) android.graphics.Color.WHITE else android.graphics.Color.BLACK
     Canvas(Modifier.width(86.dp).height(166.dp)) {
         val sx = size.width / 86f
         val sy = size.height / 166f
@@ -89,15 +91,56 @@ private fun OneUiThemeIllustration(dark: Boolean) {
         fun rect(x: Float, y: Float, w: Float, h: Float, radius: Float, color: Color) =
             drawRoundRect(color, Offset(x * sx, y * sy), Size(w * sx, h * sy), CornerRadius(radius * sx))
         rect(0f, 0f, 86f, 166f, 8f, frame)
-        rect(7f, 10f, 72f, 17f, 9f, card)
-        drawCircle(glyph, 6f * sx, Offset(71f * sx, 18.5f * sy))
-        drawCircle(Color.White, 2f * sx, Offset(71f * sx, 16.5f * sy))
-        rect(68f, 20f, 6f, 3f, 2f, Color.White)
-        rect(7f, 33f, 72f, 29f, 6f, card)
-        rect(7f, 68f, 72f, 56f, 6f, card)
-        rect(7f, 130f, 72f, 29f, 6f, card)
-        val dots = listOf(40f to Color(0xFF3880F9), 53f to Color(0xFF3880F9), 76f to Color(0xFF13C3C0), 89f to Color(0xFF7854FF), 102f to Color(0xFF7854FF), 115f to Color(0xFFEE6200), 138f to Color(0xFF9CD92C), 151f to Color(0xFF7FC753))
-        dots.forEach { (y, color) -> drawCircle(color, 4f * sx, Offset(16f * sx, y * sy)) }
+        rect(5f, 8f, 76f, 56f, 6f, card)
+        rect(5f, 69f, 76f, 44f, 6f, card)
+        rect(5f, 118f, 76f, 40f, 6f, card)
+        drawIntoCanvas { native ->
+            val paint =
+                android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = ink
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, emphasized = true)
+                }
+
+            fun label(value: String, x: Float, y: Float, font: Float) {
+                paint.textSize = font * sx
+                native.nativeCanvas.drawText(value, x * sx, y * sy, paint)
+            }
+            label("98 →", 11f, 27f, 12f)
+            label("−2", 61f, 26f, 7f)
+            label("IOB", 10f, 59f, 5f)
+            label("COB", 36f, 59f, 5f)
+            label("Basal", 60f, 59f, 5f)
+        }
+        drawLine(Color(0xFFDBB44D), Offset(9f * sx, 77f * sy), Offset(77f * sx, 77f * sy), sx)
+        drawLine(Color(0xFFC95F68), Offset(9f * sx, 105f * sy), Offset(77f * sx, 105f * sy), sx)
+        listOf(86f, 82f, 79f, 82f, 87f, 84f, 78f, 74f, 77f, 81f, 79f, 76f).forEachIndexed { index, y ->
+            drawCircle(if (dark) Color.White else Color.DarkGray, 1.6f * sx, Offset((11f + index * 5.8f) * sx, (y + 10f) * sy))
+        }
+        listOf(Color(0xFF60C4F7), Color(0xFFFFA516), Color(0xFF28B6BD)).forEachIndexed { index, color ->
+            drawArc(
+                color,
+                130f,
+                270f,
+                false,
+                Offset((10f + index * 25f) * sx, 35f * sy),
+                Size(17f * sx, 17f * sy),
+                style =
+                    androidx.compose.ui.graphics.drawscope
+                        .Stroke(2.5f * sx, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+            )
+        }
+        listOf(Color(0xFF60C4F7), Color(0xFFFFA516)).forEachIndexed { row, color ->
+            val values = if (row == 0) listOf(8f, 4f, 2f, 5f, 9f, 11f, 9f, 6f) else listOf(10f, 8f, 4f, 2f, 5f, 9f, 10f, 8f)
+            values.zipWithNext().forEachIndexed { index, (from, to) ->
+                drawLine(
+                    color,
+                    Offset((10f + index * 9f) * sx, (121f + row * 15f + from) * sy),
+                    Offset((19f + index * 9f) * sx, (121f + row * 15f + to) * sy),
+                    1.3f * sx,
+                )
+            }
+        }
     }
 }
 
@@ -113,7 +156,7 @@ internal fun OneUiGlucoseUnitSelector(selected: DisplayUnitPreference, onSelecte
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Icon(painterResource(R.drawable.settings_ic_glucose_units), null, Modifier.size(28.dp), tint = if (selected == option) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary)
-                Text(label, color = if (selected == option) OneUiWidgetStyle.accent else OneUiWidgetStyle.secondary, fontSize = 14.sp)
+                Text(label, color = OneUiWidgetStyle.primary, fontSize = 14.sp)
                 RadioButton(selected == option, null)
             }
         }

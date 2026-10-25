@@ -62,6 +62,9 @@ data class SharedWearCgmGraphStyle(
     val axisTextSizeSp: Float = 8.5f,
     val plotToScaleGapDp: Float = 4f,
     val scaleLaneWidthDp: Float = 25f,
+    val maximumScaleEnabled: Boolean = true,
+    val currentDotContourAtLiveEdge: Boolean = false,
+    val timeAxisOuterLabelInsetDp: Float = 3f,
 )
 
 object DirectToWatchGraphDefaults {
@@ -75,9 +78,12 @@ object DirectToWatchGraphDefaults {
             targetTicksEnabled = false,
             targetLabelsOutsideRange = true,
             targetLabelsInsidePlot = true,
-            axisTextSizeSp = 11f,
+            axisTextSizeSp = 12f,
             plotToScaleGapDp = 0f,
-            scaleLaneWidthDp = 35f,
+            scaleLaneWidthDp = 31f,
+            maximumScaleEnabled = false,
+            currentDotContourAtLiveEdge = true,
+            timeAxisOuterLabelInsetDp = 16f,
         )
 }
 
@@ -120,11 +126,14 @@ data class SharedWearCgmGraphMetrics(
     val highY: Float,
     val lowY: Float,
     val liveX: Float,
+    val sampleContourOffsetPx: Float = 0f,
 ) {
     fun xFor(
         window: GraphTimeWindow,
         timestampEpochMs: Long,
     ): Float = window.plotX(timestampEpochMs, plot.left, plot.width())
+
+    fun sampleXFor(window: GraphTimeWindow, timestampEpochMs: Long): Float = xFor(window, timestampEpochMs) - sampleContourOffsetPx
 
     fun yFor(valueMgDl: Double): Float = plot.bottom - WearCgmGraphScale.ratio(valueMgDl).toFloat() * plot.height()
 }
@@ -184,7 +193,10 @@ object SharedWearCgmGraphRenderer {
         val top = dotInset
         val visualBottom = heightPx - dp(if (style.timeAxisEnabled) 20f else 6f)
         val bottom = visualBottom - dotInset
-        val plot = RectF(left, top, axisLeft - dp(style.plotToScaleGapDp.coerceAtLeast(0f)) - dotInset, bottom)
+        // Contour anchoring already subtracts the current radius when drawing the samples.
+        // Reserving it here as well left a second gap between the live edge and the scale.
+        val rightInset = if (style.currentDotContourAtLiveEdge) 0f else dotInset
+        val plot = RectF(left, top, axisLeft - dp(style.plotToScaleGapDp.coerceAtLeast(0f)) - rightInset, bottom)
 
         fun y(value: Double): Float = plot.bottom - WearCgmGraphScale.ratio(value).toFloat() * plot.height()
         return SharedWearCgmGraphMetrics(
@@ -194,6 +206,7 @@ object SharedWearCgmGraphRenderer {
             highY = y(thresholds.highMgDl),
             lowY = y(thresholds.lowMgDl),
             liveX = plot.right,
+            sampleContourOffsetPx = if (style.currentDotContourAtLiveEdge) dp(style.dotRadiusDp.coerceIn(1.5f, 6f) + (effectiveDotOutlineWidthDp(style, true) ?: 0f)) else 0f,
         )
     }
 
@@ -349,7 +362,7 @@ object SharedWearCgmGraphRenderer {
             val isCurrent = index == history.lastIndex
             // "Current" controls styling only. Every point, including the newest one, belongs to
             // its real sensor event time; it must drift left as the wall-clock viewport advances.
-            val x = metrics.xFor(input.timeWindow, sample.measuredAtEpochMs)
+            val x = metrics.sampleXFor(input.timeWindow, sample.measuredAtEpochMs)
             val y = metrics.yFor(sample.valueMgDl)
             val outline = effectiveDotOutlineWidthDp(input.style, isCurrent)?.times(density)
             if (outline != null) {
@@ -385,7 +398,7 @@ object SharedWearCgmGraphRenderer {
             }
         }
 
-        drawMaximumScale(canvas, input, metrics, widthPx, dp(1f), axisText)
+        if (input.style.maximumScaleEnabled) drawMaximumScale(canvas, input, metrics, widthPx, dp(1f), axisText)
         if (input.topLeftLabel.isNotBlank()) {
             axisText.color = input.palette.axisText
             axisText.textAlign = Paint.Align.LEFT
@@ -488,7 +501,7 @@ object SharedWearCgmGraphRenderer {
                     }
                 val labelX =
                     when (text.textAlign) {
-                        Paint.Align.LEFT -> maxOf(3f * oneDp, x)
+                        Paint.Align.LEFT -> maxOf(input.style.timeAxisOuterLabelInsetDp * oneDp, x)
                         Paint.Align.RIGHT -> minOf(widthPx - 3f * oneDp, x)
                         else -> x
                     }

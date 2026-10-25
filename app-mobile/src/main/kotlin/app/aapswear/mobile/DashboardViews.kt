@@ -432,10 +432,14 @@ class DashboardViewFactory(
                     }
                 }
             }
-        parent.addView(composeView, fullWidth())
-        // Watch owns a bounded list with a fixed overview and native sticky sections.
-        // The surrounding dashboard scroller must not measure it at infinite height.
         val viewport = parent.parent as View
+        // Bound the FIRST measure too: posting a resize after attaching is too late,
+        // because ScrollView measures a wrap-content ComposeView with infinite height.
+        val initialViewportHeight = viewport.height.takeIf { it > 0 } ?: context.resources.displayMetrics.heightPixels
+        parent.addView(
+            composeView,
+            fullWidth().apply { height = (initialViewportHeight - parent.paddingTop - parent.paddingBottom).coerceAtLeast(1) },
+        )
         val resize =
             android.view.View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 val height = (viewport.height - parent.paddingTop - parent.paddingBottom).coerceAtLeast(1)
@@ -967,6 +971,16 @@ class DashboardViewFactory(
         addSettingsCategory(parent, "data", "Datenverwaltung", R.drawable.ic_health_activity) {
             addView(
                 tile(null).apply {
+                    addView(settingsGroupLabel("MOBILE → WEAR"))
+                    addView(
+                        actionRow("Übertragungsprotokoll", "Öffnen") {
+                            context.startActivity(
+                                android.content.Intent(context, DiagnosticActivity::class.java).putExtra(WEAR_TRANSFER_ONLY, true),
+                            )
+                        },
+                    )
+                    addView(helper("Wann, was und wie an Wear gesendet wurde. API-Annahme ist keine Empfangsbestätigung. Lokal, ohne Rohdaten.", 3))
+                    addView(divider())
                     addView(settingsGroupLabel("HINTERGRUNDBETRIEB"))
                     addView(actionRow("Dauerbetrieb", AppRuntimeAccess.batteryLabel(context), callbacks.requestUnrestrictedBattery))
                     addView(
@@ -1115,7 +1129,6 @@ class DashboardViewFactory(
         background =
             roundedBackground(
                 SugarliciousColors.argb(SugarliciousColorRole.SURFACE_HIGH),
-                SugarliciousColors.argb(SugarliciousColorRole.BORDER),
                 999,
             )
         setOnClickListener { action() }
@@ -1246,6 +1259,7 @@ class DashboardViewFactory(
 
     private fun settingsGroupLabel(label: String) =
         TextView(context).apply {
+            tag = "settings_snap_heading"
             text = label
             textSize = 13f
             setTextColor(secondary)
@@ -1353,7 +1367,7 @@ class DashboardViewFactory(
             TextView(context).apply {
                 textSize = 12f
                 gravity = Gravity.END
-                setTextColor(accent)
+                setTextColor(this@DashboardViewFactory.text)
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
             }
@@ -1470,7 +1484,7 @@ class DashboardViewFactory(
         text = label
         textSize = 14f
         minHeight = 48.dp
-        setTextColor(if (selected) accent else secondary)
+        setTextColor(this@DashboardViewFactory.text)
         isChecked = selected
         setOnClickListener { click() }
     }
@@ -1488,7 +1502,6 @@ class DashboardViewFactory(
             setPadding(18.dp, 8.dp, 18.dp, 8.dp)
             background =
                 roundedBackground(
-                    MobileSettingsStyle.card(SugarliciousColors.palette.isLight),
                     MobileSettingsStyle.card(SugarliciousColors.palette.isLight),
                     28,
                 )
@@ -1509,14 +1522,12 @@ class DashboardViewFactory(
 
     private fun roundedBackground(
         fillColor: Int,
-        strokeColor: Int,
         radiusDp: Int,
     ): GradientDrawable =
         GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = radiusDp.dp.toFloat()
             setColor(fillColor)
-            setStroke(1.dp, strokeColor)
         }
 
     private fun screenTitle(title: String = "Einstellungen") =
@@ -1527,6 +1538,7 @@ class DashboardViewFactory(
 
     private fun sectionLabel(label: String) =
         TextView(context).apply {
+            tag = "settings_snap_heading"
             text = label
             textSize = 12f
             setTextColor(this@DashboardViewFactory.text)

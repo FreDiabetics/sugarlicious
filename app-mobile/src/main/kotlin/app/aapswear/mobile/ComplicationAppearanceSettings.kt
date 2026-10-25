@@ -6,8 +6,6 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TrendArrowStyleOverride
 import app.aapswear.protocol.WearProtocol
 import com.google.android.gms.wearable.PutDataMapRequest
-import com.google.android.gms.wearable.Wearable
-import kotlinx.coroutines.tasks.await
 
 internal data class ComplicationAppearanceSettings(
     val trendScalePercent: Int? = null,
@@ -115,5 +113,5 @@ internal suspend fun syncComplicationAppearance(
                 dataMap.putLong("updatedAt", System.currentTimeMillis())
             }.asPutDataRequest()
             .setUrgent()
-    Wearable.getDataClient(context).putDataItem(request).await()
+    context.putLoggedWearData(request, "Complication-Darstellung", mapOf("catalogId" to catalogId, "keys" to 11))
 }

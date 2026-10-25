@@ -12,6 +12,50 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VigilHeaderLayoutTest {
+    @Test fun `strong clock has visibly more ink than standard bold`() {
+        val strong = renderWatchfaceText("12:42", 270, 78, 150, Color.WHITE, true, android.graphics.Paint.Align.CENTER)
+        val standard = android.graphics.Bitmap.createBitmap(270, 78, android.graphics.Bitmap.Config.ARGB_8888)
+        val paint =
+            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 42f
+                textAlign = android.graphics.Paint.Align.CENTER
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
+            }
+        android.graphics.Canvas(standard).drawText("12:42", 135f, 39f - (paint.ascent() + paint.descent()) / 2f, paint)
+
+        fun ink(bitmap: android.graphics.Bitmap): Long =
+            (0 until bitmap.height).sumOf { y ->
+                (0 until bitmap.width).sumOf { x -> Color.alpha(bitmap.getPixel(x, y)).toLong() }
+            }
+        org.junit.Assert.assertTrue("The clock must be visibly stronger than the existing 700-weight face", ink(strong) > ink(standard))
+    }
+
+    @Test fun `clock follows system twelve and twenty four hour preference`() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val now = 1_800_000_000_000L
+        listOf("12", "24").forEach { format ->
+            android.provider.Settings.System
+                .putString(context.contentResolver, android.provider.Settings.System.TIME_12_24, format)
+            assertEquals(
+                android.text.format.DateFormat
+                    .getTimeFormat(context)
+                    .format(java.util.Date(now)),
+                formatVigilSystemTime(context, now),
+            )
+        }
+    }
+
+    @Test fun `status switches between white and black with background luminance`() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        val preferences = context.getSharedPreferences(DirectToWatchPreferences.NAME, android.content.Context.MODE_PRIVATE)
+        listOf(Color.WHITE to Color.BLACK, Color.BLACK to Color.WHITE).forEach { (background, foreground) ->
+            preferences.edit().putInt("graph_color_background", background).commit()
+            assertEquals(foreground, vigilStatusContrastColor(null, 1_800_000_000_000L, context))
+        }
+    }
+
     @Test
     @org.robolectric.annotation.Config(qualifiers = "w226dp-h226dp-340dpi")
     fun `native Vigil preview uses the same centered header and graph providers`() {
@@ -57,8 +101,8 @@ class VigilHeaderLayoutTest {
             }
         canvas.drawText("2h • 2m", 16f, 168f, paint)
         paint.textAlign = android.graphics.Paint.Align.CENTER
-        paint.textSize = 27f
-        canvas.drawText("12:42", 225f, 422f, paint)
+        paint.textSize = 56f
+        canvas.drawText("12:42", 225f, 405f, paint)
         val output = java.io.File("build/reports/vigil-preview").apply { mkdirs() }
         listOf("preview.png" to preview, "header.png" to header, "graph.png" to graph).forEach { (name, bitmap) ->
             java.io

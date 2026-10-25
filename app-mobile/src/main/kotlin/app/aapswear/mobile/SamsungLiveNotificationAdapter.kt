@@ -60,8 +60,9 @@ internal object SamsungLiveNotificationAdapter {
                 putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
                 val notificationIcon = Icon.createWithResource(context, notificationIconRes)
                 val monochromeIcon = monochromeCardIcon(context, notificationIconRes)
+                val drawerIcon = monochromeCardIcon(context, notificationIconRes, contentFraction = .75f)
                 putParcelable(EXTRA_CHIP_ICON, notificationIcon)
-                putParcelable(EXTRA_CARD_ICON, monochromeIcon)
+                putParcelable(EXTRA_CARD_ICON, drawerIcon)
                 putParcelable(EXTRA_NOWBAR_ICON, monochromeIcon)
                 putParcelable(EXTRA_AOD_REMOTE_APP_ICON, monochromeIcon)
                 if (CUSTOM_CHIP_ENABLED) {
@@ -90,14 +91,19 @@ internal object SamsungLiveNotificationAdapter {
     private fun monochromeCardIcon(
         context: Context,
         iconRes: Int,
-    ): Icon {
+        contentFraction: Float = 1f,
+    ): Icon = Icon.createWithBitmap(brandIconBitmap(context, iconRes, contentFraction))
+
+    /** Keep the system icon viewport stable; only the live drawer card gets smaller artwork. */
+    internal fun brandIconBitmap(context: Context, iconRes: Int, contentFraction: Float = 1f): Bitmap {
         val drawable = requireNotNull(context.getDrawable(iconRes)).mutate()
         drawable.setTint(Color.WHITE)
         val size = (24f * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
         val bitmap = createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        drawable.setBounds(0, 0, size, size)
+        val inset = ((size * (1f - contentFraction)) / 2).toInt()
+        drawable.setBounds(inset, inset, size - inset, size - inset)
         drawable.draw(Canvas(bitmap))
-        return Icon.createWithBitmap(bitmap)
+        return bitmap
     }
 
     fun texts(presentation: NotificationPresentation): SamsungLiveTexts {

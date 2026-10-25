@@ -54,6 +54,8 @@ class VigilPreviewRenderingTest {
         for (index in 0 until slots.length) {
             val slot = slots.item(index) as Element
             if (slot.getAttribute("alpha") == "0") continue
+            val images = slot.getElementsByTagName("PartImage")
+            if (images.length > 0 && (0 until images.length).all { (images.item(it) as Element).getAttribute("alpha") == "0" }) continue
             val policy = slot.getElementsByTagName("DefaultProviderPolicy").item(0) as Element
             val name = policy.getAttribute("primaryProvider").substringAfter('/')
             val type = Class.forName(name).asSubclass(androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService::class.java)
@@ -73,7 +75,7 @@ class VigilPreviewRenderingTest {
             rendered += slot.getAttribute("slotId")
             controller.destroy()
         }
-        assertEquals(listOf("0", "1", "2", "5"), rendered)
+        assertEquals(listOf("0", "1", "2", "5", "7", "8"), rendered)
         assertEquals(Color.TRANSPARENT, bitmap.getPixel(0, 0))
         assertTrue((140..389).any { y -> (50..400).any { x -> bitmap.getPixel(x, y) != Color.BLACK } })
         val output = File("build/reports/vigil-current-preview.png")

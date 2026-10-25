@@ -50,6 +50,7 @@ class G7CollectorService : Service() {
     private var cycleWakeLock: PowerManager.WakeLock? = null
     private var cycleToken: Long = 0L
     private var runtimeRecycleRequested = false
+    private val vigilClockUpdates by lazy { G7VigilClockUpdates(this) }
 
     override fun onCreate() {
         super.onCreate()
@@ -73,6 +74,7 @@ class G7CollectorService : Service() {
         )
         G7ErrorNotifier.ensureChannel(this)
         G7CgmAlarmCoordinator.restore(this)
+        vigilClockUpdates.start()
     }
 
     override fun onStartCommand(
@@ -1271,6 +1273,7 @@ class G7CollectorService : Service() {
     }
 
     override fun onDestroy() {
+        vigilClockUpdates.stop()
         serviceRunning = false
         G7CollectorRuntimeRegistry.unregister(this)
         releaseCycleWakeLock()

@@ -1087,9 +1087,9 @@ private class G7GattConnection(
         try {
             block()
         } catch (error: SecurityException) {
-            throw G7BleException(code, "Sensor hat die Authentifizierung abgelehnt", false, error)
+            throw authenticationProcessingFailure(code, error)
         } catch (error: IllegalArgumentException) {
-            throw G7BleException(code, "G7-Schlüsselmaterial wurde abgelehnt", false, error)
+            throw authenticationProcessingFailure(code, error)
         }
 
     private companion object {

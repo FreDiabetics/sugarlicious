@@ -333,6 +333,7 @@ class MainActivity : ComponentActivity() {
                                 it.coerceIn(sugarliciousWatchFaceCards.indices),
                             )
                         }
+                        updateTopBar()
                     },
                     syncNow = ::syncNow,
                     connectHealthConnect = ::connectHealthConnect,
@@ -582,7 +583,7 @@ class MainActivity : ComponentActivity() {
             )
         window.statusBarColor = backgroundColor
         window.navigationBarColor = backgroundColor
-        val light = SugarliciousColors.palette.isLight
+        val light = screen == DashboardScreen.OVERVIEW && SugarliciousColors.palette.isLight
         if (Build.VERSION.SDK_INT >= 30) {
             val mask =
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
@@ -609,6 +610,33 @@ class MainActivity : ComponentActivity() {
     private fun bindTopNavigation() {
         findViewById<View>(R.id.top_settings).setOnClickListener { navigate(DashboardScreen.SETTINGS) }
         findViewById<View>(R.id.top_back).setOnClickListener { onBackPressedDispatcher.onBackPressed() }
+        findViewById<View>(R.id.watch_open).setOnClickListener {
+            val launch = listOf("com.samsung.android.app.watchmanager", "com.google.android.apps.wear.companion").firstNotNullOfOrNull { packageManager.getLaunchIntentForPackage(it) }
+            if (launch != null) {
+                runCatching { startActivity(launch) }
+            } else {
+                android.widget.Toast
+                    .makeText(this, "Bitte den Watchface-Editor auf der Uhr öffnen", android.widget.Toast.LENGTH_SHORT)
+                    .show()
+            }
+        }
+        findViewById<View>(R.id.watch_send).setOnClickListener {
+            scope.launch {
+                val face = SugarliciousWatchFaceSelectionStore.read(applicationContext, 0)
+                val slots = WatchFacePresetStore.readSlots(applicationContext, face)
+                val ids = slots.values.distinct().ifEmpty { WatchFacePresetStore.read(applicationContext, face) }
+                runCatching { syncComplicationPreset(applicationContext, ids) }
+                    .onSuccess {
+                        android.widget.Toast
+                            .makeText(this@MainActivity, "An Watch gesendet · Provider-Zuweisung in der Watch App", android.widget.Toast.LENGTH_LONG)
+                            .show()
+                    }.onFailure {
+                        android.widget.Toast
+                            .makeText(this@MainActivity, "Watch nicht erreichbar", android.widget.Toast.LENGTH_SHORT)
+                            .show()
+                    }
+            }
+        }
     }
 
     private fun navigate(target: DashboardScreen) {
@@ -627,7 +655,29 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun updateTopBar() {
+        listOf(R.id.watch_open, R.id.watch_send).forEach { id ->
+            findViewById<android.widget.ImageButton>(id).apply {
+                val vigil = SugarliciousWatchFaceSelectionStore.read(this@MainActivity, uiPreferences.getInt("watchFaceIndex", 0)) == DIRECT_TO_WATCH_FACE_INDEX
+                visibility = if (screen == DashboardScreen.WATCH && !(id == R.id.watch_send && vigil)) View.VISIBLE else View.GONE
+                imageTintList =
+                    ColorStateList.valueOf(
+                        if (SugarliciousColors.palette.isLight) 0xFF6D6D72.toInt() else 0xFFB5B5BA.toInt(),
+                    )
+            }
+        }
         val bar = findViewById<View>(R.id.top_app_bar)
+        if (screen == DashboardScreen.WATCH) {
+            bar.layoutParams =
+                bar.layoutParams.apply {
+                    height =
+                        maxOf(
+                            56.dp,
+                            android.util.TypedValue
+                                .applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 28f, resources.displayMetrics)
+                                .toInt(),
+                        )
+                }
+        }
         val back = findViewById<View>(R.id.top_back)
         val brand = findViewById<View>(R.id.brand_logo)
         val title = findViewById<TextView>(R.id.app_title)
@@ -667,6 +717,7 @@ class MainActivity : ComponentActivity() {
         }
 
         scroll.isUserScrollEnabled = screen != DashboardScreen.WATCH
+        scroll.sectionSnapEnabled = screen == DashboardScreen.SETTINGS
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(

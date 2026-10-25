@@ -14,4 +14,6 @@
     <string name="health_connect_not_synchronized">noch nicht synchronisiert</string>
     <string name="health_connect_sync_summary">Leserechte %1$d/%2$d · Letzte Synchronisierung: %3$s</string>
     <string name="navigate_back">Zurück</string>
+    <string name="watch_open_app">Watch App öffnen</string>
+    <string name="watch_send_preset">An Watch senden</string>
 </resources>
