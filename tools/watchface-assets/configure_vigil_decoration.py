@@ -30,18 +30,7 @@ def configure():
     node(color, "ColorOption", id="gray", displayName="seconds_gray", colors="#FF9E9E9E")
 
     scene = root.find("Scene")
-    markers = scene.find("Group[@name='vigil-perimeter-markers']")
-    markers.clear()
-    markers.attrib.update(name="vigil-perimeter-markers", x="0", y="0", width="450", height="450")
-    content = node(visible(markers), "Group", name="vigil-canonical-markers", x=0, y=0, width=450, height=450)
-    node(content, "Variant", mode="AMBIENT", target="alpha", value=110)
-    for resource in ("vigil_minutenmarkers", "vigil_hourmarkers"):
-        owner = content
-        setting = "showMinuteMarkers" if resource == "vigil_minutenmarkers" else "showHourMarkers"
-        condition = node(content, "Condition")
-        node(node(condition, "Expressions"), "Expression", name="markersVisible").text = f'[CONFIGURATION.{setting}] == "TRUE"'
-        owner = node(condition, "Compare", expression="markersVisible")
-        node(node(owner, "PartImage", x=0, y=0, width=450, height=450), "Image", resource=resource)
+    # Marker variants and grayscale options are maintained in the canonical WFF document.
 
     # Full-face rendering belongs to the existing full-face hands slot. BoundingOval
     # also clips rendering on the real device; it cannot host a full seconds hand.

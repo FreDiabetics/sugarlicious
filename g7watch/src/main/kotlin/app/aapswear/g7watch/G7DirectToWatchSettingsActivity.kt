@@ -99,6 +99,21 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
         section(root, "GRAPH · ZEITSKALA", palette)
         root.addView(choiceRow(settings.graphHours(), palette), params(5))
+        root.addView(
+            toggle("Vigil · Skalengröße anpassen", settings.scaleSizeEnabled(), palette) {
+                settings.saveScaleSizeEnabled(it)
+                render()
+            },
+            params(5),
+        )
+        if (settings.scaleSizeEnabled()) {
+            root.addView(
+                slider("Skalengröße", 50, 120, settings.scaleSizePercent(), palette, { "Skalengröße · $it %" }) {
+                    settings.saveScaleSizePercent(it)
+                },
+                params(5),
+            )
+        }
         val graphStyle = settings.graphStyle()
         root.addView(
             toggle("Obere Skala · 400", graphStyle.maximumScaleEnabled, palette) {

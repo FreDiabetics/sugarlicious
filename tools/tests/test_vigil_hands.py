@@ -45,16 +45,13 @@ class VigilHandsTest(unittest.TestCase):
         scene = self.face.find("Scene")
         slots = scene.findall("ComplicationSlot")
         self.assertEqual(["0", "1", "2", "5", "7", "9", "10", "8"], [slot.get("slotId") for slot in slots])
-        for original_id, mirror_id in (("0", "9"), ("1", "10")):
-            original = scene.find(f"ComplicationSlot[@slotId='{original_id}']")
-            mirror = scene.find(f"ComplicationSlot[@slotId='{mirror_id}']")
-            expected_action = "DirectToWatchCollectorActionComplication" if mirror_id == "9" else "DirectToWatchGraphActionComplication"
-            self.assertTrue(mirror.find("DefaultProviderPolicy").get("primaryProvider").endswith(expected_action))
-            self.assertEqual([original.get(key) for key in ("x", "y", "width", "height")], [mirror.get(key) for key in ("x", "y", "width", "height")])
-            self.assertNotEqual("0", mirror.get("alpha"))
-            self.assertEqual("0", mirror.find("Complication/PartImage").get("alpha"))
-        self.assertIsNone(scene.find("ComplicationSlot[@slotId='3']"))
-        self.assertIsNone(scene.find("ComplicationSlot[@slotId='4']"))
+        original = scene.find("ComplicationSlot[@slotId='1']")
+        mirror = scene.find("ComplicationSlot[@slotId='10']")
+        self.assertEqual([original.get(k) for k in ('x', 'y', 'width', 'height')], [mirror.get(k) for k in ('x', 'y', 'width', 'height')])
+        analog = scene.find("ComplicationSlot[@slotId='9']")
+        self.assertEqual(['0', '0', '450', '450'], [analog.get(k) for k in ('x', 'y', 'width', 'height')])
+        self.assertIn('DirectToWatchAnalogHeaderComplication', analog.find('DefaultProviderPolicy').get('primaryProvider'))
+        self.assertEqual('[CONFIGURATION.showHands] == "TRUE"', analog.find('.//Expression').text)
 
     def test_native_visibility_switch_hides_hands_and_center_content(self):
         option = self.face.find("UserConfigurations/BooleanConfiguration[@id='showHands']")
@@ -70,28 +67,39 @@ class VigilHandsTest(unittest.TestCase):
         option = self.face.find("UserConfigurations/BooleanConfiguration[@id='showDigitalTime']")
         self.assertEqual("TRUE", option.get("defaultValue"))
         condition = self.face.find("Scene/ComplicationSlot[@slotId='5']/Complication/Condition")
-        self.assertEqual('[CONFIGURATION.showDigitalTime] == "TRUE"', condition.find("Expressions/Expression").text)
+        self.assertEqual('[CONFIGURATION.showDigitalTime] == "TRUE" && [CONFIGURATION.showHands] == "FALSE"', condition.find("Expressions/Expression").text)
         self.assertEqual(2, len(condition.findall("Compare/Group/PartImage")))
         self.assertIsNone(condition.find("Default"))
 
     def test_hour_markers_have_an_independent_visibility_switch(self):
         self.assertIsNotNone(self.face.find("UserConfigurations/BooleanConfiguration[@id='showHourMarkers']"))
-        self.assertEqual('[CONFIGURATION.showHourMarkers] == "TRUE"', self.face.find(".//Expression[@name='hoursVisible']").text)
+        self.assertEqual('[CONFIGURATION.showHourMarkers] == "TRUE"', self.face.find(".//Expression[@name='hourVisible']").text)
 
     def test_minute_markers_have_an_independent_visibility_switch(self):
         self.assertIsNotNone(self.face.find("UserConfigurations/BooleanConfiguration[@id='showMinuteMarkers']"))
-        self.assertEqual('[CONFIGURATION.showMinuteMarkers] == "TRUE"', self.face.find(".//Group[@name='vigil-canonical-markers']/Condition/Expressions/Expression").text)
+        self.assertEqual('[CONFIGURATION.showMinuteMarkers] == "TRUE"', self.face.find(".//Expression[@name='minuteVisible']").text)
 
     def test_markers_preserve_user_artwork_and_follow_hand_visibility(self):
         markers = self.face.find("Scene/Group[@name='vigil-perimeter-markers']")
         self.assertEqual('[CONFIGURATION.showHands] == "TRUE"', markers.find('Condition/Expressions/Expression').text)
         self.assertIsNone(markers.find('.//PartDraw'))
         images = markers.findall('.//PartImage')
-        self.assertEqual(['vigil_minutenmarkers', 'vigil_hourmarkers'], [image.find('Image').get('resource') for image in images])
+        self.assertEqual(['vigil_minutemarkers_close', 'vigil_minutemarkers_wide', 'vigil_hourmarkers_close', 'vigil_hourmarkers_wide'], [image.find('Image').get('resource') for image in images])
         for image in images:
             self.assertEqual(['0', '0', '450', '450'], [image.get(key) for key in ('x', 'y', 'width', 'height')])
             svg = ET.parse(ROOT / 'design-assets/vigil' / (image.find('Image').get('resource') + '.svg')).getroot()
             self.assertEqual('0 0 450 450', svg.get('viewBox'))
+
+    def test_marker_grayscale_options_start_with_original_and_have_no_hues(self):
+        for kind in ('minute', 'hour'):
+            options = self.face.findall(f"UserConfigurations/ColorConfiguration[@id='{kind}MarkerColor']/ColorOption")
+            self.assertEqual('original', options[0].get('id'))
+            self.assertEqual('#FFFFFFFF', options[1].get('colors'))
+            self.assertEqual('#FF000000', options[-1].get('colors'))
+            for option in options:
+                color = option.get('colors')
+                self.assertEqual(color[3:5], color[5:7])
+                self.assertEqual(color[5:7], color[7:9])
 
     def test_native_seconds_share_center_opacity_mask_and_offer_red_or_medium_gray(self):
         color = self.face.find("UserConfigurations/ColorConfiguration[@id='secondColor']")

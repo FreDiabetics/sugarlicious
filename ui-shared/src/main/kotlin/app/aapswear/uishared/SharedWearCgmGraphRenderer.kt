@@ -65,6 +65,8 @@ data class SharedWearCgmGraphStyle(
     val maximumScaleEnabled: Boolean = true,
     val currentDotContourAtLiveEdge: Boolean = false,
     val timeAxisOuterLabelInsetDp: Float = 3f,
+    val timeHoursBold: Boolean = true,
+    val timeAxisBottomInsetDp: Float? = null,
 )
 
 object DirectToWatchGraphDefaults {
@@ -510,9 +512,18 @@ object SharedWearCgmGraphRenderer {
                 val tickEnd = tickStart + spec.tickLengthDp * oneDp
                 // The live position is marked like every other axis value: a short solid tick at the
                 // exact X of the former full-height Now line. Label alignment must not move the tick.
-                canvas.drawLine(x, tickStart, x, tickEnd, line)
+                SystemTypography.apply(text, tick.hoursBack == 0 || input.style.timeHoursBold)
                 val baseline = tickEnd + spec.tickToLabelGapDp * oneDp - text.ascent()
-                canvas.drawText(tick.label, labelX, minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline), text)
+                val bottomInset = input.style.timeAxisBottomInsetDp
+                val labelBaseline =
+                    if (bottomInset == null) {
+                        minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline)
+                    } else {
+                        heightPx - bottomInset * oneDp - text.descent()
+                    }
+                val shift = if (bottomInset == null) 0f else labelBaseline - baseline
+                canvas.drawLine(x, tickStart + shift, x, tickEnd + shift, line)
+                canvas.drawText(tick.label, labelX, labelBaseline, text)
             }
     }
 

@@ -67,9 +67,13 @@ internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorat
         for (index in 0 until parts.length) {
             val part = parts.item(index) as Element
             val image = part.getElementsByTagName("Image").item(0) as Element
-            val bitmap = context.assets.open(image.getAttribute("resource") + ".png").use(BitmapFactory::decodeStream)
+            val resource = image.getAttribute("resource")
+            if (!resource.endsWith("_close")) continue
+            val bitmap = context.assets.open(resource + ".png").use(BitmapFactory::decodeStream)
             paint.alpha = 255
+            paint.colorFilter = PorterDuffColorFilter(if (resource.contains("minutemarkers")) 0xFF2B2B2B.toInt() else 0xFF282828.toInt(), PorterDuff.Mode.SRC_IN)
             canvas.drawBitmap(bitmap, null, part.bounds(), paint)
+            paint.colorFilter = null
         }
     }
 

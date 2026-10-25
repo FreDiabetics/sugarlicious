@@ -25,7 +25,7 @@ val syncVigilPreviewDebugAssets =
             rename { "vigil_preview_definition.xml" }
         }
         from(rootProject.file("watchfaces/sugarlicious-direct-to-watch/src/main/res/drawable-nodpi")) {
-            include("vigil_minutenmarkers.png", "vigil_hourmarkers.png", "second_hand_transparent.png")
+            include("vigil_*markers_close.png", "vigil_*markers_wide.png", "second_hand_transparent.png")
         }
     }
 android.sourceSets
