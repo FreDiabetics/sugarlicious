@@ -352,6 +352,23 @@ class G7CollectorDiagnosticsTest {
     }
 
     @Test
+    fun `completed radio failure retains each connection generation and callback`() {
+        val store = G7CollectorDiagnosticStore(context)
+        val attempt = store.begin(manual = false, restart = false, nowEpochMs = 0L)
+        repeat(4) { generation ->
+            store.record(attempt.attemptId, CollectorDiagnosticStage.CONNECT_REQUEST, message = "GATT_GENERATION_CREATED generation=$generation", nowEpochMs = generation * 10L + 1)
+            store.record(attempt.attemptId, CollectorDiagnosticStage.CONNECT_REQUEST, CollectorDiagnosticResult.RECOVERABLE_ERROR, "GATT_133_RECEIVED generation=$generation", nowEpochMs = generation * 10L + 2)
+            store.record(attempt.attemptId, CollectorDiagnosticStage.SCANNING, message = "noise", nowEpochMs = generation * 10L + 3)
+        }
+        store.record(attempt.attemptId, CollectorDiagnosticStage.ERROR, CollectorDiagnosticResult.RECOVERABLE_ERROR, "GATT_CONNECT_FAILED", nowEpochMs = 100L)
+
+        val restored = G7CollectorDiagnosticStore(context).snapshot().single()
+        assertEquals(8, restored.events.count { it.stage == CollectorDiagnosticStage.CONNECT_REQUEST })
+        assertEquals("GATT_CONNECT_FAILED", restored.events.last().message)
+        assertTrue(restored.events.size <= 16)
+    }
+
+    @Test
     fun `reading summary counts missing five minute windows in chronological order`() {
         val readings = listOf(reading(20L), reading(0L), reading(5L))
         val summary = summarizeG7Readings(readings, startOfDayEpochMs = 1L)
