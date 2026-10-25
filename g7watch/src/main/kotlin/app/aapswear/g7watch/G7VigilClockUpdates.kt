@@ -33,7 +33,7 @@ internal class G7VigilClockUpdates(
         if (registered) return
         context.registerReceiver(receiver, IntentFilter().apply { actions.forEach(::addAction) }, Context.RECEIVER_NOT_EXPORTED)
         registered = true
-        refresh()
+        refresh(includeHands = true)
     }
 
     fun stop() {
@@ -42,10 +42,10 @@ internal class G7VigilClockUpdates(
         registered = false
     }
 
-    private fun refresh() {
+    private fun refresh(includeHands: Boolean = false) {
         requestUpdate(DirectToWatchClockComplication::class.java)
         requestUpdate(DirectToWatchAmbientClockComplication::class.java)
-        requestUpdate(DirectToWatchHandsComplication::class.java)
+        if (includeHands) requestUpdate(DirectToWatchHandsComplication::class.java)
     }
 
     private companion object {

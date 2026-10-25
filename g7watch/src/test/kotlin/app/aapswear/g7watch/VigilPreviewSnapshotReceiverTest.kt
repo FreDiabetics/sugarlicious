@@ -28,12 +28,19 @@ class VigilPreviewSnapshotReceiverTest {
             .clear()
             .commit()
         val result = renderVigilPreview(context, source, replaceClock = false)
+        var clockInk = 0
         for (y in 370..453) {
             for (x in 96..383) {
-                assertEquals("Keep native captured clock pixel $x,$y", source.getPixel(x, y), result.getPixel(x, y))
+                // The supplied markers may now occupy formerly black clock-slot background.
+                // Preserve the captured native clock's actual white glyphs, not empty space.
+                if (source.getPixel(x, y) == Color.WHITE) {
+                    clockInk++
+                    assertEquals("Keep native captured clock glyph $x,$y", Color.WHITE, result.getPixel(x, y))
+                }
             }
         }
-        assertEquals("Keep captured glucose header", source.getPixel(240, 80), result.getPixel(240, 80))
+        assertTrue(clockInk > 100)
+        assertEquals("Keep captured glucose header away from the new seconds hand", source.getPixel(160, 80), result.getPixel(160, 80))
         assertTrue("Shared native hands and pivot must be added", result.getPixel(240, 240) != source.getPixel(240, 240))
         val output = File("build/reports/vigil-visual-qa/preview.png")
         requireNotNull(output.parentFile).mkdirs()
@@ -60,7 +67,7 @@ class VigilPreviewSnapshotReceiverTest {
         File(context.filesDir, "vigil-preview-source.png").outputStream().use { source.compress(Bitmap.CompressFormat.PNG, 100, it) }
         VigilPreviewSnapshotReceiver().onReceive(context, Intent(VigilPreviewSnapshotReceiver.ACTION))
         val result = BitmapFactory.decodeFile(File(context.filesDir, "vigil-preview-2210.png").path)
-        assertEquals("The actual top WFF marker must be present", 0xFFCCCCCC.toInt(), result.getPixel(225, 12))
+        assertTrue("The native red seconds hand must be present", Color.red(result.getPixel(225, 12)) > 200)
         assertTrue("The native analog hands must overlay the center", (190..260).any { y -> (190..260).any { x -> result.getPixel(x, y) != Color.MAGENTA } })
         assertTrue(
             "Original bright hands must render above their dark shadow layers",

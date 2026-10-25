@@ -1,6 +1,5 @@
 """Vigil reuses canonical hands and keeps rounded indices clear of provider ink."""
 from pathlib import Path
-import math
 import unittest
 import xml.etree.ElementTree as ET
 
@@ -28,13 +27,13 @@ class VigilHandsTest(unittest.TestCase):
         self.assertIsNone(scene.find("AnalogClock"))
         self.assertEqual("ANALOG", self.face.find("Metadata[@key='CLOCK_TYPE']").get("value"))
         build = (ROOT / "complications/build.gradle.kts").read_text()
-        for resource in ("hour_hand_transparent", "minute_hand_transparent"):
+        for resource in ("hour_hand_transparent", "minute_hand_transparent", "second_hand_transparent"):
             self.assertIn('"' + resource + '.png"', build)
             self.assertTrue((ROOT / "watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi" / (resource + ".png")).is_file())
 
     def test_digital_clock_and_hands_both_supply_active_and_ambient_images(self):
         self.assertIsNone(self.face.find("Scene/ComplicationSlot[@slotId='6']"))
-        for slot_id in ("0", "1", "5", "7"):
+        for slot_id in ("0", "1", "5"):
             slot = self.face.find(f".//ComplicationSlot[@slotId='{slot_id}']")
             images = slot.findall(".//PartImage/Image")
             self.assertEqual(["[COMPLICATION.SMALL_IMAGE]", "[COMPLICATION.SMALL_IMAGE_AMBIENT]"], [image.get("resource") for image in images])
@@ -67,25 +66,29 @@ class VigilHandsTest(unittest.TestCase):
         info = ET.parse(FACE / "src/main/res/xml/watch_face_info.xml").getroot()
         self.assertEqual("true", info.find("Editable").get("value"))
 
-    def test_round_markers_are_symmetric_and_clear_all_occupied_regions(self):
+    def test_markers_preserve_user_artwork_and_follow_hand_visibility(self):
         markers = self.face.find("Scene/Group[@name='vigil-perimeter-markers']")
-        lines = markers.findall("PartDraw/Line")
-        self.assertEqual(28, len(lines))
-        occupied = [(0, 140, 450, 345), (120, 30, 330, 138), (90, 347, 360, 425)]
-        points = []
-        for line in lines:
-            stroke = line.find("Stroke")
-            self.assertEqual("ROUND", stroke.get("cap"))
-            x1, y1, x2, y2 = [float(line.get(key)) for key in ("startX", "startY", "endX", "endY")]
-            self.assertAlmostEqual(217, math.hypot(x2 - 225, y2 - 225), places=3)
-            self.assertIn(round(math.hypot(x2 - x1, y2 - y1)), (5, 10))
-            clearance = float(stroke.get("thickness")) / 2 + 2
-            bounds = min(x1, x2) - clearance, min(y1, y2) - clearance, max(x1, x2) + clearance, max(y1, y2) + clearance
-            for left, top, right, bottom in occupied:
-                self.assertFalse(bounds[0] < right and bounds[2] > left and bounds[1] < bottom and bounds[3] > top)
-            points.append((x2, y2))
-        for x, y in points:
-            self.assertTrue(any(abs(other_x - (450 - x)) < .001 and abs(other_y - y) < .001 for other_x, other_y in points))
+        self.assertEqual('[CONFIGURATION.showHands] == "TRUE"', markers.find('Condition/Expressions/Expression').text)
+        self.assertIsNone(markers.find('.//PartDraw'))
+        images = markers.findall('.//PartImage')
+        self.assertEqual(['vigil_minutenmarkers', 'vigil_hourmarkers'], [image.find('Image').get('resource') for image in images])
+        for image in images:
+            self.assertEqual(['0', '0', '450', '450'], [image.get(key) for key in ('x', 'y', 'width', 'height')])
+            svg = ET.parse(ROOT / 'design-assets/vigil' / (image.find('Image').get('resource') + '.svg')).getroot()
+            self.assertEqual('0 0 450 450', svg.get('viewBox'))
+
+    def test_native_seconds_share_center_opacity_mask_and_offer_red_or_medium_gray(self):
+        color = self.face.find("UserConfigurations/ColorConfiguration[@id='secondColor']")
+        self.assertEqual('red', color.get('defaultValue'))
+        self.assertEqual(['#FFFF3B30', '#FF9E9E9E'], [option.get('colors') for option in color])
+        group = self.face.find(".//Group[@name='vigil-native-hands']")
+        self.assertEqual('160', group.find("Variant[@mode='AMBIENT']").get('value'))
+        self.assertEqual('[COMPLICATION.SMALL_IMAGE]', group.find("PartImage[@renderMode='MASK']/Image").get('resource'))
+        hands = group.findall('AnalogClock/SecondHand')
+        self.assertEqual(2, len(hands))
+        self.assertEqual('[CONFIGURATION.secondColor.0]', hands[-1].get('tintColor'))
+        self.assertTrue(all(hand.find('Sweep') is not None for hand in hands))
+        self.assertTrue(all(clock.find("Variant[@mode='AMBIENT']").get('value') == '0' for clock in group.findall('AnalogClock') if clock.find('SecondHand') is not None))
 
 
 if __name__ == "__main__":

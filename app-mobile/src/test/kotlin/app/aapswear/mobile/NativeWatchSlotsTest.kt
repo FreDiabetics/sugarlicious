@@ -7,6 +7,33 @@ import java.io.File
 
 class NativeWatchSlotsTest {
     @Test
+    fun `curved preview glyphs center on the native text circle`() {
+        assertEquals(10f, nativeCircularTextBaselineOffset(-28f, 8f), .001f)
+    }
+
+    @Test
+    fun `Orbit inner isolated previews share the outer inner slot geometry`() {
+        val slots = source("sugarlicious-orbit").inputStream().use(::readNativeWatchSlots)
+        val outer = slots.single { it.id == 4 }
+        val inner = slots.single { it.id == 5 }
+        val normalized = nativeIsolatedPreviewSlot(2, inner, outer.bounds)
+        assertEquals(outer.bounds.width, normalized.bounds.width, .01f)
+        val outerText =
+            outer.templates
+                .getValue("SHORT_TEXT")
+                .texts
+                .first()
+        val innerText =
+            normalized.templates
+                .getValue("SHORT_TEXT")
+                .texts
+                .first()
+        assertEquals(outerText.bounds.width, innerText.bounds.width, .01f)
+        assertEquals(inner, nativeIsolatedPreviewSlot(0, inner, outer.bounds))
+        assertEquals(5, normalized.id)
+    }
+
+    @Test
     fun `Orbit lower left preview preserves the 280 degree counterclockwise track and clockwise fill`() {
         val slot = source("sugarlicious-orbit").inputStream().use(::readNativeWatchSlots).single { it.id == 3 }
         for (type in listOf("RANGED_VALUE", "GOAL_PROGRESS")) {

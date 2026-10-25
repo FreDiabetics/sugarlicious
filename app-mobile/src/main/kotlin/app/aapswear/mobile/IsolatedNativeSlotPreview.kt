@@ -19,6 +19,31 @@ import kotlin.math.sin
 
 internal fun nativeSlotPreviewPath(bounds: NativeSlotBounds): Path = nativeWatchSlotPath(nativeSlotPreviewBounds(bounds))
 
+/** Only the isolated picker normalizes the inner ring to its larger sibling's pill size. */
+internal fun nativeIsolatedPreviewSlot(faceIndex: Int, slot: NativeWatchSlot, reference: NativeSlotBounds? = null): NativeWatchSlot {
+    if (faceIndex == 0 || slot.id != 5 || slot.bounds.kind != "BoundingArc" || reference == null) return slot
+    val delta = (reference.width - slot.bounds.width) / 2f
+
+    fun NativeSlotBounds.expanded() = copy(x = x - delta, y = y - delta, width = width + 2 * delta, height = height + 2 * delta)
+    return slot.copy(
+        bounds = slot.bounds.expanded(),
+        templates =
+            slot.templates.mapValues { (_, template) ->
+                template.copy(
+                    texts = template.texts.map { text -> if (text.bounds.kind == "BoundingArc") text.copy(bounds = text.bounds.expanded()) else text },
+                    track = template.track?.expanded(),
+                    icon =
+                        template.icon?.let { icon ->
+                            val dx = icon.x + icon.width / 2 - (slot.bounds.x + slot.bounds.width / 2)
+                            val dy = icon.y + icon.height / 2 - (slot.bounds.y + slot.bounds.height / 2)
+                            val radius = hypot(dx, dy)
+                            if (radius > 0f) icon.copy(x = icon.x + delta * dx / radius, y = icon.y + delta * dy / radius) else icon
+                        },
+                )
+            },
+    )
+}
+
 /** A padded circular/curved backdrop follows native template ink without clipping that ink. */
 internal fun nativeDynamicPreviewBackdrop(slot: NativeWatchSlot, variantId: Int?): Path {
     val type = eligibleNativeVariants(slot).firstOrNull { it.id == (variantId ?: nativeDefaultVariant(slot)) }?.type?.name ?: slot.providerType
@@ -84,8 +109,10 @@ internal fun nativeDynamicPreviewBounds(slot: NativeWatchSlot, variantId: Int?):
 @Composable
 internal fun IsolatedNativeSlotPreview(faceIndex: Int, slot: NativeWatchSlot, selected: Boolean, modifier: Modifier = Modifier, siblings: List<NativeSlotBounds> = emptyList(), variantId: Int? = null) {
     val context = LocalContext.current
+    val reference = siblings.filter { it.kind == "BoundingArc" && it.width < 400f }.maxByOrNull { it.width }
+    val previewSlot = nativeIsolatedPreviewSlot(faceIndex, slot, reference)
     Canvas(modifier.semantics { contentDescription = "${slot.displayName} · Demo der nativen Complication-Vorlage" }) {
-        val backdrop = nativeDynamicPreviewBackdrop(slot, variantId)
+        val backdrop = nativeDynamicPreviewBackdrop(previewSlot, variantId)
         val crop = backdrop.getBounds()
         val factor = size.minDimension / maxOf(crop.width, crop.height)
         withTransform({
@@ -93,7 +120,7 @@ internal fun IsolatedNativeSlotPreview(faceIndex: Int, slot: NativeWatchSlot, se
             scale(factor, factor, Offset.Zero)
         }) {
             drawPath(backdrop, Color.Black)
-            drawNativeSlotDemo(slot, variantId, context)
+            drawNativeSlotDemo(previewSlot, variantId, context)
             if (selected) drawPath(backdrop, Color(0xFF6CA9FF), style = Stroke(3f))
         }
     }
