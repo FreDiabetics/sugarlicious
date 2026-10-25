@@ -34,7 +34,7 @@ class VigilPreviewSnapshotReceiver : BroadcastReceiver() {
     }
 }
 
-internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorations: Boolean = true, replaceClock: Boolean = true): Bitmap {
+internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorations: Boolean = false, replaceClock: Boolean = true): Bitmap {
     val document =
         context.assets.open("vigil_preview_definition.xml").use {
             DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(it)

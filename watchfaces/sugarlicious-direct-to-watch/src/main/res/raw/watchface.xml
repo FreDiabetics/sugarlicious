@@ -9,6 +9,7 @@
             <ColorOption id="red" displayName="seconds_red" colors="#FFFF3B30" />
             <ColorOption id="gray" displayName="seconds_gray" colors="#FF9E9E9E" />
         </ColorConfiguration>
+        <BooleanConfiguration id="showMinuteMarkers" displayName="minute_markers_visibility" defaultValue="TRUE" />
     </UserConfigurations>
     <Scene backgroundColor="#FF000000">
         <Group name="vigil-perimeter-markers" x="0" y="0" width="450" height="450">
@@ -19,9 +20,16 @@
                 <Compare expression="handsVisible">
                     <Group name="vigil-canonical-markers" x="0" y="0" width="450" height="450">
                         <Variant mode="AMBIENT" target="alpha" value="110" />
-                        <PartImage x="0" y="0" width="450" height="450">
-                            <Image resource="vigil_minutenmarkers" />
-                        </PartImage>
+                        <Condition>
+                            <Expressions>
+                                <Expression name="minutesVisible">[CONFIGURATION.showMinuteMarkers] == "TRUE"</Expression>
+                            </Expressions>
+                            <Compare expression="minutesVisible">
+                                <PartImage x="0" y="0" width="450" height="450">
+                                    <Image resource="vigil_minutenmarkers" />
+                                </PartImage>
+                            </Compare>
+                        </Condition>
                         <PartImage x="0" y="0" width="450" height="450">
                             <Image resource="vigil_hourmarkers" />
                         </PartImage>

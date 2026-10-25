@@ -36,7 +36,12 @@ def configure():
     content = node(visible(markers), "Group", name="vigil-canonical-markers", x=0, y=0, width=450, height=450)
     node(content, "Variant", mode="AMBIENT", target="alpha", value=110)
     for resource in ("vigil_minutenmarkers", "vigil_hourmarkers"):
-        node(node(content, "PartImage", x=0, y=0, width=450, height=450), "Image", resource=resource)
+        owner = content
+        if resource == "vigil_minutenmarkers":
+            condition = node(content, "Condition")
+            node(node(condition, "Expressions"), "Expression", name="minutesVisible").text = '[CONFIGURATION.showMinuteMarkers] == "TRUE"'
+            owner = node(condition, "Compare", expression="minutesVisible")
+        node(node(owner, "PartImage", x=0, y=0, width=450, height=450), "Image", resource=resource)
 
     # Full-face rendering belongs to the existing full-face hands slot. BoundingOval
     # also clips rendering on the real device; it cannot host a full seconds hand.

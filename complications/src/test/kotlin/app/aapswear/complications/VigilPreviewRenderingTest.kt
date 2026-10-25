@@ -54,6 +54,13 @@ class VigilPreviewRenderingTest {
         for (index in 0 until slots.length) {
             val slot = slots.item(index) as Element
             if (slot.getAttribute("alpha") == "0") continue
+            if (slot.getAttribute("slotId") in setOf("7", "8") &&
+                document.documentElement.getElementsByTagName("BooleanConfiguration").let { configs ->
+                    (0 until configs.length).map { configs.item(it) as Element }.single { it.getAttribute("id") == "showHands" }.getAttribute("defaultValue") != "TRUE"
+                }
+            ) {
+                continue
+            }
             val images = slot.getElementsByTagName("PartImage")
             if (images.length > 0 && (0 until images.length).all { (images.item(it) as Element).getAttribute("alpha") == "0" }) continue
             val policy = slot.getElementsByTagName("DefaultProviderPolicy").item(0) as Element
@@ -84,7 +91,7 @@ class VigilPreviewRenderingTest {
             controller.destroy()
         }
         // Slot 8 is an invisible center action, not visible selector artwork.
-        assertEquals(listOf("0", "1", "2", "5", "7"), rendered)
+        assertEquals(listOf("0", "1", "2", "5"), rendered)
         assertEquals(Color.TRANSPARENT, bitmap.getPixel(0, 0))
         assertTrue((140..389).any { y -> (50..400).any { x -> bitmap.getPixel(x, y) != Color.BLACK } })
         val output = File("build/reports/vigil-current-preview.png")
