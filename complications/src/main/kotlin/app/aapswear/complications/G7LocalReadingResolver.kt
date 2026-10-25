@@ -165,7 +165,7 @@ object G7LocalReadingResolver {
                 phone = fallback?.glucoseHistory.orEmpty(),
                 direct = directRows,
                 nowEpochMs = nowEpochMs,
-                watchIsCanonical = resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT,
+                watchIsCanonical = watchOnly || resolution.canonicalSource == CgmCanonicalSource.WATCH_G7_DIRECT,
                 preferredSource = chosenSource,
                 watchOnly = watchOnly,
             )

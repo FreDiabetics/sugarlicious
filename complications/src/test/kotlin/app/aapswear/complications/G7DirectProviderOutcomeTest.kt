@@ -30,6 +30,18 @@ class G7DirectProviderOutcomeTest {
     }
 
     @Test
+    fun `watch only retains stale graph history without marking the current source fresh`() {
+        val history = listOf(17L, 22L, 45L, 120L).map { minutes -> reading().copy(measuredAt = now - minutes * 60_000L) }
+        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(history, DirectStatus("ACTIVE", "ACTIVE"))))
+        assertEquals(history.size, resolved?.glucoseHistory?.size)
+        assertEquals(app.aapswear.model.CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+        assertTrue(DirectToWatchPresentationFormatter.header(resolved, now).signalLoss)
+        for (hours in listOf(1, 2, 3, 6, 12, 24)) {
+            assertEquals(history.count { now - it.measuredAt <= hours * 3_600_000L }, DirectToWatchPresentationFormatter.samples(resolved, now, hours).size)
+        }
+    }
+
+    @Test
     fun `empty unavailable denied and malformed outcomes remain distinct and non throwing`() {
         val outcomes =
             listOf(

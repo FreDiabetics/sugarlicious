@@ -119,6 +119,28 @@ class DirectToWatchComplicationsTest {
         assertEquals(null, header(401.0).trend)
     }
 
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `Vigil signal loss label renders red in active and ambient modes`() {
+        val service =
+            org.robolectric.Robolectric
+                .buildService(DirectToWatchHeaderComplication::class.java)
+                .create()
+                .get()
+        val presentation = DirectToWatchPresentationFormatter.header(directState(now - 17 * 60_000L), now)
+        for (ambient in listOf(false, true)) {
+            val bitmap = service.renderHeader(presentation, ambient = ambient)
+            assertTrue(
+                (70 until 108).any { y ->
+                    (20 until 260).any { x ->
+                        val pixel = bitmap.getPixel(x, y)
+                        Color.alpha(pixel) > 200 && Color.red(pixel) > 200 && Color.green(pixel) < 130 && Color.blue(pixel) < 150
+                    }
+                },
+            )
+        }
+    }
+
     @Test fun `signal loss retains last value and trend and marks only glucose`() {
         val header = DirectToWatchPresentationFormatter.header(directState(now - 16 * 60_000L), now)
         assertEquals("152", header.glucose)

@@ -727,6 +727,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                 textSize = 29f
             }
         if (presentation.signalLoss) {
+            deltaPaint.color = Color.rgb(255, 77, 94)
             deltaPaint.textAlign = Paint.Align.CENTER
             canvas.drawText("Signalverlust", centerX, 96f, deltaPaint)
             return bitmap

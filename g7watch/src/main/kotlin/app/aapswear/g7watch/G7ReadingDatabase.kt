@@ -7,6 +7,7 @@ import android.content.pm.ApplicationInfo
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
+import app.aapswear.complications.DirectToWatchPreferences
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingRepository
@@ -213,6 +214,7 @@ internal class G7ReadingDatabase(
             Intent(ACTION_G7_READING_UPDATED).setPackage(SUGARLICIOUS_PACKAGE),
             READ_G7_PERMISSION,
         )
+        DirectToWatchPreferences.requestUpdates(appContext)
         G7CollectorTileService.requestUpdate(appContext)
     }
 

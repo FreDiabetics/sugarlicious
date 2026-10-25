@@ -42,3 +42,13 @@ Six consecutive successful validated live cycles were recorded through 18:38 bef
 - New collector behavior fix: none justified solely by these captures. Do not change authentication, scan timing or packet decoding based on the out-of-range failures.
 - End-to-end recovery after the user-confirmed range loss: observed successfully in attempt 9261.
 - Historical failure audit remains open: this capture does not justify claiming every older failure fixed.
+
+
+## Follow-up: proved Vigil update and stale-history defects
+
+The user observed a signal-loss label and only one old dot after an otherwise successful collection. Two actual code paths explain these symptoms:
+
+1. `resolveWatchDirect` deliberately enters NO_SOURCE when the latest direct reading is stale. The history merge used only `canonicalSource == WATCH_G7_DIRECT` as its inclusion gate, so it threw away all persisted direct history precisely at signal loss. The header retained its last value, and the graph appended that single value as its only dot. WATCH_ONLY now retains direct history independently of freshness; NO_SOURCE and the original measurement timestamps remain unchanged. Regression coverage includes six graph windows and explicitly asserts NO_SOURCE.
+2. Database publication notified Sugarlicious Wear (`app.aapswear`) and tiles, but the active Vigil WFF points to providers hosted by SugarWear (`app.aapswear.g7watch`). The compatibility receiver requested components in its own Sugarlicious package. Consequently, the actual providers could retain old images until their next system refresh. The existing post-commit/coalesced database publication now directly requests the Vigil providers in the collector package as well. No timer or extra polling is introduced, and historical batches retain their single fanout.
+
+The Vigil signal-loss label is explicitly red in active and ambient rendering. This does not change sensor state, authentication, freshness, alarm thresholds or timestamps. Regression tests verify red pixels and immediate requests for the collector-hosted header, graph and ambient graph components.
