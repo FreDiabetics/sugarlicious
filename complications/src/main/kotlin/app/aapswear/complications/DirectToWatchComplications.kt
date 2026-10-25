@@ -135,14 +135,14 @@ internal object DirectToWatchPresentationFormatter {
             if (activeSessionWithoutData(state)) {
                 return DirectToWatchHeaderPresentation(
                     glucose = "-",
-                    secondary = "Keine aktuellen Daten\nBitte warten oder Verbindung\nzum Sensor prÃ¼fen",
+                    secondary = "Keine aktuellen Daten\nBitte warten oder Verbindung\nzum Sensor prüfen",
                 )
             }
             return DirectToWatchHeaderPresentation(
                 glucose = "-",
                 secondary =
                     if (state?.glucose != null || freshness == Freshness.STALE) {
-                        "Keine aktuellen\nGlukosewerte oder Alarme\nverfÃ¼gbar"
+                        "Keine aktuellen\nGlukosewerte oder Alarme\nverfügbar"
                     } else {
                         "Bitte Sensor\nstarten oder\nkoppeln"
                     },
@@ -186,8 +186,8 @@ internal object DirectToWatchPresentationFormatter {
             return DirectToWatchGraphStatusPresentation("")
         }
         val glucose = requireNotNull(state.glucose)
-        val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "â€”"
-        return DirectToWatchGraphStatusPresentation("${graphHours}h â€¢ $age")
+        val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "\u2014"
+        return DirectToWatchGraphStatusPresentation("${graphHours}h \u2022 $age")
     }
 
     fun samples(
@@ -797,14 +797,14 @@ class DirectToWatchAnalogHeaderComplication : DirectToWatchHeaderComplication() 
                     .apply(this, true)
             }
         if (presentation.signalLoss) {
-            canvas.drawText("Signalverlust", 225f, 376f - (paint.ascent() + paint.descent()) / 2f, paint)
+            canvas.drawText("Signalverlust", 225f, 385f - (paint.ascent() + paint.descent()) / 2f, paint)
         } else if (presentation.glucose != "-") {
             val delta = presentation.secondary.substringBeforeLast(' ', presentation.secondary)
             val unit = presentation.secondary.substringAfterLast(' ', "")
-            canvas.drawText(delta, 225f, 370f, paint)
+            canvas.drawText(delta, 225f, 379f, paint)
             paint.textSize = 23f
             paint.color = if (ambient) 0xFF707070.toInt() else DirectToWatchPreferences.deltaUnitColor(this, DirectToWatchPreferences.activeAppearanceMode(this))
-            canvas.drawText(unit, 225f, 397f, paint)
+            canvas.drawText(unit, 225f, 406f, paint)
         }
         return bitmap
     }

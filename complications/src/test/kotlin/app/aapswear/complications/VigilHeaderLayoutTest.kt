@@ -128,7 +128,7 @@ class VigilHeaderLayoutTest {
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
             }
-        canvas.drawText("2h â€¢ 2m", 16f, 168f, paint)
+        canvas.drawText("2h • 2m", 16f, 168f, paint)
         paint.textAlign = android.graphics.Paint.Align.CENTER
         paint.textSize = 56f
         canvas.drawText("12:42", 225f, 405f, paint)

@@ -101,6 +101,12 @@ class VigilHandsTest(unittest.TestCase):
                 self.assertEqual(color[3:5], color[5:7])
                 self.assertEqual(color[5:7], color[7:9])
 
+    def test_bottom_hour_marker_is_hidden_in_both_variants(self):
+        from PIL import Image
+        for variant in ('close', 'wide'):
+            image = Image.open(FACE / 'src/main/res/drawable-nodpi' / f'vigil_hourmarkers_{variant}.png').convert('RGBA')
+            self.assertIsNone(image.crop((219, 400, 232, 450)).getchannel('A').getbbox())
+
     def test_native_seconds_share_center_opacity_mask_and_offer_red_or_medium_gray(self):
         color = self.face.find("UserConfigurations/ColorConfiguration[@id='secondColor']")
         self.assertEqual('red', color.get('defaultValue'))
