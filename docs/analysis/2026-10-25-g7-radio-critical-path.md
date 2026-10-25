@@ -63,3 +63,13 @@ The live Orbit screenshot also exposed why all trend arrows remained small: the 
 Both face builds and the official WFF validator passed; 33 existing ApeX/Orbit layout tests passed. Both updated watchfaces were installed. An actual post-install Orbit screenshot shows the single arrow at the intended larger height; a live double-arrow comparison remains dependent on real trend data.
 
 The ordinary glucose ranged-value provider uses the same neutral canvas, so the host's glucose-range discrimination does not accidentally enlarge a full-size ordinary glucose icon. Short/long ordinary glucose icons are unchanged. Ten complication icon tests, complication lint/static checks and Mobile/Wear/Collector builds passed. Mobile, Wear and Collector were reinstalled with this shared icon-contract follow-up. Final Collector APK SHA-256: `3228B41F20045B9DFB4A72A46FB3B59D7D60B052ACF3EF831D614A715B4C6A68`.
+
+## Automatic startup between sensor windows
+
+Attempts 9186 and 9189 were unscheduled automatic startup cycles after package replacement, not scheduled lost sensor windows. Their direct timeout and empty fallback occurred during the normal silent interval. The next scheduled presence-first cycles 9187 and 9190 each found one advertisement (RSSI -80/-84 dBm) and stored fresh LIVE data. This distinction prevents interpreting package-restoration work as a lost clinical measurement window.
+
+Verified the actual boot/package path calls `G7CollectorService.start()`. Automatic restoration now waits for the next known window when the current sensor/session has a validated, non-future LIVE value and its next lead is still in the future. Backfill, invalid data, another session, explicit manual/restart commands and actual delivered window alarms do not use this shortcut. Transient scanning state is cleared and the service displays WAITING_FOR_NEXT_READING.
+
+The known expected timestamp is rearmed explicitly through the existing scheduler, rather than passed through missed-window advancement. A regression at 269.5 seconds after the previous reading proves that the minimum alarm lead cannot skip the next window. Focused lifecycle/recovery tests, build, lint, Detekt and ktlint pass; independent review found no remaining important issue.
+
+Installed final startup-fix APK SHA-256: `56665B62B7B591BC4563F17D7451EC151FFB9309D8A94FB3EF1E2D43F7F020E7`. At 12:35 UTC, after replacement in the middle of the interval: fresh sensor data retained, WAITING_FOR_NEXT_READING, zero active attempts and the correct next 12:38 UTC window armed. No intermediate scan or new pairing was started.

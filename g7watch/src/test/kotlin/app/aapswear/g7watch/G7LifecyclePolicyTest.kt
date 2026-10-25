@@ -19,6 +19,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7LifecyclePolicyTest {
+    @Test fun `automatic restoration can wait only for the same sessions fresh live phase`() {
+        val measuredAt = 1_000_000L
+        val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, measuredAt, measuredAt)
+        val state = G7PersistedState(collectorEnabled = true, sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        assertTrue(shouldAwaitG7SensorWindow(state, measuredAt + 120_000L))
+        assertFalse(shouldAwaitG7SensorWindow(state, measuredAt + 270_000L))
+        assertFalse(shouldAwaitG7SensorWindow(state, measuredAt - 1L))
+        assertFalse(shouldAwaitG7SensorWindow(state.copy(lastReading = null), measuredAt))
+        assertFalse(shouldAwaitG7SensorWindow(state.copy(sensor = G7Sensor("new", "new-session")), measuredAt))
+        assertFalse(shouldAwaitG7SensorWindow(state.copy(lastReading = reading.copy(origin = app.aapswear.g7.CgmReadingOrigin.BACKFILL)), measuredAt))
+        assertFalse(shouldAwaitG7SensorWindow(state.copy(lastReading = reading.copy(status = app.aapswear.g7.CgmReadingStatus.INVALID)), measuredAt))
+    }
+
     @Test fun `Bluetooth restart recovers only an enabled configured collector`() {
         assertTrue(
             shouldRecoverG7AfterBluetoothState(

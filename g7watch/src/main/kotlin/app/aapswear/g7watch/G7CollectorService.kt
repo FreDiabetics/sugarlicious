@@ -158,6 +158,38 @@ class G7CollectorService : Service() {
             }
         }
 
+        // Process/package restoration can happen in the middle of the five-minute silence.
+        // A fresh validated LIVE value already provides the next radio phase: do not turn an
+        // expected lack of advertisements into a failed scan or a degraded-radio streak.
+        if (request == CycleRequest.AUTOMATIC &&
+            scheduledCycle == null &&
+            collectionJob?.isActive != true &&
+            shouldAwaitG7SensorWindow(persisted, serviceStartAt)
+        ) {
+            val expectedAt = requireNotNull(persisted.lastReading).timestampEpochMs + G7ReconnectScheduler.EXPECTED_READING_INTERVAL_MS
+            val restored =
+                G7ReconnectAlarmScheduler.rearmScheduledCycle(
+                    this,
+                    CollectorCycleTiming(
+                        expectedReadingEpoch = expectedAt,
+                        requestedReconnectEpoch = expectedAt - G7ReconnectScheduler.PRECONNECT_LEAD_MS,
+                    ),
+                    persisted,
+                )
+            restored.requestedReconnectEpoch?.let { reconnectAt ->
+                store.save(
+                    clearG7ScanRuntime(store.read()).copy(
+                        nextReconnectEpochMs = reconnectAt,
+                        protocolState = G7ProtocolState.WAITING_FOR_NEXT_READING,
+                        connectionState = G7ConnectionState.DISCONNECTED,
+                        activeAttemptId = null,
+                    ),
+                )
+            }
+            G7WakeHandoff.release()
+            return
+        }
+
         // Stage the next automatic slot before any scan/GATT work starts. The prior implementation
         // consumed the current alarm first and scheduled the next one only after cycle completion;
         // a process death mid-scan therefore left the collector with no future wake-up at all.
