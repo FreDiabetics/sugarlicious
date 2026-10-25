@@ -8,6 +8,8 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import androidx.core.graphics.withTranslation
 import app.aapswear.complications.VigilHands
@@ -41,7 +43,6 @@ internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorat
 
     fun Element.bounds() = RectF(number("x"), number("y"), number("x") + number("width"), number("y") + number("height"))
 
-    fun Element.alpha() = number("alpha", 255f).toInt()
     val clock =
         (0 until document.getElementsByTagName("ComplicationSlot").length)
             .map { document.getElementsByTagName("ComplicationSlot").item(it) as Element }
@@ -61,20 +62,26 @@ internal fun renderVigilPreview(context: Context, source: Bitmap, includeDecorat
     val groups = document.getElementsByTagName("Group")
     val markers = (0 until groups.length).map { groups.item(it) as Element }.single { it.getAttribute("name") == "vigil-perimeter-markers" }
     canvas.withTranslation(markers.number("x"), markers.number("y")) {
-        val parts = markers.getElementsByTagName("PartDraw")
+        val parts = markers.getElementsByTagName("PartImage")
         for (index in 0 until parts.length) {
             val part = parts.item(index) as Element
-            val line = part.getElementsByTagName("Line").item(0) as Element
-            val stroke = line.getElementsByTagName("Stroke").item(0) as Element
-            paint.color = Color.parseColor(stroke.getAttribute("color"))
-            paint.alpha = Color.alpha(paint.color) * markers.alpha() / 255 * part.alpha() / 255
-            paint.strokeWidth = stroke.number("thickness")
-            paint.strokeCap = Paint.Cap.valueOf(stroke.getAttribute("cap"))
-            canvas.drawLine(part.number("x") + line.number("startX"), part.number("y") + line.number("startY"), part.number("x") + line.number("endX"), part.number("y") + line.number("endY"), paint)
+            val image = part.getElementsByTagName("Image").item(0) as Element
+            val bitmap = context.assets.open(image.getAttribute("resource") + ".png").use(BitmapFactory::decodeStream)
+            paint.alpha = 255
+            canvas.drawBitmap(bitmap, null, part.bounds(), paint)
         }
     }
 
     paint.alpha = 255
     canvas.drawBitmap(VigilHands.render(context, 22, 10), 0f, 0f, paint)
+    val seconds = context.assets.open("second_hand_transparent.png").use(BitmapFactory::decodeStream)
+    canvas.withTranslation(2f, 3f) {
+        paint.colorFilter = PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN)
+        paint.alpha = (160 * VigilHands.opacity(context)).toInt()
+        canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
+    }
+    paint.colorFilter = PorterDuffColorFilter(0xFFFF3B30.toInt(), PorterDuff.Mode.MULTIPLY)
+    paint.alpha = (255 * VigilHands.opacity(context)).toInt()
+    canvas.drawBitmap(seconds, null, RectF(0f, 0f, 450f, 450f), paint)
     return output
 }

@@ -47,7 +47,7 @@
         <service android:name=".DirectToWatchHandsComplication" android:label="Vigil · Zeiger" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" /></intent-filter>
             <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SMALL_IMAGE" />
-            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="60" />
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS" android:value="0" />
         </service>
         <service android:name=".DirectToWatchHandsToggleComplication" android:label="Vigil · Zeigertaster" android:icon="@drawable/ic_direct_to_watch_status" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" /></intent-filter>

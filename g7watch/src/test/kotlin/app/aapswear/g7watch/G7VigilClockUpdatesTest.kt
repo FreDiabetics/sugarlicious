@@ -27,7 +27,7 @@ class G7VigilClockUpdatesTest {
             requested.clear()
             context.sendBroadcast(Intent(action))
             shadowOf(android.os.Looper.getMainLooper()).idle()
-            assertEquals(action, clocks, requested)
+            assertEquals(action, clocks.take(2), requested)
         }
         updates.stop()
         updates.stop()

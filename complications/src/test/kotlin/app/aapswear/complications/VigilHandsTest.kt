@@ -113,6 +113,20 @@ class VigilHandsTest {
         assertTrue(before != DirectToWatchPreferences.graphHours(scale))
     }
 
+    @Test fun `native seconds opacity mask follows the same center tap as hour and minute hands`() {
+        reset()
+        val provider = Robolectric.buildService(DirectToWatchHandsComplication::class.java).create().get()
+
+        fun alpha(): Int {
+            val data = provider.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
+            val drawable = data.smallImage.image.loadDrawable(provider) as android.graphics.drawable.BitmapDrawable
+            return Color.alpha(drawable.bitmap.getPixel(0, 0))
+        }
+        assertEquals(255, alpha())
+        VigilHands.toggle(context)
+        assertEquals(76, alpha())
+    }
+
     @Test fun `only center provider publishes a tap action and clock supplies ambient imagery`() {
         val hands =
             Robolectric

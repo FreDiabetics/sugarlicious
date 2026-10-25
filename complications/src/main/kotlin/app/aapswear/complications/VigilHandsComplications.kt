@@ -23,7 +23,6 @@ import androidx.wear.watchface.complications.data.SmallImageType
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
-import java.util.Calendar
 
 object VigilHands {
     private const val PREFERENCES = "vigil_interaction"
@@ -51,7 +50,7 @@ object VigilHands {
         ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, DirectToWatchHandsComplication::class.java)).requestUpdateAll()
     }
 
-    /** Canonical device-owned hands. The same renderer is used for runtime and 22:10 capture. */
+    /** Reference composite for 22:10 capture, using the same assets/geometry as native WFF hands. */
     fun render(context: Context, hour: Int, minute: Int, ambient: Boolean = false): Bitmap {
         val output = Bitmap.createBitmap(450, 450, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
@@ -61,12 +60,12 @@ object VigilHands {
         val minuteAngle = minute * 6f
 
         fun hand(bitmap: Bitmap, angle: Float, shadow: Boolean) {
-            val x = if (shadow) 1f else 0f
-            val y = if (shadow) 2f else 0f
+            val x = if (shadow) 2f else 0f
+            val y = if (shadow) 3f else 0f
             val saved = canvas.save()
             canvas.rotate(angle, 225f + x, 225f + y)
             paint.colorFilter = if (shadow) PorterDuffColorFilter(Color.BLACK, PorterDuff.Mode.SRC_IN) else null
-            paint.alpha = if (shadow) 90 else 255
+            paint.alpha = if (shadow) 160 else 255
             canvas.drawBitmap(bitmap, null, RectF(x, y, 450f + x, 450f + y), paint)
             canvas.restoreToCount(saved)
         }
@@ -77,7 +76,7 @@ object VigilHands {
         hand(hourBitmap, hourAngle, false)
         hand(minuteBitmap, minuteAngle, false)
         // The canonical ApeX second-hand pivot has an 8.5 px white outer disc and
-        // a 5 px black inner disc on its 512 px canvas. Keep that hub without adding a second hand.
+        // a 5 px black inner disc on its 512 px canvas. Preserve that hub in the preview composite.
         paint.colorFilter = null
         paint.alpha = 255
         paint.color = Color.WHITE
@@ -93,22 +92,21 @@ object VigilHands {
 }
 
 class DirectToWatchHandsComplication : SuspendingComplicationDataSourceService() {
-    override fun getPreviewData(type: ComplicationType): ComplicationData = build(22, 10)
+    override fun getPreviewData(type: ComplicationType): ComplicationData = build()
 
-    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
-        val now = Calendar.getInstance()
-        return build(now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE))
-    }
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build()
 
-    internal fun build(hour: Int, minute: Int): ComplicationData =
-        SmallImageComplicationData
+    internal fun build(): ComplicationData {
+        val mask = Icon.createWithBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.argb((255 * VigilHands.opacity(this@DirectToWatchHandsComplication)).toInt(), 255, 255, 255)) })
+        return SmallImageComplicationData
             .Builder(
                 SmallImage
-                    .Builder(Icon.createWithBitmap(VigilHands.render(this, hour, minute)), SmallImageType.PHOTO)
-                    .setAmbientImage(Icon.createWithBitmap(VigilHands.render(this, hour, minute, ambient = true)))
+                    .Builder(mask, SmallImageType.PHOTO)
+                    .setAmbientImage(mask)
                     .build(),
                 PlainComplicationText.Builder("Vigil Zeiger").build(),
             ).build()
+    }
 }
 
 class DirectToWatchHandsToggleComplication : SuspendingComplicationDataSourceService() {

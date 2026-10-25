@@ -2,8 +2,10 @@ package app.aapswear.mobile
 
 import android.graphics.Bitmap
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.core.app.ApplicationProvider
@@ -20,6 +22,81 @@ import java.io.File
 @Config(sdk = [35], qualifiers = "mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class NativeSlotDemoRenderingTest {
+    @Test
+    fun `isolated Orbit inner pills have the same silhouette and centered native text`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val cwd = File(requireNotNull(System.getProperty("user.dir")))
+        val relative = "watchfaces/sugarlicious-orbit/src/main/res/raw/watchface.xml"
+        val source = listOf(File(cwd, relative), File(cwd.parentFile, relative)).first(File::isFile)
+        val slots = source.inputStream().use(::readNativeWatchSlots)
+        val outer = slots.single { it.id == 4 }
+        val inner = nativeIsolatedPreviewSlot(2, slots.single { it.id == 5 }, outer.bounds)
+        val outerBounds = nativeDynamicPreviewBackdrop(outer, null).getBounds()
+        val innerBounds = nativeDynamicPreviewBackdrop(inner, null).getBounds()
+        assertEquals(outerBounds.width, innerBounds.width, .01f)
+        assertEquals(outerBounds.height, innerBounds.height, .01f)
+        val sheet = Bitmap.createBitmap(512, 256, Bitmap.Config.ARGB_8888)
+        CanvasDrawScope().draw(
+            Density(1f),
+            LayoutDirection.Ltr,
+            androidx.compose.ui.graphics
+                .Canvas(sheet.asImageBitmap()),
+            Size(512f, 256f),
+        ) {
+            drawRect(Color(0xFF242424))
+            for ((index, slot) in listOf(outer, inner).withIndex()) {
+                val backdrop = nativeDynamicPreviewBackdrop(slot, null)
+                val crop = backdrop.getBounds()
+                val factor = 220f / maxOf(crop.width, crop.height)
+                withTransform({
+                    translate(index * 256f + (256f - crop.width * factor) / 2 - crop.left * factor, (256f - crop.height * factor) / 2 - crop.top * factor)
+                    scale(factor, factor, androidx.compose.ui.geometry.Offset.Zero)
+                }) {
+                    drawPath(backdrop, Color.Black)
+                    drawNativeSlotDemo(slot, null, context)
+                }
+            }
+        }
+        File(System.getProperty("java.io.tmpdir"), "orbit-inner-pill-rendering.png").outputStream().use { sheet.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test
+    fun `clockwise and counterclockwise glyph ink stays centered on its native circle`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val cwd = File(requireNotNull(System.getProperty("user.dir")))
+        val relative = "watchfaces/sugarlicious-orbit/src/main/res/raw/watchface.xml"
+        val source = listOf(File(cwd, relative), File(cwd.parentFile, relative)).first(File::isFile)
+        val slots = source.inputStream().use(::readNativeWatchSlots)
+        for (id in listOf(0, 2)) {
+            val slot = slots.single { it.id == id }
+            val template = slot.templates.getValue("RANGED_VALUE")
+            val text = template.texts.first()
+            val onlyText = slot.copy(templates = mapOf("RANGED_VALUE" to template.copy(track = null, icon = null)))
+            val image = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+            CanvasDrawScope().draw(
+                Density(1f),
+                LayoutDirection.Ltr,
+                androidx.compose.ui.graphics
+                    .Canvas(image.asImageBitmap()),
+                Size(512f, 512f),
+            ) {
+                drawNativeSlotDemo(onlyText, null, context)
+            }
+            var sum = 0.0
+            var pixels = 0
+            for (y in 0 until 512) {
+                for (x in 0 until 512) {
+                    if (android.graphics.Color.alpha(image.getPixel(x, y)) > 100) {
+                        sum += kotlin.math.hypot(x + .5 - 256, y + .5 - 256)
+                        pixels++
+                    }
+                }
+            }
+            assertTrue("slot $id must render text", pixels > 100)
+            assertEquals("slot $id glyph ink radial center", text.bounds.width / 2.0, sum / pixels, text.size * .2)
+        }
+    }
+
     @Test
     fun `every Orbit slot paints complete provider text on its native arc`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

@@ -69,13 +69,22 @@ class VigilPreviewRenderingTest {
             val height = slot.getAttribute("height").toFloat()
             val saved = canvas.save()
             canvas.translate(x, y)
-            drawable.setBounds(0, 0, width.toInt(), height.toInt())
-            drawable.draw(canvas)
+            if (slot.getAttribute("slotId") == "7") {
+                // The provider now supplies only a uniform opacity mask. Native WFF
+                // owns the moving hands; use their matching reference composite here.
+                assertEquals(1, drawable.intrinsicWidth)
+                assertEquals(1, drawable.intrinsicHeight)
+                canvas.drawBitmap(VigilHands.render(service, 22, 10), null, android.graphics.RectF(0f, 0f, width, height), null)
+            } else {
+                drawable.setBounds(0, 0, width.toInt(), height.toInt())
+                drawable.draw(canvas)
+            }
             canvas.restoreToCount(saved)
             rendered += slot.getAttribute("slotId")
             controller.destroy()
         }
-        assertEquals(listOf("0", "1", "2", "5", "7", "8"), rendered)
+        // Slot 8 is an invisible center action, not visible selector artwork.
+        assertEquals(listOf("0", "1", "2", "5", "7"), rendered)
         assertEquals(Color.TRANSPARENT, bitmap.getPixel(0, 0))
         assertTrue((140..389).any { y -> (50..400).any { x -> bitmap.getPixel(x, y) != Color.BLACK } })
         val output = File("build/reports/vigil-current-preview.png")

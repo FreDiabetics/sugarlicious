@@ -28,6 +28,9 @@ internal data class NativeResolvedText(
     val value: String,
 )
 
+/** WFF centers glyphs on TextCircular; Canvas instead positions their baseline on the path. */
+internal fun nativeCircularTextBaselineOffset(ascent: Float, descent: Float): Float = -(ascent + descent) / 2f
+
 internal fun nativeTrendIconResource(trend: Trend): Int? =
     when (trend) {
         Trend.DOUBLE_UP -> app.aapswear.uishared.R.drawable.ic_trend_doubleup
@@ -256,7 +259,7 @@ internal fun DrawScope.drawNativeSlotDemo(slot: NativeWatchSlot, variantId: Int?
                     }
                 // Android applies Paint.Align to the whole path; use one explicit alignment only.
                 paint.textAlign = Paint.Align.LEFT
-                canvas.drawTextOnPath(value, path, position, 0f, paint)
+                canvas.drawTextOnPath(value, path, position, nativeCircularTextBaselineOffset(paint.ascent(), paint.descent()), paint)
                 paint.textAlign = Paint.Align.CENTER
             } else {
                 if (paint.measureText(value) > b.width * .94f) paint.textSize *= b.width * .94f / paint.measureText(value)
@@ -281,8 +284,9 @@ internal fun DrawScope.drawNativeSlotDemo(slot: NativeWatchSlot, variantId: Int?
             }
             val iconRes =
                 demo?.trend?.let(::nativeTrendIconResource) ?: id?.let(::catalogPreviewIcon) ?: when (slot.systemProvider) {
-                    "WATCH_BATTERY" -> android.R.drawable.ic_lock_idle_low_battery
-                    "STEP_COUNT" -> R.drawable.ic_health_steps
+                    "WATCH_BATTERY" -> R.drawable.ic_samsung_watch_battery
+                    // Samsung Health steps_complication_previews.xml uses setting_list_ic_step.png.
+                    "STEP_COUNT" -> R.drawable.ic_samsung_health_steps_complication
                     "NEXT_EVENT" -> android.R.drawable.ic_menu_my_calendar
                     else -> null
                 }
