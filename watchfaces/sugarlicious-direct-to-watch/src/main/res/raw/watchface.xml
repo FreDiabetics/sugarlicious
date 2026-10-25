@@ -10,6 +10,7 @@
             <ColorOption id="gray" displayName="seconds_gray" colors="#FF9E9E9E" />
         </ColorConfiguration>
         <BooleanConfiguration id="showMinuteMarkers" displayName="minute_markers_visibility" defaultValue="TRUE" />
+        <BooleanConfiguration id="showHourMarkers" displayName="hour_markers_visibility" defaultValue="TRUE" />
     </UserConfigurations>
     <Scene backgroundColor="#FF000000">
         <Group name="vigil-perimeter-markers" x="0" y="0" width="450" height="450">
@@ -30,9 +31,16 @@
                                 </PartImage>
                             </Compare>
                         </Condition>
-                        <PartImage x="0" y="0" width="450" height="450">
-                            <Image resource="vigil_hourmarkers" />
-                        </PartImage>
+                        <Condition>
+                            <Expressions>
+                                <Expression name="hoursVisible">[CONFIGURATION.showHourMarkers] == "TRUE"</Expression>
+                            </Expressions>
+                            <Compare expression="hoursVisible">
+                                <PartImage x="0" y="0" width="450" height="450">
+                                    <Image resource="vigil_hourmarkers" />
+                                </PartImage>
+                            </Compare>
+                        </Condition>
                     </Group>
                 </Compare>
             </Condition>

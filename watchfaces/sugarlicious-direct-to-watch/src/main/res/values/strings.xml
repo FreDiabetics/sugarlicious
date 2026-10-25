@@ -1,4 +1,5 @@
 <resources>
+    <string name="hour_markers_visibility">Stundenmarker</string>
     <string name="minute_markers_visibility">Minutenmarker</string>
     <string name="digital_time_visibility">Digitale Uhrzeit</string>
     <string name="hands_visibility">Zeiger</string>

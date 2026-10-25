@@ -37,10 +37,10 @@ def configure():
     node(content, "Variant", mode="AMBIENT", target="alpha", value=110)
     for resource in ("vigil_minutenmarkers", "vigil_hourmarkers"):
         owner = content
-        if resource == "vigil_minutenmarkers":
-            condition = node(content, "Condition")
-            node(node(condition, "Expressions"), "Expression", name="minutesVisible").text = '[CONFIGURATION.showMinuteMarkers] == "TRUE"'
-            owner = node(condition, "Compare", expression="minutesVisible")
+        setting = "showMinuteMarkers" if resource == "vigil_minutenmarkers" else "showHourMarkers"
+        condition = node(content, "Condition")
+        node(node(condition, "Expressions"), "Expression", name="markersVisible").text = f'[CONFIGURATION.{setting}] == "TRUE"'
+        owner = node(condition, "Compare", expression="markersVisible")
         node(node(owner, "PartImage", x=0, y=0, width=450, height=450), "Image", resource=resource)
 
     # Full-face rendering belongs to the existing full-face hands slot. BoundingOval

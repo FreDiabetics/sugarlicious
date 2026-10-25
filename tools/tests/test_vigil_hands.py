@@ -74,6 +74,10 @@ class VigilHandsTest(unittest.TestCase):
         self.assertEqual(2, len(condition.findall("Compare/Group/PartImage")))
         self.assertIsNone(condition.find("Default"))
 
+    def test_hour_markers_have_an_independent_visibility_switch(self):
+        self.assertIsNotNone(self.face.find("UserConfigurations/BooleanConfiguration[@id='showHourMarkers']"))
+        self.assertEqual('[CONFIGURATION.showHourMarkers] == "TRUE"', self.face.find(".//Expression[@name='hoursVisible']").text)
+
     def test_minute_markers_have_an_independent_visibility_switch(self):
         self.assertIsNotNone(self.face.find("UserConfigurations/BooleanConfiguration[@id='showMinuteMarkers']"))
         self.assertEqual('[CONFIGURATION.showMinuteMarkers] == "TRUE"', self.face.find(".//Group[@name='vigil-canonical-markers']/Condition/Expressions/Expression").text)
