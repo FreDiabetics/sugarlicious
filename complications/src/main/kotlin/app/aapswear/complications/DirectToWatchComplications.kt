@@ -691,6 +691,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             }
         val arrow =
             presentation.trend
+                .takeUnless { presentation.signalLoss }
                 ?.let {
                     TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
                 }?.let(TrendComplicationIcon::cropTransparentPadding)
@@ -725,6 +726,11 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                 color = if (ambient) AMBIENT_PRIMARY else Color.WHITE
                 textSize = 29f
             }
+        if (presentation.signalLoss) {
+            deltaPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText("Signalverlust", centerX, 96f, deltaPaint)
+            return bitmap
+        }
         val secondaryWidth = deltaPaint.measureText(delta) + if (unit.isBlank()) 0f else 6f + secondaryPaint.measureText(unit)
         val secondaryLeft = centerX - secondaryWidth / 2f
         canvas.drawText(delta, secondaryLeft, 96f, deltaPaint)
@@ -923,7 +929,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 ),
         )
         canvas.restore()
-        sensorStatusPill?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
+        sensorStatusPill?.takeUnless { it == "Signalverlust" }?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
         return bitmap
     }
 
