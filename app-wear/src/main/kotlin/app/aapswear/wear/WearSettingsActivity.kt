@@ -35,6 +35,7 @@ class WearSettingsActivity : Activity() {
     private var current = WearDisplayPreferences()
     private var selectedAppearanceMode = AppearanceMode.DARK
     private var selectedSettingsCategory: String? = null
+    private var categoryListScrollY = 0
     private var colorEditorOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,8 +45,8 @@ class WearSettingsActivity : Activity() {
         buildUi()
     }
 
-    private fun buildUi() {
-        val restoreScrollY = if (::scrollView.isInitialized) scrollView.scrollY else 0
+    private fun buildUi(scrollPosition: Int? = null) {
+        val restoreScrollY = scrollPosition ?: if (::scrollView.isInitialized) scrollView.scrollY else 0
         current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         val ui = current.uiColors
         val scroll =
@@ -79,7 +80,7 @@ class WearSettingsActivity : Activity() {
                         setOnClickListener {
                             if (selectedSettingsCategory != null) {
                                 selectedSettingsCategory = null
-                                buildUi()
+                                buildUi(scrollPosition = categoryListScrollY)
                             } else {
                                 finish()
                             }
@@ -737,8 +738,9 @@ class WearSettingsActivity : Activity() {
                 )
                 addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
                 setOnClickListener {
+                    categoryListScrollY = scrollView.scrollY
                     selectedSettingsCategory = key
-                    buildUi()
+                    buildUi(scrollPosition = 0)
                 }
             }
         root.addView(header, cardParams())

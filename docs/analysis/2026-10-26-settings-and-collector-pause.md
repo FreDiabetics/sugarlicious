@@ -25,4 +25,13 @@ The previously built high/very-high Mobile glucose and dot-color correction is i
 - Full complications suite: 89 tests passed, including the corrected Vigil hands-visibility preview fixture.
 - Full SugarWear suite: 337 tests executed; three outdated layout fixtures initially failed. After updating the expected element cards and explicitly enabling the active-value fixture, all 26 tests in that layout class passed on rerun; the other 311 had passed the full run. No production change was needed for those three test failures.
 - Review also found pull gestures starting on nonclickable content were not intercepted. The touch-handler fix has a passing regression test. Transfer-log title clearance now uses measured system-scaled typography, like widget settings.
-- Both previous WLAN debugging addresses and mDNS discovery were unavailable. No current hardware installation, visual comparison or battery measurement is claimed.
+- Initially both previous WLAN debugging addresses and mDNS discovery were unavailable; the device checks below supersede that installation limitation. Battery measurement remains open.
+
+## Hardware follow-up
+
+- Installed Mobile on SM-S948B and both Sugarlicious Wear and SugarWear on SM-L705F using the newly supplied WLAN debugging endpoints. All package replacements succeeded.
+- Paused reception through the visible SugarWear button. The UI reported intentionally paused, the collector service was absent, and reconnect, watchdog and signal-loss alarms were recorded as cancelled. Sensor identity was unchanged across pause/resume (compared locally by digest; credentials were not exported into this report).
+- Resumed through the same button, restored enabled state and observed a subsequent fresh sensor reading. The collector remains enabled after testing.
+- Inspected Mobile compact and expanded appearance headers and separate element cards. The back-button bounds were identical in both states. Scrolling and pulling did not change the saved dashboard preferences (byte comparison before/after).
+- Inspected Wear category and trend controls. Found that opening a category inherited the previous list scroll offset. New categories now open at the top; returning restores the category-list position. Existing in-page setting refreshes retain their position. Added this check to WearActivityTest alongside updated category order and independent trend controls.
+- The remote full test run identified only the outdated Wear category-list expectation; the corrected WearActivityTest suite passed locally. GitHub verification is rerun with the follow-up commit.

@@ -133,10 +133,36 @@ class WearActivityTest {
         collect(root)
 
         assertEquals(
-            listOf("display", "glucose", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
+            listOf("display", "glucose", "trend", "delta", "therapy", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
             headers.map { it.tag.toString().removePrefix("settings-category-") },
         )
         assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+
+        root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, 480, 480)
+        val categoryScroll = root.getChildAt(0) as android.widget.ScrollView
+        categoryScroll.scrollTo(0, 200)
+        assertTrue(categoryScroll.scrollY > 0)
+
+        // Opening an element exposes its complete controls without the other elements' controls.
+        headers.single { it.tag == "settings-category-trend" }.performClick()
+        org.robolectric.Shadows
+            .shadowOf(android.os.Looper.getMainLooper())
+            .idle()
+        assertEquals("A new submenu must open at its header", 0, (root.getChildAt(0) as android.widget.ScrollView).scrollY)
+        val text = mutableListOf<String>()
+
+        fun collectText(view: View) {
+            if (view is TextView) text += view.text.toString()
+            if (view is ViewGroup) (0 until view.childCount).forEach { collectText(view.getChildAt(it)) }
+        }
+        collectText(root)
+        assertTrue("Trendpfeil" in text)
+        assertTrue("Trendpfeil · Füllfarbe" in text)
+        assertTrue("Trendpfeil-Kontur" in text)
+        assertTrue("Trend-Deckkraft" in text)
+        assertTrue("Trend-Stil zurücksetzen" in text)
+        assertTrue("IOB" !in text && "COB" !in text && "Basal" !in text)
     }
 
     @Test
