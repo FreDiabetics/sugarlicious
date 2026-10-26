@@ -790,7 +790,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         Modifier
                             .fillMaxSize()
                             .statusBarsPadding()
-                            .padding(top = compactSettingsTitle.heightDp.dp + 32.dp)
+                            .padding(top = (compactSettingsTitle.heightDp + SETTINGS_SUBMENU_CARD_GAP_DP).dp)
                             .padding(horizontal = 10.dp)
                             .verticalScroll(settingsScroll)
                             .padding(top = LocalWidgetHeaderExpansionDp.current.dp),

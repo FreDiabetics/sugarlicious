@@ -51,9 +51,26 @@ internal fun measuredSettingsCompactTitle(title: String, availableWidthDp: Float
 }
 
 @Composable
+internal fun measuredSettingsExpandedTitleHeightDp(title: String): Float {
+    val density = LocalDensity.current
+    val measured =
+        rememberTextMeasurer().measure(
+            title,
+            style = oneUiMenuTypography.headlineLarge.copy(fontSize = 34.sp),
+            constraints = Constraints(maxWidth = with(density) { (settingsWindowWidthDp() - 32f).coerceAtLeast(1f).dp.roundToPx() }),
+        )
+    return with(density) {
+        measured.size.height
+            .toDp()
+            .value
+    }
+}
+
+@Composable
 internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier = Modifier, state: SettingsSubmenuHeaderState = settingsSubmenuHeaderState(0f, 0f, 160f, 88f), title: String = "Widget-Einstellungen") {
-    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack, Modifier.size(48.dp).background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)) {
+    val height = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp
+    Row(modifier.fillMaxWidth().heightIn(min = height.dp).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onBack, Modifier.align(Alignment.Bottom).size(48.dp).background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)) {
             Icon(painterResource(R.drawable.ic_oneui_back), "Zurück", tint = OneUiWidgetStyle.accent, modifier = Modifier.size(22.dp))
         }
         Text(
