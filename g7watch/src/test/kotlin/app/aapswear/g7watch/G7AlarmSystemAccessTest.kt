@@ -29,7 +29,9 @@ class G7AlarmSystemAccessTest {
 
         assertEquals(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, actions[0])
         assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, actions[1])
-        assertEquals(Settings.ACTION_SETTINGS, actions[2])
+        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, actions[2])
+        assertEquals("package:${activity.packageName}", G7AlarmSystemAccess.settingsCandidates(activity)[2].data.toString())
+        assertEquals(Settings.ACTION_SETTINGS, actions[3])
         assertFalse(actions.any { it == "android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS" })
     }
 
@@ -51,6 +53,14 @@ class G7AlarmSystemAccessTest {
             listOf(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, Settings.ACTION_APP_NOTIFICATION_SETTINGS),
             attempted,
         )
+    }
+
+    @Test
+    fun `settings launch does not require package visibility query match`() {
+        val attempted = mutableListOf<String?>()
+        val result = G7AlarmSystemAccess.openPolicySettings(activity, launch = { attempted += it.action })
+        assertEquals(G7SettingsOpenResult.OPENED, result)
+        assertEquals(listOf(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), attempted)
     }
 
     @Test

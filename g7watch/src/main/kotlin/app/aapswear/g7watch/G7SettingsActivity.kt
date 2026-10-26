@@ -17,6 +17,7 @@ internal enum class G7SettingsSection(
     val summary: String,
 ) {
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
+    PERMISSIONS("Berechtigungen", "Bluetooth, Benachrichtigungen und Systemzugriff"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     SUGARWEAR("Systemstatus", "Sensor, Collector und Diagnose"),
     VIGIL("Vigil", "Watchface"),
@@ -40,7 +41,7 @@ class G7SettingsActivity : Activity() {
 
     private fun render() {
         val palette = G7AppearanceStore(this).load()
-        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        val background = palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND)
         applyG7SystemChrome(window, background)
         val state = G7SensorStateStore(this).read()
 
@@ -49,7 +50,7 @@ class G7SettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
                 setBackgroundColor(background)
                 addView(topBar(palette), fullWidth())
                 addView(
@@ -123,7 +124,7 @@ class G7SettingsActivity : Activity() {
                     "›"
                 },
                 20f,
-                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 true,
             ).apply {
                 gravity = Gravity.CENTER
@@ -135,14 +136,14 @@ class G7SettingsActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 minimumHeight = 58.dp
                 setPadding(13.dp, 8.dp, 8.dp, 8.dp)
-                background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 20f)
+                background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 20f)
                 isClickable = true
                 isFocusable = true
                 addView(
                     LinearLayout(this@G7SettingsActivity).apply {
                         orientation = LinearLayout.VERTICAL
-                        addView(text(section.title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-                        addView(text(section.summary, 8f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { maxLines = 2 })
+                        addView(text(section.title, 11f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+                        addView(text(section.summary, 8f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
                     },
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
                 )
@@ -165,6 +166,7 @@ class G7SettingsActivity : Activity() {
         val intent =
             when (section) {
                 G7SettingsSection.DISPLAY -> Intent(this, G7AppearanceActivity::class.java)
+                G7SettingsSection.PERMISSIONS -> Intent(this, G7PermissionsActivity::class.java)
                 G7SettingsSection.ALARMS -> Intent(this, G7AlarmSettingsActivity::class.java)
                 G7SettingsSection.SUGARWEAR -> Intent(this, G7SystemStatusActivity::class.java)
                 G7SettingsSection.VIGIL -> Intent(this, G7DirectToWatchSettingsActivity::class.java)
@@ -184,10 +186,10 @@ class G7SettingsActivity : Activity() {
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(13.dp, 10.dp, 13.dp, 10.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
-            addView(text(title, 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply { letterSpacing = 0.08f })
-            addView(text(value, 12f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-            addView(text(detail, 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+            background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 18f)
+            addView(text(title, 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true).apply { letterSpacing = 0.08f })
+            addView(text(value, 12f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+            addView(text(detail, 8.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
         }
 
     private fun relativeAge(timestamp: Long): String {
@@ -207,10 +209,8 @@ class G7SettingsActivity : Activity() {
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)
         setTextColor(color)
-        if (bold) {
-            app.aapswear.uishared.SystemTypography
-                .apply(this, true)
-        }
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
     private fun rounded(

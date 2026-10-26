@@ -365,6 +365,12 @@ internal object G7CgmAlarmNotifier {
         )
     }
 
+    /** Prepares native settings before the first alarm; never posts, cancels, or prunes channels. */
+    fun prepareCurrentChannels(context: Context) {
+        val settings = G7AlarmSettingsStore.read(context)
+        CgmAlarmType.entries.forEach { type -> ensureChannel(context, channelId(context, type, settings), type, settings) }
+    }
+
     fun ensureAllChannels(
         context: Context,
         settings: CgmAlarmSettings,

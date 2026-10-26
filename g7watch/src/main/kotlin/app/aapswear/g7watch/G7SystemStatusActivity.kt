@@ -10,24 +10,14 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
-import android.text.InputFilter
-import android.text.InputType
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
-import androidx.core.net.toUri
 import app.aapswear.g7.CollectorCycleTiming
 import app.aapswear.g7.G7PersistedState
-import app.aapswear.g7.G7SetupPayload
-import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -38,8 +28,11 @@ import java.util.Date
 
 class G7SystemStatusActivity : Activity() {
     private val diagnosticScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var batteryRequestPending = false
-    private var showPairingEditor = false
+    private var unlinkInFlight = false
+    private var unlinkFailed = false
+    private var unlinkFailureReason: String? = null
+    private var companionAccessClosed = false
+    private val companionBondAccess by lazy { G7CompanionBondAccess(this) }
     private var showPairingCode = false
     private var hardwareExpanded = false
     private var diagnosticsExpanded = false
@@ -53,21 +46,6 @@ class G7SystemStatusActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        if (batteryRequestPending) {
-            batteryRequestPending = false
-            val unrestricted = G7BackgroundAccess.isBatteryUnrestricted(this)
-            Toast
-                .makeText(
-                    this,
-                    if (unrestricted) "Dauerbetrieb ist uneingeschränkt" else "Akkuoptimierung ist weiterhin aktiv",
-                    Toast.LENGTH_LONG,
-                ).show()
-            recordBackgroundDiagnostic(
-                if (unrestricted) "G7-BG-200" else "G7-BG-403",
-                if (unrestricted) "Battery optimization exemption granted" else "Battery optimization exemption not granted",
-                if (unrestricted) DiagnosticSeverity.INFO else DiagnosticSeverity.WARNING,
-            )
-        }
         render()
     }
 
@@ -79,7 +57,7 @@ class G7SystemStatusActivity : Activity() {
     private fun render() {
         val oldScrollY = scrollView?.scrollY ?: 0
         val palette = G7AppearanceStore(this).load()
-        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        val background = palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND)
         applyG7SystemChrome(window, background)
 
         val state = G7SensorStateStore(this).read()
@@ -94,7 +72,7 @@ class G7SystemStatusActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 8.dp, 18.dp, 30.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
                 setBackgroundColor(background)
                 addView(
                     g7SettingsHeader("Systemstatus", palette),
@@ -135,8 +113,7 @@ class G7SystemStatusActivity : Activity() {
                 )
 
                 addView(
-                    group("SYSTEMSTATUS", palette).apply {
-                        addView(label("SENSOR", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                    group("Sensor", palette).apply {
                         addView(row("Sensorstatus", state.sensor?.state?.name ?: "—", palette))
                         addView(row("Session", state.sensor?.sessionId ?: state.lastReading?.sessionId ?: "—", palette))
                         addView(row("Sensorcode", pairingCodeDisplayValue(credentials?.pairingCode, showPairingCode), palette))
@@ -189,7 +166,11 @@ class G7SystemStatusActivity : Activity() {
                                 palette,
                             ),
                         )
-                        addView(label("VERBINDUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                    },
+                    cardParams(),
+                )
+                addView(
+                    group("Verbindung", palette).apply {
                         addView(row("Zustand", userStatus.title, palette))
                         addView(row("Status", userStatus.status, palette))
                         addView(row("Verbindung", state.connectionState.name, palette))
@@ -202,7 +183,11 @@ class G7SystemStatusActivity : Activity() {
                         addView(row("Letzter Fehler", state.lastError?.let { "${it.code} · ${it.safeMessage}" } ?: "—", palette))
                         addView(row("Hinweis", userStatus.description, palette))
                         addView(row("Empfohlene Aktion", userStatus.action, palette))
-                        addView(label("ZEITPLANUNG", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                    },
+                    cardParams(),
+                )
+                addView(
+                    group("Zeitplanung und Rechte", palette).apply {
                         addView(row("Nächster Wert", formatTimestamp(cycle?.expectedReadingEpoch), palette))
                         addView(
                             row(
@@ -230,8 +215,14 @@ class G7SystemStatusActivity : Activity() {
                         addView(row("Geräte in der Nähe", if (hasNearbyPermission()) "Erlaubt" else "Nicht erlaubt", palette))
                         addView(row("Benachrichtigungen", if (hasNotificationPermission()) "Erlaubt" else "Nicht erlaubt", palette))
                         addView(row("Retry", state.retryCount.toString(), palette))
+                        addPermissionRows(this, palette)
+                    },
+                    cardParams(),
+                )
+                addView(
+                    group("Hardwaretest", palette).apply {
                         addView(
-                            expandableHeader("HARDWARETEST", hardwareExpanded, palette) {
+                            expandableHeader("Details", hardwareExpanded, palette) {
                                 hardwareExpanded = !hardwareExpanded
                                 render()
                             },
@@ -253,9 +244,13 @@ class G7SystemStatusActivity : Activity() {
                             addView(row("Median Empfang", hardwareMetrics.medianReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
                             addView(row("p95 Empfang", hardwareMetrics.p95ReceiveDelayMs?.let(::formatDurationMs) ?: "—", palette))
                         }
-
+                    },
+                    cardParams(),
+                )
+                addView(
+                    group("Diagnose", palette).apply {
                         addView(
-                            expandableHeader("DIAGNOSE", diagnosticsExpanded, palette) {
+                            expandableHeader("Details", diagnosticsExpanded, palette) {
                                 diagnosticsExpanded = !diagnosticsExpanded
                                 render()
                             },
@@ -284,8 +279,11 @@ class G7SystemStatusActivity : Activity() {
                             addView(row("Radio-Fehlerfolge", cycle?.radioFailureStreak?.toString() ?: "0", palette))
                             addView(row("Radio-Cluster", if (cycle?.radioDegradedCluster == true) "Aktiv" else "Nein", palette))
                         }
-
-                        addView(label("AKTIONEN", 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+                    },
+                    cardParams(),
+                )
+                addView(
+                    group("Aktionen", palette).apply {
                         addActionRows(this, state, palette)
                     },
                     cardParams(),
@@ -295,14 +293,14 @@ class G7SystemStatusActivity : Activity() {
                     label(
                         "Nur einen direkten Sensor-Collector gleichzeitig verwenden. Juggluco oder xDrip vorher beenden.",
                         9f,
-                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                        palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                     ).apply { setPadding(8.dp, 12.dp, 8.dp, 0) },
                 )
                 addView(
                     label(
                         "Der Collector verbindet sich nur im erwarteten Sensorfenster und beendet die Verbindung danach wieder.",
                         9f,
-                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                        palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                     ).apply { setPadding(8.dp, 6.dp, 8.dp, 0) },
                 )
             }
@@ -349,7 +347,7 @@ class G7SystemStatusActivity : Activity() {
         expanded: Boolean,
         palette: G7AppearancePalette,
         action: () -> Unit,
-    ) = label("${if (expanded) "▾" else "▸"}  $title", 10.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+    ) = label("${if (expanded) "▾" else "▸"}  $title", 10.5f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true).apply {
         gravity = Gravity.START or Gravity.CENTER_VERTICAL
         minHeight = 44.dp
         setOnClickListener { action() }
@@ -383,170 +381,78 @@ class G7SystemStatusActivity : Activity() {
         target.addView(row("Zyklusende", formatTimestamp(cycle?.cycleEndedAt), palette))
     }
 
+    private fun addPermissionRows(target: LinearLayout, palette: G7AppearancePalette) {
+        target.addView(
+            pill("Berechtigungen", palette) {
+                startActivity(Intent(this, G7PermissionsActivity::class.java))
+            },
+            buttonParams(),
+        )
+    }
+
     private fun addActionRows(
         target: LinearLayout,
         state: G7PersistedState,
         palette: G7AppearancePalette,
     ) {
-        val nearbyAllowed = hasNearbyPermission()
-        val notificationsAllowed = hasNotificationPermission()
-        if (!nearbyAllowed ||
-            !notificationsAllowed
-        ) {
-            target.addView(pill("Berechtigungen freigeben", palette) { requestMissingPermissions() }, buttonParams())
-        }
-        if (!G7BackgroundAccess.isBatteryUnrestricted(this)) {
-            target.addView(
-                pill("Dauerbetrieb freigeben", palette) {
-                    requestBatteryExemption()
-                },
-                buttonParams(),
-            )
-        }
-        if (!canScheduleExactReconnects()) {
-            target.addView(
-                pill("Präzise Sensor-Abfragen freigeben", palette) {
-                    requestExactAlarmAccess()
-                },
-                buttonParams(),
-            )
-        }
+        val associated = hasG7SensorAssociation(state)
         target.addView(
-            pill(if (state.sensor == null) "Sensor einrichten" else "Sensor neu koppeln", palette) {
-                showPairingEditor = !showPairingEditor
-                render()
-            },
-            buttonParams(),
-        )
-        if (showPairingEditor || state.sensor == null) target.addView(pairingEditor(palette), buttonParams())
-        target.addView(
-            pill(if (state.collectorEnabled) "Sensorempfang pausieren" else "Sensorempfang fortsetzen", palette, danger = state.collectorEnabled) {
-                if (G7SensorStateStore(this).read().collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
-                Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
-            },
-            buttonParams(),
-        )
-        if (state.sensor != null) {
-            target.addView(
-                pill("Sensor vollständig trennen", palette, danger = true) {
-                    showReleaseSensorDialog(palette)
-                },
-                buttonParams(),
-            )
-        }
-    }
-
-    private fun showReleaseSensorDialog(palette: G7AppearancePalette) {
-        val dialog = android.app.Dialog(this)
-        val content =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(22.dp, 12.dp, 22.dp, 28.dp)
-                setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
-                addView(
-                    LinearLayout(this@G7SystemStatusActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        minimumHeight = 52.dp
-                        addView(
-                            label("‹", 30f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).apply {
-                                contentDescription = "Zurück"
-                                setOnClickListener { dialog.dismiss() }
-                            },
-                            LinearLayout.LayoutParams(48.dp, 48.dp),
-                        )
-                        addView(
-                            label("Sensor trennen", 17f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                                gravity = Gravity.CENTER_VERTICAL
-                                setPadding(8.dp, 0, 0, 0)
-                            },
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-                        )
-                    },
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
-                )
-                addView(
-                    LinearLayout(this@G7SystemStatusActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        addView(
-                            ImageView(this@G7SystemStatusActivity).apply {
-                                setImageResource(R.drawable.ic_sensor_outline)
-                                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                                contentDescription = "Sensor"
-                            },
-                            LinearLayout.LayoutParams(52.dp, 52.dp),
-                        )
-                        addView(
-                            label("→", 24f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true),
-                            LinearLayout.LayoutParams(54.dp, ViewGroup.LayoutParams.WRAP_CONTENT),
-                        )
-                        addView(
-                            label("×", 36f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                                gravity = Gravity.CENTER
-                                contentDescription = "Verbindung vollständig getrennt"
-                            },
-                            LinearLayout.LayoutParams(52.dp, 52.dp),
-                        )
-                    },
-                    LinearLayout
-                        .LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = 16.dp },
-                )
-                addView(
-                    label("Sensor vollständig trennen?", 16f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                        gravity = Gravity.CENTER
-                        setPadding(4.dp, 18.dp, 4.dp, 6.dp)
-                    },
-                )
-                addView(
-                    label(
-                        "SugarWear beendet die direkte Verbindung und entfernt den Bluetooth-Bond vollständig. Messhistorie und Einstellungen bleiben erhalten; danach kann ein anderer Sensor verbunden werden.",
-                        11f,
-                        palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-                    ).apply { gravity = Gravity.CENTER },
-                )
-                addView(
-                    pill("Sensor endgültig trennen", palette, danger = true) {
-                        dialog.dismiss()
-                        Toast.makeText(this@G7SystemStatusActivity, "Sensor wird getrennt …", Toast.LENGTH_SHORT).show()
-                        diagnosticScope.launch {
-                            val result = unlinkG7Sensor(this@G7SystemStatusActivity)
-                            runOnUiThread {
-                                if (isFinishing || isDestroyed) return@runOnUiThread
-                                Toast
-                                    .makeText(
-                                        this@G7SystemStatusActivity,
-                                        if (result.detached) {
-                                            "Sensor vollständig getrennt – Messhistorie bleibt erhalten"
-                                        } else {
-                                            "Bluetooth-Bond konnte nicht entfernt werden – Sensorzuordnung bleibt für erneuten Versuch erhalten"
-                                        },
-                                        Toast.LENGTH_LONG,
-                                    ).show()
+            pill(if (associated) "Sensor entkoppeln" else "Sensor koppeln", palette) {
+                if (unlinkInFlight) return@pill
+                if (hasG7SensorAssociation(G7SensorStateStore(this).read())) {
+                    unlinkInFlight = true
+                    unlinkFailureReason = null
+                    render()
+                    diagnosticScope.launch {
+                        val released = runCatching { releaseG7CollectorOwnership(applicationContext) }.isSuccess
+                        runOnUiThread {
+                            if (companionAccessClosed || isFinishing || isDestroyed) return@runOnUiThread
+                            if (!released) {
+                                unlinkInFlight = false
+                                unlinkFailed = true
                                 render()
+                            } else {
+                                companionBondAccess.ensureForUnlink(
+                                    onReady = {
+                                        diagnosticScope.launch {
+                                            val detached = runCatching { unlinkG7Sensor(applicationContext).detached }.getOrDefault(false)
+                                            runOnUiThread {
+                                                unlinkInFlight = false
+                                                unlinkFailed = !detached
+                                                if (!companionAccessClosed && !isFinishing && !isDestroyed) render()
+                                            }
+                                        }
+                                    },
+                                    onFailure = { reason ->
+                                        unlinkFailureReason = reason
+                                        unlinkInFlight = false
+                                        unlinkFailed = true
+                                        if (!companionAccessClosed && !isFinishing && !isDestroyed) render()
+                                    },
+                                )
                             }
                         }
-                    },
-                    buttonParams().apply { topMargin = 18.dp },
-                )
-                addView(pill("Abbrechen", palette) { dialog.dismiss() }, buttonParams())
-            }
-        dialog.setContentView(
-            G7EdgeFadeScrollView(this)
-                .apply {
-                    isFillViewport = true
-                    setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
-                    addView(content, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                }.applyG7EdgeFade(),
+                    }
+                } else {
+                    startActivity(Intent(this, G7WatchActivity::class.java).putExtra(G7WatchActivity.EXTRA_OPEN_PAIRING, true))
+                }
+            }.apply { isEnabled = !unlinkInFlight },
+            buttonParams(),
         )
-        dialog.setCancelable(true)
-        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
-        dialog.show()
-        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        if (unlinkFailed) {
+            target.addView(label("Entkoppeln fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen.", 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
+            unlinkFailureReason?.let { target.addView(label(it, 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR))) }
+        }
+        if (associated || state.collectorEnabled) {
+            target.addView(
+                pill(if (state.collectorEnabled) "Pausieren" else "Fortsetzen", palette) {
+                    if (unlinkInFlight) return@pill
+                    if (G7SensorStateStore(this).read().collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
+                    Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
+                }.apply { isEnabled = !unlinkInFlight },
+                buttonParams(),
+            )
+        }
     }
 
     private fun hasNearbyPermission(): Boolean =
@@ -555,87 +461,35 @@ class G7SystemStatusActivity : Activity() {
 
     private fun hasNotificationPermission(): Boolean = checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    private fun pairingEditor(palette: G7AppearancePalette) =
-        LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(9.dp, 9.dp, 9.dp, 9.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_BACKGROUND), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
-            val input =
-                EditText(this@G7SystemStatusActivity).apply {
-                    hint = "0000"
-                    inputType = InputType.TYPE_CLASS_NUMBER
-                    filters = arrayOf(InputFilter.LengthFilter(4))
-                    setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                    setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
-                    textSize = 19f
-                    gravity = Gravity.CENTER
-                    background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 999f)
-                }
-            addView(label("Vierstelliger Code vom Sensor-Applikator", 10f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
-            addView(input, buttonParams())
-            addView(
-                pill("Sensorcode speichern", palette) {
-                    val payload = runCatching { G7SetupPayload(input.text?.toString().orEmpty()) }.getOrNull()
-                    if (payload == null) {
-                        input.error = "4 Ziffern erforderlich"
-                        return@pill
-                    }
-                    diagnosticScope.launch {
-                        val result = runCatching { moveG7SensorToThisWatch(this@G7SystemStatusActivity, payload.pairingCode) }
-                        runOnUiThread {
-                            if (isFinishing || isDestroyed) return@runOnUiThread
-                            if (result.isSuccess) {
-                                showPairingEditor = false
-                                render()
-                            } else {
-                                Toast
-                                    .makeText(
-                                        this@G7SystemStatusActivity,
-                                        "Alter Sensor konnte nicht vollständig getrennt werden",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                            }
-                        }
-                    }
-                },
-                buttonParams(),
-            )
-        }
-
     private fun group(
         title: String,
         palette: G7AppearancePalette,
-    ) = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        setPadding(14.dp, 12.dp, 14.dp, 12.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 22f)
-        addView(
-            label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                gravity = Gravity.START
-                letterSpacing = 0.10f
-            },
-        )
-    }
+    ) = app.aapswear.uishared.WearSettingsUi
+        .elementCard(
+            this,
+            title,
+            palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+            palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+        ).apply { tag = "status-group-$title" }
 
     private fun row(
         title: String,
         value: String,
         palette: G7AppearancePalette,
     ) = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.VERTICAL
+        setPadding(8.dp, 5.dp, 8.dp, 5.dp)
         addView(
-            label(title, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
+            label(title, 9.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply {
                 gravity = Gravity.START
             },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
         )
         addView(
-            label(value, 9.5f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                gravity = Gravity.END
-                maxLines = 4
+            label(value, 9.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
+                gravity = Gravity.START
             },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.25f),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
         )
     }
 
@@ -652,12 +506,12 @@ class G7SystemStatusActivity : Activity() {
         setPadding(13.dp, 8.dp, 13.dp, 8.dp)
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
-        val color = if (danger) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
+        val color = if (danger) palette.argb(G7AppearanceRole.GLUCOSE_ERROR) else palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY)
         setTextColor(color)
         background =
             rounded(
-                if (danger) withAlpha(color, 36) else palette.argb(G7AppearanceRole.MENU_SURFACE),
-                if (danger) color else palette.argb(G7AppearanceRole.MENU_BORDER),
+                if (danger) withAlpha(color, 36) else palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                if (danger) color else palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                 999f,
             )
         setOnClickListener { action() }
@@ -670,14 +524,14 @@ class G7SystemStatusActivity : Activity() {
         bold: Boolean = false,
     ) = TextView(this).apply {
         text = value
-        textSize = size
+        textSize =
+            app.aapswear.uishared.WearSettingsUi
+                .textSize(size)
         setTextColor(color)
         gravity = Gravity.CENTER
         setPadding(3.dp, 3.dp, 3.dp, 3.dp)
-        if (bold) {
-            app.aapswear.uishared.SystemTypography
-                .apply(this, true)
-        }
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
     private fun rounded(
@@ -687,66 +541,20 @@ class G7SystemStatusActivity : Activity() {
     ) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(fill)
-        setStroke(1.dp, stroke)
+        setStroke(0, stroke)
         cornerRadius = radiusDp * resources.displayMetrics.density
-    }
-
-    private fun requestMissingPermissions() {
-        val missing =
-            buildList {
-                if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    add(Manifest.permission.BLUETOOTH_SCAN)
-                }
-                if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    add(Manifest.permission.BLUETOOTH_CONNECT)
-                }
-                if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
-                    PackageManager.PERMISSION_GRANTED
-                ) {
-                    add(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }
-        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), PERMISSION_REQUEST)
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST) render()
     }
 
     private fun canScheduleExactReconnects(): Boolean = getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
-    private fun requestBatteryExemption() {
-        if (G7BackgroundAccess.isBatteryUnrestricted(this)) return
-        batteryRequestPending = true
-        if (G7BackgroundAccess.openBatterySettings(this)) return
-        batteryRequestPending = false
-        Toast.makeText(this, "Akku-Einstellungen konnten nicht geöffnet werden", Toast.LENGTH_LONG).show()
-        recordBackgroundDiagnostic("G7-BG-404", "Battery optimization settings could not be opened", DiagnosticSeverity.ERROR)
-    }
-
-    private fun requestExactAlarmAccess() {
-        runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).setData("package:$packageName".toUri())) }
-            .onFailure { runCatching { startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)) } }
-    }
-
-    private fun recordBackgroundDiagnostic(
-        code: String,
-        message: String,
-        severity: DiagnosticSeverity,
-    ) {
-        diagnosticScope.launch { applicationContext.recordG7Diagnostic(code, message, severity) }
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (!companionBondAccess.onActivityResult(requestCode, resultCode)) super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onDestroy() {
+        companionAccessClosed = true
+        companionBondAccess.cancel()
         diagnosticScope.cancel()
         super.onDestroy()
     }
@@ -780,7 +588,6 @@ class G7SystemStatusActivity : Activity() {
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 
     companion object {
-        const val PERMISSION_REQUEST = 17
         const val EXTRA_SECTION = "g7.settings.section"
     }
 }

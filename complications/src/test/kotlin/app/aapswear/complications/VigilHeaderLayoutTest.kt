@@ -12,6 +12,22 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VigilHeaderLayoutTest {
+    @Test fun `disconnected status stays in digital and analog delta areas without covering graph`() {
+        val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
+        val presentation = DirectToWatchPresentationFormatter.header(null, 1_800_000_000_000L)
+        listOf(false, true).forEach { ambient ->
+            val digital = service.renderHeader(presentation, ambient = ambient)
+            val analog = service.renderAnalogHeader(presentation, ambient = ambient)
+
+            fun ink(bitmap: android.graphics.Bitmap, top: Int, bottom: Int): Int =
+                (top until bottom).sumOf { y -> (0 until bitmap.width).count { x -> Color.alpha(bitmap.getPixel(x, y)) > 0 } }
+            org.junit.Assert.assertTrue("Digital delta row retains disconnected status", ink(digital, 74, 108) > 0)
+            org.junit.Assert.assertTrue("Analog delta row retains disconnected status", ink(analog, 365, 405) > 0)
+            assertEquals("Analog status must leave the graph unobscured", 0, ink(analog, 140, 345))
+            assertEquals("Plain status has no outlined pill at its outer edge", 0, Color.alpha(analog.getPixel(60, 385)))
+        }
+    }
+
     @Test fun `analog pairing guidance keeps its complete button above graph`() {
         val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
         val image = service.renderAnalogHeader(DirectToWatchHeaderPresentation("-", "Bitte Sensor verbinden"))

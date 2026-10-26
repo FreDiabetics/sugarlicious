@@ -103,8 +103,9 @@ jobs:
 
       - name: Check Orbit geometry and editor assets
         run: |
-          python3 -m pip install Pillow==11.3.0
+          python3 -m pip install Pillow==11.3.0 CairoSVG==2.9.0
           python3 -m unittest discover -s tools/tests -p test_orbit_face.py
+          python3 -m unittest discover -s tools/tests -p test_brand_assets.py
 
       - name: Enforce Kotlin static analysis and formatting
         run: ./gradlew detekt ktlintCheck

@@ -23,8 +23,6 @@ import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUp
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.AppearanceMode
-import app.aapswear.model.CgmPresentationPolicy
-import app.aapswear.model.CgmPresentationStatus
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmSourceState
 import app.aapswear.model.CgmThresholds
@@ -94,19 +92,6 @@ internal fun vigilStatusContrastColor(state: TherapyDisplayState?, nowEpochMs: L
 
 internal fun isVigilSensorDisconnected(state: TherapyDisplayState?): Boolean = state == null || G7LocalReadingResolver.directSensorState(state) in setOf("UNKNOWN", "ENDED", "NOT_ACTIVE")
 
-internal fun vigilSensorStatusPillText(
-    state: TherapyDisplayState?,
-    nowEpochMs: Long = System.currentTimeMillis(),
-): String? =
-    when {
-        isVigilSensorDisconnected(state) -> "Kein Sensor verbunden"
-        CgmPresentationPolicy.classify(
-            state,
-            nowEpochMs = nowEpochMs,
-        ) == CgmPresentationStatus.SIGNAL_LOSS -> "Signalverlust"
-        else -> null
-    }
-
 internal fun directToWatchGraphWindow(
     nowEpochMs: Long,
     graphHours: Int,
@@ -121,7 +106,7 @@ internal object DirectToWatchPresentationFormatter {
         if (isVigilSensorDisconnected(state)) {
             return DirectToWatchHeaderPresentation(
                 glucose = "-",
-                secondary = "-",
+                secondary = "Kein Sensor verbunden",
                 trendUnavailable = true,
                 sensorDisconnected = true,
             )
@@ -729,6 +714,11 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
         if (arrow == null && presentation.trendUnavailable && !presentation.signalLoss) {
             canvas.drawText("-", contentLeft + valueWidth + 8f, valueBaseline, secondaryPaint)
         }
+        if (presentation.sensorDisconnected) {
+            secondaryPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText(presentation.secondary, centerX, 96f, secondaryPaint)
+            return bitmap
+        }
         val delta = presentation.secondary.substringBeforeLast(' ', presentation.secondary)
         val unit = presentation.secondary.substringAfterLast(' ', "")
         val deltaPaint =
@@ -775,7 +765,7 @@ class DirectToWatchAnalogHeaderComplication : DirectToWatchHeaderComplication() 
         val bitmap = Bitmap.createBitmap(450, 450, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val header = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this), ambient)
-        if (presentation.glucose == "-") {
+        if (presentation.glucose == "-" && !presentation.sensorDisconnected) {
             // Pairing guidance includes a button below row 70; keep the complete exceptional state.
             canvas.drawBitmap(header, 90f, 22f, null)
             return bitmap
@@ -796,7 +786,10 @@ class DirectToWatchAnalogHeaderComplication : DirectToWatchHeaderComplication() 
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
             }
-        if (presentation.signalLoss) {
+        if (presentation.sensorDisconnected) {
+            paint.textSize = 23f
+            canvas.drawText(presentation.secondary, 225f, 385f - (paint.ascent() + paint.descent()) / 2f, paint)
+        } else if (presentation.signalLoss) {
             canvas.drawText("Signalverlust", 225f, 385f - (paint.ascent() + paint.descent()) / 2f, paint)
         } else if (presentation.glucose != "-") {
             val delta = presentation.secondary.substringBeforeLast(' ', presentation.secondary)
@@ -963,9 +956,13 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val height = 205
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        val sensorStatusPill = vigilSensorStatusPillText(state)
         if (G7LocalReadingResolver.directSensorState(state) == "ERROR") return bitmap
-        val density = resources.displayMetrics.density
+        // This bitmap is WFF artwork in a fixed 450-unit face, not a device-sized View.
+        // WFF scales the complete image to the physical display. Applying device density
+        // here as well makes only graph text/strokes change relative to the other slots.
+        // Reference face: 450 design units across a 225dp Wear display. Retain the
+        // readable 24-unit default axis labels and apply accessibility font scale.
+        val density = 450f / 225f
         val baseStyle = DirectToWatchPreferences.graphStyle(this)
         val graphStyle =
             baseStyle.copy(
@@ -974,22 +971,23 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 timeHoursBold = false,
                 timeAxisBottomInsetDp = 1f,
             )
+        // The slot spans y=140..345 on the 450-unit circular face. Its bottom chord
+        // needs a 40-unit inset to retain four units of circular display clearance.
+        // Keep the full slot/tap bounds, but put the complete graph inside that chord.
+        val horizontalInset = 40f
+        val graphWidth = width - (horizontalInset * 2).toInt()
         val radius = graphStyle.cornerRadiusDp * density
-        canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
         val thresholds = readThresholds()
         canvas.save()
+        canvas.translate(horizontalInset, 0f)
+        canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, graphWidth.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         SharedWearCgmGraphRenderer.render(
             canvas = canvas,
-            widthPx = width,
+            widthPx = graphWidth,
             heightPx = height,
             density = density,
-            scaledDensity =
-                android.util.TypedValue.applyDimension(
-                    android.util.TypedValue.COMPLEX_UNIT_SP,
-                    1f,
-                    resources.displayMetrics,
-                ),
+            scaledDensity = density * resources.configuration.fontScale,
             input =
                 SharedWearCgmGraphInput(
                     history = DirectToWatchPresentationFormatter.samples(state, nowEpochMs, hours),
@@ -1002,47 +1000,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 ),
         )
         canvas.restore()
-        sensorStatusPill?.takeUnless { it == "Signalverlust" }?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
         return bitmap
-    }
-
-    private fun drawSensorDisconnectedPill(
-        canvas: Canvas,
-        colors: WatchGraphColors,
-        label: String,
-    ) {
-        val fill =
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color =
-                    Color.argb(
-                        230,
-                        Color.red(colors.graphBackground),
-                        Color.green(colors.graphBackground),
-                        Color.blue(colors.graphBackground),
-                    )
-                style = Paint.Style.FILL
-            }
-        val stroke =
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                val semantic = if (label == "Signalverlust") colors.signalLoss else colors.divider
-                color = Color.argb(230, Color.red(semantic), Color.green(semantic), Color.blue(semantic))
-                style = Paint.Style.STROKE
-                strokeWidth = 2f
-            }
-        val text =
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                val semantic = if (label == "Signalverlust") colors.signalLoss else colors.axisLabel
-                color = Color.argb(255, Color.red(semantic), Color.green(semantic), Color.blue(semantic))
-                textSize = 17f
-                app.aapswear.uishared.SystemTypography
-                    .apply(this, true)
-                textAlign = Paint.Align.CENTER
-            }
-        val bounds = RectF(54f, 10f, 396f, 48f)
-        canvas.drawRoundRect(bounds, 19f, 19f, fill)
-        canvas.drawRoundRect(bounds, 19f, 19f, stroke)
-        val baseline = bounds.centerY() - (text.ascent() + text.descent()) / 2f
-        canvas.drawText(label, bounds.centerX(), baseline, text)
     }
 
     private fun WatchGraphColors.toSharedPalette() =

@@ -1,7 +1,7 @@
 package app.aapswear.g7watch
 
 import android.app.Activity
-import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
@@ -9,13 +9,12 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import app.aapswear.g7.CgmAlarmSettings
 import app.aapswear.g7.CgmAlarmType
+import app.aapswear.uishared.SharedNumberEditor
 import java.util.Locale
 
 /** Immediate-save alarm configuration. Test notifications never touch the real alarm state. */
@@ -34,21 +33,22 @@ class G7AlarmSettingsActivity : Activity() {
                     addView(root)
                 }.applyG7EdgeFade()
         setContentView(scrollView)
+        G7CgmAlarmNotifier.prepareCurrentChannels(this)
         render()
     }
 
     override fun onResume() {
         super.onResume()
+        G7CgmAlarmNotifier.prepareCurrentChannels(this)
         val granted = G7AlarmSystemAccess.isAccessGranted(this)
         if (lastDndState != null && lastDndState != granted) render()
         lastDndState = granted
-        G7CgmAlarmNotifier.ensureAllChannels(this, G7AlarmSettingsStore.read(this))
     }
 
     private fun render() {
         val restoreScrollY = scrollView.scrollY
         val palette = G7AppearanceStore(this).load()
-        val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+        val background = palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND)
         applyG7SystemChrome(window, background)
         val settings = G7AlarmSettingsStore.read(this)
 
@@ -56,7 +56,7 @@ class G7AlarmSettingsActivity : Activity() {
             removeAllViews()
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(7.dp, 32.dp, 7.dp, 56.dp)
+            setPadding(18.dp, 32.dp, 18.dp, 56.dp)
             setBackgroundColor(background)
             addView(topBar(palette), fullWidth())
             addView(dndCard(palette), cardParams(7))
@@ -71,35 +71,27 @@ class G7AlarmSettingsActivity : Activity() {
         val granted = status.policyAccessGranted
         lastDndState = granted
         return card(palette).apply {
-            addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+            addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true))
             addView(
                 label(
-                    if (granted) "Aktiv" else "Systemfreigabe erforderlich",
+                    if (granted) "Systemzugriff erlaubt" else "Systemfreigabe erforderlich",
                     12f,
-                    if (granted) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE),
+                    if (granted) palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE),
                     true,
                 ),
             )
             addView(
                 label(
-                    "Die Freigabe erlaubt konfigurierten Alarmen, Nicht stören systemkonform zu umgehen. Lautstärke, Stummschaltung und blockierte Benachrichtigungen können die Ausgabe weiterhin verhindern.",
+                    "Systemzugriff und Kanal-Ausnahme sind getrennt. Pr\u00fcfe die Alarmkan\u00e4le unter Berechtigungen. Lautst\u00e4rke und blockierte Benachrichtigungen k\u00f6nnen die Ausgabe verhindern.",
                     8.5f,
-                    palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 ),
             )
-            if (!granted) {
-                addView(
-                    actionButton("Systemfreigabe öffnen", palette) {
-                        when (G7AlarmSystemAccess.openPolicySettings(this@G7AlarmSettingsActivity)) {
-                            G7SettingsOpenResult.OPENED -> Unit
-                            G7SettingsOpenResult.UNAVAILABLE ->
-                                Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_LONG).show()
-                            G7SettingsOpenResult.FAILED ->
-                                Toast.makeText(this@G7AlarmSettingsActivity, "Systemfreigabe konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
-                        }
-                    },
-                )
-            }
+            addView(
+                actionButton("Berechtigungen und Alarmkan\u00e4le", palette) {
+                    startActivity(Intent(this@G7AlarmSettingsActivity, G7PermissionsActivity::class.java))
+                },
+            )
         }
     }
 
@@ -108,7 +100,7 @@ class G7AlarmSettingsActivity : Activity() {
         palette: G7AppearancePalette,
     ): LinearLayout =
         card(palette).apply {
-            addView(label("ALARMVERHALTEN", 8f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true))
+            addView(label("ALARMVERHALTEN", 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true))
             addView(toggle("Sound", settings.soundEnabled, palette) { save(settings.copy(soundEnabled = it)) })
             addView(toggle("Vibration", settings.vibrationEnabled, palette) { save(settings.copy(vibrationEnabled = it)) })
             addView(toggle("Wiederholen", settings.repeatEnabled, palette) { save(settings.copy(repeatEnabled = it)) })
@@ -131,19 +123,19 @@ class G7AlarmSettingsActivity : Activity() {
             thresholdText(
                 type,
                 settings,
-            )?.let { addView(label("Schwelle · $it", 9f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)) }
-            addView(label("Sound · ${g7AlarmSoundName(type)}", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+            )?.let { addView(label("Schwelle · $it", 9f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)) }
+            addView(label("Sound · ${g7AlarmSoundName(type)}", 8.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
             addView(
                 label(
                     "${if (settings.vibrationEnabled) "Vibration aktiv" else "Vibration aus"} · ${if (settings.repeatEnabled) "Wiederholung ${settings.repeatIntervalMinutes} min" else "Keine Wiederholung"}",
                     8.5f,
-                    palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 ),
             )
             if (type in editableThresholdTypes) {
                 addView(
                     actionButton("Schwelle eingeben · ${thresholdText(type, settings).orEmpty()}", palette) {
-                        showThresholdEditor(type, settings, palette)
+                        showThresholdEditor(type, settings)
                     },
                 )
             }
@@ -165,54 +157,34 @@ class G7AlarmSettingsActivity : Activity() {
     private fun showThresholdEditor(
         type: CgmAlarmType,
         settings: CgmAlarmSettings,
-        palette: G7AppearancePalette,
     ) {
         val restoreScrollY = scrollView.scrollY
         val current = thresholdValue(type, settings) ?: return
-        val input =
-            EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                setText(
-                    if (type == CgmAlarmType.RAPID_RISE ||
-                        type == CgmAlarmType.RAPID_FALL
-                    ) {
-                        String.format(Locale.US, "%.1f", current)
-                    } else {
-                        current.toInt().toString()
-                    },
-                )
-                selectAll()
-                setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                setHintTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY))
+        val shown =
+            if (type == CgmAlarmType.RAPID_RISE || type == CgmAlarmType.RAPID_FALL) {
+                String.format(Locale.US, "%.1f", current)
+            } else {
+                current.toInt().toString()
             }
-        val dialog =
-            AlertDialog
-                .Builder(this)
-                .setTitle("${g7AlarmTitle(type)} · Schwelle")
-                .setView(input)
-                .setNegativeButton("Abbrechen", null)
-                .setPositiveButton("Speichern", null)
-                .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val value =
-                    input.text
-                        .toString()
-                        .trim()
-                        .replace(',', '.')
-                        .toDoubleOrNull()
-                val updated = value?.let { withThreshold(settings, type, it) }
-                if (updated == null) {
-                    input.error = thresholdValidationMessage(type, settings)
+
+        fun parsed(value: String) = value.trim().replace(',', '.').toDoubleOrNull()
+        SharedNumberEditor.showText(
+            activity = this,
+            title = "${g7AlarmTitle(type)} · Schwelle",
+            current = shown,
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL,
+            validate = { text ->
+                if (parsed(text)?.let { withThreshold(settings, type, it) } == null) {
+                    thresholdValidationMessage(type, settings)
                 } else {
-                    dialog.dismiss()
-                    save(updated)
+                    null
                 }
-            }
-        }
-        dialog.setOnDismissListener { restoreScrollPosition(restoreScrollY) }
-        dialog.show()
-        input.requestFocus()
+            },
+            onValue = { text ->
+                parsed(text)?.let { withThreshold(settings, type, it) }?.let(::save)
+            },
+            onDismiss = { restoreScrollPosition(restoreScrollY) },
+        )
     }
 
     private fun restoreScrollPosition(scrollY: Int) {
@@ -236,10 +208,10 @@ class G7AlarmSettingsActivity : Activity() {
         changed: (Boolean) -> Unit,
     ) = app.aapswear.uishared.ScrollSafeSwitch(this).apply {
         app.aapswear.uishared.WearSettingsUi
-            .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+            .toggle(this, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         text = title
         isChecked = checked
-        setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+        setTextColor(palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         textSize = 15f
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
@@ -256,11 +228,11 @@ class G7AlarmSettingsActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         addView(
-            label("$title · $value", 8.5f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)),
+            label("$title · $value", 8.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
-        addView(actionButton("−", palette, minus), LinearLayout.LayoutParams(42.dp, 38.dp))
-        addView(actionButton("+", palette, plus), LinearLayout.LayoutParams(42.dp, 38.dp).apply { marginStart = 4.dp })
+        addView(actionButton("−", palette, minus), LinearLayout.LayoutParams(42.dp, ViewGroup.LayoutParams.WRAP_CONTENT))
+        addView(actionButton("+", palette, plus), LinearLayout.LayoutParams(42.dp, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = 4.dp })
     }
 
     private fun actionButton(
@@ -269,10 +241,13 @@ class G7AlarmSettingsActivity : Activity() {
         action: () -> Unit,
     ) = Button(this).apply {
         text = title
-        textSize = 13f
+        textSize = 14f
+        minimumHeight = 40.dp
+        app.aapswear.uishared.SystemTypography
+            .apply(this, true)
         isAllCaps = false
-        setTextColor(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 16f)
+        setTextColor(palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+        background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 16f)
         setOnClickListener { action() }
     }
 
@@ -280,7 +255,7 @@ class G7AlarmSettingsActivity : Activity() {
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(13.dp, 10.dp, 13.dp, 10.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 19f)
+            background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 19f)
         }
 
     private fun label(
@@ -295,10 +270,8 @@ class G7AlarmSettingsActivity : Activity() {
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)
         setTextColor(color)
-        if (bold) {
-            app.aapswear.uishared.SystemTypography
-                .apply(this, true)
-        }
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
     private fun rounded(

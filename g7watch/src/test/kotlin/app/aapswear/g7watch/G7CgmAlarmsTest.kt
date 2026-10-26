@@ -51,6 +51,37 @@ class G7CgmAlarmsTest {
     }
 
     @Test
+    fun `settings preparation registers channels without posting or changing alarm preferences`() {
+        val settings = G7AlarmSettingsStore.read(context).copy(soundEnabled = false, vibrationEnabled = false)
+        G7AlarmSettingsStore.write(context, settings)
+        shadowOf(notificationManager).setNotificationPolicyAccessGranted(false)
+
+        G7CgmAlarmNotifier.prepareCurrentChannels(context)
+
+        val deniedIds = CgmAlarmType.entries.map { G7CgmAlarmNotifier.channelId(context, it, settings) }
+        deniedIds.forEach { id ->
+            val channel = notificationManager.getNotificationChannel(id)
+            assertNotNull(channel)
+            assertFalse(channel.canBypassDnd())
+            assertFalse(channel.shouldVibrate())
+            assertNull(channel.sound)
+        }
+        assertTrue(shadowOf(notificationManager).allNotifications.isEmpty())
+        assertEquals(settings, G7AlarmSettingsStore.read(context))
+
+        shadowOf(notificationManager).setNotificationPolicyAccessGranted(true)
+        G7CgmAlarmNotifier.prepareCurrentChannels(context)
+
+        CgmAlarmType.entries.forEach { type ->
+            val channel = notificationManager.getNotificationChannel(G7CgmAlarmNotifier.channelId(context, type, settings))
+            assertTrue(channel.canBypassDnd())
+        }
+        deniedIds.forEach { assertNotNull(notificationManager.getNotificationChannel(it)) }
+        assertTrue(shadowOf(notificationManager).allNotifications.isEmpty())
+        assertEquals(settings, G7AlarmSettingsStore.read(context))
+    }
+
+    @Test
     fun `all eight alarm channels use system managed alarm audio`() {
         val settings = G7AlarmSettingsStore.read(context)
         G7CgmAlarmNotifier.ensureAllChannels(context, settings)

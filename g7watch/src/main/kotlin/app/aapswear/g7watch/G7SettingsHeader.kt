@@ -8,10 +8,22 @@ internal fun Activity.g7SettingsHeader(
     palette: G7AppearancePalette,
 ): LinearLayout =
     app.aapswear.uishared.WearSettingsUi
-        .header(this, title, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)) { finish() }
+        .header(this, title, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY)) { finish() }
         .apply {
             val inset =
                 app.aapswear.uishared.WearSettingsUi
                     .dp(context, 11)
             setPadding(inset, 0, inset, 0)
         }
+
+/** Menu chrome stays legible while the edited display palette retains its saved colors. */
+internal fun G7AppearancePalette.settingsArgb(role: G7AppearanceRole): Int =
+    when (role) {
+        G7AppearanceRole.MENU_BACKGROUND -> 0xFF000000.toInt()
+        G7AppearanceRole.MENU_SURFACE -> 0xFF202124.toInt()
+        G7AppearanceRole.MENU_TEXT_PRIMARY -> 0xFFFFFFFF.toInt()
+        G7AppearanceRole.MENU_TEXT_SECONDARY -> 0xFFB6B6BB.toInt()
+        G7AppearanceRole.MENU_PRIMARY -> 0xFF8AB4F8.toInt()
+        G7AppearanceRole.MENU_BORDER -> 0xFF46464B.toInt()
+        else -> argb(role)
+    }

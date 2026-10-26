@@ -38,6 +38,17 @@ class WearSettingsActivity : Activity() {
     private var categoryListScrollY = 0
     private var colorEditorOpen = false
 
+    // Settings stay legible while the user edits the display palette.
+    private val menuColors =
+        WatchUiColors(
+            background = Color.BLACK,
+            tileBackground = Color.rgb(35, 35, 38),
+            tileBorder = Color.rgb(68, 68, 72),
+            textPrimary = Color.WHITE,
+            textSecondary = Color.rgb(177, 177, 185),
+            accent = Color.rgb(137, 181, 255),
+        )
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         selectedAppearanceMode = WearDisplayPreferences.activeAppearanceMode(this)
@@ -48,7 +59,7 @@ class WearSettingsActivity : Activity() {
     private fun buildUi(scrollPosition: Int? = null) {
         val restoreScrollY = scrollPosition ?: if (::scrollView.isInitialized) scrollView.scrollY else 0
         current = WearDisplayPreferences.read(this, selectedAppearanceMode)
-        val ui = current.uiColors
+        val ui = menuColors
         val scroll =
             app.aapswear.uishared.WearSettingsScrollView(this).apply {
                 isFillViewport = true
@@ -60,66 +71,37 @@ class WearSettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 32.dp, 18.dp, 44.dp)
+                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
             }
         scroll.addView(root, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
 
-        val header =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, 0, 0, 7.dp)
-                addView(
-                    TextView(this@WearSettingsActivity).apply {
-                        text = "‹"
-                        textSize = 24f
-                        gravity = Gravity.CENTER
-                        setTextColor(ui.textPrimary)
-                        background = compactActionBackground()
-                        setOnClickListener {
-                            if (selectedSettingsCategory != null) {
-                                selectedSettingsCategory = null
-                                buildUi(scrollPosition = categoryListScrollY)
-                            } else {
-                                finish()
-                            }
-                        }
-                    },
-                    LinearLayout.LayoutParams(40.dp, 40.dp),
-                )
-                addView(
-                    LinearLayout(this@WearSettingsActivity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(9.dp, 0, 0, 0)
-                        addView(
-                            TextView(this@WearSettingsActivity).apply {
-                                setText(R.string.app_name)
-                                textSize =
-                                    app.aapswear.uishared.WearSettingsUi
-                                        .textSize(8f)
-                                setTextColor(ui.accent)
-                                app.aapswear.uishared.SystemTypography
-                                    .apply(this, true)
-                                letterSpacing = 0.08f
-                            },
-                        )
-                        addView(
-                            TextView(this@WearSettingsActivity).apply {
-                                setText(R.string.watch_settings_title)
-                                textSize =
-                                    app.aapswear.uishared.WearSettingsUi
-                                        .textSize(14f)
-                                setTextColor(ui.textPrimary)
-                                app.aapswear.uishared.SystemTypography
-                                    .apply(this, true)
-                            },
-                        )
-                    },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-                )
+        val pageTitle =
+            when (selectedSettingsCategory) {
+                "display" -> "App-Oberfläche"
+                "glucose" -> "Glukose"
+                "trend" -> "Trendpfeil"
+                "delta" -> "Delta und Einheit"
+                "therapy" -> "Therapie"
+                "graph" -> "Graph"
+                "tiles" -> "Tiles und Complications"
+                "watchfaces" -> "Watchfaces"
+                "connection" -> "Verbindung"
+                "diagnostics" -> "Diagnose"
+                "about" -> "Über"
+                else -> getString(R.string.watch_settings_title)
             }
-        root.addView(header, fullWidth())
+        root.addView(
+            app.aapswear.uishared.WearSettingsUi.header(this, pageTitle, menuColors.textPrimary) {
+                if (selectedSettingsCategory != null) {
+                    selectedSettingsCategory = null
+                    buildUi(scrollPosition = categoryListScrollY)
+                } else {
+                    finish()
+                }
+            },
+            fullWidth(),
+        )
         root.addView(
             choiceRow(
                 listOf("Hell" to AppearanceMode.LIGHT, "Dunkel" to AppearanceMode.DARK),
@@ -280,39 +262,10 @@ class WearSettingsActivity : Activity() {
 
         settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
             section("ZEITSKALA")
-            val hoursRow =
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    setPadding(5.dp, 5.dp, 5.dp, 5.dp)
-                    background = cardBackground()
-                }
-            WearDisplayPreferences.allowedGraphHours.forEach { hours ->
-                val selected = current.graphHours == hours
-                hoursRow.addView(
-                    Button(this).apply {
-                        text = getString(R.string.graph_hours, hours)
-                        textSize =
-                            app.aapswear.uishared.WearSettingsUi
-                                .textSize(9f)
-                        minimumHeight = 44.dp
-                        minWidth = 0
-                        minimumWidth = 0
-                        setPadding(1.dp, 0, 1.dp, 0)
-                        isAllCaps = false
-                        setTextColor(if (selected) ui.background else ui.textPrimary)
-                        background = pillBackground(selected)
-                        setOnClickListener { save(current.copy(graphHours = hours)) }
-                    },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                        marginStart = 1.dp
-                        marginEnd = 1.dp
-                    },
-                )
-            }
-            root.addView(hoursRow, cardParams())
             root.addView(
-                switchRow("Prognosen anzeigen", current.showPredictions) { save(current.copy(showPredictions = it)) },
+                choiceRow(WearDisplayPreferences.allowedGraphHours.map { getString(R.string.graph_hours, it) to it }, current.graphHours) {
+                    save(current.copy(graphHours = it))
+                },
                 cardParams(),
             )
             root.addView(
@@ -327,6 +280,19 @@ class WearSettingsActivity : Activity() {
             )
 
             section("CGM-PUNKTE")
+            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow, WatchGraphColors().cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange, WatchGraphColors().cgmInRange) {
+                updateGraphColors { c ->
+                    c.copy(cgmInRange = it)
+                }
+            }
+            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh, WatchGraphColors().cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
+            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline, WatchGraphColors().outline) {
+                updateGraphColors { c ->
+                    c.copy(outline = it)
+                }
+            }
+
             root.addView(
                 sliderCard(
                     title = "Punktgröße",
@@ -392,6 +358,7 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
+            section("SKALA")
             root.addView(
                 sliderCard(
                     title = "Skalenbereich",
@@ -408,7 +375,7 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
 
-            section("FARBEN")
+            section("GRAPHFLÄCHE UND ZIELBEREICH")
             colorRow(AppearanceTerminology.GRAPH_BACKGROUND, current.graphColors.graphBackground, WatchGraphColors().graphBackground) {
                 updateGraphColors { c ->
                     c.copy(graphBackground = it)
@@ -429,13 +396,7 @@ class WearSettingsActivity : Activity() {
                     c.copy(rangeHigh = it)
                 }
             }
-            colorRow(AppearanceTerminology.GRAPH_DOT_LOW, current.graphColors.cgmLow, WatchGraphColors().cgmLow) { updateGraphColors { c -> c.copy(cgmLow = it) } }
-            colorRow(AppearanceTerminology.GRAPH_DOT_IN_RANGE, current.graphColors.cgmInRange, WatchGraphColors().cgmInRange) {
-                updateGraphColors { c ->
-                    c.copy(cgmInRange = it)
-                }
-            }
-            colorRow(AppearanceTerminology.GRAPH_DOT_HIGH, current.graphColors.cgmHigh, WatchGraphColors().cgmHigh) { updateGraphColors { c -> c.copy(cgmHigh = it) } }
+            section("LINIEN UND BESCHRIFTUNG")
             colorRow(AppearanceTerminology.GRAPH_HIGH_LINE, current.graphColors.highLine, WatchGraphColors().highLine) {
                 updateGraphColors { c ->
                     c.copy(highLine = it)
@@ -454,12 +415,12 @@ class WearSettingsActivity : Activity() {
             }
             colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine, WatchGraphColors().nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
             colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider, WatchGraphColors().divider) { updateGraphColors { c -> c.copy(divider = it) } }
-            colorRow(AppearanceTerminology.GRAPH_DOT_OUTLINE, current.graphColors.outline, WatchGraphColors().outline) {
-                updateGraphColors { c ->
-                    c.copy(outline = it)
-                }
-            }
             section("PROGNOSEN")
+            root.addView(
+                switchRow("Prognosen anzeigen", current.showPredictions) { save(current.copy(showPredictions = it)) },
+                cardParams(),
+            )
+
             colorRow(AppearanceTerminology.PREDICTION_IOB, current.graphColors.predictionIob, WatchGraphColors().predictionIob) {
                 updateGraphColors { c ->
                     c.copy(predictionIob = it)
@@ -631,13 +592,8 @@ class WearSettingsActivity : Activity() {
             save(appearance.copy(global = appearance.global.copy(iconPercent = it)))
         }
         TherapyProgressMetric.entries.forEach { metric ->
-            val parent = root
             val label = metric.toTileMetric().label
-            val element =
-                app.aapswear.uishared.WearSettingsUi
-                    .elementCard(this, label, current.uiColors.tileBackground, current.uiColors.textPrimary)
-            parent.addView(element, cardParams())
-            root = element
+            section(label)
             val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
             root.addView(
                 switchRow("Anzeigen", metric in appearance.enabledMetrics) { enabled ->
@@ -660,7 +616,6 @@ class WearSettingsActivity : Activity() {
             addSlider("$label · obere Zeile", 60..180, local.primaryTextPercent) { update { value -> value.copy(primaryTextPercent = it) } }
             addSlider("$label · untere Zeile", 60..180, local.secondaryTextPercent) { update { value -> value.copy(secondaryTextPercent = it) } }
             addSlider("$label · Icon", 50..180, local.iconPercent) { update { value -> value.copy(iconPercent = it) } }
-            root = parent
         }
         root.addView(
             actionCard("Progressanzeigen zurücksetzen", "Standard") { save(TherapyProgressAppearance()) },
@@ -676,17 +631,7 @@ class WearSettingsActivity : Activity() {
     ) {
         if (selectedSettingsCategory != null) {
             if (selectedSettingsCategory == key) {
-                val page = root
-                val card =
-                    app.aapswear.uishared.WearSettingsUi
-                        .elementCard(this, title, current.uiColors.tileBackground, current.uiColors.textPrimary)
-                page.addView(card, cardParams())
-                root = card
-                try {
-                    buildContent()
-                } finally {
-                    root = page
-                }
+                buildContent()
             }
             return
         }
@@ -697,7 +642,7 @@ class WearSettingsActivity : Activity() {
                     app.aapswear.uishared.WearSettingsUi
                         .textSize(19f)
                 gravity = Gravity.CENTER
-                setTextColor(current.uiColors.textSecondary)
+                setTextColor(menuColors.textSecondary)
             }
         val header =
             LinearLayout(this).apply {
@@ -718,7 +663,7 @@ class WearSettingsActivity : Activity() {
                                 textSize =
                                     app.aapswear.uishared.WearSettingsUi
                                         .textSize(11f)
-                                setTextColor(current.uiColors.textPrimary)
+                                setTextColor(menuColors.textPrimary)
                                 app.aapswear.uishared.SystemTypography
                                     .apply(this, true)
                             },
@@ -726,11 +671,12 @@ class WearSettingsActivity : Activity() {
                         addView(
                             TextView(this@WearSettingsActivity).apply {
                                 text = summary
+                                app.aapswear.uishared.SystemTypography
+                                    .apply(this, false)
                                 textSize =
                                     app.aapswear.uishared.WearSettingsUi
                                         .textSize(8f)
-                                maxLines = 2
-                                setTextColor(current.uiColors.textSecondary)
+                                setTextColor(menuColors.textSecondary)
                             },
                         )
                     },
@@ -760,7 +706,7 @@ class WearSettingsActivity : Activity() {
                     textSize =
                         app.aapswear.uishared.WearSettingsUi
                             .textSize(10f)
-                    setTextColor(current.uiColors.textPrimary)
+                    setTextColor(menuColors.textPrimary)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                 },
@@ -768,10 +714,12 @@ class WearSettingsActivity : Activity() {
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = detail
+                    app.aapswear.uishared.SystemTypography
+                        .apply(this, false)
                     textSize =
                         app.aapswear.uishared.WearSettingsUi
                             .textSize(8.5f)
-                    setTextColor(current.uiColors.textSecondary)
+                    setTextColor(menuColors.textSecondary)
                 },
             )
         }
@@ -782,7 +730,7 @@ class WearSettingsActivity : Activity() {
         action: () -> Unit,
     ): View =
         LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(13.dp, 10.dp, 13.dp, 10.dp)
             background = cardBackground()
@@ -795,19 +743,17 @@ class WearSettingsActivity : Activity() {
                     textSize =
                         app.aapswear.uishared.WearSettingsUi
                             .textSize(10f)
-                    setTextColor(current.uiColors.textPrimary)
+                    setTextColor(menuColors.textPrimary)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                 },
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+                fullWidth(),
             )
             addView(
                 TextView(this@WearSettingsActivity).apply {
                     text = value
-                    textSize =
-                        app.aapswear.uishared.WearSettingsUi
-                            .textSize(9f)
-                    setTextColor(current.uiColors.accent)
+                    textSize = 15f
+                    setTextColor(menuColors.accent)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                 },
@@ -818,10 +764,8 @@ class WearSettingsActivity : Activity() {
         root.addView(
             TextView(this).apply {
                 this.text = text
-                textSize =
-                    app.aapswear.uishared.WearSettingsUi
-                        .textSize(8.5f)
-                setTextColor(current.uiColors.accent)
+                textSize = 14f
+                setTextColor(menuColors.accent)
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
                 letterSpacing = 0.08f
@@ -847,7 +791,7 @@ class WearSettingsActivity : Activity() {
                     textSize =
                         app.aapswear.uishared.WearSettingsUi
                             .textSize(10f)
-                    setTextColor(current.uiColors.textPrimary)
+                    setTextColor(menuColors.textPrimary)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                 },
@@ -859,15 +803,15 @@ class WearSettingsActivity : Activity() {
                     thumbTintList =
                         ColorStateList(
                             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                            intArrayOf(Color.WHITE, current.uiColors.textSecondary),
+                            intArrayOf(Color.WHITE, menuColors.textSecondary),
                         )
                     trackTintList =
                         ColorStateList(
                             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-                            intArrayOf(current.uiColors.accent, current.uiColors.tileBorder),
+                            intArrayOf(menuColors.accent, menuColors.tileBorder),
                         )
                     app.aapswear.uishared.WearSettingsUi
-                        .toggle(this, current.uiColors.accent, current.uiColors.textPrimary)
+                        .toggle(this, menuColors.accent, menuColors.textPrimary)
                     setOnCheckedChangeListener { _, value -> changed(value) }
                 },
             )
@@ -879,27 +823,27 @@ class WearSettingsActivity : Activity() {
         changed: (T) -> Unit,
     ): View =
         LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(5.dp, 5.dp, 5.dp, 5.dp)
-            background = cardBackground(16f)
             choices.forEach { (label, value) ->
                 val active = selected == value
                 addView(
                     Button(this@WearSettingsActivity).apply {
-                        text = label
-                        textSize =
-                            app.aapswear.uishared.WearSettingsUi
-                                .textSize(9f)
+                        text = if (active) "✓  $label" else label
+                        app.aapswear.uishared.SystemTypography
+                            .apply(this, active)
+                        textSize = 15f
                         isAllCaps = false
                         minimumHeight = 44.dp
+                        setPadding(10.dp, 8.dp, 10.dp, 8.dp)
                         minWidth = 0
                         minimumWidth = 0
-                        setTextColor(if (active) current.uiColors.background else current.uiColors.textPrimary)
+                        setTextColor(menuColors.textPrimary)
                         background = pillBackground(active)
                         setOnClickListener { changed(value) }
                     },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    fullWidth().apply {
                         marginStart = 1.dp
                         marginEnd = 1.dp
                     },
@@ -922,27 +866,29 @@ class WearSettingsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(13.dp, 9.dp, 13.dp, 8.dp)
             background = cardBackground()
+            var selectedValue = progress.coerceIn(min, max)
+            lateinit var slider: app.aapswear.uishared.ScrollSafeSeekBar
             val valueText =
                 TextView(this@WearSettingsActivity).apply {
                     text = value(progress)
-                    textSize =
-                        app.aapswear.uishared.WearSettingsUi
-                            .textSize(9f)
+                    textSize = 15f
                     gravity = Gravity.END
-                    setTextColor(current.uiColors.accent)
+                    setTextColor(menuColors.accent)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                     setPadding(10.dp, 5.dp, 10.dp, 5.dp)
-                    background = cardBackground()
                     setOnClickListener {
-                        SharedNumberEditor.show(this@WearSettingsActivity, title, progress.coerceIn(min, max), min, max) { selected ->
+                        SharedNumberEditor.show(this@WearSettingsActivity, title, selectedValue, min, max) { selected ->
+                            selectedValue = selected
+                            text = value(selected)
+                            slider.progress = selected - min
                             changed(selected)
                         }
                     }
                 }
             addView(
                 LinearLayout(this@WearSettingsActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
+                    orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER_VERTICAL
                     addView(
                         TextView(this@WearSettingsActivity).apply {
@@ -950,47 +896,44 @@ class WearSettingsActivity : Activity() {
                             textSize =
                                 app.aapswear.uishared.WearSettingsUi
                                     .textSize(10f)
-                            setTextColor(current.uiColors.textPrimary)
+                            setTextColor(menuColors.textPrimary)
                             app.aapswear.uishared.SystemTypography
                                 .apply(this, true)
                         },
-                        LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+                        fullWidth(),
                     )
-                    addView(valueText)
+                    addView(valueText, fullWidth())
                 },
                 fullWidth(),
             )
-            addView(
+            slider =
                 app.aapswear.uishared.ScrollSafeSeekBar(this@WearSettingsActivity).apply {
                     this.max = max - min
                     this.progress = progress.coerceIn(min, max) - min
-                    progressTintList = ColorStateList.valueOf(current.uiColors.accent)
-                    progressBackgroundTintList = ColorStateList.valueOf(current.uiColors.tileBorder)
-                    thumbTintList = ColorStateList.valueOf(current.uiColors.accent)
+                    progressTintList = ColorStateList.valueOf(menuColors.accent)
+                    progressBackgroundTintList = ColorStateList.valueOf(menuColors.tileBorder)
+                    thumbTintList = ColorStateList.valueOf(menuColors.accent)
                     app.aapswear.uishared.WearSettingsUi
-                        .slider(this, current.uiColors.accent, current.uiColors.tileBorder)
+                        .slider(this, menuColors.accent, menuColors.tileBorder)
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
-                            private var pendingValue = progress.coerceIn(min, max)
-
                             override fun onProgressChanged(
                                 seekBar: SeekBar?,
                                 raw: Int,
                                 fromUser: Boolean,
                             ) {
                                 if (!fromUser) return
-                                pendingValue = raw + min
-                                valueText.text = value(pendingValue)
+                                selectedValue = raw + min
+                                valueText.text = value(selectedValue)
                             }
 
                             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
 
-                            override fun onStopTrackingTouch(seekBar: SeekBar?) = changed(pendingValue)
+                            override fun onStopTrackingTouch(seekBar: SeekBar?) = changed(selectedValue)
                         },
                     )
-                },
-                fullWidth(),
-            )
+                }
+            addView(slider, fullWidth())
         }
 
     private fun colorRow(
@@ -1013,7 +956,7 @@ class WearSettingsActivity : Activity() {
                         textSize =
                             app.aapswear.uishared.WearSettingsUi
                                 .textSize(10f)
-                        setTextColor(current.uiColors.textPrimary)
+                        setTextColor(menuColors.textPrimary)
                         app.aapswear.uishared.SystemTypography
                             .apply(this, true)
                     },
@@ -1042,9 +985,9 @@ class WearSettingsActivity : Activity() {
             this,
             title,
             selected,
-            current.uiColors.tileBackground,
-            current.uiColors.textPrimary,
-            current.uiColors.tileBorder,
+            menuColors.tileBackground,
+            menuColors.textPrimary,
+            menuColors.tileBorder,
             defaultColor,
             onChange = changed,
             onReset = { changed(defaultColor) },
@@ -1081,18 +1024,11 @@ class WearSettingsActivity : Activity() {
         if (rebuild && !colorEditorOpen) buildUi()
     }
 
-    private fun compactActionBackground(): GradientDrawable =
-        GradientDrawable().apply {
-            cornerRadius = 20.dp.toFloat()
-            setColor(this@WearSettingsActivity.current.uiColors.tileBackground)
-            setStroke(1.dp, this@WearSettingsActivity.current.uiColors.tileBorder)
-        }
-
     private fun cardBackground(radiusDp: Float = 20f): GradientDrawable =
         GradientDrawable().apply {
             cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
-            setColor(this@WearSettingsActivity.current.uiColors.tileBackground)
-            setStroke(0, this@WearSettingsActivity.current.uiColors.tileBorder)
+            setColor(this@WearSettingsActivity.menuColors.tileBackground)
+            setStroke(0, this@WearSettingsActivity.menuColors.tileBorder)
         }
 
     private fun pillBackground(selected: Boolean): GradientDrawable =
@@ -1100,15 +1036,15 @@ class WearSettingsActivity : Activity() {
             cornerRadius = 17.dp.toFloat()
             setColor(
                 if (selected) {
-                    this@WearSettingsActivity.current.uiColors.accent
+                    Color.rgb(47, 64, 88)
                 } else {
                     this@WearSettingsActivity
-                        .current.uiColors.tileBackground
+                        .menuColors.tileBackground
                 },
             )
             setStroke(
                 1.dp,
-                if (selected) this@WearSettingsActivity.current.uiColors.accent else this@WearSettingsActivity.current.uiColors.tileBorder,
+                if (selected) this@WearSettingsActivity.menuColors.accent else this@WearSettingsActivity.menuColors.tileBorder,
             )
         }
 
@@ -1121,7 +1057,7 @@ class WearSettingsActivity : Activity() {
             setColor(color)
             setStroke(
                 if (selected) 3.dp else 1.dp,
-                if (selected) this@WearSettingsActivity.current.uiColors.accent else this@WearSettingsActivity.current.uiColors.tileBorder,
+                if (selected) this@WearSettingsActivity.menuColors.accent else this@WearSettingsActivity.menuColors.tileBorder,
             )
         }
 
