@@ -503,7 +503,12 @@ class G7CollectorService : Service() {
                             credentials.saveSharedKey(address, key)
                             val current = store.read()
                             if (current.sensor?.deviceAddress.isNullOrBlank()) {
-                                persist(current.copy(sensor = current.sensor?.copy(deviceAddress = address)))
+                                if (!persist(current.copy(sensor = current.sensor?.copy(deviceAddress = address)))) {
+                                    throw CancellationException("Collector association changed")
+                                }
+                            }
+                            if (allowsRetiredG7CandidateForSetup(collectionSensor, storedCredentials.sharedKey != null, storedCredentials.sharedKeyAddress)) {
+                                G7RetiredSensors(this@G7CollectorService).reactivateAuthenticated(address)
                             }
                         }
                     },

@@ -1,7 +1,6 @@
 package app.aapswear.g7watch
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.text.InputType
@@ -9,7 +8,6 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -55,8 +53,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
-                setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
+                setBackgroundColor(palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND))
             }
         root.addView(topBar(palette))
         root.addView(modeSelector(palette), params(8))
@@ -264,7 +262,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
     }
 
     private fun elementCard(title: String, palette: G7AppearancePalette): LinearLayout =
-        app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
+        app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
             pageRoot.addView(it, params(10))
         }
 
@@ -332,7 +330,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
                         settings.saveActiveAppearanceMode(item)
                         render()
                     },
-                    LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 5.dp },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 5.dp },
                 )
             }
         }
@@ -350,7 +348,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
                         settings.saveGraphHours(hour)
                         restyleChoices(this, hour, p)
                     }.apply { tag = hour },
-                    LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 3.dp },
                 )
             }
             addView(row, params(3))
@@ -367,7 +365,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
                     settings.saveGlucoseUnit(unit)
                     restyleChoices(this, unit, p)
                 }.apply { tag = unit },
-                LinearLayout.LayoutParams(0, 40.dp, 1f).apply { marginEnd = 3.dp },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 3.dp },
             )
         }
     }
@@ -381,11 +379,11 @@ class G7DirectToWatchSettingsActivity : Activity() {
             (row.getChildAt(index) as? LinearLayout)?.let { restyleChoices(it, selected, p) }
             val choice = row.getChildAt(index) as? TextView ?: continue
             val active = choice.tag == selected
-            choice.setTextColor(if (active) p.argb(G7AppearanceRole.MENU_BACKGROUND) else p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+            choice.setTextColor(if (active) p.settingsArgb(G7AppearanceRole.MENU_BACKGROUND) else p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
             choice.background =
                 rounded(
-                    if (active) p.argb(G7AppearanceRole.MENU_PRIMARY) else p.argb(G7AppearanceRole.MENU_SURFACE),
-                    p.argb(G7AppearanceRole.MENU_BORDER),
+                    if (active) p.settingsArgb(G7AppearanceRole.MENU_PRIMARY) else p.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                    p.settingsArgb(G7AppearanceRole.MENU_BORDER),
                     999f,
                 )
         }
@@ -407,18 +405,17 @@ class G7DirectToWatchSettingsActivity : Activity() {
         isHigh: Boolean,
         p: G7AppearancePalette,
     ) = button("$title · ${formatThreshold(valueMgDl.roundToInt(), settings.glucoseUnit())}", p) {
-        showTargetThresholdEditor(title, valueMgDl, isHigh, p)
+        showTargetThresholdEditor(title, valueMgDl, isHigh)
     }.apply {
         gravity = Gravity.CENTER_VERTICAL or Gravity.START
         setPadding(12.dp, 0, 12.dp, 0)
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 46.dp)
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun showTargetThresholdEditor(
         title: String,
         currentMgDl: Double,
         isHigh: Boolean,
-        p: G7AppearancePalette,
     ) {
         val restoreScrollY = scrollView.scrollY
         val unit = settings.glucoseUnit()
@@ -430,47 +427,35 @@ class G7DirectToWatchSettingsActivity : Activity() {
             } else {
                 currentMgDl.roundToInt().toString()
             }
-        val input =
-            EditText(this).apply {
-                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                setText(shown)
-                selectAll()
-                setTextColor(p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-            }
-        val dialog =
-            AlertDialog
-                .Builder(this)
-                .setTitle("Zielbereich · $title")
-                .setView(input)
-                .setNegativeButton("Abbrechen", null)
-                .setPositiveButton("Speichern", null)
-                .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val entered =
-                    input.text
-                        .toString()
-                        .trim()
-                        .replace(',', '.')
-                        .toDoubleOrNull()
-                val mgDl = entered?.let { if (unit == GlucoseUnit.MMOL_L) it * 18.0 else it }
-                val current = settings.thresholds()
-                val updated =
-                    mgDl
-                        ?.let { if (isHigh) current.copy(highMgDl = it) else current.copy(lowMgDl = it) }
-                        ?.takeIf { it.isValid && it.lowMgDl >= 40.0 && it.veryHighMgDl <= 400.0 }
-                if (updated == null) {
-                    input.error = if (isHigh) "Muss über dem Tief-Wert liegen" else "Muss unter dem Hoch-Wert liegen"
+
+        fun updated(text: String): app.aapswear.model.CgmThresholds? {
+            val entered = text.trim().replace(',', '.').toDoubleOrNull()
+            val mgDl = entered?.let { if (unit == GlucoseUnit.MMOL_L) it * 18.0 else it }
+            val current = settings.thresholds()
+            return mgDl
+                ?.let { if (isHigh) current.copy(highMgDl = it) else current.copy(lowMgDl = it) }
+                ?.takeIf { it.isValid && it.lowMgDl >= 40.0 && it.veryHighMgDl <= 400.0 }
+        }
+        SharedNumberEditor.showText(
+            activity = this,
+            title = "Zielbereich · $title",
+            current = shown,
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL,
+            validate = { text ->
+                if (updated(text) == null) {
+                    if (isHigh) "Muss über dem Tief-Wert liegen" else "Muss unter dem Hoch-Wert liegen"
                 } else {
-                    settings.saveThresholds(updated)
-                    dialog.dismiss()
+                    null
+                }
+            },
+            onValue = { text ->
+                updated(text)?.let {
+                    settings.saveThresholds(it)
                     render()
                 }
-            }
-        }
-        dialog.setOnDismissListener { restoreScrollPosition(restoreScrollY) }
-        dialog.show()
-        input.requestFocus()
+            },
+            onDismiss = { restoreScrollPosition(restoreScrollY) },
+        )
     }
 
     // This listener only arbitrates parent scrolling and returns false, so the
@@ -487,11 +472,9 @@ class G7DirectToWatchSettingsActivity : Activity() {
     ) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = card(p)
-        val value = label(format(initial), 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
+        val value = label(format(initial), 11f, p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
         addView(value)
         value.setPadding(4.dp, 4.dp, 4.dp, 4.dp)
-        value.background = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 10f)
         value.setOnClickListener {
             SharedNumberEditor.show(this@G7DirectToWatchSettingsActivity, title, initial.coerceIn(min, max), min, max) { selected ->
                 save(selected)
@@ -501,7 +484,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         addView(
             app.aapswear.uishared.ScrollSafeSeekBar(this@G7DirectToWatchSettingsActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .slider(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_BORDER))
+                    .slider(this, p.settingsArgb(G7AppearanceRole.MENU_PRIMARY), p.settingsArgb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(
@@ -534,15 +517,14 @@ class G7DirectToWatchSettingsActivity : Activity() {
     ) = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = card(p)
         addView(
-            label(title, 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
+            label(title, 11f, p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
             app.aapswear.uishared.ScrollSafeSwitch(this@G7DirectToWatchSettingsActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .toggle(this, p.argb(G7AppearanceRole.MENU_PRIMARY), p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                    .toggle(this, p.settingsArgb(G7AppearanceRole.MENU_PRIMARY), p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
                 setOnCheckedChangeListener {
                     _,
@@ -563,16 +545,15 @@ class G7DirectToWatchSettingsActivity : Activity() {
     ) = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = card(p)
         val swatch =
             View(this@G7DirectToWatchSettingsActivity).apply {
                 background =
-                    rounded(color, p.argb(G7AppearanceRole.MENU_BORDER), 10f)
+                    rounded(color, p.settingsArgb(G7AppearanceRole.MENU_BORDER), 10f)
             }
         addView(
             LinearLayout(this@G7DirectToWatchSettingsActivity).apply {
                 orientation = LinearLayout.VERTICAL
-                addView(label(title, 11f, p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+                addView(label(title, 11f, p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
             },
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
@@ -585,12 +566,12 @@ class G7DirectToWatchSettingsActivity : Activity() {
                 p.argb(
                     G7AppearanceRole.MENU_SURFACE,
                 ),
-                p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                p.argb(G7AppearanceRole.MENU_BORDER),
+                p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                p.settingsArgb(G7AppearanceRole.MENU_BORDER),
                 defaultColor,
                 onChange = { changed ->
                     save(changed)
-                    swatch.background = rounded(changed, p.argb(G7AppearanceRole.MENU_BORDER), 10f)
+                    swatch.background = rounded(changed, p.settingsArgb(G7AppearanceRole.MENU_BORDER), 10f)
                 },
                 onReset = {},
             )
@@ -602,7 +583,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         title: String,
         p: G7AppearancePalette,
     ) = root.addView(
-        label(title, 9f, p.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
+        label(title, 9f, p.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true).apply {
             letterSpacing = 0f
             setPadding(16.dp, 16.dp, 16.dp, 8.dp)
         },
@@ -616,16 +597,17 @@ class G7DirectToWatchSettingsActivity : Activity() {
     ) = label(
         title,
         10f,
-        if (selected) p.argb(G7AppearanceRole.MENU_BACKGROUND) else p.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+        if (selected) p.settingsArgb(G7AppearanceRole.MENU_BACKGROUND) else p.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
         true,
     ).apply {
         gravity =
             Gravity.CENTER
-        textSize = 13f
+        textSize = 14f
+        minimumHeight = 40.dp
         ; background =
             rounded(
-                if (selected) p.argb(G7AppearanceRole.MENU_PRIMARY) else p.argb(G7AppearanceRole.MENU_SURFACE),
-                p.argb(G7AppearanceRole.MENU_BORDER),
+                if (selected) p.settingsArgb(G7AppearanceRole.MENU_PRIMARY) else p.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                p.settingsArgb(G7AppearanceRole.MENU_BORDER),
                 999f,
             )
         setOnClickListener { action() }
@@ -643,13 +625,11 @@ class G7DirectToWatchSettingsActivity : Activity() {
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)
         setTextColor(color)
-        if (bold) {
-            app.aapswear.uishared.SystemTypography
-                .apply(this, true)
-        }
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
-    private fun card(p: G7AppearancePalette) = rounded(p.argb(G7AppearanceRole.MENU_SURFACE), p.argb(G7AppearanceRole.MENU_BORDER), 18f)
+    private fun card(p: G7AppearancePalette) = rounded(p.settingsArgb(G7AppearanceRole.MENU_SURFACE), p.settingsArgb(G7AppearanceRole.MENU_BORDER), 18f)
 
     private fun rounded(
         fill: Int,

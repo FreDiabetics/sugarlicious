@@ -44,21 +44,21 @@ class G7AppearanceActivity : Activity() {
 
     private fun render() {
         val palette = store.load(selectedMode)
-        applyG7SystemChrome(window, palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+        applyG7SystemChrome(window, palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND))
 
         val restoreScrollY = scrollView.scrollY
         var content =
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
-                setPadding(7.dp, 32.dp, 7.dp, 56.dp)
-                setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
+                setBackgroundColor(palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND))
             }
         content.addView(topBar(palette))
         content.addView(themeSelector(palette), params(top = 8))
 
         fun card(title: String): LinearLayout =
-            app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
+            app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
                 pageRoot.addView(it, params(top = 10))
             }
         val glucoseCard = card("Glukosewert")
@@ -73,9 +73,9 @@ class G7AppearanceActivity : Activity() {
                     this,
                     "Trendpfeil · Füllfarbe",
                     trendStyle.fillColor,
-                    palette.argb(G7AppearanceRole.MENU_SURFACE),
-                    palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                    palette.argb(G7AppearanceRole.MENU_BORDER),
+                    palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                    palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                    palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                     TrendArrowStyle.defaults(selectedMode, palette.argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
                     onChange = { store.saveTrendArrowStyle(selectedMode, store.trendArrowStyle(selectedMode).copy(fillColor = it)) },
                     onReset = {
@@ -101,9 +101,9 @@ class G7AppearanceActivity : Activity() {
                         this,
                         "Trendpfeil · Konturfarbe",
                         trendStyle.outlineColor,
-                        palette.argb(G7AppearanceRole.MENU_SURFACE),
-                        palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                        palette.argb(G7AppearanceRole.MENU_BORDER),
+                        palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                        palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                        palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                         TrendArrowStyle.defaults(selectedMode, trendStyle.fillColor).outlineColor,
                         onChange = { store.saveTrendArrowStyle(selectedMode, store.trendArrowStyle(selectedMode).copy(outlineColor = it)) },
                         onReset = {
@@ -132,7 +132,7 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
         content.addView(
-            pill("TREND-STIL RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+            pill("TREND-STIL RESET", palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY)) {
                 store.resetTrendArrowStyle(selectedMode)
                 render()
             },
@@ -159,9 +159,9 @@ class G7AppearanceActivity : Activity() {
                     this,
                     "Tile-Trendpfeil · Füllfarbe",
                     tileTrendStyle.fillColor,
-                    palette.argb(G7AppearanceRole.MENU_SURFACE),
-                    palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                    palette.argb(G7AppearanceRole.MENU_BORDER),
+                    palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                    palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                    palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                     TrendArrowStyle.defaults(selectedMode, store.tileGlucosePalette(selectedMode).argb(G7AppearanceRole.GLUCOSE_TREND)).fillColor,
                     onChange = { store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(fillColor = it)) },
                     onReset = {
@@ -187,9 +187,9 @@ class G7AppearanceActivity : Activity() {
                         this,
                         "Tile-Trendpfeil · Konturfarbe",
                         tileTrendStyle.outlineColor,
-                        palette.argb(G7AppearanceRole.MENU_SURFACE),
-                        palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                        palette.argb(G7AppearanceRole.MENU_BORDER),
+                        palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                        palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                        palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                         TrendArrowStyle.defaults(selectedMode, tileTrendStyle.fillColor).outlineColor,
                         onChange = { store.saveTileTrendArrowStyle(selectedMode, tileTrendStyle.copy(outlineColor = it)) },
                         onReset = {
@@ -228,9 +228,9 @@ class G7AppearanceActivity : Activity() {
                             this,
                             "Tile · ${role.label}",
                             current,
-                            palette.argb(G7AppearanceRole.MENU_SURFACE),
-                            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-                            palette.argb(G7AppearanceRole.MENU_BORDER),
+                            palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                            palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                            palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
                             store.load(selectedMode).argb(role),
                             onChange = { store.saveTileGlucoseColor(selectedMode, role, it) },
                             onReset = {
@@ -244,7 +244,7 @@ class G7AppearanceActivity : Activity() {
                 )
             }
         content.addView(
-            pill("TILE-GLUKOSE RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+            pill("TILE-GLUKOSE RESET", palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY)) {
                 store.resetTileGlucoseAppearance(selectedMode)
                 render()
             },
@@ -363,7 +363,7 @@ class G7AppearanceActivity : Activity() {
             )
         }
         content.addView(
-            pill("TILE-GRAPH RESET", palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_PRIMARY)) {
+            pill("TILE-GRAPH RESET", palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY)) {
                 store.resetTileGraph()
                 render()
             },
@@ -389,14 +389,14 @@ class G7AppearanceActivity : Activity() {
         content = pageRoot
 
         content.addView(
-            pill("ALLES RESET", palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BACKGROUND)) {
+            pill("ALLES RESET", palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND)) {
                 store.resetAll()
                 render()
             },
             params(top = 14),
         )
 
-        scrollView.setBackgroundColor(palette.argb(G7AppearanceRole.MENU_BACKGROUND))
+        scrollView.setBackgroundColor(palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND))
         scrollView.viewTreeObserver.addOnPreDrawListener(
             object : ViewTreeObserver.OnPreDrawListener {
                 override fun onPreDraw(): Boolean {
@@ -421,13 +421,13 @@ class G7AppearanceActivity : Activity() {
                     row.addView(
                         pill(
                             "${hours}h",
-                            if (active) palette.argb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.MENU_SURFACE),
-                            if (active) palette.argb(G7AppearanceRole.MENU_BACKGROUND) else palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                            if (active) palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY) else palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+                            if (active) palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND) else palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
                         ) {
                             store.setTileGraphHours(hours)
                             render()
                         },
-                        LinearLayout.LayoutParams(0, 38.dp, 1f).apply { marginEnd = 3.dp },
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 3.dp },
                     )
                 }
                 addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = 3.dp })
@@ -442,11 +442,11 @@ class G7AppearanceActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(10.dp, 8.dp, 8.dp, 8.dp)
-            background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
+            background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 18f)
 
             val swatch =
                 View(this@G7AppearanceActivity).apply {
-                    background = rounded(palette.argb(role), palette.argb(G7AppearanceRole.MENU_BORDER), 12f)
+                    background = rounded(palette.argb(role), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 12f)
                 }
             addView(swatch, LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 9.dp })
 
@@ -454,7 +454,7 @@ class G7AppearanceActivity : Activity() {
                 LinearLayout(this@G7AppearanceActivity).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(
-                        label(role.label, 12f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.START },
+                        label(role.label, 12f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply { gravity = Gravity.START },
                     )
                     setOnClickListener { openColorEditor(role) }
                 },
@@ -478,12 +478,11 @@ class G7AppearanceActivity : Activity() {
     ) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
-        val valueLabel = label(format(initial), 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
+        var selectedValue = initial.coerceIn(min, max)
+        val valueLabel = label(format(selectedValue), 11f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true)
         valueLabel.setPadding(4.dp, 4.dp, 4.dp, 4.dp)
-        valueLabel.background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 10f)
         valueLabel.setOnClickListener {
-            SharedNumberEditor.show(this@G7AppearanceActivity, title, initial.coerceIn(min, max), min, max) { value ->
+            SharedNumberEditor.show(this@G7AppearanceActivity, title, selectedValue, min, max) { value ->
                 save(value)
                 render()
             }
@@ -492,7 +491,7 @@ class G7AppearanceActivity : Activity() {
         addView(
             app.aapswear.uishared.ScrollSafeSeekBar(this@G7AppearanceActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .slider(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BORDER))
+                    .slider(this, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_BORDER))
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(
@@ -503,6 +502,7 @@ class G7AppearanceActivity : Activity() {
                             fromUser: Boolean,
                         ) {
                             val value = progress + min
+                            selectedValue = value
                             valueLabel.text = format(value)
                             if (fromUser) save(value)
                         }
@@ -525,15 +525,14 @@ class G7AppearanceActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
         addView(
-            label(title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
+            label(title, 11f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
             app.aapswear.uishared.ScrollSafeSwitch(this@G7AppearanceActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .toggle(this, palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
+                    .toggle(this, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                 isChecked = checked
                 setOnCheckedChangeListener { _, value -> save(value) }
             },
@@ -549,14 +548,13 @@ class G7AppearanceActivity : Activity() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = rounded(palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_BORDER), 18f)
         addView(
-            label(title, 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
+            label(title, 11f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true),
             LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         addView(
             View(this@G7AppearanceActivity).apply {
-                background = rounded(color, palette.argb(G7AppearanceRole.MENU_BORDER), 12f)
+                background = rounded(color, palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 12f)
                 setOnClickListener { edit() }
             },
             LinearLayout.LayoutParams(32.dp, 32.dp),
@@ -571,9 +569,9 @@ class G7AppearanceActivity : Activity() {
             this,
             role.label,
             initial,
-            palette.argb(G7AppearanceRole.MENU_SURFACE),
-            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-            palette.argb(G7AppearanceRole.MENU_BORDER),
+            palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+            palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
             if (selectedMode == AppearanceMode.LIGHT) role.lightArgb else role.defaultArgb,
             onChange = { store.save(selectedMode, role, it) },
             onReset = {
@@ -591,9 +589,9 @@ class G7AppearanceActivity : Activity() {
             this,
             "WearOS-Tile · ${role.label}",
             initial,
-            palette.argb(G7AppearanceRole.MENU_SURFACE),
-            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
-            palette.argb(G7AppearanceRole.MENU_BORDER),
+            palette.settingsArgb(G7AppearanceRole.MENU_SURFACE),
+            palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+            palette.settingsArgb(G7AppearanceRole.MENU_BORDER),
             palette.argb(role),
             onChange = { store.saveTileGraphColor(role, it, selectedMode) },
             onReset = {
@@ -611,7 +609,8 @@ class G7AppearanceActivity : Activity() {
         action: () -> Unit,
     ) = TextView(this).apply {
         text = textValue
-        textSize = 13f
+        textSize = 14f
+        minimumHeight = 40.dp
         gravity = Gravity.CENTER
         app.aapswear.uishared.SystemTypography
             .apply(this, true)
@@ -631,23 +630,23 @@ class G7AppearanceActivity : Activity() {
                         if (selectedMode ==
                             mode
                         ) {
-                            palette.argb(G7AppearanceRole.MENU_PRIMARY)
+                            palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY)
                         } else {
-                            palette.argb(G7AppearanceRole.MENU_SURFACE)
+                            palette.settingsArgb(G7AppearanceRole.MENU_SURFACE)
                         },
                         if (selectedMode ==
                             mode
                         ) {
-                            palette.argb(G7AppearanceRole.MENU_BACKGROUND)
+                            palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND)
                         } else {
-                            palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
+                            palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY)
                         },
                     ) {
                         selectedMode = mode
                         store.setActiveMode(mode)
                         render()
                     },
-                    LinearLayout.LayoutParams(0, 42.dp, 1f).apply { marginEnd = 6.dp },
+                    LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = 6.dp },
                 )
             }
         }
@@ -664,10 +663,8 @@ class G7AppearanceActivity : Activity() {
             app.aapswear.uishared.WearSettingsUi
                 .textSize(size)
         setTextColor(color)
-        if (bold) {
-            app.aapswear.uishared.SystemTypography
-                .apply(this, true)
-        }
+        app.aapswear.uishared.SystemTypography
+            .apply(this, bold)
     }
 
     private fun params(top: Int = 0) =

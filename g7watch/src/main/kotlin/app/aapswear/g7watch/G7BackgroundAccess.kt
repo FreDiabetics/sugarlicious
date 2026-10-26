@@ -31,15 +31,6 @@ internal object G7BackgroundAccess {
      * Opens the first battery/background settings surface that exists on the current Wear build.
      * Grant state is never faked locally; the Activity re-reads PowerManager on resume.
      */
-    fun openBatterySettings(activity: Activity): Boolean {
-        for (intent in batterySettingsIntents(activity.packageName)) {
-            val opened =
-                runCatching {
-                    activity.startActivity(intent)
-                    true
-                }.getOrDefault(false)
-            if (opened) return true
-        }
-        return false
-    }
+    fun openBatterySettings(activity: Activity): Boolean =
+        G7SystemAccess.open(activity, batterySettingsIntents(activity.packageName))
 }

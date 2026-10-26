@@ -1,6 +1,7 @@
 package app.aapswear.g7watch
 
 import android.os.Looper
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.ImageView
@@ -14,7 +15,6 @@ import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SensorState
-import app.aapswear.g7.G7SessionState
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
 import app.aapswear.model.CgmThresholds
@@ -67,7 +67,6 @@ class G7WatchActivityLayoutTest {
     @Test
     fun `collector updates cannot advance an unstarted pairing flow`() {
         val backgroundPairing = G7PersistedState(sensor = G7Sensor("old"), collectorEnabled = true)
-        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, backgroundPairing))
         assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, backgroundPairing))
         assertEquals(G7PairingScreenStep.CONNECTING, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, backgroundPairing))
     }
@@ -135,36 +134,21 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `pairing gate remains until a validated reading proves the session`() {
-        assertTrue(requiresPairingGate(G7PersistedState()))
-        assertTrue(requiresPairingGate(G7PersistedState(sensor = G7Sensor("ended", state = G7SensorState.ENDED))))
-        assertTrue(
-            requiresPairingGate(
-                G7PersistedState(
-                    sensor = G7Sensor("pairing"),
-                    collectorEnabled = true,
-                    sessionState = G7SessionState.INITIAL_SETUP,
-                ),
-            ),
-        )
-        assertTrue(
-            requiresPairingGate(
-                G7PersistedState(
-                    sensor = G7Sensor("warming", state = G7SensorState.WARMUP),
-                    collectorEnabled = true,
-                    sessionState = G7SessionState.AUTHENTICATED,
-                ),
-            ),
-        )
-        assertTrue(
-            requiresPairingGate(
-                G7PersistedState(
-                    sensor = G7Sensor("error", state = G7SensorState.ERROR),
-                    collectorEnabled = true,
-                    sessionState = G7SessionState.WAITING_FOR_NEXT_READING,
-                ),
-            ),
-        )
+    fun `ordinary launch never selects pairing from sensor state alone`() {
+        listOf(
+            G7PersistedState(),
+            G7PersistedState(sensor = G7Sensor("ended", state = G7SensorState.ENDED)),
+            G7PersistedState(sensor = G7Sensor("prepared"), collectorEnabled = false),
+            G7PersistedState(sensor = G7Sensor("error", state = G7SensorState.ERROR), collectorEnabled = true),
+        ).forEach { assertNull(initialG7PairingScreenStep(it)) }
+        assertEquals(G7PairingScreenStep.ENTER_CODE, initialG7PairingScreenStep(G7PersistedState(), G7PairingScreenStep.ENTER_CODE))
+    }
+
+    @Test
+    fun `association action distinguishes prepared metadata from a connected sensor`() {
+        assertFalse(hasG7SensorAssociation(G7PersistedState()))
+        assertFalse(hasG7SensorAssociation(G7PersistedState(sensor = G7Sensor("prepared"), collectorEnabled = false)))
+        assertTrue(hasG7SensorAssociation(G7PersistedState(sensor = G7Sensor("paired", deviceAddress = "AA:BB:CC:DD:EE:FF"))))
     }
 
     @Test
@@ -172,13 +156,7 @@ class G7WatchActivityLayoutTest {
         val context =
             androidx.test.core.app.ApplicationProvider
                 .getApplicationContext<android.content.Context>()
-        G7SensorStateStore(context).save(
-            G7PersistedState(
-                sensor = G7Sensor("pairing"),
-                collectorEnabled = true,
-                sessionState = G7SessionState.INITIAL_SETUP,
-            ),
-        )
+        G7SensorStateStore(context).save(G7PersistedState())
         val activity =
             Robolectric
                 .buildActivity(G7WatchActivity::class.java)
@@ -189,9 +167,10 @@ class G7WatchActivityLayoutTest {
         val root = activity.findViewById<android.view.View>(android.R.id.content)
 
         assertNotNull(findScrollView(root))
-        assertNotNull(findText(root, "Kein Sensor verbunden"))
-        assertNotNull(findText(root, "Verbinden Sie Ihren Sensor direkt mit Ihrer WearOS Smartwatch."))
-        findText(root, "Sensor verbinden")!!.performClick()
+        assertNotNull(findGraph(root))
+        assertNull(findEditor(root))
+        assertNull(findText(root, "Verbinden"))
+        findText(root, "Sensor koppeln")!!.performClick()
         val codeRoot = activity.findViewById<android.view.View>(android.R.id.content)
         assertNotNull(findScrollView(codeRoot))
         assertNotNull(findText(codeRoot, "Sensorcode eingeben"))
@@ -203,6 +182,289 @@ class G7WatchActivityLayoutTest {
         assertTrue(editor?.isFocusableInTouchMode == true)
         assertNull(editor?.background)
         activity.finish()
+    }
+
+    @Test
+    fun `system status has one explicit pairing action and no automatic editor`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState())
+        val controller = Robolectric.buildActivity(G7SystemStatusActivity::class.java).setup()
+        val activity = controller.get()
+        try {
+            val texts = mutableListOf<String>()
+            collectText(activity.window.decorView, texts)
+            assertEquals(1, texts.count { it == "Sensor koppeln" })
+            assertFalse(texts.contains("Sensor entkoppeln"))
+            assertFalse(texts.contains("Fortsetzen"))
+            assertNull(findEditor(activity.window.decorView))
+            findText(activity.window.decorView, "Sensor koppeln")!!.performClick()
+            val target = Shadows.shadowOf(activity).nextStartedActivity
+            assertEquals(G7WatchActivity::class.java.name, target.component?.className)
+            assertTrue(target.getBooleanExtra(G7WatchActivity.EXTRA_OPEN_PAIRING, false))
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `associated sensor controls contain only association and pause actions`() {
+        val overviewController = Robolectric.buildActivity(G7WatchActivity::class.java).setup()
+        val statusController = Robolectric.buildActivity(G7SystemStatusActivity::class.java).setup()
+        try {
+            val overviewAction = findText(overviewController.get().window.decorView, "Sensor entkoppeln")!!
+            val statusAction = findText(statusController.get().window.decorView, "Sensor entkoppeln")!!
+            listOf(overviewAction.parent as View, statusAction.parent as View).forEach { controls ->
+                val text = mutableListOf<String>()
+                collectText(controls, text)
+                assertEquals(1, text.count { it == "Sensor entkoppeln" })
+                assertEquals(1, text.count { it == "Pausieren" || it == "Fortsetzen" })
+                val clickableText = mutableListOf<String>()
+
+                fun collectActions(view: View) {
+                    if (view is TextView && view.isClickable) clickableText += view.text.toString()
+                    if (view is ViewGroup) for (index in 0 until view.childCount) collectActions(view.getChildAt(index))
+                }
+                collectActions(controls)
+                assertEquals(2, clickableText.size)
+                assertFalse(text.contains("Bluetooth-Einstellungen"))
+                assertFalse(text.contains("Sensor koppeln"))
+            }
+        } finally {
+            overviewController.pause().stop().destroy()
+            statusController.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `explicit code entry survives recreation without starting collection`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState())
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.ENTER_CODE.name) }
+        val controller =
+            Robolectric
+                .buildActivity(G7WatchActivity::class.java)
+                .create(saved)
+                .start()
+                .resume()
+        try {
+            assertNotNull(findEditor(controller.get().window.decorView))
+            assertNotNull(findText(controller.get().window.decorView, "Verbinden"))
+            assertFalse(G7SensorStateStore(context).read().collectorEnabled)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `immediate unlink preserves overview history scroll and guards duplicate taps`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        val stateStore = G7SensorStateStore(context)
+        val reading = stateStore.read().lastReading!!
+        runBlocking { G7ReadingDatabase(context).use { it.insert(reading) } }
+        val beforeHistory = G7ReadingDatabase(context).use { it.query(limit = 300) }
+        val controller = Robolectric.buildActivity(G7WatchActivity::class.java).setup()
+        val activity = controller.get()
+        var calls = 0
+        var pending: (() -> Unit)? = null
+        activity.prepareUnlinkAccess = { ready, _ -> ready() }
+        activity.executeAssociationTask = { pending = it }
+        activity.unlinkSensor = {
+            calls++
+            stateStore.save(G7PersistedState())
+            G7UnlinkResult(G7BondRemovalStatus.REMOVED)
+        }
+        try {
+            val content = activity.findViewById<ViewGroup>(android.R.id.content)
+            val overview = content.getChildAt(0)
+            val scroll = findScrollView(overview)!!
+            overview.measure(View.MeasureSpec.makeMeasureSpec(454, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(454, View.MeasureSpec.EXACTLY))
+            overview.layout(0, 0, 454, 454)
+            scroll.scrollTo(0, 30)
+            val oldY = scroll.scrollY
+            val action = findText(overview, "Sensor entkoppeln")!!
+            action.performClick()
+            action.performClick()
+            assertEquals(0, calls)
+            assertNotNull(pending)
+            pending!!.invoke()
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(1, calls)
+            assertSame(overview, content.getChildAt(0))
+            assertEquals(oldY, scroll.scrollY)
+            assertNotNull(findText(overview, "Sensor koppeln"))
+            assertNull(findEditor(overview))
+            assertNull(findText(overview, "Sensor entkoppeln"))
+            assertEquals(beforeHistory, G7ReadingDatabase(context).use { it.query(limit = 300) })
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `failed immediate unlink retains association and offers native cleanup`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        val before = G7SensorStateStore(context).read()
+        val controller = Robolectric.buildActivity(G7WatchActivity::class.java).setup()
+        val activity = controller.get()
+        activity.prepareUnlinkAccess = { ready, _ -> ready() }
+        activity.executeAssociationTask = { it() }
+        activity.unlinkSensor = { G7UnlinkResult(G7BondRemovalStatus.FAILED) }
+        try {
+            findText(activity.window.decorView, "Sensor entkoppeln")!!.performClick()
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(before.sensor, G7SensorStateStore(context).read().sensor)
+            assertNotNull(findText(activity.window.decorView, "Sensor entkoppeln"))
+            assertNull(findText(activity.window.decorView, "Sensor koppeln"))
+            assertNull(findText(activity.window.decorView, "Bluetooth-Einstellungen"))
+            assertNotNull(findText(activity.window.decorView, "Entkoppeln fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen."))
+            assertNull(findEditor(activity.window.decorView))
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `cancelled companion access never runs unlink or changes the association`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        val before = G7SensorStateStore(context).read().sensor
+        val controller = Robolectric.buildActivity(G7WatchActivity::class.java).setup()
+        val activity = controller.get()
+        var unlinkCalls = 0
+        activity.prepareUnlinkAccess = { _, failed -> failed("Systemfreigabe abgebrochen") }
+        activity.unlinkSensor = {
+            unlinkCalls++
+            G7UnlinkResult(G7BondRemovalStatus.REMOVED)
+        }
+        try {
+            findText(activity.window.decorView, "Sensor entkoppeln")!!.performClick()
+            assertEquals(0, unlinkCalls)
+            assertEquals(before, G7SensorStateStore(context).read().sensor)
+            assertNotNull(findText(activity.window.decorView, "Sensor entkoppeln"))
+            assertNull(findEditor(activity.window.decorView))
+            assertNotNull(findText(activity.window.decorView, "Systemfreigabe abgebrochen"))
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `system back leaves explicit code entry on the overview before closing the activity`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState())
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.ENTER_CODE.name) }
+        val controller =
+            Robolectric
+                .buildActivity(G7WatchActivity::class.java)
+                .create(saved)
+                .start()
+                .resume()
+        val activity = controller.get()
+        try {
+            assertNotNull(findEditor(activity.window.decorView))
+            activity.handleSystemBack()
+            assertFalse(activity.isFinishing)
+            assertNull(findEditor(activity.window.decorView))
+            assertNotNull(findText(activity.window.decorView, "Sensor koppeln"))
+            activity.handleSystemBack()
+            assertTrue(activity.isFinishing)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `explicit connect waits for old bond access before preparing and starting`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState())
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.ENTER_CODE.name) }
+        val controller =
+            Robolectric
+                .buildActivity(G7WatchActivity::class.java)
+                .create(saved)
+                .start()
+                .resume()
+        val activity = controller.get()
+        var ready: (() -> Unit)? = null
+        var starts = 0
+        activity.prepareUnlinkAccess = { granted, _ -> ready = granted }
+        activity.executeAssociationTask = { it() }
+        activity.connectSensor = { _, code ->
+            assertEquals("0123", code)
+            starts++
+        }
+        try {
+            findEditor(activity.window.decorView)!!.setText("0123")
+            findText(activity.window.decorView, "Verbinden")!!.performClick()
+            assertEquals(0, starts)
+            assertNotNull(ready)
+            ready!!.invoke()
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(1, starts)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `cancelled old bond access returns to code entry without starting connection`() {
+        val context =
+            androidx.test.core.app.ApplicationProvider
+                .getApplicationContext<android.content.Context>()
+        G7SensorStateStore(context).save(G7PersistedState())
+        val saved = android.os.Bundle().apply { putString("pairing_step", G7PairingScreenStep.ENTER_CODE.name) }
+        val controller =
+            Robolectric
+                .buildActivity(G7WatchActivity::class.java)
+                .create(saved)
+                .start()
+                .resume()
+        val activity = controller.get()
+        var starts = 0
+        activity.prepareUnlinkAccess = { _, failed -> failed("Systemfreigabe abgebrochen") }
+        activity.connectSensor = { _, _ -> starts++ }
+        try {
+            findEditor(activity.window.decorView)!!.setText("0123")
+            findText(activity.window.decorView, "Verbinden")!!.performClick()
+            assertEquals(0, starts)
+            assertNotNull(findEditor(activity.window.decorView))
+            assertNotNull(findText(activity.window.decorView, "Verbinden"))
+            assertNotNull(findText(activity.window.decorView, "Systemfreigabe abgebrochen"))
+            assertFalse(G7SensorStateStore(context).read().collectorEnabled)
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
+    @Test
+    fun `permissions entry opens the dedicated app permissions page`() {
+        val controller = Robolectric.buildActivity(G7SettingsActivity::class.java).setup()
+        val activity = controller.get()
+        try {
+            (findText(activity.window.decorView, "Berechtigungen")!!.parent.parent as View).performClick()
+            assertEquals(
+                G7PermissionsActivity::class.java.name,
+                Shadows
+                    .shadowOf(activity)
+                    .nextStartedActivity.component
+                    ?.className,
+            )
+        } finally {
+            controller.pause().stop().destroy()
+        }
     }
 
     @Test
@@ -219,7 +481,6 @@ class G7WatchActivityLayoutTest {
                 status = CgmReadingStatus.VALID,
             )
         val connected = G7PersistedState(sensor = G7Sensor("sensor", "session"), lastReading = reading)
-        assertEquals(G7PairingScreenStep.NO_SENSOR, advanceG7PairingScreen(G7PairingScreenStep.NO_SENSOR, connected))
         assertEquals(G7PairingScreenStep.ENTER_CODE, advanceG7PairingScreen(G7PairingScreenStep.ENTER_CODE, connected))
         assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTING, connected))
         assertEquals(G7PairingScreenStep.CONNECTED, advanceG7PairingScreen(G7PairingScreenStep.CONNECTED, connected))
@@ -263,7 +524,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `reopened activity resumes durable pairing request without saved UI state`() {
+    fun `durable background pairing does not open the wizard without an explicit UI request`() {
         val state =
             G7PersistedState(
                 sensor = G7Sensor("pairing"),
@@ -274,7 +535,8 @@ class G7WatchActivityLayoutTest {
                 lastError = app.aapswear.g7.G7CollectorError("G7-BLE-111", true, 2_000L, "retry"),
             )
 
-        assertEquals(G7PairingScreenStep.CONNECTING, initialG7PairingScreenStep(state))
+        assertNull(initialG7PairingScreenStep(state))
+        assertEquals(G7PairingScreenStep.CONNECTING, initialG7PairingScreenStep(state, G7PairingScreenStep.CONNECTING))
     }
 
     @Test
@@ -321,7 +583,7 @@ class G7WatchActivityLayoutTest {
         collect(root)
 
         assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
-        assertEquals(listOf("Anzeige", "Alarme", "Systemstatus", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
+        assertEquals(listOf("Anzeige", "Berechtigungen", "Alarme", "Systemstatus", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
         assertEquals(
             G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
             headers.map { it.tag.toString() },
@@ -726,10 +988,10 @@ class G7WatchActivityLayoutTest {
             "DIAGNOSE",
             "AKTIONEN",
         ).forEach {
-            assertTrue("Missing group $it", texts.any { text -> text.contains(it) })
+            assertTrue("Missing group $it", texts.any { text -> text.contains(it, ignoreCase = true) })
         }
-        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  HARDWARETEST")!!.performClick()
-        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  DIAGNOSE")!!.performClick()
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  Details")!!.performClick()
+        findTextStartingWith(activity.findViewById(android.R.id.content), "▸  Details")!!.performClick()
         texts.clear()
         collectText(activity.findViewById(android.R.id.content), texts)
         listOf(
@@ -756,7 +1018,10 @@ class G7WatchActivityLayoutTest {
             assertTrue("Missing status field $it", texts.contains(it))
         }
         assertTrue(texts.contains("Systemstatus"))
-        findTextStartingWith(activity.findViewById(android.R.id.content), "‹")!!.performClick()
+        val backViews = arrayListOf<View>()
+        activity.findViewById<View>(android.R.id.content).findViewsWithText(backViews, "Zurück", View.FIND_VIEWS_WITH_CONTENT_DESCRIPTION)
+        assertEquals(1, backViews.size)
+        backViews.single().performClick()
         assertTrue(activity.isFinishing)
     }
 

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.provider.Settings
+import androidx.core.net.toUri
 
 internal enum class G7SettingsOpenResult { OPENED, UNAVAILABLE, FAILED }
 
@@ -42,17 +43,18 @@ internal object G7AlarmSystemAccess {
         listOf(
             Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS),
             Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).setData("package:${activity.packageName}".toUri()),
             Intent(Settings.ACTION_SETTINGS),
         )
 
     fun openPolicySettings(
         activity: Activity,
-        canResolve: (Intent) -> Boolean = { it.resolveActivity(activity.packageManager) != null },
+        canResolve: (Intent) -> Boolean = { true },
         launch: (Intent) -> Unit = activity::startActivity,
     ): G7SettingsOpenResult {
         var attempted = false
         settingsCandidates(activity).forEach { intent ->
-            if (!canResolve(intent)) return@forEach
+            if (!canResolve(intent) || G7SystemAccess.isKnownSettingsStub(activity, intent)) return@forEach
             attempted = true
             if (runCatching { launch(intent) }.isSuccess) return G7SettingsOpenResult.OPENED
         }

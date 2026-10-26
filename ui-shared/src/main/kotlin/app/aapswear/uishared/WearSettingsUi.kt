@@ -16,11 +16,14 @@ import kotlin.math.roundToInt
 
 /** Shared round-screen settings vocabulary. Uses public Android widgets, not private Samsung APIs. */
 object WearSettingsUi {
+    fun accent(context: Context): Int =
+        if (android.os.Build.VERSION.SDK_INT >= 31) context.getColor(android.R.color.system_accent1_200) else Color.rgb(157, 187, 197)
+
     fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).roundToInt()
 
     fun textSize(legacySp: Float): Float =
         when {
-            legacySp >= 16f -> 20f
+            legacySp >= 16f -> 18f
             legacySp >= 10f -> 15f
             else -> 12f
         }
@@ -75,17 +78,17 @@ object WearSettingsUi {
         view.showText = false
         view.splitTrack = false
         view.switchPadding = dp(context, 12)
-        view.switchMinWidth = dp(context, 44)
+        view.switchMinWidth = dp(context, 40)
         view.minimumHeight = dp(context, 48)
         view.textSize = 15f
         view.includeFontPadding = false
         view.setTextColor(textColor)
         view.thumbDrawable =
             swatch(context, Color.WHITE).apply {
-                setSize(dp(context, 22), dp(context, 22))
+                setSize(dp(context, 20), dp(context, 20))
                 setStroke(0, Color.TRANSPARENT)
             }
-        view.trackDrawable = background(context, Color.DKGRAY, 14f).apply { setSize(dp(context, 44), dp(context, 28)) }
+        view.trackDrawable = background(context, Color.DKGRAY, 14f).apply { setSize(dp(context, 40), dp(context, 24)) }
         view.trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Color.DKGRAY))
         view.thumbTintList = ColorStateList.valueOf(Color.WHITE)
         SystemTypography.apply(view, false)
@@ -100,7 +103,7 @@ object WearSettingsUi {
             addView(
                 TextView(context).apply {
                     text = title
-                    textSize = 17f
+                    textSize = 14f
                     setTextColor(textColor)
                     setPadding(dp(context, 8), dp(context, 4), dp(context, 8), dp(context, 8))
                     SystemTypography.apply(this, true)
@@ -115,8 +118,8 @@ object WearSettingsUi {
             minimumHeight = dp(context, 56)
             addView(
                 TextView(context).apply {
-                    text = "‹"
-                    textSize = 30f
+                    foreground = WearBackIcon(context, textColor)
+                    foregroundGravity = Gravity.CENTER
                     gravity = Gravity.CENTER
                     setTextColor(textColor)
                     contentDescription = "Zurück"
@@ -128,10 +131,8 @@ object WearSettingsUi {
             addView(
                 TextView(context).apply {
                     text = title
-                    textSize = 20f
+                    textSize = 18f
                     includeFontPadding = false
-                    maxLines = 2
-                    ellipsize = android.text.TextUtils.TruncateAt.END
                     setTextColor(textColor)
                     SystemTypography.apply(this, true)
                     setPadding(dp(context, 10), 0, 0, 0)
@@ -139,4 +140,47 @@ object WearSettingsUi {
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
             )
         }
+}
+
+/** Navigation is an icon, so increasing the system font never clips a text glyph. */
+private class WearBackIcon(
+    context: Context,
+    color: Int,
+) : android.graphics.drawable.Drawable() {
+    private val size = WearSettingsUi.dp(context, 20)
+    private val paint =
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = WearSettingsUi.dp(context, 2).toFloat()
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeJoin = android.graphics.Paint.Join.ROUND
+        }
+
+    override fun draw(canvas: android.graphics.Canvas) {
+        val path =
+            android.graphics.Path().apply {
+                moveTo(bounds.left + bounds.width() * .65f, bounds.top + bounds.height() * .18f)
+                lineTo(bounds.left + bounds.width() * .32f, bounds.top + bounds.height() * .5f)
+                lineTo(bounds.left + bounds.width() * .65f, bounds.top + bounds.height() * .82f)
+            }
+        canvas.drawPath(path, paint)
+    }
+
+    override fun getIntrinsicWidth(): Int = size
+
+    override fun getIntrinsicHeight(): Int = size
+
+    override fun setAlpha(alpha: Int) {
+        paint.alpha = alpha
+        invalidateSelf()
+    }
+
+    override fun setColorFilter(colorFilter: android.graphics.ColorFilter?) {
+        paint.colorFilter = colorFilter
+        invalidateSelf()
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun getOpacity(): Int = android.graphics.PixelFormat.TRANSLUCENT
 }

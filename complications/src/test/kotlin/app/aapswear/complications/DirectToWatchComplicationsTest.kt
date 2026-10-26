@@ -165,7 +165,7 @@ class DirectToWatchComplicationsTest {
 
     @Test fun `absent data is explicit no source`() {
         val header = DirectToWatchPresentationFormatter.header(null, now)
-        assertEquals("-", header.secondary)
+        assertEquals("Kein Sensor verbunden", header.secondary)
         assertTrue(header.sensorDisconnected)
         assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(null, now, 3).text)
     }
@@ -204,12 +204,12 @@ class DirectToWatchComplicationsTest {
         assertEquals("Sensorfehler", DirectToWatchPresentationFormatter.header(error, now).secondary)
         val presentation = DirectToWatchPresentationFormatter.header(ended, now)
         assertEquals("-", presentation.glucose)
-        assertEquals("-", presentation.secondary)
+        assertEquals("Kein Sensor verbunden", presentation.secondary)
         assertTrue(presentation.sensorDisconnected)
         assertEquals("3h", DirectToWatchPresentationFormatter.graphStatus(ended, now, 3).text)
     }
 
-    @Test fun `vigil keeps graph visible and adds status pill for disconnected sensor`() {
+    @Test fun `vigil keeps disconnected graph visible without covering it with status`() {
         val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val ended =
             directState(now - 60_000L).copy(
@@ -218,25 +218,25 @@ class DirectToWatchComplicationsTest {
         val bitmap = service.renderGraph(ended, now, 3)
 
         assertTrue((0 until bitmap.height).any { y -> (0 until bitmap.width).any { x -> Color.alpha(bitmap.getPixel(x, y)) != 0 } })
-        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(ended))
-        assertEquals(null, vigilSensorStatusPillText(directState(now - 60_000L)))
+        assertEquals("Kein Sensor verbunden", DirectToWatchPresentationFormatter.header(ended, now).secondary)
+        val waiting = directState(now - 60_000L).copy(glucose = null, glucoseHistory = emptyList())
+        assertTrue("Disconnected status belongs in the delta area, never over the graph", service.renderGraph(null, now, 3).sameAs(service.renderGraph(waiting, now, 3)))
     }
 
     @Test fun `vigil treats missing collector state as disconnected rather than signal loss`() {
         assertTrue(isVigilSensorDisconnected(null))
-        assertEquals("Kein Sensor verbunden", vigilSensorStatusPillText(null))
         val header = DirectToWatchPresentationFormatter.header(null, now)
         assertTrue(header.sensorDisconnected)
-        assertEquals("-", header.secondary)
+        assertEquals("Kein Sensor verbunden", header.secondary)
     }
 
-    @Test fun `vigil keeps history visible and adds signal loss pill for stale direct data`() {
+    @Test fun `vigil keeps history visible and reports signal loss in header for stale direct data`() {
         val stale =
             directState(now - 20 * 60_000L).copy(
                 sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_ACTIVE",
             )
 
-        assertEquals("Signalverlust", vigilSensorStatusPillText(stale, now))
+        assertTrue(DirectToWatchPresentationFormatter.header(stale, now).signalLoss)
         assertTrue(DirectToWatchPresentationFormatter.samples(stale, now, 3).isNotEmpty())
     }
 

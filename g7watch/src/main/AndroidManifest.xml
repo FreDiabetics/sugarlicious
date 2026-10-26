@@ -1,6 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:name="android.hardware.type.watch" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
+    <uses-feature android:name="android.software.companion_device_setup" android:required="false" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -15,6 +16,16 @@
     <uses-permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" />
     <permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" android:protectionLevel="signature" />
     <permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" android:protectionLevel="signature" />
+
+    <queries>
+        <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" /><data android:scheme="package" /></intent>
+        <intent><action android:name="android.settings.APP_NOTIFICATION_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.CHANNEL_NOTIFICATION_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.REQUEST_SCHEDULE_EXACT_ALARM" /><data android:scheme="package" /></intent>
+        <intent><action android:name="android.settings.SETTINGS" /></intent>
+    </queries>
 
     <application
         android:allowBackup="false"
@@ -44,6 +55,7 @@
             android:name=".G7DirectToWatchSettingsActivity"
             android:exported="false"
             android:taskAffinity="" />
+        <activity android:name=".G7PermissionsActivity" android:exported="false" android:taskAffinity="" />
         <activity
             android:name=".G7SettingsActivity"
             android:exported="false"

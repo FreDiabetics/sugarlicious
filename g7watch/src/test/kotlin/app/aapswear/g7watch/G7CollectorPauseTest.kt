@@ -62,7 +62,7 @@ class G7CollectorPauseTest {
         G7CollectorService.resumeEnabled(context)
         assertFalse(store.read().collectorEnabled)
         assertEquals(G7StatusPillState.PAUSED, deriveG7StatusPillState(store.read(), true))
-        assertFalse(requiresPairingGate(store.read()))
+        org.junit.Assert.assertNull(initialG7PairingScreenStep(store.read()))
     }
 
     @Test fun `late scheduling is rejected while paused`() {

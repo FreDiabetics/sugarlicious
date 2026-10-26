@@ -25,26 +25,26 @@ internal object WearColorPicker {
         val hsv = FloatArray(3).also { Color.colorToHSV(initial, it) }
         var alpha = Color.alpha(initial)
         var syncing = false
-        val accent = Color.rgb(170, 198, 207)
+        val accent = WearSettingsUi.accent(activity)
         val surface = Color.rgb(36, 36, 39)
 
         fun dp(value: Int) = WearSettingsUi.dp(activity, value)
 
         fun color() = Color.HSVToColor(alpha, hsv)
 
-        fun label(value: String, size: Float = 16f) =
+        fun label(value: String, size: Float = 15f) =
             TextView(activity).apply {
                 text = value
                 textSize = size
                 setTextColor(Color.WHITE)
-                SystemTypography.apply(this, true)
+                SystemTypography.apply(this, false)
             }
 
         fun params() = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
         val root =
             LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(20), dp(32), dp(20), dp(44))
+                setPadding(dp(18), dp(32), dp(18), dp(56))
                 setBackgroundColor(Color.BLACK)
             }
         val header = WearSettingsUi.header(activity, title, Color.WHITE) { dialog.dismiss() }
@@ -77,8 +77,11 @@ internal object WearColorPicker {
                 setSingleLine(true)
                 filters = arrayOf(InputFilter.LengthFilter(9))
                 setTextColor(Color.WHITE)
-                textSize = 16f
+                textSize = 15f
+                minHeight = dp(48)
                 gravity = Gravity.CENTER
+                minHeight = dp(48)
+                setPadding(dp(6), dp(10), dp(6), dp(10))
                 background = WearSettingsUi.background(activity, surface)
             }
         val sliders = mutableListOf<SeekBar>()
@@ -115,13 +118,15 @@ internal object WearColorPicker {
             tabs.addView(
                 label(text, 14f).apply {
                     gravity = Gravity.CENTER
+                    minHeight = dp(48)
+                    setPadding(dp(6), dp(10), dp(6), dp(10))
                     background = WearSettingsUi.background(activity, surface)
                     setOnClickListener {
                         palette.visibility = if (index == 0) View.VISIBLE else View.GONE
                         spectrum.visibility = if (index == 1) View.VISIBLE else View.GONE
                     }
                 },
-                LinearLayout.LayoutParams(0, dp(44), 1f).apply {
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                     marginStart = dp(2)
                     marginEnd = dp(2)
                 },
@@ -190,7 +195,7 @@ internal object WearColorPicker {
             card.addView(slider)
             spectrum.addView(card, params())
         }
-        root.addView(hex, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(12) })
+        root.addView(hex, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })
         hex.setOnEditorActionListener { _, _, _ ->
             commitHex()
             true
@@ -199,33 +204,39 @@ internal object WearColorPicker {
         actions.addView(
             label("Kopieren", 14f).apply {
                 gravity = Gravity.CENTER
+                minHeight = dp(48)
+                setPadding(dp(6), dp(10), dp(6), dp(10))
                 background = WearSettingsUi.background(activity, surface)
                 setOnClickListener { if (commitHex()) (activity.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("Farbe", ArgbColor.format(color()))) }
             },
-            LinearLayout.LayoutParams(0, dp(44), 1f),
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
         )
         actions.addView(
             label("↺", 24f).apply {
                 tag = "wear_color_reset"
                 contentDescription = "Farbe zurücksetzen"
                 gravity = Gravity.CENTER
+                minHeight = dp(48)
+                setPadding(dp(6), dp(10), dp(6), dp(10))
                 background = WearSettingsUi.background(activity, surface)
                 setOnClickListener {
                     choose(default)
                     reset()
                 }
             },
-            LinearLayout.LayoutParams(dp(48), dp(44)).apply { marginStart = dp(6) },
+            LinearLayout.LayoutParams(dp(48), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) },
         )
         root.addView(actions, params())
         root.addView(
             label("Fertig").apply {
                 gravity = Gravity.CENTER
-                setTextColor(Color.BLACK)
+                minHeight = dp(48)
+                setPadding(dp(8), dp(12), dp(8), dp(12))
+                setTextColor(if (Color.luminance(accent) > .45f) Color.BLACK else Color.WHITE)
                 background = WearSettingsUi.background(activity, accent)
                 setOnClickListener { if (commitHex()) dialog.dismiss() }
             },
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(48)).apply { topMargin = dp(12) },
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) },
         )
         val scroll =
             WearSettingsScrollView(activity).apply {

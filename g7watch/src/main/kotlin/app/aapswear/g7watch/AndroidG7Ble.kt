@@ -189,6 +189,7 @@ internal class AndroidG7Scanner(
     private val matcher: G7DeviceMatcher = KnownG7DeviceMatcher(),
 ) : G7Scanner {
     private val retiredSensors = G7RetiredSensors(context)
+    var freshSetup: Boolean = false
     private val rejectedCandidates =
         java.util.concurrent.ConcurrentHashMap
             .newKeySet<String>()
@@ -296,7 +297,7 @@ internal class AndroidG7Scanner(
                         }
                         connectableResults.incrementAndGet()
                         if (result.device.address in rejectedCandidates ||
-                            retiredSensors.contains(result.device.address) ||
+                            retiredSensors.excludesDiscovery(result.device.address, freshSetup) ||
                             !matcher.matches(result.device, advertisedName, sensor)
                         ) {
                             rejectedByIdentity.incrementAndGet()
@@ -431,6 +432,8 @@ internal class AndroidG7Collector(
             throw G7BleException("G7-SETUP-RETIRED", "Dieser Sensor wurde vollständig getrennt und wird nicht erneut verbunden", false)
         }
         (scanner as? AndroidG7Scanner)?.clearRejectedCandidates()
+        (scanner as? AndroidG7Scanner)?.freshSetup =
+            allowsRetiredG7CandidateForSetup(initialSensor, credentials.sharedKey != null, credentials.sharedKeyAddress)
         val discoveryDeadline = android.os.SystemClock.elapsedRealtime() + (scanTimeoutMsOverride ?: g7ScanTimeoutMs(initialSensor))
         var sharedKey =
             credentials.sharedKey?.takeIf {

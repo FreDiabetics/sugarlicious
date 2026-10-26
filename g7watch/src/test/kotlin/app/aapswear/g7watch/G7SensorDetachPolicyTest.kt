@@ -1,9 +1,11 @@
 package app.aapswear.g7watch
 
+import android.app.Application
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7AuthenticationState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import app.aapswear.model.DataSourceId
@@ -16,9 +18,102 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class G7SensorDetachPolicyTest {
+    @Test fun `explicit connect starts only after successful sensor preparation`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val events = mutableListOf<String>()
+        val sensor = G7Sensor("new")
+        val result =
+            connectG7SensorToThisWatch(
+                context,
+                "0123",
+                prepare = { _, code ->
+                    assertEquals("0123", code)
+                    events += "prepare"
+                    sensor
+                },
+                start = { events += "start" },
+            )
+        assertEquals(sensor, result)
+        assertEquals(listOf("prepare", "start"), events)
+    }
+
+    @Test fun `failed explicit preparation cannot start collection`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        var starts = 0
+        val result =
+            runCatching {
+                connectG7SensorToThisWatch(context, "0123", prepare = { _, _ -> error("Old bond remains") }, start = { starts++ })
+            }
+        assertTrue(result.isFailure)
+        assertEquals(0, starts)
+    }
+
+    @Test fun `new sensor preparation clears old association and waits for explicit reception start`() {
+        val context = ApplicationProvider.getApplicationContext<Application>()
+        val stateStore = G7SensorStateStore(context)
+        val oldAddress = "AA:BB:CC:DD:EE:41"
+        stateStore.save(
+            G7PersistedState(
+                sensor = G7Sensor("old-sensor", "old-session", deviceAddress = oldAddress),
+                collectorEnabled = true,
+            ),
+        )
+        val credentials = context.getSharedPreferences("g7_credentials", Context.MODE_PRIVATE)
+        credentials
+            .edit()
+            .putString("shared_address", oldAddress)
+            .putString("shared_key", "old-session-key")
+            .commit()
+        context.deleteDatabase("g7_readings.db")
+        val now = System.currentTimeMillis()
+        val reading =
+            CgmReading(
+                id = "history-before-preparation",
+                source = DataSourceId.DEXCOM_G7_WATCH,
+                sensorId = "old-sensor",
+                sessionId = "old-session",
+                glucoseMgDl = 123.0,
+                timestampEpochMs = now - 60_000L,
+                receivedAtEpochMs = now,
+                status = CgmReadingStatus.VALID,
+            )
+        G7ReadingDatabase(context).use { database -> assertTrue(runBlocking { database.insert(reading) }) }
+        val removed = mutableListOf<String?>()
+        var savedCode: String? = null
+        val application = shadowOf(context)
+        assertNull(application.nextStartedService)
+
+        val sensor =
+            moveG7SensorToThisWatch(
+                context,
+                "1234",
+                G7BondRemover { _, address ->
+                    removed.add(address)
+                    G7BondRemovalStatus.REMOVED
+                },
+                saveSetup = { savedCode = it.pairingCode },
+            )
+
+        assertTrue(oldAddress in removed)
+        assertEquals("1234", savedCode)
+        assertEquals(sensor, stateStore.read().sensor)
+        assertNull(sensor.deviceAddress)
+        assertFalse(sensor.sensorId == "old-sensor")
+        assertFalse(stateStore.read().collectorEnabled)
+        assertEquals(G7AuthenticationState.REQUIRED, stateStore.read().authenticationState)
+        assertNull(credentials.getString("shared_address", null))
+        assertNull(credentials.getString("shared_key", null))
+        assertFalse(G7RetiredSensors(context).contains(oldAddress))
+        assertNull(application.nextStartedService)
+        G7ReadingDatabase(context).use { database ->
+            assertTrue(database.query(limit = 300).any { it.id == reading.id })
+        }
+    }
+
     @Test fun `takeover cleanup removes existing bond without permanently excluding its target`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val target = "AA:BB:CC:DD:EE:11"
@@ -117,6 +212,7 @@ class G7SensorDetachPolicyTest {
         assertTrue(stateStore.read().sensor != null)
         assertFalse(stateStore.read().collectorEnabled)
         assertFalse(shouldClearG7Association(result.bondRemovalStatus))
+        assertFalse(G7RetiredSensors(context).contains("AA:BB:CC:DD:EE:FF"))
     }
 
     @Test fun `bond removal wait confirms transition and times out without it`() {

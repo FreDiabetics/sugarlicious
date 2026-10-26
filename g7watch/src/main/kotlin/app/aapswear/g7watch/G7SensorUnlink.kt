@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7Sensor
 import app.aapswear.g7.G7SessionManager
@@ -54,22 +55,35 @@ internal fun releaseG7CollectorOwnership(context: Context) {
 /**
  * Prepares this watch to take over the receiver slot. The previous watch still has to release its
  * own bond locally; watches paired to different phones cannot modify each other's Bluetooth store.
+ * Collection stays disabled until the user explicitly starts reception.
  */
 internal fun moveG7SensorToThisWatch(
     context: Context,
     pairingCode: String,
     bondRemover: G7BondRemover = G7BondRemover(::removeG7Bond),
+    saveSetup: (G7SetupPayload) -> Unit = { G7CredentialStore(context.applicationContext).saveSetup(it) },
 ): G7Sensor {
     val payload = G7SetupPayload(pairingCode)
     check(unlinkG7Sensor(context, bondRemover, permanentlyRetire = false).detached) {
         "Der bisherige Sensor ist noch per Bluetooth gebondet"
     }
-    G7CredentialStore(context.applicationContext).saveSetup(payload)
+    saveSetup(payload)
     val sensorId = "G7-${java.util.UUID.randomUUID().toString().take(8)}"
     val sensor = G7Sensor(sensorId = sensorId, sessionId = sensorId, deviceName = "Dexcom G7")
     val stateStore = G7SensorStateStore(context.applicationContext)
     stateStore.save(G7SessionManager(stateStore.read()).prepareInitialSetup(sensor))
-    G7CollectorService.start(context.applicationContext)
+    return sensor
+}
+
+/** The explicit Connect action prepares the association before enabling reception. */
+internal fun connectG7SensorToThisWatch(
+    context: Context,
+    pairingCode: String,
+    prepare: (Context, String) -> G7Sensor = { app, code -> moveG7SensorToThisWatch(app, code) },
+    start: (Context) -> Unit = { G7CollectorService.start(it) },
+): G7Sensor {
+    val sensor = prepare(context, pairingCode)
+    start(context)
     return sensor
 }
 
@@ -85,7 +99,7 @@ internal fun unlinkG7Sensor(
     val beforeRelease = stateStore.read()
     val addresses =
         try {
-            bondedAddresses(app) + listOfNotNull(beforeRelease.sensor?.deviceAddress, G7CredentialStore(app).read()?.sharedKeyAddress)
+            g7SensorUnlinkAddresses(app, bondedAddresses)
         } catch (_: SecurityException) {
             releaseG7CollectorOwnership(app)
             return G7UnlinkResult(G7BondRemovalStatus.FAILED)
@@ -95,7 +109,6 @@ internal fun unlinkG7Sensor(
     // asynchronous and previously allowed the old watch to remain connected during takeover.
     releaseG7CollectorOwnership(app)
     G7CollectorDiagnosticStore(app).discardScheduledCycle()
-    if (permanentlyRetire) G7RetiredSensors(app).retire(addresses)
     val removals = if (addresses.isEmpty()) listOf(bondRemover.remove(app, null)) else addresses.map { bondRemover.remove(app, it) }
     val bondRemovalStatus =
         when {
@@ -106,6 +119,9 @@ internal fun unlinkG7Sensor(
     if (!shouldClearG7Association(bondRemovalStatus)) {
         return G7UnlinkResult(bondRemovalStatus)
     }
+    // Commit exclusions only after every requested bond is confirmed gone. A failed
+    // detach must not silently block the retained association on the next explicit retry.
+    if (permanentlyRetire) G7RetiredSensors(app).retire(addresses)
     G7ExpectedWindowLedger(app).markSessionEnded(
         beforeRelease.sensor?.sensorId,
         beforeRelease.sensor?.sessionId ?: beforeRelease.sensor?.sensorId,
@@ -133,6 +149,17 @@ internal fun g7BondedSensorAddresses(context: Context): Set<String> =
         .map { it.address }
         .toSet()
 
+/** Include orphaned address metadata even if encrypted credentials can no longer be opened. */
+internal fun g7SensorUnlinkAddresses(
+    context: Context,
+    bondedAddresses: (Context) -> Set<String> = ::g7BondedSensorAddresses,
+): Set<String> =
+    bondedAddresses(context) +
+        listOfNotNull(
+            G7SensorStateStore(context).read().sensor?.deviceAddress,
+            context.getSharedPreferences("g7_credentials", Context.MODE_PRIVATE).getString("shared_address", null),
+        ).filter(String::isNotBlank)
+
 @SuppressLint("MissingPermission", "DiscouragedPrivateApi")
 private fun removeG7Bond(
     context: Context,
@@ -144,17 +171,34 @@ private fun removeG7Bond(
     }
     return runCatching {
         val adapter = context.getSystemService(BluetoothManager::class.java).adapter ?: return@runCatching G7BondRemovalStatus.FAILED
-        val device = adapter.getRemoteDevice(address)
+        val device = adapter.bondedDevices.firstOrNull { it.address.equals(address, ignoreCase = true) } ?: adapter.getRemoteDevice(address)
+        if (Build.VERSION.SDK_INT >= 36) {
+            // Android's pairing hardening requires the public, app-owned companion path.
+            // Do not fall back to hidden privileged Bluetooth APIs on these releases.
+            return@runCatching removeG7BondThroughCompanion(context, address, device)
+        }
         if (device.bondState == BluetoothDevice.BOND_NONE) return@runCatching G7BondRemovalStatus.REMOVED
         val method = device.javaClass.getMethod("removeBond")
+        val before = device.bondState
         val requested = method.invoke(device) as? Boolean ?: false
-        if (!requested) return@runCatching G7BondRemovalStatus.FAILED
+        android.util.Log.i("G7BondRemoval", "remove_requested=$requested adapter=${adapter.state} state_before=$before")
+        if (!requested) {
+            val after = device.bondState
+            android.util.Log.w("G7BondRemoval", "request_declined state_after=$after")
+            return@runCatching if (after == BluetoothDevice.BOND_NONE) G7BondRemovalStatus.REMOVED else G7BondRemovalStatus.FAILED
+        }
         if (awaitG7BondRemoval(readBondState = { device.bondState })) {
             G7BondRemovalStatus.REMOVED
         } else {
+            android.util.Log.w("G7BondRemoval", "confirmation_timeout state_after=${device.bondState}")
             G7BondRemovalStatus.FAILED
         }
-    }.getOrDefault(G7BondRemovalStatus.FAILED)
+    }.getOrElse { error ->
+        val cause = (error as? java.lang.reflect.InvocationTargetException)?.targetException ?: error
+        // Class only: do not log peer identity, key material or the pairing code.
+        android.util.Log.w("G7BondRemoval", "platform_failure=${cause.javaClass.simpleName}")
+        G7BondRemovalStatus.FAILED
+    }
 }
 
 internal fun awaitG7BondRemoval(
