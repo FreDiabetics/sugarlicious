@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MobileSettingsScrollHeaderTest {
+    @Test fun `return gesture crossfades back and settles at an exact header anchor`() {
+        val expanded = settingsSubmenuHeaderState(0f, 160f, 160f, 248f)
+        val returning = settingsSubmenuHeaderState(0f, 32f, 160f, 120f)
+        val compact = settingsSubmenuHeaderState(0f, 0f, 160f, 88f)
+        assertTrue(returning.expandedTitleAlpha < expanded.expandedTitleAlpha)
+        assertTrue(returning.compactTitleAlpha > expanded.compactTitleAlpha)
+        assertEquals(1f, compact.compactTitleAlpha, 0f)
+        assertEquals(0f, settingsSubmenuExpansionTarget(32f, 160f, 0f), 0f)
+        assertEquals(160f, settingsSubmenuExpansionTarget(100f, 160f, 0f), 0f)
+        assertEquals(0f, settingsSubmenuExpansionTarget(140f, 160f, -800f), 0f)
+        assertEquals(160f, settingsSubmenuExpansionTarget(10f, 160f, 800f), 0f)
+    }
+
     @Test fun `submenu title fades before back surface meets the first card`() {
         val opened = settingsSubmenuHeaderState(0f, 0f, 160f, 88f)
         assertEquals(1f, opened.compactTitleAlpha, 0f)

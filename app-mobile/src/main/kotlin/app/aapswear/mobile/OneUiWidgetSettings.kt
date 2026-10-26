@@ -168,9 +168,9 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
         remember(scroll, lazyScroll, density) {
             object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
                 override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-                    if ((scroll == null && lazyScroll == null) || source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput || scrollPositionPx() != 0 || available.y <= 0f) return androidx.compose.ui.geometry.Offset.Zero
+                    if ((scroll == null && lazyScroll == null) || source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput || scrollPositionPx() != 0 || (available.y <= 0f && headerExpansionDp == 0f && !pullingHeader)) return androidx.compose.ui.geometry.Offset.Zero
                     pullingHeader = true
-                    headerExpansionDp = (headerExpansionDp + with(density) { available.y.toDp().value } * .55f).coerceAtMost(maximumExpansionDp)
+                    headerExpansionDp = (headerExpansionDp + with(density) { available.y.toDp().value } * .55f).coerceIn(0f, maximumExpansionDp)
                     return androidx.compose.ui.geometry
                         .Offset(0f, available.y)
                 }
@@ -178,7 +178,7 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
                 override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
                     if (pullingHeader) {
                         pullingHeader = false
-                        val target = if (headerExpansionDp >= maximumExpansionDp * .35f) maximumExpansionDp else 0f
+                        val target = settingsSubmenuExpansionTarget(headerExpansionDp, maximumExpansionDp, available.y / density.density)
                         androidx.compose.animation.core
                             .animate(
                                 headerExpansionDp,
@@ -187,6 +187,7 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
                                     androidx.compose.animation.core
                                         .tween(160),
                             ) { value, _ -> headerExpansionDp = value }
+                        return available
                     }
                     return androidx.compose.ui.unit.Velocity.Zero
                 }

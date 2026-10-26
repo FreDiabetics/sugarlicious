@@ -35,3 +35,11 @@ The previously built high/very-high Mobile glucose and dot-color correction is i
 - Inspected Mobile compact and expanded appearance headers and separate element cards. The back-button bounds were identical in both states. Scrolling and pulling did not change the saved dashboard preferences (byte comparison before/after).
 - Inspected Wear category and trend controls. Found that opening a category inherited the previous list scroll offset. New categories now open at the top; returning restores the category-list position. Existing in-page setting refreshes retain their position. Added this check to WearActivityTest alongside updated category order and independent trend controls.
 - The remote full test run identified only the outdated Wear category-list expectation; the corrected WearActivityTest suite passed locally. GitHub verification is rerun with the follow-up commit.
+
+## Reverse header gesture
+
+The expanded submenu header now consumes an upward return gesture before the list scrolls. Expansion follows the finger in both directions, reverses the title crossfade, and settles at an exact compact/expanded endpoint in 160 ms. Release velocity is consumed for this gesture, so the list cannot fling past the compact anchor. The next gesture scrolls content normally. The back button stays in its existing fixed overlay. Widget and transfer-log headers reuse the same settle target; continuous padding avoids an extra spacing jump when expansion reaches zero.
+
+The targeted Mobile suite has 40 passing tests, including reverse crossfade/velocity targets and upward header capture before content scrolling. The full GitHub verification of the preceding settings/pause commit also passed before this follow-up.
+
+Installed the final header follow-up on SM-S948B after a clean successful build, formatting, Detekt and Lint run. Device gestures confirmed the first appearance card returns to its exact opening bounds after expand/close; the compact title reappears, and back-button bounds remain identical in compact, expanded and returned states. A subsequent gesture scrolls the list normally. SugarWear also continued receiving fresh readings across several later cycles with collection enabled and no current collector error.

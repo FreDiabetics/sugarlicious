@@ -792,12 +792,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             .statusBarsPadding()
                             .padding(top = compactSettingsTitle.heightDp.dp + 32.dp)
                             .padding(horizontal = 10.dp)
-                            .verticalScroll(settingsScroll),
+                            .verticalScroll(settingsScroll)
+                            .padding(top = LocalWidgetHeaderExpansionDp.current.dp),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
-                        if (LocalWidgetHeaderExpansionDp.current > 0f) {
-                            Spacer(Modifier.height(LocalWidgetHeaderExpansionDp.current.dp))
-                        }
                         WidgetConfigurationPreview(
                             widgetKind,
                             value,

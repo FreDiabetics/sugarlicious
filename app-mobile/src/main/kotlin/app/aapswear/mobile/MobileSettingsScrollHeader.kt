@@ -37,6 +37,14 @@ internal data class SettingsSubmenuHeaderState(
     val compactTitleOffsetDp: Float,
 )
 
+internal fun settingsSubmenuExpansionTarget(expansionDp: Float, maximumDp: Float, velocityDpPerSecond: Float): Float =
+    when {
+        velocityDpPerSecond <= -600f -> 0f
+        velocityDpPerSecond >= 600f -> maximumDp
+        expansionDp >= maximumDp * .35f -> maximumDp
+        else -> 0f
+    }
+
 /** The button remains fixed; only title opacity/offset and the real expandable header change. */
 internal fun settingsSubmenuHeaderState(
     scrollDp: Float,

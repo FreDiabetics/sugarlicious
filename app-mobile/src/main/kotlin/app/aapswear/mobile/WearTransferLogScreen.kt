@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -54,10 +52,9 @@ internal fun WearTransferLogScreen(
         LazyColumn(
             state = scroll,
             modifier = Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 20.dp),
-            contentPadding = PaddingValues(top = headerClearance.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = (headerClearance + expansion).dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            if (expansion > 0f) item { Spacer(Modifier.height(expansion.dp)) }
             item {
                 TextField(
                     value = query,

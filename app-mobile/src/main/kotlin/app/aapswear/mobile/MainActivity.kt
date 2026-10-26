@@ -785,6 +785,7 @@ class MainActivity : ComponentActivity() {
     private fun configureSubmenuExpansion() {
         val enabled = screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot
         scroll.topPullEnabled = enabled
+        scroll.topPullExpanded = enabled && submenuExpansionPx > 0f
         if (!enabled) {
             submenuExpansionAnimator?.cancel()
             submenuExpansionPx = 0f
@@ -800,6 +801,7 @@ class MainActivity : ComponentActivity() {
             submenuExpansionPx = 0f
             submenuPullBasePx = null
         }
+        scroll.topPullExpanded = submenuExpansionPx > 0f
         if (submenuExpansionView() == null) {
             val accent =
                 app.aapswear.mobile.ui.theme
@@ -824,15 +826,16 @@ class MainActivity : ComponentActivity() {
                 submenuExpansionAnimator?.cancel()
                 submenuPullBasePx = submenuExpansionPx
             }
-            setSubmenuExpansion((requireNotNull(submenuPullBasePx) + distance).coerceAtMost(submenuMaximumExpansionPx()))
+            setSubmenuExpansion((requireNotNull(submenuPullBasePx) + distance).coerceIn(0f, submenuMaximumExpansionPx()))
         }
-        scroll.onTopPullFinished = {
+        scroll.onTopPullFinished = { velocity ->
             submenuPullBasePx = null
             val maximum = submenuMaximumExpansionPx()
-            val target = if (submenuExpansionPx >= maximum * .35f) maximum else 0f
+            val target = settingsSubmenuExpansionTarget(submenuExpansionPx, maximum, velocity / resources.displayMetrics.density)
             submenuExpansionAnimator =
                 android.animation.ValueAnimator.ofFloat(submenuExpansionPx, target).apply {
                     duration = 160L
+                    interpolator = android.view.animation.PathInterpolator(.2f, 0f, 0f, 1f)
                     addUpdateListener { setSubmenuExpansion(it.animatedValue as Float) }
                     start()
                 }
@@ -841,6 +844,7 @@ class MainActivity : ComponentActivity() {
 
     private fun setSubmenuExpansion(heightPx: Float) {
         submenuExpansionPx = heightPx
+        scroll.topPullExpanded = heightPx > 0f
         submenuExpansionView()?.let { heading ->
             if (heading.layoutParams.height != heightPx.toInt()) {
                 heading.layoutParams = heading.layoutParams.apply { height = heightPx.toInt() }

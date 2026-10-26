@@ -21,8 +21,9 @@ class DashboardScrollView
         var isUserScrollEnabled: Boolean = true
         var sectionSnapEnabled: Boolean = false
         var topPullEnabled: Boolean = false
+        var topPullExpanded: Boolean = false
         var onTopPull: ((Float) -> Unit)? = null
-        var onTopPullFinished: (() -> Unit)? = null
+        var onTopPullFinished: ((Float) -> Unit)? = null
         private var topPullTracking = false
         private var downX = 0f
         private var downY = 0f
@@ -96,7 +97,7 @@ class DashboardScrollView
                     if (event.pointerCount > 1) return false
                     val dx = kotlin.math.abs(event.x - downX)
                     val dy = event.y - downY
-                    if (topPullEnabled && scrollY == 0 && dy > ViewConfiguration.get(context).scaledTouchSlop && dy > dx) {
+                    if (topPullEnabled && scrollY == 0 && kotlin.math.abs(dy) > ViewConfiguration.get(context).scaledTouchSlop && kotlin.math.abs(dy) > dx && (dy > 0f || topPullExpanded)) {
                         topPullTracking = true
                         return true
                     }
@@ -111,14 +112,15 @@ class DashboardScrollView
             if (!topPullTracking && topPullEnabled && scrollY == 0 && event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 1) {
                 val dy = event.y - downY
                 val dx = kotlin.math.abs(event.x - downX)
-                if (dy > ViewConfiguration.get(context).scaledTouchSlop && dy > dx) topPullTracking = true
+                if (kotlin.math.abs(dy) > ViewConfiguration.get(context).scaledTouchSlop && kotlin.math.abs(dy) > dx && (dy > 0f || topPullExpanded)) topPullTracking = true
             }
             if (topPullTracking) {
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_MOVE -> onTopPull?.invoke(((event.y - downY) * .55f).coerceAtLeast(0f))
+                    MotionEvent.ACTION_MOVE -> onTopPull?.invoke((event.y - downY) * .55f)
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         topPullTracking = false
-                        onTopPullFinished?.invoke()
+                        velocity?.computeCurrentVelocity(1000)
+                        onTopPullFinished?.invoke(if (event.actionMasked == MotionEvent.ACTION_UP) velocity?.yVelocity ?: 0f else 0f)
                     }
                 }
                 return true
