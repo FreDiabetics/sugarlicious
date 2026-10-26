@@ -1151,7 +1151,7 @@ class G7CollectorService : Service() {
             is G7ScanTelemetry -> {
                 attemptStore.updateCycle(attemptId) { cycle ->
                     cycle.copy(
-                        fallbackScanUsed = cycle.directConnectAttempts > 0,
+                        fallbackScanUsed = cycle.fallbackScanUsed || cycle.directConnectAttempts > 0,
                         scanStartedAt = cycle.scanStartedAt ?: telemetry.startedAtEpochMs,
                         scanEndedAt = telemetry.endedAtEpochMs,
                         scanMode = telemetry.scanMode,
@@ -1174,7 +1174,7 @@ class G7CollectorService : Service() {
                     durationMs = telemetry.durationMs,
                     nowEpochMs = telemetry.endedAtEpochMs,
                 )
-                G7ExpectedWindowLedger(this).markFallbackScan(
+                G7ExpectedWindowLedger(this).markScan(
                     attemptStore.activeAttempt(attemptId)?.cycle?.expectedWindowId,
                     telemetry.startedAtEpochMs,
                     telemetry.endedAtEpochMs,

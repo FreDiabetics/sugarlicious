@@ -39,6 +39,55 @@ class G7BackfillOrchestratorTest {
         G7SensorStateStore(context).save(G7PersistedState(sensor = G7Sensor("sensor-a", "session-a")))
     }
 
+    @Test fun `initial discovery scan is not counted as recovery fallback`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val window = ledger.create(300_000L, 290_000L)
+        ledger.markScan(window.expectedWindowId, 290_000L, 295_000L, 2, 294_000L)
+
+        val recorded = requireNotNull(ledger.window(window.expectedWindowId))
+        assertFalse(recorded.fallbackScanUsed)
+        assertEquals(290_000L, recorded.scanStartedAt)
+        assertEquals(2, recorded.scanResultCount)
+        assertEquals(294_000L, recorded.advertisementSeenAt)
+    }
+
+    @Test fun `scan after direct connection attempt remains a fallback`() {
+        val ledger = G7ExpectedWindowLedger(context)
+        val window = ledger.create(300_000L, 290_000L)
+        ledger.markGattStarted(window.expectedWindowId, 290_000L, 1L)
+        ledger.markScan(window.expectedWindowId, 310_000L, 315_000L, 0, null)
+
+        assertTrue(requireNotNull(ledger.window(window.expectedWindowId)).fallbackScanUsed)
+    }
+
+    @Test fun `ledger callback decodes retained history only once`() {
+        var historyReads = 0
+        val delegate = context.getSharedPreferences("g7_expected_window_ledger", Context.MODE_PRIVATE)
+        val observed =
+            java.lang.reflect.Proxy.newProxyInstance(
+                android.content.SharedPreferences::class.java.classLoader,
+                arrayOf(android.content.SharedPreferences::class.java),
+            ) { _, method, args ->
+                if (method.name == "getString" && args?.firstOrNull() == "windows_v1") historyReads += 1
+                method.invoke(delegate, *(args ?: emptyArray()))
+            } as android.content.SharedPreferences
+        val countingContext =
+            object : android.content.ContextWrapper(context) {
+                override fun getApplicationContext(): Context = this
+
+                override fun getSharedPreferences(name: String, mode: Int): android.content.SharedPreferences =
+                    if (name == "g7_expected_window_ledger") observed else super.getSharedPreferences(name, mode)
+            }
+        val ledger = G7ExpectedWindowLedger(countingContext)
+        val window = ledger.create(300_000L, 290_000L)
+        historyReads = 0
+
+        ledger.markPrimaryTriggered(window.expectedWindowId, 300_000L)
+
+        assertEquals(1, historyReads)
+        assertEquals(300_000L, ledger.window(window.expectedWindowId)?.primaryAlarmTriggeredAt)
+    }
+
     @Test fun `oldest same-session gap is selected and legacy detection time is repaired`() {
         val ledger = G7ExpectedWindowLedger(context)
         val newer = ledger.create(600_000L, 590_000L)
