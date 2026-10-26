@@ -1138,6 +1138,12 @@ class DashboardViewFactory(
                         orientation = LinearLayout.VERTICAL
                         buildContent()
                         separateSettingsObjectCards(this)
+                        // The page header already reserves the gap above its first card.
+                        (0 until childCount).map(::getChildAt).firstOrNull { it.visibility == View.VISIBLE }?.let { first ->
+                            (first.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+                                first.layoutParams = params.apply { topMargin = 0 }
+                            }
+                        }
                     },
                     fullWidth(),
                 )

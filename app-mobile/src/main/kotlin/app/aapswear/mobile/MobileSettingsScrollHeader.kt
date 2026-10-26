@@ -35,7 +35,11 @@ internal data class SettingsSubmenuHeaderState(
     val expandedTitleAlpha: Float,
     val backCircleAlpha: Float,
     val compactTitleOffsetDp: Float,
+    val rowOffsetDp: Float,
+    val expandedTitleTopDp: Float,
 )
+
+internal const val SETTINGS_SUBMENU_CARD_GAP_DP = 8f
 
 internal fun settingsSubmenuExpansionTarget(expansionDp: Float, maximumDp: Float, velocityDpPerSecond: Float): Float =
     when {
@@ -45,20 +49,30 @@ internal fun settingsSubmenuExpansionTarget(expansionDp: Float, maximumDp: Float
         else -> 0f
     }
 
-/** The button remains fixed; only title opacity/offset and the real expandable header change. */
+/** Back and compact title travel together just above the first card during expansion. */
 internal fun settingsSubmenuHeaderState(
     scrollDp: Float,
     expansionDp: Float,
     maximumExpansionDp: Float,
     firstCardTopDp: Float,
     backBottomDp: Float = 52f,
+    expandedTitleHeightDp: Float = 0f,
 ): SettingsSubmenuHeaderState {
     val scroll = scrollDp.coerceAtLeast(0f)
     val expansion = (expansionDp / maximumExpansionDp.coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val compact = (1f - scroll / 20f).coerceIn(0f, 1f) * (1f - expansion / .4f).coerceIn(0f, 1f)
-    val expanded =
+    val rowOffset = (expansionDp - scroll).coerceAtLeast(0f)
+    val initialGap = (firstCardTopDp - expansionDp - backBottomDp).coerceAtLeast(8f)
+    val fadeDistance = minOf(20f, initialGap * .5f)
+    val compact = (1f - scroll / fadeDistance).coerceIn(0f, 1f) * (1f - expansion / .4f).coerceIn(0f, 1f)
+    val expandedFade =
         ((expansion - .25f) / .5f).coerceIn(0f, 1f) *
             (1f - scroll / (expansionDp * .7f).coerceAtLeast(1f)).coerceIn(0f, 1f)
-    val gap = firstCardTopDp - scroll - backBottomDp
-    return SettingsSubmenuHeaderState(compact, expanded, ((14f - gap) / 10f).coerceIn(0f, 1f), -6f * (1f - compact))
+    val availableTitleBottom = (backBottomDp - 52f + rowOffset).coerceAtLeast(0f)
+    val fitFade = if (expandedTitleHeightDp > 0f) ((availableTitleBottom - expandedTitleHeightDp) / 24f).coerceIn(0f, 1f) else 1f
+    val finalTitleTop = backBottomDp + 4f + SETTINGS_SUBMENU_CARD_GAP_DP + (maximumExpansionDp - backBottomDp - 4f - expandedTitleHeightDp) * .5f
+    val titleTop = minOf(finalTitleTop, availableTitleBottom - expandedTitleHeightDp).coerceAtLeast(0f)
+    val circleStart = maxOf(fadeDistance, initialGap - 14f)
+    val circleEnd = maxOf(circleStart + 1f, initialGap - 4f)
+    val circle = ((scroll - circleStart) / (circleEnd - circleStart)).coerceIn(0f, 1f)
+    return SettingsSubmenuHeaderState(compact, minOf(expandedFade, fitFade), circle, -6f * (1f - compact), rowOffset, titleTop)
 }

@@ -4,6 +4,28 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MobileSettingsScrollHeaderTest {
+    @Test fun `expanded title only fades when its complete fixed text box fits`() {
+        assertEquals(0f, settingsSubmenuHeaderState(0f, 70f, 160f, 134f, 52f, 80f).expandedTitleAlpha, 0f)
+        listOf(96f, 110f, 160f).forEach { expansion ->
+            val state = settingsSubmenuHeaderState(0f, expansion, 160f, 64f + expansion, 52f, 80f)
+            assertTrue(state.expandedTitleAlpha > 0f)
+            assertTrue(state.expandedTitleTopDp + 80f <= state.rowOffsetDp)
+        }
+    }
+
+    @Test fun `back and compact title row follow the card with a small constant gap`() {
+        listOf(0f, 32f, 96f, 160f).forEach { expansion ->
+            val state = settingsSubmenuHeaderState(0f, expansion, 160f, 64f + expansion)
+            assertEquals(expansion, state.rowOffsetDp, 0f)
+            assertEquals(12f, 64f + expansion - (52f + state.rowOffsetDp), 0f)
+            assertEquals(0f, state.backCircleAlpha, 0f)
+        }
+        val titleGone = settingsSubmenuHeaderState(6f, 0f, 160f, 64f)
+        assertEquals(0f, titleGone.compactTitleAlpha, 0f)
+        assertEquals(0f, titleGone.backCircleAlpha, 0f)
+        assertEquals(1f, settingsSubmenuHeaderState(8f, 0f, 160f, 64f).backCircleAlpha, 0f)
+    }
+
     @Test fun `return gesture crossfades back and settles at an exact header anchor`() {
         val expanded = settingsSubmenuHeaderState(0f, 160f, 160f, 248f)
         val returning = settingsSubmenuHeaderState(0f, 32f, 160f, 120f)

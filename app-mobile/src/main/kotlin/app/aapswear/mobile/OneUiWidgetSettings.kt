@@ -156,16 +156,18 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
     val context = LocalContext.current
     val wallpaperSupported = remember(context) { runCatching { WallpaperManager.getInstance(context).isWallpaperSupported }.getOrDefault(false) }
     val density = LocalDensity.current
-    val headerClearanceDp = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp + 32f
+    val compactHeaderHeightDp = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp
+    val headerClearanceDp = compactHeaderHeightDp + SETTINGS_SUBMENU_CARD_GAP_DP
     val inset = WindowInsets.statusBars.getTop(density) + with(density) { 56.dp.toPx() }
     var headerExpansionDp by remember(scroll, lazyScroll) { androidx.compose.runtime.mutableFloatStateOf(0f) }
     var pullingHeader by remember(scroll, lazyScroll) { mutableStateOf(false) }
-    val maximumExpansionDp = maxOf(160f, 112f * density.fontScale)
+    val expandedTitleHeightDp = measuredSettingsExpandedTitleHeightDp(title)
+    val maximumExpansionDp = maxOf(160f, expandedTitleHeightDp + compactHeaderHeightDp + 16f)
     val scrollPositionPx: () -> Int = {
         scroll?.value ?: lazyScroll?.let { if (it.firstVisibleItemIndex == 0) it.firstVisibleItemScrollOffset else 4096 } ?: 0
     }
     val pullConnection =
-        remember(scroll, lazyScroll, density) {
+        remember(scroll, lazyScroll, density, maximumExpansionDp) {
             object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
                 override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
                     if ((scroll == null && lazyScroll == null) || source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput || scrollPositionPx() != 0 || (available.y <= 0f && headerExpansionDp == 0f && !pullingHeader)) return androidx.compose.ui.geometry.Offset.Zero
@@ -215,11 +217,11 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
             content { previewBounds = it }
             if (scroll != null || lazyScroll != null) {
                 val topInsetDp = with(density) { inset.toDp().value - 56f }
-                val headerState by remember(scroll, lazyScroll, density, topInsetDp, headerClearanceDp) {
+                val headerState by remember(scroll, lazyScroll, density, topInsetDp, headerClearanceDp, maximumExpansionDp, expandedTitleHeightDp) {
                     androidx.compose.runtime.derivedStateOf {
                         val scrollDp = with(density) { scrollPositionPx().toDp().value }
                         val firstTop = previewBounds?.let { with(density) { it.top.toDp().value } + scrollDp - topInsetDp } ?: (headerClearanceDp + headerExpansionDp)
-                        settingsSubmenuHeaderState(scrollDp, headerExpansionDp, maximumExpansionDp, firstTop)
+                        settingsSubmenuHeaderState(scrollDp, headerExpansionDp, maximumExpansionDp, firstTop, compactHeaderHeightDp - 4f, expandedTitleHeightDp)
                     }
                 }
                 if (headerExpansionDp > 0f) {
@@ -229,21 +231,29 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
                             .statusBarsPadding()
                             .offset {
                                 androidx.compose.ui.unit
-                                    .IntOffset(0, headerClearanceDp.dp.roundToPx() - scrollPositionPx())
+                                    .IntOffset(0, headerState.expandedTitleTopDp.dp.roundToPx())
                             }.fillMaxWidth()
-                            .height(headerExpansionDp.dp),
+                            .height(expandedTitleHeightDp.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             title,
                             color = OneUiWidgetStyle.accent,
-                            fontSize = 34.sp,
+                            style = oneUiMenuTypography.headlineLarge.copy(fontSize = 34.sp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp).graphicsLayer { alpha = headerState.expandedTitleAlpha },
                         )
                     }
                 }
-                OneUiCompactSettingsHeader(onBack, Modifier.align(Alignment.TopStart).statusBarsPadding(), headerState, title)
+                OneUiCompactSettingsHeader(
+                    onBack,
+                    Modifier.align(Alignment.TopStart).statusBarsPadding().offset {
+                        androidx.compose.ui.unit
+                            .IntOffset(0, headerState.rowOffsetDp.dp.roundToPx())
+                    },
+                    headerState,
+                    title,
+                )
             }
         }
     }

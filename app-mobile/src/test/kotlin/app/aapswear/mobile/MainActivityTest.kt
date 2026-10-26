@@ -28,6 +28,80 @@ import org.robolectric.shadows.ShadowAlarmManager
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
+    @Test fun `settings overview hides back while submenus keep it`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        assertEquals(View.GONE, activity.findViewById<View>(R.id.top_back).visibility)
+        openSettingsCategory(activity, "general")
+        assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_back).visibility)
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `expanded submenu title fades without resizing its text box`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "notifications")
+        val root = activity.findViewById<View>(R.id.root)
+        val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
+        val expand = MainActivity::class.java.getDeclaredMethod("setSubmenuExpansion", Float::class.javaPrimitiveType).apply { isAccessible = true }
+
+        fun titleHeight(expansion: Float): Int {
+            expand.invoke(activity, expansion * activity.resources.displayMetrics.density)
+            root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 1080, 2400)
+            val header = content.findViewWithTag<View>("settings_submenu_expansion")
+            return if (header is TextView) header.height else (header as ViewGroup).getChildAt(0).height
+        }
+        val partial = titleHeight(110f)
+        assertTrue(partial > 0)
+        assertEquals("Pulling must change opacity and spacing, never reveal a growing text box", partial, titleHeight(160f))
+        controller.pause().stop().destroy()
+    }
+
+    @Test fun `submenu row stays just above the first card throughout a pull`() {
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettingsCategory(activity, "notifications")
+        val root = activity.findViewById<View>(R.id.root)
+        val bar = activity.findViewById<View>(R.id.top_app_bar)
+        val back = activity.findViewById<View>(R.id.top_back)
+        val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
+        val density = activity.resources.displayMetrics.density
+        val update = MainActivity::class.java.getDeclaredMethod("updateSettingsScrollHeader", Int::class.javaPrimitiveType).apply { isAccessible = true }
+
+        fun layout() {
+            root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 1080, 2400)
+            update.invoke(activity, 0)
+        }
+        layout()
+        val start = IntArray(2).also(bar::getLocationOnScreen)
+        MainActivity::class.java
+            .getDeclaredMethod("setSubmenuExpansion", Float::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+            .invoke(activity, 96f * density)
+        layout()
+        val moved = IntArray(2).also(bar::getLocationOnScreen)
+        assertEquals("Back and compact title must travel together with the card", 96f * density, (moved[1] - start[1]).toFloat(), 1f)
+
+        fun nativeCard(view: View): View? =
+            if (view.tag == "oneui_settings_card") {
+                view
+            } else if (view is ViewGroup) {
+                (0 until view.childCount).firstNotNullOfOrNull { nativeCard(view.getChildAt(it)) }
+            } else {
+                null
+            }
+        val first = requireNotNull(nativeCard(content))
+        val firstY = IntArray(2).also(first::getLocationOnScreen)[1]
+        val backBottom = IntArray(2).also(back::getLocationOnScreen)[1] + back.height
+        assertTrue("The back row must remain close above its card", (firstY - backBottom) / density in 4f..16f)
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `background refresh preserves long submenu position without synthetic scroll padding`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()

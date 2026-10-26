@@ -42,7 +42,7 @@ internal fun WearTransferLogScreen(
     val locale = LocalConfiguration.current.locales[0]
     var query by remember { mutableStateOf("") }
     val scroll = rememberLazyListState()
-    val headerClearance = measuredSettingsCompactTitle("Mobile → Wear", settingsWindowWidthDp()).heightDp + 32f
+    val headerClearance = measuredSettingsCompactTitle("Mobile → Wear", settingsWindowWidthDp()).heightDp + SETTINGS_SUBMENU_CARD_GAP_DP
     val filtered =
         events.filter { event ->
             query.isBlank() || (listOf(event.code, event.message) + event.metadata.values).any { it.contains(query, ignoreCase = true) }
