@@ -45,6 +45,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.FreshnessPolicy
@@ -188,12 +189,7 @@ internal fun SugarliciousOverviewScreen(
             now = now,
         )
     val glucoseColor =
-        when (rangePresentation.visibleRole) {
-            WidgetColorRole.HIGH -> SugarliciousColors.GlucoseHigh
-            WidgetColorRole.LOW -> SugarliciousColors.GlucoseLow
-            WidgetColorRole.IN_RANGE -> SugarliciousColors.GlucoseInRange
-            else -> SugarliciousColors.TextPrimary
-        }.let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
+        SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole)).let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
     val tirStats = calculateTirStats(state, now)
@@ -843,3 +839,13 @@ private fun formatNumber(
 ): String = value?.let { String.format(Locale.getDefault(), "%.${digits}f", it) } ?: "—"
 
 private fun unitLabel(unit: GlucoseUnit): String = if (unit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
+
+internal fun overviewGlucoseColorRole(role: WidgetColorRole): SugarliciousColorRole =
+    when (role) {
+        WidgetColorRole.VERY_HIGH -> SugarliciousColorRole.GLUCOSE_VERY_HIGH
+        WidgetColorRole.URGENT_LOW -> SugarliciousColorRole.GLUCOSE_VERY_LOW
+        WidgetColorRole.HIGH -> SugarliciousColorRole.GLUCOSE_HIGH
+        WidgetColorRole.LOW -> SugarliciousColorRole.GLUCOSE_LOW
+        WidgetColorRole.IN_RANGE -> SugarliciousColorRole.GLUCOSE_IN_RANGE
+        else -> SugarliciousColorRole.TEXT_PRIMARY
+    }

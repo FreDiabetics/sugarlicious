@@ -33,6 +33,43 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CgmGraphCustomizationTest {
     @Test
+    fun `high and very high dot colors refresh without waiting for another reading`() {
+        preferences
+            .edit()
+            .clear()
+            .putString("themeMode", "DARK")
+            .commit()
+        val now = System.currentTimeMillis()
+        val state =
+            TherapyDisplayState(
+                receivedAtEpochMs = now,
+                glucose = GlucoseState(300.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                glucoseHistory = listOf(GlucoseSample(200.0, now - 300_000L), GlucoseSample(300.0, now)),
+            )
+        val chart = GlucoseDashboardChart(context)
+
+        fun bind() = chart.bind(state, GlucoseUnit.MG_DL, false, 3, clockEpochMs = now)
+        try {
+            SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+            bind()
+            val shadow = org.robolectric.Shadows.shadowOf(chart)
+            shadow.clearWasInvalidated()
+            val high = Color.rgb(17, 211, 71)
+            val veryHigh = Color.rgb(193, 27, 219)
+            SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_HIGH, high)
+            SugarliciousColorStore.save(preferences, SugarliciousColorRole.CGM_DOT_VERY_HIGH, veryHigh)
+            SugarliciousColors.apply(SugarliciousColorStore.load(preferences))
+            bind()
+            assertTrue("A palette change must repaint with unchanged data and clock", shadow.wasInvalidated())
+            val bitmap = render(chart, 320)
+            assertTrue("high dot uses its own color", count(bitmap) { it == high } > 0)
+            assertTrue("very high dot uses its own color", count(bitmap) { it == veryHigh } > 0)
+        } finally {
+            SugarliciousColors.apply(SugarliciousPalette.defaults())
+        }
+    }
+
+    @Test
     fun `urgent dots render their independent colors instead of glucose text colors`() {
         preferences
             .edit()
