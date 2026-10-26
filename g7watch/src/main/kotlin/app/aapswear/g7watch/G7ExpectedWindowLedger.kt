@@ -96,7 +96,7 @@ internal class G7ExpectedWindowLedger(
         at: Long,
     ) = update(id) { it.copy(advertisementSeenAt = at) }
 
-    fun markFallbackScan(
+    fun markScan(
         id: String?,
         startedAt: Long,
         endedAt: Long,
@@ -104,7 +104,7 @@ internal class G7ExpectedWindowLedger(
         advertisementSeenAt: Long?,
     ) = update(id) {
         it.copy(
-            fallbackScanUsed = true,
+            fallbackScanUsed = it.fallbackScanUsed || it.gattAttempts > 0,
             scanStartedAt = it.scanStartedAt ?: startedAt,
             scanEndedAt = endedAt,
             scanResultCount = resultCount,
@@ -497,8 +497,10 @@ internal class G7ExpectedWindowLedger(
     ): Boolean =
         synchronized(lock) {
             val value = id ?: return@synchronized false
-            val existing = load().firstOrNull { it.expectedWindowId == value } ?: return@synchronized false
-            saveUpsert(transform(existing))
+            val values = load()
+            val existing = values.firstOrNull { it.expectedWindowId == value } ?: return@synchronized false
+            val updated = transform(existing)
+            if (updated != existing) saveAll(values.map { if (it.expectedWindowId == value) updated else it })
             true
         }
 
