@@ -39,9 +39,11 @@ class WatchFacePresetStoreTest {
     @Test
     fun `native slot presets retain every editable slot and repeated providers independently per face`() {
         val slots = context.resources.openRawResource(R.raw.native_apex_slots).use(::readNativeWatchSlots)
-        val assignments = nativeSlotPreviewEntries(slots).associate { it.id to eligibleNativeVariants(it).first().id }
+        val editable = nativeSlotPreviewEntries(slots).filter(::isNativeSlotEditable)
+        val assignments = editable.associate { it.id to eligibleNativeVariants(it).first().id }
         WatchFacePresetStore.saveSlots(context, 0, assignments)
-        assertEquals(7, assignments.size)
+        assertEquals(editable.map { it.id }.toSet(), assignments.keys)
+        org.junit.Assert.assertTrue(slots.filterNot(::isNativeSlotEditable).none { it.id in assignments })
         assertEquals(assignments, WatchFacePresetStore.readSlots(context, 0))
         assertEquals(emptyMap<Int, Int>(), WatchFacePresetStore.readSlots(context, 2))
     }

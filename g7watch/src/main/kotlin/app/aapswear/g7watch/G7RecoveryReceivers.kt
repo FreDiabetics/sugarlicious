@@ -103,10 +103,10 @@ private object G7BootRecovery {
         val state = G7SensorStateStore(context).read()
         if (!shouldRestoreG7Collector(action, state.collectorEnabled)) return
         G7CgmAlarmCoordinator.restore(context)
-        // The foreground service owns reconciliation. Starting it first guarantees Android gets
-        // the foreground notification before any retained ledger is reconstructed.
-        runCatching { G7CollectorService.start(context) }
-            .onFailure { G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state) }
+        // Boot removes OS alarms. Recreate the durable wake path before requesting the service:
+        // an asynchronous foreground-start timeout cannot be caught by startForegroundService.
+        G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state)
+        runCatching { G7CollectorService.resumeEnabled(context) }
     }
 }
 

@@ -19,7 +19,6 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.uishared.SharedColorEditor
 import app.aapswear.uishared.SharedNumberEditor
-import java.util.Locale
 import kotlin.math.roundToInt
 
 class G7AppearanceActivity : Activity() {
@@ -48,7 +47,7 @@ class G7AppearanceActivity : Activity() {
         applyG7SystemChrome(window, palette.argb(G7AppearanceRole.MENU_BACKGROUND))
 
         val restoreScrollY = scrollView.scrollY
-        val content =
+        var content =
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
@@ -57,14 +56,15 @@ class G7AppearanceActivity : Activity() {
             }
         content.addView(topBar(palette))
         content.addView(themeSelector(palette), params(top = 8))
-        content.addView(
-            label("GRÖSSE", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                textSize = 12f
-                letterSpacing = 0f
-                setPadding(16.dp, 16.dp, 16.dp, 8.dp)
-            },
-        )
+
+        fun card(title: String): LinearLayout =
+            app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
+                pageRoot.addView(it, params(top = 10))
+            }
+        val glucoseCard = card("Glukosewert")
+        content = glucoseCard
         content.addView(scaleRow("Glukosewert", store.glucoseScalePercent(), palette, store::setGlucoseScalePercent), params(top = 5))
+        content = card("Trendpfeil")
         content.addView(scaleRow("Trendpfeil", store.trendScalePercent(), palette, store::setTrendScalePercent), params(top = 5))
         val trendStyle = store.trendArrowStyle(selectedMode)
         content.addView(
@@ -139,11 +139,13 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
 
-        content.addView(sectionTitle("WearOS-Tile Glukose", palette))
+        content = card("WearOS-Tile · Glukosewert")
+        val tileGlucoseCard = content
         content.addView(
             scaleRow("Glukosewert", store.tileGlucoseScalePercent(), palette, store::setTileGlucoseScalePercent),
             params(top = 5),
         )
+        content = card("WearOS-Tile · Trendpfeil")
         val tileTrendStyle = store.tileTrendArrowStyle(selectedMode)
         content.addView(
             scaleRow("Trendpfeil", tileTrendStyle.sizePercent, palette, {
@@ -215,6 +217,7 @@ class G7AppearanceActivity : Activity() {
             }, min = 0, max = 100, format = { "Deckkraft · $it %" }),
             params(top = 5),
         )
+        content = tileGlucoseCard
         G7AppearanceRole.entries
             .filter { it.section == G7AppearanceSection.GLUCOSE && it != G7AppearanceRole.GLUCOSE_TREND }
             .forEach { role ->
@@ -248,13 +251,8 @@ class G7AppearanceActivity : Activity() {
             params(top = 5),
         )
 
-        content.addView(
-            label("GRAPH · PUNKTKONTUREN", 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                textSize = 12f
-                letterSpacing = 0f
-                setPadding(16.dp, 16.dp, 16.dp, 8.dp)
-            },
-        )
+        val graphCard = card("Graph")
+        content = graphCard
         content.addView(
             toggleRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, store.historicalDotOutlineEnabled(), palette) {
                 store.setHistoricalDotOutlineEnabled(it)
@@ -295,7 +293,7 @@ class G7AppearanceActivity : Activity() {
         )
 
         val tileStyle = store.tileGraphStyle()
-        content.addView(sectionTitle("WearOS-Tile Graph", palette))
+        content = card("WearOS-Tile · Graph")
         content.addView(tileHoursRow(palette), params(top = 5))
         content.addView(
             scaleRow("Punktgröße", (tileStyle.dotRadiusDp * 100).roundToInt(), palette, {
@@ -373,17 +371,22 @@ class G7AppearanceActivity : Activity() {
         )
 
         G7AppearanceSection.entries.forEach { section ->
-            content.addView(
-                label(section.label.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-                    gravity = Gravity.START
-                    letterSpacing = 0.10f
-                    setPadding(4.dp, 14.dp, 4.dp, 5.dp)
-                },
-            )
-            G7AppearanceRole.entries.filter { it.section == section }.forEach { role ->
-                content.addView(colorRow(role, palette), params(top = 5))
+            val roles = G7AppearanceRole.entries.filter { it.section == section && it != G7AppearanceRole.GLUCOSE_TREND }
+            when (section) {
+                G7AppearanceSection.GLUCOSE -> {
+                    roles.filter { it != G7AppearanceRole.GLUCOSE_DELTA }.forEach { role ->
+                        glucoseCard.addView(colorRow(role, palette), params(top = 5))
+                    }
+                    card("Delta und Einheit").addView(colorRow(G7AppearanceRole.GLUCOSE_DELTA, palette), params(top = 5))
+                }
+                G7AppearanceSection.GRAPH -> roles.forEach { role -> graphCard.addView(colorRow(role, palette), params(top = 5)) }
+                else -> {
+                    val sectionCard = card(section.label)
+                    roles.forEach { role -> sectionCard.addView(colorRow(role, palette), params(top = 5)) }
+                }
             }
         }
+        content = pageRoot
 
         content.addView(
             pill("ALLES RESET", palette.argb(G7AppearanceRole.MENU_PRIMARY), palette.argb(G7AppearanceRole.MENU_BACKGROUND)) {
@@ -407,15 +410,6 @@ class G7AppearanceActivity : Activity() {
     }
 
     private fun topBar(palette: G7AppearancePalette) = g7SettingsHeader("Farben & Darstellung", palette)
-
-    private fun sectionTitle(
-        title: String,
-        palette: G7AppearancePalette,
-    ) = label(title.uppercase(Locale.GERMANY), 10f, palette.argb(G7AppearanceRole.MENU_PRIMARY), true).apply {
-        textSize = 12f
-        letterSpacing = 0f
-        setPadding(16.dp, 16.dp, 16.dp, 8.dp)
-    }
 
     private fun tileHoursRow(palette: G7AppearancePalette) =
         LinearLayout(this).apply {

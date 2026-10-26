@@ -7,6 +7,19 @@ import java.io.File
 
 class NativeWatchSlotsTest {
     @Test
+    fun `external and system providers cannot be edited or assigned a variant`() {
+        val slot = NativeWatchSlot(1, setOf("SHORT_TEXT"), NativeSlotBounds("BoundingBox", 0f, 0f, 100f, 100f))
+        for (provider in listOf("", "com.samsung.health/Steps", "com.google.weather/Weather", "app.aapswear.other/app.aapswear.complications.GlucoseComplication")) {
+            val external = slot.copy(provider = provider)
+            assertTrue(!isNativeSlotEditable(external))
+            assertTrue(eligibleNativeVariants(external).isEmpty())
+        }
+        val own = slot.copy(provider = "app.aapswear/app.aapswear.complications.GlucoseComplication")
+        assertTrue(isNativeSlotEditable(own))
+        assertTrue(eligibleNativeVariants(own).isNotEmpty())
+    }
+
+    @Test
     fun `curved preview glyphs center on the native text circle`() {
         assertEquals(10f, nativeCircularTextBaselineOffset(-28f, 8f), .001f)
     }

@@ -30,6 +30,43 @@ class G7DirectProviderOutcomeTest {
     }
 
     @Test
+    fun `watch only retains stale graph history without marking the current source fresh`() {
+        val history = listOf(17L, 22L, 45L, 120L).map { minutes -> reading().copy(measuredAt = now - minutes * 60_000L) }
+        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(history, DirectStatus("ACTIVE", "ACTIVE"))))
+        assertEquals(history.size, resolved?.glucoseHistory?.size)
+        assertEquals(app.aapswear.model.CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+        assertTrue(DirectToWatchPresentationFormatter.header(resolved, now).signalLoss)
+        for (hours in listOf(1, 2, 3, 6, 12, 24)) {
+            assertEquals(history.count { now - it.measuredAt <= hours * 3_600_000L }, DirectToWatchPresentationFormatter.samples(resolved, now, hours).size)
+        }
+    }
+
+    @Test
+    fun `paused collector retains history but cannot supply a current Watch Direct value`() {
+        val resolved =
+            resolve(
+                DirectProviderOutcome.Success(
+                    DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "UNINITIALIZED", collectorEnabled = false)),
+                ),
+            )
+        assertEquals(app.aapswear.model.CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+        assertEquals(null, resolved?.glucose)
+        assertEquals(1, resolved?.glucoseHistory?.size)
+        assertEquals("PAUSED", G7LocalReadingResolver.directSessionState(resolved))
+    }
+
+    @Test
+    fun `Android provider reads explicit paused lifecycle independently of sensor state`() {
+        val outcome =
+            AndroidDirectCgmProvider(context) { uri ->
+                emptyCursor(uri.lastPathSegment == "state").apply {
+                    if (uri.lastPathSegment == "state") addRow(arrayOf<Any>("ACTIVE", "UNINITIALIZED", 0))
+                }
+            }.read()
+        assertEquals(false, (outcome as DirectProviderOutcome.Success).snapshot.status?.collectorEnabled)
+    }
+
+    @Test
     fun `empty unavailable denied and malformed outcomes remain distinct and non throwing`() {
         val outcomes =
             listOf(
@@ -73,7 +110,7 @@ class G7DirectProviderOutcomeTest {
     private fun emptyCursor(status: Boolean): MatrixCursor =
         MatrixCursor(
             if (status) {
-                arrayOf("sensor_state", "session_state")
+                arrayOf("sensor_state", "session_state", "collector_enabled")
             } else {
                 arrayOf("status", "glucose", "sensor_id", "session_id", "sequence_number", "measured_at", "received_at", "delta", "trend", "trend_rate")
             },

@@ -32,6 +32,40 @@ class G7LifecyclePolicyTest {
         assertFalse(shouldAwaitG7SensorWindow(state.copy(lastReading = reading.copy(status = app.aapswear.g7.CgmReadingStatus.INVALID)), measuredAt))
     }
 
+    @Test fun `startup after signal loss preserves the already armed current session window`() {
+        val now = 10_000_000L
+        val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, now - 20 * 60_000L, now - 20 * 60_000L)
+        val state = G7PersistedState(collectorEnabled = true, sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        val expected = now + 90_000L
+        val pending = CollectorCycleTiming(expectedWindowId = expectedWindowId("sensor", "session", expected), expectedReadingEpoch = expected, requestedReconnectEpoch = expected - 10_000L)
+        assertFalse(shouldAwaitG7SensorWindow(state, now))
+        assertEquals(pending, g7StartupSensorWindow(state, pending, now))
+        assertEquals(pending, g7StartupSensorWindow(state, pending, pending.requestedReconnectEpoch!! - 1L))
+    }
+
+    @Test fun `stale startup rejects foreign expired and inconsistent scheduled envelopes`() {
+        val now = 10_000_000L
+        val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, now - 20 * 60_000L, now - 20 * 60_000L)
+        val state = G7PersistedState(collectorEnabled = true, sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        val expected = now + 90_000L
+        val pending = CollectorCycleTiming(expectedWindowId = expectedWindowId("sensor", "session", expected), expectedReadingEpoch = expected, requestedReconnectEpoch = expected - 10_000L)
+        for (bad in listOf(null, pending.copy(expectedWindowId = "other-session"), pending.copy(requestedReconnectEpoch = now), pending.copy(expectedReadingEpoch = now), pending.copy(requestedReconnectEpoch = expected + 1L))) {
+            assertNull(g7StartupSensorWindow(state, bad, now))
+        }
+        for (bad in listOf(state.copy(collectorEnabled = false), state.copy(lastReading = null), state.copy(sensor = G7Sensor("other", "session")), state.copy(lastReading = reading.copy(origin = app.aapswear.g7.CgmReadingOrigin.BACKFILL)), state.copy(lastReading = reading.copy(timestampEpochMs = now + 1L)))) {
+            assertNull(g7StartupSensorWindow(bad, pending, now))
+        }
+    }
+
+    @Test fun `fresh startup without pending envelope restores its original sensor phase`() {
+        val measured = 1_000_000L
+        val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, measured, measured)
+        val state = G7PersistedState(collectorEnabled = true, sensor = G7Sensor("sensor", "session"), lastReading = reading)
+        val restored = g7StartupSensorWindow(state, null, measured + 269_500L)
+        assertEquals(measured + 300_000L, restored?.expectedReadingEpoch)
+        assertEquals(measured + 270_000L, restored?.requestedReconnectEpoch)
+    }
+
     @Test fun `Bluetooth restart recovers only an enabled configured collector`() {
         assertTrue(
             shouldRecoverG7AfterBluetoothState(

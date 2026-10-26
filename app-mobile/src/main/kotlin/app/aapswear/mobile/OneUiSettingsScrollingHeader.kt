@@ -8,6 +8,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
@@ -50,11 +51,28 @@ internal fun measuredSettingsCompactTitle(title: String, availableWidthDp: Float
 }
 
 @Composable
-internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().background(LocalOneUiWidgetSettingsColors.current.page).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onBack, Modifier.size(48.dp)) {
+internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier = Modifier, state: SettingsSubmenuHeaderState = settingsSubmenuHeaderState(0f, 0f, 160f, 88f), title: String = "Widget-Einstellungen") {
+    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onBack, Modifier.size(48.dp).background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)) {
             Icon(painterResource(R.drawable.ic_oneui_back), "Zurück", tint = OneUiWidgetStyle.accent, modifier = Modifier.size(22.dp))
         }
-        Text("Widget-Einstellungen", color = OneUiWidgetStyle.accent, fontSize = 20.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).semantics { heading() })
+        Text(
+            title,
+            color = OneUiWidgetStyle.accent,
+            fontSize = 20.sp,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .then(
+                        Modifier.graphicsLayer {
+                            alpha = state.compactTitleAlpha
+                            translationY = state.compactTitleOffsetDp.dp.toPx()
+                            scaleX = .96f + .04f * state.compactTitleAlpha
+                            scaleY = scaleX
+                        },
+                    ).semantics { heading() },
+        )
     }
 }

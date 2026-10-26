@@ -87,6 +87,7 @@ internal fun g7GraphEmptyLabel(
 ): String =
     when {
         hasHistory -> ""
+        state == G7StatusPillState.PAUSED -> "Sensorempfang pausiert"
         state == G7StatusPillState.NO_ACTIVE_SENSOR -> "Kein aktiver Sensor"
         state == G7StatusPillState.SENSOR_ERROR -> "Sensorfehler"
         state == G7StatusPillState.SIGNAL_LOSS -> "Signalverlust"
@@ -154,7 +155,7 @@ class G7GraphTileService : TileService() {
                 G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
                 G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
                 G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-                G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+                G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
             }
         val contentSpec = g7GraphTileContentSpec(device.screenWidthDp, device.screenHeightDp)
         val effectiveGraphStyle = G7AppearanceStore(this).tileGraphStyle(contentSpec.cornerRadiusDp)

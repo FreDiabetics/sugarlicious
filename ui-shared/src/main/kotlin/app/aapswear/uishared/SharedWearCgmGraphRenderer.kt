@@ -54,6 +54,7 @@ data class SharedWearCgmGraphStyle(
     val cornerRadiusDp: Float = 20f,
     val borderEnabled: Boolean = true,
     val timeAxisEnabled: Boolean = true,
+    val timeAxisVisible: Boolean = true,
     val targetTicksEnabled: Boolean = false,
     val targetLabelsOutsideRange: Boolean = true,
     val targetLabelsInsidePlot: Boolean = false,
@@ -65,6 +66,8 @@ data class SharedWearCgmGraphStyle(
     val maximumScaleEnabled: Boolean = true,
     val currentDotContourAtLiveEdge: Boolean = false,
     val timeAxisOuterLabelInsetDp: Float = 3f,
+    val timeHoursBold: Boolean = true,
+    val timeAxisBottomInsetDp: Float? = null,
 )
 
 object DirectToWatchGraphDefaults {
@@ -404,7 +407,7 @@ object SharedWearCgmGraphRenderer {
             axisText.textAlign = Paint.Align.LEFT
             canvas.drawText(input.topLeftLabel, maxOf(3f * density, input.style.cornerRadiusDp * density * 0.7f), 7f * density - (axisText.ascent() + axisText.descent()) / 2f, axisText)
         }
-        if (input.style.timeAxisEnabled) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
+        if (input.style.timeAxisEnabled && input.style.timeAxisVisible) drawTimeAxis(canvas, input, metrics, widthPx, heightPx, dp(1f), axisText, line)
         if (history.isEmpty() && predictions.isEmpty() && input.emptyLabel.isNotBlank()) {
             emptyText.color = palette.emptyText
             canvas.drawText(input.emptyLabel, plot.centerX(), plot.centerY() - (emptyText.ascent() + emptyText.descent()) / 2f, emptyText)
@@ -510,9 +513,18 @@ object SharedWearCgmGraphRenderer {
                 val tickEnd = tickStart + spec.tickLengthDp * oneDp
                 // The live position is marked like every other axis value: a short solid tick at the
                 // exact X of the former full-height Now line. Label alignment must not move the tick.
-                canvas.drawLine(x, tickStart, x, tickEnd, line)
+                SystemTypography.apply(text, tick.hoursBack == 0 || input.style.timeHoursBold)
                 val baseline = tickEnd + spec.tickToLabelGapDp * oneDp - text.ascent()
-                canvas.drawText(tick.label, labelX, minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline), text)
+                val bottomInset = input.style.timeAxisBottomInsetDp
+                val labelBaseline =
+                    if (bottomInset == null) {
+                        minOf(heightPx - spec.outerEdgePaddingDp * oneDp, baseline)
+                    } else {
+                        heightPx - bottomInset * oneDp - text.descent()
+                    }
+                val shift = if (bottomInset == null) 0f else labelBaseline - baseline
+                canvas.drawLine(x, tickStart + shift, x, tickEnd + shift, line)
+                canvas.drawText(tick.label, labelX, labelBaseline, text)
             }
     }
 

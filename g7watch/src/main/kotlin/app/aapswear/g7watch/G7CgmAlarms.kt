@@ -114,14 +114,14 @@ internal object G7CgmAlarmCoordinator {
         context: Context,
         reading: CgmReading,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ) {
+    ) = synchronized(G7SensorStateStore.lifecycleLock) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
-            return
+            return@synchronized
         }
         // An invalid packet is diagnostic input only. It must neither trigger glucose alarms nor
         // resolve an already active alarm based on the last validated reading.
-        if (reading.status == CgmReadingStatus.INVALID) return
+        if (reading.status == CgmReadingStatus.INVALID) return@synchronized
         evaluate(context, reading, nowEpochMs)
     }
 
@@ -129,10 +129,10 @@ internal object G7CgmAlarmCoordinator {
         context: Context,
         reading: CgmReading?,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ) {
+    ) = synchronized(G7SensorStateStore.lifecycleLock) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
-            return
+            return@synchronized
         }
         evaluate(context, reading, nowEpochMs)
     }
@@ -160,15 +160,15 @@ internal object G7CgmAlarmCoordinator {
         context: Context,
         type: CgmAlarmType,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ) {
+    ) = synchronized(G7SensorStateStore.lifecycleLock) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
-            return
+            return@synchronized
         }
         val settings = G7AlarmSettingsStore.read(context)
         val snapshot = read(context)
-        val alarm = snapshot.alarms.firstOrNull { it.type == type } ?: return
-        if (!CgmAlarmEngine.shouldRepeat(alarm, settings, nowEpochMs)) return
+        val alarm = snapshot.alarms.firstOrNull { it.type == type } ?: return@synchronized
+        if (!CgmAlarmEngine.shouldRepeat(alarm, settings, nowEpochMs)) return@synchronized
         G7CgmAlarmNotifier.show(context, alarm, settings, onlyAlertOnce = false)
         val updated =
             snapshot.alarms.map {
@@ -188,10 +188,10 @@ internal object G7CgmAlarmCoordinator {
     fun restore(
         context: Context,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ) {
+    ) = synchronized(G7SensorStateStore.lifecycleLock) {
         if (!G7AlertPolicyStore.alarmsEnabled(context)) {
             clearSuppressed(context)
-            return
+            return@synchronized
         }
         val settings = G7AlarmSettingsStore.read(context)
         val snapshot = read(context)

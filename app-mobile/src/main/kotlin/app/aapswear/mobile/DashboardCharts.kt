@@ -515,6 +515,8 @@ internal class GlucoseDashboardChart
         private var clockBucket: Long = Long.MIN_VALUE
         private var renderNowEpochMs: Long = System.currentTimeMillis()
         private var boundDurationHours: Int? = null
+        private var boundPalette: app.aapswear.mobile.ui.theme.SugarliciousPalette? = null
+        private var boundThresholds: CgmThresholds? = null
 
         fun bind(
             state: TherapyDisplayState?,
@@ -546,6 +548,8 @@ internal class GlucoseDashboardChart
             val resolvedHistoricalOutlineWidth = cgmHistoricalDotOutlineWidthDp.coerceIn(0.25f, 3.0f)
             val resolvedCurrentOutlineWidth = cgmCurrentDotOutlineWidthDp.coerceIn(0.25f, 3.0f)
             val stylePreferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+            val resolvedPalette = SugarliciousColors.palette
+            val resolvedThresholds = CgmThresholdPreferences.read(stylePreferences)
             val resolvedDurationHours = resolveOverviewGraphHoursPreference(stylePreferences, durationHours)
             val resolvedPredictionRadius = readMobilePredictionDotRadius(stylePreferences)
             val resolvedPredictionOutlineWidth = readMobilePredictionDotOutlineWidth(stylePreferences)
@@ -598,7 +602,9 @@ internal class GlucoseDashboardChart
                 }
             val durationChanged = boundDurationHours != resolvedDurationHours
             val changed =
-                stateSignature != newStateSignature ||
+                boundPalette != resolvedPalette ||
+                    boundThresholds != resolvedThresholds ||
+                    stateSignature != newStateSignature ||
                     durationChanged ||
                     this.unit != unit ||
                     this.showPredictions != showPredictions ||
@@ -625,6 +631,8 @@ internal class GlucoseDashboardChart
 
             if (!changed) return
 
+            boundPalette = resolvedPalette
+            boundThresholds = resolvedThresholds
             this.state = state
             stateSignature = newStateSignature
             boundDurationHours = resolvedDurationHours

@@ -29,7 +29,7 @@ class G7UserStatusTest {
             receivedAtEpochMs = at,
         )
 
-    @Test fun `pill exposes only the four stable user states`() {
+    @Test fun `pill distinguishes paused reception from an unpaired sensor`() {
         val healthy =
             G7PersistedState(
                 sensor = sensor.copy(state = G7SensorState.ACTIVE),
@@ -47,9 +47,10 @@ class G7UserStatusTest {
             G7StatusPillState.SENSOR_ERROR,
             deriveG7StatusPillState(healthy.copy(sensor = sensor.copy(state = G7SensorState.ERROR)), true, now),
         )
+        assertEquals(G7StatusPillState.PAUSED, deriveG7StatusPillState(healthy.copy(collectorEnabled = false), true, now))
         assertEquals(G7StatusPillState.NO_ACTIVE_SENSOR, deriveG7StatusPillState(G7PersistedState(), false, now))
         assertEquals(
-            listOf("Verbunden", "Signalverlust", "Sensorfehler", "Kein aktiver Sensor gekoppelt"),
+            listOf("Verbunden", "Sensorempfang pausiert", "Signalverlust", "Sensorfehler", "Kein aktiver Sensor gekoppelt"),
             G7StatusPillState.entries.map { it.title },
         )
     }

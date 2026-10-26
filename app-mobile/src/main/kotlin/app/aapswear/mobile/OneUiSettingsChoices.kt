@@ -64,7 +64,7 @@ internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoic
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     if (showIllustrations) OneUiThemeIllustration(option == DashboardThemeMode.DARK)
-                    Text(if (option == DashboardThemeMode.LIGHT) "Hell" else "Dunkel", color = OneUiWidgetStyle.primary, fontSize = 18.sp)
+                    Text(if (option == DashboardThemeMode.LIGHT) "Hell" else "Dunkel", color = OneUiWidgetStyle.primary, fontSize = 16.sp)
                     RadioButton(selected, null)
                 }
             }
@@ -72,7 +72,7 @@ internal fun OneUiSettingsModeSelector(mode: DashboardThemeMode, showSystemChoic
         if (showSystemChoice) {
             HorizontalDivider(Modifier.padding(vertical = 12.dp), color = OneUiWidgetStyle.secondary.copy(alpha = .2f))
             Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Geräteabhängig", color = OneUiWidgetStyle.primary, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                Text("Geräteabhängig", color = OneUiWidgetStyle.primary, fontSize = 16.sp, modifier = Modifier.weight(1f))
                 WidgetSettingsToggle(mode == DashboardThemeMode.SYSTEM, { onSelected(settingsSystemMode(it, deviceDark)) }, label = "Geräteabhängig")
             }
         }

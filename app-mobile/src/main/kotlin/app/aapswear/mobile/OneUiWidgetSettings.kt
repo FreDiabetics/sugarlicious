@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -55,6 +56,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -84,6 +86,8 @@ internal data class OneUiWidgetSettingsColors(
     val link: UiColor = UiColor.White,
     val action: UiColor = UiColor(0xFF1C1C1C),
 )
+
+internal val LocalWidgetHeaderExpansionDp = staticCompositionLocalOf { 0f }
 
 internal val LocalOneUiWidgetSettingsColors = staticCompositionLocalOf { OneUiWidgetSettingsColors() }
 
@@ -146,18 +150,54 @@ internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), con
 }
 
 @Composable
-internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.ScrollState? = null, onBack: () -> Unit = {}, content: @Composable BoxScope.((Rect) -> Unit) -> Unit) {
+internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.ScrollState? = null, onBack: () -> Unit = {}, lazyScroll: androidx.compose.foundation.lazy.LazyListState? = null, title: String = "Widget-Einstellungen", content: @Composable BoxScope.((Rect) -> Unit) -> Unit) {
     var previewBounds by remember { mutableStateOf<Rect?>(null) }
     val colors = LocalOneUiWidgetSettingsColors.current
     val context = LocalContext.current
     val wallpaperSupported = remember(context) { runCatching { WallpaperManager.getInstance(context).isWallpaperSupported }.getOrDefault(false) }
     val density = LocalDensity.current
+    val headerClearanceDp = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp + 32f
     val inset = WindowInsets.statusBars.getTop(density) + with(density) { 56.dp.toPx() }
+    var headerExpansionDp by remember(scroll, lazyScroll) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    var pullingHeader by remember(scroll, lazyScroll) { mutableStateOf(false) }
+    val maximumExpansionDp = maxOf(160f, 112f * density.fontScale)
+    val scrollPositionPx: () -> Int = {
+        scroll?.value ?: lazyScroll?.let { if (it.firstVisibleItemIndex == 0) it.firstVisibleItemScrollOffset else 4096 } ?: 0
+    }
+    val pullConnection =
+        remember(scroll, lazyScroll, density) {
+            object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+                override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                    if ((scroll == null && lazyScroll == null) || source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput || scrollPositionPx() != 0 || (available.y <= 0f && headerExpansionDp == 0f && !pullingHeader)) return androidx.compose.ui.geometry.Offset.Zero
+                    pullingHeader = true
+                    headerExpansionDp = (headerExpansionDp + with(density) { available.y.toDp().value } * .55f).coerceIn(0f, maximumExpansionDp)
+                    return androidx.compose.ui.geometry
+                        .Offset(0f, available.y)
+                }
+
+                override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+                    if (pullingHeader) {
+                        pullingHeader = false
+                        val target = settingsSubmenuExpansionTarget(headerExpansionDp, maximumExpansionDp, available.y / density.density)
+                        androidx.compose.animation.core
+                            .animate(
+                                headerExpansionDp,
+                                target,
+                                animationSpec =
+                                    androidx.compose.animation.core
+                                        .tween(160),
+                            ) { value, _ -> headerExpansionDp = value }
+                        return available
+                    }
+                    return androidx.compose.ui.unit.Velocity.Zero
+                }
+            }
+        }
     val registry = remember(scroll, inset) { scroll?.let { SettingsHeadingRegistry(it, inset) } }
     val snapConnection = rememberSettingsSnapConnection(registry)
-    CompositionLocalProvider(LocalSettingsHeadingRegistry provides registry) {
+    CompositionLocalProvider(LocalSettingsHeadingRegistry provides registry, LocalWidgetHeaderExpansionDp provides headerExpansionDp) {
         Box(
-            Modifier.fillMaxSize().nestedScroll(snapConnection).onGloballyPositioned { registry?.viewportTop = it.positionInWindow().y }.drawWithContent {
+            Modifier.fillMaxSize().nestedScroll(pullConnection).nestedScroll(snapConnection).onGloballyPositioned { registry?.viewportTop = it.positionInWindow().y }.drawWithContent {
                 val aperture = previewBounds?.takeIf { it.width > 0f && it.height > 0f }
                 val path =
                     Path().apply {
@@ -173,7 +213,38 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
             },
         ) {
             content { previewBounds = it }
-            if (scroll != null) OneUiCompactSettingsHeader(onBack, Modifier.align(Alignment.TopStart).statusBarsPadding())
+            if (scroll != null || lazyScroll != null) {
+                val topInsetDp = with(density) { inset.toDp().value - 56f }
+                val headerState by remember(scroll, lazyScroll, density, topInsetDp, headerClearanceDp) {
+                    androidx.compose.runtime.derivedStateOf {
+                        val scrollDp = with(density) { scrollPositionPx().toDp().value }
+                        val firstTop = previewBounds?.let { with(density) { it.top.toDp().value } + scrollDp - topInsetDp } ?: (headerClearanceDp + headerExpansionDp)
+                        settingsSubmenuHeaderState(scrollDp, headerExpansionDp, maximumExpansionDp, firstTop)
+                    }
+                }
+                if (headerExpansionDp > 0f) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopStart)
+                            .statusBarsPadding()
+                            .offset {
+                                androidx.compose.ui.unit
+                                    .IntOffset(0, headerClearanceDp.dp.roundToPx() - scrollPositionPx())
+                            }.fillMaxWidth()
+                            .height(headerExpansionDp.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            title,
+                            color = OneUiWidgetStyle.accent,
+                            fontSize = 34.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 16.dp).graphicsLayer { alpha = headerState.expandedTitleAlpha },
+                        )
+                    }
+                }
+                OneUiCompactSettingsHeader(onBack, Modifier.align(Alignment.TopStart).statusBarsPadding(), headerState, title)
+            }
         }
     }
 }
@@ -208,7 +279,7 @@ internal fun <T> OneUiWidgetChoiceRow(label: String, value: T, choices: List<T>,
     Box(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = colors.primary, fontSize = 18.sp)
+                Text(label, color = colors.primary, fontSize = 16.sp)
                 Text(display(value), color = colors.link, style = oneUiMenuTypography.bodyMedium)
             }
         }
@@ -388,7 +459,7 @@ internal fun WidgetSettingsToggle(checked: Boolean, onCheckedChange: ((Boolean) 
 @Composable
 internal fun WidgetToggleSetting(label: String, checked: Boolean, enabled: Boolean = true, onCheckedChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, modifier = Modifier.weight(1f), color = OneUiWidgetStyle.primary, fontSize = 18.sp)
+        Text(label, modifier = Modifier.weight(1f), color = OneUiWidgetStyle.primary, fontSize = 16.sp)
         WidgetSettingsToggle(checked, onCheckedChange, enabled, label)
     }
 }

@@ -47,6 +47,8 @@ import app.aapswear.uishared.SharedWearCgmGraphInput
 import app.aapswear.uishared.SharedWearCgmGraphPalette
 import app.aapswear.uishared.SharedWearCgmGraphRenderer
 import app.aapswear.uishared.SharedWearCgmGraphStyle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
 
@@ -184,8 +186,8 @@ internal object DirectToWatchPresentationFormatter {
             return DirectToWatchGraphStatusPresentation("")
         }
         val glucose = requireNotNull(state.glucose)
-        val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "—"
-        return DirectToWatchGraphStatusPresentation("${graphHours}h • $age")
+        val age = TherapyDisplayFormatter.ageMinutesValue(glucose.measuredAtEpochMs, nowEpochMs)?.let { "${it}m" } ?: "\u2014"
+        return DirectToWatchGraphStatusPresentation("${graphHours}h \u2022 $age")
     }
 
     fun samples(
@@ -304,6 +306,10 @@ object DirectToWatchPreferences {
     fun statusSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
 
     fun statusColor(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt(KEY_STATUS_COLOR, Color.WHITE)
+
+    fun scaleSizeEnabled(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean("watchface.scale_size_enabled", false)
+
+    fun scaleSizePercent(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getInt("watchface.scale_size_percent", 100).coerceIn(50, 120)
 
     fun statusBold(context: Context) = context.getSharedPreferences(NAME, Context.MODE_PRIVATE).getBoolean(KEY_STATUS_BOLD, true)
 
@@ -527,6 +533,7 @@ object DirectToWatchPreferences {
     fun requestUpdates(context: Context) {
         listOf(
             DirectToWatchHeaderComplication::class.java,
+            DirectToWatchAnalogHeaderComplication::class.java,
             DirectToWatchGraphComplication::class.java,
             DirectToWatchStatusComplication::class.java,
             DirectToWatchClockComplication::class.java,
@@ -551,7 +558,10 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
             .build()
     }
 
-    final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build(G7LocalReadingResolver.resolveWatchDirect(this), System.currentTimeMillis())
+    final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData =
+        withContext(Dispatchers.IO) {
+            build(G7LocalReadingResolver.resolveWatchDirect(this@DirectToWatchComplicationService), System.currentTimeMillis())
+        }
 
     protected abstract fun build(
         state: TherapyDisplayState?,
@@ -691,6 +701,7 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
             }
         val arrow =
             presentation.trend
+                .takeUnless { presentation.signalLoss }
                 ?.let {
                     TrendComplicationIcon.renderScaled(this, it, 34, style.sizePercent, style = style)
                 }?.let(TrendComplicationIcon::cropTransparentPadding)
@@ -725,6 +736,12 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
                 color = if (ambient) AMBIENT_PRIMARY else Color.WHITE
                 textSize = 29f
             }
+        if (presentation.signalLoss) {
+            deltaPaint.color = Color.rgb(255, 77, 94)
+            deltaPaint.textAlign = Paint.Align.CENTER
+            canvas.drawText("Signalverlust", centerX, 96f, deltaPaint)
+            return bitmap
+        }
         val secondaryWidth = deltaPaint.measureText(delta) + if (unit.isBlank()) 0f else 6f + secondaryPaint.measureText(unit)
         val secondaryLeft = centerX - secondaryWidth / 2f
         canvas.drawText(delta, secondaryLeft, 96f, deltaPaint)
@@ -735,6 +752,61 @@ open class DirectToWatchHeaderComplication : DirectToWatchComplicationService() 
     private companion object {
         const val AMBIENT_PRIMARY = 0xFFD0D0D0.toInt()
         const val AMBIENT_SECONDARY = 0xFF707070.toInt()
+    }
+}
+
+/** Full-face transparent text layer selected natively when Vigil hands are visible. */
+class DirectToWatchAnalogHeaderComplication : DirectToWatchHeaderComplication() {
+    override fun build(state: TherapyDisplayState?, nowEpochMs: Long): ComplicationData {
+        val presentation = DirectToWatchPresentationFormatter.header(state, nowEpochMs, DirectToWatchPreferences.glucoseUnit(this))
+        return SmallImageComplicationData
+            .Builder(
+                SmallImage
+                    .Builder(Icon.createWithBitmap(renderAnalogHeader(presentation)), SmallImageType.PHOTO)
+                    .setAmbientImage(Icon.createWithBitmap(renderAnalogHeader(presentation, ambient = true)))
+                    .build(),
+                PlainComplicationText.Builder("SugarWear ${presentation.glucose}, ${presentation.secondary}").build(),
+            ).setTapAction(collectorTapAction())
+            .setValidTimeRange(DirectToWatchPresentationFormatter.validTimeRange(state, nowEpochMs))
+            .build()
+    }
+
+    internal fun renderAnalogHeader(presentation: DirectToWatchHeaderPresentation, ambient: Boolean = false): Bitmap {
+        val bitmap = Bitmap.createBitmap(450, 450, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val header = renderHeader(presentation, DirectToWatchPreferences.glucoseBold(this), ambient)
+        if (presentation.glucose == "-") {
+            // Pairing guidance includes a button below row 70; keep the complete exceptional state.
+            canvas.drawBitmap(header, 90f, 22f, null)
+            return bitmap
+        }
+        canvas.drawBitmap(header, android.graphics.Rect(0, 0, 340, 70), RectF(90f, 55f, 430f, 125f), null)
+        val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color =
+                    if (presentation.signalLoss) {
+                        Color.rgb(255, 77, 94)
+                    } else if (ambient) {
+                        0xFFD0D0D0.toInt()
+                    } else {
+                        Color.WHITE
+                    }
+                textSize = 29f
+                textAlign = Paint.Align.CENTER
+                app.aapswear.uishared.SystemTypography
+                    .apply(this, true)
+            }
+        if (presentation.signalLoss) {
+            canvas.drawText("Signalverlust", 225f, 385f - (paint.ascent() + paint.descent()) / 2f, paint)
+        } else if (presentation.glucose != "-") {
+            val delta = presentation.secondary.substringBeforeLast(' ', presentation.secondary)
+            val unit = presentation.secondary.substringAfterLast(' ', "")
+            canvas.drawText(delta, 225f, 379f, paint)
+            paint.textSize = 23f
+            paint.color = if (ambient) 0xFF707070.toInt() else DirectToWatchPreferences.deltaUnitColor(this, DirectToWatchPreferences.activeAppearanceMode(this))
+            canvas.drawText(unit, 225f, 406f, paint)
+        }
+        return bitmap
     }
 }
 
@@ -894,7 +966,14 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
         val sensorStatusPill = vigilSensorStatusPillText(state)
         if (G7LocalReadingResolver.directSensorState(state) == "ERROR") return bitmap
         val density = resources.displayMetrics.density
-        val graphStyle = DirectToWatchPreferences.graphStyle(this)
+        val baseStyle = DirectToWatchPreferences.graphStyle(this)
+        val graphStyle =
+            baseStyle.copy(
+                axisTextSizeSp = baseStyle.axisTextSizeSp * if (DirectToWatchPreferences.scaleSizeEnabled(this)) DirectToWatchPreferences.scaleSizePercent(this) / 100f else 1f,
+                timeAxisVisible = !ambient,
+                timeHoursBold = false,
+                timeAxisBottomInsetDp = 1f,
+            )
         val radius = graphStyle.cornerRadiusDp * density
         canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
         val colors = if (ambient) DirectToWatchPreferences.graphColors(this).ambient() else DirectToWatchPreferences.graphColors(this)
@@ -923,7 +1002,7 @@ open class DirectToWatchGraphComplication : DirectToWatchComplicationService() {
                 ),
         )
         canvas.restore()
-        sensorStatusPill?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
+        sensorStatusPill?.takeUnless { it == "Signalverlust" }?.let { drawSensorDisconnectedPill(Canvas(bitmap), colors, it) }
         return bitmap
     }
 

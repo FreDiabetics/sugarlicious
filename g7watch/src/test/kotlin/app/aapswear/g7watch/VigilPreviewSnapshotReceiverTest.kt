@@ -1,6 +1,5 @@
 package app.aapswear.g7watch
 
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -42,9 +41,9 @@ class VigilPreviewSnapshotReceiverTest {
         }
         assertTrue(clockInk > 100)
         // The canonical 32-second hand legitimately crosses a few clock glyphs.
-        assertTrue("Preserve native typography underneath the overlaid hands", preservedClockInk > clockInk * .9)
+        assertTrue("Preserve native typography underneath the overlaid hands", preservedClockInk == clockInk)
         assertEquals("Keep captured glucose header away from the new seconds hand", source.getPixel(160, 80), result.getPixel(160, 80))
-        assertTrue("Shared native hands and pivot must be added", result.getPixel(240, 240) != source.getPixel(240, 240))
+        assertTrue("Default preview has no hands or markers", result.sameAs(source))
         val output = File("build/reports/vigil-visual-qa/preview.png")
         requireNotNull(output.parentFile).mkdirs()
         output.outputStream().use { result.compress(Bitmap.CompressFormat.PNG, 100, it) }
@@ -68,8 +67,7 @@ class VigilPreviewSnapshotReceiverTest {
         val context = RuntimeEnvironment.getApplication()
         val source = Bitmap.createBitmap(450, 450, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.MAGENTA) }
         File(context.filesDir, "vigil-preview-source.png").outputStream().use { source.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        VigilPreviewSnapshotReceiver().onReceive(context, Intent(VigilPreviewSnapshotReceiver.ACTION))
-        val result = BitmapFactory.decodeFile(File(context.filesDir, "vigil-preview-2210.png").path)
+        val result = renderVigilPreview(context, source, includeDecorations = true)
         assertTrue("The native red seconds hand must point to 32 seconds", Color.red(result.getPixel(181, 433)) > 200)
         assertTrue("The native analog hands must overlay the center", (190..260).any { y -> (190..260).any { x -> result.getPixel(x, y) != Color.MAGENTA } })
         assertTrue(

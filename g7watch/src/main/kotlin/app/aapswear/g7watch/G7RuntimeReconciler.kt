@@ -118,6 +118,14 @@ private val persistedBusyProtocolStates =
         G7ProtocolState.BACKFILL,
     )
 
+private fun hasLiveG7ScanBudget(state: G7PersistedState, attempt: CollectorDiagnosticAttempt?, liveCycle: Boolean, nowEpochMs: Long): Boolean {
+    if (!liveCycle || attempt == null || state.activeAttemptId != attempt.attemptId) return false
+    if (state.connectionState != G7ConnectionState.SCANNING || state.protocolState != G7ProtocolState.SCANNING || attempt.currentStage != app.aapswear.g7.CollectorDiagnosticStage.SCANNING) return false
+    val deadline = state.scanTimeoutAtEpochMs ?: return false
+    val attemptDeadline = attempt.deadlineEpochMs ?: return false
+    return nowEpochMs < deadline && nowEpochMs < attemptDeadline && deadline <= attempt.startedAtEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
+}
+
 internal fun assessG7Runtime(
     state: G7PersistedState,
     activeAttempt: CollectorDiagnosticAttempt?,
@@ -132,15 +140,22 @@ internal fun assessG7Runtime(
 
     val attemptAge = activeAttempt?.let { (nowEpochMs - it.startedAtEpochMs).coerceAtLeast(0L) }
     val progressAge = activeAttempt?.let { (nowEpochMs - it.lastProgressAtEpochMs).coerceAtLeast(0L) }
+    // Discovery may legitimately receive no callbacks until its bounded scan expires.
+    // A retained SCANNING flag is insufficient: require the real live job, matching
+    // attempt and explicit finite scan/attempt deadlines before relaxing inactivity.
+    val waitingForAdvertisement = hasLiveG7ScanBudget(state, activeAttempt, liveCycle, nowEpochMs)
     val attemptStale =
         activeAttempt?.let {
             it.deadlineEpochMs?.let { deadline -> nowEpochMs >= deadline } == true ||
-                progressAge?.let { age -> age >= maxProgressInactivityMs } == true
+                progressAge?.let { age -> age >= maxProgressInactivityMs && !waitingForAdvertisement } == true
         } == true
     // nextReconnectEpochMs is only the desired time. A pending diagnostic envelope is written
     // after AlarmManager accepted the request and is the durable evidence that the wake path was
     // actually armed. Persisted future intent without that envelope must be repaired.
-    val futureReconnect = pendingReconnectEpochMs?.takeIf { it > nowEpochMs + reconnectToleranceMs }
+    // Tolerance applies to overdue delivery, not to a still-future armed alarm.
+    // Discarding the final 30 seconds falsely broke the liveness invariant just
+    // before the receiver was due and could rewrite a healthy active runtime.
+    val futureReconnect = pendingReconnectEpochMs?.takeIf { it > nowEpochMs }
     val missedReconnect =
         listOfNotNull(pendingReconnectEpochMs, state.nextReconnectEpochMs)
             .any { it < nowEpochMs - reconnectToleranceMs }
@@ -193,194 +208,195 @@ internal object G7RuntimeReconciler {
         allowRepair: Boolean = true,
         cancelLiveCycle: (() -> Unit)? = null,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ): G7RuntimeReconcileResult {
-        val app = context.applicationContext
-        val stateStore = G7SensorStateStore(app)
-        val diagnosticStore = G7CollectorDiagnosticStore(app)
-        val state = stateStore.read()
-        val activeAttempt = diagnosticStore.activeAttempt(state.activeAttemptId)
-        val pendingCycle = diagnosticStore.pendingScheduledCycle()
-        val pendingReconnect = pendingCycle?.requestedReconnectEpoch
-        val configured = state.sensor != null && G7CredentialStore(app).read() != null
-        val effectiveLiveCycle = liveCycle ?: G7CollectorRuntimeRegistry.hasLiveCycle()
-        val assessment =
-            assessG7Runtime(
-                state = state,
-                activeAttempt = activeAttempt,
-                pendingReconnectEpochMs = pendingReconnect,
-                liveCycle = effectiveLiveCycle,
-                sensorConfigured = configured,
-                nowEpochMs = nowEpochMs,
-            )
-        recordRuntimeEvent(app, "RUNTIME_RECONCILE_START", entryPoint, assessment, state.nextReconnectEpochMs, null)
-        if (
-            state.collectorEnabled &&
-            configured &&
-            !G7CollectorRuntimeRegistry.hasRuntimeService() &&
-            entryPoint in
-            setOf(
-                G7RuntimeEntryPoint.BOOT,
-                G7RuntimeEntryPoint.PACKAGE_REPLACED,
-                G7RuntimeEntryPoint.SIGNAL_LOSS,
-                G7RuntimeEntryPoint.WATCH_APP,
-            )
-        ) {
-            recordRuntimeEvent(app, "FGS_MISSING", entryPoint, assessment, state.nextReconnectEpochMs, null)
-        }
-        if (assessment.health == G7RuntimeHealth.STALE_ATTEMPT) {
-            recordRuntimeEvent(app, "STALE_ATTEMPT_DETECTED", entryPoint, assessment, state.nextReconnectEpochMs, null)
-        }
-
-        val shouldReassertDurableAlarm =
-            allowRepair &&
-                assessment.health == G7RuntimeHealth.HEALTHY_ARMED &&
+    ): G7RuntimeReconcileResult =
+        synchronized(G7SensorStateStore.lifecycleLock) {
+            val app = context.applicationContext
+            val stateStore = G7SensorStateStore(app)
+            val diagnosticStore = G7CollectorDiagnosticStore(app)
+            val state = stateStore.read()
+            val activeAttempt = diagnosticStore.activeAttempt(state.activeAttemptId)
+            val pendingCycle = diagnosticStore.pendingScheduledCycle()
+            val pendingReconnect = pendingCycle?.requestedReconnectEpoch
+            val configured = state.sensor != null && G7CredentialStore(app).read() != null
+            val effectiveLiveCycle = liveCycle ?: G7CollectorRuntimeRegistry.hasLiveCycle()
+            val assessment =
+                assessG7Runtime(
+                    state = state,
+                    activeAttempt = activeAttempt,
+                    pendingReconnectEpochMs = pendingReconnect,
+                    liveCycle = effectiveLiveCycle,
+                    sensorConfigured = configured,
+                    nowEpochMs = nowEpochMs,
+                )
+            recordRuntimeEvent(app, "RUNTIME_RECONCILE_START", entryPoint, assessment, state.nextReconnectEpochMs, null)
+            if (
+                state.collectorEnabled &&
+                configured &&
+                !G7CollectorRuntimeRegistry.hasRuntimeService() &&
                 entryPoint in
                 setOf(
                     G7RuntimeEntryPoint.BOOT,
                     G7RuntimeEntryPoint.PACKAGE_REPLACED,
                     G7RuntimeEntryPoint.SIGNAL_LOSS,
+                    G7RuntimeEntryPoint.WATCH_APP,
                 )
-        if (shouldReassertDurableAlarm && pendingCycle != null) {
-            val rearmed =
-                runCatching {
-                    G7ReconnectAlarmScheduler.rearmScheduledCycle(app, pendingCycle, state)
-                }.getOrNull()
-            val rearmedAt = rearmed?.requestedReconnectEpoch
-            if (rearmedAt != null) stateStore.save(state.copy(nextReconnectEpochMs = rearmedAt))
-            recordRuntimeEvent(
-                app,
-                if (rearmedAt != null) "RECOVERY_ALARM_ARMED" else "RECOVERY_ALARM_REARM_FAILED",
-                entryPoint,
-                assessment,
-                state.nextReconnectEpochMs,
-                rearmedAt,
-            )
-            return G7RuntimeReconcileResult(
-                assessment,
-                if (rearmedAt != null) G7RuntimeHealth.HEALTHY_ARMED else G7RuntimeHealth.RECOVERY_REQUIRED,
-                rearmedAt,
-            )
-        }
+            ) {
+                recordRuntimeEvent(app, "FGS_MISSING", entryPoint, assessment, state.nextReconnectEpochMs, null)
+            }
+            if (assessment.health == G7RuntimeHealth.STALE_ATTEMPT) {
+                recordRuntimeEvent(app, "STALE_ATTEMPT_DETECTED", entryPoint, assessment, state.nextReconnectEpochMs, null)
+            }
 
-        if (!allowRepair ||
-            assessment.health in setOf(G7RuntimeHealth.INACTIVE, G7RuntimeHealth.HEALTHY_ACTIVE, G7RuntimeHealth.HEALTHY_ARMED)
-        ) {
-            val healthyEvent =
-                when (assessment.health) {
-                    G7RuntimeHealth.HEALTHY_ACTIVE -> "RUNTIME_HEALTHY_ACTIVE"
-                    G7RuntimeHealth.HEALTHY_ARMED -> "RUNTIME_HEALTHY_ARMED"
-                    G7RuntimeHealth.INACTIVE -> "RUNTIME_INACTIVE"
-                    else -> "RUNTIME_RECONCILE_OBSERVED"
-                }
-            recordRuntimeEvent(
-                app,
-                healthyEvent,
-                entryPoint,
-                assessment,
-                state.nextReconnectEpochMs,
-                assessment.futureReconnectEpochMs,
-            )
-            return G7RuntimeReconcileResult(assessment, assessment.health, assessment.futureReconnectEpochMs)
-        }
+            val shouldReassertDurableAlarm =
+                allowRepair &&
+                    assessment.health == G7RuntimeHealth.HEALTHY_ARMED &&
+                    entryPoint in
+                    setOf(
+                        G7RuntimeEntryPoint.BOOT,
+                        G7RuntimeEntryPoint.PACKAGE_REPLACED,
+                        G7RuntimeEntryPoint.SIGNAL_LOSS,
+                    )
+            if (shouldReassertDurableAlarm && pendingCycle != null) {
+                val rearmed =
+                    runCatching {
+                        G7ReconnectAlarmScheduler.rearmScheduledCycle(app, pendingCycle, state)
+                    }.getOrNull()
+                val rearmedAt = rearmed?.requestedReconnectEpoch
+                if (rearmedAt != null) stateStore.saveFromCollector(state.copy(nextReconnectEpochMs = rearmedAt))
+                recordRuntimeEvent(
+                    app,
+                    if (rearmedAt != null) "RECOVERY_ALARM_ARMED" else "RECOVERY_ALARM_REARM_FAILED",
+                    entryPoint,
+                    assessment,
+                    state.nextReconnectEpochMs,
+                    rearmedAt,
+                )
+                return@synchronized G7RuntimeReconcileResult(
+                    assessment,
+                    if (rearmedAt != null) G7RuntimeHealth.HEALTHY_ARMED else G7RuntimeHealth.RECOVERY_REQUIRED,
+                    rearmedAt,
+                )
+            }
 
-        if (assessment.cleanupRequired) {
-            (cancelLiveCycle ?: G7CollectorRuntimeRegistry::cancelLiveCycle).invoke()
-            AndroidG7Scanner.forceCleanup()
-            G7ExpectedWindowLedger(app).markProcessInterrupted(
-                activeAttempt?.cycle?.expectedWindowId,
-                nowEpochMs,
-            )
-            diagnosticStore.expireStaleAttempts(nowEpochMs, 0L, interruptedByProcessRestart = !effectiveLiveCycle)
-        }
-        val sensor = state.sensor
-        val reconstructedWindows =
-            if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
-                val ledger = G7ExpectedWindowLedger(app)
-                val latestExpected =
-                    ledger.latestExpectedAt(
-                        sensorId = sensor.sensorId,
-                        sessionId = sensor.sessionId ?: sensor.sensorId,
-                    )
-                val firstMissing =
-                    latestExpected?.plus(G7_SLOT_INTERVAL_MS)
-                        ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)
-                if (firstMissing != null && firstMissing < nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS) {
-                    ledger.reconstructMissed(
-                        sensorId = sensor.sensorId,
-                        sessionId = sensor.sessionId ?: sensor.sensorId,
-                        fromExpectedAt = firstMissing,
-                        untilExclusive = nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS,
-                        sensorStartAt = sensor.sensorStartEpochMs,
-                        sensorEndAt = sensor.sensorEndEpochMs,
-                        nowEpochMs = nowEpochMs,
-                    )
+            if (!allowRepair ||
+                assessment.health in setOf(G7RuntimeHealth.INACTIVE, G7RuntimeHealth.HEALTHY_ACTIVE, G7RuntimeHealth.HEALTHY_ARMED)
+            ) {
+                val healthyEvent =
+                    when (assessment.health) {
+                        G7RuntimeHealth.HEALTHY_ACTIVE -> "RUNTIME_HEALTHY_ACTIVE"
+                        G7RuntimeHealth.HEALTHY_ARMED -> "RUNTIME_HEALTHY_ARMED"
+                        G7RuntimeHealth.INACTIVE -> "RUNTIME_INACTIVE"
+                        else -> "RUNTIME_RECONCILE_OBSERVED"
+                    }
+                recordRuntimeEvent(
+                    app,
+                    healthyEvent,
+                    entryPoint,
+                    assessment,
+                    state.nextReconnectEpochMs,
+                    assessment.futureReconnectEpochMs,
+                )
+                return@synchronized G7RuntimeReconcileResult(assessment, assessment.health, assessment.futureReconnectEpochMs)
+            }
+
+            if (assessment.cleanupRequired) {
+                (cancelLiveCycle ?: G7CollectorRuntimeRegistry::cancelLiveCycle).invoke()
+                AndroidG7Scanner.forceCleanup()
+                G7ExpectedWindowLedger(app).markProcessInterrupted(
+                    activeAttempt?.cycle?.expectedWindowId,
+                    nowEpochMs,
+                )
+                diagnosticStore.expireStaleAttempts(nowEpochMs, 0L, interruptedByProcessRestart = !effectiveLiveCycle)
+            }
+            val sensor = state.sensor
+            val reconstructedWindows =
+                if (sensor != null && assessment.health != G7RuntimeHealth.INACTIVE) {
+                    val ledger = G7ExpectedWindowLedger(app)
+                    val latestExpected =
+                        ledger.latestExpectedAt(
+                            sensorId = sensor.sensorId,
+                            sessionId = sensor.sessionId ?: sensor.sensorId,
+                        )
+                    val firstMissing =
+                        latestExpected?.plus(G7_SLOT_INTERVAL_MS)
+                            ?: state.lastReading?.timestampEpochMs?.plus(G7_SLOT_INTERVAL_MS)
+                    if (firstMissing != null && firstMissing < nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS) {
+                        ledger.reconstructMissed(
+                            sensorId = sensor.sensorId,
+                            sessionId = sensor.sessionId ?: sensor.sensorId,
+                            fromExpectedAt = firstMissing,
+                            untilExclusive = nowEpochMs - G7_RUNTIME_RECONNECT_TOLERANCE_MS,
+                            sensorStartAt = sensor.sensorStartEpochMs,
+                            sensorEndAt = sensor.sensorEndEpochMs,
+                            nowEpochMs = nowEpochMs,
+                        )
+                    } else {
+                        0
+                    }
                 } else {
                     0
                 }
-            } else {
-                0
-            }
-        val cleaned =
-            stateStore.read().copy(
-                connectionState = G7ConnectionState.DISCONNECTED,
-                protocolState = G7ProtocolState.RECOVERING,
-                sessionState = G7SessionState.RECOVERING,
-                activeAttemptId = null,
-                scanStartedAtEpochMs = null,
-                scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
-                lastError =
-                    G7CollectorError(
-                        code = "G7-RUNTIME-276",
-                        recoverable = true,
-                        occurredAtEpochMs = nowEpochMs,
-                        safeMessage = "Collector-Laufzeit wurde automatisch wiederhergestellt",
-                    ),
-            )
-        stateStore.save(cleaned)
-
-        val recovery =
-            runCatching {
-                G7ReconnectAlarmScheduler.scheduleRecovery(app, cleaned, nowEpochMs)
-            }.getOrNull()
-        val recoveryAt = recovery?.requestedReconnectEpoch
-        if (recoveryAt != null) {
-            recordRuntimeEvent(app, "RECOVERY_SLOT_CALCULATED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
-        }
-        val restored =
-            if (recoveryAt != null && recoveryAt > nowEpochMs) {
-                stateStore.save(cleaned.copy(nextReconnectEpochMs = recoveryAt))
-                G7RuntimeHealth.HEALTHY_ARMED
-            } else {
-                G7RuntimeHealth.RECOVERY_REQUIRED
-            }
-        val event =
-            when (assessment.health) {
-                G7RuntimeHealth.STALE_ATTEMPT -> "STALE_ATTEMPT_CLEANED"
-                G7RuntimeHealth.ORPHANED_STATE -> "ORPHANED_CONNECTION_STATE"
-                G7RuntimeHealth.MISSED_RECONNECT -> "MISSED_RECONNECT_DETECTED"
-                else -> if (restored == G7RuntimeHealth.HEALTHY_ARMED) "RECOVERY_INVARIANT_RESTORED" else "RECOVERY_ALARM_REARM_FAILED"
-            }
-        recordRuntimeEvent(app, event, entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
-        if (reconstructedWindows > 0) {
-            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-                app.recordG7Diagnostic(
-                    code = "MISSED_WINDOWS_RECONSTRUCTED",
-                    message = "MISSED_WINDOWS_RECONSTRUCTED · $reconstructedWindows lifecycle gaps",
-                    severity = DiagnosticSeverity.WARNING,
-                    metadata =
-                        mapOf(
-                            "processInstanceId" to G7ProcessInstance.id,
-                            "reconstructedWindowCount" to reconstructedWindows,
+            val cleaned =
+                stateStore.read().copy(
+                    connectionState = G7ConnectionState.DISCONNECTED,
+                    protocolState = G7ProtocolState.RECOVERING,
+                    sessionState = G7SessionState.RECOVERING,
+                    activeAttemptId = null,
+                    scanStartedAtEpochMs = null,
+                    scanTimeoutAtEpochMs = state.pairingDeadlineEpochMs,
+                    lastError =
+                        G7CollectorError(
+                            code = "G7-RUNTIME-276",
+                            recoverable = true,
+                            occurredAtEpochMs = nowEpochMs,
+                            safeMessage = "Collector-Laufzeit wurde automatisch wiederhergestellt",
                         ),
                 )
+            stateStore.saveFromCollector(cleaned)
+
+            val recovery =
+                runCatching {
+                    G7ReconnectAlarmScheduler.scheduleRecovery(app, cleaned, nowEpochMs)
+                }.getOrNull()
+            val recoveryAt = recovery?.requestedReconnectEpoch
+            if (recoveryAt != null) {
+                recordRuntimeEvent(app, "RECOVERY_SLOT_CALCULATED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
             }
+            val restored =
+                if (recoveryAt != null && recoveryAt > nowEpochMs) {
+                    stateStore.saveFromCollector(cleaned.copy(nextReconnectEpochMs = recoveryAt))
+                    G7RuntimeHealth.HEALTHY_ARMED
+                } else {
+                    G7RuntimeHealth.RECOVERY_REQUIRED
+                }
+            val event =
+                when (assessment.health) {
+                    G7RuntimeHealth.STALE_ATTEMPT -> "STALE_ATTEMPT_CLEANED"
+                    G7RuntimeHealth.ORPHANED_STATE -> "ORPHANED_CONNECTION_STATE"
+                    G7RuntimeHealth.MISSED_RECONNECT -> "MISSED_RECONNECT_DETECTED"
+                    else -> if (restored == G7RuntimeHealth.HEALTHY_ARMED) "RECOVERY_INVARIANT_RESTORED" else "RECOVERY_ALARM_REARM_FAILED"
+                }
+            recordRuntimeEvent(app, event, entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
+            if (reconstructedWindows > 0) {
+                CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                    app.recordG7Diagnostic(
+                        code = "MISSED_WINDOWS_RECONSTRUCTED",
+                        message = "MISSED_WINDOWS_RECONSTRUCTED · $reconstructedWindows lifecycle gaps",
+                        severity = DiagnosticSeverity.WARNING,
+                        metadata =
+                            mapOf(
+                                "processInstanceId" to G7ProcessInstance.id,
+                                "reconstructedWindowCount" to reconstructedWindows,
+                            ),
+                    )
+                }
+            }
+            if (recoveryAt != null) {
+                recordRuntimeEvent(app, "RECOVERY_ALARM_ARMED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
+                recordRuntimeEvent(app, "RECOVERY_INVARIANT_RESTORED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
+            }
+            return@synchronized G7RuntimeReconcileResult(assessment, restored, recoveryAt)
         }
-        if (recoveryAt != null) {
-            recordRuntimeEvent(app, "RECOVERY_ALARM_ARMED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
-            recordRuntimeEvent(app, "RECOVERY_INVARIANT_RESTORED", entryPoint, assessment, state.nextReconnectEpochMs, recoveryAt)
-        }
-        return G7RuntimeReconcileResult(assessment, restored, recoveryAt)
-    }
 
     private fun recordRuntimeEvent(
         context: Context,

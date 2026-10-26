@@ -91,6 +91,23 @@ object WearSettingsUi {
         SystemTypography.apply(view, false)
     }
 
+    /** A single visual element owns all of its controls, in one neutral settings surface. */
+    fun elementCard(context: Context, title: String, surface: Int, textColor: Int): LinearLayout =
+        LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            background = background(context, surface)
+            setPadding(dp(context, 8), dp(context, 10), dp(context, 8), dp(context, 10))
+            addView(
+                TextView(context).apply {
+                    text = title
+                    textSize = 17f
+                    setTextColor(textColor)
+                    setPadding(dp(context, 8), dp(context, 4), dp(context, 8), dp(context, 8))
+                    SystemTypography.apply(this, true)
+                },
+            )
+        }
+
     fun header(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
         LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL

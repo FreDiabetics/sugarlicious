@@ -13,6 +13,63 @@ import org.robolectric.RobolectricTestRunner
 class DashboardScrollViewGestureTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `upward gesture closes expanded header before content can scroll`() {
+        var distance = 0f
+        var finished = false
+        val parent =
+            DashboardScrollView(context).apply {
+                topPullEnabled = true
+                topPullExpanded = true
+                onTopPull = { distance = it }
+                onTopPullFinished = { finished = true }
+                addView(android.view.View(context), android.widget.FrameLayout.LayoutParams(300, 1000))
+                measure(
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                )
+                layout(0, 0, 300, 300)
+            }
+        listOf(MotionEvent.ACTION_DOWN to 220f, MotionEvent.ACTION_MOVE to 120f, MotionEvent.ACTION_UP to 100f).forEachIndexed { index, (action, y) ->
+            MotionEvent.obtain(1, 1L + index * 32, action, 150f, y, 0).also {
+                parent.dispatchTouchEvent(it)
+                it.recycle()
+            }
+        }
+        assertTrue(distance < 0f)
+        assertTrue(finished)
+        org.junit.Assert.assertEquals(0, parent.scrollY)
+    }
+
+    @Test fun `pull on nonclickable page content expands header and completes gesture`() {
+        var pulled = 0f
+        var finished = false
+        val parent =
+            DashboardScrollView(context).apply {
+                topPullEnabled = true
+                onTopPull = { pulled = it }
+                onTopPullFinished = { finished = true }
+                addView(android.view.View(context), android.widget.FrameLayout.LayoutParams(300, 1000))
+                measure(
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                    android.view.View.MeasureSpec
+                        .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+                )
+                layout(0, 0, 300, 300)
+            }
+        listOf(MotionEvent.ACTION_DOWN to 60f, MotionEvent.ACTION_MOVE to 160f, MotionEvent.ACTION_UP to 180f).forEachIndexed { index, (action, y) ->
+            MotionEvent.obtain(1, 1L + index * 32, action, 150f, y, 0).also {
+                parent.dispatchTouchEvent(it)
+                it.recycle()
+            }
+        }
+        assertTrue(pulled > 0f)
+        assertTrue(finished)
+        org.junit.Assert.assertEquals(0, parent.scrollY)
+    }
+
     @Test fun `vertical scrolling cancels switches and clickable menu rows`() {
         listOf(android.widget.Switch(context), android.widget.Button(context)).forEach { control ->
             var actions = 0

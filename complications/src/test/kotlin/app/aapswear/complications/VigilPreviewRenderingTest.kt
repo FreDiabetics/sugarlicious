@@ -53,9 +53,16 @@ class VigilPreviewRenderingTest {
         val rendered = mutableListOf<String>()
         for (index in 0 until slots.length) {
             val slot = slots.item(index) as Element
-            if (slot.getAttribute("alpha") == "0") continue
             val images = slot.getElementsByTagName("PartImage")
-            if (images.length > 0 && (0 until images.length).all { (images.item(it) as Element).getAttribute("alpha") == "0" }) continue
+            val handsHidden =
+                // The analog glucose overlay follows the same showHands condition as
+                // the native hands and center action; digital defaults hide all three.
+                slot.getAttribute("slotId") in setOf("7", "8", "9") &&
+                    document.documentElement.getElementsByTagName("BooleanConfiguration").let { configs ->
+                        (0 until configs.length).map { configs.item(it) as Element }.single { it.getAttribute("id") == "showHands" }.getAttribute("defaultValue") != "TRUE"
+                    }
+            val imagesHidden = images.length > 0 && (0 until images.length).all { (images.item(it) as Element).getAttribute("alpha") == "0" }
+            if (slot.getAttribute("alpha") == "0" || handsHidden || imagesHidden) continue
             val policy = slot.getElementsByTagName("DefaultProviderPolicy").item(0) as Element
             val name = policy.getAttribute("primaryProvider").substringAfter('/')
             val type = Class.forName(name).asSubclass(androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService::class.java)
@@ -84,7 +91,7 @@ class VigilPreviewRenderingTest {
             controller.destroy()
         }
         // Slot 8 is an invisible center action, not visible selector artwork.
-        assertEquals(listOf("0", "1", "2", "5", "7"), rendered)
+        assertEquals(listOf("0", "1", "2", "5"), rendered)
         assertEquals(Color.TRANSPARENT, bitmap.getPixel(0, 0))
         assertTrue((140..389).any { y -> (50..400).any { x -> bitmap.getPixel(x, y) != Color.BLACK } })
         val output = File("build/reports/vigil-current-preview.png")

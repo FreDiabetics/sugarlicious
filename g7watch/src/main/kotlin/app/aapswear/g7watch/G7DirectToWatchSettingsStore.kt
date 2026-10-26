@@ -64,6 +64,14 @@ class G7DirectToWatchSettingsStore(
         putInt("$KEY_DELTA_UNIT_COLOR.${mode.storageKey}", value)
     }
 
+    fun scaleSizeEnabled(): Boolean = preferences.getBoolean("watchface.scale_size_enabled", false)
+
+    fun saveScaleSizeEnabled(value: Boolean) = update { putBoolean("watchface.scale_size_enabled", value) }
+
+    fun scaleSizePercent(): Int = preferences.getInt("watchface.scale_size_percent", 100).coerceIn(50, 120)
+
+    fun saveScaleSizePercent(value: Int) = update { putInt("watchface.scale_size_percent", value.coerceIn(50, 120)) }
+
     fun statusSizePercent(): Int = preferences.getInt(KEY_STATUS_SIZE_PERCENT, 100).coerceIn(75, 150)
 
     fun saveStatusSizePercent(value: Int) = update { putInt(KEY_STATUS_SIZE_PERCENT, value.coerceIn(75, 150)) }
@@ -72,7 +80,7 @@ class G7DirectToWatchSettingsStore(
 
     fun saveStatusColor(value: Int) = update { putInt(KEY_STATUS_COLOR, value) }
 
-    fun statusBold(): Boolean = preferences.getBoolean(KEY_STATUS_BOLD, false)
+    fun statusBold(): Boolean = preferences.getBoolean(KEY_STATUS_BOLD, true)
 
     fun saveStatusBold(value: Boolean) = update { putBoolean(KEY_STATUS_BOLD, value) }
 

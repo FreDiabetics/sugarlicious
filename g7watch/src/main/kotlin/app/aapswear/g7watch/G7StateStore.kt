@@ -22,14 +22,31 @@ internal class G7SensorStateStore(
             ?.let { runCatching { json.decodeFromString<G7PersistedState>(it) }.getOrNull() }
             ?: G7PersistedState()
 
-    fun save(state: G7PersistedState) {
-        // Authentication material is intentionally not part of G7PersistedState. Once the
-        // protocol is validated, secrets must be stored with Android Keystore protection.
-        preferences.edit { putString(KEY_STATE, json.encodeToString(G7PersistedState.serializer(), state)) }
-    }
+    fun save(state: G7PersistedState) =
+        synchronized(lifecycleLock) {
+            // Authentication material is intentionally not part of G7PersistedState. Once the
+            // protocol is validated, secrets must be stored with Android Keystore protection.
+            if (read().collectorEnabled != state.collectorEnabled) lifecycleGeneration++
+            preferences.edit { putString(KEY_STATE, json.encodeToString(G7PersistedState.serializer(), state)) }
+        }
 
-    private companion object {
-        const val KEY_STATE = "state"
+    /** Reject an in-flight cycle's snapshot after an intentional pause. */
+    fun collectorGeneration(): Long = synchronized(lifecycleLock) { lifecycleGeneration }
+
+    fun saveFromCollector(
+        state: G7PersistedState,
+        expectedGeneration: Long = collectorGeneration(),
+    ): Boolean =
+        synchronized(lifecycleLock) {
+            if (!read().collectorEnabled || expectedGeneration != lifecycleGeneration) return@synchronized false
+            save(state)
+            true
+        }
+
+    companion object {
+        internal val lifecycleLock = Any()
+        private var lifecycleGeneration = 0L
+        private const val KEY_STATE = "state"
     }
 }
 

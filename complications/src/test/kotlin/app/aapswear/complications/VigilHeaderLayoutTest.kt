@@ -12,6 +12,29 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VigilHeaderLayoutTest {
+    @Test fun `analog pairing guidance keeps its complete button above graph`() {
+        val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
+        val image = service.renderAnalogHeader(DirectToWatchHeaderPresentation("-", "Bitte Sensor verbinden"))
+        org.junit.Assert.assertTrue((110 until 130).any { y -> (150 until 300).any { x -> Color.alpha(image.getPixel(x, y)) > 0 } })
+        assertEquals(0, Color.alpha(image.getPixel(225, 140)))
+    }
+
+    @Test fun `analog header separates glucose from two line delta below the graph`() {
+        val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
+        val image = service.renderAnalogHeader(DirectToWatchHeaderPresentation("123", "+5 mg/dL", Trend.FLAT, false))
+        assertEquals(450, image.width)
+        assertEquals(450, image.height)
+
+        fun ink(top: Int, bottom: Int): Int = (top until bottom).sumOf { y -> (0 until 450).count { x -> Color.alpha(image.getPixel(x, y)) > 0 } }
+        org.junit.Assert.assertTrue(ink(50, 120) > 0)
+        assertEquals(0, ink(140, 345))
+        org.junit.Assert.assertTrue(ink(350, 385) > 0)
+        org.junit.Assert.assertTrue(ink(385, 415) > 0)
+        java.io.File(System.getProperty("java.io.tmpdir"), "vigil-analog-text.png").outputStream().use {
+            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+    }
+
     @Test fun `cached editor clock preview never expires into the system warning placeholder`() {
         val service = Robolectric.buildService(DirectToWatchClockComplication::class.java).create().get()
         val preview = service.getPreviewData(androidx.wear.watchface.complications.data.ComplicationType.SMALL_IMAGE)

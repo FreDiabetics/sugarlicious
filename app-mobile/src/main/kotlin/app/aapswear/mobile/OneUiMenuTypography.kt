@@ -6,12 +6,12 @@ import androidx.compose.ui.unit.sp
 import app.aapswear.mobile.ui.theme.SystemFontFamily
 import app.aapswear.mobile.ui.theme.SystemMaterialTypography
 
-/** Measured One UI settings roles; do not inherit Material's 24sp body line height. */
+/** Compact settings roles using the device font and normal system font scaling. */
 internal val oneUiMenuTypography =
     SystemMaterialTypography.let { base ->
-        val row = TextStyle(fontFamily = SystemFontFamily, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Normal)
+        val row = TextStyle(fontFamily = SystemFontFamily, fontSize = 16.sp, lineHeight = 21.sp, fontWeight = FontWeight.Normal)
         val secondary = row.copy(fontSize = 13.sp, lineHeight = 18.sp)
-        val title = row.copy(fontSize = 21.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold)
+        val title = row.copy(fontSize = 20.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold)
         base.copy(
             headlineSmall = title,
             titleLarge = title,
@@ -20,7 +20,7 @@ internal val oneUiMenuTypography =
             bodyLarge = row,
             bodyMedium = secondary,
             bodySmall = secondary,
-            labelLarge = row.copy(fontSize = 17.sp, lineHeight = 22.sp),
+            labelLarge = row.copy(fontSize = 16.sp, lineHeight = 21.sp),
             labelMedium = secondary,
             labelSmall = secondary,
         )

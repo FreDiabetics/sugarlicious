@@ -92,8 +92,10 @@ class G7ReadingProvider : ContentProvider() {
                 "calibration_state",
                 "reserved_field",
                 "origin",
+                "collector_enabled",
             )
         val cursor = MatrixCursor(columns)
+        val collectorEnabled = G7SensorStateStore(requireNotNull(context)).read().collectorEnabled
         val limit = if (uri.lastPathSegment == "latest") 1 else 300
         val readings =
             G7ReadingDatabase(requireNotNull(context)).let { database ->
@@ -128,6 +130,7 @@ class G7ReadingProvider : ContentProvider() {
                     reading.calibrationStateCode,
                     reading.reservedField,
                     reading.origin.name,
+                    if (collectorEnabled) 1 else 0,
                 ),
             )
         }

@@ -145,7 +145,7 @@ internal fun g7TileStatusPresentation(
             G7StatusPillState.CONNECTED -> palette?.argb(G7AppearanceRole.MENU_PRIMARY) ?: G7_TILE_ACCENT
             G7StatusPillState.SIGNAL_LOSS -> palette?.argb(G7AppearanceRole.GLUCOSE_STALE) ?: G7_TILE_WARNING
             G7StatusPillState.SENSOR_ERROR -> palette?.argb(G7AppearanceRole.GLUCOSE_ERROR) ?: G7_TILE_ERROR
-            G7StatusPillState.NO_ACTIVE_SENSOR -> palette?.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE) ?: G7_TILE_TEXT_SECONDARY
+            G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette?.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE) ?: G7_TILE_TEXT_SECONDARY
         }
     return G7TileStatusPresentation(status.title.uppercase(Locale.GERMANY), color)
 }

@@ -471,9 +471,20 @@ internal class G7CollectorDiagnosticStore(
 
 private fun compactCompletedAttempt(attempt: CollectorDiagnosticAttempt): CollectorDiagnosticAttempt {
     if (attempt.completedAtEpochMs == null || attempt.events.size <= 4) return attempt
-    // Retain entry context and the terminal path. Detailed timing remains in cycle and the compact
-    // slot record, so completed attempts do not need forty verbose callback messages forever.
-    return attempt.copy(events = attempt.events.take(1) + attempt.events.takeLast(3))
+    // Cycle aggregates retain only the final GATT result. Keep a bounded generation timeline too:
+    // otherwise compaction erases the evidence needed to distinguish pre-scan and post-scan 133s.
+    val radioIndices =
+        attempt.events.indices
+            .filter { attempt.events[it].stage == CollectorDiagnosticStage.CONNECT_REQUEST }
+            .takeLast(12)
+    val retained =
+        (
+            listOf(0) + radioIndices +
+                attempt.events.indices
+                    .toList()
+                    .takeLast(3)
+        ).toSet()
+    return attempt.copy(events = attempt.events.filterIndexed { index, _ -> index in retained })
 }
 
 internal const val G7_SLOT_RETENTION_COUNT = 2_304

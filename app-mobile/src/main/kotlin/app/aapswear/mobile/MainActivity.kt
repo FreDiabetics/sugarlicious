@@ -75,6 +75,10 @@ class MainActivity : ComponentActivity() {
             .GradientDrawable()
             .apply { orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM }
     private var settingsShadeColor: Int? = null
+    private var submenuExpansionPx = 0f
+    private var submenuExpansionTitle: String? = null
+    private var submenuPullBasePx: Float? = null
+    private var submenuExpansionAnimator: android.animation.ValueAnimator? = null
     private var state: app.aapswear.model.TherapyDisplayState? = null
     private var screen = DashboardScreen.OVERVIEW
     private var clockJob: Job? = null
@@ -544,6 +548,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         scope.cancel()
+        submenuExpansionAnimator?.cancel()
         super.onDestroy()
     }
 
@@ -682,7 +687,7 @@ class MainActivity : ComponentActivity() {
         val brand = findViewById<View>(R.id.brand_logo)
         val title = findViewById<TextView>(R.id.app_title)
         if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) {
-            bar.layoutParams = bar.layoutParams.apply { height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT }
+            bar.layoutParams = bar.layoutParams.apply { height = submenuCompactHeightPx() }
             bar.minimumHeight = 56.dp
             title.maxLines = 2
         } else if (screen == DashboardScreen.SETTINGS) {
@@ -690,7 +695,7 @@ class MainActivity : ComponentActivity() {
         }
         val settings = findViewById<View>(R.id.top_settings)
         (bar.layoutParams as android.widget.LinearLayout.LayoutParams).apply {
-            bottomMargin = if (screen == DashboardScreen.SETTINGS && factory.settingsIsRoot) -height else 0
+            bottomMargin = if (screen == DashboardScreen.SETTINGS) -height else 0
             bar.layoutParams = this
         }
         bar.translationZ = if (screen != DashboardScreen.OVERVIEW) 8.dp.toFloat() else 0f
@@ -736,7 +741,13 @@ class MainActivity : ComponentActivity() {
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE
         content.setPadding(
             content.paddingLeft,
-            if (screen != DashboardScreen.OVERVIEW) 0 else 2.dp,
+            if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) {
+                submenuCompactHeightPx() + 24.dp
+            } else if (screen != DashboardScreen.OVERVIEW) {
+                0
+            } else {
+                2.dp
+            },
             content.paddingRight,
             when (screen) {
                 DashboardScreen.SETTINGS -> 24.dp
@@ -744,15 +755,138 @@ class MainActivity : ComponentActivity() {
                 DashboardScreen.OVERVIEW -> 0
             },
         )
+        configureSubmenuExpansion()
         if (screen != DashboardScreen.OVERVIEW) content.post { updateSettingsScrollHeader(scroll.scrollY) }
+    }
+
+    private fun submenuCompactHeightPx(): Int {
+        val paint = android.text.TextPaint().apply { textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 20f, resources.displayMetrics) }
+        val text = factory.settingsTitle
+        val layout =
+            android.text.StaticLayout.Builder
+                .obtain(text, 0, text.length, paint, (resources.displayMetrics.widthPixels - 88.dp).coerceAtLeast(1))
+                .setMaxLines(3)
+                .build()
+        return maxOf(56.dp, layout.height + 16.dp)
+    }
+
+    private fun submenuExpansionView(): TextView? = content.findViewWithTag("settings_submenu_expansion")
+
+    private fun submenuMaximumExpansionPx(): Float {
+        val heading = submenuExpansionView() ?: return 160.dp.toFloat()
+        val text = heading.text
+        val layout =
+            android.text.StaticLayout.Builder
+                .obtain(text, 0, text.length, heading.paint, (content.width - 32.dp).coerceAtLeast(1))
+                .build()
+        return maxOf(160.dp.toFloat(), layout.height + 32.dp.toFloat())
+    }
+
+    private fun configureSubmenuExpansion() {
+        val enabled = screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot
+        scroll.topPullEnabled = enabled
+        scroll.topPullExpanded = enabled && submenuExpansionPx > 0f
+        if (!enabled) {
+            submenuExpansionAnimator?.cancel()
+            submenuExpansionPx = 0f
+            submenuExpansionTitle = null
+            submenuPullBasePx = null
+            scroll.onTopPull = null
+            scroll.onTopPullFinished = null
+            return
+        }
+        if (submenuExpansionTitle != factory.settingsTitle) {
+            submenuExpansionAnimator?.cancel()
+            submenuExpansionTitle = factory.settingsTitle
+            submenuExpansionPx = 0f
+            submenuPullBasePx = null
+        }
+        scroll.topPullExpanded = submenuExpansionPx > 0f
+        if (submenuExpansionView() == null) {
+            val accent =
+                app.aapswear.mobile.ui.theme
+                    .mobileMenuAccentArgb(this, dark = !SugarliciousColors.palette.isLight)
+            content.addView(
+                TextView(this).apply {
+                    tag = "settings_submenu_expansion"
+                    text = factory.settingsTitle
+                    textSize = 34f
+                    typeface = android.graphics.Typeface.DEFAULT
+                    gravity = android.view.Gravity.CENTER
+                    setTextColor(accent)
+                    setPadding(16.dp, 0, 16.dp, 0)
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                },
+                0,
+                LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, submenuExpansionPx.toInt()),
+            )
+        }
+        scroll.onTopPull = { distance ->
+            if (submenuPullBasePx == null) {
+                submenuExpansionAnimator?.cancel()
+                submenuPullBasePx = submenuExpansionPx
+            }
+            setSubmenuExpansion((requireNotNull(submenuPullBasePx) + distance).coerceIn(0f, submenuMaximumExpansionPx()))
+        }
+        scroll.onTopPullFinished = { velocity ->
+            submenuPullBasePx = null
+            val maximum = submenuMaximumExpansionPx()
+            val target = settingsSubmenuExpansionTarget(submenuExpansionPx, maximum, velocity / resources.displayMetrics.density)
+            submenuExpansionAnimator =
+                android.animation.ValueAnimator.ofFloat(submenuExpansionPx, target).apply {
+                    duration = 160L
+                    interpolator = android.view.animation.PathInterpolator(.2f, 0f, 0f, 1f)
+                    addUpdateListener { setSubmenuExpansion(it.animatedValue as Float) }
+                    start()
+                }
+        }
+    }
+
+    private fun setSubmenuExpansion(heightPx: Float) {
+        submenuExpansionPx = heightPx
+        scroll.topPullExpanded = heightPx > 0f
+        submenuExpansionView()?.let { heading ->
+            if (heading.layoutParams.height != heightPx.toInt()) {
+                heading.layoutParams = heading.layoutParams.apply { height = heightPx.toInt() }
+            }
+        }
+        updateSettingsScrollHeader(scroll.scrollY)
     }
 
     private fun updateSettingsScrollHeader(scrollY: Int) {
         if (screen == DashboardScreen.OVERVIEW) return
         if (screen == DashboardScreen.SETTINGS && !factory.settingsIsRoot) {
-            findViewById<View>(R.id.top_app_bar).setBackgroundColor(MobileSettingsStyle.page(SugarliciousColors.palette.isLight))
-            findViewById<View>(R.id.top_back).background = null
+            val density = resources.displayMetrics.density
+            val heading = submenuExpansionView()
+            val firstCard = (0 until content.childCount).map { content.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
+            val back = findViewById<View>(R.id.top_back)
+            val bar = findViewById<View>(R.id.top_app_bar)
+            val state =
+                settingsSubmenuHeaderState(
+                    scrollY / density,
+                    submenuExpansionPx / density,
+                    submenuMaximumExpansionPx() / density,
+                    (firstCard?.top ?: content.paddingTop) / density,
+                    (back.bottom.takeIf { it > 0 } ?: (bar.height / 2 + 24.dp)) / density,
+                )
+            findViewById<TextView>(R.id.app_title).apply {
+                alpha = state.compactTitleAlpha
+                translationY = state.compactTitleOffsetDp * density
+                scaleX = .96f + .04f * state.compactTitleAlpha
+                scaleY = scaleX
+            }
+            heading?.alpha = state.expandedTitleAlpha
+            settingsBackCircle.setColor(MobileSettingsStyle.card(SugarliciousColors.palette.isLight))
+            settingsBackCircle.alpha = (state.backCircleAlpha * 255).toInt()
+            back.background = settingsBackCircle
+            bar.setBackgroundColor(Color.TRANSPARENT)
             return
+        }
+        findViewById<TextView>(R.id.app_title).apply {
+            alpha = 1f
+            translationY = 0f
+            scaleX = 1f
+            scaleY = 1f
         }
         val density = resources.displayMetrics.density
         val heading = content.findViewWithTag<View>("settings_scroll_title") ?: return
