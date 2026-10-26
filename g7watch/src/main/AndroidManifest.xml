@@ -18,7 +18,6 @@
     <permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" android:protectionLevel="signature" />
 
     <queries>
-        <intent><action android:name="android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" /><data android:scheme="package" /></intent>
         <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
         <intent><action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" /><data android:scheme="package" /></intent>
         <intent><action android:name="android.settings.APP_NOTIFICATION_SETTINGS" /></intent>
