@@ -51,7 +51,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
     private fun render() {
         val restoreScrollY = scrollView.scrollY
         val palette = appearance.load(mode)
-        val root =
+        var root =
             pageRoot.apply {
                 removeAllViews()
                 orientation = LinearLayout.VERTICAL
@@ -61,7 +61,8 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(topBar(palette))
         root.addView(modeSelector(palette), params(8))
 
-        section(root, "GLUKOSE · EINHEIT", palette)
+        root = elementCard("Glukose", palette)
+        val glucoseCard = root
         root.addView(glucoseUnitRow(settings.glucoseUnit(), palette), params(5))
         root.addView(
             toggle("Zuckerwert fett", settings.glucoseBold(), palette) {
@@ -69,13 +70,14 @@ class G7DirectToWatchSettingsActivity : Activity() {
             },
             params(5),
         )
+        root = elementCard("Delta und Einheit", palette)
         root.addView(
             colorRow(AppearanceTerminology.DELTA_UNIT, settings.deltaUnitColor(mode), palette, if (mode == AppearanceMode.LIGHT) 0xFF666666.toInt() else 0xFFA8A8BA.toInt()) {
                 settings.saveDeltaUnitColor(mode, it)
             },
             params(5),
         )
-        section(root, "WATCHFACE · SKALA UND ALTER", palette)
+        root = elementCard("Alter und Skala", palette)
         root.addView(
             slider("Größe", 75, 150, settings.statusSizePercent(), palette, { "Größe · $it %" }) {
                 settings.saveStatusSizePercent(it)
@@ -83,7 +85,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
             params(5),
         )
         root.addView(toggle("Fett", settings.statusBold(), palette, settings::saveStatusBold), params(5))
-        section(root, "WATCHFACE · UHRZEIT", palette)
+        root = elementCard("Uhrzeit", palette)
         root.addView(
             slider("Größe", 75, 450, settings.clockSizePercent(), palette, { "Größe · $it %" }) {
                 settings.saveClockSizePercent(it)
@@ -93,11 +95,13 @@ class G7DirectToWatchSettingsActivity : Activity() {
         root.addView(colorRow("Farbe", settings.clockColor(), palette, 0xFFA8A8BA.toInt(), settings::saveClockColor), params(5))
         root.addView(toggle("Fett", settings.clockBold(), palette, settings::saveClockBold), params(5))
         val thresholds = settings.thresholds()
-        section(root, "GLUKOSE · ZIELBEREICH", palette)
+        root = glucoseCard
+        section(root, "Zielbereich", palette)
         root.addView(numericThresholdRow("Tief", thresholds.lowMgDl, isHigh = false, palette), params(5))
         root.addView(numericThresholdRow("Hoch", thresholds.highMgDl, isHigh = true, palette), params(5))
 
-        section(root, "GRAPH · ZEITSKALA", palette)
+        root = elementCard("Graph", palette)
+        section(root, "Zeitskala", palette)
         root.addView(choiceRow(settings.graphHours(), palette), params(5))
         root.addView(
             toggle("Vigil · Skalengröße anpassen", settings.scaleSizeEnabled(), palette) {
@@ -199,7 +203,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         )
 
         val trend = settings.trendStyle(mode)
-        section(root, "TRENDPFEIL", palette)
+        root = elementCard("Trendpfeil", palette)
         root.addView(
             slider("Größe", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, trend.sizePercent, palette, {
                 "Größe · $it %"
@@ -258,6 +262,11 @@ class G7DirectToWatchSettingsActivity : Activity() {
 
         restoreScrollPosition(restoreScrollY)
     }
+
+    private fun elementCard(title: String, palette: G7AppearancePalette): LinearLayout =
+        app.aapswear.uishared.WearSettingsUi.elementCard(this, title, palette.argb(G7AppearanceRole.MENU_SURFACE), palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)).also {
+            pageRoot.addView(it, params(10))
+        }
 
     private fun graphColorRows(
         root: LinearLayout,

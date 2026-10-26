@@ -131,7 +131,7 @@ class WearSettingsActivity : Activity() {
             cardParams(),
         )
 
-        settingsCategory("display", "Anzeige", "App-Flächen, Texte und Therapiefarben") {
+        settingsCategory("display", "App-Oberfläche", "Hintergrund, Flächen und allgemeine Texte") {
             section("APP")
             colorRow(AppearanceTerminology.APP_BACKGROUND, current.uiColors.background, WatchUiColors().background) { updateUiColors { c -> c.copy(background = it) } }
             colorRow(AppearanceTerminology.SURFACE_BACKGROUND, current.uiColors.tileBackground, WatchUiColors().tileBackground) {
@@ -146,15 +146,10 @@ class WearSettingsActivity : Activity() {
                     c.copy(textSecondary = it)
                 }
             }
-            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit, WatchUiColors().deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
             colorRow(AppearanceTerminology.ACCENT, current.uiColors.accent, WatchUiColors().accent) { updateUiColors { c -> c.copy(accent = it) } }
-            section("THERAPIE")
-            colorRow("IOB", current.uiColors.iob, WatchUiColors().iob) { updateUiColors { c -> c.copy(iob = it) } }
-            colorRow("COB", current.uiColors.cob, WatchUiColors().cob) { updateUiColors { c -> c.copy(cob = it) } }
-            colorRow("Basal", current.uiColors.basal, WatchUiColors().basal) { updateUiColors { c -> c.copy(basal = it) } }
         }
 
-        settingsCategory("glucose", "Glukose", "Einheit und Bereichsfarben") {
+        settingsCategory("glucose", "Glukose", "Einheit, Zielbereich, Farben und Größe") {
             section("EINHEIT")
             root.addView(
                 choiceRow(
@@ -205,6 +200,9 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
+        }
+
+        settingsCategory("trend", "Trendpfeil", "Größe, Füllung, Kontur und Deckkraft") {
             root.addView(
                 sliderCard("Trendpfeil", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.trendScalePercent, {
                     "$it %"
@@ -269,6 +267,16 @@ class WearSettingsActivity : Activity() {
             )
         }
 
+        settingsCategory("delta", "Delta und Einheit", "Farbe der Änderung und Einheit") {
+            colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit, WatchUiColors().deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
+        }
+        settingsCategory("therapy", "Therapie", "IOB, COB und Basal") {
+            section("THERAPIE")
+            colorRow("IOB", current.uiColors.iob, WatchUiColors().iob) { updateUiColors { c -> c.copy(iob = it) } }
+            colorRow("COB", current.uiColors.cob, WatchUiColors().cob) { updateUiColors { c -> c.copy(cob = it) } }
+            colorRow("Basal", current.uiColors.basal, WatchUiColors().basal) { updateUiColors { c -> c.copy(basal = it) } }
+        }
+
         settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
             section("ZEITSKALA")
             val hoursRow =
@@ -286,6 +294,7 @@ class WearSettingsActivity : Activity() {
                         textSize =
                             app.aapswear.uishared.WearSettingsUi
                                 .textSize(9f)
+                        minimumHeight = 44.dp
                         minWidth = 0
                         minimumWidth = 0
                         setPadding(1.dp, 0, 1.dp, 0)
@@ -294,7 +303,7 @@ class WearSettingsActivity : Activity() {
                         background = pillBackground(selected)
                         setOnClickListener { save(current.copy(graphHours = hours)) }
                     },
-                    LinearLayout.LayoutParams(0, 34.dp, 1f).apply {
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                         marginStart = 1.dp
                         marginEnd = 1.dp
                     },
@@ -489,15 +498,10 @@ class WearSettingsActivity : Activity() {
             }
 
             val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
-            section("TILE 2 · INHALT")
-            tileContentRows(WearTileKind.THERAPY)
-            section("TILE 2 · GRÖSSE UND ABSTÄNDE")
+            section("TILE 2 · THERAPIE")
             therapyGeometryRows()
             section("TILE 2 · FARBEN")
             tileBaseColorRows(WearTileKind.THERAPY, therapyTileColors)
-            colorRow("IOB", therapyTileColors.iob, WatchUiColors().iob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(iob = it) } }
-            colorRow("COB", therapyTileColors.cob, WatchUiColors().cob) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(cob = it) } }
-            colorRow("Basal", therapyTileColors.basal, WatchUiColors().basal) { updateTileColors(WearTileKind.THERAPY) { colors -> colors.copy(basal = it) } }
         }
 
         settingsCategory("watchfaces", "Watchfaces", "Auswahl und weitere Gestaltung in der Mobile-App") {
@@ -580,27 +584,6 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun tileContentRows(kind: WearTileKind) {
-        if (kind == WearTileKind.THERAPY) {
-            val appearance = TherapyTileGeometryStore.read(this)
-            val selected = appearance.enabledMetrics.mapTo(linkedSetOf()) { it.toTileMetric() }
-            TherapyTileMetric.entries.forEach { metric ->
-                root.addView(
-                    switchRow(metric.label, metric in selected) { enabled ->
-                        val next = if (enabled) selected + metric else selected - metric
-                        if (next.isNotEmpty()) {
-                            TherapyTileGeometryStore.write(
-                                this,
-                                appearance.copy(enabledMetrics = next.mapTo(linkedSetOf()) { it.toProgressMetric() }),
-                            )
-                        }
-                        requestSugarliciousTileUpdates(this, setOf(TherapyTileService::class.java))
-                        buildUi()
-                    },
-                    cardParams(),
-                )
-            }
-            return
-        }
         val selected = WearTileContentStore.read(this, kind)
         listOf(WearTileContent.GLUCOSE, WearTileContent.GRAPH).chunked(3).forEach { rowItems ->
             root.addView(
@@ -647,8 +630,27 @@ class WearSettingsActivity : Activity() {
             save(appearance.copy(global = appearance.global.copy(iconPercent = it)))
         }
         TherapyProgressMetric.entries.forEach { metric ->
-            val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+            val parent = root
             val label = metric.toTileMetric().label
+            val element =
+                app.aapswear.uishared.WearSettingsUi
+                    .elementCard(this, label, current.uiColors.tileBackground, current.uiColors.textPrimary)
+            parent.addView(element, cardParams())
+            root = element
+            val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+            root.addView(
+                switchRow("Anzeigen", metric in appearance.enabledMetrics) { enabled ->
+                    val selected = if (enabled) appearance.enabledMetrics + metric else appearance.enabledMetrics - metric
+                    if (selected.isNotEmpty()) save(appearance.copy(enabledMetrics = selected)) else buildUi()
+                },
+                cardParams(),
+            )
+            val colors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
+            when (metric) {
+                TherapyProgressMetric.IOB -> colorRow("Farbe", colors.iob, WatchUiColors().iob) { updateTileColors(WearTileKind.THERAPY) { c -> c.copy(iob = it) } }
+                TherapyProgressMetric.COB -> colorRow("Farbe", colors.cob, WatchUiColors().cob) { updateTileColors(WearTileKind.THERAPY) { c -> c.copy(cob = it) } }
+                TherapyProgressMetric.BASAL -> colorRow("Farbe", colors.basal, WatchUiColors().basal) { updateTileColors(WearTileKind.THERAPY) { c -> c.copy(basal = it) } }
+            }
 
             fun update(transform: (TherapyMetricAppearance) -> TherapyMetricAppearance) =
                 save(appearance.copy(metricOverrides = appearance.metricOverrides + (metric to transform(local))))
@@ -657,6 +659,7 @@ class WearSettingsActivity : Activity() {
             addSlider("$label · obere Zeile", 60..180, local.primaryTextPercent) { update { value -> value.copy(primaryTextPercent = it) } }
             addSlider("$label · untere Zeile", 60..180, local.secondaryTextPercent) { update { value -> value.copy(secondaryTextPercent = it) } }
             addSlider("$label · Icon", 50..180, local.iconPercent) { update { value -> value.copy(iconPercent = it) } }
+            root = parent
         }
         root.addView(
             actionCard("Progressanzeigen zurücksetzen", "Standard") { save(TherapyProgressAppearance()) },
@@ -671,7 +674,19 @@ class WearSettingsActivity : Activity() {
         buildContent: () -> Unit,
     ) {
         if (selectedSettingsCategory != null) {
-            if (selectedSettingsCategory == key) buildContent()
+            if (selectedSettingsCategory == key) {
+                val page = root
+                val card =
+                    app.aapswear.uishared.WearSettingsUi
+                        .elementCard(this, title, current.uiColors.tileBackground, current.uiColors.textPrimary)
+                page.addView(card, cardParams())
+                root = card
+                try {
+                    buildContent()
+                } finally {
+                    root = page
+                }
+            }
             return
         }
         val chevron =
@@ -875,13 +890,14 @@ class WearSettingsActivity : Activity() {
                             app.aapswear.uishared.WearSettingsUi
                                 .textSize(9f)
                         isAllCaps = false
+                        minimumHeight = 44.dp
                         minWidth = 0
                         minimumWidth = 0
                         setTextColor(if (active) current.uiColors.background else current.uiColors.textPrimary)
                         background = pillBackground(active)
                         setOnClickListener { changed(value) }
                     },
-                    LinearLayout.LayoutParams(0, 34.dp, 1f).apply {
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
                         marginStart = 1.dp
                         marginEnd = 1.dp
                     },
@@ -983,6 +999,8 @@ class WearSettingsActivity : Activity() {
     ) {
         root.addView(
             LinearLayout(this).apply {
+                minimumHeight = 48.dp
+                setOnClickListener { showColorPicker(title, color, defaultColor, changed) }
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(13.dp, 8.dp, 11.dp, 8.dp)
@@ -1002,7 +1020,7 @@ class WearSettingsActivity : Activity() {
                 addView(
                     View(this@WearSettingsActivity).apply {
                         background = colorCircle(color)
-                        setOnClickListener { showColorPicker(title, color, defaultColor, changed) }
+                        contentDescription = title
                     },
                     LinearLayout.LayoutParams(32.dp, 32.dp),
                 )

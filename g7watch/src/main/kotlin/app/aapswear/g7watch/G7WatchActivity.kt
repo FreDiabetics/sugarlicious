@@ -46,7 +46,7 @@ internal fun hasUsableCollectorSession(
 internal fun requiresPairingGate(state: G7PersistedState): Boolean =
     state.sensor == null ||
         state.sensor?.state == G7SensorState.ENDED ||
-        !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)
+        (state.collectorEnabled && !hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId))
 
 @Suppress("UNUSED_PARAMETER")
 internal fun isG7PairingAttemptActive(
@@ -155,7 +155,7 @@ class G7WatchActivity : Activity() {
     private val graphClockRefresh =
         object : Runnable {
             override fun run() {
-                if (!isFinishing && !isDestroyed && screenBuilt) updateGraphOnly()
+                if (!isFinishing && !isDestroyed && screenBuilt) refreshLiveContent()
                 val now = System.currentTimeMillis()
                 mainHandler.postDelayed(this, 60_000L - now % 60_000L)
             }
@@ -256,7 +256,7 @@ class G7WatchActivity : Activity() {
                 buildPairingGate(palette, state)
             }
         } else if (requiresPairingGate(state)) {
-            pairingStep = G7PairingScreenStep.NO_SENSOR
+            pairingStep = initialG7PairingScreenStep(state) ?: G7PairingScreenStep.NO_SENSOR
             buildPairingGate(palette, state)
         } else if (!screenBuilt || pairingGateVisible || palette != activePalette) {
             pairingGateVisible = false
@@ -791,6 +791,29 @@ class G7WatchActivity : Activity() {
 
             statusHost.removeAllViews()
             statusHost.addView(statusPill(pillState, palette))
+            if (state.sensor != null && credentials != null) {
+                statusHost.addView(
+                    pill(
+                        if (state.collectorEnabled) "Sensorempfang pausieren" else "Sensorempfang fortsetzen",
+                        PillStyle.SECONDARY,
+                        palette,
+                    ) {
+                        val enabled = G7SensorStateStore(this).read().collectorEnabled
+                        if (enabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
+                        refreshScreen()
+                    },
+                    cardParams(top = 7),
+                )
+                if (!state.collectorEnabled) {
+                    statusHost.addView(
+                        label(
+                            "Kopplung und Messhistorie bleiben erhalten. Keine Sensoralarme während der Pause.",
+                            10f,
+                            palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                        ),
+                    )
+                }
+            }
             glucoseHost.removeAllViews()
             glucoseHost.addView(
                 label("Gewebeglukose", 11f, 0xFFFFFFFF.toInt(), false).apply {
@@ -798,7 +821,7 @@ class G7WatchActivity : Activity() {
                     setPadding(WearGlucoseCardStyle.CARD_RADIUS_DP.toInt().dp, 4.dp, 0, 5.dp)
                 },
             )
-            glucoseHost.addView(glucoseTile(state.lastReading, palette))
+            glucoseHost.addView(glucoseTile(state.lastReading.takeIf { state.collectorEnabled }, palette))
             updateGraphOnly(preserveScroll = false)
         }
     }
@@ -907,7 +930,7 @@ class G7WatchActivity : Activity() {
             G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
             G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
             G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-            G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
+            G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
         }
 
     private enum class PillStyle { PRIMARY, SECONDARY, DANGER }

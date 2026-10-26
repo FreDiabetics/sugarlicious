@@ -42,6 +42,31 @@ class G7DirectProviderOutcomeTest {
     }
 
     @Test
+    fun `paused collector retains history but cannot supply a current Watch Direct value`() {
+        val resolved =
+            resolve(
+                DirectProviderOutcome.Success(
+                    DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "UNINITIALIZED", collectorEnabled = false)),
+                ),
+            )
+        assertEquals(app.aapswear.model.CgmSourceState.NO_SOURCE, G7LocalReadingResolver.sourceState(resolved))
+        assertEquals(null, resolved?.glucose)
+        assertEquals(1, resolved?.glucoseHistory?.size)
+        assertEquals("PAUSED", G7LocalReadingResolver.directSessionState(resolved))
+    }
+
+    @Test
+    fun `Android provider reads explicit paused lifecycle independently of sensor state`() {
+        val outcome =
+            AndroidDirectCgmProvider(context) { uri ->
+                emptyCursor(uri.lastPathSegment == "state").apply {
+                    if (uri.lastPathSegment == "state") addRow(arrayOf<Any>("ACTIVE", "UNINITIALIZED", 0))
+                }
+            }.read()
+        assertEquals(false, (outcome as DirectProviderOutcome.Success).snapshot.status?.collectorEnabled)
+    }
+
+    @Test
     fun `empty unavailable denied and malformed outcomes remain distinct and non throwing`() {
         val outcomes =
             listOf(
@@ -85,7 +110,7 @@ class G7DirectProviderOutcomeTest {
     private fun emptyCursor(status: Boolean): MatrixCursor =
         MatrixCursor(
             if (status) {
-                arrayOf("sensor_state", "session_state")
+                arrayOf("sensor_state", "session_state", "collector_enabled")
             } else {
                 arrayOf("status", "glucose", "sensor_id", "session_id", "sequence_number", "measured_at", "received_at", "delta", "trend", "trend_rate")
             },

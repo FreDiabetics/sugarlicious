@@ -538,7 +538,6 @@ class DashboardViewFactory(
                         ),
                     )
                     addView(divider())
-                    addView(divider())
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
                     addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
                 },
@@ -605,27 +604,6 @@ class DashboardViewFactory(
                             120f,
                         ) { preferences.cgmThresholds.copy(veryLowMgDl = it) },
                     )
-                    addView(divider())
-                    addView(settingsGroupLabel("GRÖSSE"))
-                    addView(
-                        sugarliciousSliderRow(
-                            title = "Glukosewert",
-                            value = preferences.glucoseScalePercent.toFloat(),
-                            minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
-                            maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
-                            valueFormatter = { "${it.toInt()} %" },
-                        ) { dashboardPreferences.edit { putInt(DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY, it.toInt()) } },
-                    )
-                    addView(divider())
-                    addView(
-                        sugarliciousSliderRow(
-                            title = "Trendpfeil",
-                            value = preferences.trendScalePercent.toFloat(),
-                            minimum = GlucoseTrendSizing.MIN_SCALE_PERCENT.toFloat(),
-                            maximum = GlucoseTrendSizing.MAX_SCALE_PERCENT.toFloat(),
-                            valueFormatter = { "${it.toInt()} %" },
-                        ) { dashboardPreferences.edit { putInt(DashboardUiPreferences.MOBILE_TREND_SCALE_KEY, it.toInt()) } },
-                    )
                 },
                 cardParams(top = 4),
             )
@@ -639,7 +617,7 @@ class DashboardViewFactory(
                 }
             addView(
                 tile(null).apply {
-                    addView(settingsGroupLabel("ÜBERSICHT"))
+                    addView(settingsGroupLabel("GLUKOSE-KACHEL"))
                     addView(
                         choiceRow(
                             "Glukose-Kachel",
@@ -665,6 +643,7 @@ class DashboardViewFactory(
                         )
                     } else {
                         addView(divider())
+                        addView(settingsGroupLabel("IOB-ANZEIGE"))
                         addView(
                             sugarliciousSliderRow(
                                 title = "IOB-Skala",
@@ -675,6 +654,7 @@ class DashboardViewFactory(
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) } },
                         )
                         addView(divider())
+                        addView(settingsGroupLabel("COB-ANZEIGE"))
                         addView(
                             sugarliciousSliderRow(
                                 title = "COB Progressbar Maximum",
@@ -686,6 +666,7 @@ class DashboardViewFactory(
                         )
                     }
                     addView(divider())
+                    addView(settingsGroupLabel("ÜBERSICHT"))
                     addView(
                         switchRowCompact("Kompakte Übersicht", preferences.compact, R.id.dashboard_compact_switch, callbacks.setCompact),
                     )
@@ -740,7 +721,7 @@ class DashboardViewFactory(
                             )
                         }
                         addView(divider())
-                        addView(settingsGroupLabel("DATENSTRÖME"))
+                        addView(settingsGroupLabel("ZIELWERT UND BASALRATE"))
                         addView(
                             switchRowCompact("Aktueller Zielwert", preferences.showCgmTargetValue, View.generateViewId()) {
                                 callbacks.setCgmStream("cgm.targetValue", it)
@@ -778,6 +759,7 @@ class DashboardViewFactory(
                             ),
                         )
                         addView(divider())
+                        addView(settingsGroupLabel("IOB-GRAPH"))
                         addView(
                             choiceRow(
                                 "IOB-Skalierung",
@@ -801,6 +783,7 @@ class DashboardViewFactory(
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, it) } },
                         )
                         addView(divider())
+                        addView(settingsGroupLabel("COB-GRAPH"))
                         addView(
                             choiceRow(
                                 "COB-Skalierung",
@@ -824,6 +807,7 @@ class DashboardViewFactory(
                             ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, it) } },
                         )
                         addView(divider())
+                        addView(settingsGroupLabel("VORHERSAGEN"))
                         addView(
                             switchRowCompact("Vorhersagen", preferences.showCgmPredictions, View.generateViewId()) { enabled ->
                                 dashboardPreferences.edit {
@@ -862,6 +846,7 @@ class DashboardViewFactory(
                             },
                         )
                         addView(divider())
+                        addView(settingsGroupLabel("THERAPIE-MARKIERUNGEN"))
                         addView(
                             switchRowCompact("Mahlzeitenboli", preferences.showMealBolusMarkers, View.generateViewId()) {
                                 callbacks.setCgmStream("treatment.mealBolus", it)
@@ -1152,6 +1137,7 @@ class DashboardViewFactory(
                     LinearLayout(context).apply {
                         orientation = LinearLayout.VERTICAL
                         buildContent()
+                        separateSettingsObjectCards(this)
                     },
                     fullWidth(),
                 )
@@ -1197,6 +1183,37 @@ class DashboardViewFactory(
             group.addView(divider(), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1.dp).apply { marginStart = 37.dp })
         }
         group.addView(header, fullWidth())
+    }
+
+    /** Keep existing controls and listeners intact while giving each object its own surface. */
+    private fun separateSettingsObjectCards(container: LinearLayout) {
+        val original = (0 until container.childCount).map { container.getChildAt(it) }
+        original.filterIsInstance<LinearLayout>().forEach { child ->
+            if (child.tag != "oneui_settings_card") {
+                separateSettingsObjectCards(child)
+                return@forEach
+            }
+            val controls = (0 until child.childCount).map { child.getChildAt(it) }
+            if (controls.count { it.tag == "settings_snap_heading" } < 2) return@forEach
+            val index = container.indexOfChild(child)
+            container.removeView(child)
+            child.removeAllViews()
+            var nextIndex = index
+            var card: LinearLayout? = null
+            controls.forEach { control ->
+                if (control.tag == "settings_snap_heading" || card == null) {
+                    // A divider belongs between controls, never to the bottom of a card.
+                    card?.let { previous ->
+                        while (previous.isNotEmpty() && previous.getChildAt(previous.childCount - 1).javaClass == View::class.java) {
+                            previous.removeViewAt(previous.childCount - 1)
+                        }
+                    }
+                    card = tile(null)
+                    container.addView(card, nextIndex++, cardParams(top = 12))
+                }
+                card.addView(control)
+            }
+        }
     }
 
     private data class SourceChoice(

@@ -117,6 +117,7 @@ class G7CgmAlarmsTest {
 
     @Before
     fun setUp() {
+        G7SensorStateStore(context).save(app.aapswear.g7.G7PersistedState(collectorEnabled = true))
         context
             .getSharedPreferences("g7_cgm_alarm_state", Context.MODE_PRIVATE)
             .edit()
@@ -269,7 +270,7 @@ class G7CgmAlarmsTest {
         G7SensorStateStore(context).save(
             G7PersistedState(
                 sensor = G7Sensor(sensorId = "sensor-a", sessionId = "session-a"),
-                collectorEnabled = false,
+                collectorEnabled = true,
                 lastReading = transitionReading,
             ),
         )
@@ -282,6 +283,25 @@ class G7CgmAlarmsTest {
         )
 
         assertNotNull(shadowOf(notificationManager).getNotification(LOW_NOTIFICATION_ID))
+    }
+
+    @Test
+    fun `source failover does not alarm from a manually paused collector`() {
+        val transitionReading =
+            reading("sensor-a", "session-a", 65.0).copy(
+                timestampEpochMs = System.currentTimeMillis(),
+                receivedAtEpochMs = System.currentTimeMillis(),
+            )
+        G7SensorStateStore(context).save(
+            G7PersistedState(
+                sensor = G7Sensor(sensorId = "sensor-a", sessionId = "session-a"),
+                collectorEnabled = false,
+                lastReading = transitionReading,
+            ),
+        )
+        applySourceControl(context, g7Selected = true, alarmsEnabled = true, automaticEnableAt = null)
+        assertNull(shadowOf(notificationManager).getNotification(LOW_NOTIFICATION_ID))
+        assertEquals(false, G7SensorStateStore(context).read().collectorEnabled)
     }
 
     private fun reading(

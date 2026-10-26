@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -56,7 +57,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
-import app.aapswear.mobile.ui.theme.SugarliciousColorGroup
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
@@ -67,6 +67,39 @@ import app.aapswear.model.TrendArrowStyle
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
+
+/** A named surface always describes the displayed object, never the type of control. */
+@Composable
+internal fun MobileSettingsObjectCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .settingsSnapHeading(title)
+            .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(title, color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.titleMedium, fontWeight = FontWeight.Bold)
+        Box(Modifier.fillMaxWidth().height(1.dp).background(OneUiWidgetStyle.secondary.copy(alpha = 0.16f)))
+        content()
+    }
+}
+
+internal fun mobileAppearanceObjectTitle(role: SugarliciousColorRole): String =
+    when {
+        role.name.startsWith("GLUCOSE_") -> "Glukosewert"
+        role == SugarliciousColorRole.DELTA_UNIT -> "Delta"
+        role.name.startsWith("CGM_DOT_") || role == SugarliciousColorRole.GRAPH_CURRENT_OUTLINE -> "CGM-Punkte"
+        role.name.startsWith("RANGE_") || role == SugarliciousColorRole.TARGET_BAND -> "Zielbereiche im Graph"
+        role == SugarliciousColorRole.TARGET_VALUE -> "Zielwert"
+        role.name.startsWith("PREDICTION_") -> "Vorhersagen"
+        role.name.startsWith("PROGRESS_") -> "Glukose-Progressbar"
+        role.name.startsWith("THERAPY_IOB") || role == SugarliciousColorRole.GRAPH_IOB -> "IOB"
+        role.name.startsWith("THERAPY_COB") || role == SugarliciousColorRole.GRAPH_COB -> "COB"
+        role.name.startsWith("THERAPY_BASAL") -> "Basalrate"
+        role.name.startsWith("GRAPH_") -> "Graph"
+        else -> role.group.label
+    }
 
 @Composable
 internal fun SugarliciousColorSettingsPanel(
@@ -142,218 +175,177 @@ internal fun SugarliciousColorSettingsPanel(
         }
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    OneUiWidgetStyle.card,
-                    RoundedCornerShape(28.dp),
-                ).padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        MobileSettingsObjectCard("Darstellung und Vorschau") {
+            AppearanceModeSelector(selectedMode) { mode ->
+                selectedMode = mode
+                palette = SugarliciousColorStore.load(preferences, mode)
+            }
+
+            AppearanceThemePreview(palette, trendStyle, DashboardUiPreferences.read(preferences))
+        }
+        MobileSettingsObjectCard("Trendpfeil") {
+            MobileGlucoseElementSize(preferences, selectedMode, trend = true)
+            ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
+            GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
+                trendStyle = trendStyle.copy(outlineEnabled = it)
+                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+            }
+            if (trendStyle.outlineEnabled) {
+                ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, { editingTrendColor = "outline" })
+                SugarliciousSettingSlider(
+                    "Konturdicke",
+                    "Trendpfeil-Kontur",
+                    trendStyle.outlineThicknessDp,
+                    0.25f..4f,
+                    "${String.format(
+                        locale,
+                        "%.2f",
+                        trendStyle.outlineThicknessDp,
+                    )} dp",
+                    {
+                        trendStyle = trendStyle.copy(outlineThicknessDp = it)
+                    },
+                    { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) },
+                )
+            }
+            SugarliciousSettingSlider("Deckkraft", "Trendpfeil", trendStyle.alpha * 100f, 0f..100f, "${(trendStyle.alpha * 100).roundToInt()} %", {
+                trendStyle = trendStyle.copy(alpha = it / 100f)
+            }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
+        }
+        MobileSettingsObjectCard("Watch-Farben") {
+            Button(
+                onClick = {
+                    watchSyncStatus = "Wird gesendet …"
+                    scope.launch {
+                        watchSyncStatus =
+                            runCatching { publishWatchColors(context.applicationContext) }
+                                .fold(
+                                    onSuccess = { "Graphfarben wurden an die Watch gesendet." },
+                                    onFailure = { "Watch-Farben konnten nicht gesendet werden." },
+                                )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = OneUiWidgetStyle.action,
+                        contentColor = OneUiWidgetStyle.primary,
+                    ),
+            ) {
+                Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+            watchSyncStatus?.let { status ->
+                Text(status, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
+            }
+        }
+        if (showCgmGraph) {
+            MobileSettingsObjectCard("CGM-Punkte") {
                 Text(
-                    text = "FARBEN",
+                    text = "CGM-PUNKTE",
                     color = OneUiWidgetStyle.secondary,
                     style = oneUiMenuTypography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
-                Text(
-                    text = "Darstellung & Farben",
-                    color = OneUiWidgetStyle.primary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-        }
 
-        AppearanceModeSelector(selectedMode) { mode ->
-            selectedMode = mode
-            palette = SugarliciousColorStore.load(preferences, mode)
-        }
-
-        AppearanceThemePreview(palette, trendStyle, DashboardUiPreferences.read(preferences))
-
-        Text("TRENDPFEIL", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
-        ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
-        GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
-            trendStyle = trendStyle.copy(outlineEnabled = it)
-            MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
-        }
-        if (trendStyle.outlineEnabled) {
-            ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, { editingTrendColor = "outline" })
-            SugarliciousSettingSlider(
-                "Konturdicke",
-                "Trendpfeil-Kontur",
-                trendStyle.outlineThicknessDp,
-                0.25f..4f,
-                "${String.format(
-                    locale,
-                    "%.2f",
-                    trendStyle.outlineThicknessDp,
-                )} dp",
-                {
-                    trendStyle = trendStyle.copy(outlineThicknessDp = it)
-                },
-                { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) },
-            )
-        }
-        SugarliciousSettingSlider("Deckkraft", "Trendpfeil", trendStyle.alpha * 100f, 0f..100f, "${(trendStyle.alpha * 100).roundToInt()} %", {
-            trendStyle = trendStyle.copy(alpha = it / 100f)
-        }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
-
-        Button(
-            onClick = {
-                watchSyncStatus = "Wird gesendet …"
-                scope.launch {
-                    watchSyncStatus =
-                        runCatching { publishWatchColors(context.applicationContext) }
-                            .fold(
-                                onSuccess = { "Graphfarben wurden an die Watch gesendet." },
-                                onFailure = { "Watch-Farben konnten nicht gesendet werden." },
-                            )
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors =
-                ButtonDefaults.buttonColors(
-                    containerColor = OneUiWidgetStyle.action,
-                    contentColor = OneUiWidgetStyle.primary,
-                ),
-        ) {
-            Text("AN WATCH SENDEN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        }
-        watchSyncStatus?.let { status ->
-            Text(status, color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium)
-        }
-
-        if (showCgmGraph) {
-            Text(
-                text = "CGM-PUNKTE",
-                color = OneUiWidgetStyle.secondary,
-                style = oneUiMenuTypography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-
-            SugarliciousSettingSlider(
-                title = "Punktgröße",
-                description = "Größe der CGM-Dots im Glukosegraph",
-                value = cgmDotRadiusDp,
-                valueRange = 1.5f..6.0f,
-                valueText = "${String.format(locale, "%.1f", cgmDotRadiusDp)} dp",
-                onValueChange = { cgmDotRadiusDp = it },
-                onValueChangeFinished = {
-                    preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), cgmDotRadiusDp) }
-                },
-            )
-
-            GraphSettingSwitch(
-                title = "Historische Kontur",
-                description = "Kontur um historische CGM-Dots anzeigen",
-                checked = cgmHistoricalDotOutlineEnabled,
-                onCheckedChange = { enabled ->
-                    cgmHistoricalDotOutlineEnabled = enabled
-                    preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"), enabled) }
-                },
-            )
-
-            if (cgmHistoricalDotOutlineEnabled) {
                 SugarliciousSettingSlider(
-                    title = "Historische Konturdicke",
-                    description = "Dicke der Kontur historischer Dots",
-                    value = cgmHistoricalDotOutlineWidthDp,
-                    valueRange = 0.25f..3.0f,
-                    valueText = "${String.format(locale, "%.2f", cgmHistoricalDotOutlineWidthDp)} dp",
-                    onValueChange = { cgmHistoricalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
+                    title = "Punktgröße",
+                    description = "Größe der CGM-Dots im Glukosegraph",
+                    value = cgmDotRadiusDp,
+                    valueRange = 1.5f..6.0f,
+                    valueText = "${String.format(locale, "%.1f", cgmDotRadiusDp)} dp",
+                    onValueChange = { cgmDotRadiusDp = it },
                     onValueChangeFinished = {
-                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"), cgmHistoricalDotOutlineWidthDp) }
+                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), cgmDotRadiusDp) }
                     },
                 )
-            }
 
-            SugarliciousSettingSlider(
-                title = "Aktuelle Konturdicke",
-                description = "Der aktuelle echte CGM-Dot besitzt immer eine Kontur",
-                value = cgmCurrentDotOutlineWidthDp,
-                valueRange = 0.25f..3.0f,
-                valueText = "${String.format(locale, "%.2f", cgmCurrentDotOutlineWidthDp)} dp",
-                onValueChange = { cgmCurrentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
-                onValueChangeFinished = {
-                    preferences.edit { putFloat(graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"), cgmCurrentDotOutlineWidthDp) }
-                },
-            )
-
-            SugarliciousSettingSlider(
-                title = "Prediction-Punktgröße",
-                description = "Größe der Vorhersagepunkte im CGM-Graph",
-                value = predictionDotRadiusDp,
-                valueRange = 1.0f..6.0f,
-                valueText = "${String.format(locale, "%.1f", predictionDotRadiusDp)} dp",
-                onValueChange = { predictionDotRadiusDp = it },
-                onValueChangeFinished = {
-                    preferences.edit {
-                        putFloat(
-                            graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
-                            predictionDotRadiusDp,
-                        )
-                    }
-                },
-            )
-
-            SugarliciousSettingSlider(
-                title = "Prediction-Konturdicke",
-                description = "0,00 dp blendet die Kontur aus",
-                value = predictionDotOutlineWidthDp,
-                valueRange = 0.0f..3.0f,
-                valueText = "${String.format(locale, "%.2f", predictionDotOutlineWidthDp)} dp",
-                onValueChange = { predictionDotOutlineWidthDp = it },
-                onValueChangeFinished = {
-                    preferences.edit {
-                        putFloat(
-                            graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
-                            predictionDotOutlineWidthDp,
-                        )
-                    }
-                },
-            )
-        }
-
-        SugarliciousColorGroup.entries.forEach { group ->
-            val roles =
-                SugarliciousColorRole.entries.filter {
-                    it.group == group &&
-                        colorRoleVisible(
-                            role = it,
-                            showCgmGraph = showCgmGraph,
-                            showMetabolicGraph = showMetabolicGraph,
-                            isLight = palette.isLight,
-                        )
-                }
-            if (roles.isEmpty()) return@forEach
-            Text(
-                text = group.label,
-                color = OneUiWidgetStyle.secondary,
-                style = oneUiMenuTypography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 6.dp),
-            )
-
-            roles.forEach { role ->
-                val argb = palette.argb(role)
-                ColorSettingRow(
-                    role = role,
-                    argb = argb,
-                    onEdit = { editingRole = role },
+                GraphSettingSwitch(
+                    title = "Historische Kontur",
+                    description = "Kontur um historische CGM-Dots anzeigen",
+                    checked = cgmHistoricalDotOutlineEnabled,
+                    onCheckedChange = { enabled ->
+                        cgmHistoricalDotOutlineEnabled = enabled
+                        preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"), enabled) }
+                    },
                 )
+
+                if (cgmHistoricalDotOutlineEnabled) {
+                    SugarliciousSettingSlider(
+                        title = "Historische Konturdicke",
+                        description = "Dicke der Kontur historischer Dots",
+                        value = cgmHistoricalDotOutlineWidthDp,
+                        valueRange = 0.25f..3.0f,
+                        valueText = "${String.format(locale, "%.2f", cgmHistoricalDotOutlineWidthDp)} dp",
+                        onValueChange = { cgmHistoricalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
+                        onValueChangeFinished = {
+                            preferences.edit { putFloat(graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"), cgmHistoricalDotOutlineWidthDp) }
+                        },
+                    )
+                }
+
+                SugarliciousSettingSlider(
+                    title = "Aktuelle Konturdicke",
+                    description = "Der aktuelle echte CGM-Dot besitzt immer eine Kontur",
+                    value = cgmCurrentDotOutlineWidthDp,
+                    valueRange = 0.25f..3.0f,
+                    valueText = "${String.format(locale, "%.2f", cgmCurrentDotOutlineWidthDp)} dp",
+                    onValueChange = { cgmCurrentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
+                    onValueChangeFinished = {
+                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"), cgmCurrentDotOutlineWidthDp) }
+                    },
+                )
+
+                AppearanceObjectColorRows("CGM-Punkte", palette, showCgmGraph, showMetabolicGraph) { editingRole = it }
+            }
+            MobileSettingsObjectCard("Vorhersagen") {
+                SugarliciousSettingSlider(
+                    title = "Prediction-Punktgröße",
+                    description = "Größe der Vorhersagepunkte im CGM-Graph",
+                    value = predictionDotRadiusDp,
+                    valueRange = 1.0f..6.0f,
+                    valueText = "${String.format(locale, "%.1f", predictionDotRadiusDp)} dp",
+                    onValueChange = { predictionDotRadiusDp = it },
+                    onValueChangeFinished = {
+                        preferences.edit {
+                            putFloat(
+                                graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
+                                predictionDotRadiusDp,
+                            )
+                        }
+                    },
+                )
+
+                SugarliciousSettingSlider(
+                    title = "Prediction-Konturdicke",
+                    description = "0,00 dp blendet die Kontur aus",
+                    value = predictionDotOutlineWidthDp,
+                    valueRange = 0.0f..3.0f,
+                    valueText = "${String.format(locale, "%.2f", predictionDotOutlineWidthDp)} dp",
+                    onValueChange = { predictionDotOutlineWidthDp = it },
+                    onValueChangeFinished = {
+                        preferences.edit {
+                            putFloat(
+                                graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
+                                predictionDotOutlineWidthDp,
+                            )
+                        }
+                    },
+                )
+                AppearanceObjectColorRows("Vorhersagen", palette, showCgmGraph, showMetabolicGraph) { editingRole = it }
             }
         }
+        SugarliciousColorRole.entries
+            .filter { colorRoleVisible(it, showCgmGraph, showMetabolicGraph, palette.isLight) }
+            .groupBy(::mobileAppearanceObjectTitle)
+            .forEach { (objectTitle, roles) ->
+                if (showCgmGraph && objectTitle in setOf("CGM-Punkte", "Vorhersagen")) return@forEach
+                MobileSettingsObjectCard(objectTitle) {
+                    if (objectTitle == "Glukosewert") MobileGlucoseElementSize(preferences, selectedMode, trend = false)
+                    roles.forEach { role -> ColorSettingRow(role = role, argb = palette.argb(role), onEdit = { editingRole = role }) }
+                }
+            }
     }
 
     editingRole?.let { role ->
@@ -397,6 +389,42 @@ internal fun SugarliciousColorSettingsPanel(
 }
 
 @Composable
+private fun AppearanceObjectColorRows(
+    title: String,
+    palette: app.aapswear.mobile.ui.theme.SugarliciousPalette,
+    showCgmGraph: Boolean,
+    showMetabolicGraph: Boolean,
+    onEdit: (SugarliciousColorRole) -> Unit,
+) {
+    SugarliciousColorRole.entries
+        .filter {
+            mobileAppearanceObjectTitle(it) == title && colorRoleVisible(it, showCgmGraph, showMetabolicGraph, palette.isLight)
+        }.forEach { role -> ColorSettingRow(role = role, argb = palette.argb(role), onEdit = { onEdit(role) }) }
+}
+
+@Composable
+private fun MobileGlucoseElementSize(preferences: android.content.SharedPreferences, mode: AppearanceMode, trend: Boolean) {
+    val key = if (trend) DashboardUiPreferences.MOBILE_TREND_SCALE_KEY else DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY
+    val default = if (trend) DashboardSystemDefaults.TREND_SCALE_PERCENT else app.aapswear.model.GlucoseTrendSizing.DEFAULT_SCALE_PERCENT
+    var size by remember(key, mode) { mutableIntStateOf(preferences.getInt(key, default).coerceIn(app.aapswear.model.GlucoseTrendSizing.MIN_SCALE_PERCENT, app.aapswear.model.GlucoseTrendSizing.MAX_SCALE_PERCENT)) }
+    val minimum =
+        app.aapswear.model.GlucoseTrendSizing.MIN_SCALE_PERCENT
+            .toFloat()
+    val maximum =
+        app.aapswear.model.GlucoseTrendSizing.MAX_SCALE_PERCENT
+            .toFloat()
+    SugarliciousSettingSlider(
+        "Größe",
+        if (trend) "Trendpfeil in der Übersicht" else "Glukosewert in der Übersicht",
+        size.toFloat(),
+        minimum..maximum,
+        "$size %",
+        { size = it.toInt() },
+        { preferences.edit { putInt(key, size) } },
+    )
+}
+
+@Composable
 internal fun WidgetColorSettingsPanel() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -412,47 +440,41 @@ internal fun WidgetColorSettingsPanel() {
         scope.launch { SugarliciousWidgets.update(context.applicationContext) }
     }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
-                .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("WIDGET-STANDARDFARBEN", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
-        Text("Farben", color = OneUiWidgetStyle.primary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            WidgetSettingsToggle(
-                checked = samsungCompact,
-                onCheckedChange = { enabled ->
-                    samsungCompact = enabled
-                    WidgetLayoutSizeStore.setSamsungCompact(context, enabled)
-                    refreshWidgets()
-                },
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Samsung-kompakte Widgetgröße", color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodyLarge)
-                Text(
-                    "Gleicher Innenabstand wie bei Samsung-Widgets; gilt für alle Mobile-Widgets.",
-                    color = OneUiWidgetStyle.secondary,
-                    style = oneUiMenuTypography.bodyMedium,
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        MobileSettingsObjectCard("Widget-Grunddarstellung") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                WidgetSettingsToggle(
+                    checked = samsungCompact,
+                    onCheckedChange = { enabled ->
+                        samsungCompact = enabled
+                        WidgetLayoutSizeStore.setSamsungCompact(context, enabled)
+                        refreshWidgets()
+                    },
                 )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Samsung-kompakte Widgetgröße", color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodyLarge)
+                    Text(
+                        "Gleicher Innenabstand wie bei Samsung-Widgets; gilt für alle Mobile-Widgets.",
+                        color = OneUiWidgetStyle.secondary,
+                        style = oneUiMenuTypography.bodyMedium,
+                    )
+                }
             }
-        }
-        AppearanceModeSelector(selectedMode) { selectedMode = it }
-        Text(
-            "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
-            color = OneUiWidgetStyle.secondary,
-            style = oneUiMenuTypography.bodyMedium,
-        )
-        WidgetColorRole.entries.filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }.forEach { role ->
-            WidgetColorSettingRow(
-                role = role,
-                argb = palette.argb(role),
-                onEdit = { editingRole = role },
+            AppearanceModeSelector(selectedMode) { selectedMode = it }
+            Text(
+                "Diese App-Defaults gelten nur für Widgets ohne eigenen Override. Zeitraum, Form und Tap-Ziel stellst du direkt pro Widget ein.",
+                color = OneUiWidgetStyle.secondary,
+                style = oneUiMenuTypography.bodyMedium,
             )
         }
+        WidgetColorRole.entries
+            .filterNot { it in setOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) }
+            .groupBy(::widgetAppearanceObjectTitle)
+            .forEach { (title, roles) ->
+                MobileSettingsObjectCard(title) {
+                    roles.forEach { role -> WidgetColorSettingRow(role, palette.argb(role)) { editingRole = role } }
+                }
+            }
     }
 
     editingRole?.let { role ->
@@ -486,6 +508,22 @@ internal fun WidgetColorSettingsPanel() {
         )
     }
 }
+
+internal fun widgetAppearanceObjectTitle(role: WidgetColorRole): String =
+    when {
+        role.name.startsWith("IOB_") -> "IOB"
+        role.name.startsWith("COB_") -> "COB"
+        role.name.startsWith("BASAL_") -> "Basalrate"
+        role.name.startsWith("TREND") -> "Trendpfeil"
+        role.name.startsWith("DELTA") -> "Delta"
+        role.name.startsWith("AGE") -> "Alter"
+        role.name.startsWith("TIR") -> "Zeit im Ziel"
+        role in setOf(WidgetColorRole.HIGH, WidgetColorRole.IN_RANGE, WidgetColorRole.LOW, WidgetColorRole.URGENT_LOW, WidgetColorRole.VERY_HIGH, WidgetColorRole.UNIT) -> "Glukosewert"
+        role in setOf(WidgetColorRole.TEXT, WidgetColorRole.BACKGROUND) -> "Widget-Hintergrund und Text"
+        role.name.startsWith("DOT_") || role == WidgetColorRole.CURRENT_DOT_OUTLINE -> "CGM-Punkte"
+        role.name.startsWith("RANGE_") || role in setOf(WidgetColorRole.HIGH_LINE, WidgetColorRole.LOW_LINE) -> "Zielbereiche im Graph"
+        else -> "Graph"
+    }
 
 @Composable
 private fun WidgetColorSettingRow(
@@ -1156,49 +1194,34 @@ internal fun NotificationGraphSettingsPanel() {
             SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
         )
 
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(OneUiWidgetStyle.card, RoundedCornerShape(28.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("NOTIFICATION-GRAPH", color = OneUiWidgetStyle.secondary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
-                Text("CGM-Dots & Farben", color = OneUiWidgetStyle.primary, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    if (palette.isLight) "Aktuelle Farbvariante: Hell" else "Aktuelle Farbvariante: Dunkel",
-                    color = OneUiWidgetStyle.secondary,
-                    fontSize = 9.sp,
-                )
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        MobileSettingsObjectCard("Benachrichtigung · Darstellung") {
+            AppearanceModeSelector(selectedMode) {
+                selectedMode = it
+                revision++
             }
+
+            Text(
+                "Farben gelten gemeinsam für eingeklappt und ausgeklappt. Punktgeometrie wird getrennt gespeichert.",
+                color = OneUiWidgetStyle.secondary,
+                style = oneUiMenuTypography.bodyMedium,
+            )
         }
-
-        AppearanceModeSelector(selectedMode) {
-            selectedMode = it
-            revision++
+        MobileSettingsObjectCard("Graph · Skalenbereich") {
+            SugarliciousSettingSlider(
+                "Skalenbereich",
+                "Nur Graphfläche und Zielbereichslinien; Beschriftungen bleiben deckend",
+                scaleLaneOpacity,
+                0f..100f,
+                "${scaleLaneOpacity.roundToInt()} %",
+                { value ->
+                    scaleLaneOpacity = value
+                    preferences.edit { putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()) }
+                    PersistentBridgeService.refresh(context)
+                },
+                {},
+            )
         }
-
-        Text(
-            "Farben gelten gemeinsam für eingeklappt und ausgeklappt. Punktgeometrie wird getrennt gespeichert.",
-            color = OneUiWidgetStyle.secondary,
-            style = oneUiMenuTypography.bodyMedium,
-        )
-        SugarliciousSettingSlider(
-            "Skalenbereich",
-            "Nur Graphfläche und Zielbereichslinien; Beschriftungen bleiben deckend",
-            scaleLaneOpacity,
-            0f..100f,
-            "${scaleLaneOpacity.roundToInt()} %",
-            { value ->
-                scaleLaneOpacity = value
-                preferences.edit { putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()) }
-                PersistentBridgeService.refresh(context)
-            },
-            {},
-        )
-
         Text(
             "EINGEKLAPPT",
             color = OneUiWidgetStyle.secondary,
@@ -1207,51 +1230,53 @@ internal fun NotificationGraphSettingsPanel() {
             modifier = Modifier.padding(top = 5.dp),
         )
         NotificationLayoutControls(
+            profileLabel = "Eingeklappt",
             value = collapsedLayout,
             onChange = {
                 collapsedLayout = it
                 saveLayout(NotificationGraphProfile.COLLAPSED, it)
             },
         )
-        SugarliciousSettingSlider(
-            title = "Punktgröße",
-            description = "CGM-Dots im eingeklappten Notification-Graph",
-            value = collapsedRadius,
-            valueRange = 1.5f..6f,
-            valueText = "${String.format(locale, "%.1f", collapsedRadius)} dp",
-            onValueChange = { collapsedRadius = it },
-            onValueChangeFinished = ::saveCollapsed,
-        )
-        GraphSettingSwitch(
-            title = "Historische Kontur",
-            description = "Kontur historischer CGM-Dots",
-            checked = collapsedOutlineEnabled,
-            onCheckedChange = {
-                collapsedOutlineEnabled = it
-                saveCollapsed()
-            },
-        )
-        if (collapsedOutlineEnabled) {
+        MobileSettingsObjectCard("Eingeklappt · CGM-Punkte") {
             SugarliciousSettingSlider(
-                title = "Konturdicke",
-                description = "Konturdicke im eingeklappten Notification-Graph",
-                value = collapsedOutlineWidth,
+                title = "Punktgröße",
+                description = "CGM-Dots im eingeklappten Notification-Graph",
+                value = collapsedRadius,
+                valueRange = 1.5f..6f,
+                valueText = "${String.format(locale, "%.1f", collapsedRadius)} dp",
+                onValueChange = { collapsedRadius = it },
+                onValueChangeFinished = ::saveCollapsed,
+            )
+            GraphSettingSwitch(
+                title = "Historische Kontur",
+                description = "Kontur historischer CGM-Dots",
+                checked = collapsedOutlineEnabled,
+                onCheckedChange = {
+                    collapsedOutlineEnabled = it
+                    saveCollapsed()
+                },
+            )
+            if (collapsedOutlineEnabled) {
+                SugarliciousSettingSlider(
+                    title = "Konturdicke",
+                    description = "Konturdicke im eingeklappten Notification-Graph",
+                    value = collapsedOutlineWidth,
+                    valueRange = 0.25f..3f,
+                    valueText = "${String.format(locale, "%.2f", collapsedOutlineWidth)} dp",
+                    onValueChange = { collapsedOutlineWidth = it },
+                    onValueChangeFinished = ::saveCollapsed,
+                )
+            }
+            SugarliciousSettingSlider(
+                title = "Aktuelle Konturdicke",
+                description = "Aktueller CGM-Dot (immer aktiv)",
+                value = collapsedCurrentOutlineWidth,
                 valueRange = 0.25f..3f,
-                valueText = "${String.format(locale, "%.2f", collapsedOutlineWidth)} dp",
-                onValueChange = { collapsedOutlineWidth = it },
+                valueText = "${String.format(locale, "%.2f", collapsedCurrentOutlineWidth)} dp",
+                onValueChange = { collapsedCurrentOutlineWidth = it },
                 onValueChangeFinished = ::saveCollapsed,
             )
         }
-        SugarliciousSettingSlider(
-            title = "Aktuelle Konturdicke",
-            description = "Aktueller CGM-Dot (immer aktiv)",
-            value = collapsedCurrentOutlineWidth,
-            valueRange = 0.25f..3f,
-            valueText = "${String.format(locale, "%.2f", collapsedCurrentOutlineWidth)} dp",
-            onValueChange = { collapsedCurrentOutlineWidth = it },
-            onValueChangeFinished = ::saveCollapsed,
-        )
-
         Text(
             "AUSGEKLAPPT",
             color = OneUiWidgetStyle.secondary,
@@ -1260,50 +1285,53 @@ internal fun NotificationGraphSettingsPanel() {
             modifier = Modifier.padding(top = 8.dp),
         )
         NotificationLayoutControls(
+            profileLabel = "Ausgeklappt",
             value = expandedLayout,
             onChange = {
                 expandedLayout = it
                 saveLayout(NotificationGraphProfile.EXPANDED, it)
             },
         )
-        SugarliciousSettingSlider(
-            title = "Punktgröße",
-            description = "CGM-Dots im ausgeklappten Notification-Graph",
-            value = expandedRadius,
-            valueRange = 1.5f..6f,
-            valueText = "${String.format(locale, "%.1f", expandedRadius)} dp",
-            onValueChange = { expandedRadius = it },
-            onValueChangeFinished = ::saveExpanded,
-        )
-        GraphSettingSwitch(
-            title = "Historische Kontur",
-            description = "Kontur historischer CGM-Dots",
-            checked = expandedOutlineEnabled,
-            onCheckedChange = {
-                expandedOutlineEnabled = it
-                saveExpanded()
-            },
-        )
-        if (expandedOutlineEnabled) {
+        MobileSettingsObjectCard("Ausgeklappt · CGM-Punkte") {
             SugarliciousSettingSlider(
-                title = "Konturdicke",
-                description = "Konturdicke im ausgeklappten Notification-Graph",
-                value = expandedOutlineWidth,
+                title = "Punktgröße",
+                description = "CGM-Dots im ausgeklappten Notification-Graph",
+                value = expandedRadius,
+                valueRange = 1.5f..6f,
+                valueText = "${String.format(locale, "%.1f", expandedRadius)} dp",
+                onValueChange = { expandedRadius = it },
+                onValueChangeFinished = ::saveExpanded,
+            )
+            GraphSettingSwitch(
+                title = "Historische Kontur",
+                description = "Kontur historischer CGM-Dots",
+                checked = expandedOutlineEnabled,
+                onCheckedChange = {
+                    expandedOutlineEnabled = it
+                    saveExpanded()
+                },
+            )
+            if (expandedOutlineEnabled) {
+                SugarliciousSettingSlider(
+                    title = "Konturdicke",
+                    description = "Konturdicke im ausgeklappten Notification-Graph",
+                    value = expandedOutlineWidth,
+                    valueRange = 0.25f..3f,
+                    valueText = "${String.format(locale, "%.2f", expandedOutlineWidth)} dp",
+                    onValueChange = { expandedOutlineWidth = it },
+                    onValueChangeFinished = ::saveExpanded,
+                )
+            }
+            SugarliciousSettingSlider(
+                title = "Aktuelle Konturdicke",
+                description = "Aktueller CGM-Dot (immer aktiv)",
+                value = expandedCurrentOutlineWidth,
                 valueRange = 0.25f..3f,
-                valueText = "${String.format(locale, "%.2f", expandedOutlineWidth)} dp",
-                onValueChange = { expandedOutlineWidth = it },
+                valueText = "${String.format(locale, "%.2f", expandedCurrentOutlineWidth)} dp",
+                onValueChange = { expandedCurrentOutlineWidth = it },
                 onValueChangeFinished = ::saveExpanded,
             )
         }
-        SugarliciousSettingSlider(
-            title = "Aktuelle Konturdicke",
-            description = "Aktueller CGM-Dot (immer aktiv)",
-            value = expandedCurrentOutlineWidth,
-            valueRange = 0.25f..3f,
-            valueText = "${String.format(locale, "%.2f", expandedCurrentOutlineWidth)} dp",
-            onValueChange = { expandedCurrentOutlineWidth = it },
-            onValueChangeFinished = ::saveExpanded,
-        )
         TextButton(
             onClick = {
                 val copied = NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
@@ -1318,19 +1346,10 @@ internal fun NotificationGraphSettingsPanel() {
             Text("VON EINGEKLAPPT ÜBERNEHMEN", color = OneUiWidgetStyle.primary, style = oneUiMenuTypography.bodyMedium, fontWeight = FontWeight.Bold)
         }
 
-        Text(
-            "FARBEN",
-            color = OneUiWidgetStyle.secondary,
-            style = oneUiMenuTypography.bodyMedium,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        roles.forEach { role ->
-            ColorSettingRow(
-                role = role,
-                argb = resolved(role),
-                onEdit = { editingRole = role },
-            )
+        roles.groupBy(::mobileAppearanceObjectTitle).forEach { (title, objectRoles) ->
+            MobileSettingsObjectCard("Benachrichtigung · $title") {
+                objectRoles.forEach { role -> ColorSettingRow(role = role, argb = resolved(role), onEdit = { editingRole = role }) }
+            }
         }
     }
 
@@ -1379,50 +1398,57 @@ internal fun NotificationGraphSettingsPanel() {
 
 @Composable
 private fun NotificationLayoutControls(
+    profileLabel: String,
     value: NotificationLayoutSettings,
     onChange: (NotificationLayoutSettings) -> Unit,
 ) {
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    SugarliciousSettingSlider("CGM-Größe", "Nur der Glukosewert", value.glucoseScalePercent.toFloat(), 70f..200f, "${value.glucoseScalePercent} %", {
-        onChange(value.copy(glucoseScalePercent = it.toInt()))
-    }, {})
-    SugarliciousSettingSlider("CGM X", "Relative horizontale Position", value.glucoseXPercent.toFloat(), -40f..40f, "${value.glucoseXPercent} %", {
-        onChange(value.copy(glucoseXPercent = it.toInt()))
-    }, {})
-    SugarliciousSettingSlider("CGM Y", "Relative vertikale Position", value.glucoseYPercent.toFloat(), -40f..40f, "${value.glucoseYPercent} %", {
-        onChange(value.copy(glucoseYPercent = it.toInt()))
-    }, {})
-    SugarliciousSettingSlider(
-        "Trendpfeilgröße",
-        if (value.trendScalePercent == null) "Systemstandard" else "Notification-Override",
-        (value.trendScalePercent ?: 100).toFloat(),
-        70f..200f,
-        value.trendScalePercent?.let { "$it %" } ?: "System",
-        { onChange(value.copy(trendScalePercent = it.toInt())) },
-        {},
-    )
-    OneUiResetIcon(onClick = { onChange(value.copy(trendScalePercent = null)) }, description = "Trendpfeilgröße auf Systemstandard zurücksetzen")
-    SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", {
-        onChange(value.copy(trendXPercent = it.toInt()))
-    }, {})
-    SugarliciousSettingSlider("Trend Y", "Relative vertikale Position", value.trendYPercent.toFloat(), -40f..40f, "${value.trendYPercent} %", {
-        onChange(value.copy(trendYPercent = it.toInt()))
-    }, {})
-    SugarliciousSettingSlider(
-        "Delta/Age-Größe",
-        "Sekundärzeile",
-        value.metaScalePercent.toFloat(),
-        70f..160f,
-        String.format(
-            locale,
-            "%d %%",
-            value.metaScalePercent,
-        ),
-        {
-            onChange(value.copy(metaScalePercent = it.toInt()))
-        },
-        {},
-    )
+    MobileSettingsObjectCard("$profileLabel · Glukosewert") {
+        SugarliciousSettingSlider("CGM-Größe", "Nur der Glukosewert", value.glucoseScalePercent.toFloat(), 70f..200f, "${value.glucoseScalePercent} %", {
+            onChange(value.copy(glucoseScalePercent = it.toInt()))
+        }, {})
+        SugarliciousSettingSlider("CGM X", "Relative horizontale Position", value.glucoseXPercent.toFloat(), -40f..40f, "${value.glucoseXPercent} %", {
+            onChange(value.copy(glucoseXPercent = it.toInt()))
+        }, {})
+        SugarliciousSettingSlider("CGM Y", "Relative vertikale Position", value.glucoseYPercent.toFloat(), -40f..40f, "${value.glucoseYPercent} %", {
+            onChange(value.copy(glucoseYPercent = it.toInt()))
+        }, {})
+    }
+    MobileSettingsObjectCard("$profileLabel · Trendpfeil") {
+        SugarliciousSettingSlider(
+            "Trendpfeilgröße",
+            if (value.trendScalePercent == null) "Systemstandard" else "Notification-Override",
+            (value.trendScalePercent ?: 100).toFloat(),
+            70f..200f,
+            value.trendScalePercent?.let { "$it %" } ?: "System",
+            { onChange(value.copy(trendScalePercent = it.toInt())) },
+            {},
+        )
+        OneUiResetIcon(onClick = { onChange(value.copy(trendScalePercent = null)) }, description = "Trendpfeilgröße auf Systemstandard zurücksetzen")
+        SugarliciousSettingSlider("Trend X", "Relative horizontale Position", value.trendXPercent.toFloat(), -40f..40f, "${value.trendXPercent} %", {
+            onChange(value.copy(trendXPercent = it.toInt()))
+        }, {})
+        SugarliciousSettingSlider("Trend Y", "Relative vertikale Position", value.trendYPercent.toFloat(), -40f..40f, "${value.trendYPercent} %", {
+            onChange(value.copy(trendYPercent = it.toInt()))
+        }, {})
+    }
+    MobileSettingsObjectCard("$profileLabel · Delta und Alter") {
+        SugarliciousSettingSlider(
+            "Delta/Age-Größe",
+            "Sekundärzeile",
+            value.metaScalePercent.toFloat(),
+            70f..160f,
+            String.format(
+                locale,
+                "%d %%",
+                value.metaScalePercent,
+            ),
+            {
+                onChange(value.copy(metaScalePercent = it.toInt()))
+            },
+            {},
+        )
+    }
 }
 
 internal fun toHex(argb: Int): String = ArgbColor.format(argb)

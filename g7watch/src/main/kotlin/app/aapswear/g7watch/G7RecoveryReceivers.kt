@@ -106,7 +106,7 @@ private object G7BootRecovery {
         // Boot removes OS alarms. Recreate the durable wake path before requesting the service:
         // an asynchronous foreground-start timeout cannot be caught by startForegroundService.
         G7ReconnectAlarmScheduler.ensureCollectorSchedule(context, state)
-        runCatching { G7CollectorService.start(context) }
+        runCatching { G7CollectorService.resumeEnabled(context) }
     }
 }
 

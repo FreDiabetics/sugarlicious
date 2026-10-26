@@ -62,7 +62,7 @@ internal fun applySourceControl(
     }
 
     if (!shouldResumeEnabledCollectorForSourceSignal(g7Selected, state.collectorEnabled)) return
-    runCatching { G7CollectorService.start(context) }
+    runCatching { G7CollectorService.resumeEnabled(context) }
 }
 
 private fun latestAlarmCandidate(

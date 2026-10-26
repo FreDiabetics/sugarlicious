@@ -207,6 +207,9 @@ internal class G7ReadingDatabase(
         publishChangedNow()
     }
 
+    /** Lifecycle-only changes also invalidate consumers of the retained reading stream. */
+    internal fun notifyCollectorStateChanged() = publishChangedNow()
+
     private fun publishChangedNow() {
         mutableLatest.value = query(limit = 1).firstOrNull()
         appContext.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)

@@ -105,7 +105,7 @@ class G7SystemStatusActivity : Activity() {
                     group("LIVE COLLECTOR STATUS", palette).apply {
                         val lastEvent = attempt?.events?.maxByOrNull { it.timestampEpochMs }
                         val livePhase = lastEvent?.stage?.name ?: userStatus.phase
-                        addView(row("Collector", if (state.collectorEnabled) "Aktiv" else "Inaktiv", palette))
+                        addView(row("Collector", if (state.collectorEnabled) "Aktiv" else "Pausiert", palette))
                         addView(row("Aktueller Zustand", livePhase, palette))
                         addView(
                             row(
@@ -193,7 +193,7 @@ class G7SystemStatusActivity : Activity() {
                         addView(row("Zustand", userStatus.title, palette))
                         addView(row("Status", userStatus.status, palette))
                         addView(row("Verbindung", state.connectionState.name, palette))
-                        addView(row("Collector", if (state.collectorEnabled) "Aktiviert" else "Gestoppt", palette))
+                        addView(row("Collector", if (state.collectorEnabled) "Aktiviert" else "Pausiert", palette))
                         addView(row("Phase", userStatus.phase, palette))
                         addView(row("Protokoll", state.protocolState.name, palette))
                         addView(row("Letzter Connect", formatTimestamp(state.lastSuccessfulConnectionEpochMs), palette))
@@ -420,8 +420,8 @@ class G7SystemStatusActivity : Activity() {
         )
         if (showPairingEditor || state.sensor == null) target.addView(pairingEditor(palette), buttonParams())
         target.addView(
-            pill(if (state.collectorEnabled) "Collector stoppen" else "Collector starten", palette, danger = state.collectorEnabled) {
-                if (state.collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
+            pill(if (state.collectorEnabled) "Sensorempfang pausieren" else "Sensorempfang fortsetzen", palette, danger = state.collectorEnabled) {
+                if (G7SensorStateStore(this).read().collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
                 Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
             },
             buttonParams(),

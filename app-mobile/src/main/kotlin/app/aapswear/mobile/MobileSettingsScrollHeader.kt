@@ -29,3 +29,28 @@ internal data class SettingsCompactTitleLayout(
 
 internal fun settingsCompactTitleLayout(availableWidthDp: Float, textHeightDp: Float, startDp: Float = 52f): SettingsCompactTitleLayout =
     SettingsCompactTitleLayout(startDp, (availableWidthDp - startDp - 16f).coerceAtLeast(1f), (textHeightDp + 16f).coerceAtLeast(56f))
+
+internal data class SettingsSubmenuHeaderState(
+    val compactTitleAlpha: Float,
+    val expandedTitleAlpha: Float,
+    val backCircleAlpha: Float,
+    val compactTitleOffsetDp: Float,
+)
+
+/** The button remains fixed; only title opacity/offset and the real expandable header change. */
+internal fun settingsSubmenuHeaderState(
+    scrollDp: Float,
+    expansionDp: Float,
+    maximumExpansionDp: Float,
+    firstCardTopDp: Float,
+    backBottomDp: Float = 52f,
+): SettingsSubmenuHeaderState {
+    val scroll = scrollDp.coerceAtLeast(0f)
+    val expansion = (expansionDp / maximumExpansionDp.coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val compact = (1f - scroll / 20f).coerceIn(0f, 1f) * (1f - expansion / .4f).coerceIn(0f, 1f)
+    val expanded =
+        ((expansion - .25f) / .5f).coerceIn(0f, 1f) *
+            (1f - scroll / (expansionDp * .7f).coerceAtLeast(1f)).coerceIn(0f, 1f)
+    val gap = firstCardTopDp - scroll - backBottomDp
+    return SettingsSubmenuHeaderState(compact, expanded, ((14f - gap) / 10f).coerceIn(0f, 1f), -6f * (1f - compact))
+}

@@ -20,6 +20,10 @@ class DashboardScrollView
     ) : ScrollView(context, attrs, defStyleAttr) {
         var isUserScrollEnabled: Boolean = true
         var sectionSnapEnabled: Boolean = false
+        var topPullEnabled: Boolean = false
+        var onTopPull: ((Float) -> Unit)? = null
+        var onTopPullFinished: (() -> Unit)? = null
+        private var topPullTracking = false
         private var downX = 0f
         private var downY = 0f
         private var gestureStartX = 0f
@@ -85,13 +89,18 @@ class DashboardScrollView
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.x
                     downY = event.y
+                    topPullTracking = false
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> return false
                 MotionEvent.ACTION_MOVE -> {
                     if (event.pointerCount > 1) return false
                     val dx = kotlin.math.abs(event.x - downX)
-                    val dy = kotlin.math.abs(event.y - downY)
-                    if (dx > dy) return false
+                    val dy = event.y - downY
+                    if (topPullEnabled && scrollY == 0 && dy > ViewConfiguration.get(context).scaledTouchSlop && dy > dx) {
+                        topPullTracking = true
+                        return true
+                    }
+                    if (dx > kotlin.math.abs(dy)) return false
                 }
             }
             return super.onInterceptTouchEvent(event)
@@ -99,6 +108,21 @@ class DashboardScrollView
 
         override fun onTouchEvent(event: MotionEvent): Boolean {
             if (!isUserScrollEnabled) return false
+            if (!topPullTracking && topPullEnabled && scrollY == 0 && event.actionMasked == MotionEvent.ACTION_MOVE && event.pointerCount == 1) {
+                val dy = event.y - downY
+                val dx = kotlin.math.abs(event.x - downX)
+                if (dy > ViewConfiguration.get(context).scaledTouchSlop && dy > dx) topPullTracking = true
+            }
+            if (topPullTracking) {
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_MOVE -> onTopPull?.invoke(((event.y - downY) * .55f).coerceAtLeast(0f))
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        topPullTracking = false
+                        onTopPullFinished?.invoke()
+                    }
+                }
+                return true
+            }
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.x

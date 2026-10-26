@@ -116,75 +116,77 @@ internal object G7ReconnectAlarmScheduler {
         requestedReconnectEpochMs: Long,
         expectedReadingEpochMs: Long = requestedReconnectEpochMs + G7ReconnectScheduler.PRECONNECT_LEAD_MS,
         directReconnect: Boolean = false,
-    ): CollectorCycleTiming {
-        val app = context.applicationContext
+    ): CollectorCycleTiming =
+        synchronized(G7SensorStateStore.lifecycleLock) {
+            if (!G7SensorStateStore(context).read().collectorEnabled) throw kotlinx.coroutines.CancellationException("Collector paused")
+            val app = context.applicationContext
 
-        if (directReconnect) {
-            G7AdvertisementWakeScheduler.disarm(app)
-        } else {
-            G7AdvertisementWakeScheduler.arm(app)
-        }
+            if (directReconnect) {
+                G7AdvertisementWakeScheduler.disarm(app)
+            } else {
+                G7AdvertisementWakeScheduler.arm(app)
+            }
 
-        val strategyRequest =
-            alignReconnectRequestToStrategy(
-                requestedReconnectEpochMs,
-                expectedReadingEpochMs,
-                directReconnect,
-            )
-        val triggerAt = maxOf(strategyRequest, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
-        val pending = reconnectPendingIntent(app)
-        val alarmManager = app.getSystemService(AlarmManager::class.java)
-        val exactAllowed = alarmManager.canScheduleExactAlarms()
-        val exactScheduled =
-            if (exactAllowed) {
-                runCatching {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-                    true
-                }.getOrElse {
+            val strategyRequest =
+                alignReconnectRequestToStrategy(
+                    requestedReconnectEpochMs,
+                    expectedReadingEpochMs,
+                    directReconnect,
+                )
+            val triggerAt = maxOf(strategyRequest, System.currentTimeMillis() + MIN_TRIGGER_LEAD_MS)
+            val pending = reconnectPendingIntent(app)
+            val alarmManager = app.getSystemService(AlarmManager::class.java)
+            val exactAllowed = alarmManager.canScheduleExactAlarms()
+            val exactScheduled =
+                if (exactAllowed) {
+                    runCatching {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+                        true
+                    }.getOrElse {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+                        false
+                    }
+                } else {
                     alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
                     false
                 }
-            } else {
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-                false
+            val power = app.getSystemService(PowerManager::class.java)
+            val cycle =
+                canonicalCollectorCycle(
+                    ledger = G7ExpectedWindowLedger(app),
+                    requestedReconnectEpochMs = triggerAt,
+                    expectedReadingEpochMs = expectedReadingEpochMs,
+                    exactScheduled = exactScheduled,
+                    canScheduleExactAlarms = exactAllowed,
+                    batteryUnrestricted = G7BackgroundAccess.isBatteryUnrestricted(app),
+                    deviceIdleMode = power.isDeviceIdleMode,
+                    isInteractive = power.isInteractive,
+                    charging = runCatching { app.getSystemService(BatteryManager::class.java).isCharging }.getOrNull(),
+                )
+            G7CollectorDiagnosticStore(app).stageScheduledCycle(cycle)
+            G7SensorWindowWatchdog.arm(app, cycle)
+            CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+                app.recordG7Diagnostic(
+                    "EXPECTED_WINDOW_CREATED",
+                    "EXPECTED_WINDOW_CREATED · Primary und Watchdog armiert",
+                    DiagnosticSeverity.INFO,
+                    mapOf(
+                        "expectedWindowId" to cycle.expectedWindowId,
+                        "expectedAt" to cycle.expectedReadingEpoch,
+                        "primaryAlarmScheduledAt" to triggerAt,
+                        "watchdogScheduledAt" to
+                            (requireNotNull(cycle.expectedReadingEpoch) + G7SensorWindowWatchdog.WINDOW_TOLERANCE_MS),
+                    ),
+                )
+                app.recordG7Diagnostic(
+                    "PRIMARY_ALARM_ARMED",
+                    "PRIMARY_ALARM_ARMED · ${cycle.alarmKind.name}",
+                    DiagnosticSeverity.INFO,
+                    mapOf("expectedWindowId" to cycle.expectedWindowId, "requestedReconnectEpoch" to triggerAt),
+                )
             }
-        val power = app.getSystemService(PowerManager::class.java)
-        val cycle =
-            canonicalCollectorCycle(
-                ledger = G7ExpectedWindowLedger(app),
-                requestedReconnectEpochMs = triggerAt,
-                expectedReadingEpochMs = expectedReadingEpochMs,
-                exactScheduled = exactScheduled,
-                canScheduleExactAlarms = exactAllowed,
-                batteryUnrestricted = G7BackgroundAccess.isBatteryUnrestricted(app),
-                deviceIdleMode = power.isDeviceIdleMode,
-                isInteractive = power.isInteractive,
-                charging = runCatching { app.getSystemService(BatteryManager::class.java).isCharging }.getOrNull(),
-            )
-        G7CollectorDiagnosticStore(app).stageScheduledCycle(cycle)
-        G7SensorWindowWatchdog.arm(app, cycle)
-        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            app.recordG7Diagnostic(
-                "EXPECTED_WINDOW_CREATED",
-                "EXPECTED_WINDOW_CREATED · Primary und Watchdog armiert",
-                DiagnosticSeverity.INFO,
-                mapOf(
-                    "expectedWindowId" to cycle.expectedWindowId,
-                    "expectedAt" to cycle.expectedReadingEpoch,
-                    "primaryAlarmScheduledAt" to triggerAt,
-                    "watchdogScheduledAt" to
-                        (requireNotNull(cycle.expectedReadingEpoch) + G7SensorWindowWatchdog.WINDOW_TOLERANCE_MS),
-                ),
-            )
-            app.recordG7Diagnostic(
-                "PRIMARY_ALARM_ARMED",
-                "PRIMARY_ALARM_ARMED · ${cycle.alarmKind.name}",
-                DiagnosticSeverity.INFO,
-                mapOf("expectedWindowId" to cycle.expectedWindowId, "requestedReconnectEpoch" to triggerAt),
-            )
+            cycle
         }
-        return cycle
-    }
 
     fun cancel(context: Context) {
         val app = context.applicationContext

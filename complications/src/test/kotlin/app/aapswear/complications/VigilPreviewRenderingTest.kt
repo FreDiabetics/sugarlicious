@@ -55,7 +55,9 @@ class VigilPreviewRenderingTest {
             val slot = slots.item(index) as Element
             val images = slot.getElementsByTagName("PartImage")
             val handsHidden =
-                slot.getAttribute("slotId") in setOf("7", "8") &&
+                // The analog glucose overlay follows the same showHands condition as
+                // the native hands and center action; digital defaults hide all three.
+                slot.getAttribute("slotId") in setOf("7", "8", "9") &&
                     document.documentElement.getElementsByTagName("BooleanConfiguration").let { configs ->
                         (0 until configs.length).map { configs.item(it) as Element }.single { it.getAttribute("id") == "showHands" }.getAttribute("defaultValue") != "TRUE"
                     }

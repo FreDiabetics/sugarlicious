@@ -72,7 +72,9 @@ object G7LocalReadingResolver {
         val snapshot = (providerOutcome as? DirectProviderOutcome.Success)?.snapshot
         val directRows = snapshot?.readings.orEmpty()
         val directStatus = snapshot?.status
-        val latestDirectEvent = directRows.maxByOrNull(DirectReading::measuredAt)
+        // Persisted rows remain history during a manual pause, never a live source candidate.
+        val directEnabled = directStatus?.collectorEnabled != false
+        val latestDirectEvent = directRows.takeIf { directEnabled }?.maxByOrNull(DirectReading::measuredAt)
         val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
         val mobileCandidate =
             fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
@@ -174,7 +176,7 @@ object G7LocalReadingResolver {
             source = chosenSource,
             sourceVersion = sourceVersion,
             sourceContract =
-                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${directStatus?.sessionState ?: "UNINITIALIZED"}:PROVIDER_${providerOutcome.code}",
+                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${if (!directEnabled) "PAUSED" else directStatus?.sessionState ?: "UNINITIALIZED"}:PROVIDER_${providerOutcome.code}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
                     ?: chosenGlucose?.receivedAtEpochMs

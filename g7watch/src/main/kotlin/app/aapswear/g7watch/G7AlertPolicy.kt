@@ -24,6 +24,7 @@ internal object G7AlertPolicyStore {
         context: Context,
         nowEpochMs: Long = System.currentTimeMillis(),
     ): Boolean {
+        if (!G7SensorStateStore(context).read().collectorEnabled) return false
         val preferences =
             context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return preferences.getBoolean(KEY_ALARMS_ENABLED, false) ||
@@ -138,7 +139,8 @@ internal object G7SignalLossMonitor {
         context: Context,
         requestedAtEpochMs: Long,
         nowEpochMs: Long = System.currentTimeMillis(),
-    ) {
+    ) = synchronized(G7SensorStateStore.lifecycleLock) {
+        if (!G7SensorStateStore(context).read().collectorEnabled) return@synchronized
         val app = context.applicationContext
         val alarmManager = app.getSystemService(AlarmManager::class.java)
         val triggerAt = maxOf(requestedAtEpochMs, nowEpochMs + MIN_TRIGGER_LEAD_MS)

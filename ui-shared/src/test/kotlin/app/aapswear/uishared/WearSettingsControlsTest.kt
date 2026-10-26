@@ -55,4 +55,40 @@ class WearSettingsControlsTest {
         touch(MotionEvent.ACTION_UP, 20f, 20f)
         assertTrue(toggle.isChecked)
     }
+
+    @Test fun `vertical drag across slider never starts tracking or writes a value`() {
+        val slider =
+            ScrollSafeSeekBar(context).apply {
+                max = 100
+                progress = 30
+                layout(0, 0, 240, 60)
+            }
+        var writes = 0
+        slider.setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) writes++
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar?) {
+                    writes++
+                }
+
+                override fun onStopTrackingTouch(bar: SeekBar?) {
+                    writes++
+                }
+            },
+        )
+        listOf(
+            Triple(MotionEvent.ACTION_DOWN, 150f, 20f),
+            Triple(MotionEvent.ACTION_MOVE, 155f, 120f),
+            Triple(MotionEvent.ACTION_CANCEL, 155f, 120f),
+        ).forEach { (action, x, y) ->
+            val event = MotionEvent.obtain(0, 20, action, x, y, 0)
+            slider.onTouchEvent(event)
+            event.recycle()
+        }
+        assertEquals(30, slider.progress)
+        assertEquals(0, writes)
+    }
 }

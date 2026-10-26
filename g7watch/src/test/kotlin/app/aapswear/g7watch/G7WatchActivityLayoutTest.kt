@@ -44,14 +44,17 @@ class G7WatchActivityLayoutTest {
     fun `appearance exposes a complete independent WearOS tile graph section`() {
         val activity = Robolectric.buildActivity(G7AppearanceActivity::class.java).setup().get()
         val text = mutableListOf<String>()
-        collectText(activity.window.decorView, text)
+        val tileGraphTitle = findText(activity.window.decorView, "WearOS-Tile · Graph")
+        assertNotNull("Tile graph must have its own element card", tileGraphTitle)
+        collectText(tileGraphTitle!!.parent as android.view.View, text)
 
-        assertTrue(text.contains("WEAROS-TILE GRAPH"))
+        assertTrue(text.contains("WearOS-Tile · Graph"))
         assertTrue(text.any { it.startsWith("Punktgröße") })
         assertTrue(text.contains(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE))
         assertFalse(text.contains("Kontur · aktueller Wert"))
         assertTrue(text.any { it.startsWith("Aktuell ·") })
-        assertTrue(text.any { it.startsWith("Konturdicke") })
+        assertTrue(text.any { it.startsWith("Historisch ·") })
+        assertFalse(text.any { it.startsWith("Deckkraft ·") })
         assertTrue(text.contains("Zeitachse"))
         assertTrue(text.any { it.startsWith("Eckenradius") })
         assertTrue(text.any { it.startsWith("Skalenbereich-Deckkraft") })
@@ -390,10 +393,22 @@ class G7WatchActivityLayoutTest {
         assertTrue(texts.any { it.startsWith("Aktuell ·") })
         assertFalse("Range-Hintergrundfärbung" in texts)
         assertTrue("Prognose · Zero Temp" in texts)
-        assertTrue("GLUKOSE · EINHEIT" in texts)
-        assertTrue("GLUKOSE · ZIELBEREICH" in texts)
-        assertTrue("WATCHFACE · SKALA UND ALTER" in texts)
-        assertTrue("WATCHFACE · UHRZEIT" in texts)
+        val settingsRoot = activity.findViewById<android.view.View>(android.R.id.content)
+
+        fun cardText(title: String): List<String> {
+            val heading = findText(settingsRoot, title)
+            assertNotNull("Missing element card: $title", heading)
+            return mutableListOf<String>().also { collectText(heading!!.parent as android.view.View, it) }
+        }
+        val glucose = cardText("Glukose")
+        assertTrue("mg/dL" in glucose)
+        assertTrue("Zielbereich" in glucose)
+        assertTrue("Zuckerwert fett" in glucose)
+        assertTrue(cardText("Alter und Skala").any { it.startsWith("Größe ·") })
+        assertTrue("Farbe" in cardText("Uhrzeit"))
+        assertTrue("Füllfarbe" in cardText("Trendpfeil"))
+        assertTrue("LOW-Bereich" in cardText("Graph"))
+        assertTrue(AppearanceTerminology.DELTA_UNIT in cardText("Delta und Einheit"))
         assertTrue("Farbe" in texts)
         assertTrue("Fett" in texts)
     }
@@ -657,6 +672,7 @@ class G7WatchActivityLayoutTest {
         G7SensorStateStore(context).save(
             G7SensorStateStore(context).read().copy(
                 sensor = G7Sensor(reading.sensorId, reading.sessionId),
+                collectorEnabled = true,
                 lastReading = reading,
             ),
         )

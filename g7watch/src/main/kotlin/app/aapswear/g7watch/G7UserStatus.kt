@@ -14,6 +14,7 @@ internal enum class G7StatusPillState(
     val title: String,
 ) {
     CONNECTED("Verbunden"),
+    PAUSED("Sensorempfang pausiert"),
     SIGNAL_LOSS("Signalverlust"),
     SENSOR_ERROR("Sensorfehler"),
     NO_ACTIVE_SENSOR("Kein aktiver Sensor gekoppelt"),
@@ -25,9 +26,10 @@ internal fun deriveG7StatusPillState(
     nowEpochMs: Long = System.currentTimeMillis(),
 ): G7StatusPillState {
     val sensor = state.sensor
-    if (!state.collectorEnabled || sensor == null || !credentialsPresent || sensor.state == G7SensorState.ENDED) {
+    if (sensor == null || !credentialsPresent || sensor.state == G7SensorState.ENDED) {
         return G7StatusPillState.NO_ACTIVE_SENSOR
     }
+    if (!state.collectorEnabled) return G7StatusPillState.PAUSED
     if (sensor.state == G7SensorState.ERROR || state.lastReading?.status == CgmReadingStatus.SENSOR_ERROR) {
         return G7StatusPillState.SENSOR_ERROR
     }
@@ -64,11 +66,11 @@ internal fun deriveG7UserStatus(
     if (!state.collectorEnabled) {
         return G7UserStatus(
             G7UserStatusLevel.OFF,
-            "Collector inaktiv",
-            "Aus",
-            "Gestoppt",
-            "Der direkte Sensorempfang ist deaktiviert.",
-            "Zum direkten Empfang „Collector starten“ wählen.",
+            "Sensorempfang pausiert",
+            "Pause",
+            "Pausiert",
+            "Keine Sensorverbindungen oder Sensoralarme. Kopplung, Sensorcode, Sitzung und Messhistorie bleiben erhalten.",
+            "Zum direkten Empfang „Sensorempfang fortsetzen“ wählen.",
         )
     }
     if (state.sensor == null) {

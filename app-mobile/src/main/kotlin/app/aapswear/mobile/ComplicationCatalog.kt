@@ -474,87 +474,89 @@ private fun ComplicationAppearanceControls(
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("Diese Einstellungen ändern nur die Vorschauen im Watch-Menü. Die Darstellung auf der Uhr bestimmt das Ziffernblatt.", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
         if (hasTrend) {
-            Text(
-                "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
-                color = OneUiWidgetStyle.secondary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            SugarliciousSettingSliderControl(
-                label = "Trendpfeil-Größe",
-                value = (appearance.trendScalePercent ?: GlucoseTrendSizing.DEFAULT_SCALE_PERCENT).toFloat(),
-                onValueChange = {
-                    val size = it.toInt().coerceIn(70, 200)
-                    update(
-                        appearance.copy(
-                            trendScalePercent = size,
-                            trendStyleOverride = appearance.trendStyleOverride.copy(sizePercent = size),
-                        ),
-                    )
-                },
-                valueRange = 70f..200f,
-            )
-            Text("POSITION X · ${appearance.trendOffsetXPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
-            SugarliciousSettingSliderControl(
-                label = "Trendpfeil Position X",
-                value = appearance.trendOffsetXPercent.toFloat(),
-                onValueChange = { update(appearance.copy(trendOffsetXPercent = it.toInt())) },
-                valueRange =
-                    -50f..50f,
-            )
-            Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
-            SugarliciousSettingSliderControl(
-                label = "Trendpfeil Position Y",
-                value = appearance.trendOffsetYPercent.toFloat(),
-                onValueChange = { update(appearance.copy(trendOffsetYPercent = it.toInt())) },
-                valueRange =
-                    -50f..50f,
-            )
-            val resolvedTrend = appearance.trendStyleOverride.resolve(MobileTrendArrowAppearance.style)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("KONTUR", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                WidgetSettingsToggle(
-                    checked = resolvedTrend.outlineEnabled,
-                    onCheckedChange = {
-                        update(
-                            appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineEnabled = it)),
-                        )
-                    },
-                )
-            }
-            if (resolvedTrend.outlineEnabled) {
+            MobileSettingsObjectCard("Trendpfeil") {
                 Text(
-                    "KONTURDICKE · ${String.format(Locale.GERMANY, "%.2f", resolvedTrend.outlineThicknessDp)} dp",
+                    "TRENDPFEIL · ${appearance.trendScalePercent?.let { "$it %" } ?: "Systemstandard"}",
                     color = OneUiWidgetStyle.secondary,
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
                 )
                 SugarliciousSettingSliderControl(
-                    label = "Trendpfeil-Konturdicke",
-                    value = resolvedTrend.outlineThicknessDp,
+                    label = "Trendpfeil-Größe",
+                    value = (appearance.trendScalePercent ?: GlucoseTrendSizing.DEFAULT_SCALE_PERCENT).toFloat(),
                     onValueChange = {
-                        update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it)))
+                        val size = it.toInt().coerceIn(70, 200)
+                        update(
+                            appearance.copy(
+                                trendScalePercent = size,
+                                trendStyleOverride = appearance.trendStyleOverride.copy(sizePercent = size),
+                            ),
+                        )
                     },
+                    valueRange = 70f..200f,
+                )
+                Text("POSITION X · ${appearance.trendOffsetXPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                SugarliciousSettingSliderControl(
+                    label = "Trendpfeil Position X",
+                    value = appearance.trendOffsetXPercent.toFloat(),
+                    onValueChange = { update(appearance.copy(trendOffsetXPercent = it.toInt())) },
                     valueRange =
-                        0.25f..4f,
+                        -50f..50f,
+                )
+                Text("POSITION Y · ${appearance.trendOffsetYPercent}", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                SugarliciousSettingSliderControl(
+                    label = "Trendpfeil Position Y",
+                    value = appearance.trendOffsetYPercent.toFloat(),
+                    onValueChange = { update(appearance.copy(trendOffsetYPercent = it.toInt())) },
+                    valueRange =
+                        -50f..50f,
+                )
+                val resolvedTrend = appearance.trendStyleOverride.resolve(MobileTrendArrowAppearance.style)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("KONTUR", color = OneUiWidgetStyle.secondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    WidgetSettingsToggle(
+                        checked = resolvedTrend.outlineEnabled,
+                        onCheckedChange = {
+                            update(
+                                appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineEnabled = it)),
+                            )
+                        },
+                    )
+                }
+                if (resolvedTrend.outlineEnabled) {
+                    Text(
+                        "KONTURDICKE · ${String.format(Locale.GERMANY, "%.2f", resolvedTrend.outlineThicknessDp)} dp",
+                        color = OneUiWidgetStyle.secondary,
+                        fontSize = 13.sp,
+                    )
+                    SugarliciousSettingSliderControl(
+                        label = "Trendpfeil-Konturdicke",
+                        value = resolvedTrend.outlineThicknessDp,
+                        onValueChange = {
+                            update(appearance.copy(trendStyleOverride = appearance.trendStyleOverride.copy(outlineThicknessDp = it)))
+                        },
+                        valueRange =
+                            0.25f..4f,
+                    )
+                }
+                Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
+                SugarliciousSettingSliderControl(label = "Trendpfeil-Deckkraft", value = resolvedTrend.alpha * 100f, onValueChange = {
+                    update(
+                        appearance.copy(
+                            trendStyleOverride =
+                                appearance.trendStyleOverride.copy(
+                                    alpha =
+                                        it / 100f,
+                                ),
+                        ),
+                    )
+                }, valueRange = 0f..100f)
+                OneUiResetIcon(
+                    onClick = { update(ComplicationAppearanceSettings()) },
+                    modifier = Modifier.align(Alignment.End),
+                    description = "Complication-Darstellung auf Systemstandard zurücksetzen",
                 )
             }
-            Text("DECKKRAFT · ${(resolvedTrend.alpha * 100).toInt()} %", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
-            SugarliciousSettingSliderControl(label = "Trendpfeil-Deckkraft", value = resolvedTrend.alpha * 100f, onValueChange = {
-                update(
-                    appearance.copy(
-                        trendStyleOverride =
-                            appearance.trendStyleOverride.copy(
-                                alpha =
-                                    it / 100f,
-                            ),
-                    ),
-                )
-            }, valueRange = 0f..100f)
-            OneUiResetIcon(
-                onClick = { update(ComplicationAppearanceSettings()) },
-                modifier = Modifier.align(Alignment.End),
-                description = "Complication-Darstellung auf Systemstandard zurücksetzen",
-            )
         } else {
             Text(
                 "Textgröße und Position dieser Vorlage werden vom jeweiligen Watchface-Slot bestimmt.",

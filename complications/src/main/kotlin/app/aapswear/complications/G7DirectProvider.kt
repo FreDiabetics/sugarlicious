@@ -22,6 +22,7 @@ internal data class DirectReading(
 internal data class DirectStatus(
     val sensorState: String,
     val sessionState: String,
+    val collectorEnabled: Boolean = true,
 )
 
 internal data class DirectSnapshot(
@@ -72,6 +73,7 @@ internal class AndroidDirectCgmProvider(
             DirectStatus(
                 sensorState = cursor.requiredString("sensor_state"),
                 sessionState = cursor.requiredString("session_state"),
+                collectorEnabled = cursor.getInt(cursor.requiredIndex("collector_enabled")) == 1,
             )
         }
 

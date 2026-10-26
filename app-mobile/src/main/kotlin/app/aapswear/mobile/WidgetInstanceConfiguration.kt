@@ -790,11 +790,14 @@ class WidgetConfigurationActivity : ComponentActivity() {
                         Modifier
                             .fillMaxSize()
                             .statusBarsPadding()
-                            .padding(top = compactSettingsTitle.heightDp.dp)
+                            .padding(top = compactSettingsTitle.heightDp.dp + 32.dp)
                             .padding(horizontal = 10.dp)
                             .verticalScroll(settingsScroll),
                         verticalArrangement = Arrangement.spacedBy(20.dp),
                     ) {
+                        if (LocalWidgetHeaderExpansionDp.current > 0f) {
+                            Spacer(Modifier.height(LocalWidgetHeaderExpansionDp.current.dp))
+                        }
                         WidgetConfigurationPreview(
                             widgetKind,
                             value,
@@ -812,7 +815,10 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 selectedMode = resolveSettingsAppearance(it, deviceUsesDarkMode(this@WidgetConfigurationActivity))
                             }
                         }
-                        WidgetSettingsSection("Deckkraft") {
+                        WidgetSettingsSection("Farbvariante") {
+                            WidgetAppearanceModeRow(selectedMode) { selectedMode = it }
+                        }
+                        WidgetSettingsSection("Widget-Hintergrund und Form") {
                             OneUiWidgetSeekBar("Deckkraft", (Color.alpha(appearance.backgroundArgb) * 100f / 255f).roundToInt(), 0..100) {
                                 value =
                                     value.withBackground(
@@ -821,10 +827,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                             .setAlphaComponent(appearance.backgroundArgb, (it * 255f / 100f).roundToInt()),
                                     )
                             }
-                            androidx.compose.material3.HorizontalDivider(color = OneUiWidgetStyle.secondary.copy(alpha = .25f))
-                            WidgetAppearanceModeRow(selectedMode) { selectedMode = it }
-                        }
-                        WidgetSettingsSection("Allgemein") {
                             WidgetToggleSetting("Hintergrund anzeigen", appearance.backgroundEnabled) { value = value.withBackgroundEnabled(selectedMode, it) }
                             WidgetColorSetting("Hintergrund", appearance.backgroundArgb, { editBackground = true })
                             WidgetToggleSetting("Kontur anzeigen", appearance.outlineEnabled) { value = value.withOutlineEnabled(selectedMode, it) }
@@ -855,39 +857,43 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 }
                             }
                             if (widgetKind == ConfigurableWidgetKind.GLUCOSE) {
-                                WidgetSettingsSection("Delta und Alter") {
-                                    WidgetToggleSetting("Delta fett", if (detailText) value.detailDeltaBold else value.deltaBold) {
+                                WidgetSettingsSection("Delta") {
+                                    WidgetToggleSetting("Fett", if (detailText) value.detailDeltaBold else value.deltaBold) {
                                         value = if (detailText) value.copy(detailDeltaBold = it) else value.copy(deltaBold = it)
                                     }
-                                    WidgetToggleSetting("Alter fett", if (detailText) value.detailAgeBold else value.ageBold) {
+                                    if (!automaticShape) WidgetToggleSetting("Anzeigen", value.showDelta) { value = value.copy(showDelta = it) }
+                                    WidgetPercentSlider("Größe", value.deltaScalePercent) { value = value.copy(deltaScalePercent = it) }
+                                    WidgetPercentSlider("Position X", value.deltaOffsetXDp, -40..40, "dp") { value = value.copy(deltaOffsetXDp = it) }
+                                    WidgetPercentSlider("Position Y", value.deltaOffsetYDp, -40..40, "dp") { value = value.copy(deltaOffsetYDp = it) }
+                                    val roles = listOf(WidgetColorRole.DELTA) + if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) listOf(WidgetColorRole.DELTA_ICON, WidgetColorRole.DELTA_SYMBOL) else emptyList()
+                                    roles.forEach { role -> WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role } }
+                                }
+                                WidgetSettingsSection("Alter") {
+                                    WidgetToggleSetting("Fett", if (detailText) value.detailAgeBold else value.ageBold) {
                                         value = if (detailText) value.copy(detailAgeBold = it) else value.copy(ageBold = it)
                                     }
-                                    if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) {
-                                        WidgetToggleSetting("Zeit im Ziel fett", value.tirBold) { value = value.copy(tirBold = it) }
+                                    if (!automaticShape) WidgetToggleSetting("Anzeigen", value.showAge) { value = value.copy(showAge = it) }
+                                    WidgetPercentSlider("Größe", value.ageScalePercent) { value = value.copy(ageScalePercent = it) }
+                                    WidgetPercentSlider("Position X", value.ageOffsetXDp, -40..40, "dp") { value = value.copy(ageOffsetXDp = it) }
+                                    WidgetPercentSlider("Position Y", value.ageOffsetYDp, -40..40, "dp") { value = value.copy(ageOffsetYDp = it) }
+                                    val roles = listOf(WidgetColorRole.AGE) + if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) listOf(WidgetColorRole.AGE_ICON, WidgetColorRole.AGE_SYMBOL) else emptyList()
+                                    roles.forEach { role -> WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role } }
+                                }
+                                if (!automaticShape) {
+                                    WidgetSettingsSection("Maßeinheit") {
+                                        WidgetPercentSlider("Größe", value.unitScalePercent) { value = value.copy(unitScalePercent = it) }
+                                        WidgetPercentSlider("Position X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
+                                        WidgetPercentSlider("Position Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
+                                        WidgetColorSetting(WidgetColorRole.UNIT.label, appearance.colorOverrides[WidgetColorRole.UNIT] ?: resetPalette.argb(WidgetColorRole.UNIT)) { editRole = WidgetColorRole.UNIT }
                                     }
-                                    if (!automaticShape) {
-                                        WidgetToggleSetting("Delta anzeigen", value.showDelta) { value = value.copy(showDelta = it) }
-                                        WidgetToggleSetting("Alter anzeigen", value.showAge) { value = value.copy(showAge = it) }
-                                    }
-                                    listOf(
-                                        Triple("Delta", value.deltaScalePercent, { v: Int -> value = value.copy(deltaScalePercent = v) }),
-                                        Triple("Alter", value.ageScalePercent, { v: Int -> value = value.copy(ageScalePercent = v) }),
-                                        Triple("Maßeinheit", value.unitScalePercent, { v: Int -> value = value.copy(unitScalePercent = v) }),
-                                    ).filter { !automaticShape || it.first != "Maßeinheit" }
-                                        .forEach { (label, setting, update) -> WidgetPercentSlider("$label Größe", setting, onChange = update) }
-                                    WidgetPercentSlider("Delta X", value.deltaOffsetXDp, -40..40, "dp") { value = value.copy(deltaOffsetXDp = it) }
-                                    WidgetPercentSlider("Delta Y", value.deltaOffsetYDp, -40..40, "dp") { value = value.copy(deltaOffsetYDp = it) }
-                                    WidgetPercentSlider("Alter X", value.ageOffsetXDp, -40..40, "dp") { value = value.copy(ageOffsetXDp = it) }
-                                    WidgetPercentSlider("Alter Y", value.ageOffsetYDp, -40..40, "dp") { value = value.copy(ageOffsetYDp = it) }
-                                    if (!automaticShape) {
-                                        WidgetPercentSlider("Maßeinheit X", value.unitOffsetXDp, -40..40, "dp") { value = value.copy(unitOffsetXDp = it) }
-                                        WidgetPercentSlider("Maßeinheit Y", value.unitOffsetYDp, -40..40, "dp") { value = value.copy(unitOffsetYDp = it) }
-                                    }
-                                    (listOf(WidgetColorRole.DELTA, WidgetColorRole.AGE, WidgetColorRole.UNIT) + if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) listOf(WidgetColorRole.TIR, WidgetColorRole.DELTA_ICON, WidgetColorRole.AGE_ICON, WidgetColorRole.TIR_ICON, WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL) else emptyList())
-                                        .filter { !automaticShape || it != WidgetColorRole.UNIT }
-                                        .forEach { role ->
-                                            WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role })
+                                }
+                                if (automaticShape && familyLayout != WidgetFamilyLayout.COMPACT_2X1) {
+                                    WidgetSettingsSection("Zeit im Ziel") {
+                                        WidgetToggleSetting("Fett", value.tirBold) { value = value.copy(tirBold = it) }
+                                        listOf(WidgetColorRole.TIR, WidgetColorRole.TIR_ICON, WidgetColorRole.TIR_SYMBOL).forEach { role ->
+                                            WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role }
                                         }
+                                    }
                                 }
                             }
                             if (automaticShape && familyLayout == WidgetFamilyLayout.WIDE_4X2) {
@@ -959,25 +965,20 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     WidgetPercentSlider("Trennlinie · Höhe", value.splitDividerHeightPercent, 10..100) { value = value.copy(splitDividerHeightPercent = it) }
                                 }
                             }
-                            WidgetSettingsSection("Schriftstärken") {
-                                TherapyProgressMetric.entries.forEach { metric ->
+                            TherapyProgressSettings(
+                                appearance = value.therapyProgressAppearance,
+                                capacity = if (automaticShape && familyLayout == WidgetFamilyLayout.COMPACT_2X1) 2 else 3,
+                                metricControls = { metric ->
                                     val textKey = "${metric.name}.primary"
-                                    WidgetToggleSetting("${metric.displayLabel()} · Wert fett", value.therapyTextBold[textKey] ?: true) {
+                                    WidgetToggleSetting("Wert fett", value.therapyTextBold[textKey] ?: true) {
                                         value = value.copy(therapyTextBold = value.therapyTextBold + (textKey to it))
                                     }
-                                }
-                            }
-                            TherapyProgressSettings(
-                                value.therapyProgressAppearance,
-                                if (automaticShape && familyLayout == WidgetFamilyLayout.COMPACT_2X1) 2 else 3,
-                            ) {
-                                value = value.copy(therapyProgressAppearance = it)
-                            }
-                            WidgetSettingsSection("Farben der Progressanzeigen") {
-                                WidgetColorRole.entries.filter { it.sourceRole != null && !it.name.endsWith("_SECONDARY") }.forEach { role ->
-                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role), { editRole = role })
-                                }
-                            }
+                                    WidgetColorRole.entries.filter { it.sourceRole != null && !it.name.endsWith("_SECONDARY") && it.name.startsWith("${metric.name}_") }.forEach { role ->
+                                        WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role }
+                                    }
+                                },
+                                onChange = { value = value.copy(therapyProgressAppearance = it) },
+                            )
                         }
                         if (graphSettingsVisible) {
                             WidgetSettingsSection("Graph") {
@@ -989,13 +990,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                 WidgetToggleSetting("Graphbeschriftung fett", value.graphLabelBold) { value = value.copy(graphLabelBold = it) }
                                 WidgetToggleSetting("Zeitskala fett", value.graphTimeAxisBold) { value = value.copy(graphTimeAxisBold = it) }
                                 WidgetToggleSetting("Hoch-/Tief-Skala fett", value.graphValueAxisBold) { value = value.copy(graphValueAxisBold = it) }
-                                WidgetPercentSlider(
-                                    "CGM-Dot-Größe",
-                                    (value.cgmDotRadiusDp * 10f).roundToInt(),
-                                    15..60,
-                                    " ×0,1 dp",
-                                    (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
-                                ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
                                 WidgetPercentSlider(
                                     "Graph-Eckenradius",
                                     value.graphCornerRadiusDp,
@@ -1019,30 +1013,25 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                         WidgetScaleMode.LOGARITHMIC -> "Logarithmisch"
                                     }
                                 }) { value = value.copy(scaleMode = it) }
-                                listOf(
-                                    WidgetColorRole.GRAPH_BACKGROUND,
-                                    WidgetColorRole.RANGE_HIGH,
-                                    WidgetColorRole.RANGE_IN_RANGE,
-                                    WidgetColorRole.RANGE_LOW,
-                                    WidgetColorRole.HIGH_LINE,
-                                    WidgetColorRole.LOW_LINE,
-                                    WidgetColorRole.DOT_HIGH,
-                                    WidgetColorRole.DOT_IN_RANGE,
-                                    WidgetColorRole.DOT_LOW,
-                                    WidgetColorRole.AXIS,
-                                    WidgetColorRole.HIGH_REGION_LABEL,
-                                    WidgetColorRole.AXIS_TICK,
-                                    WidgetColorRole.DIVIDER,
-                                ).forEach { role ->
-                                    WidgetColorSetting(
-                                        role.label,
-                                        appearance.colorOverrides[role]
-                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
-                                        {
-                                            editRole =
-                                                role
-                                        },
-                                    )
+                                listOf(WidgetColorRole.GRAPH_BACKGROUND, WidgetColorRole.AXIS, WidgetColorRole.HIGH_REGION_LABEL, WidgetColorRole.AXIS_TICK, WidgetColorRole.DIVIDER).forEach { role ->
+                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role }
+                                }
+                            }
+                            WidgetSettingsSection("Zielbereiche im Graph") {
+                                listOf(WidgetColorRole.RANGE_HIGH, WidgetColorRole.RANGE_IN_RANGE, WidgetColorRole.RANGE_LOW, WidgetColorRole.HIGH_LINE, WidgetColorRole.LOW_LINE).forEach { role ->
+                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role }
+                                }
+                            }
+                            WidgetSettingsSection("CGM-Punkte") {
+                                WidgetPercentSlider(
+                                    "CGM-Dot-Größe",
+                                    (value.cgmDotRadiusDp * 10f).roundToInt(),
+                                    15..60,
+                                    " ×0,1 dp",
+                                    (CgmGraphVisualPolicy.DOT_RADIUS_DP * 10f).roundToInt(),
+                                ) { value = value.copy(cgmDotRadiusDp = it / 10f) }
+                                listOf(WidgetColorRole.DOT_HIGH, WidgetColorRole.DOT_IN_RANGE, WidgetColorRole.DOT_LOW).forEach { role ->
+                                    WidgetColorSetting(role.label, appearance.colorOverrides[role] ?: resetPalette.argb(role)) { editRole = role }
                                 }
                                 WidgetToggleSetting(app.aapswear.model.AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, value.historicalDotOutlineEnabled) { value = value.copy(historicalDotOutlineEnabled = it) }
                                 if (value.historicalDotOutlineEnabled) {
@@ -1274,6 +1263,7 @@ internal fun WidgetSettingsActionPill(
 private fun TherapyProgressSettings(
     appearance: TherapyProgressAppearance,
     capacity: Int,
+    metricControls: @androidx.compose.runtime.Composable (TherapyProgressMetric) -> Unit,
     onChange: (TherapyProgressAppearance) -> Unit,
 ) {
     fun updateGlobal(transform: (TherapyMetricAppearance) -> TherapyMetricAppearance) =
@@ -1287,7 +1277,7 @@ private fun TherapyProgressSettings(
         onChange(appearance.copy(metricOverrides = appearance.metricOverrides + (metric to transform(current))).validated())
     }
 
-    WidgetSettingsSection("Progressanzeigen") {
+    WidgetSettingsSection("Therapieanzeigen · Anordnung") {
         Text("Anzeigen · maximal $capacity", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         val visibleMetrics =
             TherapyProgressMetric.entries
@@ -1320,9 +1310,12 @@ private fun TherapyProgressSettings(
         WidgetPercentSlider("Icon", appearance.global.iconPercent, 50..180) {
             updateGlobal { value -> value.copy(iconPercent = it) }
         }
-        TherapyProgressMetric.entries.forEach { metric ->
-            val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
-            Text(metric.displayLabel(), color = OneUiWidgetStyle.link, fontWeight = FontWeight.Bold)
+        OneUiResetIcon(onClick = { onChange(TherapyProgressAppearance()) }, description = "Progressanzeigen zurücksetzen")
+    }
+    TherapyProgressMetric.entries.forEach { metric ->
+        val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
+        WidgetSettingsSection(metric.displayLabel()) {
+            metricControls(metric)
             WidgetPercentSlider("Gesamtgröße", local.overallScalePercent, 60..140) {
                 updateMetric(metric) { value -> value.copy(overallScalePercent = it) }
             }
@@ -1336,7 +1329,6 @@ private fun TherapyProgressSettings(
                 updateMetric(metric) { value -> value.copy(iconPercent = it) }
             }
         }
-        OneUiResetIcon(onClick = { onChange(TherapyProgressAppearance()) }, description = "Progressanzeigen zurücksetzen")
     }
 }
 
@@ -1520,7 +1512,8 @@ private fun WidgetSettingsSection(
 ) {
     Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(30.dp), modifier = modifier.fillMaxWidth().settingsSnapHeading(title)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, color = OneUiWidgetStyle.accent, fontWeight = FontWeight.Medium, fontSize = 18.sp)
+            Text(title, color = OneUiWidgetStyle.primary, fontWeight = FontWeight.Bold, style = oneUiMenuTypography.titleMedium)
+            androidx.compose.material3.HorizontalDivider(color = OneUiWidgetStyle.secondary.copy(alpha = .16f))
             content()
         }
     }
