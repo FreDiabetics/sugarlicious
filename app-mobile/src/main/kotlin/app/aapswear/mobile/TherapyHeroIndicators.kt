@@ -150,7 +150,7 @@ internal fun TherapyIndicatorRow(
     indicators: List<TherapyIndicatorPresentation>,
     modifier: Modifier = Modifier,
 ) {
-    BoxWithConstraints(modifier = modifier.padding(horizontal = 1.dp)) {
+    BoxWithConstraints(modifier = modifier.padding(horizontal = 1.dp), contentAlignment = Alignment.Center) {
         val fontScale = LocalDensity.current.fontScale
         val spaceForThree = (maxWidth.value - 12f) / 3f
         val diameter = if (spaceForThree >= 66f * fontScale) minOf(76f * fontScale, spaceForThree) else 76f * fontScale
