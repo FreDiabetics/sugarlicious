@@ -5,6 +5,7 @@
     <UserConfigurations>
         <BooleanConfiguration id="showHands" displayName="hands_visibility" defaultValue="FALSE" />
         <BooleanConfiguration id="showDigitalTime" displayName="digital_time_visibility" defaultValue="TRUE" />
+        <BooleanConfiguration id="showSecondHand" displayName="seconds_visibility" defaultValue="TRUE" />
         <ColorConfiguration id="secondColor" displayName="seconds_color" defaultValue="red">
             <ColorOption id="red" displayName="seconds_red" colors="#FFFF3B30" />
             <ColorOption id="gray" displayName="seconds_gray" colors="#FF9E9E9E" />
@@ -134,22 +135,22 @@
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="205">
+        <ComplicationSlot slotId="1" displayName="Vigil glucose graph" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="140" width="450" height="285">
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="450" height="205" />
+            <BoundingBox x="0" y="0" width="450" height="285" />
             <Complication type="SMALL_IMAGE">
-                <PartImage x="0" y="0" width="450" height="205">
+                <PartImage x="0" y="0" width="450" height="285">
                     <Variant mode="AMBIENT" target="alpha" value="0" />
                     <Image resource="[COMPLICATION.SMALL_IMAGE]" />
                 </PartImage>
-                <PartImage x="0" y="0" width="450" height="205" alpha="0">
+                <PartImage x="0" y="0" width="450" height="285" alpha="0">
                     <Variant mode="AMBIENT" target="alpha" value="255" />
                     <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
                 </PartImage>
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
-        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="16" y="146" width="180" height="34">
+        <ComplicationSlot slotId="2" displayName="Vigil scale and age" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="40" y="146" width="180" height="34">
             <Variant mode="AMBIENT" target="alpha" value="0" />
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchStatusComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingBox x="0" y="0" width="180" height="34" />
@@ -179,6 +180,50 @@
                                 <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
                             </PartImage>
                         </Group>
+                    </Compare>
+                </Condition>
+            </Complication>
+            <Complication type="EMPTY" />
+        </ComplicationSlot>
+        <ComplicationSlot slotId="9" displayName="Vigil analog glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="0" width="450" height="450">
+            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchAnalogHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+            <BoundingBox x="0" y="0" width="450" height="450" />
+            <Complication type="SMALL_IMAGE">
+                <Condition>
+                    <Expressions>
+                        <Expression name="analogLayout">[CONFIGURATION.showHands] == "TRUE"</Expression>
+                    </Expressions>
+                    <Compare expression="analogLayout">
+                        <Condition>
+                            <Expressions>
+                                <Expression name="analogclose">[CONFIGURATION.markerSet] == "close"</Expression>
+                            </Expressions>
+                            <Compare expression="analogclose">
+                                <PartImage x="0" y="0" width="450" height="450" alpha="255">
+                                    <Variant mode="AMBIENT" target="alpha" value="0" />
+                                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
+                                </PartImage>
+                                <PartImage x="0" y="0" width="450" height="450" alpha="0">
+                                    <Variant mode="AMBIENT" target="alpha" value="255" />
+                                    <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
+                                </PartImage>
+                            </Compare>
+                        </Condition>
+                        <Condition>
+                            <Expressions>
+                                <Expression name="analogwide">[CONFIGURATION.markerSet] == "wide"</Expression>
+                            </Expressions>
+                            <Compare expression="analogwide">
+                                <PartImage x="0" y="0" width="450" height="450" alpha="255">
+                                    <Variant mode="AMBIENT" target="alpha" value="0" />
+                                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
+                                </PartImage>
+                                <PartImage x="0" y="0" width="450" height="450" alpha="0">
+                                    <Variant mode="AMBIENT" target="alpha" value="255" />
+                                    <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
+                                </PartImage>
+                            </Compare>
+                        </Condition>
                     </Compare>
                 </Condition>
             </Complication>
@@ -216,6 +261,11 @@
                                         <Fill color="#FF000000" />
                                     </Ellipse>
                                 </PartDraw>
+                                <Condition>
+                                    <Expressions>
+                                        <Expression name="secondsVisible">[CONFIGURATION.showSecondHand] == "TRUE"</Expression>
+                                    </Expressions>
+                                    <Compare expression="secondsVisible">
                                 <AnalogClock x="0" y="0" width="450" height="450">
                                     <Variant mode="AMBIENT" target="alpha" value="0" />
                                     <SecondHand resource="second_hand_transparent" x="2" y="3" width="450" height="450" pivotX="0.5" pivotY="0.5" tintColor="#A0000000">
@@ -228,54 +278,12 @@
                                         <Sweep frequency="15" />
                                     </SecondHand>
                                 </AnalogClock>
+                                    </Compare>
+                                </Condition>
                             </Group>
                         </Compare>
                     </Condition>
                 </Group>
-            </Complication>
-            <Complication type="EMPTY" />
-        </ComplicationSlot>
-        <ComplicationSlot slotId="9" displayName="Vigil analog glucose" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="0" width="450" height="450">
-            <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchAnalogHeaderComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
-            <BoundingBox x="0" y="0" width="450" height="450" />
-            <Complication type="SMALL_IMAGE">
-                <Condition>
-                    <Expressions>
-                        <Expression name="analogLayout">[CONFIGURATION.showHands] == "TRUE"</Expression>
-                    </Expressions>
-                    <Compare expression="analogLayout">
-                        <Condition>
-                            <Expressions>
-                                <Expression name="analogclose">[CONFIGURATION.markerSet] == "close"</Expression>
-                            </Expressions>
-                            <Compare expression="analogclose">
-                                <PartImage x="0" y="0" width="450" height="450" alpha="255">
-                                    <Variant mode="AMBIENT" target="alpha" value="0" />
-                                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
-                                </PartImage>
-                                <PartImage x="0" y="0" width="450" height="450" alpha="0">
-                                    <Variant mode="AMBIENT" target="alpha" value="255" />
-                                    <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
-                                </PartImage>
-                            </Compare>
-                        </Condition>
-                        <Condition>
-                            <Expressions>
-                                <Expression name="analogwide">[CONFIGURATION.markerSet] == "wide"</Expression>
-                            </Expressions>
-                            <Compare expression="analogwide">
-                                <PartImage x="0" y="-14" width="450" height="477" alpha="255">
-                                    <Variant mode="AMBIENT" target="alpha" value="0" />
-                                    <Image resource="[COMPLICATION.SMALL_IMAGE]" />
-                                </PartImage>
-                                <PartImage x="0" y="-14" width="450" height="477" alpha="0">
-                                    <Variant mode="AMBIENT" target="alpha" value="255" />
-                                    <Image resource="[COMPLICATION.SMALL_IMAGE_AMBIENT]" />
-                                </PartImage>
-                            </Compare>
-                        </Condition>
-                    </Compare>
-                </Condition>
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
@@ -289,6 +297,12 @@
             </Complication>
             <Complication type="EMPTY" />
         </ComplicationSlot>
+        <Group name="vigil-open-sensor" x="105" y="358" width="240" height="56">
+            <Launch target="app.aapswear.g7watch/app.aapswear.g7watch.G7WatchActivity" />
+        </Group>
+        <Group name="vigil-open-sugarwear" x="75" y="28" width="300" height="108">
+            <Launch target="app.aapswear.g7watch/app.aapswear.g7watch.G7WatchActivity" />
+        </Group>
         <ComplicationSlot slotId="8" displayName="Vigil center tap" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="200" y="200" width="50" height="50">
             <DefaultProviderPolicy primaryProvider="app.aapswear.g7watch/app.aapswear.complications.DirectToWatchHandsToggleComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
             <BoundingOval x="0" y="0" width="50" height="50" />

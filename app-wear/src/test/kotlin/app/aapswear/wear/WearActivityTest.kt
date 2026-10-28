@@ -229,7 +229,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata stays on one line across the full round safe card width`() {
+    fun `glucose metadata uses stacked rows with white values and smaller gray units`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -237,7 +237,6 @@ class WearActivityTest {
                 .start()
                 .resume()
                 .get()
-        val colors = WearDisplayPreferences.read(activity).uiColors
         val root = activity.findViewById<View>(R.id.wear_root)
         val info = activity.findViewById<ViewGroup>(R.id.wear_glucose_info_block)
         val primary = activity.findViewById<ViewGroup>(R.id.wear_glucose_primary_row)
@@ -249,9 +248,9 @@ class WearActivityTest {
         val density = activity.resources.displayMetrics.density
 
         glucose.text = "123"
-        delta.text = "Δ − · mg/dL"
-        age.text = ""
-        age.visibility = View.GONE
+        delta.text = app.aapswear.uishared.glucoseMetadataText("-5 mg/dL")
+        age.text = app.aapswear.uishared.glucoseMetadataText("vor 2 Min")
+        age.visibility = View.VISIBLE
         trend.visibility = View.VISIBLE
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
@@ -268,8 +267,13 @@ class WearActivityTest {
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
-        assertEquals(colors.textSecondary, delta.currentTextColor)
-        assertEquals(View.GONE, age.visibility)
+        assertEquals(android.graphics.Color.WHITE, delta.currentTextColor)
+        val styled = delta.text as android.text.Spanned
+        assertTrue(styled.getSpans(0, styled.length, android.text.style.RelativeSizeSpan::class.java).isNotEmpty())
+        assertTrue(styled.getSpans(0, styled.length, android.text.style.ForegroundColorSpan::class.java).any { it.foregroundColor == android.graphics.Color.rgb(181, 181, 181) })
+        assertEquals(View.VISIBLE, age.visibility)
+        assertTrue(delta.bottom <= age.top)
+        assertEquals(1, age.lineCount)
         assertTrue(info.measuredWidth > primary.measuredWidth)
         assertEquals(info.measuredWidth, meta.measuredWidth)
         assertEquals(1, delta.lineCount)

@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +21,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -147,13 +150,15 @@ internal fun TherapyIndicatorRow(
     indicators: List<TherapyIndicatorPresentation>,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
-        modifier = modifier.padding(horizontal = 1.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
-    ) {
-        indicators.forEach { indicator ->
-            TherapyCircularIndicator(indicator, Modifier)
+    BoxWithConstraints(modifier = modifier.padding(horizontal = 1.dp)) {
+        val fontScale = LocalDensity.current.fontScale
+        val spaceForThree = (maxWidth.value - 12f) / 3f
+        val diameter = if (spaceForThree >= 66f * fontScale) minOf(76f * fontScale, spaceForThree) else 76f * fontScale
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        ) {
+            indicators.forEach { indicator -> TherapyCircularIndicator(indicator, Modifier, diameter) }
         }
     }
 }
@@ -162,8 +167,19 @@ internal fun TherapyIndicatorRow(
 private fun TherapyCircularIndicator(
     indicator: TherapyIndicatorPresentation,
     modifier: Modifier,
+    diameterDp: Float,
 ) {
     val accent = SugarliciousColors.color(indicator.colorRole)
+    val density = LocalDensity.current
+    val proportionalScale = diameterDp / (66f * density.fontScale)
+    val measurer = rememberTextMeasurer()
+
+    fun fittedSize(value: String, baseSp: Int): Float {
+        val nominal = baseSp * proportionalScale
+        val measured = measurer.measure(value, TextStyle(fontSize = nominal.sp, fontWeight = FontWeight.Bold), softWrap = false).size.width
+        val available = with(density) { (diameterDp * .76f).dp.toPx() }
+        return nominal * minOf(1f, available / measured.coerceAtLeast(1))
+    }
     Box(
         modifier =
             modifier.semantics {
@@ -177,10 +193,10 @@ private fun TherapyCircularIndicator(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.size((66f * LocalDensity.current.fontScale).dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(diameterDp.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val geometry = TherapyRingGeometry()
-                val stroke = geometry.strokeWidthDp.dp.toPx()
+                val stroke = (geometry.strokeWidthDp * proportionalScale).dp.toPx()
                 val inset = stroke / 2f
                 val arcSize = Size(size.width - stroke, size.height - stroke)
                 drawArc(
@@ -205,11 +221,11 @@ private fun TherapyCircularIndicator(
                 }
             }
             Column(
-                modifier = Modifier.align(Alignment.Center).padding(top = 3.dp),
+                modifier = Modifier.align(Alignment.Center).padding(top = (3f * proportionalScale).dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                val valueTextSize = therapyIndicatorFontSizeSp(indicator.value)
+                val valueTextSize = fittedSize(indicator.value, therapyIndicatorFontSizeSp(indicator.value))
                 Text(
                     indicator.value,
                     color = SugarliciousColors.TextPrimary,
@@ -221,7 +237,7 @@ private fun TherapyCircularIndicator(
                     softWrap = false,
                 )
                 indicator.secondary?.let {
-                    val secondaryTextSize = therapyIndicatorSecondaryFontSizeSp(it)
+                    val secondaryTextSize = fittedSize(it, therapyIndicatorSecondaryFontSizeSp(it))
                     Text(
                         it,
                         color = SugarliciousColors.TextSecondary,
@@ -236,7 +252,7 @@ private fun TherapyCircularIndicator(
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).size((indicator.iconSizeDp * LocalDensity.current.fontScale).dp),
+                Modifier.align(Alignment.BottomCenter).size((indicator.iconSizeDp * LocalDensity.current.fontScale * proportionalScale).dp),
                 accent,
             )
         }

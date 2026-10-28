@@ -371,7 +371,7 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         scope.launch {
             TherapyStateStore(this@MainActivity).state.collectLatest {
-                state = it?.mobileAndroidApsOnly()
+                state = it?.mobilePhoneSourcesOnly()
                 getSharedPreferences("diagnostics", MODE_PRIVATE).edit {
                     putLong("mobileObservedAt", System.currentTimeMillis())
                 }
@@ -606,7 +606,7 @@ class MainActivity : ComponentActivity() {
         findViewById<TextView>(R.id.app_title)
             .setTextColor(text)
 
-        findViewById<ImageView>(R.id.brand_logo).imageTintList = ColorStateList.valueOf(text)
+        findViewById<ImageView>(R.id.brand_logo).imageTintList = ColorStateList.valueOf(SugarliciousColors.argb(SugarliciousColorRole.BRAND_GREEN))
         findViewById<ImageView>(R.id.top_back).imageTintList = ColorStateList.valueOf(text)
         findViewById<ImageView>(R.id.top_settings).imageTintList = ColorStateList.valueOf(text)
         updateTopBar()
@@ -717,12 +717,10 @@ class MainActivity : ComponentActivity() {
                     } else {
                         ""
                     }
+                title.text = brandedSettingsTitle(title.text.toString())
                 title.textSize = 20f
                 title.typeface = android.graphics.Typeface.DEFAULT
-                val accent =
-                    app.aapswear.mobile.ui.theme
-                        .mobileMenuAccentArgb(this, dark = !SugarliciousColors.palette.isLight)
-                title.setTextColor(accent)
+                title.setTextColor(MobileSettingsStyle.text(SugarliciousColors.palette.isLight))
                 findViewById<ImageView>(R.id.top_back).apply {
                     layoutParams =
                         layoutParams.apply {
@@ -735,7 +733,7 @@ class MainActivity : ComponentActivity() {
                         }
                     setPadding(13.dp, 13.dp, 13.dp, 13.dp)
                     setImageResource(R.drawable.ic_oneui_back)
-                    imageTintList = ColorStateList.valueOf(accent)
+                    imageTintList = ColorStateList.valueOf(MobileSettingsStyle.text(SugarliciousColors.palette.isLight))
                 }
             }
         }
@@ -816,9 +814,6 @@ class MainActivity : ComponentActivity() {
         }
         scroll.topPullExpanded = submenuExpansionPx > 0f
         if (submenuExpansionView() == null) {
-            val accent =
-                app.aapswear.mobile.ui.theme
-                    .mobileMenuAccentArgb(this, dark = !SugarliciousColors.palette.isLight)
             content.addView(
                 android.widget.FrameLayout(this).apply {
                     tag = "settings_submenu_expansion"
@@ -827,11 +822,11 @@ class MainActivity : ComponentActivity() {
                     addView(
                         TextView(this@MainActivity).apply {
                             alpha = 0f
-                            text = factory.settingsTitle
+                            text = brandedSettingsTitle(factory.settingsTitle)
                             textSize = 34f
                             typeface = android.graphics.Typeface.DEFAULT
                             gravity = android.view.Gravity.CENTER
-                            setTextColor(accent)
+                            setTextColor(MobileSettingsStyle.text(SugarliciousColors.palette.isLight))
                             setPadding(16.dp, 0, 16.dp, 0)
                             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                         },
@@ -896,8 +891,8 @@ class MainActivity : ComponentActivity() {
             findViewById<TextView>(R.id.app_title).apply {
                 alpha = state.compactTitleAlpha
                 translationY = state.compactTitleOffsetDp * density
-                scaleX = .96f + .04f * state.compactTitleAlpha
-                scaleY = scaleX
+                scaleX = 1f
+                scaleY = 1f
             }
             heading?.apply {
                 alpha = state.expandedTitleAlpha

@@ -64,7 +64,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -125,13 +124,25 @@ internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), con
         } else {
             if (dark) darkColorScheme() else lightColorScheme()
         }
-    val accent =
-        if (Build.VERSION.SDK_INT >= 31 && Build.MANUFACTURER.equals("samsung", true)) {
-            colorResource(if (dark) android.R.color.system_accent1_200 else android.R.color.system_accent1_600)
-        } else {
-            platformScheme.primary
-        }
-    val scheme = platformScheme.copy(primary = accent, onPrimary = oneUiButtonContentColor(accent), surface = UiColor(0xFF1C1C1C), onSurface = UiColor.White, onSurfaceVariant = UiColor.White, secondary = UiColor.White)
+    val brand = app.aapswear.uishared.SugarliciousAccentPalette
+    val accent = UiColor(brand.primary(dark))
+    val scheme =
+        platformScheme.copy(
+            primary = accent,
+            onPrimary = UiColor(brand.onPrimary),
+            primaryContainer = UiColor(brand.container),
+            onPrimaryContainer = UiColor(brand.secondary),
+            secondary = UiColor(brand.secondary),
+            onSecondary = UiColor.Black,
+            secondaryContainer = UiColor(brand.container),
+            onSecondaryContainer = UiColor(brand.secondary),
+            tertiary = UiColor(brand.tertiary),
+            onTertiary = UiColor.Black,
+            inversePrimary = accent,
+            surface = UiColor(0xFF1C1C1C),
+            onSurface = UiColor.White,
+            onSurfaceVariant = UiColor.White,
+        )
     val colors =
         if (dark) {
             OneUiWidgetSettingsColors(accent = scheme.primary)
@@ -237,8 +248,8 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            title,
-                            color = OneUiWidgetStyle.accent,
+                            brandedSettingsTitleText(title),
+                            color = OneUiWidgetStyle.primary,
                             style = oneUiMenuTypography.headlineLarge.copy(fontSize = 34.sp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 16.dp).graphicsLayer { alpha = headerState.expandedTitleAlpha },

@@ -18,8 +18,8 @@ class WearGlucoseCardPresentationTest {
                 now,
             )
         assertEquals("123", result.value)
-        assertEquals("+4 mg/dL · 2m", result.primaryMeta)
-        assertEquals("", result.secondaryMeta)
+        assertEquals("+4 mg/dL", result.primaryMeta)
+        assertEquals("vor 2 Min", result.secondaryMeta)
         assertEquals(Trend.FORTY_FIVE_UP, result.trend)
         assertFalse(result.secondaryMeta.contains("Aktuell", ignoreCase = true))
     }
@@ -55,8 +55,8 @@ class WearGlucoseCardPresentationTest {
                 now,
             )
 
-        assertEquals("— mg/dL · 0m", result.primaryMeta)
-        assertEquals("", result.secondaryMeta)
+        assertEquals("— mg/dL", result.primaryMeta)
+        assertEquals("vor 0 Min", result.secondaryMeta)
     }
 
     @Test
@@ -68,7 +68,7 @@ class WearGlucoseCardPresentationTest {
                 now,
             )
         assertEquals("14.0", result.value)
-        assertEquals("-0.3 mmol/L · 0m", result.primaryMeta)
+        assertEquals("-0.3 mmol/L", result.primaryMeta)
         assertEquals(CgmRangeClass.VERY_HIGH, result.rangeClass)
         assertTrue(result.displayable)
     }

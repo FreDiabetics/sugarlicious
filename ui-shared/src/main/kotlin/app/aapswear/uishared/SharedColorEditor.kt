@@ -8,7 +8,6 @@ import android.text.Editable
 import android.text.InputFilter
 import android.text.InputType
 import android.text.TextWatcher
-import android.view.HapticFeedbackConstants
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -305,7 +304,7 @@ object SharedColorEditor {
         context: Activity,
     ) : ScrollView(context) {
         private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
-        private var lastRotaryHapticAt = Long.MIN_VALUE
+        private val rotaryFeedback = WearRotaryFeedback(this)
 
         init {
             isFocusable = true
@@ -325,10 +324,7 @@ object SharedColorEditor {
                 val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * 0.55f).roundToInt()
                 val before = scrollY
                 if (delta != 0) scrollBy(0, delta)
-                if (scrollY != before && (lastRotaryHapticAt == Long.MIN_VALUE || event.eventTime - lastRotaryHapticAt >= 40L)) {
-                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    lastRotaryHapticAt = event.eventTime
-                }
+                rotaryFeedback.onScroll(event, scrollY - before)
                 awakenScrollBars()
                 return true
             }

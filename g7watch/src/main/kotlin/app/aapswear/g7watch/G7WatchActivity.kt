@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -19,6 +20,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.view.isVisible
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
 import app.aapswear.g7.G7PersistedState
@@ -33,7 +35,6 @@ import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.cgmBoundaryDisplay
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.uishared.TrendDrawableResources
-import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
@@ -79,6 +80,7 @@ internal fun advanceG7PairingScreen(
 ): G7PairingScreenStep =
     if (
         current == G7PairingScreenStep.CONNECTING &&
+        !state.sensor?.deviceAddress.isNullOrBlank() &&
         hasUsableCollectorSession(state.lastReading, state.sensor?.sensorId)
     ) {
         G7PairingScreenStep.CONNECTED
@@ -153,6 +155,7 @@ class G7WatchActivity : Activity() {
     internal var executeAssociationTask: (() -> Unit) -> Unit = { pairingExecutor.execute(it) }
     private var pairingCompletionScheduled = false
     private var pairingErrorCode: String? = null
+    private var renderedPairingProgress: G7PairingProgress? = null
     private var pairingStartedAtEpochMs = Long.MAX_VALUE
     private var pairingFailureMessage: String? = null
     private var pairingScrollView: ScrollView? = null
@@ -179,14 +182,29 @@ class G7WatchActivity : Activity() {
     private val graphClockRefresh =
         object : Runnable {
             override fun run() {
-                if (!isFinishing && !isDestroyed && screenBuilt) refreshLiveContent()
-                val now = System.currentTimeMillis()
-                mainHandler.postDelayed(this, 60_000L - now % 60_000L)
+                if (!isFinishing && !isDestroyed && screenBuilt && G7SensorStateStore(this@G7WatchActivity).read().collectorEnabled) refreshLiveContent()
+            }
+        }
+    private var overviewResumed = false
+    private val collectorPreferences by lazy { getSharedPreferences("g7_collector_state", MODE_PRIVATE) }
+    private val collectorPhaseRefresh = Runnable { if (overviewResumed && screenBuilt && !pairingGateVisible) refreshLiveContent() }
+    private val collectorPhaseListener =
+        android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "state" && overviewResumed && screenBuilt && !pairingGateVisible) {
+                val transition = G7CollectorUiTransitionStore.read(this)
+                if (transition != null && (collectorAttemptPresentation(G7SensorStateStore(this).read(), transition, System.currentTimeMillis()) != null || collectorAttemptLabel.isVisible)) {
+                    mainHandler.removeCallbacks(collectorPhaseRefresh)
+                    mainHandler.postDelayed(collectorPhaseRefresh, 50L)
+                }
             }
         }
     private val mainHandler = Handler(Looper.getMainLooper())
     private lateinit var scrollView: ScrollView
     private lateinit var statusHost: LinearLayout
+    private lateinit var signalLossHeader: app.aapswear.uishared.SignalLossWarningView
+    private lateinit var collectorStatusTitle: TextView
+    private lateinit var collectorAttemptLabel: TextView
+    private val attemptExpiryRefresh = Runnable { if (screenBuilt && !pairingGateVisible) refreshLiveContent() }
     private lateinit var glucoseHost: LinearLayout
     private lateinit var graphView: G7CollectorGraphView
     private lateinit var graphPeriodPill: TextView
@@ -238,19 +256,32 @@ class G7WatchActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        overviewResumed = true
+        collectorPreferences.registerOnSharedPreferenceChangeListener(collectorPhaseListener)
         // Rehydrate the separately installed Vigil complication provider as well. This also
         // repairs settings after that package was reinstalled while SugarWear data stayed intact.
         directSettings.sync()
         registerReadingObserver()
         refreshScreen()
+        scheduleOverviewClock()
+    }
+
+    private fun scheduleOverviewClock() {
         mainHandler.removeCallbacks(graphClockRefresh)
-        val now = System.currentTimeMillis()
-        mainHandler.postDelayed(graphClockRefresh, 60_000L - now % 60_000L)
+        val state = G7SensorStateStore(this).read()
+        if (overviewResumed && !pairingGateVisible && state.collectorEnabled && state.sensor != null) {
+            val now = System.currentTimeMillis()
+            mainHandler.postDelayed(graphClockRefresh, 60_000L - now % 60_000L)
+        }
     }
 
     override fun onPause() {
+        overviewResumed = false
+        collectorPreferences.unregisterOnSharedPreferenceChangeListener(collectorPhaseListener)
+        mainHandler.removeCallbacks(collectorPhaseRefresh)
         mainHandler.removeCallbacks(pairingRefresh)
         mainHandler.removeCallbacks(graphClockRefresh)
+        mainHandler.removeCallbacks(attemptExpiryRefresh)
         unregisterReadingObserver()
         super.onPause()
     }
@@ -286,7 +317,8 @@ class G7WatchActivity : Activity() {
                     val address = state.sensor?.deviceAddress
                     if (address.isNullOrBlank()) {
                         pairingBondAccessInFlight = false
-                        pairingBondAccessFailure = "Sensoradresse fehlt. Bitte erneut versuchen."
+                        // Address publication can lag the first reading briefly. Keep observing
+                        // the same session instead of latching a recoverable publication race.
                         buildPairingGate(palette, state)
                     } else {
                         companionBondAccess.ensureForAuthenticatedSensor(
@@ -316,7 +348,11 @@ class G7WatchActivity : Activity() {
                 pairingStartInFlight = false
                 buildPairingGate(palette, state)
                 schedulePairingCompletion()
-            } else if (!pairingGateVisible || palette != activePalette || nextError != pairingErrorCode) {
+            } else if (!pairingGateVisible ||
+                palette != activePalette ||
+                nextError != pairingErrorCode ||
+                renderedPairingProgress != g7PairingProgress(state, pairingStartedAtEpochMs, pairingStartInFlight, pairingBondAccessInFlight, pairingBondAccessFailure)
+            ) {
                 pairingErrorCode = nextError
                 buildPairingGate(palette, state)
             }
@@ -349,6 +385,8 @@ class G7WatchActivity : Activity() {
             }
         val step = pairingStep ?: G7PairingScreenStep.ENTER_CODE
         val pairingFailed = pairingBondAccessFailure != null || isTerminalG7PairingFailure(state, pairingStartedAtEpochMs, System.currentTimeMillis())
+        val progress = g7PairingProgress(state, pairingStartedAtEpochMs, pairingStartInFlight, pairingBondAccessInFlight, pairingBondAccessFailure)
+        renderedPairingProgress = progress
         content.addView(
             label(
                 when (step) {
@@ -388,7 +426,7 @@ class G7WatchActivity : Activity() {
                                 } else {
                                     palette.argb(G7AppearanceRole.MENU_PRIMARY)
                                 }
-                            isAnimating = !pairingFailed && step == G7PairingScreenStep.CONNECTING
+                            isAnimating = !pairingFailed && step == G7PairingScreenStep.CONNECTING && progress.animate
                         },
                         LinearLayout.LayoutParams(0, 24.dp, 1f).apply { setMargins(10.dp, 0, 10.dp, 0) },
                     )
@@ -413,7 +451,7 @@ class G7WatchActivity : Activity() {
                     ) {
                         "Sensor erfolgreich verbunden"
                     } else {
-                        "Die Sensorsuche läuft auch bei geschlossenem Display weiter"
+                        progress.message
                     },
                     16f,
                     palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
@@ -448,7 +486,7 @@ class G7WatchActivity : Activity() {
                 )
                 content.addView(
                     label(
-                        pairingBondAccessFailure ?: "Verbindung zum Sensor konnte nicht hergestellt werden",
+                        pairingBondAccessFailure ?: state.lastError?.safeMessage ?: "Verbindung zum Sensor konnte nicht hergestellt werden",
                         12f,
                         palette.argb(G7AppearanceRole.GLUCOSE_ERROR),
                         true,
@@ -499,7 +537,7 @@ class G7WatchActivity : Activity() {
                 ImageView(this).apply {
                     setImageResource(R.drawable.ic_sensor_outline)
                     setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), PorterDuff.Mode.SRC_IN)
-                    contentDescription = "Sensor koppeln"
+                    contentDescription = "Sensor verbinden"
                 },
                 LinearLayout.LayoutParams(42.dp, 42.dp).apply {
                     gravity = Gravity.CENTER_HORIZONTAL
@@ -556,7 +594,7 @@ class G7WatchActivity : Activity() {
                             override fun afterTextChanged(s: android.text.Editable?) = Unit
                         },
                     )
-                    contentDescription = "Vierstelliger G7 Kopplungscode"
+                    contentDescription = "Vierstelliger G7 Verbindungscode"
                 }
             content.addView(code, LinearLayout.LayoutParams(170.dp, 44.dp).apply { gravity = Gravity.CENTER_HORIZONTAL })
             content.addView(
@@ -661,9 +699,6 @@ class G7WatchActivity : Activity() {
         val background = palette.argb(G7AppearanceRole.MENU_BACKGROUND)
         applyG7SystemChrome(window, background)
 
-        val state = G7SensorStateStore(this).read()
-        val credentials = G7CredentialStore(this).read()
-        val pillState = deriveG7StatusPillState(state, credentials != null)
         val content =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
@@ -672,11 +707,20 @@ class G7WatchActivity : Activity() {
                 setBackgroundColor(background)
             }
 
+        signalLossHeader =
+            app.aapswear.uishared
+                .SignalLossWarningView(this)
+                .apply { visibility = View.GONE }
+        content.addView(signalLossHeader, cardParams(top = 4))
+        collectorStatusTitle = label("", 16f, android.graphics.Color.WHITE, true).apply { gravity = Gravity.CENTER }
+        collectorAttemptLabel = label("", 12f, palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY)).apply { gravity = Gravity.CENTER }
+        content.addView(collectorStatusTitle, cardParams(top = 2))
+        content.addView(collectorAttemptLabel, cardParams(top = 2))
         glucoseHost = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         content.addView(glucoseHost, cardParams(top = 4))
         val graphReadings = G7ReadingDatabase(this).use { it.query(limit = 300) }
         content.addView(graphTile(graphReadings, palette), cardParams(top = 7))
-        content.addView(header(palette, pillState))
+        content.addView(header())
 
         content.addView(
             ImageView(this).apply {
@@ -724,20 +768,17 @@ class G7WatchActivity : Activity() {
         if (previousScrollY > 0) scrollView.post { scrollView.scrollTo(0, previousScrollY) }
     }
 
-    private fun header(
-        palette: G7AppearancePalette,
-        status: G7StatusPillState,
-    ) = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER_HORIZONTAL
-        statusHost =
-            LinearLayout(this@G7WatchActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                addView(statusPill(status, palette))
-            }
-        addView(statusHost)
-    }
+    private fun header() =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            statusHost =
+                LinearLayout(this@G7WatchActivity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_HORIZONTAL
+                }
+            addView(statusHost)
+        }
 
     private fun glucoseTile(
         reading: CgmReading?,
@@ -762,6 +803,7 @@ class G7WatchActivity : Activity() {
                 ),
                 G7GraphColorStore(this).readThresholds(),
                 now,
+                showSignalLossLabel = false,
             )
         val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
         val presentation =
@@ -776,6 +818,7 @@ class G7WatchActivity : Activity() {
             }
         val valueColor =
             when {
+                presentation.freshness == app.aapswear.model.Freshness.SIGNAL_LOSS -> 0xFF9E9E9E.toInt()
                 !presentation.displayable -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
                 presentation.rangeClass == CgmRangeClass.VERY_LOW -> palette.argb(G7AppearanceRole.GLUCOSE_VERY_LOW)
                 presentation.rangeClass == CgmRangeClass.LOW -> palette.argb(G7AppearanceRole.GLUCOSE_LOW)
@@ -819,15 +862,19 @@ class G7WatchActivity : Activity() {
                 presentation.trend?.let { addView(trendIndicator(it, valueColor)) }
             },
         )
-        tile.addView(label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, palette.argb(G7AppearanceRole.GLUCOSE_DELTA), true))
+        tile.addView(
+            label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, android.graphics.Color.WHITE, true).apply {
+                text = app.aapswear.uishared.glucoseMetadataText(presentation.primaryMeta)
+            },
+        )
         if (presentation.secondaryMeta.isNotBlank()) {
             tile.addView(
                 label(
                     presentation.secondaryMeta,
                     WearGlucoseCardStyle.META_TEXT_SP,
-                    palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                    android.graphics.Color.WHITE,
                     true,
-                ),
+                ).apply { text = app.aapswear.uishared.glucoseMetadataText(presentation.secondaryMeta) },
             )
         }
         return tile
@@ -853,48 +900,20 @@ class G7WatchActivity : Activity() {
             val pillState = deriveG7StatusPillState(state, credentials != null)
 
             statusHost.removeAllViews()
-            statusHost.addView(statusPill(pillState, palette))
-            val associated = hasG7SensorAssociation(state)
-            statusHost.addView(
-                pill(if (associated) "Sensor entkoppeln" else "Sensor koppeln", PillStyle.SECONDARY, palette) {
-                    if (unlinkInFlight) return@pill
-                    if (hasG7SensorAssociation(G7SensorStateStore(this).read())) {
-                        performSensorUnlink()
-                    } else {
-                        pairingStep = G7PairingScreenStep.ENTER_CODE
-                        buildPairingGate(palette, G7SensorStateStore(this).read())
-                    }
-                }.apply { isEnabled = !unlinkInFlight },
-                cardParams(top = 7),
-            )
             if (unlinkFailed) {
-                statusHost.addView(label("Entkoppeln fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen.", 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
+                statusHost.addView(label("Trennen fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen.", 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
                 unlinkFailureReason?.let { statusHost.addView(label(it, 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR))) }
             }
-            if (associated || state.collectorEnabled) {
-                statusHost.addView(
-                    pill(
-                        if (state.collectorEnabled) "Pausieren" else "Fortsetzen",
-                        PillStyle.SECONDARY,
-                        palette,
-                    ) {
-                        if (unlinkInFlight) return@pill
-                        val enabled = G7SensorStateStore(this).read().collectorEnabled
-                        if (enabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
-                        refreshScreen()
-                    }.apply { isEnabled = !unlinkInFlight },
-                    cardParams(top = 7),
-                )
-                if (!state.collectorEnabled) {
-                    statusHost.addView(
-                        label(
-                            "Kopplung und Messhistorie bleiben erhalten. Keine Sensoralarme während der Pause.",
-                            10f,
-                            palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
-                        ),
-                    )
-                }
-            }
+            val warning = g7SensorWarning(pillState, state.lastReading?.status == CgmReadingStatus.VALID)
+            signalLossHeader.visibility = if (warning == null) View.GONE else View.VISIBLE
+            warning?.let(signalLossHeader::setMessage)
+            val attempt = collectorAttemptPresentation(state, G7CollectorUiTransitionStore.read(this), System.currentTimeMillis())
+            collectorStatusTitle.text = if (pillState == G7StatusPillState.PAUSED) "Datenempfang pausiert" else attempt?.title.orEmpty()
+            collectorAttemptLabel.text = attempt?.phase.orEmpty()
+            collectorStatusTitle.visibility = if (warning != null || collectorStatusTitle.text.isBlank()) View.GONE else View.VISIBLE
+            collectorAttemptLabel.visibility = if (attempt == null) View.GONE else View.VISIBLE
+            mainHandler.removeCallbacks(attemptExpiryRefresh)
+            attempt?.expiresAt?.let { deadline -> mainHandler.postDelayed(attemptExpiryRefresh, (deadline - System.currentTimeMillis()).coerceAtLeast(1L)) }
             glucoseHost.removeAllViews()
             glucoseHost.addView(
                 label("Gewebeglukose", 11f, 0xFFFFFFFF.toInt(), false).apply {
@@ -905,9 +924,10 @@ class G7WatchActivity : Activity() {
             glucoseHost.addView(glucoseTile(state.lastReading.takeIf { state.collectorEnabled }, palette))
             updateGraphOnly(preserveScroll = false)
         }
+        scheduleOverviewClock()
     }
 
-    private fun performSensorUnlink(closePairing: Boolean = false) {
+    internal fun performSensorUnlink(closePairing: Boolean = false) {
         if (unlinkInFlight) return
         unlinkInFlight = true
         unlinkFailureReason = null
@@ -1032,35 +1052,6 @@ class G7WatchActivity : Activity() {
         val next = nextDirectGraphHours(current)
         directSettings.saveGraphHours(next)
     }
-
-    private fun statusPill(
-        status: G7StatusPillState,
-        palette: G7AppearancePalette,
-    ): TextView {
-        val color = statusColor(status, palette)
-        val marker = if (status == G7StatusPillState.NO_ACTIVE_SENSOR) "○" else "●"
-        return label("$marker  ${status.title.uppercase(Locale.GERMANY)}", 10f, color, true).apply {
-            background = rounded(withAlpha(color, 36), color, 999f)
-            maxWidth = 300.dp
-            setPadding(10.dp, 5.dp, 10.dp, 5.dp)
-            layoutParams =
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                    topMargin = 7.dp
-                    bottomMargin = 3.dp
-                }
-        }
-    }
-
-    private fun statusColor(
-        status: G7StatusPillState,
-        palette: G7AppearancePalette,
-    ): Int =
-        when (status) {
-            G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_PRIMARY)
-            G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
-            G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
-            G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
-        }
 
     private enum class PillStyle { PRIMARY, SECONDARY, DANGER }
 

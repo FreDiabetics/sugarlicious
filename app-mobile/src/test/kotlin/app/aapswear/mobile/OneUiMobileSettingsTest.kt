@@ -58,13 +58,13 @@ class OneUiMobileSettingsTest {
     }
 
     @Test
-    fun `selected native controls use the public device palette rather than framework blue`() {
+    fun `selected native controls use the shared Sugarlicious green seed`() {
         listOf(true, false).forEach { dark ->
             val themed = mobileSettingsControlContext(context, dark)
             val attributes = themed.obtainStyledAttributes(intArrayOf(android.R.attr.colorControlActivated))
             try {
                 assertEquals(
-                    themed.getColor(if (dark) android.R.color.system_accent1_200 else android.R.color.system_accent1_600),
+                    app.aapswear.uishared.SugarliciousAccentPalette.SEED,
                     attributes.getColor(0, 0),
                 )
             } finally {

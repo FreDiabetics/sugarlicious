@@ -10,7 +10,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class MobileAppearanceModeTest {
-    @Test fun `legacy isolated widget freezes inherited mode without resnapshotting its colors`() {
+    @Test fun `legacy isolated widget follows app mode without resnapshotting its colors`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dashboard = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         dashboard.edit().putString("themeMode", "DARK").commit()
@@ -24,7 +24,7 @@ class MobileAppearanceModeTest {
         WidgetInstanceConfigurationStore.readIsolated(context, 8103, ConfigurableWidgetKind.GLUCOSE)
         dashboard.edit().putString("themeMode", "LIGHT").commit()
         val stored = WidgetInstanceConfigurationStore.readIsolated(context, 8103, ConfigurableWidgetKind.GLUCOSE)
-        assertEquals(DashboardThemeMode.DARK, stored.themeMode)
+        assertEquals(DashboardThemeMode.LIGHT, stored.themeMode)
         assertEquals(android.graphics.Color.RED, stored.backgroundArgb)
     }
 
@@ -38,15 +38,15 @@ class MobileAppearanceModeTest {
         assertEquals(DashboardThemeMode.LIGHT, settingsSystemMode(false, false))
     }
 
-    @Test fun `widget mode persists per instance and legacy widgets keep inherited display choice`() {
+    @Test fun `widgets always inherit app mode while retaining independent appearance details`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dashboard = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
         dashboard.edit().putString("themeMode", "DARK").commit()
         assertEquals(DashboardThemeMode.DARK, WidgetInstanceConfigurationStore.read(context, 8101).themeMode)
         WidgetInstanceConfigurationStore.save(context, 8101, WidgetInstanceConfiguration(themeMode = DashboardThemeMode.LIGHT))
         WidgetInstanceConfigurationStore.save(context, 8102, WidgetInstanceConfiguration(themeMode = DashboardThemeMode.SYSTEM))
-        assertEquals(DashboardThemeMode.LIGHT, WidgetInstanceConfigurationStore.read(context, 8101).themeMode)
-        assertEquals(DashboardThemeMode.SYSTEM, WidgetInstanceConfigurationStore.read(context, 8102).themeMode)
+        assertEquals(DashboardThemeMode.DARK, WidgetInstanceConfigurationStore.read(context, 8101).themeMode)
+        assertEquals(DashboardThemeMode.DARK, WidgetInstanceConfigurationStore.read(context, 8102).themeMode)
         assertEquals("DARK", dashboard.getString("themeMode", null))
         assertEquals(DashboardThemeMode.SYSTEM, WidgetSystemDefaults.forKind(ConfigurableWidgetKind.GLUCOSE).themeMode)
     }

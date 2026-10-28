@@ -19,24 +19,19 @@ import app.aapswear.uishared.SharedWearCgmGraphStyle
 class G7DirectToWatchSettingsStore(
     private val context: Context,
 ) {
-    private val preferences = context.getSharedPreferences(DirectToWatchSettingsContract.PREFERENCES, Context.MODE_PRIVATE)
+    private val preferences =
+        app.aapswear.uishared.SugarWearDisplayDefaults
+            .preferences(context, DirectToWatchSettingsContract.PREFERENCES)
 
     init {
         // Range confirmation is a system-wide graph policy, not a per-watchface preference.
         preferences.edit {
             remove(LEGACY_KEY_RANGE_BACKGROUND_ENABLED)
             remove(KEY_TARGET_TICKS_ENABLED)
-            if (!preferences.getBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, false)) {
-                // Older copied/default profiles disabled the tile outline, making its configured
-                // contour color appear broken. Repair that legacy state once without preventing a
-                // deliberate later change in the settings screen.
-                putBoolean(KEY_BORDER_ENABLED, true)
-                putBoolean(KEY_GRAPH_SURFACE_FIX_APPLIED, true)
-            }
         }
     }
 
-    fun graphHours(): Int = preferences.getInt(KEY_HOURS, 3).takeIf { it in HOUR_OPTIONS } ?: 3
+    fun graphHours(): Int = preferences.getInt(KEY_HOURS, 2).takeIf { it in HOUR_OPTIONS } ?: 2
 
     fun saveGraphHours(value: Int) = update { putInt(KEY_HOURS, value.takeIf { it in HOUR_OPTIONS } ?: 3) }
 
@@ -122,7 +117,7 @@ class G7DirectToWatchSettingsStore(
     }
 
     fun graphStyle(): SharedWearCgmGraphStyle {
-        val defaults = DirectToWatchGraphDefaults.style()
+        val defaults = DirectToWatchGraphDefaults.vigilStyle()
         return defaults.copy(
             dotRadiusDp = preferences.getFloat(KEY_DOT_RADIUS, defaults.dotRadiusDp).coerceIn(1.5f, 6f),
             dotOutlineEnabled = true,
@@ -134,7 +129,7 @@ class G7DirectToWatchSettingsStore(
             currentDotOutlineEnabled = true,
             dotOutlineWidthDp = preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp).coerceIn(.25f, 3f),
             historicalDotOutlineWidthDp = preferences.getFloat(KEY_HISTORICAL_DOT_OUTLINE_WIDTH, preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
-            currentDotOutlineWidthDp = preferences.getFloat(KEY_CURRENT_DOT_OUTLINE_WIDTH, preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.dotOutlineWidthDp)).coerceIn(.25f, 3f),
+            currentDotOutlineWidthDp = preferences.getFloat(KEY_CURRENT_DOT_OUTLINE_WIDTH, preferences.getFloat(KEY_DOT_OUTLINE_WIDTH, defaults.currentDotOutlineWidthDp)).coerceIn(.25f, 3f),
             cornerRadiusDp = preferences.getFloat(KEY_CORNER_RADIUS, defaults.cornerRadiusDp).coerceIn(0f, 40f),
             borderEnabled = preferences.getBoolean(KEY_BORDER_ENABLED, defaults.borderEnabled),
             timeAxisEnabled = preferences.getBoolean(KEY_TIME_AXIS_ENABLED, defaults.timeAxisEnabled),
@@ -299,6 +294,5 @@ class G7DirectToWatchSettingsStore(
         private const val KEY_SCALE_LANE_OPACITY = "graph_style_scale_lane_opacity_percent"
         private const val KEY_TARGET_TICKS_ENABLED = "graph_style_target_ticks_enabled"
         private const val LEGACY_KEY_RANGE_BACKGROUND_ENABLED = "graph_style_range_background_enabled"
-        private const val KEY_GRAPH_SURFACE_FIX_APPLIED = "migration.graph_surface_fix_v1"
     }
 }

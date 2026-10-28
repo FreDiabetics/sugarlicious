@@ -7,5 +7,6 @@ object SystemTypographyTokens {
 
     fun weight(bold: Boolean): Int = if (bold) BOLD_WEIGHT else NORMAL_WEIGHT
 
-    fun fontFamily(manufacturer: String): String = if (manufacturer.equals("samsung", ignoreCase = true)) "sec" else "sans-serif"
+    @Suppress("UNUSED_PARAMETER") // Keep the caller contract while following the device-selected default.
+    fun fontFamily(manufacturer: String): String = "sans-serif"
 }

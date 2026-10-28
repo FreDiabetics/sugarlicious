@@ -15,6 +15,8 @@ import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Legacy Mobile store kept only to delete data written by the short-lived Watch-backfill bridge.
@@ -74,30 +76,77 @@ internal object MobileCanonicalCgmResolver {
         nowEpochMs: Long = System.currentTimeMillis(),
     ): TherapyDisplayState? {
         MobileWatchCgmMigration.runOnce(context)
-        return phoneState?.mobileAndroidApsOnly()
+        return phoneState?.mobilePhoneSourcesOnly()
     }
 }
 
 internal object MobileCanonicalStateCoordinator {
-    suspend fun savePhoneInput(
-        context: Context,
-        incoming: TherapyDisplayState,
-        nowEpochMs: Long,
-    ): Pair<TherapyDisplayState, TherapyDisplayState> {
-        MobileWatchCgmMigration.runOnce(context)
-        require(incoming.source != DataSourceId.DEXCOM_G7_WATCH) {
-            "SugarWear input is not a Sugarlicious Mobile CGM source"
+    private val inputMutex = Mutex()
+
+    suspend fun savePhoneInput(context: Context, incoming: TherapyDisplayState, nowEpochMs: Long): Pair<TherapyDisplayState, TherapyDisplayState> {
+        val (committed, changed) =
+            inputMutex.withLock {
+                MobileWatchCgmMigration.runOnce(context)
+                require(incoming.source in MOBILE_INPUT_SOURCES) { "Not a supported Mobile phone source" }
+                val store = MobileSourceInputStore(context)
+                seedLegacyAndroidAps(context, store, nowEpochMs)
+                commitComposition(context, store.merge(incoming, nowEpochMs), nowEpochMs)
+            }
+        if (changed) dispatchCanonicalDataChanged(context, committed)
+        return committed to committed
+    }
+
+    suspend fun recompose(context: Context, nowEpochMs: Long = System.currentTimeMillis()): TherapyDisplayState {
+        val (committed, changed) =
+            inputMutex.withLock {
+                MobileWatchCgmMigration.runOnce(context)
+                val store = MobileSourceInputStore(context)
+                seedLegacyAndroidAps(context, store, nowEpochMs)
+                commitComposition(context, store.read(), nowEpochMs)
+            }
+        if (changed) dispatchCanonicalDataChanged(context, committed)
+        return committed
+    }
+
+    suspend fun activateShareAccount(context: Context, identity: String) {
+        val update =
+            inputMutex.withLock {
+                val inputs = MobileSourceInputStore(context)
+                if (!inputs.activateShareIdentity(identity)) return@withLock null
+                val canonical = CanonicalStateStore(context)
+                canonical.reconcile()?.let { old ->
+                    val removedCurrent = old.glucose?.source == DataSourceId.DEXCOM_SHARE
+                    val removedFields = old.fieldSources.filterValues { it == DataSourceId.DEXCOM_SHARE }.keys
+                    canonical.commit(
+                        old.copy(
+                            source = if (removedCurrent) DataSourceId.OTHER else old.source,
+                            sourceContract = "PHONE_SOURCE_IDENTITY_CHANGED",
+                            glucose = old.glucose.takeUnless { removedCurrent },
+                            glucoseHistory = old.glucoseHistory.filter { it.source != DataSourceId.DEXCOM_SHARE },
+                            glucosePredictions = if (removedCurrent) emptyList() else old.glucosePredictions,
+                            capabilities = if (removedCurrent) old.capabilities - setOf(DataCapability.GLUCOSE, DataCapability.TREND, DataCapability.DELTA, DataCapability.AVERAGE_DELTA) else old.capabilities,
+                            fieldSources = old.fieldSources - removedFields,
+                            fieldProvenance = old.fieldProvenance - removedFields,
+                        ),
+                    )
+                }
+                val committed = commitComposition(context, inputs.read(), System.currentTimeMillis()).first
+                inputs.completeShareIdentity(identity)
+                committed
+            }
+        if (update != null) dispatchCanonicalDataChanged(context, update)
+    }
+
+    private suspend fun seedLegacyAndroidAps(context: Context, store: MobileSourceInputStore, now: Long) {
+        if (DataSourceId.ANDROID_APS !in store.read()) {
+            CanonicalStateStore(context).reconcile()?.takeIf { it.source == DataSourceId.ANDROID_APS }?.let { store.merge(it.withoutDirectWatchCgm(), now) }
         }
+    }
 
-        val canonicalStore = CanonicalStateStore(context)
-        val priorPhone = canonicalStore.reconcile()
-
-        var mergedPhone =
-            DisplayHistoryAccumulator
-                .merge(priorPhone, incoming, nowEpochMs)
-                .withoutDirectWatchCgm()
+    private suspend fun commitComposition(context: Context, inputs: Map<DataSourceId, TherapyDisplayState>, nowEpochMs: Long): Pair<TherapyDisplayState, Boolean> {
+        var mergedPhone = MobileSourceComposition.compose(inputs, MobileSourceConfigurationStore.read(context), nowEpochMs)
         val glucose = mergedPhone.glucose
-        if (glucose != null && (glucose.deltaMgDl?.isFinite() == true || glucose.trend == Trend.UNKNOWN)) {
+        if (mergedPhone.source == DataSourceId.ANDROID_APS && glucose != null && (glucose.deltaMgDl?.isFinite() == true || glucose.trend == Trend.UNKNOWN)) {
             val resolution =
                 TrendArrowResolver.resolveWithRate(
                     glucose.trend,
@@ -132,9 +181,28 @@ internal object MobileCanonicalStateCoordinator {
             }
         }
 
-        val committed = canonicalStore.commit(mergedPhone)
-        dispatchCanonicalDataChanged(context, committed)
-        return committed to committed
+        if (MobileSourceConfigurationStore.read(context).aapsTherapyEnabled) {
+            val aapsEvents =
+                mergedPhone.therapyEvents.mapNotNull { event ->
+                    when (event.source) {
+                        app.aapswear.model.TherapyEventSource.NIGHTSCOUT_ONLY -> null
+                        app.aapswear.model.TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = app.aapswear.model.TherapyEventSource.AAPS_ONLY)
+                        app.aapswear.model.TherapyEventSource.AAPS_ONLY -> event
+                    }
+                }
+            val external = if (NightscoutConfigurationStore.read(context).enabled) NightscoutTreatmentStore.read(context, nowEpochMs) else emptyList()
+            mergedPhone =
+                mergedPhone.copy(
+                    therapyEvents =
+                        app.aapswear.model.CanonicalTreatments
+                            .merge(aapsEvents, external),
+                )
+        }
+        val store = CanonicalStateStore(context)
+        val previous = store.reconcile()
+        mergedPhone = retainMobileDisplayHistory(restoreStoredMobileHistory(previous, inputs, nowEpochMs), mergedPhone, nowEpochMs)
+        if (previous != null && mergedPhone.copy(canonicalRevision = previous.canonicalRevision) == previous) return previous to false
+        return store.commit(mergedPhone) to true
     }
 }
 
@@ -171,8 +239,7 @@ internal fun TherapyDisplayState.withoutDirectWatchCgm(): TherapyDisplayState {
     )
 }
 
-internal fun TherapyDisplayState.mobileAndroidApsOnly(): TherapyDisplayState =
+internal fun TherapyDisplayState.mobilePhoneSourcesOnly(): TherapyDisplayState =
     withoutDirectWatchCgm().copy(
-        sourceContract = "MOBILE_ANDROIDAPS_ONLY",
-        glucoseHistory = glucoseHistory.filter { it.source == DataSourceId.ANDROID_APS }.sortedBy(GlucoseSample::measuredAtEpochMs),
+        glucoseHistory = glucoseHistory.filter { it.source in MOBILE_INPUT_SOURCES }.sortedBy(GlucoseSample::measuredAtEpochMs),
     )

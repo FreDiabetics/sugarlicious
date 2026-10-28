@@ -36,10 +36,10 @@ class G7CollectorTilePresentationTest {
         assertEquals(44f, SugarWearTypography.spec(SugarWearTypographyRole.GLUCOSE_VALUE).sizeSp, 0f)
         assertEquals(14f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
         assertEquals(11f, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp, 0f)
-        assertEquals("roboto", SugarWearTypography.APP_FONT_FAMILY)
+        assertEquals("sans-serif", SugarWearTypography.APP_FONT_FAMILY)
         assertEquals(SugarWearTypography.APP_FONT_FAMILY, SugarWearTypography.PROTO_FONT_FAMILY)
         SugarWearTypographyRole.entries.forEach { role ->
-            assertEquals("role=$role", "roboto", SugarWearTypography.spec(role).fontFamily)
+            assertEquals("role=$role", "sans-serif", SugarWearTypography.spec(role).fontFamily)
         }
         assertEquals(700, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).protoWeight)
     }
@@ -61,7 +61,7 @@ class G7CollectorTilePresentationTest {
         val stale = g7TilePresentation(reading(120.0, now - G7_SIGNAL_LOSS_AFTER_MS), colors, now)
         assertEquals("120 →", stale.value)
         assertEquals(G7_TILE_CARD_BACKGROUND, stale.cardBackground)
-        assertEquals(G7_TILE_TEXT_PRIMARY, stale.cardForeground)
+        assertEquals(0xFF9E9E9E.toInt(), stale.cardForeground)
         assertEquals(Trend.FLAT, stale.trend)
 
         val invalid = g7TilePresentation(reading(120.0, status = CgmReadingStatus.INVALID), colors, now)
@@ -101,7 +101,7 @@ class G7CollectorTilePresentationTest {
         assertEquals("123", presentation.tileValue)
         assertEquals(Trend.FORTY_FIVE_UP, presentation.trend)
         assertTrue(presentation.tileMeta.contains("+5"))
-        assertTrue(presentation.tileMeta.contains("2m"))
+        assertTrue(presentation.tileMeta.contains("vor 2 Min"))
         assertTrue(presentation.tileMeta.contains("mg/dL"))
         assertFalse(presentation.tileMeta.contains("Watch Direct"))
         assertFalse(presentation.tileMeta.contains("min"))
@@ -125,8 +125,8 @@ class G7CollectorTilePresentationTest {
 
         assertEquals("123 ↗", up.value)
         assertEquals("98 ⇊", doubleDown.value)
-        assertEquals("+5 mg/dL · 0m", up.meta)
-        assertEquals("", up.age)
+        assertEquals("+5 mg/dL", up.meta)
+        assertEquals("vor 0 Min", up.age)
         assertEquals(up.cardBackground, up.background)
         assertEquals(up.cardForeground, up.foreground)
     }
@@ -149,7 +149,7 @@ class G7CollectorTilePresentationTest {
         assertEquals("VERBUNDEN", connected.label)
         assertEquals("SIGNALVERLUST", signalLoss.label)
         assertEquals("SENSORFEHLER", sensorError.label)
-        assertEquals("KEIN AKTIVER SENSOR GEKOPPELT", noSensor.label)
+        assertEquals("KEIN AKTIVER SENSOR VERBUNDEN", noSensor.label)
         assertEquals(G7_TILE_ACCENT, connected.color)
         assertEquals(0x246DE892, withTileAlpha(G7_TILE_ACCENT, 36))
     }

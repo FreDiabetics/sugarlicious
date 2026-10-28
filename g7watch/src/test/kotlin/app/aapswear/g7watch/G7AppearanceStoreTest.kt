@@ -52,15 +52,14 @@ class G7AppearanceStoreTest {
             .clear()
             .commit()
         val store = G7AppearanceStore(context)
-
-        assertEquals(3, store.graphHours())
+        assertEquals(2, store.graphHours())
+        assertEquals(3, store.nextGraphHours())
+        assertEquals(3, G7AppearanceStore(context).graphHours())
         assertEquals(6, store.nextGraphHours())
-        assertEquals(6, G7AppearanceStore(context).graphHours())
         assertEquals(12, store.nextGraphHours())
         assertEquals(24, store.nextGraphHours())
         assertEquals(1, store.nextGraphHours())
         assertEquals(2, store.nextGraphHours())
-        assertEquals(3, store.nextGraphHours())
     }
 
     @Test fun `light and dark profiles are independent`() {

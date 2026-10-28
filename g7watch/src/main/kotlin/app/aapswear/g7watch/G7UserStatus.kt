@@ -17,8 +17,19 @@ internal enum class G7StatusPillState(
     PAUSED("Sensorempfang pausiert"),
     SIGNAL_LOSS("Signalverlust"),
     SENSOR_ERROR("Sensorfehler"),
-    NO_ACTIVE_SENSOR("Kein aktiver Sensor gekoppelt"),
+    NO_ACTIVE_SENSOR("Kein aktiver Sensor verbunden"),
 }
+
+/** Shared wording for the overview and Wear OS tiles; no protocol/progress text here. */
+internal fun g7SensorWarning(status: G7StatusPillState, hasValidReading: Boolean): String? =
+    when {
+        status == G7StatusPillState.NO_ACTIVE_SENSOR -> "Kein Sensor verbunden"
+        status == G7StatusPillState.PAUSED -> "Datenempfang pausiert"
+        status == G7StatusPillState.SENSOR_ERROR -> "Sensorfehler"
+        !hasValidReading -> "Keine Daten"
+        status == G7StatusPillState.SIGNAL_LOSS -> "Signalverlust"
+        else -> null
+    }
 
 internal fun deriveG7StatusPillState(
     state: G7PersistedState,
@@ -69,7 +80,7 @@ internal fun deriveG7UserStatus(
             "Sensorempfang pausiert",
             "Pause",
             "Pausiert",
-            "Keine Sensorverbindungen oder Sensoralarme. Kopplung, Sensorcode, Sitzung und Messhistorie bleiben erhalten.",
+            "Keine Sensorverbindungen oder Sensoralarme. Verbindung, Sensorcode, Sitzung und Messhistorie bleiben erhalten.",
             "Zum direkten Empfang „Sensorempfang fortsetzen“ wählen.",
         )
     }
@@ -102,7 +113,7 @@ internal fun deriveG7UserStatus(
         return problemFromError(
             state = state,
             title = "Eingriff erforderlich",
-            phase = phaseName(state.protocolState),
+            phase = g7ProtocolPhaseName(state.protocolState),
         )
     }
 
@@ -122,7 +133,7 @@ internal fun deriveG7UserStatus(
         return G7UserStatus(
             G7UserStatusLevel.ATTENTION,
             "Signalverlust",
-            phaseName(state.protocolState),
+            g7ProtocolPhaseName(state.protocolState),
             "Kein aktueller Sensorwert",
             if (ownershipSuspected) {
                 "Der Sensor ist gespeichert, aber aktuell nicht erreichbar. Möglicherweise ist noch ein anderer Collector aktiv."
@@ -162,7 +173,7 @@ internal fun deriveG7UserStatus(
             G7UserStatus(
                 G7UserStatusLevel.WORKING,
                 if (ageMs == null) "Verbindung wird aufgebaut" else "Sensorkontakt",
-                phaseName(state.protocolState),
+                g7ProtocolPhaseName(state.protocolState),
                 "Aktiv · Messzyklus läuft",
                 "Der Collector verarbeitet das aktuelle Sensorfenster.",
                 "Kein Eingriff erforderlich.",
@@ -265,7 +276,7 @@ private fun actionForError(code: String?): String? =
         else -> null
     }
 
-private fun phaseName(state: G7ProtocolState): String =
+internal fun g7ProtocolPhaseName(state: G7ProtocolState): String =
     when (state) {
         G7ProtocolState.UNINITIALIZED -> "Nicht initialisiert"
         G7ProtocolState.IDLE -> "Bereit"
@@ -285,7 +296,7 @@ private fun phaseName(state: G7ProtocolState): String =
         G7ProtocolState.KEY_EXCHANGE,
         G7ProtocolState.AUTHENTICATING,
         -> "Authentifizieren"
-        G7ProtocolState.BONDING -> "Koppeln"
+        G7ProtocolState.BONDING -> "Verbinden"
         G7ProtocolState.AUTHENTICATED -> "Authentifiziert"
         G7ProtocolState.REQUESTING_GLUCOSE -> "Wert anfordern"
         G7ProtocolState.RECEIVING_GLUCOSE -> "Wert empfangen"

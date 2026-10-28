@@ -33,8 +33,8 @@ enum class G7AppearanceRole(
         "menu_background",
         AppearanceTerminology.APP_BACKGROUND,
         G7AppearanceSection.MENU,
-        0xFF181818.toInt(),
-        0xFFF2F2F2.toInt(),
+        0xFF000000.toInt(),
+        0xFF000000.toInt(),
     ),
     MENU_SURFACE(
         "menu_surface",
@@ -43,7 +43,7 @@ enum class G7AppearanceRole(
         0xFF242424.toInt(),
         0xFFFFFFFF.toInt(),
     ),
-    MENU_BORDER("menu_border", AppearanceTerminology.SURFACE_BORDER, G7AppearanceSection.MENU, 0xFF404040.toInt(), 0xFFD0D0D0.toInt()),
+    MENU_BORDER("menu_border", AppearanceTerminology.SURFACE_BORDER, G7AppearanceSection.MENU, 0, 0),
     MENU_TEXT_PRIMARY(
         "menu_text_primary",
         AppearanceTerminology.PRIMARY_TEXT,
@@ -58,10 +58,10 @@ enum class G7AppearanceRole(
         0xFFB5B5B5.toInt(),
         0xFF666666.toInt(),
     ),
-    MENU_PRIMARY("menu_primary", "Primär / Sugarlicious", G7AppearanceSection.MENU, 0xFF6DE892.toInt()),
+    MENU_PRIMARY("menu_primary", "Primär / Sugarlicious", G7AppearanceSection.MENU, 0xFF22EB60.toInt()),
 
     GLUCOSE_LOW("glucose_low", AppearanceTerminology.GLUCOSE_LOW, G7AppearanceSection.GLUCOSE, 0xFFFF5C69.toInt()),
-    GLUCOSE_VERY_LOW("glucose_very_low", AppearanceTerminology.GLUCOSE_VERY_LOW, G7AppearanceSection.GLUCOSE, 0xFFFF3048.toInt()),
+    GLUCOSE_VERY_LOW("glucose_very_low", AppearanceTerminology.GLUCOSE_VERY_LOW, G7AppearanceSection.GLUCOSE, 0xFFFF5C69.toInt()),
     GLUCOSE_IN_RANGE(
         "glucose_in_range",
         AppearanceTerminology.GLUCOSE_IN_RANGE,
@@ -70,7 +70,7 @@ enum class G7AppearanceRole(
         0xFF202020.toInt(),
     ),
     GLUCOSE_HIGH("glucose_high", AppearanceTerminology.GLUCOSE_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFFD040.toInt()),
-    GLUCOSE_VERY_HIGH("glucose_very_high", AppearanceTerminology.GLUCOSE_VERY_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFF9D18.toInt()),
+    GLUCOSE_VERY_HIGH("glucose_very_high", AppearanceTerminology.GLUCOSE_VERY_HIGH, G7AppearanceSection.GLUCOSE, 0xFFFFD040.toInt()),
     GLUCOSE_TREND("glucose_trend", AppearanceTerminology.TREND_ARROW, G7AppearanceSection.GLUCOSE, 0xFFFFFFFF.toInt()),
     GLUCOSE_DELTA("glucose_delta", AppearanceTerminology.DELTA_UNIT, G7AppearanceSection.GLUCOSE, 0xFFB5B5B5.toInt(), 0xFF666666.toInt()),
     GLUCOSE_DELAYED("glucose_delayed", "DELAYED", G7AppearanceSection.GLUCOSE, 0xFFF4DE00.toInt()),
@@ -102,7 +102,7 @@ enum class G7AppearanceRole(
     GRAPH_DOT_OUTLINE("graph_dot_outline", AppearanceTerminology.GRAPH_DOT_OUTLINE, G7AppearanceSection.GRAPH, 0xFF000000.toInt()),
     GRAPH_AXIS_TEXT("graph_axis_text", AppearanceTerminology.GRAPH_AXIS_TEXT, G7AppearanceSection.GRAPH, 0xFFD2D2D2.toInt()),
     GRAPH_GRID("graph_grid", "Grid / Divider", G7AppearanceSection.GRAPH, 0xFF464646.toInt()),
-    GRAPH_TILE_BORDER("graph_tile_border", "Graphkontur", G7AppearanceSection.GRAPH, 0xFF5C5C5C.toInt()),
+    GRAPH_TILE_BORDER("graph_tile_border", "Graphkontur", G7AppearanceSection.GRAPH, 0),
     GRAPH_PREDICTION("graph_prediction", "Prediction", G7AppearanceSection.GRAPH, 0xFFF4DE00.toInt()),
 }
 
@@ -110,7 +110,10 @@ data class G7AppearancePalette(
     private val values: Map<G7AppearanceRole, Int>,
     val mode: AppearanceMode = AppearanceMode.DARK,
 ) {
-    fun argb(role: G7AppearanceRole): Int = values[role] ?: if (mode == AppearanceMode.LIGHT) role.lightArgb else role.defaultArgb
+    fun argb(role: G7AppearanceRole): Int {
+        val resolved = if (role == G7AppearanceRole.MENU_SURFACE) G7AppearanceRole.GRAPH_BACKGROUND else role
+        return values[resolved] ?: if (mode == AppearanceMode.LIGHT) resolved.lightArgb else resolved.defaultArgb
+    }
 }
 
 class G7AppearanceStore(
@@ -118,9 +121,11 @@ class G7AppearanceStore(
 ) {
     private val appContext = context.applicationContext
     private val preferences: SharedPreferences =
-        appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        app.aapswear.uishared.SugarWearDisplayDefaults
+            .preferences(appContext, PREFERENCES)
     private val tileGlucosePreferences: SharedPreferences =
-        appContext.getSharedPreferences(TILE_GLUCOSE_PREFERENCES, Context.MODE_PRIVATE)
+        app.aapswear.uishared.SugarWearDisplayDefaults
+            .preferences(appContext, TILE_GLUCOSE_PREFERENCES)
 
     init {
         preferences.ensureSettingsSchema(SettingsSchemaVersions.COLLECTOR)
@@ -326,12 +331,8 @@ class G7AppearanceStore(
     }
 
     fun resetAll() {
-        preferences.edit {
-            G7AppearanceRole.entries.forEach { remove(colorKey(it)) }
-            AppearanceMode.entries.forEach { mode -> G7AppearanceRole.entries.forEach { remove(colorKey(mode, it)) } }
-            remove(KEY_HISTORICAL_DOT_OUTLINE)
-            remove(KEY_CURRENT_DOT_OUTLINE)
-        }
+        app.aapswear.uishared.SugarWearDisplayDefaults
+            .reset(appContext)
         notifyTileChanged()
     }
 
@@ -480,7 +481,7 @@ class G7AppearanceStore(
 
     companion object {
         val ALLOWED_GRAPH_HOURS = listOf(1, 2, 3, 6, 12, 24)
-        const val DEFAULT_GRAPH_HOURS = 3
+        const val DEFAULT_GRAPH_HOURS = 2
         private const val PREFERENCES = "g7_appearance"
         private const val TILE_GLUCOSE_PREFERENCES = "g7_tile_glucose_appearance"
         private const val KEY_TILE_GLUCOSE_SCALE = "tile_glucose.scale"

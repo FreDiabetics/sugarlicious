@@ -31,7 +31,7 @@ internal fun G7ProtocolState.label(): String =
         G7ProtocolState.DISCOVERING_SERVICES -> "G7-Dienste werden geprüft"
         G7ProtocolState.ENABLING_NOTIFICATIONS -> "G7-Datenkanäle werden geöffnet"
         G7ProtocolState.AUTHENTICATION_START, G7ProtocolState.AUTHENTICATING -> "Sensor wird authentifiziert"
-        G7ProtocolState.BONDING -> "Sensor wird gekoppelt"
+        G7ProtocolState.BONDING -> "Sensor wird verbunden"
         G7ProtocolState.AUTHENTICATED -> "Sensor ist authentifiziert"
         G7ProtocolState.REQUESTING_GLUCOSE -> "Glukosewert wird angefordert"
         G7ProtocolState.RECEIVING_GLUCOSE -> "Glukosewert wird geprüft"

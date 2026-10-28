@@ -12,6 +12,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.content.edit
 import androidx.core.view.isNotEmpty
+import androidx.core.view.isVisible
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
@@ -524,24 +525,17 @@ class DashboardViewFactory(
                 tile(null).apply {
                     addView(settingsGroupLabel("DARSTELLUNG"))
                     addView(composeSettingsControl { OneUiSettingsModeSelector(preferences.themeMode, onSelected = callbacks.setThemeMode) }, fullWidth())
-                    addView(divider())
-                    addView(settingsGroupLabel("AKTIVE DATENQUELLE"))
-                    addView(
-                        sourceChoiceRow(
-                            listOf(
-                                SourceChoice(
-                                    "AndroidAPS",
-                                    R.drawable.ic_source_androidaps,
-                                    preferences.dataSource == DataSourcePreference.ANDROID_APS,
-                                ) { callbacks.setDataSource(DataSourcePreference.ANDROID_APS) },
-                            ),
-                        ),
-                    )
-                    addView(divider())
+                },
+                cardParams(top = 4),
+            )
+            addView(settingsGroupLabel("DATENQUELLEN"))
+            addView(composeSettingsControl { MobileDataSourceSettingsPanel() }.apply { tag = "mobile-data-sources" }, cardParams(top = 8))
+            addView(
+                tile(null).apply {
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
                     addView(actionRow("Jetzt synchronisieren", "Jetzt") { callbacks.syncNow() })
                 },
-                cardParams(top = 4),
+                cardParams(top = 16),
             )
         }
 
@@ -1065,6 +1059,7 @@ class DashboardViewFactory(
                     context = context,
                     drawableRes = R.drawable.ic_foreground,
                     contentDescription = context.getString(R.string.brand_logo),
+                    tintArgb = SugarliciousColors.argb(SugarliciousColorRole.BRAND_GREEN),
                 ),
                 LinearLayout.LayoutParams(56.dp, 56.dp),
             )
@@ -1139,7 +1134,7 @@ class DashboardViewFactory(
                         buildContent()
                         separateSettingsObjectCards(this)
                         // The page header already reserves the gap above its first card.
-                        (0 until childCount).map(::getChildAt).firstOrNull { it.visibility == View.VISIBLE }?.let { first ->
+                        (0 until childCount).map(::getChildAt).firstOrNull { it.isVisible }?.let { first ->
                             (first.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
                                 first.layoutParams = params.apply { topMargin = 0 }
                             }
@@ -1515,7 +1510,18 @@ class DashboardViewFactory(
     private fun composeSettingsControl(content: @androidx.compose.runtime.Composable () -> Unit) =
         androidx.compose.ui.platform.ComposeView(context).apply {
             setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            setContent { OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight, content = content) }
+            setContent {
+                val owner = context as? androidx.activity.result.ActivityResultRegistryOwner
+                if (owner != null) {
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        androidx.activity.compose.LocalActivityResultRegistryOwner provides owner,
+                    ) {
+                        OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight, content = content)
+                    }
+                } else {
+                    OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight, content = content)
+                }
+            }
         }
 
     private fun tile(title: String?): LinearLayout =
@@ -1554,7 +1560,8 @@ class DashboardViewFactory(
         }
 
     private fun screenTitle(title: String = "Einstellungen") =
-        value(title, accent, 34f, 2).apply {
+        value(title, text, 34f, 2).apply {
+            text = brandedSettingsTitle(title)
             gravity = Gravity.CENTER
             minimumHeight = minOf(250, (context.resources.configuration.screenHeightDp * .28f).toInt()).dp
         }

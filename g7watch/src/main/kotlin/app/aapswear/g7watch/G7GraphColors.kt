@@ -15,7 +15,8 @@ internal class G7GraphColorStore(
 ) {
     private val appContext = context.applicationContext
     private val preferences =
-        context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        app.aapswear.uishared.SugarWearDisplayDefaults
+            .preferences(context.applicationContext, PREFERENCES)
 
     fun read(): WatchGraphColors = read(G7AppearanceStore(appContext).activeMode())
 

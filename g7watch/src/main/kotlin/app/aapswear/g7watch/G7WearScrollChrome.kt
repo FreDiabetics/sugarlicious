@@ -2,7 +2,6 @@ package app.aapswear.g7watch
 
 import android.content.Context
 import android.util.AttributeSet
-import android.view.HapticFeedbackConstants
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -22,7 +21,7 @@ internal class G7EdgeFadeScrollView
         defStyleAttr: Int = android.R.attr.scrollViewStyle,
     ) : ScrollView(context, attrs, defStyleAttr) {
         private val rotaryScrollFactor = ViewConfiguration.get(context).scaledVerticalScrollFactor
-        private var lastRotaryHapticAt = Long.MIN_VALUE
+        private val rotaryFeedback = app.aapswear.uishared.WearRotaryFeedback(this)
 
         init {
             isFocusable = true
@@ -56,12 +55,7 @@ internal class G7EdgeFadeScrollView
                 val delta = (-event.getAxisValue(MotionEvent.AXIS_SCROLL) * rotaryScrollFactor * ROTARY_GAIN).roundToInt()
                 val before = scrollY
                 if (delta != 0) scrollBy(0, delta)
-                if (scrollY != before &&
-                    (lastRotaryHapticAt == Long.MIN_VALUE || event.eventTime - lastRotaryHapticAt >= HAPTIC_INTERVAL_MS)
-                ) {
-                    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                    lastRotaryHapticAt = event.eventTime
-                }
+                rotaryFeedback.onScroll(event, scrollY - before)
                 awakenScrollBars()
                 return true
             }
@@ -70,7 +64,6 @@ internal class G7EdgeFadeScrollView
 
         private companion object {
             const val ROTARY_GAIN = 0.55f
-            const val HAPTIC_INTERVAL_MS = 40L
         }
     }
 

@@ -6,6 +6,7 @@ import app.aapswear.g7.G7CollectorError
 import app.aapswear.g7.G7ConnectionState
 import app.aapswear.g7.G7PersistedState
 import app.aapswear.g7.G7ProtocolState
+import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SessionState
 import app.aapswear.model.DiagnosticSeverity
 import kotlinx.coroutines.CoroutineScope
@@ -49,6 +50,36 @@ internal data class G7RuntimeReconcileResult(
     val restoredHealth: G7RuntimeHealth,
     val recoveryReconnectEpochMs: Long? = null,
 )
+
+/** Enforce the original explicit setup budget before any automatic repair can arm new work. */
+internal fun enforceG7CollectorEligibility(
+    context: Context,
+    nowEpochMs: Long,
+    credentialsPresent: Boolean,
+): G7PersistedState =
+    synchronized(G7SensorStateStore.lifecycleLock) {
+        val app = context.applicationContext
+        val store = G7SensorStateStore(app)
+        val before = store.read()
+        val bounded = ensureG7PairingAttempt(before, nowEpochMs)
+        val eligible =
+            if (bounded.collectorEnabled && !credentialsPresent && !hasEstablishedG7SensorSession(bounded)) {
+                G7SessionManager(bounded).stop().copy(
+                    lastError = G7CollectorError("G7-SETUP-001", false, nowEpochMs, "Sensor nicht eingerichtet · bitte Sensor verbinden wählen"),
+                )
+            } else {
+                bounded
+            }
+        if (eligible != before) store.save(eligible)
+        if (!eligible.collectorEnabled &&
+            (before.collectorEnabled || G7CollectorRuntimeRegistry.hasRuntimeService() || G7CollectorDiagnosticStore(app).pendingScheduledCycle() != null)
+        ) {
+            // The established stop path cancels the live owner, scan, both alarms and wake handoff;
+            // it retains credentials, history and the terminal setup error.
+            G7CollectorService.stop(app)
+        }
+        store.read()
+    }
 
 /** Process-local truth for whether the Service owns a real coroutine-backed BLE cycle. */
 internal object G7CollectorRuntimeRegistry {
@@ -213,11 +244,11 @@ internal object G7RuntimeReconciler {
             val app = context.applicationContext
             val stateStore = G7SensorStateStore(app)
             val diagnosticStore = G7CollectorDiagnosticStore(app)
-            val state = stateStore.read()
+            val configured = stateStore.read().sensor != null && G7CredentialStore(app).read() != null
+            val state = enforceG7CollectorEligibility(app, nowEpochMs, configured)
             val activeAttempt = diagnosticStore.activeAttempt(state.activeAttemptId)
             val pendingCycle = diagnosticStore.pendingScheduledCycle()
             val pendingReconnect = pendingCycle?.requestedReconnectEpoch
-            val configured = state.sensor != null && G7CredentialStore(app).read() != null
             val effectiveLiveCycle = liveCycle ?: G7CollectorRuntimeRegistry.hasLiveCycle()
             val assessment =
                 assessG7Runtime(

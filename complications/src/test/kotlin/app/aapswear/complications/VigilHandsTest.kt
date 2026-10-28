@@ -85,7 +85,7 @@ class VigilHandsTest {
                 .create()
                 .get()
                 .getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
-        assertNotNull(header.tapAction)
+        org.junit.Assert.assertNull("Vigil opens via its local native Launch region", header.tapAction)
         assertNotNull(graph.tapAction)
         assertNotNull(header.smallImage.ambientImage)
         assertNotNull(graph.smallImage.ambientImage)

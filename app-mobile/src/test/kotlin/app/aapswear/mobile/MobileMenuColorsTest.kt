@@ -19,25 +19,33 @@ class MobileMenuColorsTest {
 
     @Test
     fun `dark menu uses readable device palette tone`() {
-        assertEquals(context.getColor(android.R.color.system_accent1_200), mobileMenuAccentArgb(context, dark = true))
+        assertEquals(
+            app.aapswear.uishared.SugarliciousAccentPalette
+                .primary(true),
+            mobileMenuAccentArgb(context, dark = true),
+        )
     }
 
     @Test
     fun `light menu uses contrasting device palette tone`() {
-        assertEquals(context.getColor(android.R.color.system_accent1_600), mobileMenuAccentArgb(context, dark = false))
+        assertEquals(
+            app.aapswear.uishared.SugarliciousAccentPalette
+                .primary(false),
+            mobileMenuAccentArgb(context, dark = false),
+        )
     }
 
     @Test
     fun `dark menu foreground uses matching readable device tone`() {
         val foreground = mobileMenuOnAccentArgb(context, dark = true)
-        assertEquals(context.getColor(android.R.color.system_accent1_800), foreground)
+        assertEquals(android.graphics.Color.BLACK, foreground)
         assertTrue(ColorUtils.calculateContrast(foreground, mobileMenuAccentArgb(context, dark = true)) >= 4.5)
     }
 
     @Test
     fun `light menu foreground uses matching readable device tone`() {
         val foreground = mobileMenuOnAccentArgb(context, dark = false)
-        assertEquals(context.getColor(android.R.color.system_accent1_0), foreground)
+        assertEquals(android.graphics.Color.BLACK, foreground)
         assertTrue(ColorUtils.calculateContrast(foreground, mobileMenuAccentArgb(context, dark = false)) >= 4.5)
     }
 }

@@ -19,6 +19,20 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class WidgetInstanceConfigurationTest {
     @Test
+    fun `widget theme follows Mobile while its own display details remain isolated`() {
+        context
+            .getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("themeMode", "DARK")
+            .commit()
+        val value = WidgetInstanceConfigurationStore.read(context, 917).copy(themeMode = DashboardThemeMode.LIGHT, graphHours = 6)
+        WidgetInstanceConfigurationStore.save(context, 917, value)
+        val restored = WidgetInstanceConfigurationStore.read(context, 917)
+        assertEquals(DashboardThemeMode.DARK, restored.themeMode)
+        assertEquals(6, restored.graphHours)
+    }
+
+    @Test
     fun `new glucose family retains captured icon defaults without replacing saved instances`() {
         val defaults = WidgetSystemDefaults.forNewInstance(context, ConfigurableWidgetKind.GLUCOSE)
         assertEquals(0xFFCCCCCC.toInt(), defaults.colorOverrides[WidgetColorRole.DELTA_ICON])

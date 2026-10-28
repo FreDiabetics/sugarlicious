@@ -9,7 +9,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 @Serializable(with = DataSourceIdSerializer::class)
-enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, NIGHTSCOUT, OTHER }
+enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, DEXCOM_G7_APP, DEXCOM_SHARE, NIGHTSCOUT, OTHER }
 
 object DataSourceIdSerializer : KSerializer<DataSourceId> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DataSourceId", PrimitiveKind.STRING)
@@ -229,9 +229,11 @@ enum class CanonicalDataField {
     val capabilities: Set<DataCapability> = emptySet(),
     /** Per-field origin; absent entries are deliberately treated as unavailable. */
     val fieldProvenance: Map<CanonicalDataField, ValueProvenance> = emptyMap(),
+    /** Upstream identity is independent from source-versus-derived value provenance. */
+    val fieldSources: Map<CanonicalDataField, DataSourceId> = emptyMap(),
 ) {
     companion object {
-        const val CURRENT_SCHEMA = 11
+        const val CURRENT_SCHEMA = 12
     }
 }
 

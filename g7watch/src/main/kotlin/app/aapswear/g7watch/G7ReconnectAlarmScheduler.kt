@@ -195,6 +195,7 @@ internal object G7ReconnectAlarmScheduler {
         val pending = reconnectPendingIntent(app)
         app.getSystemService(AlarmManager::class.java).cancel(pending)
         pending.cancel()
+        G7CollectorDiagnosticStore(app).discardScheduledCycle()
     }
 
     private fun reconnectPendingIntent(context: Context): PendingIntent =

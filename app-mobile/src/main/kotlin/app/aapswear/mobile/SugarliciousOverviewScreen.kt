@@ -189,7 +189,7 @@ internal fun SugarliciousOverviewScreen(
             now = now,
         )
     val glucoseColor =
-        SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole)).let { color -> if (displayable) color else color.copy(alpha = 0.62f) }
+        (if (TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) Color(0xFF9E9E9E) else SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole))).let { color -> if (displayable || TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
     val tirStats = calculateTirStats(state, now)
@@ -306,12 +306,22 @@ private fun GlucoseHeroCard(
                 Spacer(Modifier.height(3.dp))
                 Text(
                     buildAnnotatedString {
-                        withStyle(SpanStyle(color = SugarliciousColors.DeltaUnit)) { append("$delta $unitLabel") }
-                        append(" · $age")
+                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)) { append(delta) }
+                        withStyle(SpanStyle(color = SugarliciousColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)) { append(" $unitLabel") }
                     },
                     color = SugarliciousColors.TextSecondary,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    buildAnnotatedString {
+                        Regex("\\d+|\\D+").findAll(if (age.endsWith("m")) "vor ${age.removeSuffix("m")} Min" else age).forEach { part ->
+                            withStyle(SpanStyle(color = if (part.value.first().isDigit()) SugarliciousColors.TextPrimary else SugarliciousColors.TextSecondary)) { append(part.value) }
+                        }
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -345,7 +355,7 @@ private fun GlucoseHeroCard(
         } else {
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
                 GlucosePane(Modifier.weight(132f).fillMaxHeight())
-                DetailsPane(Modifier.weight(210f).fillMaxHeight())
+                DetailsPane(Modifier.weight(224f).fillMaxHeight())
             }
         }
     }

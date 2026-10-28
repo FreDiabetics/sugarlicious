@@ -46,7 +46,7 @@ data class SugarWearTypographySpec(
 /** Semantic type tokens shared by the SugarWear app and its ProtoLayout tiles. */
 object SugarWearTypography {
     /** Explicit system family supported by both Android Views and Wear ProtoLayout. */
-    const val APP_FONT_FAMILY = "roboto"
+    const val APP_FONT_FAMILY = "sans-serif"
 
     const val PROTO_FONT_FAMILY = APP_FONT_FAMILY
 
@@ -69,6 +69,7 @@ fun wearGlucoseCardPresentation(
     input: WearGlucoseCardInput,
     thresholds: CgmThresholds,
     nowEpochMs: Long,
+    showSignalLossLabel: Boolean = true,
 ): WearGlucoseCardPresentation {
     val value = input.valueMgDl
     val freshness =
@@ -96,14 +97,27 @@ fun wearGlucoseCardPresentation(
             Freshness.CURRENT -> age
             Freshness.DELAYED -> age
             Freshness.STALE -> "Keine aktuellen CGM-Daten"
-            Freshness.SIGNAL_LOSS -> "Signalverlust"
+            Freshness.SIGNAL_LOSS -> if (showSignalLossLabel) "Signalverlust" else ""
             Freshness.ERROR -> "Sensorfehler"
             Freshness.NO_DATA -> "Keine CGM-Daten"
         }
     return WearGlucoseCardPresentation(
         value = formattedValue,
-        primaryMeta = if (displayable) listOf("$delta $unit", stateText).filter(String::isNotBlank).joinToString(" · ") else stateText,
-        secondaryMeta = "",
+        primaryMeta = if (displayable) "$delta $unit" else stateText,
+        secondaryMeta =
+            if (displayable) {
+                if (freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
+                    age
+                        .removeSuffix("m")
+                        .takeIf(String::isNotBlank)
+                        ?.let { "vor $it Min" }
+                        .orEmpty()
+                } else {
+                    stateText
+                }
+            } else {
+                ""
+            },
         trend = input.trend.takeIf { retainsLastState && it != Trend.UNKNOWN },
         freshness = freshness,
         rangeClass = value?.takeIf { displayable }?.let(thresholds::classify),

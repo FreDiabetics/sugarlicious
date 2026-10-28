@@ -19,6 +19,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class G7LifecyclePolicyTest {
+    @Test fun `first live publication retains address established during this connection`() {
+        val initial = G7Sensor("sensor", "session")
+        val authenticated = initial.copy(deviceAddress = "AA:BB:CC:DD:EE:FF")
+        val published = sensorForG7LivePublication(initial, authenticated, app.aapswear.g7.G7SensorState.ACTIVE)
+        assertEquals(authenticated.deviceAddress, published.deviceAddress)
+        assertEquals(app.aapswear.g7.G7SensorState.ACTIVE, published.state)
+        assertEquals(null, sensorForG7LivePublication(initial, authenticated.copy(sessionId = "other"), app.aapswear.g7.G7SensorState.ACTIVE).deviceAddress)
+    }
+
     @Test fun `automatic restoration can wait only for the same sessions fresh live phase`() {
         val measuredAt = 1_000_000L
         val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, measuredAt, measuredAt)
@@ -93,32 +102,96 @@ class G7LifecyclePolicyTest {
         )
     }
 
-    @Test fun `pairing request survives while expired scan window is renewed`() {
+    @Test fun `pairing survives restoration but expires without renewing its original budget`() {
         val initial = G7PersistedState(sensor = G7Sensor("sensor"), collectorEnabled = true)
-        val started = ensureG7PairingAttempt(initial, 1_000L)
+        val started = startG7PairingAttempt(initial, 1_000L)
         val restored = ensureG7PairingAttempt(started, 20_000L)
-        val renewed = ensureG7PairingAttempt(started, 1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+        val expired = ensureG7PairingAttempt(started, 1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
 
         assertEquals(1_000L, started.pairingStartedAtEpochMs)
         assertEquals(1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS, started.pairingDeadlineEpochMs)
         assertEquals(started.pairingAttemptId, restored.pairingAttemptId)
         assertEquals(started.pairingStartedAtEpochMs, restored.pairingStartedAtEpochMs)
         assertEquals(started.pairingDeadlineEpochMs, restored.pairingDeadlineEpochMs)
-        assertEquals(started.pairingAttemptId, renewed.pairingAttemptId)
-        assertEquals(started.pairingStartedAtEpochMs, renewed.pairingStartedAtEpochMs)
-        assertEquals(
-            1_000L + 2L * G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
-            renewed.pairingDeadlineEpochMs,
-        )
+        assertFalse(expired.collectorEnabled)
+        assertNull(expired.nextReconnectEpochMs)
+        assertEquals("G7-PAIRING-TIMEOUT", expired.lastError?.code)
+        assertEquals(expired, ensureG7PairingAttempt(expired, 24L * 60 * 60_000L))
+        val explicitResume =
+            startG7PairingAttempt(
+                app.aapswear.g7
+                    .G7SessionManager(expired)
+                    .startCollector(),
+                24L * 60 * 60_000L,
+            )
+        assertTrue(explicitResume.collectorEnabled)
+        assertEquals(24L * 60 * 60_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS, explicitResume.pairingDeadlineEpochMs)
 
         val discoveredButNotValidated = started.copy(sensor = G7Sensor("sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"))
-        assertEquals(
-            1_000L + 2L * G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+        assertFalse(
             ensureG7PairingAttempt(
                 discoveredButNotValidated,
                 1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
-            ).pairingDeadlineEpochMs,
+            ).collectorEnabled,
         )
+    }
+
+    @Test fun `enabled collector without sensor cannot acquire a scan budget`() {
+        val stopped = ensureG7PairingAttempt(G7PersistedState(collectorEnabled = true), 10_000L)
+        assertFalse(stopped.collectorEnabled)
+        assertNull(stopped.pairingAttemptId)
+        assertNull(stopped.nextReconnectEpochMs)
+    }
+
+    @Test fun `restoration cannot invent setup permission from enabled flag and configured sensor alone`() {
+        val abandoned = G7PersistedState(collectorEnabled = true, sensor = G7Sensor("setup"))
+        val stopped = ensureG7PairingAttempt(abandoned, 10_000L)
+        assertFalse(stopped.collectorEnabled)
+        assertEquals("G7-SETUP-001", stopped.lastError?.code)
+    }
+
+    @Test fun `upgrading an old repeatedly extended deadline still honors its original start`() {
+        val legacy =
+            startG7PairingAttempt(G7PersistedState(collectorEnabled = true, sensor = G7Sensor("setup")), 1_000L)
+                .copy(pairingDeadlineEpochMs = 1_000L + 2 * G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+        assertFalse(ensureG7PairingAttempt(legacy, 1_000L + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS).collectorEnabled)
+    }
+
+    @Test fun `existing same session reading keeps reconnection beyond an old setup deadline`() {
+        val reading = CgmReading("live", DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 123.0, 1_000L, 1_000L)
+        val known =
+            G7PersistedState(
+                collectorEnabled = true,
+                sensor = G7Sensor("sensor", "session", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+                lastReading = reading,
+                pairingStartedAtEpochMs = 500L,
+                pairingDeadlineEpochMs = 1_000L,
+            )
+        assertEquals(known, ensureG7PairingAttempt(known, 24L * 60 * 60_000L))
+    }
+
+    @Test fun `authenticated bonded session without first glucose is not an abandoned setup`() {
+        val paired =
+            G7PersistedState(
+                collectorEnabled = true,
+                sensor = G7Sensor("sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+                authenticationState = app.aapswear.g7.G7AuthenticationState.AUTHENTICATED,
+                pairingDeadlineEpochMs = 1_000L,
+            )
+        assertEquals(paired, ensureG7PairingAttempt(paired, 2_000L))
+        assertFalse(ensureG7PairingAttempt(paired.copy(authenticationState = app.aapswear.g7.G7AuthenticationState.REQUIRED), 2_000L).collectorEnabled)
+    }
+
+    @Test fun `runtime restart retains authenticated session authority before its first valid value`() {
+        val paired =
+            G7PersistedState(
+                collectorEnabled = true,
+                sensor = G7Sensor("sensor", deviceAddress = "AA:BB:CC:DD:EE:FF"),
+                authenticationState = app.aapswear.g7.G7AuthenticationState.AUTHENTICATED,
+            )
+        val reset = resetG7RuntimeForRestart(paired)
+        assertEquals(paired.authenticationState, reset.authenticationState)
+        assertTrue(ensureG7PairingAttempt(reset, 24L * 60 * 60_000L).collectorEnabled)
     }
 
     @Test fun `collector repairs missing or expired follow up but preserves future alarm`() {

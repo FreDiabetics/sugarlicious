@@ -102,7 +102,7 @@ class G7CollectorService : Service() {
 
         val persisted =
             synchronized(G7SensorStateStore.lifecycleLock) {
-                ensureG7PairingAttempt(store.read(), serviceStartAt).also { store.saveFromCollector(it) }
+                enforceG7CollectorEligibility(this, serviceStartAt, credentials.read() != null)
             }
         if (!persisted.collectorEnabled) {
             G7SignalLossMonitor.cancel(this)
@@ -144,6 +144,10 @@ class G7CollectorService : Service() {
             nowEpochMs = serviceStartAt,
         )
         var persisted = store.read()
+        if (!persisted.collectorEnabled) {
+            G7WakeHandoff.release()
+            return@synchronized
+        }
 
         G7SignalLossMonitor.scheduleFromState(this, persisted)
         val request =
@@ -432,7 +436,7 @@ class G7CollectorService : Service() {
             val pairingRemainingMs =
                 store
                     .read()
-                    .takeIf { it.lastReading == null }
+                    .takeIf { !hasEstablishedG7SensorSession(it) }
                     ?.pairingDeadlineEpochMs
                     ?.minus(System.currentTimeMillis())
             if (pairingRemainingMs != null && pairingRemainingMs <= 0L) {
@@ -447,128 +451,155 @@ class G7CollectorService : Service() {
             var liveCommittedBeforeBackfill = false
             var backfillRequestedAt: Long? = null
             var liveMeasuredAtForRecovery: Long? = null
-            val cycleContext = currentCoroutineContext()
             val result =
-                collector.collect(
-                    initialSensor = collectionSensor,
-                    credentials = storedCredentials,
-                    onState = { protocolState ->
-                        cycleContext.ensureActive()
-                        if (token != cycleToken || !store.read().collectorEnabled) throw CancellationException("Collector paused")
-                        val current = store.read()
-                        val now = System.currentTimeMillis()
-                        val health =
-                            when (protocolState) {
-                                G7ProtocolState.SENSOR_FOUND -> G7CollectorReliability.reachable(current.health, now)
-                                G7ProtocolState.DISCOVERING, G7ProtocolState.DISCOVERING_SERVICES ->
-                                    G7CollectorReliability.reachable(current.health, now, connected = true)
-                                G7ProtocolState.AUTHENTICATED -> G7CollectorReliability.authenticated(current.health, now)
-                                else -> current.health
-                            }
-                        val next =
-                            current.copy(
-                                protocolState = protocolState,
-                                connectionState = protocolState.toConnectionState(),
-                                sessionState = protocolState.toSessionState(),
-                                scanStartedAtEpochMs =
-                                    if (protocolState == G7ProtocolState.SCANNING) now else current.scanStartedAtEpochMs,
-                                scanTimeoutAtEpochMs =
-                                    if (protocolState == G7ProtocolState.SCANNING) {
-                                        current.pairingDeadlineEpochMs
-                                            ?: now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
-                                    } else {
-                                        current.scanTimeoutAtEpochMs
-                                    },
-                                lastScanAtEpochMs =
-                                    if (protocolState == G7ProtocolState.SCANNING) now else current.lastScanAtEpochMs,
-                                health = health,
-                            )
-                        persist(next)
-                        updateAttemptCycleForProtocolState(attemptId, protocolState, now)
-                        recordAttemptProtocolState(attemptId, protocolState, collectionSensor.sensorId)
-                        scope.launch {
-                            applicationContext.recordG7Diagnostic(
-                                protocolState.diagnosticCode(),
-                                protocolState.label(),
-                                metadata = mapOf("protocolState" to protocolState.name),
-                            )
-                        }
-                    },
-                    onSharedKey = { address, key ->
-                        synchronized(G7SensorStateStore.lifecycleLock) {
+                withinG7InitialPairingBudget(store.read(), System.currentTimeMillis()) {
+                    val cycleContext = currentCoroutineContext()
+                    collector.collect(
+                        initialSensor = collectionSensor,
+                        credentials = storedCredentials,
+                        onState = { protocolState ->
                             cycleContext.ensureActive()
-                            if (token != cycleToken || generation != store.collectorGeneration() || !store.read().collectorEnabled) {
-                                throw CancellationException("Collector paused")
-                            }
-                            credentials.saveSharedKey(address, key)
+                            if (token != cycleToken || !store.read().collectorEnabled) throw CancellationException("Collector paused")
                             val current = store.read()
-                            if (current.sensor?.deviceAddress.isNullOrBlank()) {
-                                if (!persist(current.copy(sensor = current.sensor?.copy(deviceAddress = address)))) {
-                                    throw CancellationException("Collector association changed")
+                            val now = System.currentTimeMillis()
+                            requireG7InitialPairingBudget(current, now)
+                            val health =
+                                when (protocolState) {
+                                    G7ProtocolState.SENSOR_FOUND -> G7CollectorReliability.reachable(current.health, now)
+                                    G7ProtocolState.DISCOVERING, G7ProtocolState.DISCOVERING_SERVICES ->
+                                        G7CollectorReliability.reachable(current.health, now, connected = true)
+                                    G7ProtocolState.AUTHENTICATED -> G7CollectorReliability.authenticated(current.health, now)
+                                    else -> current.health
                                 }
-                            }
-                            if (allowsRetiredG7CandidateForSetup(collectionSensor, storedCredentials.sharedKey != null, storedCredentials.sharedKeyAddress)) {
-                                G7RetiredSensors(this@G7CollectorService).reactivateAuthenticated(address)
-                            }
-                        }
-                    },
-                    scanTimeoutMsOverride = boundedScanTimeout,
-                    reconnectStrategy =
-                        effectiveG7ReconnectStrategy(
-                            G7ReconnectStrategyStore.read(this),
-                            store.read().health,
-                        ),
-                    onTelemetry = { telemetry ->
-                        // Cleanup telemetry runs while the cycle is cancelling; never interrupt
-                        // it before AndroidG7Ble has disconnected and closed the GATT client.
-                        if (telemetry is G7BackfillRequestTelemetry) {
-                            backfillRequestedAt = telemetry.timestampEpochMs
-                            liveMeasuredAtForRecovery?.let { liveMeasuredAt ->
-                                G7ExpectedWindowLedger(this).markRecoveryRequestStarted(
-                                    sensorId = collectionSensor.sensorId,
-                                    sessionId = sessionId,
-                                    liveMeasuredAt = liveMeasuredAt,
-                                    requestedAt = telemetry.timestampEpochMs,
+                            val next =
+                                current.copy(
+                                    protocolState = protocolState,
+                                    connectionState = protocolState.toConnectionState(),
+                                    sessionState = protocolState.toSessionState(),
+                                    authenticationState =
+                                        if (protocolState == G7ProtocolState.AUTHENTICATED || protocolState == G7ProtocolState.REQUESTING_GLUCOSE) {
+                                            app.aapswear.g7.G7AuthenticationState.AUTHENTICATED
+                                        } else {
+                                            current.authenticationState
+                                        },
+                                    pairingAttemptId = if (protocolState == G7ProtocolState.AUTHENTICATED || protocolState == G7ProtocolState.REQUESTING_GLUCOSE) null else current.pairingAttemptId,
+                                    pairingStartedAtEpochMs = if (protocolState == G7ProtocolState.AUTHENTICATED || protocolState == G7ProtocolState.REQUESTING_GLUCOSE) null else current.pairingStartedAtEpochMs,
+                                    pairingDeadlineEpochMs = if (protocolState == G7ProtocolState.AUTHENTICATED || protocolState == G7ProtocolState.REQUESTING_GLUCOSE) null else current.pairingDeadlineEpochMs,
+                                    lastError = if (protocolState == G7ProtocolState.AUTHENTICATED || protocolState == G7ProtocolState.REQUESTING_GLUCOSE) null else current.lastError,
+                                    scanStartedAtEpochMs =
+                                        if (protocolState == G7ProtocolState.SCANNING) now else current.scanStartedAtEpochMs,
+                                    scanTimeoutAtEpochMs =
+                                        if (protocolState == G7ProtocolState.SCANNING) {
+                                            current.pairingDeadlineEpochMs
+                                                ?: now + (boundedScanTimeout ?: g7ScanTimeoutMs(collectionSensor))
+                                        } else {
+                                            current.scanTimeoutAtEpochMs
+                                        },
+                                    lastScanAtEpochMs =
+                                        if (protocolState == G7ProtocolState.SCANNING) now else current.lastScanAtEpochMs,
+                                    health = health,
+                                )
+                            persist(next)
+                            updateAttemptCycleForProtocolState(attemptId, protocolState, now)
+                            recordAttemptProtocolState(attemptId, protocolState, collectionSensor.sensorId)
+                            scope.launch {
+                                applicationContext.recordG7Diagnostic(
+                                    protocolState.diagnosticCode(),
+                                    protocolState.label(),
+                                    metadata = mapOf("protocolState" to protocolState.name),
                                 )
                             }
-                        }
-                        recordBleTelemetry(attemptId, telemetry)
-                    },
-                    attemptId = attemptId,
-                    lastStoredSensorClock = lastStoredSensorClock,
-                    allowFallbackScan = G7CollectorReliability.shouldRunPresenceScan(store.read().health),
-                    onLiveReading = { live ->
-                        cycleContext.ensureActive()
-                        if (token != cycleToken || !store.read().collectorEnabled) throw CancellationException("Collector paused")
-                        liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
-                        G7ReadingDatabase(this).let { database ->
-                            try {
-                                database.coalesceChangeNotifications {
-                                    val previous = database.getLatestValidBefore(live.sensorId, live.sessionId, live.sensorTimestampEpochMs)
-                                    val provisional = live.toCgm(previous)
-                                    if (provisional.status == CgmReadingStatus.VALID) {
-                                        liveCommittedBeforeBackfill = database.insertOrIgnore(provisional)
-                                        val current = store.read()
-                                        // Publish only after both the measurement and sensor state are
-                                        // visible. A first reading must not refresh Vigil with UNKNOWN
-                                        // or the preceding sensor-error state while backfill is running.
-                                        persist(
-                                            current.copy(
-                                                sensor = collectionSensor.copy(state = live.sensorState),
-                                                lastReading = provisional,
-                                                sessionState = app.aapswear.g7.G7SessionState.ACTIVE,
-                                                protocolState = G7ProtocolState.BACKFILL,
-                                                lastSuccessfulConnectionEpochMs = System.currentTimeMillis(),
-                                            ),
-                                        )
+                        },
+                        onSharedKey = { address, key ->
+                            synchronized(G7SensorStateStore.lifecycleLock) {
+                                cycleContext.ensureActive()
+                                if (token != cycleToken || generation != store.collectorGeneration() || !store.read().collectorEnabled) {
+                                    throw CancellationException("Collector paused")
+                                }
+                                requireG7InitialPairingBudget(store.read(), System.currentTimeMillis())
+                                credentials.saveSharedKey(address, key)
+                                val current = store.read()
+                                if (current.sensor?.deviceAddress.isNullOrBlank()) {
+                                    if (!persist(current.copy(sensor = current.sensor?.copy(deviceAddress = address)))) {
+                                        throw CancellationException("Collector association changed")
                                     }
                                 }
-                            } finally {
-                                database.close()
+                                if (allowsRetiredG7CandidateForSetup(collectionSensor, storedCredentials.sharedKey != null, storedCredentials.sharedKeyAddress)) {
+                                    G7RetiredSensors(this@G7CollectorService).reactivateAuthenticated(address)
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                        scanTimeoutMsOverride = boundedScanTimeout,
+                        reconnectStrategy =
+                            effectiveG7ReconnectStrategy(
+                                G7ReconnectStrategyStore.read(this),
+                                store.read().health,
+                            ),
+                        onTelemetry = { telemetry ->
+                            // Cleanup telemetry runs while the cycle is cancelling; never interrupt
+                            // it before AndroidG7Ble has disconnected and closed the GATT client.
+                            if (telemetry is G7DiscoveryCandidateDeferred) {
+                                persist(
+                                    store.read().copy(
+                                        lastError =
+                                            G7CollectorError(
+                                                telemetry.errorCode,
+                                                true,
+                                                telemetry.timestampEpochMs,
+                                                "G7-Kandidat nicht erreichbar · weitere Sensoren werden gesucht",
+                                            ),
+                                    ),
+                                )
+                            }
+                            if (telemetry is G7BackfillRequestTelemetry) {
+                                backfillRequestedAt = telemetry.timestampEpochMs
+                                liveMeasuredAtForRecovery?.let { liveMeasuredAt ->
+                                    G7ExpectedWindowLedger(this).markRecoveryRequestStarted(
+                                        sensorId = collectionSensor.sensorId,
+                                        sessionId = sessionId,
+                                        liveMeasuredAt = liveMeasuredAt,
+                                        requestedAt = telemetry.timestampEpochMs,
+                                    )
+                                }
+                            }
+                            recordBleTelemetry(attemptId, telemetry)
+                        },
+                        attemptId = attemptId,
+                        lastStoredSensorClock = lastStoredSensorClock,
+                        allowFallbackScan = G7CollectorReliability.shouldRunPresenceScan(store.read().health),
+                        onLiveReading = { live ->
+                            cycleContext.ensureActive()
+                            if (token != cycleToken || !store.read().collectorEnabled) throw CancellationException("Collector paused")
+                            liveMeasuredAtForRecovery = live.sensorTimestampEpochMs
+                            G7ReadingDatabase(this).let { database ->
+                                try {
+                                    database.coalesceChangeNotifications {
+                                        val previous = database.getLatestValidBefore(live.sensorId, live.sessionId, live.sensorTimestampEpochMs)
+                                        val provisional = live.toCgm(previous)
+                                        if (provisional.status == CgmReadingStatus.VALID) {
+                                            liveCommittedBeforeBackfill = database.insertOrIgnore(provisional)
+                                            val current = store.read()
+                                            // Publish only after both the measurement and sensor state are
+                                            // visible. A first reading must not refresh Vigil with UNKNOWN
+                                            // or the preceding sensor-error state while backfill is running.
+                                            persist(
+                                                current.copy(
+                                                    sensor = sensorForG7LivePublication(collectionSensor, current.sensor, live.sensorState),
+                                                    lastReading = provisional,
+                                                    sessionState = app.aapswear.g7.G7SessionState.ACTIVE,
+                                                    protocolState = G7ProtocolState.BACKFILL,
+                                                    lastSuccessfulConnectionEpochMs = System.currentTimeMillis(),
+                                                ),
+                                            )
+                                        }
+                                    }
+                                } finally {
+                                    database.close()
+                                }
+                            }
+                        },
+                    )
+                }
             attemptStore.record(
                 attemptId,
                 CollectorDiagnosticStage.GATT_CLOSE,
@@ -951,6 +982,21 @@ class G7CollectorService : Service() {
     ) = synchronized(G7SensorStateStore.lifecycleLock) {
         if (!store.read().collectorEnabled || store.read().activeAttemptId != attemptId) return@synchronized
         val cycle = attemptStore.snapshot().firstOrNull { it.attemptId == attemptId }?.cycle
+        val bounded = ensureG7PairingAttempt(state, System.currentTimeMillis())
+        if (!bounded.collectorEnabled) {
+            attemptStore.setClassification(attemptId, classifyG7CycleFailure(error.code, cycle))
+            attemptStore.record(
+                attemptId,
+                CollectorDiagnosticStage.ERROR,
+                CollectorDiagnosticResult.FATAL_ERROR,
+                bounded.lastError?.safeMessage ?: "Verbindung beendet",
+                errorCode = bounded.lastError?.code,
+                durationMs = System.currentTimeMillis() - startedAtEpochMs,
+            )
+            store.save(bounded)
+            enforceG7CollectorEligibility(this, System.currentTimeMillis(), credentials.read() != null)
+            return@synchronized
+        }
         val stagedSafety =
             stagedSafetyCycle(
                 cycle,
@@ -1100,6 +1146,17 @@ class G7CollectorService : Service() {
         telemetry: G7BleTelemetry,
     ) {
         when (telemetry) {
+            is G7DiscoveryCandidateDeferred -> {
+                attemptStore.record(
+                    attemptId,
+                    CollectorDiagnosticStage.RECOVERY,
+                    CollectorDiagnosticResult.RECOVERABLE_ERROR,
+                    "Nicht authentifizierter G7-Kandidat vorübergehend zurückgestellt · weitere Kandidaten prüfen",
+                    errorCode = telemetry.errorCode,
+                    durationMs = G7DiscoveryCandidates.CANDIDATE_COOLDOWN_MS,
+                    nowEpochMs = telemetry.timestampEpochMs,
+                )
+            }
             is G7DirectConnectStarted -> {
                 attemptStore.updateCycle(attemptId) { cycle ->
                     cycle.copy(
@@ -1390,21 +1447,7 @@ class G7CollectorService : Service() {
                 if (!current.collectorEnabled) {
                     val started = G7SessionManager(current).startCollector()
                     val now = System.currentTimeMillis()
-                    stateStore.save(
-                        if (started.lastReading == null) {
-                            started.copy(
-                                pairingAttemptId =
-                                    started.pairingAttemptId ?: java.util.UUID
-                                        .randomUUID()
-                                        .toString(),
-                                pairingStartedAtEpochMs = started.pairingStartedAtEpochMs ?: now,
-                                pairingDeadlineEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
-                                scanTimeoutAtEpochMs = started.pairingDeadlineEpochMs ?: now + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
-                            )
-                        } else {
-                            started
-                        },
-                    )
+                    stateStore.save(startG7PairingAttempt(started, now))
                 }
                 G7SignalLossMonitor.scheduleFromState(app, stateStore.read())
                 app.startForegroundService(

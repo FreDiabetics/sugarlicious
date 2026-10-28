@@ -1939,7 +1939,7 @@ internal fun renderMinimalGlucoseWidget(
             widgetGlucoseSupplement(it.showDelta, it.showAge, delta, age, unit)
         }
     val value = if (known && glucose != null) TherapyDisplayFormatter.glucose(glucose) else "–"
-    val color = palette.argb(if (known) presentation.visibleRole else WidgetColorRole.TEXT)
+    val color = if (TherapyDisplayFormatter.freshness(state, now) == Freshness.SIGNAL_LOSS) 0xFF9E9E9E.toInt() else palette.argb(if (known) presentation.visibleRole else WidgetColorRole.TEXT)
     val paint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             this.color = color

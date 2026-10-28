@@ -12,42 +12,15 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class VigilHeaderLayoutTest {
-    @Test fun `disconnected status stays in digital and analog delta areas without covering graph`() {
+    @Test fun `disconnected warning stays above graph without overview sensor actions`() {
         val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
         val presentation = DirectToWatchPresentationFormatter.header(null, 1_800_000_000_000L)
         listOf(false, true).forEach { ambient ->
-            val digital = service.renderHeader(presentation, ambient = ambient)
-            val analog = service.renderAnalogHeader(presentation, ambient = ambient)
+            val analog = service.renderAnalogHeader(presentation, ambient)
 
-            fun ink(bitmap: android.graphics.Bitmap, top: Int, bottom: Int): Int =
-                (top until bottom).sumOf { y -> (0 until bitmap.width).count { x -> Color.alpha(bitmap.getPixel(x, y)) > 0 } }
-            org.junit.Assert.assertTrue("Digital delta row retains disconnected status", ink(digital, 74, 108) > 0)
-            org.junit.Assert.assertTrue("Analog delta row retains disconnected status", ink(analog, 365, 405) > 0)
-            assertEquals("Analog status must leave the graph unobscured", 0, ink(analog, 140, 345))
-            assertEquals("Plain status has no outlined pill at its outer edge", 0, Color.alpha(analog.getPixel(60, 385)))
-        }
-    }
-
-    @Test fun `analog pairing guidance keeps its complete button above graph`() {
-        val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
-        val image = service.renderAnalogHeader(DirectToWatchHeaderPresentation("-", "Bitte Sensor verbinden"))
-        org.junit.Assert.assertTrue((110 until 130).any { y -> (150 until 300).any { x -> Color.alpha(image.getPixel(x, y)) > 0 } })
-        assertEquals(0, Color.alpha(image.getPixel(225, 140)))
-    }
-
-    @Test fun `analog header separates glucose from two line delta below the graph`() {
-        val service = Robolectric.buildService(DirectToWatchAnalogHeaderComplication::class.java).create().get()
-        val image = service.renderAnalogHeader(DirectToWatchHeaderPresentation("123", "+5 mg/dL", Trend.FLAT, false))
-        assertEquals(450, image.width)
-        assertEquals(450, image.height)
-
-        fun ink(top: Int, bottom: Int): Int = (top until bottom).sumOf { y -> (0 until 450).count { x -> Color.alpha(image.getPixel(x, y)) > 0 } }
-        org.junit.Assert.assertTrue(ink(50, 120) > 0)
-        assertEquals(0, ink(140, 345))
-        org.junit.Assert.assertTrue(ink(350, 385) > 0)
-        org.junit.Assert.assertTrue(ink(385, 415) > 0)
-        java.io.File(System.getProperty("java.io.tmpdir"), "vigil-analog-text.png").outputStream().use {
-            image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            fun ink(top: Int, bottom: Int): Int = (top until bottom).sumOf { y -> (0 until analog.width).count { x -> Color.alpha(analog.getPixel(x, y)) > 0 } }
+            org.junit.Assert.assertTrue(ink(22, 130) > 0)
+            assertEquals(0, ink(140, 450))
         }
     }
 

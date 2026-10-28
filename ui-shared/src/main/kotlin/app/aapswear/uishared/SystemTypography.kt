@@ -16,13 +16,11 @@ import app.aapswear.model.SystemTypographyTokens
 object SystemTypography {
     val preferredFontFamily: String get() = SystemTypographyTokens.fontFamily(Build.MANUFACTURER)
 
-    private val regular: Typeface by lazy { create(false) }
-    private val bold: Typeface by lazy { create(true) }
-
-    fun typeface(emphasized: Boolean): Typeface = if (emphasized) bold else regular
+    // Typeface.create caches internally; retain no app-owned font across system font changes.
+    fun typeface(emphasized: Boolean): Typeface = create(emphasized)
 
     private fun create(emphasized: Boolean): Typeface {
-        val base = if (preferredFontFamily == "sec") Typeface.create("sec", Typeface.NORMAL) else Typeface.DEFAULT
+        val base = Typeface.DEFAULT
         return if (Build.VERSION.SDK_INT >= 28) {
             Typeface.create(base, SystemTypographyTokens.weight(emphasized), false)
         } else {

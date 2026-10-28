@@ -60,3 +60,20 @@ internal fun shouldFailCurrentG7Write(disposition: G7WriteCallbackDisposition): 
     disposition == G7WriteCallbackDisposition.EXPECTED_FAILURE
 
 internal fun copyG7NotificationValue(value: ByteArray): ByteArray = value.copyOf()
+
+internal fun g7DiscoveryScanTimeoutMs(
+    sensor: G7Sensor,
+    overrideMs: Long?,
+    pairingRecoveryRequired: Boolean,
+    fallbackUsed: Boolean,
+): Long =
+    when {
+        // A saved address/key can precede Android consent. Until that bond completes,
+        // short known-peer scans can repeatedly miss the actual five-minute radio window.
+        // The caller's original pairing deadline still bounds the entire collection call.
+        overrideMs != null && pairingRecoveryRequired -> overrideMs.coerceIn(1L, G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+        overrideMs != null -> overrideMs.coerceIn(5_000L, g7ScanTimeoutMs(sensor))
+        pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
+        fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
+        else -> g7ScanTimeoutMs(sensor)
+    }

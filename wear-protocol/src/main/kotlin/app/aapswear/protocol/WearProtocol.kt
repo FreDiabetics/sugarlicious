@@ -88,6 +88,13 @@ object DirectToWatchGraphColorDefaults {
     fun create() =
         WatchGraphColors(
             graphBackground = -14935012,
+            cgmLow = 0xFFFFFFFF.toInt(),
+            cgmVeryLow = 0xFFFFFFFF.toInt(),
+            cgmInRange = 0xFFFFFFFF.toInt(),
+            cgmHigh = 0xFFFFFFFF.toInt(),
+            cgmVeryHigh = 0xFFFFFFFF.toInt(),
+            highLine = 0xFFFFD040.toInt(),
+            lowLine = 0xFFFF5C69.toInt(),
             rangeInRange = 1717328988,
             rangeHigh = 1308610624,
             rangeLow = 1308580969,

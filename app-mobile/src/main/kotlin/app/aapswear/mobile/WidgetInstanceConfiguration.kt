@@ -391,7 +391,7 @@ internal object WidgetInstanceConfigurationStore {
         return WidgetInstanceConfiguration(
             themeMode =
                 runCatching {
-                    DashboardThemeMode.valueOf(prefs.getString(key(appWidgetId, "theme_mode"), context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).getString("themeMode", "SYSTEM")) ?: "SYSTEM")
+                    DashboardThemeMode.valueOf(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE).getString("themeMode", "SYSTEM") ?: "SYSTEM")
                 }.getOrDefault(DashboardThemeMode.SYSTEM),
             graphHours = prefs.getInt(key(appWidgetId, "hours"), 3).takeIf { it in listOf(1, 2, 3, 6, 12, 24) } ?: 3,
             graphOutlineEnabled = prefs.getBoolean(key(appWidgetId, "graph_outline_enabled"), false),
@@ -807,12 +807,6 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             widgetOptions.getFloat("hsResizeRatio", 1f),
                             Modifier.onGloballyPositioned { reportPreviewBounds(it.boundsInRoot()) },
                         )
-                        WidgetSettingsSection("Darstellung") {
-                            OneUiSettingsModeSelector(value.themeMode) {
-                                value = value.copy(themeMode = it)
-                                selectedMode = resolveSettingsAppearance(it, deviceUsesDarkMode(this@WidgetConfigurationActivity))
-                            }
-                        }
                         WidgetSettingsSection("Farbvariante") {
                             WidgetAppearanceModeRow(selectedMode) { selectedMode = it }
                         }
@@ -1503,7 +1497,7 @@ private fun WidgetConfigurationPreview(
 }
 
 @androidx.compose.runtime.Composable
-private fun WidgetSettingsSection(
+internal fun WidgetSettingsSection(
     title: String,
     modifier: Modifier = Modifier,
     content: @androidx.compose.runtime.Composable () -> Unit,

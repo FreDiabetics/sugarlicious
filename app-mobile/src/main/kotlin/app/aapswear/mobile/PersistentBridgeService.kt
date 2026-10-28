@@ -24,7 +24,6 @@ import android.os.SystemClock
 import android.text.Spannable
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import android.text.style.StrikethroughSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
@@ -105,6 +104,8 @@ class PersistentBridgeService :
     SharedPreferences.OnSharedPreferenceChangeListener {
     private lateinit var uiPreferences: SharedPreferences
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var composedSourceConfiguration: MobileSourceConfiguration? = null
+    private lateinit var dexcomShareSource: DexcomShareSource
     private var latestState: TherapyDisplayState? = null
     private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
@@ -124,6 +125,7 @@ class PersistentBridgeService :
         super.onCreate()
         uiPreferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
         uiPreferences.registerOnSharedPreferenceChangeListener(this)
+        dexcomShareSource = DexcomShareSource(applicationContext, scope)
         ContextCompat.registerReceiver(
             this,
             freshnessReconcileReceiver,
@@ -181,6 +183,7 @@ class PersistentBridgeService :
         } else {
             scheduleNextFreshnessBoundary(now)
         }
+        reconcileMobileSources()
         return START_STICKY
     }
 
@@ -188,10 +191,22 @@ class PersistentBridgeService :
         sharedPreferences: SharedPreferences?,
         key: String?,
     ) {
+        if (key?.startsWith(MobileSourceConfigurationStore.PREFIX) == true) {
+            reconcileMobileSources()
+        }
         if (foregroundStarted) notifyUpdated()
     }
 
+    private fun reconcileMobileSources() {
+        val configuration = MobileSourceConfigurationStore.read(this)
+        if (composedSourceConfiguration == configuration) return
+        composedSourceConfiguration = configuration
+        dexcomShareSource.refresh()
+        scope.launch(Dispatchers.IO) { MobileCanonicalStateCoordinator.recompose(applicationContext) }
+    }
+
     override fun onDestroy() {
+        dexcomShareSource.close()
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         unregisterReceiver(freshnessReconcileReceiver)
         externalSurfaceClockJob?.cancel()
@@ -448,9 +463,6 @@ class PersistentBridgeService :
         val density = resources.displayMetrics.density
         return RemoteViews(packageName, layoutId).apply {
             val styledTitle = SpannableString(display.title)
-            if (display.strikeTitle) {
-                styledTitle.setSpan(StrikethroughSpan(), 0, styledTitle.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
             setTextViewText(R.id.notification_value, styledTitle)
             val styledSubtitle =
                 SpannableString(display.subtitle).apply {
@@ -488,7 +500,7 @@ class PersistentBridgeService :
                 setViewLayoutWidth(R.id.notification_trend, trendSizeDp * trendAspect, android.util.TypedValue.COMPLEX_UNIT_DIP)
                 setViewLayoutHeight(R.id.notification_trend, trendSizeDp, android.util.TypedValue.COMPLEX_UNIT_DIP)
             }
-            setTextColor(R.id.notification_value, palette.argb(display.valueColorRole))
+            setTextColor(R.id.notification_value, if (display.signalLoss) 0xFF9E9E9E.toInt() else palette.argb(display.valueColorRole))
             setTextColor(R.id.notification_meta, textSecondary)
             val trendBitmap =
                 display.trend?.let {
@@ -570,7 +582,7 @@ class PersistentBridgeService :
         val subtitle: String,
         val trend: app.aapswear.model.Trend?,
         val deltaUnitText: String?,
-        val strikeTitle: Boolean,
+        val signalLoss: Boolean,
         val valueColorRole: SugarliciousColorRole,
     )
 

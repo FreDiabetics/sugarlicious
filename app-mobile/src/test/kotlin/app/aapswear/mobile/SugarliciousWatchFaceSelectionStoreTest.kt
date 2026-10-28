@@ -15,6 +15,11 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class SugarliciousWatchFaceSelectionStoreTest {
+    @Test fun `Mobile watch menu only exposes Sugarlicious faces`() {
+        org.junit.Assert.assertEquals(listOf(0, 2), watchFaceMenuSections.flatMap { it.second })
+        org.junit.Assert.assertFalse(watchFaceMenuSections.any { it.first.contains("SugarWear") })
+    }
+
     @Test
     fun `reading a legacy face during composition never writes preferences`() {
         val preferences = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)

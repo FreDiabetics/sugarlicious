@@ -37,6 +37,7 @@ object ComplicationUpdatePlanner {
             affected += directToWatchStatusProviders
         }
         if (old.source != new.source) affected += directToWatchStatusProviders
+        if (old.sourceContract != new.sourceContract) affected += directToWatchProviders
 
         if (
             glucoseChanged ||
@@ -75,6 +76,7 @@ object ComplicationUpdatePlanner {
             DirectToWatchHeaderComplication::class.java,
             DirectToWatchGraphComplication::class.java,
             DirectToWatchStatusComplication::class.java,
+            DirectToWatchAnalogHeaderComplication::class.java,
             DirectToWatchClockComplication::class.java,
             DirectToWatchAmbientClockComplication::class.java,
             DirectToWatchAmbientHeaderComplication::class.java,

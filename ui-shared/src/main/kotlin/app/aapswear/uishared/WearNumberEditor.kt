@@ -72,7 +72,7 @@ internal object WearNumberEditor {
         root.addView(
             TextView(activity).apply {
                 tag = "wear_number_save"
-                text = "Übernehmen"
+                setText(R.string.shared_apply)
                 textSize = 15f
                 gravity = Gravity.CENTER
                 minHeight = dp(48)

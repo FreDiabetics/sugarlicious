@@ -16,6 +16,28 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class G7CompanionBondAccessTest {
+    @Test fun `successful sensor bond does not require an extra companion association`() {
+        val backend = Backend().apply { bonded.add(first) }
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val access = G7CompanionBondAccess(activity, backend, sdkInt = 36)
+        var ready = 0
+        access.ensureForAuthenticatedSensor(first, { ready++ }, { error(it) })
+        assertEquals(1, ready)
+        assertTrue(backend.requested.isEmpty())
+    }
+
+    @Test fun `unbonded sensor cannot complete Bluetooth access check`() {
+        val backend = Backend()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val access = G7CompanionBondAccess(activity, backend, sdkInt = 36)
+        var ready = 0
+        var failed = 0
+        access.ensureForAuthenticatedSensor(first, { ready++ }, { failed++ })
+        assertEquals(0, ready)
+        assertEquals(1, failed)
+        assertTrue(backend.requested.isEmpty())
+    }
+
     private val first = "AA:BB:CC:DD:EE:01"
     private val second = "AA:BB:CC:DD:EE:02"
 

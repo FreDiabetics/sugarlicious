@@ -50,7 +50,7 @@ class G7UserStatusTest {
         assertEquals(G7StatusPillState.PAUSED, deriveG7StatusPillState(healthy.copy(collectorEnabled = false), true, now))
         assertEquals(G7StatusPillState.NO_ACTIVE_SENSOR, deriveG7StatusPillState(G7PersistedState(), false, now))
         assertEquals(
-            listOf("Verbunden", "Sensorempfang pausiert", "Signalverlust", "Sensorfehler", "Kein aktiver Sensor gekoppelt"),
+            listOf("Verbunden", "Sensorempfang pausiert", "Signalverlust", "Sensorfehler", "Kein aktiver Sensor verbunden"),
             G7StatusPillState.entries.map { it.title },
         )
     }
