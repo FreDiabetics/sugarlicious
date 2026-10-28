@@ -19,7 +19,7 @@ internal enum class G7SettingsSection(
     DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
     PERMISSIONS("Berechtigungen", "Bluetooth, Benachrichtigungen und Systemzugriff"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
-    SUGARWEAR("Systemstatus", "Sensor, Collector und Diagnose"),
+    SUGARWEAR("Sensor", "Verbinden, trennen und Datenempfang pausieren"),
     VIGIL("Vigil", "Watchface"),
     ABOUT("Über", "SugarWear"),
 }

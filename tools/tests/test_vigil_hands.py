@@ -8,6 +8,30 @@ FACE = ROOT / "watchfaces/sugarlicious-direct-to-watch"
 
 
 class VigilHandsTest(unittest.TestCase):
+    def test_open_app_action_is_a_local_native_launch_not_a_full_face_complication(self):
+        root = ET.parse(FACE / "src/main/res/raw/watchface.xml").getroot()
+        action = root.find("Scene/Group[@name='vigil-open-sugarwear']")
+        self.assertIsNotNone(action)
+        self.assertEqual("300", action.get("width"))
+        self.assertEqual("108", action.get("height"))
+        self.assertEqual("app.aapswear.g7watch/app.aapswear.g7watch.G7WatchActivity", action.find("Launch").get("target"))
+
+    def test_analog_text_and_pairing_button_render_below_native_hands(self):
+        root = ET.parse(FACE / "src/main/res/raw/watchface.xml").getroot()
+        ids = [s.get("slotId") for s in root.find("Scene").findall("ComplicationSlot")]
+        self.assertLess(ids.index("9"), ids.index("7"))
+
+    def test_scale_age_text_is_inset_inside_the_current_graph_surface(self):
+        root = ET.parse(FACE / "src/main/res/raw/watchface.xml").getroot()
+        status = root.find(".//ComplicationSlot[@slotId='2']")
+        self.assertEqual(40, int(status.get("x")))
+        self.assertEqual(146, int(status.get("y")))
+
+    def test_analog_preview_keeps_square_provider_art_in_both_marker_layouts(self):
+        for part in self.face.findall(".//ComplicationSlot[@slotId='9']//PartImage"):
+            self.assertEqual('450', part.get('width'))
+            self.assertEqual('450', part.get('height'))
+
     def setUp(self):
         self.face = ET.parse(FACE / "src/main/res/raw/watchface.xml").getroot()
 
@@ -44,10 +68,11 @@ class VigilHandsTest(unittest.TestCase):
     def test_header_and_graph_action_mirrors_restore_taps_above_hands(self):
         scene = self.face.find("Scene")
         slots = scene.findall("ComplicationSlot")
-        self.assertEqual(["0", "1", "2", "5", "7", "9", "10", "8"], [slot.get("slotId") for slot in slots])
+        self.assertEqual(["0", "1", "2", "5", "9", "7", "10", "8"], [slot.get("slotId") for slot in slots])
         original = scene.find("ComplicationSlot[@slotId='1']")
         mirror = scene.find("ComplicationSlot[@slotId='10']")
-        self.assertEqual([original.get(k) for k in ('x', 'y', 'width', 'height')], [mirror.get(k) for k in ('x', 'y', 'width', 'height')])
+        self.assertEqual(["0", "140", "450", "285"], [original.get(k) for k in ("x", "y", "width", "height")])
+        self.assertEqual(["0", "140", "450", "205"], [mirror.get(k) for k in ("x", "y", "width", "height")])
         analog = scene.find("ComplicationSlot[@slotId='9']")
         self.assertEqual(['0', '0', '450', '450'], [analog.get(k) for k in ('x', 'y', 'width', 'height')])
         self.assertIn('DirectToWatchAnalogHeaderComplication', analog.find('DefaultProviderPolicy').get('primaryProvider'))
@@ -114,11 +139,13 @@ class VigilHandsTest(unittest.TestCase):
         group = self.face.find(".//Group[@name='vigil-native-hands']")
         self.assertEqual('160', group.find("Variant[@mode='AMBIENT']").get('value'))
         self.assertEqual('[COMPLICATION.SMALL_IMAGE]', group.find("PartImage[@renderMode='MASK']/Image").get('resource'))
-        hands = group.findall('AnalogClock/SecondHand')
+        self.assertEqual('TRUE', self.face.find("UserConfigurations/BooleanConfiguration[@id='showSecondHand']").get('defaultValue'))
+        self.assertEqual('[CONFIGURATION.showSecondHand] == "TRUE"', group.find("Condition/Expressions/Expression").text)
+        hands = group.findall('.//AnalogClock/SecondHand')
         self.assertEqual(2, len(hands))
         self.assertEqual('[CONFIGURATION.secondColor.0]', hands[-1].get('tintColor'))
         self.assertTrue(all(hand.find('Sweep') is not None for hand in hands))
-        self.assertTrue(all(clock.find("Variant[@mode='AMBIENT']").get('value') == '0' for clock in group.findall('AnalogClock') if clock.find('SecondHand') is not None))
+        self.assertTrue(all(clock.find("Variant[@mode='AMBIENT']").get('value') == '0' for clock in group.findall('.//AnalogClock') if clock.find('SecondHand') is not None))
 
 
 if __name__ == "__main__":

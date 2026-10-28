@@ -17,6 +17,20 @@ import org.junit.Test
 import java.util.UUID
 
 class G7BlePolicyTest {
+    @Test fun `interrupted initial bond searches across next sensor window within remaining budget`() {
+        val sensor = G7Sensor("setup", deviceAddress = "AA:BB:CC:DD:EE:FF")
+        val remaining = 12L * 60_000L
+        assertEquals(remaining, g7DiscoveryScanTimeoutMs(sensor, remaining, pairingRecoveryRequired = true, fallbackUsed = false))
+        assertEquals(20_000L, g7DiscoveryScanTimeoutMs(sensor, 20_000L, pairingRecoveryRequired = true, fallbackUsed = false))
+    }
+
+    @Test fun `normal known sensor scans and fallback remain short`() {
+        val sensor = G7Sensor("established", deviceAddress = "AA:BB:CC:DD:EE:FF")
+        assertEquals(G7_RECONNECT_SCAN_TIMEOUT_MS, g7DiscoveryScanTimeoutMs(sensor, 12L * 60_000L, false, false))
+        assertEquals(G7_FALLBACK_SCAN_TIMEOUT_MS, g7DiscoveryScanTimeoutMs(sensor, null, false, true))
+        assertEquals(G7_RECONNECT_SCAN_TIMEOUT_MS, g7DiscoveryScanTimeoutMs(sensor, null, false, false))
+    }
+
     @Test fun `no callback remains the failure cause when the late fallback scan is empty`() {
         val failure = g7FailureClass("G7-BLE-FALLBACK-107", false, false, DirectConnectResult.NO_CALLBACK)
         assertEquals(G7FailureClass.DIRECT_NO_CALLBACK, failure)

@@ -371,7 +371,7 @@ class G7AppearanceActivity : Activity() {
         )
 
         G7AppearanceSection.entries.forEach { section ->
-            val roles = G7AppearanceRole.entries.filter { it.section == section && it != G7AppearanceRole.GLUCOSE_TREND }
+            val roles = G7AppearanceRole.entries.filter { it.section == section && it != G7AppearanceRole.GLUCOSE_TREND && it != G7AppearanceRole.MENU_SURFACE }
             when (section) {
                 G7AppearanceSection.GLUCOSE -> {
                     roles.filter { it != G7AppearanceRole.GLUCOSE_DELTA }.forEach { role ->

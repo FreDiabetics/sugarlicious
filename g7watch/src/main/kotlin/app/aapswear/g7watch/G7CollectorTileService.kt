@@ -118,18 +118,22 @@ internal fun g7TilePresentation(
             nowEpochMs,
         )
     val valueColor =
-        when (shared.rangeClass) {
-            CgmRangeClass.VERY_LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_LOW) ?: colors.cgmVeryLow
-            CgmRangeClass.LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_LOW) ?: colors.cgmLow
-            CgmRangeClass.HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_HIGH) ?: colors.cgmHigh
-            CgmRangeClass.VERY_HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH) ?: colors.cgmVeryHigh
-            else -> palette?.argb(G7AppearanceRole.GLUCOSE_IN_RANGE) ?: G7_TILE_TEXT_PRIMARY
+        if (shared.freshness == app.aapswear.model.Freshness.SIGNAL_LOSS) {
+            0xFF9E9E9E.toInt()
+        } else {
+            when (shared.rangeClass) {
+                CgmRangeClass.VERY_LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_LOW) ?: colors.cgmVeryLow
+                CgmRangeClass.LOW -> palette?.argb(G7AppearanceRole.GLUCOSE_LOW) ?: colors.cgmLow
+                CgmRangeClass.HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_HIGH) ?: colors.cgmHigh
+                CgmRangeClass.VERY_HIGH -> palette?.argb(G7AppearanceRole.GLUCOSE_VERY_HIGH) ?: colors.cgmVeryHigh
+                else -> palette?.argb(G7AppearanceRole.GLUCOSE_IN_RANGE) ?: G7_TILE_TEXT_PRIMARY
+            }
         }
     val boundary = reading?.takeIf { it.status == CgmReadingStatus.VALID }?.glucoseMgDl.let(::cgmBoundaryDisplay)
     return G7TilePresentation(
         glucoseValue = boundary?.label ?: shared.value,
         meta = if (boundary == null) shared.primaryMeta else "",
-        age = "",
+        age = shared.secondaryMeta,
         cardBackground = palette?.argb(G7AppearanceRole.MENU_SURFACE) ?: G7_TILE_CARD_BACKGROUND,
         cardForeground = valueColor,
         trend = shared.trend.takeIf { boundary == null },
@@ -143,7 +147,7 @@ internal fun g7TileStatusPresentation(
     val color =
         when (status) {
             G7StatusPillState.CONNECTED -> palette?.argb(G7AppearanceRole.MENU_PRIMARY) ?: G7_TILE_ACCENT
-            G7StatusPillState.SIGNAL_LOSS -> palette?.argb(G7AppearanceRole.GLUCOSE_STALE) ?: G7_TILE_WARNING
+            G7StatusPillState.SIGNAL_LOSS -> android.graphics.Color.WHITE
             G7StatusPillState.SENSOR_ERROR -> palette?.argb(G7AppearanceRole.GLUCOSE_ERROR) ?: G7_TILE_ERROR
             G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette?.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE) ?: G7_TILE_TEXT_SECONDARY
         }
@@ -195,6 +199,7 @@ class G7CollectorTileService : TileService() {
         val palette = appearanceStore.tileGlucosePalette()
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
         val statusPresentation = g7TileStatusPresentation(pillState, palette)
+        val warning = g7SensorWarning(pillState, reading?.status == CgmReadingStatus.VALID)
         val configuredTrendStyle = appearanceStore.tileTrendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
         val visualSpec =
@@ -206,7 +211,7 @@ class G7CollectorTileService : TileService() {
             ).scaled(appearanceStore.tileGlucoseScalePercent(), configuredTrendStyle.sizePercent)
         val device = requestParams.deviceConfiguration
         val square = g7SquareTileSpec(device.screenWidthDp, device.screenHeightDp)
-        val cardHeight = square.sideDp - TILE_HEADER_LANE_DP
+        val cardHeight = if (warning != null) square.sideDp else square.sideDp - TILE_HEADER_LANE_DP
         val valueTextSize = (visualSpec.glucoseTextSize * square.sideDp / 146f).coerceIn(30f, 46f)
         val trendHeight = (visualSpec.trendHeight * square.sideDp / 146f).coerceIn(24f, 40f)
 
@@ -284,7 +289,7 @@ class G7CollectorTileService : TileService() {
                                 .setBottom(dp(square.innerPaddingDp))
                                 .build(),
                         ).build(),
-                ).addContent(valueContent)
+                ).addContent(if (warning != null) glucoseTileWarning(requestParams.scope, warning, square.sideDp - 2f * square.innerPaddingDp) else valueContent)
                 .build()
 
         val header =
@@ -304,9 +309,12 @@ class G7CollectorTileService : TileService() {
                 .Builder()
                 .setWidth(dp(square.sideDp))
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
-                .addContent(header)
-                .addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
-                .addContent(valueCard)
+                .apply {
+                    if (warning == null) {
+                        addContent(header)
+                        addContent(Spacer.Builder().setHeight(dp(TILE_HEADER_GAP_DP)).build())
+                    }
+                }.addContent(valueCard)
                 .build()
 
         return Box
@@ -426,12 +434,11 @@ class G7CollectorTileService : TileService() {
                     .setSize(sp(size))
                     .setColor(argb(color))
                     .setWeight(sugarWearTileWeight(bold))
-                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-17-system-font-700"
+        private const val RESOURCES_VERSION = "g7-collector-18-sensor-warning"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

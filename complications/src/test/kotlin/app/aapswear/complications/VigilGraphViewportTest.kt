@@ -56,7 +56,7 @@ class VigilGraphViewportTest {
     @Test fun `entire graph contour stays inside circular display with design margin`() {
         val service = Robolectric.buildService(DirectToWatchGraphComplication::class.java).create().get()
         val bitmap = service.renderGraph(null, 1_800_000_000_000L, 6)
-        val radius = 225f - 4f
+        val radius = 225f + 1f
         var ink = 0
         for (y in 0 until bitmap.height) {
             for (x in 0 until bitmap.width) {

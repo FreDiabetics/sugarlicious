@@ -94,11 +94,11 @@ internal class G7CompanionBondAccess(
     }
 
     fun ensureForAuthenticatedSensor(address: String, onReady: () -> Unit, onFailure: (String) -> Unit) {
-        ensure(onReady, onFailure) {
-            require(address.isNotBlank())
-            check(backend.isBonded(address))
-            listOf(address)
-        }
+        // A completed G7 bond is sufficient for collection. Companion association is a
+        // separate ownership capability used for removal; Pixel Wear OS rejects creating
+        // such associations for third-party apps even after successful Bluetooth consent.
+        val bonded = runCatching { address.isNotBlank() && backend.isBonded(address) }.getOrDefault(false)
+        if (bonded) onReady() else onFailure("Bluetooth-Verbindung ist noch nicht abgeschlossen")
     }
 
     private fun ensure(onReady: () -> Unit, onFailure: (String) -> Unit, addresses: () -> List<String>) {

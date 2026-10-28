@@ -94,7 +94,7 @@ internal val sugarliciousWatchFaceCards =
         ),
     )
 
-internal val watchFaceMenuSections = listOf("Sugarlicious Ziffernblätter" to listOf(0, 2), "SugarWear Ziffernblätter" to listOf(DIRECT_TO_WATCH_FACE_INDEX))
+internal val watchFaceMenuSections = listOf("Sugarlicious Ziffernblätter" to listOf(0, 2))
 
 @Composable
 internal fun SugarliciousWatchScreen(
@@ -105,9 +105,7 @@ internal fun SugarliciousWatchScreen(
 ) {
     val context = LocalContext.current
     val appContext = context.applicationContext
-    val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex)
-    val directToWatchRelevant =
-        SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state, preferences)
+    val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, preferences.watchFaceIndex).let { if (it == DIRECT_TO_WATCH_FACE_INDEX) 0 else it }
     var activeFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
     var editingFaceIndex by remember(savedFaceIndex) { mutableIntStateOf(savedFaceIndex) }
     var facePresets by remember { mutableStateOf(WatchFacePresetStore.readAll(appContext)) }
@@ -182,7 +180,7 @@ internal fun SugarliciousWatchScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             indices.forEach { index ->
-                                val enabled = index != DIRECT_TO_WATCH_FACE_INDEX || directToWatchRelevant
+                                val enabled = true
                                 WatchFaceTile(
                                     modifier = Modifier.weight(1f),
                                     face = sugarliciousWatchFaceCards[index],

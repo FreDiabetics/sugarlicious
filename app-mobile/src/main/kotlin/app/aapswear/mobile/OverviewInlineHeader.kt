@@ -82,6 +82,7 @@ internal fun OverviewInlineHeader(onSettings: () -> Unit, diagnostics: Diagnosti
                 SugarliciousIcon(
                     drawableRes = R.drawable.ic_foreground,
                     contentDescription = null,
+                    tint = SugarliciousColors.BrandGreen,
                     modifier =
                         Modifier
                             .requiredSize(OverviewHeaderLayout.LOGO_SIZE_DP.dp)
@@ -105,7 +106,7 @@ private fun SugarliciousWordmark() {
                 withStyle(SpanStyle(color = SugarliciousColors.TextPrimary)) {
                     append("Sugar")
                 }
-                withStyle(SpanStyle(color = SugarliciousColors.Primary)) {
+                withStyle(SpanStyle(color = SugarliciousColors.BrandGreen)) {
                     append("licious")
                 }
             },

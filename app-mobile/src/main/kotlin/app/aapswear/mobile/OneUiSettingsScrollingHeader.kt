@@ -71,11 +71,11 @@ internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier =
     val height = measuredSettingsCompactTitle(title, settingsWindowWidthDp()).heightDp
     Row(modifier.fillMaxWidth().heightIn(min = height.dp).padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onBack, Modifier.align(Alignment.Bottom).size(48.dp).background(OneUiWidgetStyle.card.copy(alpha = state.backCircleAlpha), androidx.compose.foundation.shape.CircleShape)) {
-            Icon(painterResource(R.drawable.ic_oneui_back), "Zurück", tint = OneUiWidgetStyle.accent, modifier = Modifier.size(22.dp))
+            Icon(painterResource(R.drawable.ic_oneui_back), "Zurück", tint = OneUiWidgetStyle.primary, modifier = Modifier.size(22.dp))
         }
         Text(
-            title,
-            color = OneUiWidgetStyle.accent,
+            brandedSettingsTitleText(title),
+            color = OneUiWidgetStyle.primary,
             fontSize = 20.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -86,8 +86,8 @@ internal fun OneUiCompactSettingsHeader(onBack: () -> Unit, modifier: Modifier =
                         Modifier.graphicsLayer {
                             alpha = state.compactTitleAlpha
                             translationY = state.compactTitleOffsetDp.dp.toPx()
-                            scaleX = .96f + .04f * state.compactTitleAlpha
-                            scaleY = scaleX
+                            scaleX = 1f
+                            scaleY = 1f
                         },
                     ).semantics { heading() },
         )

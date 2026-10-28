@@ -27,7 +27,7 @@ class G7SettingsPresentationTest {
         val palette = store.load(AppearanceMode.LIGHT)
 
         assertEquals(Color.WHITE, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-        assertEquals(0xFF202124.toInt(), palette.settingsArgb(G7AppearanceRole.MENU_SURFACE))
+        assertEquals(0xFF202020.toInt(), palette.settingsArgb(G7AppearanceRole.MENU_SURFACE))
         assertEquals(Color.BLACK, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         assertEquals(Color.WHITE, palette.argb(G7AppearanceRole.MENU_SURFACE))
     }

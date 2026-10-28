@@ -153,7 +153,7 @@ class G7GraphTileService : TileService() {
         val titleColor =
             when (snapshot.pillState) {
                 G7StatusPillState.CONNECTED -> palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY)
-                G7StatusPillState.SIGNAL_LOSS -> palette.argb(G7AppearanceRole.GLUCOSE_STALE)
+                G7StatusPillState.SIGNAL_LOSS -> android.graphics.Color.WHITE
                 G7StatusPillState.SENSOR_ERROR -> palette.argb(G7AppearanceRole.GLUCOSE_ERROR)
                 G7StatusPillState.PAUSED, G7StatusPillState.NO_ACTIVE_SENSOR -> palette.argb(G7AppearanceRole.GLUCOSE_NO_SOURCE)
             }
@@ -242,7 +242,11 @@ class G7GraphTileService : TileService() {
                             .build(),
                     ).build(),
             ).addContent(content)
-            .build()
+            .apply {
+                g7SensorWarning(snapshot.pillState, snapshot.readings.any { it.status == app.aapswear.g7.CgmReadingStatus.VALID })?.let { message ->
+                    addContent(graphTileWarning(requestParams.scope, message, device.screenWidthDp.toFloat(), device.screenHeightDp.toFloat()))
+                }
+            }.build()
     }
 
     private suspend fun snapshot(): G7GraphTileSnapshot {
@@ -320,7 +324,6 @@ class G7GraphTileService : TileService() {
                             .sp(sizeSp),
                     ).setColor(argb(color))
                     .setWeight(sugarWearTileWeight(emphasized = true))
-                    .setPreferredFontFamilies(SugarWearTypography.PROTO_FONT_FAMILY)
                     .build(),
             ).build()
 

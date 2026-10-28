@@ -30,7 +30,7 @@ enum class SugarliciousColorRole(
     val lightArgb: Int = defaultArgb,
     val configurable: Boolean = false,
 ) {
-    BRAND_GREEN("brand_green", "Marken-Grün", SugarliciousColorGroup.APP, 0xFF5FC479.toInt()),
+    BRAND_GREEN("brand_green", "Marken-Grün", SugarliciousColorGroup.APP, 0xFF22EB60.toInt()),
     SETTINGS_GENERAL("settings_general", "Allgemein · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF86C852.toInt(), configurable = true),
     SETTINGS_GLUCOSE("settings_glucose", "Glukose und Zielbereiche · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFFFF7994.toInt(), configurable = true),
     SETTINGS_GRAPH("settings_graph", "Übersicht und Graphen · Icon-Hintergrund", SugarliciousColorGroup.SETTINGS_ICONS, 0xFF5B94FF.toInt(), configurable = true),
@@ -601,6 +601,7 @@ object SugarliciousColors {
 
     fun color(role: SugarliciousColorRole): Color = palette.compose(role)
 
+    val BrandGreen get() = color(SugarliciousColorRole.BRAND_GREEN)
     val Primary get() = color(SugarliciousColorRole.PRIMARY)
     val OnPrimary get() = color(SugarliciousColorRole.ON_PRIMARY)
     val Secondary get() = color(SugarliciousColorRole.SECONDARY)

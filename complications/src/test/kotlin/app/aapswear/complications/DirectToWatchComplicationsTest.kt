@@ -19,7 +19,6 @@ import app.aapswear.protocol.DirectToWatchGraphColorDefaults
 import app.aapswear.protocol.DirectToWatchSettingsContract
 import app.aapswear.protocol.WatchDataSource
 import app.aapswear.protocol.WatchGraphColors
-import app.aapswear.uishared.DirectToWatchGraphDefaults
 import app.aapswear.uishared.SharedWearCgmGraphStyle
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -121,24 +120,29 @@ class DirectToWatchComplicationsTest {
 
     @Test
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
-    fun `Vigil signal loss label renders red in active and ambient modes`() {
+    fun `Vigil signal loss footer uses white text and a red alert icon`() {
         val service =
             org.robolectric.Robolectric
                 .buildService(DirectToWatchHeaderComplication::class.java)
                 .create()
                 .get()
-        val presentation = DirectToWatchPresentationFormatter.header(directState(now - 17 * 60_000L), now)
-        for (ambient in listOf(false, true)) {
-            val bitmap = service.renderHeader(presentation, ambient = ambient)
-            assertTrue(
-                (70 until 108).any { y ->
-                    (20 until 260).any { x ->
-                        val pixel = bitmap.getPixel(x, y)
-                        Color.alpha(pixel) > 200 && Color.red(pixel) > 200 && Color.green(pixel) < 130 && Color.blue(pixel) < 150
-                    }
-                },
-            )
-        }
+        val bitmap = renderVigilSignalLossFooter(service)
+        assertTrue(
+            (40 until 78).any { y ->
+                (0 until bitmap.width).any { x ->
+                    val pixel = bitmap.getPixel(x, y)
+                    Color.alpha(pixel) > 200 && Color.red(pixel) > 230 && Color.green(pixel) > 230 && Color.blue(pixel) > 230
+                }
+            },
+        )
+        assertTrue(
+            (0 until 36).any { y ->
+                (110 until 160).any { x ->
+                    val pixel = bitmap.getPixel(x, y)
+                    Color.alpha(pixel) > 200 && Color.red(pixel) > 200 && Color.green(pixel) < 130
+                }
+            },
+        )
     }
 
     @Test fun `signal loss retains last value and trend and marks only glucose`() {
@@ -298,7 +302,7 @@ class DirectToWatchComplicationsTest {
         val ambientHeader = Robolectric.buildService(DirectToWatchAmbientHeaderComplication::class.java).create().get()
         val ambientGraph = Robolectric.buildService(DirectToWatchAmbientGraphComplication::class.java).create().get()
 
-        assertTrue(ambientHeader.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
+        org.junit.Assert.assertNull(ambientHeader.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction)
         assertTrue(ambientGraph.getPreviewData(ComplicationType.SMALL_IMAGE).tapAction != null)
     }
 
@@ -317,9 +321,9 @@ class DirectToWatchComplicationsTest {
             .edit()
             .clear()
             .commit()
-        assertEquals(6, DirectToWatchPreferences.graphHours(context))
-        assertEquals(12, DirectToWatchPreferences.cycleGraphHours(context))
-        assertEquals(12, DirectToWatchPreferences.graphHours(context))
+        assertEquals(2, DirectToWatchPreferences.graphHours(context))
+        assertEquals(3, DirectToWatchPreferences.cycleGraphHours(context))
+        assertEquals(3, DirectToWatchPreferences.graphHours(context))
         assertFalse(context.getSharedPreferences("watch_display", Context.MODE_PRIVATE).contains("graph.hours"))
     }
 
@@ -329,6 +333,8 @@ class DirectToWatchComplicationsTest {
         val shared = context.getSharedPreferences("watch_display", Context.MODE_PRIVATE)
         direct.edit().clear().commit()
         shared.edit().putInt("graph_color_background", 0xFF010203.toInt()).commit()
+        val referenceColors = DirectToWatchPreferences.graphColors(context)
+        val referenceStyle = DirectToWatchPreferences.graphStyle(context)
 
         val colors =
             WatchGraphColors().copy(
@@ -365,10 +371,10 @@ class DirectToWatchComplicationsTest {
         assertFalse(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         DirectToWatchPreferences.resetGraphAppearance(context)
         assertEquals(
-            DirectToWatchGraphColorDefaults.create().graphBackground,
+            referenceColors.graphBackground,
             DirectToWatchPreferences.graphColors(context).graphBackground,
         )
-        assertEquals(DirectToWatchGraphDefaults.style().dotRadiusDp, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
+        assertEquals(referenceStyle.dotRadiusDp, DirectToWatchPreferences.graphStyle(context).dotRadiusDp)
         assertFalse(DirectToWatchPreferences.graphStyle(context).borderEnabled)
         assertTrue(DirectToWatchPreferences.graphStyle(context).timeAxisEnabled)
         assertEquals(0xFF010203.toInt(), shared.getInt("graph_color_background", 0))

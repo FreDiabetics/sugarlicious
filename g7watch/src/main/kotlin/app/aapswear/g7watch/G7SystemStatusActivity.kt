@@ -397,9 +397,10 @@ class G7SystemStatusActivity : Activity() {
     ) {
         val associated = hasG7SensorAssociation(state)
         target.addView(
-            pill(if (associated) "Sensor entkoppeln" else "Sensor koppeln", palette) {
+            pill(if (associated) "Sensor trennen" else "Sensor verbinden", palette) {
                 if (unlinkInFlight) return@pill
                 if (hasG7SensorAssociation(G7SensorStateStore(this).read())) {
+                    G7CollectorUiTransitionStore.record(this, G7UiSensorAction.UNLINK)
                     unlinkInFlight = true
                     unlinkFailureReason = null
                     render()
@@ -440,19 +441,32 @@ class G7SystemStatusActivity : Activity() {
             buttonParams(),
         )
         if (unlinkFailed) {
-            target.addView(label("Entkoppeln fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen.", 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
+            target.addView(label("Trennen fehlgeschlagen. Sensorzuordnung bleibt erhalten. Bluetooth-Verbindung bei Bedarf in den Systemeinstellungen entfernen.", 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR)))
             unlinkFailureReason?.let { target.addView(label(it, 11f, palette.argb(G7AppearanceRole.GLUCOSE_ERROR))) }
         }
         if (associated || state.collectorEnabled) {
             target.addView(
                 pill(if (state.collectorEnabled) "Pausieren" else "Fortsetzen", palette) {
                     if (unlinkInFlight) return@pill
-                    if (G7SensorStateStore(this).read().collectorEnabled) G7CollectorService.stop(this) else G7CollectorService.start(this)
-                    Handler(Looper.getMainLooper()).postDelayed({ render() }, 350L)
+                    val enabled = G7SensorStateStore(this).read().collectorEnabled
+                    G7CollectorUiTransitionStore.record(this, if (enabled) G7UiSensorAction.PAUSE else G7UiSensorAction.RESUME)
+                    if (enabled) pauseCollectorWithExitOffer() else G7CollectorService.start(this)
+                    Handler(Looper.getMainLooper()).postDelayed({ if (!isFinishing && !isDestroyed) render() }, 350L)
                 }.apply { isEnabled = !unlinkInFlight },
                 buttonParams(),
             )
         }
+    }
+
+    internal fun pauseCollectorWithExitOffer() {
+        G7CollectorService.stop(this)
+        android.app.AlertDialog
+            .Builder(this)
+            .setTitle("SugarWear beenden?")
+            .setMessage("Der Datenempfang ist pausiert. SugarWear jetzt schließen?")
+            .setPositiveButton("Beenden") { _, _ -> finishAffinity() }
+            .setNegativeButton("Geöffnet lassen", null)
+            .show()
     }
 
     private fun hasNearbyPermission(): Boolean =

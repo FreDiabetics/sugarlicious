@@ -200,11 +200,7 @@ abstract class TherapyComplicationService(
         val glucoseText =
             if (displayable && glucose != null) {
                 val value = glucose(glucose)
-                if (freshness == Freshness.SIGNAL_LOSS) {
-                    value.flatMap { listOf(it, '\u0336') }.joinToString("")
-                } else {
-                    value
-                }
+                value
             } else {
                 DASH
             }
@@ -275,6 +271,8 @@ abstract class TherapyComplicationService(
                     when (state?.source) {
                         DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                         DataSourceId.ANDROID_APS -> "AndroidAPS"
+                        DataSourceId.DEXCOM_G7_APP -> "Dexcom G7 App"
+                        DataSourceId.DEXCOM_SHARE -> "Dexcom Share"
                         DataSourceId.NIGHTSCOUT -> "Nightscout"
                         DataSourceId.OTHER -> "Other"
                         null -> "No data"
@@ -292,6 +290,15 @@ abstract class TherapyComplicationService(
                 ProviderKind.DATE -> DASH to "Date"
                 else -> DASH to "Sugarlicious"
             }
+
+        fun clinicalText(text: String): CharSequence {
+            if (freshness != Freshness.SIGNAL_LOSS || glucoseText == DASH) return text
+            val start = text.indexOf(glucoseText)
+            if (start < 0) return text
+            return android.text.SpannableString(text).apply {
+                setSpan(android.text.style.ForegroundColorSpan(0xFF9E9E9E.toInt()), start, start + glucoseText.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
 
         val description = PlainComplicationText.Builder(presentation?.contentDescription ?: pair.second).build()
         val tap =
@@ -422,7 +429,7 @@ abstract class TherapyComplicationService(
                             ).setText(
                                 PlainComplicationText
                                     .Builder(
-                                        glucoseText,
+                                        clinicalText(glucoseText),
                                     ).build(),
                             ).setTapAction(tap)
 
@@ -441,7 +448,9 @@ abstract class TherapyComplicationService(
                     }
                     complicationIcon(kind, therapyState, glucoseRanged = true)?.let(builder::setMonochromaticImage)
 
-                    if (displayable && glucose != null) {
+                    if (freshness == Freshness.SIGNAL_LOSS) {
+                        builder.setColorRamp(ColorRamp(intArrayOf(0xFF9E9E9E.toInt()), false))
+                    } else if (displayable && glucose != null) {
                         (applicationContext as? ComplicationGlucoseColorSource)
                             ?.outOfRangeGlucoseColor(glucose.valueMgDl)
                             ?.let { builder.setColorRamp(ColorRamp(intArrayOf(it), false)) }
@@ -572,7 +581,7 @@ abstract class TherapyComplicationService(
             val builder =
                 LongTextComplicationData
                     .Builder(
-                        PlainComplicationText.Builder(longText).build(),
+                        PlainComplicationText.Builder(clinicalText(longText)).build(),
                         description,
                     ).setTapAction(tap)
             longTitle?.let {
@@ -591,7 +600,7 @@ abstract class TherapyComplicationService(
                 .Builder(
                     PlainComplicationText
                         .Builder(
-                            if (kind == ProviderKind.IOB_COB_BASAL) shortText else shortText.take(16),
+                            clinicalText(if (kind == ProviderKind.IOB_COB_BASAL) shortText else shortText.take(16)),
                         ).build(),
                     description,
                 ).setTapAction(tap)
@@ -654,7 +663,7 @@ abstract class TherapyComplicationService(
         val width = canvas.width
         val valuePaint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = glucoseColor(glucose)
+                color = if (freshness == Freshness.SIGNAL_LOSS) 0xFF9E9E9E.toInt() else glucoseColor(glucose)
                 textAlign = Paint.Align.CENTER
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
@@ -672,12 +681,6 @@ abstract class TherapyComplicationService(
         val arrowValue = glucose?.let { arrow(it.trend) }.orEmpty()
         val value = glucoseValue + arrowValue
         canvas.drawText(value, width / 2f, height * 0.58f, valuePaint)
-        if (glucose != null && freshness == Freshness.SIGNAL_LOSS) {
-            val totalWidth = valuePaint.measureText(value)
-            val glucoseWidth = valuePaint.measureText(glucoseValue)
-            val left = width / 2f - totalWidth / 2f
-            canvas.drawLine(left, height * 0.48f, left + glucoseWidth, height * 0.48f, Paint(valuePaint).apply { strokeWidth = 5f })
-        }
 
         val meta =
             glucose?.let {

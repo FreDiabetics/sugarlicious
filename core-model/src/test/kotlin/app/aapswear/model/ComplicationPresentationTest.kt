@@ -3,8 +3,8 @@ package app.aapswear.model
 import java.time.DayOfWeek
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 
 class ComplicationPresentationTest {
     @Test
@@ -51,11 +51,11 @@ class ComplicationPresentationTest {
 
         val ranged = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND_RANGED, stale, now)
         assertEquals(Trend.FORTY_FIVE_UP, ranged.trend)
-        assertTrue(ranged.text.contains('\u0336'))
+        assertFalse(ranged.text.contains('\u0336'))
         assertNull(ranged.title)
 
         val combined = ComplicationPresentationFormatter.format(SugarliciousComplicationIds.GLUCOSE_TREND_DELTA_AGE, stale, now)
-        assertTrue(combined.text.contains('\u0336'))
+        assertFalse(combined.text.contains('\u0336'))
         assertEquals("+5 · 20m", combined.title)
         assertEquals(Trend.FORTY_FIVE_UP, combined.trend)
     }

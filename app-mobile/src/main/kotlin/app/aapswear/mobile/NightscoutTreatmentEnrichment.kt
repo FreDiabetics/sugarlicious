@@ -1,15 +1,12 @@
 package app.aapswear.mobile
 
 import android.content.Context
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import androidx.core.content.edit
 import app.aapswear.model.CanonicalTreatments
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyEventSource
-import app.aapswear.storage.CanonicalStateStore
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -25,12 +22,7 @@ import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
-import java.security.KeyStore
 import java.security.MessageDigest
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 internal enum class NightscoutAuthMode { API_SECRET, ACCESS_TOKEN }
 
@@ -83,57 +75,11 @@ internal object NightscoutConfigurationStore {
 
 /** Android-Keystore backed secret storage. Ciphertext is never included in SettingsBackup. */
 internal object NightscoutSecretStore {
-    private const val ALIAS = "sugarlicious_nightscout_auth_v1"
-    private const val PREFS = "nightscout_treatment_secret"
-    private const val VALUE = "value"
-    private const val IV = "iv"
+    private val store = AndroidSecretStore("nightscout_treatment_secret", "sugarlicious_nightscout_auth_v1")
 
-    fun save(
-        context: Context,
-        value: String,
-    ) {
-        if (value.isBlank()) {
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { clear() }
-            return
-        }
-        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        cipher.init(Cipher.ENCRYPT_MODE, key())
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putString(
-                VALUE,
-                android.util.Base64.encodeToString(cipher.doFinal(value.toByteArray(StandardCharsets.UTF_8)), android.util.Base64.NO_WRAP),
-            )
-            putString(IV, android.util.Base64.encodeToString(cipher.iv, android.util.Base64.NO_WRAP))
-        }
-    }
+    fun save(context: Context, value: String) = store.save(context, value)
 
-    fun read(context: Context): String? =
-        runCatching {
-            val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            val encrypted = android.util.Base64.decode(preferences.getString(VALUE, null) ?: return null, android.util.Base64.NO_WRAP)
-            val iv = android.util.Base64.decode(preferences.getString(IV, null) ?: return null, android.util.Base64.NO_WRAP)
-            Cipher.getInstance("AES/GCM/NoPadding").run {
-                init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
-                String(doFinal(encrypted), StandardCharsets.UTF_8)
-            }
-        }.getOrNull()
-
-    private fun key(): SecretKey {
-        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(ALIAS, null) as? SecretKey)?.let { return it }
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
-            init(
-                KeyGenParameterSpec
-                    .Builder(
-                        ALIAS,
-                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-                    ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .build(),
-            )
-            generateKey()
-        }
-    }
+    fun read(context: Context): String? = store.read(context)
 }
 
 internal object NightscoutTreatmentParser {
@@ -343,7 +289,7 @@ internal object NightscoutTreatmentSync {
             val payload = connection.inputStream.bufferedReader().use { it.readText() }
             val fetched = NightscoutTreatmentParser.parse(payload)
             val persisted = NightscoutTreatmentStore.merge(app, fetched, now)
-            enrichPersistedState(app, persisted)
+            enrichPersistedState(app)
             app.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit {
                 putLong("nightscoutTreatmentLastSuccess", now)
                 putString("nightscoutTreatmentStatus", "ok")
@@ -355,35 +301,11 @@ internal object NightscoutTreatmentSync {
     }
 
     suspend fun applyConfigurationState(context: Context) {
-        val app = context.applicationContext
-        if (NightscoutConfigurationStore.read(app).enabled) return
-        val canonicalStore = CanonicalStateStore(app)
-        val current = canonicalStore.reconcile() ?: return
-        val aapsOnly =
-            current.copy(
-                therapyEvents =
-                    current.therapyEvents.mapNotNull { event ->
-                        when (event.source) {
-                            TherapyEventSource.NIGHTSCOUT_ONLY -> null
-                            TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT -> event.copy(source = TherapyEventSource.AAPS_ONLY)
-                            TherapyEventSource.AAPS_ONLY -> event
-                        }
-                    },
-            )
-        val committed = canonicalStore.commit(aapsOnly)
-        dispatchCanonicalDataChanged(app, committed)
+        MobileCanonicalStateCoordinator.recompose(context.applicationContext)
     }
 
-    private suspend fun enrichPersistedState(
-        context: Context,
-        nightscout: List<TherapyEvent>,
-    ) {
-        val canonicalStore = CanonicalStateStore(context)
-        val current = canonicalStore.reconcile() ?: return
-        val aaps = current.therapyEvents.filter { it.source != TherapyEventSource.NIGHTSCOUT_ONLY }
-        val enriched = current.copy(therapyEvents = CanonicalTreatments.merge(aaps, nightscout))
-        val committed = canonicalStore.commit(enriched)
-        dispatchCanonicalDataChanged(context, committed)
+    private suspend fun enrichPersistedState(context: Context) {
+        MobileCanonicalStateCoordinator.recompose(context.applicationContext)
     }
 
     private fun failure(

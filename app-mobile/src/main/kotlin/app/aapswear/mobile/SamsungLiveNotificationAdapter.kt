@@ -97,7 +97,8 @@ internal object SamsungLiveNotificationAdapter {
     /** Keep the system icon viewport stable; only the live drawer card gets smaller artwork. */
     internal fun brandIconBitmap(context: Context, iconRes: Int, contentFraction: Float = 1f): Bitmap {
         val drawable = requireNotNull(context.getDrawable(iconRes)).mutate()
-        drawable.setTint(Color.WHITE)
+        val dark = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        drawable.setTint(if (dark) Color.WHITE else Color.BLACK)
         val size = (24f * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
         val bitmap = createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val inset = ((size * (1f - contentFraction)) / 2).toInt()

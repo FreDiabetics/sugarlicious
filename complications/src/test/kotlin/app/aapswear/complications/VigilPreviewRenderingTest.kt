@@ -39,16 +39,13 @@ class VigilPreviewRenderingTest {
                 android.provider.Settings.System.TIME_12_24,
                 "24",
             )
-        // Neutral selector styling, like the other Watch-menu complication previews.
-        // Data, geometry and text still come from the actual providers below.
+        // Use the same fresh defaults as the watch and its settings, not a separate preview theme.
         org.robolectric.RuntimeEnvironment
             .getApplication()
             .getSharedPreferences(DirectToWatchPreferences.NAME, android.content.Context.MODE_PRIVATE)
             .edit()
-            .putInt("graph_color_cgm_in", Color.WHITE)
-            .putInt("graph_color_cgm_high", Color.LTGRAY)
-            .putInt("graph_color_cgm_low", Color.GRAY)
-            .apply()
+            .clear()
+            .commit()
         val slots = document.getElementsByTagName("ComplicationSlot")
         val rendered = mutableListOf<String>()
         for (index in 0 until slots.length) {
@@ -69,7 +66,12 @@ class VigilPreviewRenderingTest {
             val controller = Robolectric.buildService(type).create()
             val service = controller.get()
             val data = service.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
-            val drawable = requireNotNull(data.smallImage.image.loadDrawable(service))
+            val drawable =
+                if (slot.getAttribute("slotId") == "5") {
+                    android.graphics.drawable.BitmapDrawable(service.resources, renderVigilClock(service, "22:10"))
+                } else {
+                    requireNotNull(data.smallImage.image.loadDrawable(service))
+                }
             val x = slot.getAttribute("x").toFloat()
             val y = slot.getAttribute("y").toFloat()
             val width = slot.getAttribute("width").toFloat()

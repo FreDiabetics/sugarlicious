@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MobileSettingsScrollHeaderTest {
+    @Test fun `submenu compact title fades in place during pull expansion`() {
+        val initial = settingsSubmenuHeaderState(0f, 0f, 160f, 88f)
+        val pulled = settingsSubmenuHeaderState(0f, 40f, 160f, 128f)
+        assertEquals(0f, initial.compactTitleOffsetDp, 0f)
+        assertEquals(0f, pulled.compactTitleOffsetDp, 0f)
+        assertTrue(pulled.compactTitleAlpha < initial.compactTitleAlpha)
+        assertEquals(40f, pulled.rowOffsetDp, 0f)
+    }
+
     @Test fun `expanded title only fades when its complete fixed text box fits`() {
         assertEquals(0f, settingsSubmenuHeaderState(0f, 70f, 160f, 134f, 52f, 80f).expandedTitleAlpha, 0f)
         listOf(96f, 110f, 160f).forEach { expansion ->

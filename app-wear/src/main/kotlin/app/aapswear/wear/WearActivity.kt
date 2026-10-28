@@ -308,6 +308,7 @@ class WearActivity : Activity() {
             glucose.textSize = WearGlucoseCardStyle.VALUE_TEXT_SP * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent)
             val valueColor =
                 when {
+                    presentation.freshness == app.aapswear.model.Freshness.SIGNAL_LOSS -> 0xFF9E9E9E.toInt()
                     !presentation.displayable -> preferences.uiColors.textPrimary
                     presentation.rangeClass == app.aapswear.model.CgmRangeClass.VERY_LOW -> preferences.uiColors.glucoseVeryLow
                     presentation.rangeClass == app.aapswear.model.CgmRangeClass.LOW -> preferences.uiColors.glucoseLow
@@ -324,10 +325,11 @@ class WearActivity : Activity() {
                 scale = GlucoseTrendSizing.scaleFactor(preferences.trendScalePercent),
                 style = preferences.trendArrowStyle,
             )
-            delta.text = presentation.primaryMeta
-            delta.setTextColor(preferences.uiColors.deltaUnit)
-            age.text = ""
-            age.visibility = View.GONE
+            delta.text = app.aapswear.uishared.glucoseMetadataText(presentation.primaryMeta)
+            delta.setTextColor(android.graphics.Color.WHITE)
+            age.setTextColor(android.graphics.Color.WHITE)
+            age.text = app.aapswear.uishared.glucoseMetadataText(presentation.secondaryMeta)
+            age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
 
             findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, if (preferences.graphStyle.borderEnabled) preferences.uiColors.tileBorder else android.graphics.Color.TRANSPARENT, WearGlucoseCardStyle.CARD_RADIUS_DP)
@@ -408,6 +410,8 @@ class WearActivity : Activity() {
                 when (state?.source) {
                     DataSourceId.DEXCOM_G7_WATCH -> "SugarWear"
                     DataSourceId.ANDROID_APS -> "AndroidAPS"
+                    DataSourceId.DEXCOM_G7_APP -> "Dexcom G7 App"
+                    DataSourceId.DEXCOM_SHARE -> "Dexcom Share"
                     DataSourceId.NIGHTSCOUT -> "Nightscout"
                     DataSourceId.OTHER -> "Other"
                     null -> "Datenquelle nicht verfügbar"

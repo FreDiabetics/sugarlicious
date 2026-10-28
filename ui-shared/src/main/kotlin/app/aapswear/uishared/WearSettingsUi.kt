@@ -17,7 +17,7 @@ import kotlin.math.roundToInt
 /** Shared round-screen settings vocabulary. Uses public Android widgets, not private Samsung APIs. */
 object WearSettingsUi {
     fun accent(context: Context): Int =
-        if (android.os.Build.VERSION.SDK_INT >= 31) context.getColor(android.R.color.system_accent1_200) else Color.rgb(157, 187, 197)
+        SugarliciousAccentPalette.primary(context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES)
 
     fun dp(context: Context, value: Int): Int = (value * context.resources.displayMetrics.density).roundToInt()
 
@@ -83,10 +83,19 @@ object WearSettingsUi {
         view.textSize = 15f
         view.includeFontPadding = false
         view.setTextColor(textColor)
+        // Switch lays its thumb out at track height. Keep the actual disc at 20dp
+        // inside that 24dp allocation instead of stretching an oval to fill it.
         view.thumbDrawable =
-            swatch(context, Color.WHITE).apply {
-                setSize(dp(context, 20), dp(context, 20))
-                setStroke(0, Color.TRANSPARENT)
+            LayerDrawable(arrayOf(swatch(context, Color.WHITE).apply { setStroke(0, Color.TRANSPARENT) })).apply {
+                setLayerSize(0, dp(context, 20), dp(context, 20))
+                setLayerGravity(0, Gravity.CENTER)
+            }
+        view.minimumWidth = dp(context, 54)
+        view.background =
+            LayerDrawable(arrayOf(background(context, Color.rgb(83, 83, 88), 0f))).apply {
+                setLayerSize(0, dp(context, 1), dp(context, 32))
+                setLayerGravity(0, Gravity.END or Gravity.CENTER_VERTICAL)
+                setLayerInsetEnd(0, dp(context, 53))
             }
         view.trackDrawable = background(context, Color.DKGRAY, 14f).apply { setSize(dp(context, 40), dp(context, 24)) }
         view.trackTintList = ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(accent, Color.DKGRAY))

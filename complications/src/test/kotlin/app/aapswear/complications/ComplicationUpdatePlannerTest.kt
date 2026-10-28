@@ -15,6 +15,16 @@ import org.junit.Test
 
 class ComplicationUpdatePlannerTest {
     @Test
+    fun `sensor lifecycle change refreshes warning footer and analog header without a glucose change`() {
+        val old = state().copy(sourceContract = "CANONICAL_CGM_V2:WATCH_DIRECT:test:SENSOR_ACTIVE")
+        val changed = old.copy(sourceContract = "CANONICAL_CGM_V2:NO_SOURCE:test:SENSOR_NOT_ACTIVE")
+        val providers = ComplicationUpdatePlanner.affectedProviders(old, changed)
+        assertTrue(DirectToWatchClockComplication::class.java in providers)
+        assertTrue(DirectToWatchAnalogHeaderComplication::class.java in providers)
+        assertTrue(DirectToWatchGraphComplication::class.java in providers)
+    }
+
+    @Test
     fun `managed provider set includes fixed direct to watch providers`() {
         val providers = ComplicationUpdatePlanner.allManagedProviders
 

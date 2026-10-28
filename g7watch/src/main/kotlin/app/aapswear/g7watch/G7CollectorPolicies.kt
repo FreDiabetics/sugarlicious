@@ -64,17 +64,61 @@ internal fun g7StartupSensorWindow(state: G7PersistedState, pending: CollectorCy
 internal fun needsG7FollowUpRepair(collectorEnabled: Boolean, pendingReconnectEpochMs: Long?, nowEpochMs: Long): Boolean =
     collectorEnabled && (pendingReconnectEpochMs == null || pendingReconnectEpochMs <= nowEpochMs)
 
+internal fun hasEstablishedG7SensorSession(state: G7PersistedState): Boolean {
+    val sensor = state.sensor ?: return false
+    if (!sensor.deviceAddress.isNullOrBlank() && state.authenticationState == app.aapswear.g7.G7AuthenticationState.AUTHENTICATED) return true
+    val reading = state.lastReading ?: return false
+    return reading.status == CgmReadingStatus.VALID && reading.sensorId == sensor.sensorId && reading.sessionId == (sensor.sessionId ?: sensor.sensorId)
+}
+
 internal fun ensureG7PairingAttempt(state: G7PersistedState, nowEpochMs: Long): G7PersistedState {
-    if (!state.collectorEnabled || state.sensor == null || state.lastReading != null) return state
-    val deadline = state.pairingDeadlineEpochMs?.takeIf { it > nowEpochMs } ?: (nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS)
+    if (!state.collectorEnabled) return state
+    if (state.sensor == null) {
+        return app.aapswear.g7
+            .G7SessionManager(state)
+            .stop()
+    }
+    if (hasEstablishedG7SensorSession(state)) return state
+    if (state.pairingStartedAtEpochMs == null && state.pairingDeadlineEpochMs == null) {
+        return app.aapswear.g7.G7SessionManager(state).stop().copy(
+            lastError = app.aapswear.g7.G7CollectorError("G7-SETUP-001", false, nowEpochMs, "Keine aktive Verbindung · bitte Sensor verbinden wählen"),
+        )
+    }
+    val startedAt = state.pairingStartedAtEpochMs ?: nowEpochMs
+    val deadline = requireNotNull(g7InitialPairingDeadline(state))
+    if (nowEpochMs >= deadline) {
+        return app.aapswear.g7.G7SessionManager(state).stop().copy(
+            lastError =
+                app.aapswear.g7.G7CollectorError(
+                    "G7-PAIRING-TIMEOUT",
+                    false,
+                    nowEpochMs,
+                    "Kein Sensor verbunden · Verbindung beendet. Bitte erneut starten.",
+                ),
+        )
+    }
     return state.copy(
         pairingAttemptId =
             state.pairingAttemptId ?: java.util.UUID
                 .randomUUID()
                 .toString(),
-        pairingStartedAtEpochMs = state.pairingStartedAtEpochMs ?: nowEpochMs,
+        pairingStartedAtEpochMs = startedAt,
         pairingDeadlineEpochMs = deadline,
         scanTimeoutAtEpochMs = deadline,
+    )
+}
+
+/** Called only by the explicit user start, never by boot/alarm/runtime reconciliation. */
+internal fun startG7PairingAttempt(state: G7PersistedState, nowEpochMs: Long): G7PersistedState {
+    if (!state.collectorEnabled || state.sensor == null || hasEstablishedG7SensorSession(state)) return state
+    return state.copy(
+        pairingAttemptId =
+            java.util.UUID
+                .randomUUID()
+                .toString(),
+        pairingStartedAtEpochMs = nowEpochMs,
+        pairingDeadlineEpochMs = nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
+        scanTimeoutAtEpochMs = nowEpochMs + G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS,
     )
 }
 
@@ -82,7 +126,7 @@ internal fun resetG7RuntimeForRestart(state: G7PersistedState): G7PersistedState
     state.copy(
         connectionState = G7ConnectionState.DISCONNECTED,
         protocolState = G7ProtocolState.UNINITIALIZED,
-        authenticationState = app.aapswear.g7.G7AuthenticationState.UNKNOWN,
+        authenticationState = if (hasEstablishedG7SensorSession(state)) state.authenticationState else app.aapswear.g7.G7AuthenticationState.UNKNOWN,
         retryCount = 0,
         nextReconnectEpochMs = null,
         lastError = null,
@@ -95,7 +139,7 @@ internal fun clearG7ScanRuntime(state: G7PersistedState): G7PersistedState =
     state.copy(scanStartedAtEpochMs = null, scanTimeoutAtEpochMs = null)
 
 internal fun collectorAttemptDeadlineMs(state: G7PersistedState): Long =
-    if (state.sensor?.deviceAddress.isNullOrBlank() || state.lastReading == null) {
+    if (state.sensor?.deviceAddress.isNullOrBlank() || !hasEstablishedG7SensorSession(state)) {
         G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS + 2L * 60_000L
     } else {
         3L * 60_000L
@@ -208,3 +252,14 @@ internal fun directConnectDiagnosticCode(result: app.aapswear.g7.DirectConnectRe
         app.aapswear.g7.DirectConnectResult.SECURITY_ERROR -> "DIRECT_CONNECT_SECURITY_ERROR"
         app.aapswear.g7.DirectConnectResult.SUCCESS -> "DIRECT_CONNECT_SUCCESS"
     }
+
+internal fun sensorForG7LivePublication(
+    collectionSensor: G7Sensor,
+    currentSensor: G7Sensor?,
+    liveState: app.aapswear.g7.G7SensorState,
+): G7Sensor =
+    (
+        currentSensor?.takeIf {
+            it.sensorId == collectionSensor.sensorId && it.sessionId == collectionSensor.sessionId
+        } ?: collectionSensor
+    ).copy(state = liveState)

@@ -53,6 +53,11 @@ internal const val G7_FALLBACK_SCAN_TIMEOUT_MS = 15_000L
 
 internal sealed interface G7BleTelemetry
 
+internal data class G7DiscoveryCandidateDeferred(
+    val timestampEpochMs: Long,
+    val errorCode: String,
+) : G7BleTelemetry
+
 internal data class G7DirectConnectStarted(
     val timestampEpochMs: Long,
     val elapsedRealtimeMs: Long,
@@ -190,13 +195,13 @@ internal class AndroidG7Scanner(
 ) : G7Scanner {
     private val retiredSensors = G7RetiredSensors(context)
     var freshSetup: Boolean = false
-    private val rejectedCandidates =
-        java.util.concurrent.ConcurrentHashMap
-            .newKeySet<String>()
+    private val candidates = G7DiscoveryCandidates()
 
-    fun clearRejectedCandidates() = rejectedCandidates.clear()
+    fun clearRejectedCandidates() = candidates.clear()
 
-    fun rejectCandidate(address: String) = rejectedCandidates.add(address)
+    fun rejectCandidate(address: String) = candidates.reject(address)
+
+    fun deferCandidate(address: String) = candidates.defer(address)
 
     var telemetryListener: (G7BleTelemetry) -> Unit = {}
     private val pendingTelemetry = AtomicReference<G7ScanTelemetry?>(null)
@@ -296,7 +301,7 @@ internal class AndroidG7Scanner(
                             return
                         }
                         connectableResults.incrementAndGet()
-                        if (result.device.address in rejectedCandidates ||
+                        if (!candidates.accepts(result.device.address) ||
                             retiredSensors.excludesDiscovery(result.device.address, freshSetup) ||
                             !matcher.matches(result.device, advertisedName, sensor)
                         ) {
@@ -463,12 +468,7 @@ internal class AndroidG7Collector(
             if (discoveryRequired) {
                 onState(G7ProtocolState.SCANNING)
                 val scanTimeout =
-                    when {
-                        scanTimeoutMsOverride != null -> scanTimeoutMsOverride.coerceIn(5_000L, g7ScanTimeoutMs(sensor))
-                        pairingRecoveryRequired -> G7_INITIAL_PAIRING_SCAN_TIMEOUT_MS
-                        fallbackUsed -> G7_FALLBACK_SCAN_TIMEOUT_MS
-                        else -> g7ScanTimeoutMs(sensor)
-                    }
+                    g7DiscoveryScanTimeoutMs(sensor, scanTimeoutMsOverride, pairingRecoveryRequired, fallbackUsed)
                 val remainingDiscoveryMs =
                     if (initialSensor.deviceAddress.isNullOrBlank()) discoveryDeadline - android.os.SystemClock.elapsedRealtime() else scanTimeout
                 if (remainingDiscoveryMs <= 0L) {
@@ -549,7 +549,7 @@ internal class AndroidG7Collector(
                 sharedKey = rebond.sharedKey
                 bondReconnectAttempts += 1
                 if (bondReconnectAttempts >= MAX_BOND_RECONNECT_ATTEMPTS) {
-                    throw G7BleException("G7-AUTH-207", "Sensor wurde gekoppelt, die erneute Verbindung schlug aber fehl", true, rebond)
+                    throw G7BleException("G7-AUTH-207", "Sensor wurde verbunden, die erneute Verbindung schlug aber fehl", true, rebond)
                 }
                 discoveryRequired = false
                 onState(G7ProtocolState.RECOVERING)
@@ -564,6 +564,17 @@ internal class AndroidG7Collector(
                     sharedKey = null
                     discoveryRequired = true
                     onState(G7ProtocolState.RECOVERING)
+                } else if (scanner is AndroidG7Scanner &&
+                    shouldDeferUnverifiedG7Candidate(initialSensor, sharedKey != null, error.errorCode, error.recoverable)
+                ) {
+                    sensor.deviceAddress?.let(scanner::deferCandidate)
+                    onTelemetry(G7DiscoveryCandidateDeferred(System.currentTimeMillis(), error.errorCode))
+                    sensor = initialSensor
+                    discoveryRequired = true
+                    gatt133Retries = 0
+                    noCallbackRetries = 0
+                    onState(G7ProtocolState.RECOVERING)
+                    delay(GATT_133_STACK_SETTLE_DELAY_MS)
                 } else if (shouldRetryNoCallbackDirectly(error.errorCode, noCallbackRetries, fallbackUsed)) {
                     noCallbackRetries += 1
                     discoveryRequired = false
@@ -922,7 +933,7 @@ internal class G7GattConnection(
     @SuppressLint("MissingPermission")
     private suspend fun ensureBonded(device: BluetoothDevice) {
         if (device.bondState == BluetoothDevice.BOND_BONDED) return
-        if (!device.createBond()) throw G7BleException("G7-AUTH-206", "Bluetooth-Kopplung konnte nicht gestartet werden", false)
+        if (!device.createBond()) throw G7BleException("G7-AUTH-206", "Bluetooth-Verbindung konnte nicht gestartet werden", false)
 
         // createBond() is asynchronous. On real Wear OS hardware it can return true a few
         // milliseconds before bondState changes from NONE to BONDING. Treating that initial NONE
@@ -947,7 +958,7 @@ internal class G7GattConnection(
             // The system consent UI is time limited. Missing that UI once must not leave initial
             // setup permanently dead; the normal scheduler may offer it again in a later sensor
             // window without deleting bonds, keys, or application data.
-            throw G7BleException("G7-AUTH-209", "Bluetooth-Kopplung wurde nicht bestätigt", true)
+            throw G7BleException("G7-AUTH-209", "Bluetooth-Verbindung wurde nicht bestätigt", true)
         }
     }
 
@@ -972,7 +983,7 @@ internal class G7GattConnection(
         ) {
             throw G7BleException(
                 "G7-AUTH-211",
-                "Gespeicherte Kopplung ist ungültig; Sensor in Bluetooth entfernen und neu einrichten",
+                "Gespeicherte Verbindung ist ungültig; Sensor in Bluetooth entfernen und neu einrichten",
                 false,
             )
         }

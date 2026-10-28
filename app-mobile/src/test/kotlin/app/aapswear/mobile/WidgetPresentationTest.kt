@@ -117,7 +117,7 @@ class WidgetPresentationTest {
     @Test
     fun `detail rows separate numeric emphasis from descriptive text`() {
         assertEquals(WidgetDetailText("", "−5", " mg/dL"), widgetDetailText(0, "−5 mg/dL"))
-        assertEquals(WidgetDetailText("vor ", "5", " Min."), widgetDetailText(1, "5m"))
+        assertEquals(WidgetDetailText("vor ", "5", " Min"), widgetDetailText(1, "5m"))
         assertEquals(WidgetDetailText("", "89%", " im Ziel"), widgetDetailText(2, "89%"))
         assertEquals(WidgetDetailText("", "--", ""), widgetDetailText(1, "--"))
     }

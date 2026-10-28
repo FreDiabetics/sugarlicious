@@ -39,8 +39,8 @@ class SystemTypographyTest {
     }
 
     @Test
-    fun `device font choice has a generic fallback and case insensitive samsung matching`() {
-        assertEquals("sec", SystemTypographyTokens.fontFamily("SAMSUNG"))
+    fun `device-selected system font is retained across manufacturers`() {
+        assertEquals("sans-serif", SystemTypographyTokens.fontFamily("SAMSUNG"))
         assertEquals("sans-serif", SystemTypographyTokens.fontFamily("Google"))
         assertEquals("sans-serif", SystemTypographyTokens.fontFamily(""))
     }

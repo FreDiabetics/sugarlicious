@@ -144,6 +144,8 @@ object TherapyDisplayFormatter {
         when (source) {
             DataSourceId.DEXCOM_G7_WATCH -> "Watch Direct"
             DataSourceId.ANDROID_APS -> "AndroidAPS"
+            DataSourceId.DEXCOM_G7_APP -> "Dexcom G7 App"
+            DataSourceId.DEXCOM_SHARE -> "Dexcom Share"
             DataSourceId.NIGHTSCOUT -> "Nightscout"
             DataSourceId.OTHER -> "Andere Quelle"
             null -> "Keine Quelle"

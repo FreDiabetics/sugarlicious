@@ -184,10 +184,15 @@ class MainActivityTest {
         activity.findViewById<View>(R.id.top_settings).performClick()
         val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
         val heading = root.findViewWithTag<TextView>("settings_scroll_title")
-        val accent =
-            app.aapswear.mobile.ui.theme
-                .mobileMenuAccentArgb(activity, dark = true)
-        assertEquals(accent, heading.currentTextColor)
+        assertEquals(MobileSettingsStyle.text(false), heading.currentTextColor)
+        val styledTitle = heading.text as android.text.Spanned
+        assertTrue(
+            styledTitle.getSpans(0, styledTitle.length, android.text.style.ForegroundColorSpan::class.java).any {
+                it.foregroundColor ==
+                    app.aapswear.mobile.ui.theme.SugarliciousColors
+                        .argb(SugarliciousColorRole.BRAND_GREEN)
+            },
+        )
         openSettingsCategory(activity, "overview_graphs")
         val actual = activity.findViewById<android.widget.Switch>(R.id.dashboard_details_switch)
         val expected = mobileSettingsSwitch(activity, actual.isChecked) {}
@@ -245,7 +250,7 @@ class MainActivityTest {
             assertEquals(Color.red(color), Color.green(color))
             assertEquals(Color.green(color), Color.blue(color))
         }
-        assertEquals(Color.rgb(109, 232, 146), context.getColor(R.color.app_accent))
+        assertEquals(Color.rgb(34, 235, 96), context.getColor(R.color.app_accent))
     }
 
     @Test fun `diagnostics update while overview dashboard stays visible`() {
@@ -284,7 +289,7 @@ class MainActivityTest {
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
         assertTrue(settingsText.contains("Datenverwaltung"))
         openSettingsCategory(activity, "general")
-        assertTrue(textOf(activity.findViewById(R.id.dashboard_content)).contains("AndroidAPS"))
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("mobile-data-sources"))
         activity.findViewById<View>(R.id.top_back).performClick()
         openSettingsCategory(activity, "data")
         val dataText = textOf(activity.findViewById(R.id.dashboard_content))
@@ -633,7 +638,7 @@ class MainActivityTest {
                 .text
                 .toString(),
         )
-        assertNotNull(findImageWithDescription(activity.findViewById(R.id.dashboard_content), "AndroidAPS"))
+        assertNotNull(activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("mobile-data-sources"))
         controller.recreate()
         activity = controller.get()
         assertEquals(
@@ -805,18 +810,5 @@ class MainActivityTest {
             is TextView -> view.text.toString()
             is ViewGroup -> (0 until view.childCount).joinToString(" ") { textOf(view.getChildAt(it)) }
             else -> ""
-        }
-
-    private fun findImageWithDescription(
-        view: View,
-        description: String,
-    ): android.widget.ImageView? =
-        when (view) {
-            is android.widget.ImageView -> view.takeIf { it.contentDescription?.toString() == description }
-            is ViewGroup ->
-                (0 until view.childCount).firstNotNullOfOrNull { index ->
-                    findImageWithDescription(view.getChildAt(index), description)
-                }
-            else -> null
         }
 }

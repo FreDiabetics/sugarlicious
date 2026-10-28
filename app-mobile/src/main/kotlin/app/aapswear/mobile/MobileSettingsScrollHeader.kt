@@ -74,5 +74,5 @@ internal fun settingsSubmenuHeaderState(
     val circleStart = maxOf(fadeDistance, initialGap - 14f)
     val circleEnd = maxOf(circleStart + 1f, initialGap - 4f)
     val circle = ((scroll - circleStart) / (circleEnd - circleStart)).coerceIn(0f, 1f)
-    return SettingsSubmenuHeaderState(compact, minOf(expandedFade, fitFade), circle, -6f * (1f - compact), rowOffset, titleTop)
+    return SettingsSubmenuHeaderState(compact, minOf(expandedFade, fitFade), circle, 0f, rowOffset, titleTop)
 }

@@ -71,6 +71,8 @@ data class SharedWearCgmGraphStyle(
 )
 
 object DirectToWatchGraphDefaults {
+    fun vigilStyle() = style().copy(currentDotOutlineWidthDp = .7f)
+
     fun style() =
         SharedWearCgmGraphStyle(
             dotOutlineWidthDp = 0.35f,
@@ -403,7 +405,15 @@ object SharedWearCgmGraphRenderer {
 
         if (input.style.maximumScaleEnabled) drawMaximumScale(canvas, input, metrics, widthPx, dp(1f), axisText)
         if (input.topLeftLabel.isNotBlank()) {
-            axisText.color = input.palette.axisText
+            val area =
+                if (7f * density in metrics.highY..metrics.lowY) {
+                    palette.targetArea
+                } else if (input.style.rangeBackgroundEnabled && CgmGraphPolicy.rangeExcursion(history, input.thresholds) == RangeExcursion.HIGH) {
+                    palette.highArea
+                } else {
+                    android.graphics.Color.TRANSPARENT
+                }
+            axisText.color = graphTextContrast(palette.background, area)
             axisText.textAlign = Paint.Align.LEFT
             canvas.drawText(input.topLeftLabel, maxOf(3f * density, input.style.cornerRadiusDp * density * 0.7f), 7f * density - (axisText.ascent() + axisText.descent()) / 2f, axisText)
         }

@@ -39,6 +39,19 @@ class WearSettingsControlsTest {
         assertEquals(Color.TRANSPARENT, bitmap.getPixel(200, 0))
     }
 
+    @Test fun `switch thumb stays a circle inside the taller track bounds`() {
+        val toggle = ScrollSafeSwitch(context)
+        WearSettingsUi.toggle(toggle, Color.BLUE, Color.WHITE)
+        val thumb = toggle.thumbDrawable
+        val width = WearSettingsUi.dp(context, 20)
+        val height = WearSettingsUi.dp(context, 24)
+        thumb.setBounds(0, 0, width, height)
+        val image = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+        thumb.draw(android.graphics.Canvas(image))
+        assertEquals(Color.TRANSPARENT, image.getPixel(width / 2, 0))
+        assertEquals(Color.WHITE, image.getPixel(width / 2, height / 2))
+    }
+
     @Test fun `scrolling across a switch never commits but an ordinary tap does`() {
         val toggle = ScrollSafeSwitch(context)
 

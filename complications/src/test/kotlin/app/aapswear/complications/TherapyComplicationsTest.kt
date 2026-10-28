@@ -142,11 +142,11 @@ class TherapyComplicationsTest {
     }
 
     @Test
-    fun `direct to watch header image and every preview is tappable`() {
+    fun `transparent header does not steal graph and status tap actions`() {
         val headerService = Robolectric.buildService(DirectToWatchHeaderComplication::class.java).create().get()
         val header = headerService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData
         assertNotNull(header.smallImage)
-        assertNotNull(header.tapAction)
+        assertNull(header.tapAction)
 
         val statusService = Robolectric.buildService(DirectToWatchStatusComplication::class.java).create().get()
         val status = statusService.getPreviewData(ComplicationType.SMALL_IMAGE) as SmallImageComplicationData

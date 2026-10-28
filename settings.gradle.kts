@@ -18,6 +18,7 @@ include(
     ":dexcom-g7",
     ":data-source-api",
     ":data-source-aaps",
+    ":data-source-dexcom",
     ":wear-protocol",
     ":wear-storage",
     ":ui-shared",

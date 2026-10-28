@@ -109,7 +109,8 @@ internal fun wearGlucoseTilePresentation(
         when (freshness) {
             Freshness.CURRENT -> colors.accent
             Freshness.DELAYED -> colors.glucoseHigh
-            Freshness.STALE, Freshness.SIGNAL_LOSS, Freshness.ERROR, Freshness.NO_DATA -> colors.glucoseLow
+            Freshness.SIGNAL_LOSS -> android.graphics.Color.WHITE
+            Freshness.STALE, Freshness.ERROR, Freshness.NO_DATA -> colors.glucoseLow
         }
     if (!displayable) {
         val message =
@@ -130,13 +131,17 @@ internal fun wearGlucoseTilePresentation(
         )
     }
     val valueColor =
-        when (thresholds.classify(glucose.valueMgDl)) {
-            CgmRangeClass.VERY_LOW -> colors.glucoseVeryLow
-            CgmRangeClass.LOW -> colors.glucoseLow
-            CgmRangeClass.IN_RANGE -> colors.glucoseInRange
-            CgmRangeClass.HIGH -> colors.glucoseHigh
-            CgmRangeClass.VERY_HIGH -> colors.glucoseVeryHigh
-            null -> colors.glucoseInRange
+        if (freshness == Freshness.SIGNAL_LOSS) {
+            0xFF9E9E9E.toInt()
+        } else {
+            when (thresholds.classify(glucose.valueMgDl)) {
+                CgmRangeClass.VERY_LOW -> colors.glucoseVeryLow
+                CgmRangeClass.LOW -> colors.glucoseLow
+                CgmRangeClass.IN_RANGE -> colors.glucoseInRange
+                CgmRangeClass.HIGH -> colors.glucoseHigh
+                CgmRangeClass.VERY_HIGH -> colors.glucoseVeryHigh
+                null -> colors.glucoseInRange
+            }
         }
     val delta = TherapyDisplayFormatter.signedDelta(glucose.deltaMgDl, glucose.displayUnit).ifBlank { "—" }
     val unit = if (glucose.displayUnit == GlucoseUnit.MMOL_L) "mmol/L" else "mg/dL"
