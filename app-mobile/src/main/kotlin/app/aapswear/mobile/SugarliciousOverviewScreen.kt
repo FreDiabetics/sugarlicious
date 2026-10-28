@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -310,7 +310,7 @@ private fun GlucoseHeroCard(
                     withStyle(SpanStyle(fontSize = 17.sp)) { append(delta) }
                     withStyle(SpanStyle(fontSize = 14.sp)) { append(" $unitLabel · $age") }
                 }
-            val measuredWidth = measurer.measure(metadata, TextStyle(fontWeight = FontWeight.Bold), softWrap = false).size.width
+            val measuredWidth = measurer.measure(metadata, LocalTextStyle.current.copy(fontWeight = FontWeight.Bold), softWrap = false).size.width
             val metadataScale = minOf(1f, with(density) { maxWidth.toPx() } / measuredWidth.coerceAtLeast(1))
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 GlucoseValueAndTrend(
