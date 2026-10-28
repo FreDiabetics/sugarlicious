@@ -9,3 +9,5 @@ User deferred final installs, all visual checks and Collector analysis. No physi
 Validation passed: full Gradle unit tests, architecture, static analysis, formatting, debug/release builds, all-module lint, WFF schema and code-free package checks. Python tooling suite: 58 passed. Staged secrets scan: no leaks.
 
 Final Gradle aggregate: BUILD SUCCESSFUL; 1566 unit tests, zero failures/errors. All debug lint reports contain zero unsuppressed issues. The exact static SugarWear SVG path has a documented local VectorPath advisory exception. Official WFF and code-free APK checks passed for all five faces.
+
+PR review follow-up: preserve freshly composed treatment filtering/attribution and prefer incoming glucose metadata on equal timestamps. Both regression cases and the source-composition suite pass; targeted Mobile build, lint, formatting, architecture and static analysis pass.

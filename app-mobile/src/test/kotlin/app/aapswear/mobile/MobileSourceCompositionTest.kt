@@ -15,6 +15,22 @@ class MobileSourceCompositionTest {
             insulin = if (source == DataSourceId.ANDROID_APS) InsulinState(totalIob = 2.0) else null,
         )
 
+    @Test fun `equal timestamp keeps incoming glucose metadata but older readings cannot replace current`() {
+        val previous = state(DataSourceId.ANDROID_APS, 120.0)
+        val updated = previous.copy(glucose = previous.glucose!!.copy(displayUnit = GlucoseUnit.MMOL_L, deltaMgDl = 3.0, averageDeltaMgDl = 2.0))
+        assertEquals(updated.glucose, mergeMobileSourceInput(previous, updated, now).glucose)
+        val older = updated.copy(glucose = updated.glucose!!.copy(measuredAtEpochMs = now - 300_000))
+        assertEquals(previous.glucose, mergeMobileSourceInput(previous, older, now).glucose)
+    }
+
+    @Test fun `history retention preserves authoritative treatment filtering and refreshed attribution`() {
+        val oldEvent = TherapyEvent("aaps", TherapyEventKind.MEAL_BOLUS, now - 60_000, 2.0, source = TherapyEventSource.AAPS_ENRICHED_BY_NIGHTSCOUT)
+        val external = oldEvent.copy(id = "external", source = TherapyEventSource.NIGHTSCOUT_ONLY)
+        val previous = state(DataSourceId.ANDROID_APS, 120.0).copy(therapyEvents = listOf(oldEvent, external))
+        val current = previous.copy(therapyEvents = listOf(oldEvent.copy(source = TherapyEventSource.AAPS_ONLY)))
+        assertEquals(current.therapyEvents, retainMobileDisplayHistory(previous, current, now).therapyEvents)
+    }
+
     @Test fun `valid AndroidAPS HIGH boundary values remain available`() {
         val aaps = state(DataSourceId.ANDROID_APS, 401.0)
         val result = MobileSourceComposition.compose(mapOf(aaps.source to aaps), MobileSourceConfiguration(), now)

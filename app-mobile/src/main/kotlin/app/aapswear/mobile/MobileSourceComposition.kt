@@ -100,7 +100,7 @@ internal fun mergeMobileSourceInput(previous: TherapyDisplayState?, incoming: Th
     require(incoming.source in MOBILE_INPUT_SOURCES)
     val prior = previous?.takeIf { it.source == incoming.source }
     val merged = DisplayHistoryAccumulator.merge(prior, incoming, now)
-    var glucose = listOfNotNull(prior?.glucose, incoming.glucose).maxByOrNull { it.measuredAtEpochMs }
+    var glucose = listOfNotNull(incoming.glucose, prior?.glucose).maxByOrNull { it.measuredAtEpochMs }
     if (glucose != null && incoming.source != DataSourceId.ANDROID_APS) {
         val sample = GlucoseSample(glucose.valueMgDl, glucose.measuredAtEpochMs, glucose.source, glucose.sensorId, glucose.sessionId, glucose.sequenceNumber, glucose.receivedAtEpochMs, glucose.quality)
         CanonicalTrendPolicy.derive(sample, merged.glucoseHistory, TrendRateProfile.SUGARLICIOUS)?.let { derived ->
@@ -150,7 +150,8 @@ internal fun retainMobileDisplayHistory(previous: TherapyDisplayState?, current:
     return current.copy(
         glucoseHistory = CanonicalCgmHistory.merge(displayed, now, current.source, maxPoints = DisplayHistoryAccumulator.MAX_POINTS),
         therapyHistory = history.therapyHistory,
-        therapyEvents = history.therapyEvents,
+        // Treatment composition is authoritative, including disabled enrichment filtering.
+        therapyEvents = current.therapyEvents,
         targetHistory = history.targetHistory,
     )
 }
