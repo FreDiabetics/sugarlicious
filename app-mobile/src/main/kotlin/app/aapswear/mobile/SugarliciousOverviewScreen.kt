@@ -37,8 +37,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -300,29 +302,36 @@ private fun GlucoseHeroCard(
 
     @Composable
     fun GlucosePane(modifier: Modifier) {
-        Box(modifier, contentAlignment = Alignment.Center) {
+        BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
+            val density = LocalDensity.current
+            val measurer = rememberTextMeasurer()
+            val metadata =
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontSize = 17.sp)) { append(delta) }
+                    withStyle(SpanStyle(fontSize = 14.sp)) { append(" $unitLabel · $age") }
+                }
+            val measuredWidth = measurer.measure(metadata, TextStyle(fontWeight = FontWeight.Bold), softWrap = false).size.width
+            val metadataScale = minOf(1f, with(density) { maxWidth.toPx() } / measuredWidth.coerceAtLeast(1))
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                GlucoseValueAndTrend(glucoseText, glucoseColor, trend, visualSpec)
+                GlucoseValueAndTrend(
+                    glucoseText,
+                    glucoseColor,
+                    trend,
+                    visualSpec.copy(glucoseTextSize = visualSpec.glucoseTextSize * 1.1f, trendHeight = visualSpec.trendHeight * 1.1f),
+                )
                 Spacer(Modifier.height(3.dp))
                 Text(
                     buildAnnotatedString {
-                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)) { append(delta) }
-                        withStyle(SpanStyle(color = SugarliciousColors.TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Bold)) { append(" $unitLabel") }
+                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = (17 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(delta) }
+                        withStyle(SpanStyle(color = SugarliciousColors.TextSecondary, fontSize = (14 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(" $unitLabel · ") }
+                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = (14 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(age) }
                     },
                     color = SugarliciousColors.TextSecondary,
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                )
-                Text(
-                    buildAnnotatedString {
-                        Regex("\\d+|\\D+").findAll(if (age.endsWith("m")) "vor ${age.removeSuffix("m")} Min" else age).forEach { part ->
-                            withStyle(SpanStyle(color = if (part.value.first().isDigit()) SugarliciousColors.TextPrimary else SugarliciousColors.TextSecondary)) { append(part.value) }
-                        }
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
                 )
             }
         }
