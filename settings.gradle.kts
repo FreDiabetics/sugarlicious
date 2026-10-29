@@ -19,6 +19,7 @@ include(
     ":data-source-api",
     ":data-source-aaps",
     ":data-source-dexcom",
+    ":data-source-external",
     ":wear-protocol",
     ":wear-storage",
     ":ui-shared",

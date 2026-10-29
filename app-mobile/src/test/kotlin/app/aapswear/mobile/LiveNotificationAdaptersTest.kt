@@ -2,7 +2,6 @@ package app.aapswear.mobile
 
 import android.app.Notification
 import android.content.Context
-import android.graphics.drawable.Icon
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationCompat.Metric.FixedFloat
 import androidx.core.app.NotificationCompat.Metric.FixedInt
@@ -15,7 +14,6 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -28,24 +26,29 @@ class LiveNotificationAdaptersTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Test
-    @Config(sdk = [35], qualifiers = "mdpi")
-    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
-    fun `live drawer brand icon shrinks while Now Bar bitmap remains identical`() {
+    @Config(sdk = [37])
+    fun `glucose only sources retain valid live metric without therapy label`() {
+        listOf(null, "", "  ").forEach { therapy ->
+            val result = AndroidLiveNotificationAdapter.apply(builder(), presentation().copy(therapyText = therapy), 37)
+            assertTrue(result.metric != null)
+        }
+    }
+
+    @Test
+    @Config(sdk = [35])
+    fun `Samsung owns icon rendering while Now Bar keeps its green background`() {
         val builder = builder()
-        SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung", R.drawable.ic_notification_outlined)
+        SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung")
         val extras = builder.build().extras
-
-        fun bitmap(key: String) = (extras.getParcelable(key, Icon::class.java)!!.loadDrawable(context) as android.graphics.drawable.BitmapDrawable).bitmap
-        val card = bitmap(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON)
-        val nowBar = bitmap(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_ICON)
-        val original = SamsungLiveNotificationAdapter.brandIconBitmap(context, R.drawable.ic_notification_outlined)
-        assertTrue("Now Bar must retain the exact prior full viewport artwork", nowBar.sameAs(original))
-        assertEquals(nowBar.width, card.width)
-        assertEquals(nowBar.height, card.height)
-
-        fun ink(bitmap: android.graphics.Bitmap) = (0 until bitmap.height).sumOf { y -> (0 until bitmap.width).count { x -> android.graphics.Color.alpha(bitmap.getPixel(x, y)) > 128 } }
-        assertTrue("drawer must retain visible branding", ink(card) > 0)
-        assertTrue("only drawer branding should be smaller", ink(card) < ink(nowBar) * .75)
+        listOf(
+            SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON,
+            SamsungLiveNotificationAdapter.EXTRA_CARD_ICON,
+            SamsungLiveNotificationAdapter.EXTRA_NOWBAR_ICON,
+            SamsungLiveNotificationAdapter.EXTRA_AOD_REMOTE_APP_ICON,
+            SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND,
+        ).forEach {
+            assertFalse(extras.containsKey(it))
+        }
     }
 
     @Test
@@ -131,7 +134,7 @@ class LiveNotificationAdaptersTest {
     fun `samsung adapter keeps therapy details out of the drawer while preserving now bar text`() {
         val builder = builder()
 
-        val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung", android.R.drawable.ic_dialog_info)
+        val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung")
         val notification = builder.build()
 
         assertEquals("118 ↘ −6 · Basal 0.45U/h", texts!!.drawerPrimary)
@@ -140,30 +143,14 @@ class LiveNotificationAdaptersTest {
         assertEquals("−6 mg/dL · 0m", texts.nowBarSecondary)
         assertEquals("118 ↘ −6", texts.chipExpandedText)
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND))
         assertEquals(texts.drawerPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_PRIMARY_INFO))
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_SECONDARY_INFO))
         assertEquals(texts.nowBarPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(texts.nowBarSecondary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO))
         assertEquals(texts.chipExpandedText, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_TEXT))
-        assertEquals(
-            context.getColor(R.color.app_accent),
-            notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
-        )
-        assertNotNull(notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, Icon::class.java))
-        assertEquals(
-            Icon.TYPE_BITMAP,
-            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON, Icon::class.java)!!.type,
-        )
-        assertEquals(
-            Icon.TYPE_BITMAP,
-            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_ICON, Icon::class.java)!!.type,
-        )
-        assertEquals(
-            Icon.TYPE_BITMAP,
-            notification.extras.getParcelable(SamsungLiveNotificationAdapter.EXTRA_AOD_REMOTE_APP_ICON, Icon::class.java)!!.type,
-        )
+        assertEquals(0xFF22EB60.toInt(), notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR))
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_VIEW))
-        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CARD_ICON_BACKGROUND))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }
 
@@ -188,7 +175,7 @@ class LiveNotificationAdaptersTest {
     fun `non samsung device receives no proprietary extras`() {
         val builder = builder()
 
-        val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Google", android.R.drawable.ic_dialog_info)
+        val texts = SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Google")
         val notification = builder.build()
 
         assertNull(texts)

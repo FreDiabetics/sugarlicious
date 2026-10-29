@@ -147,6 +147,8 @@ object TherapyDisplayFormatter {
             DataSourceId.DEXCOM_G7_APP -> "Dexcom G7 App"
             DataSourceId.DEXCOM_SHARE -> "Dexcom Share"
             DataSourceId.NIGHTSCOUT -> "Nightscout"
+            DataSourceId.XDRIP_PLUS -> "xDrip+"
+            DataSourceId.LIBRE_PATCHED -> "Libre patched app"
             DataSourceId.OTHER -> "Andere Quelle"
             null -> "Keine Quelle"
         }

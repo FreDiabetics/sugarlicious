@@ -10,6 +10,7 @@ import kotlinx.coroutines.*
 class DexcomBroadcastReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != DexcomBroadcastAdapter.ACTION) return
+        if (MobileGlucoseSource.DEXCOM_BROADCAST !in MobileSourceConfigurationStore.read(context).enabledGlucoseSources) return
         val extras = intent.extras ?: return
         val now = System.currentTimeMillis()
         val state = DexcomBroadcastAdapter.parse(extras, now) ?: return

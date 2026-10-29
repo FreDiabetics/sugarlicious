@@ -26,6 +26,12 @@ class G7CollectorTilePresentationTest {
         )
 
     @Test
+    fun `tile requests registered Samsung system family with portable fallback`() {
+        assertEquals("sec", sugarWearTileFontFamily("Samsung"))
+        assertEquals("sans-serif", sugarWearTileFontFamily("Google"))
+    }
+
+    @Test
     fun `tile emphasis is calibrated to match the in app system font`() {
         assertEquals(700, sugarWearTileWeight(true))
         assertEquals(400, sugarWearTileWeight(false))
@@ -34,7 +40,7 @@ class G7CollectorTilePresentationTest {
     @Test
     fun `collector and graph tiles use shared SugarWear typography roles`() {
         assertEquals(44f, SugarWearTypography.spec(SugarWearTypographyRole.GLUCOSE_VALUE).sizeSp, 0f)
-        assertEquals(14f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
+        assertEquals(20f, SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp, 0f)
         assertEquals(11f, SugarWearTypography.spec(SugarWearTypographyRole.TILE_TITLE).sizeSp, 0f)
         assertEquals("sans-serif", SugarWearTypography.APP_FONT_FAMILY)
         assertEquals(SugarWearTypography.APP_FONT_FAMILY, SugarWearTypography.PROTO_FONT_FAMILY)

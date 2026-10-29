@@ -3,13 +3,13 @@ package app.aapswear.model
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DataSourceIdMigrationTest {
     @Test
-    fun `legacy xdrip source decodes as other without remaining selectable`() {
-        assertEquals(DataSourceId.OTHER, Json.decodeFromString<DataSourceId>("\"XDRIP_PLUS\""))
-        assertFalse(DataSourceId.entries.any { it.name == "XDRIP_PLUS" })
+    fun `xdrip source retains its explicit identity after being enabled again`() {
+        assertEquals(DataSourceId.XDRIP_PLUS, Json.decodeFromString<DataSourceId>("\"XDRIP_PLUS\""))
+        assertTrue(DataSourceId.entries.any { it.name == "XDRIP_PLUS" })
     }
 
     @Test
@@ -19,6 +19,6 @@ class DataSourceIdMigrationTest {
 
         assertEquals(121.0, sample.valueMgDl, 0.0)
         assertEquals(1234L, sample.measuredAtEpochMs)
-        assertEquals(DataSourceId.OTHER, sample.source)
+        assertEquals(DataSourceId.XDRIP_PLUS, sample.source)
     }
 }

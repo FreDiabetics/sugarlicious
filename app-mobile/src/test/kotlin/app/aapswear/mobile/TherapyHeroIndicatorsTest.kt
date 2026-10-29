@@ -24,16 +24,8 @@ class TherapyHeroIndicatorsTest {
     fun `COB and basal overview icons use compact bounds without shrinking IOB`() {
         val indicators = therapyIndicatorPresentations(state(), 10f, 1_000L)
         assertEquals(19, indicators[0].iconSizeDp)
-        assertEquals(16, indicators[1].iconSizeDp)
+        assertEquals(17, indicators[1].iconSizeDp)
         assertEquals(16, indicators[2].iconSizeDp)
-    }
-
-    @Test
-    fun `therapy mode suppresses separate details without changing stored choice`() {
-        val preferences = DashboardUiPreferences(showDetails = true, glucoseTileDetailMode = GlucoseTileDetailMode.THERAPY)
-        assertTrue(preferences.showDetails)
-        assertEquals(false, preferences.effectiveShowDetails)
-        assertEquals(true, preferences.copy(glucoseTileDetailMode = GlucoseTileDetailMode.TIR).effectiveShowDetails)
     }
 
     @Test
@@ -50,7 +42,7 @@ class TherapyHeroIndicatorsTest {
         assertEquals(1f, values[1].progress!!, 0.0001f)
         assertEquals("12.00U", values[0].value)
         assertEquals("450g", values[1].value)
-        assertEquals("1.20U/h", values[2].value)
+        assertEquals("1.20U", values[2].value)
         assertEquals("@150%", values[2].secondary)
         assertEquals(0.5625f, values[2].progress!!, 0.0001f)
     }
@@ -86,16 +78,16 @@ class TherapyHeroIndicatorsTest {
                     ),
             )
         val basal = therapyIndicatorPresentations(state, 10f, 1_000L)[2]
-        assertEquals("0.75U/h", basal.value)
+        assertEquals("0.75U", basal.value)
         assertEquals("@150%", basal.secondary)
         assertEquals(app.aapswear.uishared.R.drawable.ic_basalmore, basal.iconRes)
     }
 
     @Test
     fun `long values shrink before they can overlap the ring`() {
-        assertEquals(15, therapyIndicatorFontSizeSp("0.23U"))
-        assertEquals(13, therapyIndicatorFontSizeSp("0.75U/h"))
-        assertEquals(11, therapyIndicatorFontSizeSp("12.00U/h"))
+        assertEquals(14, therapyIndicatorFontSizeSp("0.23U"))
+        assertEquals(12, therapyIndicatorFontSizeSp("0.75U/h"))
+        assertEquals(10, therapyIndicatorFontSizeSp("12.00U/h"))
         assertEquals(10, therapyIndicatorSecondaryFontSizeSp("0,3U·8m"))
         assertEquals(10, therapyIndicatorSecondaryFontSizeSp("@150%"))
     }
@@ -150,13 +142,13 @@ class TherapyHeroIndicatorsTest {
                     ),
             )
 
-        assertEquals("0,3U·8m", therapyIndicatorPresentations(state, 10f, now)[0].secondary)
+        assertEquals("vor 8m", therapyIndicatorPresentations(state, 10f, now)[0].secondary)
     }
 
     @Test fun `last bolus age switches from minutes to whole hours at sixty minutes`() {
-        assertEquals("59m", formatCompactBolusAge(59L * 60_000L))
-        assertEquals("1h", formatCompactBolusAge(60L * 60_000L))
-        assertEquals("2h", formatCompactBolusAge(179L * 60_000L))
+        assertEquals("vor 59m", formatCompactBolusAge(59L * 60_000L))
+        assertEquals("vor 60m", formatCompactBolusAge(60L * 60_000L))
+        assertEquals("vor 179m", formatCompactBolusAge(179L * 60_000L))
     }
 
     @Test

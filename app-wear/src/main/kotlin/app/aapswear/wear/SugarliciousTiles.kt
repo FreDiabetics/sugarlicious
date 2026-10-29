@@ -522,6 +522,7 @@ private fun roundedTileCard(
 private fun tileRoot(
     background: Int,
     child: LayoutElementBuilders.LayoutElement,
+    paddingDp: Float = 18f,
 ): Box =
     Box
         .Builder()
@@ -533,7 +534,7 @@ private fun tileRoot(
             Modifiers
                 .Builder()
                 .setBackground(Background.Builder().setColor(argb(background)).build())
-                .setPadding(Padding.Builder().setAll(dp(18f)).build())
+                .setPadding(Padding.Builder().setAll(dp(paddingDp)).build())
                 .build(),
         ).addContent(child)
         .build()
@@ -597,56 +598,41 @@ private fun therapyTileContent(
 ): LayoutElementBuilders.LayoutElement {
     val presentation = wearTherapyTilePresentation(state, now)
     val effectiveAppearance = appearance.copy(enabledMetrics = selection.canonical.mapTo(linkedSetOf()) { it.toProgressMetric() })
-    val resolved = resolveRoundTherapyLayout(availableSideDp * 0.80f, effectiveAppearance)
-    val placements = therapyTilePlacements(selection)
-    val compact = placements.size > 1
-    val gap = effectiveAppearance.validated().gapDp.toFloat()
-    val resolvedByMetric = resolved.associateBy { it.metric.toTileMetric() }
-
-    fun card(metric: TherapyTileMetric): Box {
-        val item = resolvedByMetric.getValue(metric)
-        return therapyMetricCard(
-            scope,
-            metric,
-            presentation,
-            state,
-            colors,
-            compact,
-            now,
-            TherapyRingLayoutSpec(item.slot.diameterDp, strokeWidthDp = item.strokeWidthDp),
-            item.primaryTextSizeSp,
-            item.secondaryTextSizeSp,
-            item.iconSizeDp,
+    val side = (availableSideDp - 12f).coerceAtLeast(1f)
+    val resolved = resolveRoundTherapyLayout(side, effectiveAppearance, baseDiameterDp = side * .58f)
+    val group =
+        Box
+            .Builder()
+            .setWidth(dp(side))
+            .setHeight(dp(side))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_LEFT)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
+    resolved.forEach { item ->
+        val card =
+            therapyMetricCard(
+                scope,
+                item.metric.toTileMetric(),
+                presentation,
+                state,
+                colors,
+                now,
+                TherapyRingLayoutSpec(item.slot.diameterDp, strokeWidthDp = item.strokeWidthDp),
+                item.primaryTextSizeSp,
+                item.secondaryTextSizeSp,
+                item.iconSizeDp,
+            )
+        group.addContent(
+            Box
+                .Builder()
+                .setWidth(dp(item.slot.rightDp))
+                .setHeight(dp(item.slot.bottomDp))
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_RIGHT)
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
+                .addContent(card)
+                .build(),
         )
     }
-    val group =
-        when (placements.size) {
-            1 -> card(placements.single().metric)
-            2 ->
-                Row
-                    .Builder()
-                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                    .addContent(card(placements[0].metric))
-                    .addContent(Spacer.Builder().setWidth(dp(gap)).build())
-                    .addContent(card(placements[1].metric))
-                    .build()
-            else ->
-                Column
-                    .Builder()
-                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                    .addContent(
-                        Row
-                            .Builder()
-                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                            .addContent(card(TherapyTileMetric.IOB))
-                            .addContent(Spacer.Builder().setWidth(dp(gap)).build())
-                            .addContent(card(TherapyTileMetric.COB))
-                            .build(),
-                    ).addContent(Spacer.Builder().setHeight(dp(gap)).build())
-                    .addContent(card(TherapyTileMetric.BASAL))
-                    .build()
-        }
-    return tileRoot(colors.background, group)
+    return tileRoot(colors.background, group.build(), paddingDp = 6f)
 }
 
 private fun therapyMetricCard(
@@ -655,7 +641,6 @@ private fun therapyMetricCard(
     presentation: WearTherapyTilePresentation,
     state: TherapyDisplayState?,
     colors: WatchUiColors,
-    compact: Boolean,
     nowEpochMs: Long,
     ring: TherapyRingLayoutSpec,
     primaryTextSizeSp: Float,
@@ -700,8 +685,8 @@ private fun therapyMetricCard(
             .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
             .addContent(progressArc)
             .build()
-    val baseTextSize = if (compact) 18f else 30f
-    val valueContent = tileText(value, baseTextSize * (primaryTextSizeSp / 19f), colors.textPrimary, bold = true)
+    val fittedPrimarySp = minOf(primaryTextSizeSp * 1.12f, ring.diameterDp * .78f / (value.length.coerceAtLeast(1) * .58f))
+    val valueContent = tileText(value, fittedPrimarySp, colors.textPrimary, bold = true)
     val secondary =
         when (metric) {
             TherapyTileMetric.IOB -> presentation.iobSecondary
@@ -715,7 +700,7 @@ private fun therapyMetricCard(
             .addContent(valueContent)
             .apply {
                 secondary?.let {
-                    addContent(tileText(it, 10f * (secondaryTextSizeSp / 11f), colors.textSecondary, bold = false))
+                    addContent(tileText(it, secondaryTextSizeSp * 1.12f, colors.textSecondary, bold = false))
                 }
             }.build()
     val iconState = wearTherapyIcon(metric, state, nowEpochMs)

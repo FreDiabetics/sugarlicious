@@ -141,6 +141,7 @@ dependencies {
 
     implementation(project(":data-source-aaps"))
     implementation(project(":data-source-dexcom"))
+    implementation(project(":data-source-external"))
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))
     implementation(project(":ui-shared"))

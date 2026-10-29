@@ -11,8 +11,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ActiveComplicationRegistry
+import app.aapswear.complications.ActiveProviderUpdates
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.complications.G7LocalReadingResolver
 import app.aapswear.model.CanonicalCgmHistory
@@ -714,11 +714,7 @@ class StateDataLayerService : WearableListenerService() {
 
     private fun requestComplicationUpdates(providers: List<Class<*>>) {
         providers.forEach { provider ->
-            ComplicationDataSourceUpdateRequester
-                .create(
-                    this,
-                    ComponentName(this, provider),
-                ).requestUpdateAll()
+            ActiveProviderUpdates.request(this, provider)
         }
         if (providers.isNotEmpty()) {
             getSharedPreferences("diagnostics", Context.MODE_PRIVATE)

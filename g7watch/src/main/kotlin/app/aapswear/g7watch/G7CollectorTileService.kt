@@ -158,8 +158,23 @@ internal fun tileForegroundFor(backgroundArgb: Int): Int = if (ArgbContrast.isLi
 
 internal fun sugarWearTileWeight(emphasized: Boolean): Int = SugarWearTypography.protoWeight(emphasized)
 
+internal fun sugarWearTileFontFamily(manufacturer: String): String =
+    if (manufacturer.equals("samsung", ignoreCase = true)) "sec" else "sans-serif"
+
 class G7CollectorTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val samsungOneTypefaces =
+        G7TileTypefaceCache { bold ->
+            runCatching {
+                val fontContext = createPackageContext("com.monotype.android.font.samsungone", 0)
+                android.graphics.Typeface.createFromAsset(fontContext.assets, "fonts/SamsungOneUI-${if (bold) "Bold" else "Regular"}.ttf")
+            }.getOrNull()
+        }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        samsungOneTypefaces.clear()
+    }
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): SettableFuture<Tile> {
         val future = SettableFuture.create<Tile>()
@@ -198,7 +213,6 @@ class G7CollectorTileService : TileService() {
         val appearanceStore = G7AppearanceStore(this)
         val palette = appearanceStore.tileGlucosePalette()
         val presentation = g7TilePresentation(reading, colorStore.read(), System.currentTimeMillis(), colorStore.readThresholds(), palette)
-        val statusPresentation = g7TileStatusPresentation(pillState, palette)
         val warning = g7SensorWarning(pillState, reading?.status == CgmReadingStatus.VALID)
         val configuredTrendStyle = appearanceStore.tileTrendArrowStyle()
         val trendStyle = configuredTrendStyle.renderSpec()
@@ -219,7 +233,7 @@ class G7CollectorTileService : TileService() {
             Row
                 .Builder()
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                .addContent(text(presentation.tileValue, valueTextSize, presentation.cardForeground, bold = true))
+                .addContent(text(requestParams.scope, presentation.tileValue, valueTextSize, presentation.cardForeground, bold = true))
                 .apply {
                     val spec = presentation.trend?.let(TrendVisuals::spec)
                     if (spec != null) {
@@ -236,7 +250,8 @@ class G7CollectorTileService : TileService() {
                 .apply {
                     if (presentation.meta.isNotBlank()) {
                         addContent(
-                            text(
+                            metadataText(
+                                requestParams.scope,
                                 presentation.meta,
                                 SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.GLUCOSE_DELTA),
@@ -246,7 +261,8 @@ class G7CollectorTileService : TileService() {
                     }
                     if (presentation.age.isNotBlank()) {
                         addContent(
-                            text(
+                            metadataText(
+                                requestParams.scope,
                                 presentation.age,
                                 SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
                                 palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
@@ -254,9 +270,7 @@ class G7CollectorTileService : TileService() {
                             ),
                         )
                     }
-                }.addContent(Spacer.Builder().setHeight(dp(7f)).build())
-                .addContent(statusPill(statusPresentation))
-                .build()
+                }.build()
 
         val valueCard =
             Box
@@ -302,7 +316,7 @@ class G7CollectorTileService : TileService() {
                         .Builder()
                         .setPadding(Padding.Builder().setStart(dp(square.cornerRadiusDp)).build())
                         .build(),
-                ).addContent(text("Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), bold = false))
+                ).addContent(text(requestParams.scope, "Gewebeglukose", 11f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), bold = false))
                 .build()
         val content =
             Column
@@ -341,50 +355,6 @@ class G7CollectorTileService : TileService() {
             .build()
     }
 
-    private fun statusPill(presentation: G7TileStatusPresentation): Box =
-        Box
-            .Builder()
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .setModifiers(
-                Modifiers
-                    .Builder()
-                    .setBackground(
-                        Background
-                            .Builder()
-                            .setColor(argb(withTileAlpha(presentation.color, 36)))
-                            .setCorner(Corner.Builder().setRadius(dp(18f)).build())
-                            .build(),
-                    ).setBorder(
-                        Border
-                            .Builder()
-                            .setColor(argb(presentation.color))
-                            .setWidth(dp(1f))
-                            .build(),
-                    ).setPadding(
-                        Padding
-                            .Builder()
-                            .setStart(dp(12f))
-                            .setEnd(dp(12f))
-                            .setTop(dp(4f))
-                            .setBottom(dp(4f))
-                            .build(),
-                    ).build(),
-            ).addContent(
-                text(
-                    "●  ${presentation.label}",
-                    if (presentation.label.length >
-                        18
-                    ) {
-                        7.5f
-                    } else {
-                        9.5f
-                    },
-                    presentation.color,
-                    bold = true,
-                ),
-            ).build()
-
     private fun trendImage(
         scope: ProtoLayoutScope,
         spec: app.aapswear.model.TrendVisualSpec,
@@ -418,13 +388,112 @@ class G7CollectorTileService : TileService() {
             ).build()
     }
 
-    private fun text(
+    /** Samsung's Tile host ignores installed FlipFont families in native ProtoLayout text. */
+    private fun samsungOneText(
+        scope: ProtoLayoutScope,
         value: String,
         size: Float,
         color: Int,
         bold: Boolean,
-    ): Text =
-        Text
+        metadata: Boolean,
+    ): LayoutElementBuilders.LayoutElement? {
+        if (!android.os.Build.MANUFACTURER
+                .equals("samsung", ignoreCase = true)
+        ) {
+            return null
+        }
+        val face = samsungOneTypefaces.get(bold) ?: return null
+        val paint =
+            android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = face
+                textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, size, resources.displayMetrics)
+                this.color = color
+            }
+        val content = if (metadata) app.aapswear.uishared.glucoseMetadataText(value) else value
+        val width =
+            kotlin.math
+                .ceil(
+                    android.text.Layout
+                        .getDesiredWidth(content, paint)
+                        .toDouble(),
+                ).toInt()
+                .coerceAtLeast(1)
+        val layout =
+            android.text.StaticLayout.Builder
+                .obtain(content, 0, content.length, paint, width)
+                .setIncludePad(false)
+                .build()
+        val bitmap = androidx.core.graphics.createBitmap(width, layout.height.coerceAtLeast(1))
+        layout.draw(android.graphics.Canvas(bitmap))
+        val bytes =
+            java.io
+                .ByteArrayOutputStream()
+                .apply { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, this) }
+                .toByteArray()
+        val density = resources.displayMetrics.density
+        val image =
+            ImageResource
+                .Builder()
+                .setInlineResource(
+                    androidx.wear.protolayout.ResourceBuilders.InlineImageResource
+                        .Builder()
+                        .setData(bytes)
+                        .setWidthPx(bitmap.width)
+                        .setHeightPx(bitmap.height)
+                        .build(),
+                ).build()
+        val id = "samsung_one_${value.hashCode()}_${size}_${color}_${bold}_${resources.configuration.fontScale}"
+        val result =
+            Image
+                .Builder(scope)
+                .setImageResource(image, id)
+                .setWidth(dp(bitmap.width / density))
+                .setHeight(dp(bitmap.height / density))
+                .setModifiers(
+                    Modifiers
+                        .Builder()
+                        .setSemantics(
+                            androidx.wear.protolayout.ModifiersBuilders.Semantics
+                                .Builder()
+                                .setContentDescription(value)
+                                .build(),
+                        ).build(),
+                ).build()
+        bitmap.recycle()
+        return result
+    }
+
+    private fun metadataText(scope: ProtoLayoutScope, value: String, size: Float, color: Int, bold: Boolean): LayoutElementBuilders.LayoutElement {
+        samsungOneText(scope, value, size, color, bold, metadata = true)?.let { return it }
+        val builder = LayoutElementBuilders.Spannable.Builder().setMaxLines(1)
+        Regex("[A-Za-z/]+|[^A-Za-z/]+").findAll(value).forEach { match ->
+            val secondary = match.value.first().isLetter() || match.value.first() == '/'
+            builder.addSpan(
+                LayoutElementBuilders.SpanText
+                    .Builder()
+                    .setText(match.value)
+                    .setFontStyle(
+                        FontStyle
+                            .Builder()
+                            .setSize(sp(size * if (secondary) .82f else 1f))
+                            .setColor(argb(if (secondary) G7_TILE_TEXT_SECONDARY else color))
+                            .setWeight(sugarWearTileWeight(bold))
+                            .setPreferredFontFamilies(sugarWearTileFontFamily(android.os.Build.MANUFACTURER))
+                            .build(),
+                    ).build(),
+            )
+        }
+        return builder.build()
+    }
+
+    private fun text(
+        scope: ProtoLayoutScope,
+        value: String,
+        size: Float,
+        color: Int,
+        bold: Boolean,
+    ): LayoutElementBuilders.LayoutElement =
+        samsungOneText(scope, value, size, color, bold, metadata = false) ?: Text
             .Builder()
             .setText(value)
             .setMaxLines(1)
@@ -434,11 +503,12 @@ class G7CollectorTileService : TileService() {
                     .setSize(sp(size))
                     .setColor(argb(color))
                     .setWeight(sugarWearTileWeight(bold))
+                    .setPreferredFontFamilies(sugarWearTileFontFamily(android.os.Build.MANUFACTURER))
                     .build(),
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-18-sensor-warning"
+        private const val RESOURCES_VERSION = "g7-collector-21-samsung-one"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

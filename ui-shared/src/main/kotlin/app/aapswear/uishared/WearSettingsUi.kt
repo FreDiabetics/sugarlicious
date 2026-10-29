@@ -16,6 +16,39 @@ import kotlin.math.roundToInt
 
 /** Shared round-screen settings vocabulary. Uses public Android widgets, not private Samsung APIs. */
 object WearSettingsUi {
+    /** Flat One UI Watch action surface, with no platform button inset or elevation shadow. */
+    fun actionButton(view: android.widget.Button, cardSurface: Int, foreground: Int) {
+        val density = view.resources.displayMetrics.density
+
+        fun channel(shift: Int): Int = (((cardSurface ushr shift) and 255) * .90f + ((foreground ushr shift) and 255) * .10f).roundToInt()
+        val fill = Color.rgb(channel(16), channel(8), channel(0))
+        val shape =
+            GradientDrawable().apply {
+                setColor(fill)
+                cornerRadius = 26f * density
+            }
+        view.apply {
+            backgroundTintList = null
+            background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(0x22FFFFFF), shape, null)
+            layoutParams =
+                (layoutParams as? ViewGroup.MarginLayoutParams ?: LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)).apply {
+                    topMargin = dp(context, 6)
+                }
+            stateListAnimator = null
+            elevation = 0f
+            translationZ = 0f
+            minimumHeight = dp(context, 48)
+            minWidth = 0
+            minimumWidth = 0
+            isAllCaps = false
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setPadding(dp(context, 12), dp(context, 6), dp(context, 12), dp(context, 6))
+            setTextColor(foreground)
+            SystemTypography.apply(this, true)
+        }
+    }
+
     fun accent(context: Context): Int =
         SugarliciousAccentPalette.primary(context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES)
 
@@ -41,7 +74,7 @@ object WearSettingsUi {
             setStroke(dp(context, 1), Color.GRAY)
         }
 
-    fun slider(view: SeekBar, accent: Int, muted: Int) {
+    fun slider(view: SeekBar, accent: Int, muted: Int, label: String? = null) {
         val context = view.context
         val inactive = if (Color.alpha(muted) < 128 || Color.luminance(muted) < .025f) Color.rgb(70, 70, 73) else muted
 
@@ -67,7 +100,8 @@ object WearSettingsUi {
         view.thumbTintList = ColorStateList.valueOf(Color.WHITE)
         view.minimumHeight = dp(context, 48)
         view.setPadding(dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
-        view.isFocusable = false
+        if (label != null) view.contentDescription = label
+        view.isFocusable = true
         view.isFocusableInTouchMode = false
         view.splitTrack = false
     }
@@ -116,6 +150,7 @@ object WearSettingsUi {
                     setTextColor(textColor)
                     setPadding(dp(context, 8), dp(context, 4), dp(context, 8), dp(context, 8))
                     SystemTypography.apply(this, true)
+                    if (android.os.Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
                 },
             )
         }
@@ -126,16 +161,15 @@ object WearSettingsUi {
             gravity = Gravity.CENTER_VERTICAL
             minimumHeight = dp(context, 56)
             addView(
-                TextView(context).apply {
-                    foreground = WearBackIcon(context, textColor)
-                    foregroundGravity = Gravity.CENTER
-                    gravity = Gravity.CENTER
-                    setTextColor(textColor)
+                android.widget.ImageButton(context).apply {
+                    setImageDrawable(WearBackIcon(context, textColor))
+                    scaleType = android.widget.ImageView.ScaleType.CENTER
                     contentDescription = "Zurück"
-                    background = background(context, Color.rgb(42, 42, 45), 24f)
+                    tooltipText = "Zurück"
+                    background = android.graphics.drawable.InsetDrawable(background(context, Color.rgb(42, 42, 45), 24f), dp(context, 2))
                     setOnClickListener { back() }
                 },
-                LinearLayout.LayoutParams(dp(context, 44), dp(context, 44)),
+                LinearLayout.LayoutParams(dp(context, 48), dp(context, 48)),
             )
             addView(
                 TextView(context).apply {
@@ -144,6 +178,7 @@ object WearSettingsUi {
                     includeFontPadding = false
                     setTextColor(textColor)
                     SystemTypography.apply(this, true)
+                    if (android.os.Build.VERSION.SDK_INT >= 28) isAccessibilityHeading = true
                     setPadding(dp(context, 10), 0, 0, 0)
                 },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),

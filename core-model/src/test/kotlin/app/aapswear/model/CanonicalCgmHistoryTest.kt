@@ -151,6 +151,15 @@ class CanonicalCgmHistoryTest {
         }
     }
 
+    @Test
+    fun `time index follows a preferred phone timestamp for later duplicates`() {
+        val first = sample(DataSourceId.DEXCOM_G7_WATCH, "sensor", "session", 1L, 120.0, now - 180_000L)
+        val phone = first.copy(source = DataSourceId.ANDROID_APS, measuredAtEpochMs = now - 120_000L, receivedAtEpochMs = now)
+        val later = first.copy(measuredAtEpochMs = now - 50_000L, receivedAtEpochMs = now)
+        val otherSensor = later.copy(sensorId = "other", sessionId = "other")
+        assertEquals(listOf(phone, otherSensor), CanonicalCgmHistory.merge(listOf(later, otherSensor, first, phone), now))
+    }
+
     private fun sample(
         source: DataSourceId,
         sensor: String,

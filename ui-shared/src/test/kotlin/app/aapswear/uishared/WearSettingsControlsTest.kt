@@ -19,6 +19,38 @@ import org.robolectric.annotation.Config
 class WearSettingsControlsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `slider exposes its purpose and remains keyboard accessible`() {
+        val slider = SeekBar(context)
+        WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
+        assertEquals("Konturdicke", slider.contentDescription)
+        assertTrue(slider.isFocusable)
+        assertFalse(slider.isFocusableInTouchMode)
+    }
+
+    @Test fun `header keeps readable wrapping and a named back button at double font size`() {
+        val scaled =
+            context.createConfigurationContext(
+                android.content.res
+                    .Configuration(context.resources.configuration)
+                    .apply { fontScale = 2f },
+            )
+        val header = WearSettingsUi.header(scaled, "Farben und Darstellung", Color.WHITE) {}
+        header.measure(
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(WearSettingsUi.dp(scaled, 192), android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
+        )
+        header.layout(0, 0, header.measuredWidth, header.measuredHeight)
+        val back = header.getChildAt(0)
+        assertTrue(back is android.widget.ImageButton)
+        assertEquals("Zurück", back.contentDescription)
+        assertEquals(WearSettingsUi.dp(scaled, 48), back.measuredWidth)
+        val title = header.getChildAt(1) as android.widget.TextView
+        assertTrue(title.lineCount > 1)
+        assertTrue(title.isAccessibilityHeading)
+    }
+
     @Test fun `wear list typography matches Samsung Health fifteen and twelve sp roles`() {
         assertEquals(15f, WearSettingsUi.textSize(11f), 0f)
         assertEquals(12f, WearSettingsUi.textSize(8.5f), 0f)

@@ -21,7 +21,6 @@ import java.util.Locale
 class G7AlarmSettingsActivity : Activity() {
     private lateinit var root: LinearLayout
     private lateinit var scrollView: ScrollView
-    private var lastDndState: Boolean? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,9 +39,7 @@ class G7AlarmSettingsActivity : Activity() {
     override fun onResume() {
         super.onResume()
         G7CgmAlarmNotifier.prepareCurrentChannels(this)
-        val granted = G7AlarmSystemAccess.isAccessGranted(this)
-        if (lastDndState != null && lastDndState != granted) render()
-        lastDndState = granted
+        render()
     }
 
     private fun render() {
@@ -69,12 +66,11 @@ class G7AlarmSettingsActivity : Activity() {
     private fun dndCard(palette: G7AppearancePalette): LinearLayout {
         val status = G7AlarmSystemAccess.snapshot(this)
         val granted = status.policyAccessGranted
-        lastDndState = granted
         return card(palette).apply {
-            addView(label("NICHT STÖREN ÜBERSCHREIBEN", 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true))
+            addView(label("NICHT STÖREN", 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true))
             addView(
                 label(
-                    if (granted) "Systemzugriff erlaubt" else "Systemfreigabe erforderlich",
+                    if (granted) "Nicht-Stören-Zugriff erlaubt" else "Nicht-Stören-Zugriff fehlt",
                     12f,
                     if (granted) palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY) else palette.argb(G7AppearanceRole.GLUCOSE_STALE),
                     true,
@@ -82,11 +78,13 @@ class G7AlarmSettingsActivity : Activity() {
             )
             addView(
                 label(
-                    "Systemzugriff und Kanal-Ausnahme sind getrennt. Pr\u00fcfe die Alarmkan\u00e4le unter Berechtigungen. Lautst\u00e4rke und blockierte Benachrichtigungen k\u00f6nnen die Ausgabe verhindern.",
+                    "Eigene SugarWear-Töne verwenden die System-Alarmausgabe. Im Ruhemodus muss dort Alarme erlaubt sein. Die Kanal-Ausnahme allein gibt den eigenen Ton nicht frei. Lautstärke 0 bleibt ohne eigene Lautstärke stumm.",
                     8.5f,
                     palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY),
                 ),
             )
+            addView(label(g7AlarmAudioPolicyLabel(status), 10f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
+            addView(label(if (G7BackgroundAccess.isBatteryUnrestricted(this@G7AlarmSettingsActivity)) "Doze-Akkuexemption erlaubt" else "Doze-Akkuexemption fehlt", 9f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
             addView(
                 actionButton("Berechtigungen und Alarmkan\u00e4le", palette) {
                     startActivity(Intent(this@G7AlarmSettingsActivity, G7PermissionsActivity::class.java))
@@ -102,6 +100,28 @@ class G7AlarmSettingsActivity : Activity() {
         card(palette).apply {
             addView(label("ALARMVERHALTEN", 8f, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), true))
             addView(toggle("Sound", settings.soundEnabled, palette) { save(settings.copy(soundEnabled = it)) })
+            val volumeOverride = G7AlarmVolume.enabled(this@G7AlarmSettingsActivity)
+            addView(
+                toggle("Eigene Alarmlautstärke", volumeOverride, palette) {
+                    G7AlarmVolume.configure(this@G7AlarmSettingsActivity, it)
+                    render()
+                },
+            )
+            val audio = getSystemService(android.media.AudioManager::class.java)
+            addView(label("System · ${audio.getStreamVolume(android.media.AudioManager.STREAM_ALARM)}/${audio.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)}", 9f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+            if (volumeOverride) {
+                addView(
+                    stepper("Alarmlautstärke", "${G7AlarmVolume.percent(this@G7AlarmSettingsActivity)} %", palette, {
+                        G7AlarmVolume.configure(this@G7AlarmSettingsActivity, true, G7AlarmVolume.percent(this@G7AlarmSettingsActivity) - 10)
+                        render()
+                    }, {
+                        G7AlarmVolume.configure(this@G7AlarmSettingsActivity, true, G7AlarmVolume.percent(this@G7AlarmSettingsActivity) + 10)
+                        render()
+                    }),
+                )
+            }
+            addView(label("Ohne eigene Lautstärke gilt die System-Alarmlautstärke. Mit eigener Lautstärke wird sie für 30 Sekunden überschrieben und anschließend wiederhergestellt. Eigene SugarWear-Töne bleiben aktiv.", 8.5f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
+
             addView(toggle("Vibration", settings.vibrationEnabled, palette) { save(settings.copy(vibrationEnabled = it)) })
             addView(toggle("Wiederholen", settings.repeatEnabled, palette) { save(settings.copy(repeatEnabled = it)) })
             addView(
@@ -247,7 +267,8 @@ class G7AlarmSettingsActivity : Activity() {
             .apply(this, true)
         isAllCaps = false
         setTextColor(palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-        background = rounded(palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), 16f)
+        app.aapswear.uishared.WearSettingsUi
+            .actionButton(this, palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
         setOnClickListener { action() }
     }
 

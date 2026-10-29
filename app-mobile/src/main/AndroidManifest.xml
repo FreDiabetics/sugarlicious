@@ -10,6 +10,7 @@
  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+ <uses-permission android:name="com.eveningoutpost.dexdrip.permissions.RECEIVE_BG_ESTIMATE"/>
  <uses-permission android:name="android.permission.INTERNET"/>
  <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>
  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -46,6 +47,15 @@
  </queries>
  <uses-permission android:name="com.dexcom.cgm.EXTERNAL_PERMISSION"/>
   <application android:name=".SugarliciousApplication" android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">
+    <!-- Public third-party broadcast contracts have no shared sender permission.
+         The receiver is opt-in per source and strictly validates the supported payloads. -->
+    <receiver android:name=".ExternalBroadcastReceiver" android:exported="true" tools:ignore="ExportedReceiver">
+      <intent-filter>
+        <action android:name="com.eveningoutpost.dexdrip.BgEstimate"/>
+        <action android:name="com.librelink.app.ThirdPartyIntegration.SENSOR_SCAN"/>
+      </intent-filter>
+    </receiver>
+
   <meta-data android:name="com.samsung.android.support.ongoing_activity" android:value="true"/>
   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <activity android:name=".NightscoutTreatmentSettingsActivity" android:exported="false"/>

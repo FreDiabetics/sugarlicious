@@ -40,10 +40,6 @@ internal fun g7SharedGraphInput(
             axisLabel = palette.argb(G7AppearanceRole.GRAPH_AXIS_TEXT),
             axisTick = palette.argb(G7AppearanceRole.GRAPH_GRID),
             outline = palette.argb(G7AppearanceRole.GRAPH_DOT_OUTLINE),
-            predictionIob = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
-            predictionCob = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
-            predictionUam = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
-            predictionZeroTemp = palette.argb(G7AppearanceRole.GRAPH_PREDICTION),
         )
     val hours = graphHours.takeIf { it in G7DirectToWatchSettingsStore.HOUR_OPTIONS } ?: 3
     return SharedWearCgmGraphInput(

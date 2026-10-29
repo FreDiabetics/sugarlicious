@@ -1,14 +1,14 @@
 package app.aapswear.mobile
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.drawable.Icon
+import android.os.Build
 import android.os.Bundle
+import android.util.TypedValue
 import android.widget.RemoteViews
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
-import androidx.core.graphics.createBitmap
 
 internal data class SamsungLiveTexts(
     val drawerPrimary: String,
@@ -46,7 +46,6 @@ internal object SamsungLiveNotificationAdapter {
         builder: NotificationCompat.Builder,
         presentation: NotificationPresentation,
         manufacturer: String,
-        notificationIconRes: Int,
         expandedRemoteView: RemoteViews? = null,
     ): SamsungLiveTexts? {
         if (!manufacturer.equals("samsung", ignoreCase = true)) return null
@@ -54,17 +53,10 @@ internal object SamsungLiveNotificationAdapter {
         val extras =
             Bundle().apply {
                 putInt(EXTRA_STYLE, STANDARD_STYLE)
+                putInt(EXTRA_CHIP_BACKGROUND_COLOR, android.graphics.Color.rgb(0x22, 0xEB, 0x60))
                 putString(EXTRA_PRIMARY_INFO, texts.drawerPrimary)
                 putString(EXTRA_NOWBAR_PRIMARY_INFO, texts.nowBarPrimary)
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)
-                putInt(EXTRA_CHIP_BACKGROUND_COLOR, context.getColor(R.color.app_accent))
-                val notificationIcon = Icon.createWithResource(context, notificationIconRes)
-                val monochromeIcon = monochromeCardIcon(context, notificationIconRes)
-                val drawerIcon = monochromeCardIcon(context, notificationIconRes, contentFraction = .75f)
-                putParcelable(EXTRA_CHIP_ICON, notificationIcon)
-                putParcelable(EXTRA_CARD_ICON, drawerIcon)
-                putParcelable(EXTRA_NOWBAR_ICON, monochromeIcon)
-                putParcelable(EXTRA_AOD_REMOTE_APP_ICON, monochromeIcon)
                 if (CUSTOM_CHIP_ENABLED) {
                     putParcelable(
                         EXTRA_CHIP_EXPANDED_VIEW,
@@ -88,23 +80,14 @@ internal object SamsungLiveNotificationAdapter {
         return texts
     }
 
-    private fun monochromeCardIcon(
-        context: Context,
-        iconRes: Int,
-        contentFraction: Float = 1f,
-    ): Icon = Icon.createWithBitmap(brandIconBitmap(context, iconRes, contentFraction))
-
-    /** Keep the system icon viewport stable; only the live drawer card gets smaller artwork. */
-    internal fun brandIconBitmap(context: Context, iconRes: Int, contentFraction: Float = 1f): Bitmap {
-        val drawable = requireNotNull(context.getDrawable(iconRes)).mutate()
-        val dark = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
-        drawable.setTint(if (dark) Color.WHITE else Color.BLACK)
-        val size = (24f * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
-        val bitmap = createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val inset = ((size * (1f - contentFraction)) / 2).toInt()
-        drawable.setBounds(inset, inset, size - inset, size - inset)
-        drawable.draw(Canvas(bitmap))
-        return bitmap
+    /** Read the device palette directly, before Sugarlicious theme overrides. */
+    internal fun systemAccentColor(context: Context): Int {
+        if (Build.VERSION.SDK_INT >= 31) {
+            val dark = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            return (if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)).primary.toArgb()
+        }
+        val value = TypedValue()
+        return if (context.theme.resolveAttribute(android.R.attr.colorAccent, value, true)) value.data else context.getColor(android.R.color.holo_blue_light)
     }
 
     fun texts(presentation: NotificationPresentation): SamsungLiveTexts {

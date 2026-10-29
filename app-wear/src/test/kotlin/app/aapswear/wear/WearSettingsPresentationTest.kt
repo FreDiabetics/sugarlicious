@@ -68,7 +68,7 @@ class WearSettingsPresentationTest {
                 assertTrue(descendants(page).any { it is ScrollSafeSwitch })
             }
             assertEquals(before, WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)))
-            descendants(content).filterIsInstance<TextView>().single { it.contentDescription == "Zurück" }.performClick()
+            descendants(content).single { it.contentDescription == "Zurück" }.performClick()
         }
         controller.pause().stop().destroy()
     }

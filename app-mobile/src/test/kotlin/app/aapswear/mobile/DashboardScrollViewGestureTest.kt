@@ -13,6 +13,52 @@ import org.robolectric.RobolectricTestRunner
 class DashboardScrollViewGestureTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `closing header hands movement and release momentum to content`() {
+        val activity =
+            org.robolectric.Robolectric
+                .buildActivity(android.app.Activity::class.java)
+                .setup()
+                .visible()
+                .get()
+        val parent =
+            DashboardScrollView(activity).apply {
+                topPullEnabled = true
+                topPullExpanded = true
+                topPullExpansionPx = 40f
+                onTopPull = { distance ->
+                    topPullExpansionPx = (40f + distance).coerceIn(0f, 220f)
+                    topPullExpanded = topPullExpansionPx > 0f
+                }
+                addView(
+                    android.widget.LinearLayout(activity).apply {
+                        orientation = android.widget.LinearLayout.VERTICAL
+                        addView(android.view.View(activity), android.widget.LinearLayout.LayoutParams(300, 3000))
+                    },
+                )
+            }
+        activity.setContentView(parent)
+        parent.measure(
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(300, android.view.View.MeasureSpec.EXACTLY),
+        )
+        parent.layout(0, 0, 300, 300)
+        listOf(MotionEvent.ACTION_DOWN to 220f, MotionEvent.ACTION_MOVE to 120f, MotionEvent.ACTION_MOVE to 80f, MotionEvent.ACTION_UP to 40f).forEachIndexed { index, (action, y) ->
+            MotionEvent.obtain(1L, 1L + index * 32L, action, 150f, y, 0).also {
+                parent.dispatchTouchEvent(it)
+                it.recycle()
+            }
+        }
+        val releasedAt = parent.scrollY
+        assertTrue("scroll=$releasedAt, header=${parent.topPullExpansionPx}, child=${parent.getChildAt(0).height}, viewport=${parent.height}", releasedAt > 0)
+        org.robolectric.Shadows
+            .shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(500))
+        assertTrue("Content must keep moving after the finger lifts", parent.scrollY > releasedAt)
+        activity.finish()
+    }
+
     @Test fun `upward gesture closes expanded header before content can scroll`() {
         var distance = 0f
         var finished = false

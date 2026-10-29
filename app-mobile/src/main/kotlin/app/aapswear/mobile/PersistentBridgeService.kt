@@ -106,6 +106,7 @@ class PersistentBridgeService :
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var composedSourceConfiguration: MobileSourceConfiguration? = null
     private lateinit var dexcomShareSource: DexcomShareSource
+    private lateinit var nightscoutCgmSource: NightscoutCgmSource
     private var latestState: TherapyDisplayState? = null
     private var notifiedPresentationRevision: String? = null
     private var foregroundStarted = false
@@ -126,6 +127,7 @@ class PersistentBridgeService :
         uiPreferences = getSharedPreferences(PREFERENCES_NAME, MODE_PRIVATE)
         uiPreferences.registerOnSharedPreferenceChangeListener(this)
         dexcomShareSource = DexcomShareSource(applicationContext, scope)
+        nightscoutCgmSource = NightscoutCgmSource(applicationContext, scope)
         ContextCompat.registerReceiver(
             this,
             freshnessReconcileReceiver,
@@ -202,11 +204,13 @@ class PersistentBridgeService :
         if (composedSourceConfiguration == configuration) return
         composedSourceConfiguration = configuration
         dexcomShareSource.refresh()
+        nightscoutCgmSource.refresh()
         scope.launch(Dispatchers.IO) { MobileCanonicalStateCoordinator.recompose(applicationContext) }
     }
 
     override fun onDestroy() {
         dexcomShareSource.close()
+        nightscoutCgmSource.close()
         uiPreferences.unregisterOnSharedPreferenceChangeListener(this)
         unregisterReceiver(freshnessReconcileReceiver)
         externalSurfaceClockJob?.cancel()
@@ -343,7 +347,7 @@ class PersistentBridgeService :
             Notification
                 .Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_outlined)
-                .setColor(getColor(R.color.app_accent))
+                .setColor(SamsungLiveNotificationAdapter.systemAccentColor(this))
                 .setContentTitle(display.title)
                 .setContentText(display.subtitle)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -376,7 +380,7 @@ class PersistentBridgeService :
             NotificationCompat
                 .Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_outlined)
-                .setColor(getColor(R.color.app_accent))
+                .setColor(SamsungLiveNotificationAdapter.systemAccentColor(this))
                 .setContentTitle(presentation.drawerPrimaryText)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setContentIntent(openApp)
@@ -429,7 +433,6 @@ class PersistentBridgeService :
                     builder,
                     presentation,
                     Build.MANUFACTURER.orEmpty(),
-                    R.drawable.ic_notification_outlined,
                     expandedRemoteView = samsungExpandedView,
                 )
             } else {

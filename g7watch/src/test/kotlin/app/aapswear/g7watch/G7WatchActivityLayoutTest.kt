@@ -616,7 +616,7 @@ class G7WatchActivityLayoutTest {
         }
         collect(root)
 
-        assertNotNull(findText(root, "LIVE COLLECTOR STATUS"))
+        assertNotNull(findText(root, "Sensorempfang"))
         assertEquals(listOf("Anzeige", "Berechtigungen", "Alarme", "Sensor", "Vigil", "Über"), G7SettingsSection.entries.map { it.title })
         assertEquals(
             G7SettingsSection.entries.map { "settings-category-${it.name.lowercase()}" },
@@ -688,7 +688,7 @@ class G7WatchActivityLayoutTest {
         assertFalse("Kontur · aktueller Wert" in texts)
         assertTrue(texts.any { it.startsWith("Aktuell ·") })
         assertFalse("Range-Hintergrundfärbung" in texts)
-        assertTrue("Prognose · Zero Temp" in texts)
+        assertFalse(texts.any { it.startsWith("Prognose ·") })
         val settingsRoot = activity.findViewById<android.view.View>(android.R.id.content)
 
         fun cardText(title: String): List<String> {

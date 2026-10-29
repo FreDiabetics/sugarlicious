@@ -1,5 +1,6 @@
 package app.aapswear.mobile
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,19 +39,23 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
-import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseTrendSizing
@@ -92,7 +98,7 @@ internal fun SugarliciousOverviewScreen(
     val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
     val visibility =
         DashboardVisibilityState(
-            showTherapyDetails = preferences.effectiveShowDetails,
+            showTherapyDetails = false,
             showMetabolicGraph = preferences.showMetabolicGraph,
         )
     val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
@@ -233,13 +239,6 @@ internal fun SugarliciousOverviewScreen(
                 ),
             heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
         )
-
-        if (preferences.effectiveShowDetails) {
-            QuickStatsRow(
-                state = state.takeIf { displayable },
-                heightDp = maxOf(metrics.statTileHeight - overviewHeightCompensationDp, 56),
-            )
-        }
 
         if (preferences.showCgmGraph) {
             GlucoseGraphSurface(
@@ -445,23 +444,26 @@ private fun TirProgressColumn(
 ) {
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
     ) {
         TirProgress(
             modifier = Modifier.fillMaxWidth(),
             percent = stats.above,
+            rangeLabel = "Über Ziel",
             accent = SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.PROGRESS_ABOVE),
         )
 
         TirProgress(
             modifier = Modifier.fillMaxWidth(),
             percent = stats.inRange,
+            rangeLabel = "Im Ziel",
             accent = SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.PROGRESS_IN_RANGE),
         )
 
         TirProgress(
             modifier = Modifier.fillMaxWidth(),
             percent = stats.below,
+            rangeLabel = "Unter Ziel",
             accent = SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.PROGRESS_BELOW),
         )
     }
@@ -471,77 +473,56 @@ private fun TirProgressColumn(
 private fun TirProgress(
     modifier: Modifier,
     percent: Int?,
+    rangeLabel: String,
     accent: Color,
 ) {
     val safePercent = (percent ?: 0).coerceIn(0, 100)
-    val progress = safePercent / 100f
-
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val labelStyle = oneUiMenuTypography.bodyMedium.copy(fontSize = 14.sp, fontWeight = FontWeight.Bold)
+    val labelWidth =
+        with(density) {
+            measurer
+                .measure("100%", labelStyle, softWrap = false)
+                .size.width
+                .toDp()
+        } + 4.dp
+    val track = SugarliciousColors.SurfaceRaised
     Row(
-        modifier = modifier,
+        modifier =
+            modifier.heightIn(min = 24.dp).semantics(mergeDescendants = true) {
+                contentDescription = rangeLabel
+                stateDescription = percent?.let { "$safePercent%" } ?: "Keine Daten"
+                if (percent != null) progressBarRangeInfo = ProgressBarRangeInfo(safePercent.toFloat(), 0f..100f)
+            },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        BoxWithConstraints(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .height(12.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(
-                        SugarliciousColors.SurfaceRaised,
-                        RoundedCornerShape(999.dp),
-                    ),
-        ) {
-            if (progress > 0f) {
-                val fillWidth =
-                    (maxWidth * progress)
-                        .coerceAtLeast(12.dp)
-                        .coerceAtMost(maxWidth)
-
-                Box(
-                    modifier =
-                        Modifier
-                            .width(fillWidth)
-                            .fillMaxHeight()
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                accent,
-                                RoundedCornerShape(999.dp),
-                            ),
+        // Health-style data bars need their own full-height pill geometry: the native
+        // horizontal widget keeps a thin drawable even inside a taller view.
+        Canvas(Modifier.weight(1f).height(14.dp)) {
+            val radius =
+                androidx.compose.ui.geometry
+                    .CornerRadius(size.height / 2f)
+            drawRoundRect(color = track, cornerRadius = radius)
+            if (safePercent > 0) {
+                drawRoundRect(
+                    color = accent,
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(size.width * safePercent / 100f, size.height),
+                    cornerRadius = radius,
                 )
             }
         }
-
-        Spacer(Modifier.width(10.dp))
-
+        Spacer(Modifier.width(12.dp))
         Text(
-            text = percent?.let { "$it%" } ?: "—",
-            modifier = Modifier.width(42.dp),
+            text = percent?.let { "$safePercent%" } ?: "—",
+            modifier = Modifier.width(labelWidth).clearAndSetSemantics { },
             color = SugarliciousColors.TextPrimary,
-            fontSize = 12.sp,
-            lineHeight = 12.sp,
-            fontWeight = FontWeight.Bold,
+            style = labelStyle,
             textAlign = TextAlign.End,
             maxLines = 1,
-        )
-    }
-}
-
-@Composable
-private fun QuickStatsRow(
-    state: TherapyDisplayState?,
-    heightDp: Int,
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        LoopStateCard(Modifier.weight(1f), overviewLoopTileState(state), heightDp)
-        CombinedIobCobCard(Modifier.weight(1f), state, heightDp)
-        QuickStatCard(
-            Modifier.weight(1f),
-            app.aapswear.uishared.R.drawable.ic_basal,
-            "BASAL",
-            TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, state?.basal?.currentUnitsPerHour, state, includeUnit = false),
-            "IE/h",
-            SugarliciousColors.Secondary,
-            heightDp,
+            softWrap = false,
         )
     }
 }
@@ -564,137 +545,6 @@ internal fun overviewLoopTileState(state: TherapyDisplayState?): OverviewLoopTil
             LoopVisualState.CLOSED -> R.drawable.ic_loop_closed to SugarliciousColors.Green
         }
     return OverviewLoopTileState(icon, presentation.label, color)
-}
-
-@Composable
-private fun LoopStateCard(
-    modifier: Modifier,
-    state: OverviewLoopTileState,
-    heightDp: Int,
-) {
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        modifier =
-            modifier
-                .height(heightDp.dp)
-                .background(SugarliciousColors.Surface, shape)
-                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-                .padding(horizontal = 11.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text("LOOP", color = SugarliciousColors.TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Row(verticalAlignment = Alignment.Bottom) {
-            SugarliciousIcon(state.iconRes, state.label, Modifier.size(28.dp), state.accent)
-            Spacer(Modifier.width(6.dp))
-            Text(
-                state.label,
-                color = SugarliciousColors.TextPrimary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CombinedIobCobCard(
-    modifier: Modifier,
-    state: TherapyDisplayState?,
-    heightDp: Int,
-) {
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        modifier =
-            modifier
-                .height(heightDp.dp)
-                .background(SugarliciousColors.Surface, shape)
-                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-                .padding(horizontal = 9.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_iob, "IOB", SugarliciousColors.Blue)
-            QuickMetricHeader(app.aapswear.uishared.R.drawable.ic_cob, "COB", SugarliciousColors.Orange)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            InlineMetricValue(TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state, includeUnit = false), "U")
-            InlineMetricValue(TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state, includeUnit = false), "g")
-        }
-    }
-}
-
-@Composable
-private fun QuickMetricHeader(
-    iconRes: Int,
-    label: String,
-    accent: Color,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        SugarliciousIcon(iconRes, null, Modifier.size(13.dp), accent)
-        Spacer(Modifier.width(3.dp))
-        Text(label, color = SugarliciousColors.TextSecondary, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-    }
-}
-
-@Composable
-private fun InlineMetricValue(
-    value: String,
-    suffix: String,
-) {
-    Row {
-        Text(
-            value,
-            modifier = Modifier.alignByBaseline(),
-            color = SugarliciousColors.TextPrimary,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-        )
-        Spacer(Modifier.width(3.dp))
-        Text(suffix, modifier = Modifier.alignByBaseline(), color = SugarliciousColors.TextSecondary, fontSize = 9.sp, maxLines = 1)
-    }
-}
-
-@Composable
-private fun QuickStatCard(
-    modifier: Modifier,
-    iconRes: Int,
-    title: String,
-    value: String,
-    suffix: String,
-    accent: Color,
-    heightDp: Int,
-) {
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        modifier =
-            modifier
-                .height(heightDp.dp)
-                .background(SugarliciousColors.Surface, shape)
-                .border(1.dp, SugarliciousColors.Border.copy(alpha = 0.72f), shape)
-                .padding(horizontal = 11.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SugarliciousIcon(
-                drawableRes = iconRes,
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = accent,
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = title,
-                color = SugarliciousColors.TextSecondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
-        }
-        InlineMetricValue(value, suffix)
-    }
 }
 
 @Composable

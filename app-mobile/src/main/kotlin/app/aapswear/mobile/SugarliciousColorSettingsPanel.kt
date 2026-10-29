@@ -105,6 +105,8 @@ internal fun mobileAppearanceObjectTitle(role: SugarliciousColorRole): String =
 internal fun SugarliciousColorSettingsPanel(
     showCgmGraph: Boolean = true,
     showMetabolicGraph: Boolean = false,
+    themeMode: DashboardThemeMode,
+    onThemeModeSelected: (DashboardThemeMode) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -176,13 +178,8 @@ internal fun SugarliciousColorSettingsPanel(
     }
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        MobileSettingsObjectCard("Darstellung und Vorschau") {
-            AppearanceModeSelector(selectedMode) { mode ->
-                selectedMode = mode
-                palette = SugarliciousColorStore.load(preferences, mode)
-            }
-
-            AppearanceThemePreview(palette, trendStyle, DashboardUiPreferences.read(preferences))
+        MobileSettingsObjectCard("Darstellung") {
+            OneUiSettingsModeSelector(themeMode, onSelected = onThemeModeSelected)
         }
         MobileSettingsObjectCard("Trendpfeil") {
             MobileGlucoseElementSize(preferences, selectedMode, trend = true)
@@ -561,29 +558,6 @@ internal fun AppearanceModeSelector(
 ) {
     OneUiSettingsModeSelector(if (selected == AppearanceMode.LIGHT) DashboardThemeMode.LIGHT else DashboardThemeMode.DARK, showSystemChoice = false) {
         onSelected(if (it == DashboardThemeMode.LIGHT) AppearanceMode.LIGHT else AppearanceMode.DARK)
-    }
-}
-
-@Composable
-private fun AppearanceThemePreview(palette: app.aapswear.mobile.ui.theme.SugarliciousPalette, trendStyle: TrendArrowStyle, preferences: DashboardUiPreferences) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(Color(palette.argb(SugarliciousColorRole.SURFACE)), RoundedCornerShape(28.dp))
-            .padding(18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        GlucoseValueAndTrend(
-            "123",
-            Color(palette.argb(SugarliciousColorRole.GLUCOSE_IN_RANGE)),
-            app.aapswear.model.Trend.FLAT,
-            app.aapswear.model.GlucoseVisualSpec
-                .twoByTwoWidgetReference()
-                .scaled(preferences.glucoseScalePercent, preferences.trendScalePercent),
-            trendStyle,
-        )
-        Spacer(Modifier.height(3.dp))
-        Text("−2 mg/dL · 5m", color = Color(palette.argb(SugarliciousColorRole.TEXT_SECONDARY)), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 

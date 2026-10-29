@@ -63,14 +63,15 @@ class SettingsSnapTest {
     }
 
     @Test fun `slow scroll settles nearby headings but fast flings remain free`() {
-        assertEquals(300, settingsSnapTarget(284, listOf(0, 300, 650), 120f, 1f, 800))
+        assertEquals(300, settingsSnapTarget(294, listOf(0, 300, 650), 120f, 1f, 800))
+        assertNull(settingsSnapTarget(284, listOf(0, 300, 650), 120f, 1f, 800))
         assertNull(settingsSnapTarget(284, listOf(0, 300, 650), 1200f, 1f, 800))
         assertNull(settingsSnapTarget(450, listOf(0, 300, 650), 100f, 1f, 800))
         assertNull(settingsSnapTarget(284, listOf(0, 300, 650), 100f, 1f, 290))
     }
 
-    @Test fun `gentle scroll captures headings from a clearly perceptible distance`() {
-        assertEquals(300, settingsSnapTarget(200, listOf(0, 300, 650), 120f, 1f, 800))
+    @Test fun `gentle scroll does not pull distant headings across the page`() {
+        assertNull(settingsSnapTarget(200, listOf(0, 300, 650), 120f, 1f, 800))
         assertNull(settingsSnapTarget(200, listOf(0, 300, 650), 1200f, 1f, 800))
     }
 

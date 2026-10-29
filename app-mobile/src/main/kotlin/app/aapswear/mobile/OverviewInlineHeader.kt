@@ -31,7 +31,7 @@ internal object OverviewHeaderLayout {
     const val START_PADDING_DP = 2
     const val END_PADDING_DP = 8
     const val LOGO_SLOT_WIDTH_DP = 40
-    const val LOGO_SIZE_DP = 46
+    const val LOGO_SIZE_DP = 58
     const val LOGO_X_OFFSET_DP = 0
 }
 

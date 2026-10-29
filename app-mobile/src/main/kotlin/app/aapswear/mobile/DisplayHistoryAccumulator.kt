@@ -75,15 +75,9 @@ internal object DisplayHistoryAccumulator {
                 if (sample.totalIob != null || sample.cobGrams != null || sample.basalUnitsPerHour != null) add(sample)
                 val loop = current.loop
                 loop?.smbUnits?.takeIf { it.isFinite() && it > 0.0 }?.let { units ->
-                    add(
-                        TherapyHistorySample(
-                            measuredAtEpochMs =
-                                loop.smbAtEpochMs
-                                    ?: loop.enactedAtEpochMs
-                                    ?: current.receivedAtEpochMs,
-                            smbUnits = units,
-                        ),
-                    )
+                    loop.smbAtEpochMs?.takeIf { it > 0 && it <= nowEpochMs }?.let { deliveredAt ->
+                        add(TherapyHistorySample(measuredAtEpochMs = deliveredAt, smbUnits = units, smbDeliveredAtEpochMs = deliveredAt))
+                    }
                 }
             }.filter { it.measuredAtEpochMs in earliest..latest }
         val therapy = retainTherapyHistory(therapyCandidates)
@@ -229,6 +223,7 @@ internal object DisplayHistoryAccumulator {
         tempBasalUnitsPerHour = other.tempBasalUnitsPerHour ?: tempBasalUnitsPerHour,
         insulinActivityUnitsPerMinute = other.insulinActivityUnitsPerMinute ?: insulinActivityUnitsPerMinute,
         smbUnits = other.smbUnits ?: smbUnits,
+        smbDeliveredAtEpochMs = other.smbDeliveredAtEpochMs ?: smbDeliveredAtEpochMs,
     )
 
     /**
