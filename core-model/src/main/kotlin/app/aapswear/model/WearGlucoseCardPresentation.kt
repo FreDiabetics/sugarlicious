@@ -49,11 +49,12 @@ object SugarWearTypography {
     const val APP_FONT_FAMILY = "sans-serif"
 
     const val PROTO_FONT_FAMILY = APP_FONT_FAMILY
+    const val GLUCOSE_METADATA_SP = 20f
 
     fun spec(role: SugarWearTypographyRole): SugarWearTypographySpec =
         when (role) {
             SugarWearTypographyRole.GLUCOSE_VALUE -> SugarWearTypographySpec(WearGlucoseCardStyle.VALUE_TEXT_SP, true, SystemTypographyTokens.BOLD_WEIGHT, PROTO_FONT_FAMILY)
-            SugarWearTypographyRole.META -> SugarWearTypographySpec(WearGlucoseCardStyle.META_TEXT_SP, true, SystemTypographyTokens.BOLD_WEIGHT, PROTO_FONT_FAMILY)
+            SugarWearTypographyRole.META -> SugarWearTypographySpec(GLUCOSE_METADATA_SP, true, SystemTypographyTokens.BOLD_WEIGHT, PROTO_FONT_FAMILY)
             SugarWearTypographyRole.TILE_TITLE -> SugarWearTypographySpec(11f, true, SystemTypographyTokens.BOLD_WEIGHT, PROTO_FONT_FAMILY)
             SugarWearTypographyRole.STATUS -> SugarWearTypographySpec(10f, true, SystemTypographyTokens.BOLD_WEIGHT, PROTO_FONT_FAMILY)
         }

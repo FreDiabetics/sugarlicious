@@ -1,5 +1,7 @@
 package app.aapswear.model
 
+import java.util.TreeMap
+
 /** Shared validation, ordering and identity-safe deduplication for canonical CGM history. */
 object CanonicalCgmHistory {
     const val DEFAULT_WINDOW_MS = 24L * 60L * 60_000L
@@ -18,6 +20,13 @@ object CanonicalCgmHistory {
         require(futureToleranceMs >= 0L)
         require(maxPoints > 0)
         val result = mutableListOf<GlucoseSample>()
+        // Identity can only match within the timestamp tolerance. Keep original result
+        // indices so ambiguous matches retain the same first-match/preference semantics.
+        val timeIndex = TreeMap<Long, MutableSet<Int>>()
+
+        fun index(timestamp: Long, position: Int) {
+            timeIndex.getOrPut(timestamp) { mutableSetOf() }.add(position)
+        }
 
         samples
             .asSequence()
@@ -36,11 +45,29 @@ object CanonicalCgmHistory {
                     )
             }.sortedWith(CANONICAL_ORDER)
             .forEach { candidate ->
-                val duplicateIndex = result.indexOfFirst { existing -> CanonicalCgmIdentity.sameMeasurement(existing, candidate) }
+                val tolerance = CanonicalCgmIdentity.HISTORY_TIMESTAMP_TOLERANCE_MS
+                val duplicateIndex =
+                    timeIndex
+                        .subMap(candidate.measuredAtEpochMs - tolerance, true, candidate.measuredAtEpochMs + tolerance, true)
+                        .values
+                        .asSequence()
+                        .flatMap { it.asSequence() }
+                        .filter { CanonicalCgmIdentity.sameMeasurement(result[it], candidate) }
+                        .minOrNull() ?: -1
                 if (duplicateIndex < 0) {
+                    index(candidate.measuredAtEpochMs, result.size)
                     result += candidate
                 } else {
-                    result[duplicateIndex] = prefer(result[duplicateIndex], candidate, preferredSource)
+                    val previous = result[duplicateIndex]
+                    val preferred = prefer(previous, candidate, preferredSource)
+                    if (preferred.measuredAtEpochMs != previous.measuredAtEpochMs) {
+                        timeIndex[previous.measuredAtEpochMs]?.let { positions ->
+                            positions.remove(duplicateIndex)
+                            if (positions.isEmpty()) timeIndex.remove(previous.measuredAtEpochMs)
+                        }
+                        index(preferred.measuredAtEpochMs, duplicateIndex)
+                    }
+                    result[duplicateIndex] = preferred
                 }
             }
 

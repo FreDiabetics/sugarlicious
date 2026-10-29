@@ -171,7 +171,7 @@ internal object WearColorPicker {
                 ScrollSafeSeekBar(activity).apply {
                     tag = "wear_color_slider_$index"
                     max = if (index == 0) 360 else 100
-                    WearSettingsUi.slider(this, accent, Color.DKGRAY)
+                    WearSettingsUi.slider(this, accent, Color.DKGRAY, titleText)
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             override fun onProgressChanged(seekBar: SeekBar?, value: Int, fromUser: Boolean) {

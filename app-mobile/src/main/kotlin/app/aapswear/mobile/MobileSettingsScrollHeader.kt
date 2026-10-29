@@ -41,12 +41,11 @@ internal data class SettingsSubmenuHeaderState(
 
 internal const val SETTINGS_SUBMENU_CARD_GAP_DP = 8f
 
-internal fun settingsSubmenuExpansionTarget(expansionDp: Float, maximumDp: Float, velocityDpPerSecond: Float): Float =
+internal fun settingsSubmenuExpansionTarget(expansionDp: Float, maximumDp: Float): Float =
     when {
-        velocityDpPerSecond <= -600f -> 0f
-        velocityDpPerSecond >= 600f -> maximumDp
-        expansionDp >= maximumDp * .35f -> maximumDp
-        else -> 0f
+        expansionDp <= 8f -> 0f
+        maximumDp - expansionDp <= 8f -> maximumDp
+        else -> expansionDp
     }
 
 /** Back and compact title travel together just above the first card during expansion. */

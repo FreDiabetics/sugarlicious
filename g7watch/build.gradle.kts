@@ -52,3 +52,38 @@ dependencies {
     testImplementation("androidx.test:core:1.7.0")
     testImplementation("org.robolectric:robolectric:4.17")
 }
+
+abstract class CollectorPreviewResources : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val previewFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @get:javax.inject.Inject
+    abstract val fileOperations: org.gradle.api.file.FileSystemOperations
+
+    @TaskAction
+    fun stage() {
+        fileOperations.sync {
+            from(previewFiles)
+            into(outputDirectory.dir("xml"))
+        }
+    }
+}
+
+val syncCollectorComplicationPreviews =
+    tasks.register<CollectorPreviewResources>("syncCollectorComplicationPreviews") {
+        outputDirectory.set(layout.buildDirectory.dir("generated/collectorComplicationPreviews/res"))
+        previewFiles.from(
+            rootProject.fileTree("app-wear/src/main/res/xml") {
+                include("complication_preview_01a_short.xml", "complication_preview_01b_long.xml", "complication_preview_01c_ranged.xml")
+                include("complication_preview_02a_short.xml", "complication_preview_02b_long.xml", "complication_preview_02c_ranged.xml")
+                include("complication_preview_08_short.xml", "complication_preview_11_short.xml")
+            },
+        )
+    }
+androidComponents.onVariants { variant ->
+    variant.sources.res?.addGeneratedSourceDirectory(syncCollectorComplicationPreviews) { it.outputDirectory }
+}

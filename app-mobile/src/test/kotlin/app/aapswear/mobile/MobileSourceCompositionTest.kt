@@ -15,6 +15,16 @@ class MobileSourceCompositionTest {
             insulin = if (source == DataSourceId.ANDROID_APS) InsulinState(totalIob = 2.0) else null,
         )
 
+    @Test fun `new sources compete only when enabled and preserve AndroidAPS therapy`() {
+        val aaps = state(DataSourceId.ANDROID_APS, 120.0)
+        val xdrip = state(DataSourceId.XDRIP_PLUS, 125.0).copy(glucose = state(DataSourceId.XDRIP_PLUS, 125.0).glucose!!.copy(measuredAtEpochMs = now))
+        val sources = mapOf(aaps.source to aaps, xdrip.source to xdrip)
+        assertEquals(DataSourceId.ANDROID_APS, MobileSourceComposition.compose(sources, MobileSourceConfiguration(), now).glucose!!.source)
+        val selected = MobileSourceComposition.compose(sources, MobileSourceConfiguration(enabledGlucoseSources = setOf(MobileGlucoseSource.XDRIP_PLUS)), now)
+        assertEquals(DataSourceId.XDRIP_PLUS, selected.glucose!!.source)
+        assertEquals(aaps.insulin, selected.insulin)
+    }
+
     @Test fun `equal timestamp keeps incoming glucose metadata but older readings cannot replace current`() {
         val previous = state(DataSourceId.ANDROID_APS, 120.0)
         val updated = previous.copy(glucose = previous.glucose!!.copy(displayUnit = GlucoseUnit.MMOL_L, deltaMgDl = 3.0, averageDeltaMgDl = 2.0))

@@ -22,6 +22,23 @@ class MobileSourceInputStoreTest {
             glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, Trend.FLAT, now + offset, source = source, sessionId = session),
         )
 
+    @Test fun `Nightscout server identities archive independently and reject late old server replies`() =
+        runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val store = MobileSourceInputStore(context)
+            store.clear(DataSourceId.NIGHTSCOUT)
+            store.activateRemoteIdentity(DataSourceId.NIGHTSCOUT, "ns-a")
+            store.completeRemoteIdentity(DataSourceId.NIGHTSCOUT, "ns-a")
+            val old = state(DataSourceId.NIGHTSCOUT, "a").copy(sourceVersion = "ns-a")
+            store.merge(old, now)
+            store.activateRemoteIdentity(DataSourceId.NIGHTSCOUT, "ns-b")
+            assertNull(store.read()[DataSourceId.NIGHTSCOUT])
+            store.merge(old, now)
+            assertNull(store.read()[DataSourceId.NIGHTSCOUT])
+            store.activateRemoteIdentity(DataSourceId.NIGHTSCOUT, "ns-a")
+            assertEquals("a", store.read()[DataSourceId.NIGHTSCOUT]!!.glucose!!.sessionId)
+        }
+
     @Test fun `legacy Share history is not assigned to the first bound account`() =
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()

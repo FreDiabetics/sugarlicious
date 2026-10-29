@@ -25,7 +25,6 @@ import androidx.wear.watchface.complications.data.SmallImageComplicationData
 import androidx.wear.watchface.complications.data.SmallImageType
 import androidx.wear.watchface.complications.data.WeightedElementsComplicationData
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
-import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.BasalState
 import app.aapswear.model.CarbState
@@ -126,7 +125,7 @@ abstract class TherapyComplicationService(
     private val declaredType: ComplicationType? = null,
     private val declaredCatalogId: Int? = null,
     private val graphProfile: WatchfaceGraphProfile = WatchfaceGraphProfile.APEX,
-) : SuspendingComplicationDataSourceService() {
+) : TrackedComplicationService() {
     private val catalogId: Int?
         get() =
             declaredCatalogId ?: when (kind) {
@@ -177,6 +176,7 @@ abstract class TherapyComplicationService(
     }
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
+        ActiveProviderUpdates.activate(this, javaClass, request.complicationInstanceId)
         ActiveComplicationRegistry.activate(this, request.complicationInstanceId, catalogId)
         val phoneState = TherapyStateStore(this).state.first()
         return build(
@@ -274,6 +274,8 @@ abstract class TherapyComplicationService(
                         DataSourceId.DEXCOM_G7_APP -> "Dexcom G7 App"
                         DataSourceId.DEXCOM_SHARE -> "Dexcom Share"
                         DataSourceId.NIGHTSCOUT -> "Nightscout"
+                        DataSourceId.XDRIP_PLUS -> "xDrip+"
+                        DataSourceId.LIBRE_PATCHED -> "Libre patched app"
                         DataSourceId.OTHER -> "Other"
                         null -> "No data"
                     } to freshnessLabel(freshness)

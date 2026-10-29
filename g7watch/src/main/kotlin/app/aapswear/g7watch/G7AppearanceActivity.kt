@@ -491,7 +491,7 @@ class G7AppearanceActivity : Activity() {
         addView(
             app.aapswear.uishared.ScrollSafeSeekBar(this@G7AppearanceActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .slider(this, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_BORDER))
+                    .slider(this, palette.settingsArgb(G7AppearanceRole.MENU_PRIMARY), palette.settingsArgb(G7AppearanceRole.MENU_BORDER), title)
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(

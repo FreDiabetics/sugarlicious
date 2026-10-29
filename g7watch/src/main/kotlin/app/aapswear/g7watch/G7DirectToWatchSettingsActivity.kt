@@ -300,10 +300,6 @@ class G7DirectToWatchSettingsActivity : Activity() {
         add("Graphkontur", c.border, defaults.border) { x, v -> x.copy(border = v) }
         add("Zielwert", c.targetValue, defaults.targetValue) { x, v -> x.copy(targetValue = v) }
         add("Signalverlust", c.signalLoss, defaults.signalLoss) { x, v -> x.copy(signalLoss = v) }
-        add("Prognose · IOB", c.predictionIob, defaults.predictionIob) { x, v -> x.copy(predictionIob = v) }
-        add("Prognose · COB", c.predictionCob, defaults.predictionCob) { x, v -> x.copy(predictionCob = v) }
-        add("Prognose · UAM", c.predictionUam, defaults.predictionUam) { x, v -> x.copy(predictionUam = v) }
-        add("Prognose · Zero Temp", c.predictionZeroTemp, defaults.predictionZeroTemp) { x, v -> x.copy(predictionZeroTemp = v) }
     }
 
     private fun topBar(p: G7AppearancePalette) = g7SettingsHeader("Watchface", p)
@@ -484,7 +480,7 @@ class G7DirectToWatchSettingsActivity : Activity() {
         addView(
             app.aapswear.uishared.ScrollSafeSeekBar(this@G7DirectToWatchSettingsActivity).apply {
                 app.aapswear.uishared.WearSettingsUi
-                    .slider(this, p.settingsArgb(G7AppearanceRole.MENU_PRIMARY), p.settingsArgb(G7AppearanceRole.MENU_BORDER))
+                    .slider(this, p.settingsArgb(G7AppearanceRole.MENU_PRIMARY), p.settingsArgb(G7AppearanceRole.MENU_BORDER), title)
                 this.max = max - min
                 progress = initial.coerceIn(min, max) - min
                 setOnSeekBarChangeListener(

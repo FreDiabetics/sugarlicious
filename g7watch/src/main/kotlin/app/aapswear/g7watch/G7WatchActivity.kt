@@ -20,6 +20,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.edit
 import androidx.core.view.isVisible
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingStatus
@@ -230,7 +231,17 @@ class G7WatchActivity : Activity() {
             pairingStartedAtEpochMs = G7SensorStateStore(this).read().pairingStartedAtEpochMs ?: System.currentTimeMillis()
         }
         consumePairingIntent()
-        requestMissingPermissions()
+        val setup = getSharedPreferences("g7_setup", MODE_PRIVATE)
+        if (!setup.getBoolean("complete", false)) {
+            if (G7SensorStateStore(this).read().sensor != null || G7CredentialStore(this).read() != null) {
+                // Existing installations keep their running sensor; onboarding is for fresh installs.
+                setup.edit { putBoolean("complete", true) }
+            } else {
+                startActivity(Intent(this, G7SetupActivity::class.java))
+            }
+        } else {
+            requestMissingPermissions()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -862,20 +873,32 @@ class G7WatchActivity : Activity() {
                 presentation.trend?.let { addView(trendIndicator(it, valueColor)) }
             },
         )
-        tile.addView(
-            label(presentation.primaryMeta, WearGlucoseCardStyle.META_TEXT_SP, android.graphics.Color.WHITE, true).apply {
-                text = app.aapswear.uishared.glucoseMetadataText(presentation.primaryMeta)
-            },
-        )
+
+        fun metadataRow(value: String, icon: Int): LinearLayout =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                isBaselineAligned = false
+                val iconSide = (18 * resources.configuration.fontScale * resources.displayMetrics.density).toInt()
+                addView(
+                    android.widget.ImageView(this@G7WatchActivity).apply {
+                        setImageResource(icon)
+                        imageTintList =
+                            android.content.res.ColorStateList
+                                .valueOf(0xFFB5B5B5.toInt())
+                        importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    LinearLayout.LayoutParams(iconSide, iconSide).apply { marginEnd = 5.dp },
+                )
+                addView(
+                    label(value, app.aapswear.model.SugarWearTypography.GLUCOSE_METADATA_SP, android.graphics.Color.WHITE, true).apply {
+                        text = app.aapswear.uishared.glucoseMetadataText(value)
+                    },
+                )
+            }
+        tile.addView(metadataRow(presentation.primaryMeta, app.aapswear.uishared.R.drawable.ic_metadata_delta))
         if (presentation.secondaryMeta.isNotBlank()) {
-            tile.addView(
-                label(
-                    presentation.secondaryMeta,
-                    WearGlucoseCardStyle.META_TEXT_SP,
-                    android.graphics.Color.WHITE,
-                    true,
-                ).apply { text = app.aapswear.uishared.glucoseMetadataText(presentation.secondaryMeta) },
-            )
+            tile.addView(metadataRow(presentation.secondaryMeta, app.aapswear.uishared.R.drawable.ic_metadata_age))
         }
         return tile
     }

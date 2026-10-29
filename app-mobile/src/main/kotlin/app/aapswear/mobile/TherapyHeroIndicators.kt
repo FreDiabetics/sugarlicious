@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
@@ -32,15 +33,12 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
-import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.basalIndicatorIcon
 import app.aapswear.model.effectiveBasalPresentation
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
+import app.aapswear.model.latestDeliveredBolus
 import app.aapswear.uishared.R as SharedUiR
 
 internal data class TherapyIndicatorPresentation(
@@ -78,12 +76,12 @@ internal fun therapyIndicatorPresentations(
             value = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, cob, state),
             progress = cob?.let { TherapyProgressSemantics.scaled(it, safeCobMaximum) },
             iconRes = SharedUiR.drawable.ic_cob,
-            iconSizeDp = 16,
+            iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
             label = "Basal",
-            value = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basal?.unitsPerHour, state),
+            value = TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basal?.unitsPerHour, state).removeSuffix("/h"),
             secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
             progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
@@ -97,27 +95,13 @@ internal fun latestBolusPresentation(
     state: TherapyDisplayState?,
     nowEpochMs: Long,
 ): String? {
-    val bolusKinds = setOf(TherapyEventKind.MEAL_BOLUS, TherapyEventKind.MANUAL_CORRECTION, TherapyEventKind.SMB)
-    val event =
-        state
-            ?.therapyEvents
-            .orEmpty()
-            .asSequence()
-            .filter {
-                it.kind in bolusKinds &&
-                    it.timestampEpochMs <= nowEpochMs &&
-                    it.amount.isFinite() &&
-                    it.amount > 0.0
-            }.maxWithOrNull(compareBy({ it.timestampEpochMs }, { it.id }))
-            ?: return null
-    val amount = DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.GERMANY)).format(event.amount)
-    val age = formatCompactBolusAge((nowEpochMs - event.timestampEpochMs).coerceAtLeast(0L))
-    return "${amount}U·$age"
+    val bolus = latestDeliveredBolus(state, nowEpochMs) ?: return null
+    return formatCompactBolusAge(nowEpochMs - bolus.deliveredAtEpochMs)
 }
 
 internal fun formatCompactBolusAge(ageMs: Long): String {
     val totalMinutes = ageMs.coerceAtLeast(0L) / 60_000L
-    return if (totalMinutes < 60L) "${totalMinutes}m" else "${totalMinutes / 60L}h"
+    return "vor ${totalMinutes}m"
 }
 
 internal fun basalIconResource(percent: Int?): Int =
@@ -133,9 +117,9 @@ internal fun basalProgress(percent: Int): Float =
 
 internal fun therapyIndicatorFontSizeSp(value: String): Int =
     when {
-        value.length >= 8 -> 11
-        value.length >= 7 -> 13
-        else -> 15
+        value.length >= 8 -> 10
+        value.length >= 7 -> 12
+        else -> 14
     }
 
 internal fun therapyIndicatorSecondaryFontSizeSp(value: String): Int =
@@ -244,6 +228,7 @@ private fun TherapyCircularIndicator(
                         fontSize = secondaryTextSize.sp,
                         lineHeight = secondaryTextSize.sp,
                         fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
                         maxLines = 1,
                         softWrap = false,
                     )
@@ -252,7 +237,7 @@ private fun TherapyCircularIndicator(
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).size((indicator.iconSizeDp * LocalDensity.current.fontScale * proportionalScale).dp),
+                Modifier.align(Alignment.BottomCenter).offset(y = (3f * proportionalScale).dp).size((indicator.iconSizeDp * LocalDensity.current.fontScale * proportionalScale).dp),
                 accent,
             )
         }

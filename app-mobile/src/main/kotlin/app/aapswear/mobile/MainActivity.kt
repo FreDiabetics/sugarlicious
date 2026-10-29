@@ -197,7 +197,7 @@ class MainActivity : ComponentActivity() {
             runOnUiThread {
                 SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
                 MobileTrendArrowAppearance.apply(uiPreferences)
-                if (screen == DashboardScreen.SETTINGS && isInteractiveAppearancePreference(key)) {
+                if (screen == DashboardScreen.SETTINGS && (isInteractiveAppearancePreference(key) || factory.settingsCategory == "general" && key?.startsWith("source.") == true)) {
                     // Keep the active color picker/slider and expanded section alive. Rebuilding the
                     // complete Settings hierarchy here used to close the configurator on every drag.
                     applyRuntimeColors()
@@ -290,7 +290,6 @@ class MainActivity : ComponentActivity() {
                     openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
                     openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
                     setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
-                    setShowDetails = { uiPreferences.edit { putBoolean("showDetails", it) } },
                     setGlucoseTileDetailMode = {
                         uiPreferences.edit {
                             putString(
@@ -532,6 +531,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onStop() {
+        if (::factory.isInitialized) factory.clearDataSourceExpansion()
         clockJob?.cancel()
         clockJob = null
         diagnostics.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
@@ -777,7 +777,7 @@ class MainActivity : ComponentActivity() {
 
     private fun submenuExpandedTitleView(): TextView? = submenuExpansionView()?.getChildAt(0) as? TextView
 
-    private fun submenuMaximumExpansionPx(): Float = maxOf(160.dp.toFloat(), submenuExpandedTitleHeightPx() + submenuCompactHeightPx() + 16.dp.toFloat())
+    private fun submenuMaximumExpansionPx(): Float = maxOf(220.dp.toFloat(), submenuExpandedTitleHeightPx() + submenuCompactHeightPx() + 32.dp.toFloat())
 
     private fun submenuExpandedTitleHeightPx(): Int {
         val heading = submenuExpandedTitleView() ?: return 0
@@ -797,6 +797,7 @@ class MainActivity : ComponentActivity() {
         content.clipToPadding = !enabled
         scroll.topPullEnabled = enabled
         scroll.topPullExpanded = enabled && submenuExpansionPx > 0f
+        scroll.topPullExpansionPx = submenuExpansionPx
         if (!enabled) {
             submenuExpansionAnimator?.cancel()
             submenuExpansionPx = 0f
@@ -845,14 +846,15 @@ class MainActivity : ComponentActivity() {
             }
             setSubmenuExpansion((requireNotNull(submenuPullBasePx) + distance).coerceIn(0f, submenuMaximumExpansionPx()))
         }
-        scroll.onTopPullFinished = { velocity ->
+        scroll.onTopPullFinished = {
             submenuPullBasePx = null
             val maximum = submenuMaximumExpansionPx()
-            val target = settingsSubmenuExpansionTarget(submenuExpansionPx, maximum, velocity / resources.displayMetrics.density)
+            val density = resources.displayMetrics.density
+            val target = settingsSubmenuExpansionTarget(submenuExpansionPx / density, maximum / density) * density
             submenuExpansionAnimator =
                 android.animation.ValueAnimator.ofFloat(submenuExpansionPx, target).apply {
-                    duration = 160L
-                    interpolator = android.view.animation.PathInterpolator(.2f, 0f, 0f, 1f)
+                    duration = 320L
+                    interpolator = android.view.animation.AccelerateDecelerateInterpolator()
                     addUpdateListener { setSubmenuExpansion(it.animatedValue as Float) }
                     start()
                 }
@@ -862,6 +864,7 @@ class MainActivity : ComponentActivity() {
     private fun setSubmenuExpansion(heightPx: Float) {
         submenuExpansionPx = heightPx
         scroll.topPullExpanded = heightPx > 0f
+        scroll.topPullExpansionPx = heightPx
         submenuExpansionView()?.let { heading ->
             if (heading.layoutParams.height != heightPx.toInt()) {
                 heading.layoutParams = heading.layoutParams.apply { height = heightPx.toInt() }

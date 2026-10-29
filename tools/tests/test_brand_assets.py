@@ -33,7 +33,7 @@ class BrandAssetsTest(unittest.TestCase):
                     if name not in ["drawable/ic_launcher_foreground.xml", "drawable/ic_launcher_monochrome.xml"]:
                         normalized = vector.find(".//group[@" + A + "name='source108ToLegacy66']")
                         self.assertIsNotNone(normalized)
-                        self.assertEqual(normalized.get(A + "scaleX"), str(60/108))
+                        self.assertEqual(normalized.get(A + "scaleX"), str((82 if module == "app-mobile" and "notification" in name else 60)/108))
 
     def test_sugarwear_uses_only_final_visible_source_symbol(self):
         source = E.parse(ROOT / "design-assets/sugarwear/adaptive108/combined.svg").getroot()
@@ -84,8 +84,8 @@ class BrandAssetsTest(unittest.TestCase):
                 group = runtime.find('group')
                 self.assertEqual(group.get(A + 'scaleX'), str(66/108))
                 self.assertEqual(group.get(A + 'scaleY'), str(66/108))
-                self.assertEqual(group.get(A + 'translateX'), '21')
-                self.assertEqual(group.get(A + 'translateY'), '21')
+                self.assertEqual(float(group.get(A + 'translateX')), 21)
+                self.assertEqual(float(group.get(A + 'translateY')), 21)
                 mono_name = 'ic_sensor_launcher_monochrome.xml' if module == 'g7watch' else 'ic_launcher_monochrome.xml'
                 self.assertEqual((ROOT / module / 'src/main/res/drawable' / filename).read_bytes(), (ROOT / module / 'src/main/res/drawable' / mono_name).read_bytes())
 

@@ -283,7 +283,7 @@ internal object G7CgmAlarmCoordinator {
 }
 
 internal object G7CgmAlarmNotifier {
-    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v5_"
+    private const val CHANNEL_PREFIX = "g7_cgm_alarm_v7_"
     private const val CHANNEL_FAMILY_PREFIX = "g7_cgm_alarm_"
     private const val NOTIFICATION_BASE = 7_100
 
@@ -313,6 +313,7 @@ internal object G7CgmAlarmNotifier {
                     .putExtra(G7CgmAlarmAcknowledgeReceiver.EXTRA_TYPE, alarm.type.name),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
             )
+        if (!onlyAlertOnce) playAlarm(context, alarm.type, settings)
         val icon = Icon.createWithResource(context, R.drawable.ic_g7_notification)
         context.getSystemService(NotificationManager::class.java).notify(
             notificationId(alarm.type),
@@ -324,6 +325,7 @@ internal object G7CgmAlarmNotifier {
                 .setContentText(body(alarm.type))
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_ALARM)
+                .setSilent(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(true)
                 .setAutoCancel(false)
@@ -338,6 +340,7 @@ internal object G7CgmAlarmNotifier {
         type: CgmAlarmType,
     ) {
         context.getSystemService(NotificationManager::class.java).cancel(notificationId(type))
+        G7AlarmAudioService.stop(context, type)
     }
 
     fun cancelAll(context: Context) = CgmAlarmType.entries.forEach { cancel(context, it) }
@@ -349,6 +352,7 @@ internal object G7CgmAlarmNotifier {
     ) {
         val channelId = channelId(context, type, settings)
         ensureAllChannels(context, settings)
+        playAlarm(context, type, settings, test = true)
         context.getSystemService(NotificationManager::class.java).notify(
             testNotificationId(type),
             Notification
@@ -358,6 +362,7 @@ internal object G7CgmAlarmNotifier {
                 .setContentTitle("Test · ${title(type)}")
                 .setContentText("Sound, Vibration und Nicht-stören-Verhalten dieses Alarms werden geprüft.")
                 .setCategory(Notification.CATEGORY_ALARM)
+                .setSilent(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
                 .setTimeoutAfter(10_000L)
@@ -367,6 +372,7 @@ internal object G7CgmAlarmNotifier {
 
     /** Prepares native settings before the first alarm; never posts, cancels, or prunes channels. */
     fun prepareCurrentChannels(context: Context) {
+        G7AlarmVolume.recoverExpired(context)
         val settings = G7AlarmSettingsStore.read(context)
         CgmAlarmType.entries.forEach { type -> ensureChannel(context, channelId(context, type, settings), type, settings) }
     }
@@ -383,6 +389,19 @@ internal object G7CgmAlarmNotifier {
             .forEach { manager.deleteNotificationChannel(it.id) }
     }
 
+    private fun playAlarm(context: Context, type: CgmAlarmType, settings: CgmAlarmSettings, test: Boolean = false) {
+        if (settings.soundEnabled) G7AlarmAudioService.play(context, type, test)
+        if (settings.vibrationEnabled) {
+            context.getSystemService(android.os.Vibrator::class.java)?.vibrate(
+                android.os.VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300), -1),
+                android.os.VibrationAttributes
+                    .Builder()
+                    .setUsage(android.os.VibrationAttributes.USAGE_ALARM)
+                    .build(),
+            )
+        }
+    }
+
     private fun ensureChannel(
         context: Context,
         channelId: String,
@@ -390,7 +409,7 @@ internal object G7CgmAlarmNotifier {
         settings: CgmAlarmSettings,
     ) {
         context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_HIGH).apply {
+            NotificationChannel(channelId, title(type), NotificationManager.IMPORTANCE_LOW).apply {
                 description = "Eigenständiger SugarWear-Alarm: ${title(type)}"
                 enableVibration(settings.vibrationEnabled)
                 val alarmAudio =
@@ -399,7 +418,7 @@ internal object G7CgmAlarmNotifier {
                         .setUsage(AudioAttributes.USAGE_ALARM)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build()
-                setSound(if (settings.soundEnabled) g7AlarmSoundUri(context, type) else null, alarmAudio)
+                setSound(null, alarmAudio)
                 setBypassDnd(G7AlarmSystemAccess.isAccessGranted(context))
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             },

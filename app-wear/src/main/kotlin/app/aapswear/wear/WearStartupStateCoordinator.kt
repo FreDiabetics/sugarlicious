@@ -1,8 +1,7 @@
 package app.aapswear.wear
 
-import android.content.ComponentName
 import android.content.Context
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import app.aapswear.complications.ActiveProviderUpdates
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.model.DataCapability
 import app.aapswear.model.DataSourceId
@@ -32,9 +31,7 @@ internal object WearStartupStateCoordinator {
         val snapshot = prepareStartupSnapshot(sanitized, System.currentTimeMillis())
         WearCanonicalStateEvents.publishLocalReadingUpdate()
         ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
-            ComplicationDataSourceUpdateRequester
-                .create(app, ComponentName(app, provider))
-                .requestUpdateAll()
+            ActiveProviderUpdates.request(app, provider)
         }
         requestSugarliciousTileUpdates(app)
         return snapshot.state

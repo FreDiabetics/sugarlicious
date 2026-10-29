@@ -72,7 +72,6 @@ internal object DashboardSystemDefaults {
 
 data class DashboardUiPreferences(
     val unit: DisplayUnitPreference = DashboardSystemDefaults.unit,
-    val showDetails: Boolean = true,
     val glucoseTileDetailMode: GlucoseTileDetailMode = DashboardSystemDefaults.glucoseTileDetailMode,
     val iobProgressMaximumUnits: Float = 10f,
     val cobProgressMaximumGrams: Float = DashboardSystemDefaults.COB_PROGRESS_MAXIMUM_GRAMS,
@@ -119,8 +118,6 @@ data class DashboardUiPreferences(
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
     val trendScalePercent: Int = DashboardSystemDefaults.TREND_SCALE_PERCENT,
 ) {
-    val effectiveShowDetails: Boolean
-        get() = glucoseTileDetailMode == GlucoseTileDetailMode.TIR && showDetails
     val enabledPredictionKinds: Set<PredictionKind>
         get() =
             buildSet {
@@ -155,7 +152,6 @@ data class DashboardUiPreferences(
                     runCatching {
                         DisplayUnitPreference.valueOf(preferences.getString("unit", DashboardSystemDefaults.unit.name)!!)
                     }.getOrDefault(DashboardSystemDefaults.unit),
-                showDetails = preferences.getBoolean("showDetails", true),
                 glucoseTileDetailMode =
                     runCatching {
                         GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, DashboardSystemDefaults.glucoseTileDetailMode.name)!!)
@@ -289,7 +285,6 @@ data class DashboardCallbacks(
     val openNightscoutTreatments: () -> Unit,
     val openDiagnostics: () -> Unit,
     val setThemeMode: (DashboardThemeMode) -> Unit,
-    val setShowDetails: (Boolean) -> Unit,
     val setGlucoseTileDetailMode: (GlucoseTileDetailMode) -> Unit,
     val setShowCgmGraph: (Boolean) -> Unit,
     val setGraphHours: (Int) -> Unit,
@@ -329,10 +324,16 @@ class DashboardViewFactory(
     private var activeComposeScreen: DashboardScreen? = null
     private var activeComposeView: androidx.compose.ui.platform.ComposeView? = null
     private var notificationGraphSettingsExpanded = false
+
+    // The settings renderer replaces ComposeViews after preference changes.
+    // Keep page-local expansion above those disposable compositions.
+    private val expandedDataSources = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
     private val settingsNavigation = MobileSettingsNavigation()
     val settingsTitle: String get() = settingsNavigation.title
     val settingsIsRoot: Boolean get() = settingsNavigation.category == null
     val settingsCategory: String? get() = settingsNavigation.category
+
+    fun clearDataSourceExpansion() = expandedDataSources.clear()
 
     fun restoreSettingsPage(category: String, title: String) = settingsNavigation.open(category, title)
 
@@ -362,6 +363,7 @@ class DashboardViewFactory(
         preferences: DashboardUiPreferences,
         now: Long,
     ) {
+        if (screen != DashboardScreen.SETTINGS || settingsCategory != "general") expandedDataSources.clear()
         when (screen) {
             DashboardScreen.OVERVIEW -> renderOverview(parent, state, diagnostics, preferences, now)
             DashboardScreen.WATCH -> renderWatch(parent, state, diagnostics, preferences, now)
@@ -486,6 +488,8 @@ class DashboardViewFactory(
                                 SugarliciousColorSettingsPanel(
                                     showCgmGraph = preferences.showCgmGraph,
                                     showMetabolicGraph = preferences.showMetabolicGraph,
+                                    themeMode = preferences.themeMode,
+                                    onThemeModeSelected = callbacks.setThemeMode,
                                 )
                             }
                         }
@@ -520,16 +524,8 @@ class DashboardViewFactory(
                 )
             }
 
-        addSettingsCategory(parent, "general", "Allgemein", R.drawable.ic_settings) {
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("DARSTELLUNG"))
-                    addView(composeSettingsControl { OneUiSettingsModeSelector(preferences.themeMode, onSelected = callbacks.setThemeMode) }, fullWidth())
-                },
-                cardParams(top = 4),
-            )
-            addView(settingsGroupLabel("DATENQUELLEN"))
-            addView(composeSettingsControl { MobileDataSourceSettingsPanel() }.apply { tag = "mobile-data-sources" }, cardParams(top = 8))
+        addSettingsCategory(parent, "general", "Datenquellen", R.drawable.ic_settings) {
+            addView(composeSettingsControl { MobileDataSourceSettingsPanel(expandedDataSources) }.apply { tag = "mobile-data-sources" }, cardParams(top = 8))
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
@@ -603,6 +599,60 @@ class DashboardViewFactory(
             )
         }
 
+        addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
+            val liveStatus = liveNotificationStatus(context, preferences.liveNotification)
+            addView(
+                tile(null).apply {
+                    addView(settingsGroupLabel("LIVE-ANZEIGE"))
+                    addView(
+                        switchRowCompact(
+                            "Live-Benachrichtigung",
+                            preferences.liveNotification,
+                            R.id.dashboard_live_notification_switch,
+                            callbacks.setLiveNotification,
+                        ),
+                    )
+                    addView(divider())
+                    addView(statusRow("Gerät", liveStatus.device))
+                    addView(statusRow("Samsung Now Bar", liveStatus.samsungNowBar))
+                    addView(statusRow("Android Live Updates", liveStatus.androidLiveUpdates))
+                    addView(statusRow("Promoted Notifications", liveStatus.promotedNotifications))
+                    addView(statusRow("Promotable", liveStatus.promotableCharacteristics))
+                    addView(statusRow("Samsung Extras", liveStatus.samsungExtras))
+                    addView(statusRow("Letzter Post-Versuch", liveStatus.lastPostAttempt))
+                    addView(statusRow("Exakte Frischegrenze", liveStatus.exactFreshnessAlarm))
+                    addView(statusRow("Hardwaretest", liveStatus.hardwareValidation))
+                    addView(divider())
+                    addView(settingsGroupLabel("GRAPH"))
+                    addView(
+                        switchRowCompact(
+                            "CGM-Graph anzeigen",
+                            preferences.notificationGraphEnabled,
+                            View.generateViewId(),
+                            callbacks.setNotificationGraphEnabled,
+                        ),
+                    )
+                    if (preferences.notificationGraphEnabled) {
+                        addView(divider())
+                        addView(
+                            actionRow("CGM-Graph", "Anpassen") {
+                                notificationGraphSettingsExpanded = !notificationGraphSettingsExpanded
+                                notificationGraphCustomization.visibility =
+                                    if (notificationGraphSettingsExpanded) View.VISIBLE else View.GONE
+                            },
+                        )
+                    }
+                    addView(divider())
+                    addView(settingsGroupLabel("SYSTEMZUGRIFF"))
+                    addView(
+                        actionRow("Benachrichtigungen", AppRuntimeAccess.notificationLabel(context), callbacks.requestNotificationAccess),
+                    )
+                },
+                cardParams(top = 4),
+            )
+            addView(notificationGraphCustomization, cardParams(top = 4))
+        }
+
         addSettingsCategory(parent, "overview_graphs", "Übersicht und Graphen", R.drawable.ic_foreground) {
             val graphUnit =
                 when (preferences.unitFor(state)) {
@@ -625,17 +675,7 @@ class DashboardViewFactory(
                             ),
                         ),
                     )
-                    if (preferences.glucoseTileDetailMode == GlucoseTileDetailMode.TIR) {
-                        addView(divider())
-                        addView(
-                            switchRowCompact(
-                                "Therapiedetails",
-                                preferences.showDetails,
-                                R.id.dashboard_details_switch,
-                                callbacks.setShowDetails,
-                            ),
-                        )
-                    } else {
+                    if (preferences.glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY) {
                         addView(divider())
                         addView(settingsGroupLabel("IOB-ANZEIGE"))
                         addView(
@@ -891,60 +931,6 @@ class DashboardViewFactory(
         addSettingsCategory(parent, "appearance", "Farben & Darstellung", R.drawable.ic_settings) {
             colorContainer.visibility = View.VISIBLE
             addView(colorContainer, fullWidth())
-        }
-
-        addSettingsCategory(parent, "notifications", "Benachrichtigungen und Alarme", R.drawable.ic_notification_outlined) {
-            val liveStatus = liveNotificationStatus(context, preferences.liveNotification)
-            addView(
-                tile(null).apply {
-                    addView(settingsGroupLabel("LIVE-ANZEIGE"))
-                    addView(
-                        switchRowCompact(
-                            "Live-Benachrichtigung",
-                            preferences.liveNotification,
-                            R.id.dashboard_live_notification_switch,
-                            callbacks.setLiveNotification,
-                        ),
-                    )
-                    addView(divider())
-                    addView(statusRow("Gerät", liveStatus.device))
-                    addView(statusRow("Samsung Now Bar", liveStatus.samsungNowBar))
-                    addView(statusRow("Android Live Updates", liveStatus.androidLiveUpdates))
-                    addView(statusRow("Promoted Notifications", liveStatus.promotedNotifications))
-                    addView(statusRow("Promotable", liveStatus.promotableCharacteristics))
-                    addView(statusRow("Samsung Extras", liveStatus.samsungExtras))
-                    addView(statusRow("Letzter Post-Versuch", liveStatus.lastPostAttempt))
-                    addView(statusRow("Exakte Frischegrenze", liveStatus.exactFreshnessAlarm))
-                    addView(statusRow("Hardwaretest", liveStatus.hardwareValidation))
-                    addView(divider())
-                    addView(settingsGroupLabel("GRAPH"))
-                    addView(
-                        switchRowCompact(
-                            "CGM-Graph anzeigen",
-                            preferences.notificationGraphEnabled,
-                            View.generateViewId(),
-                            callbacks.setNotificationGraphEnabled,
-                        ),
-                    )
-                    if (preferences.notificationGraphEnabled) {
-                        addView(divider())
-                        addView(
-                            actionRow("CGM-Graph", "Anpassen") {
-                                notificationGraphSettingsExpanded = !notificationGraphSettingsExpanded
-                                notificationGraphCustomization.visibility =
-                                    if (notificationGraphSettingsExpanded) View.VISIBLE else View.GONE
-                            },
-                        )
-                    }
-                    addView(divider())
-                    addView(settingsGroupLabel("SYSTEMZUGRIFF"))
-                    addView(
-                        actionRow("Benachrichtigungen", AppRuntimeAccess.notificationLabel(context), callbacks.requestNotificationAccess),
-                    )
-                },
-                cardParams(top = 4),
-            )
-            addView(notificationGraphCustomization, cardParams(top = 4))
         }
 
         addSettingsCategory(parent, "data", "Datenverwaltung", R.drawable.ic_health_activity) {

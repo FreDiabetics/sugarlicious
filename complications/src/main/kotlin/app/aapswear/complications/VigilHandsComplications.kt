@@ -2,7 +2,6 @@ package app.aapswear.complications
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -20,9 +19,7 @@ import androidx.wear.watchface.complications.data.PlainComplicationText
 import androidx.wear.watchface.complications.data.SmallImage
 import androidx.wear.watchface.complications.data.SmallImageComplicationData
 import androidx.wear.watchface.complications.data.SmallImageType
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
-import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 
 object VigilHands {
     private const val PREFERENCES = "vigil_interaction"
@@ -47,7 +44,7 @@ object VigilHands {
     }
 
     fun requestUpdate(context: Context) {
-        ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, DirectToWatchHandsComplication::class.java)).requestUpdateAll()
+        ActiveProviderUpdates.request(context, DirectToWatchHandsComplication::class.java)
     }
 
     /** Reference composite for 22:10 capture, using the same assets/geometry as native WFF hands. */
@@ -91,10 +88,13 @@ object VigilHands {
     }
 }
 
-class DirectToWatchHandsComplication : SuspendingComplicationDataSourceService() {
+class DirectToWatchHandsComplication : TrackedComplicationService() {
     override fun getPreviewData(type: ComplicationType): ComplicationData = build()
 
-    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build()
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
+        ActiveProviderUpdates.activate(this, javaClass, request.complicationInstanceId)
+        return build()
+    }
 
     internal fun build(): ComplicationData {
         val mask = Icon.createWithBitmap(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.argb((255 * VigilHands.opacity(this@DirectToWatchHandsComplication)).toInt(), 255, 255, 255)) })
@@ -109,10 +109,13 @@ class DirectToWatchHandsComplication : SuspendingComplicationDataSourceService()
     }
 }
 
-class DirectToWatchHandsToggleComplication : SuspendingComplicationDataSourceService() {
+class DirectToWatchHandsToggleComplication : TrackedComplicationService() {
     override fun getPreviewData(type: ComplicationType): ComplicationData = build()
 
-    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData = build()
+    override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
+        ActiveProviderUpdates.activate(this, javaClass, request.complicationInstanceId)
+        return build()
+    }
 
     private fun build(): ComplicationData {
         val transparent = Icon.createWithBitmap(Bitmap.createBitmap(50, 50, Bitmap.Config.ARGB_8888))

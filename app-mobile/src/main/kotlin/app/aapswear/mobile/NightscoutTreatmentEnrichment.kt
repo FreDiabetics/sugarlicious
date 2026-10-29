@@ -7,6 +7,10 @@ import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEvent
 import app.aapswear.model.TherapyEventKind
 import app.aapswear.model.TherapyEventSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -18,7 +22,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
-import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -36,7 +39,7 @@ internal data class NightscoutConfiguration(
     fun isValid(): Boolean =
         runCatching {
             val uri = URI(normalizedBaseUrl)
-            uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null
+            uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null && uri.fragment == null
         }.getOrDefault(false)
 }
 
@@ -58,6 +61,10 @@ internal object NightscoutConfigurationStore {
         )
     }
 
+    @Synchronized
+    fun access(context: Context): Pair<NightscoutConfiguration, String?> = read(context) to NightscoutSecretStore.read(context)
+
+    @Synchronized
     fun save(
         context: Context,
         configuration: NightscoutConfiguration,
@@ -70,6 +77,9 @@ internal object NightscoutConfigurationStore {
             putString(AUTH_MODE, configuration.authMode.name)
         }
         if (secret != null) NightscoutSecretStore.save(context, secret)
+        val sourcePrefs = context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
+        sourcePrefs.edit { putLong("source.nightscout.revision", sourcePrefs.getLong("source.nightscout.revision", 0) + 1) }
+        PersistentBridgeService.start(context)
     }
 }
 
@@ -199,11 +209,23 @@ internal object NightscoutTreatmentStore {
     private const val RETENTION_MS = 7L * 24 * 60 * 60_000L
     private val json = Json { ignoreUnknownKeys = true }
 
+    fun accountKey(configuration: NightscoutConfiguration, secret: String?): String {
+        val identity = "${configuration.normalizedBaseUrl}:${configuration.authMode}:${secret.orEmpty()}"
+        val hash = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
+        return "$DATA.$hash"
+    }
+
+    private fun accountKey(context: Context): String {
+        val (configuration, secret) = NightscoutConfigurationStore.access(context)
+        return accountKey(configuration, secret)
+    }
+
     fun read(
         context: Context,
         now: Long = System.currentTimeMillis(),
+        account: String = accountKey(context),
     ): List<TherapyEvent> {
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(DATA, null) ?: return emptyList()
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(account, null) ?: return emptyList()
         return runCatching { json.decodeFromString(StoredTreatments.serializer(), raw).values }
             .getOrDefault(emptyList())
             .filter { it.timestampEpochMs >= now - RETENTION_MS }
@@ -214,16 +236,17 @@ internal object NightscoutTreatmentStore {
         context: Context,
         incoming: List<TherapyEvent>,
         now: Long,
+        account: String = accountKey(context),
     ): List<TherapyEvent> {
         val values =
-            (read(context, now) + incoming)
+            (read(context, now, account) + incoming)
                 .filter {
                     it.timestampEpochMs in (now - RETENTION_MS)..(now + 5 * 60_000L)
                 }.associateBy(TherapyEvent::id)
                 .values
                 .sortedBy(TherapyEvent::timestampEpochMs)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putString(DATA, json.encodeToString(StoredTreatments.serializer(), StoredTreatments(values)))
+            putString(account, json.encodeToString(StoredTreatments.serializer(), StoredTreatments(values)))
         }
         return values
     }
@@ -247,48 +270,46 @@ internal object NightscoutTreatmentSync {
     private const val WINDOW_MS = 24L * 60 * 60_000L
     private const val MIN_SYNC_INTERVAL_MS = 15L * 60_000L
 
-    suspend fun syncIfDue(
-        context: Context,
-        now: Long = System.currentTimeMillis(),
-    ): NightscoutSyncResult? {
-        val configuration = NightscoutConfigurationStore.read(context)
-        if (!configuration.enabled) return null
-        val diagnostics = context.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE)
-        if (now - diagnostics.getLong("nightscoutTreatmentLastAttempt", 0L) < MIN_SYNC_INTERVAL_MS) return null
-        diagnostics.edit { putLong("nightscoutTreatmentLastAttempt", now) }
-        return sync(context, now)
-    }
+    private val syncMutex = Mutex()
+
+    suspend fun syncIfDue(context: Context, now: Long = System.currentTimeMillis()): NightscoutSyncResult? =
+        syncMutex.withLock {
+            val (configuration, secret) = NightscoutConfigurationStore.access(context)
+            if (!configuration.enabled) return@withLock null
+            val diagnostics = context.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE)
+            val attemptKey = "nightscoutTreatmentLastAttempt.${NightscoutTreatmentStore.accountKey(configuration, secret)}"
+            if (now - diagnostics.getLong(attemptKey, 0L) < MIN_SYNC_INTERVAL_MS) return@withLock null
+            diagnostics.edit {
+                putLong(attemptKey, now)
+                putLong("nightscoutTreatmentLastAttempt", now)
+            }
+            sync(context, now)
+        }
 
     suspend fun sync(
         context: Context,
         now: Long = System.currentTimeMillis(),
     ): NightscoutSyncResult {
         val app = context.applicationContext
-        val configuration = NightscoutConfigurationStore.read(app)
+        val (configuration, configuredSecret) = NightscoutConfigurationStore.access(app)
         if (!configuration.enabled) return NightscoutSyncResult(true, 0, "Deaktiviert")
         if (!configuration.isValid()) return failure(app, "Ungültige HTTPS-URL")
-        val secret = NightscoutSecretStore.read(app)?.takeIf(String::isNotBlank) ?: return failure(app, "Authentifizierung fehlt")
-        app.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit { putLong("nightscoutTreatmentLastAttempt", now) }
+        val secret = configuredSecret?.takeIf(String::isNotBlank) ?: return failure(app, "Authentifizierung fehlt")
+        val account = NightscoutTreatmentStore.accountKey(configuration, secret)
+        app.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit {
+            putLong("nightscoutTreatmentLastAttempt", now)
+            putLong("nightscoutTreatmentLastAttempt.$account", now)
+        }
         return runCatching {
             val since =
                 java.time.Instant
                     .ofEpochMilli(now - WINDOW_MS)
                     .toString()
-            val tokenSuffix = if (configuration.authMode == NightscoutAuthMode.ACCESS_TOKEN) "&token=${encode(secret)}" else ""
-            val url = "${configuration.normalizedBaseUrl}/api/v1/treatments.json?find%5Bcreated_at%5D%5B%24gte%5D=${encode(
-                since,
-            )}&count=1000$tokenSuffix"
-            val connection = URI(url).toURL().openConnection() as HttpURLConnection
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.requestMethod = "GET"
-            connection.setRequestProperty("Accept", "application/json")
-            if (configuration.authMode == NightscoutAuthMode.API_SECRET) connection.setRequestProperty("api-secret", sha1(secret))
-            val code = connection.responseCode
-            check(code in 200..299) { "HTTP $code" }
-            val payload = connection.inputStream.bufferedReader().use { it.readText() }
+            val endpoint = "/api/v1/treatments.json?find%5Bcreated_at%5D%5B%24gte%5D=${encode(since)}&count=1000"
+            val payload = NightscoutHttp.get(configuration, secret, endpoint)
+            kotlinx.coroutines.currentCoroutineContext().ensureActive()
             val fetched = NightscoutTreatmentParser.parse(payload)
-            val persisted = NightscoutTreatmentStore.merge(app, fetched, now)
+            val persisted = NightscoutTreatmentStore.merge(app, fetched, now, account)
             enrichPersistedState(app)
             app.getSharedPreferences(DIAGNOSTICS, Context.MODE_PRIVATE).edit {
                 putLong("nightscoutTreatmentLastSuccess", now)
@@ -297,7 +318,10 @@ internal object NightscoutTreatmentSync {
                 remove("nightscoutTreatmentError")
             }
             NightscoutSyncResult(true, fetched.size, "Verbunden · ${fetched.size} Treatments")
-        }.getOrElse { error -> failure(app, error.message?.take(80) ?: error.javaClass.simpleName) }
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            failure(app, error.message?.take(80) ?: error.javaClass.simpleName)
+        }
     }
 
     suspend fun applyConfigurationState(context: Context) {
@@ -320,8 +344,6 @@ internal object NightscoutTreatmentSync {
     }
 
     private fun encode(value: String) = URLEncoder.encode(value, StandardCharsets.UTF_8.name())
-
-    private fun sha1(value: String) = MessageDigest.getInstance("SHA-1").digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 }
 
 internal fun TherapyDisplayState.withNightscoutTreatments(context: Context): TherapyDisplayState {

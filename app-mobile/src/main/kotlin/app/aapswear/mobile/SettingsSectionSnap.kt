@@ -28,7 +28,7 @@ private fun settingsSnapOffset(offsets: List<Int>, velocityDpPerSecond: Float, d
     if (!density.isFinite() || density <= 0f) return null
     return offsets
         .minByOrNull { abs(it.toLong()) }
-        ?.takeIf { abs(it.toLong()) in 1..(112f * density).toLong() }
+        ?.takeIf { abs(it.toLong()) in 1..(8f * density).toLong() }
 }
 
 internal class SettingsHeadingRegistry(
@@ -67,7 +67,13 @@ internal fun rememberSettingsSnapConnection(registry: SettingsHeadingRegistry?):
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 registry?.let {
-                    settingsSnapTarget(it.scroll.value, it.positions.values.toList(), releaseSpeed, density, it.scroll.maxValue)?.let { target -> it.scroll.animateScrollTo(target) }
+                    settingsSnapTarget(it.scroll.value, it.positions.values.toList(), releaseSpeed, density, it.scroll.maxValue)?.let { target ->
+                        it.scroll.animateScrollTo(
+                            target,
+                            androidx.compose.animation.core
+                                .tween(320),
+                        )
+                    }
                 }
                 return Velocity.Zero
             }
@@ -92,7 +98,13 @@ internal fun rememberWatchSectionSnap(state: LazyListState, headerIndices: Set<I
                     state.layoutInfo.visibleItemsInfo
                         .filter { it.index in headerIndices }
                         .map { it.offset }
-                settingsSnapOffset(offsets, releaseSpeed, density)?.let { state.animateScrollBy(it.toFloat()) }
+                settingsSnapOffset(offsets, releaseSpeed, density)?.let {
+                    state.animateScrollBy(
+                        it.toFloat(),
+                        androidx.compose.animation.core
+                            .tween(320),
+                    )
+                }
                 return Velocity.Zero
             }
         }

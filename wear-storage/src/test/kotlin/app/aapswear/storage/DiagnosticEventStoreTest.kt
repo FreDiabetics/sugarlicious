@@ -91,4 +91,17 @@ class DiagnosticEventStoreTest {
             assertFalse(event.metadata.containsKey("sharedKey"))
             assertEquals("14", event.metadata["sequence"])
         }
+
+    @Test
+    fun `separate store instances observe appended events and clearing invalidates retained cache`() =
+        runBlocking {
+            val other = DiagnosticEventStore(context, clock)
+            store.record(origin = "WATCH", module = "G7", code = "FIRST", message = "first")
+            other.record(origin = "WATCH", module = "G7", code = "SECOND", message = "second", metadata = mapOf("password" to "never-retain", "count" to 2))
+            assertEquals(setOf("FIRST", "SECOND"), store.snapshot().map { it.code }.toSet())
+            assertFalse(store.snapshot().any { "password" in it.metadata })
+            other.clear()
+            store.record(origin = "WATCH", module = "G7", code = "THIRD", message = "third")
+            assertEquals(listOf("THIRD"), other.snapshot().map { it.code })
+        }
 }

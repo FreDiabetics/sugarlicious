@@ -22,6 +22,7 @@ class DashboardScrollView
         var sectionSnapEnabled: Boolean = false
         var topPullEnabled: Boolean = false
         var topPullExpanded: Boolean = false
+        var topPullExpansionPx: Float = Float.NaN
         var onTopPull: ((Float) -> Unit)? = null
         var onTopPullFinished: ((Float) -> Unit)? = null
         private var topPullTracking = false
@@ -31,9 +32,40 @@ class DashboardScrollView
         private var gestureStartY = 0f
         private var gestureStartScrollY = 0
         private var velocity: VelocityTracker? = null
-        private val settleHeading =
+        private var settleScrollY = 0
+        private var headingAnimator: android.animation.ValueAnimator? = null
+        private val headerScroller = android.widget.OverScroller(context)
+        private var pullDistance = 0f
+        private var flingStartDistance = 0f
+        private val continueHeaderFling: Runnable =
+            Runnable {
+                if (headerScroller.computeScrollOffset()) {
+                    consumeHeaderDistance(flingStartDistance + headerScroller.currY)
+                    postOnAnimation(continueHeaderFling)
+                } else {
+                    onTopPullFinished?.invoke(0f)
+                }
+            }
+
+        private fun consumeHeaderDistance(distance: Float) {
+            val before = topPullExpansionPx
+            val movement = distance - pullDistance
+            onTopPull?.invoke(distance)
+            if (before.isFinite() && topPullExpansionPx.isFinite()) {
+                val remaining = movement - (topPullExpansionPx - before)
+                if (remaining < 0f) scrollBy(0, (-remaining / .55f).toInt())
+            }
+            pullDistance = distance
+        }
+
+        private val settleHeading: Runnable =
             Runnable {
                 if (!sectionSnapEnabled || !isUserScrollEnabled) return@Runnable
+                if (scrollY != settleScrollY) {
+                    settleScrollY = scrollY
+                    postDelayed(settleHeading, 90L)
+                    return@Runnable
+                }
                 val density = resources.displayMetrics.density
                 val headings = mutableListOf<Int>()
 
@@ -49,12 +81,27 @@ class DashboardScrollView
                 }
                 if (isNotEmpty()) collect(getChildAt(0))
                 val limit = ((getChildAt(0)?.height ?: 0) - height + paddingTop + paddingBottom).coerceAtLeast(0)
-                settingsSnapTarget(scrollY, headings, 0f, density, limit)?.let { smoothScrollTo(0, it) }
+                settingsSnapTarget(scrollY, headings, 0f, density, limit)?.let { target ->
+                    headingAnimator =
+                        android.animation.ValueAnimator.ofInt(scrollY, target).apply {
+                            duration = 320L
+                            interpolator = android.view.animation.AccelerateDecelerateInterpolator()
+                            addUpdateListener { scrollTo(0, it.animatedValue as Int) }
+                            start()
+                        }
+                }
             }
 
         override fun dispatchTouchEvent(event: MotionEvent): Boolean {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                if (!headerScroller.isFinished) {
+                    headerScroller.forceFinished(true)
+                    removeCallbacks(continueHeaderFling)
+                    onTopPullFinished?.invoke(0f)
+                }
+                pullDistance = 0f
                 removeCallbacks(settleHeading)
+                headingAnimator?.cancel()
                 velocity?.recycle()
                 velocity = VelocityTracker.obtain()
                 gestureStartX = event.x
@@ -69,7 +116,8 @@ class DashboardScrollView
                 val dx = kotlin.math.abs(event.x - gestureStartX)
                 val dy = kotlin.math.abs(event.y - gestureStartY)
                 if (event.actionMasked == MotionEvent.ACTION_UP && sectionSnapEnabled && scrollY != gestureStartScrollY && dy > ViewConfiguration.get(context).scaledTouchSlop && dy > dx && kotlin.math.abs(speed) <= 600f) {
-                    postDelayed(settleHeading, 160L)
+                    settleScrollY = scrollY
+                    postDelayed(settleHeading, 90L)
                 }
                 velocity?.recycle()
                 velocity = null
@@ -78,7 +126,10 @@ class DashboardScrollView
         }
 
         override fun onDetachedFromWindow() {
+            headerScroller.forceFinished(true)
+            removeCallbacks(continueHeaderFling)
             removeCallbacks(settleHeading)
+            headingAnimator?.cancel()
             velocity?.recycle()
             velocity = null
             super.onDetachedFromWindow()
@@ -116,11 +167,18 @@ class DashboardScrollView
             }
             if (topPullTracking) {
                 when (event.actionMasked) {
-                    MotionEvent.ACTION_MOVE -> onTopPull?.invoke((event.y - downY) * .55f)
+                    MotionEvent.ACTION_MOVE -> consumeHeaderDistance((event.y - downY) * .55f)
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         topPullTracking = false
                         velocity?.computeCurrentVelocity(1000)
-                        onTopPullFinished?.invoke(if (event.actionMasked == MotionEvent.ACTION_UP) velocity?.yVelocity ?: 0f else 0f)
+                        val speed = if (event.actionMasked == MotionEvent.ACTION_UP) velocity?.yVelocity ?: 0f else 0f
+                        if (topPullExpansionPx.isFinite() && kotlin.math.abs(speed) >= ViewConfiguration.get(context).scaledMinimumFlingVelocity) {
+                            flingStartDistance = pullDistance
+                            headerScroller.fling(0, 0, 0, (speed * .55f).toInt(), 0, 0, -1_000_000, 1_000_000)
+                            postOnAnimation(continueHeaderFling)
+                        } else {
+                            onTopPullFinished?.invoke(0f)
+                        }
                     }
                 }
                 return true

@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="icon" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 108 108">
-  <!-- Generator: Adobe Illustrator 30.8.2, SVG Export Plug-In . SVG Version: 2.1.4 Build 7)  -->
+<svg id="icon" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 108 108">
   <defs>
     <style>
-      .st0 {
-        fill: url(#Unbenannter_Verlauf);
+      .cls-1 {
+        fill: url(#Unbenannter_Verlauf_330);
       }
     </style>
-    <linearGradient id="Unbenannter_Verlauf" data-name="Unbenannter Verlauf" x1="96.3" y1="96.2" x2="11.7" y2="11.6" gradientTransform="translate(0 107.9) scale(1 -1)" gradientUnits="userSpaceOnUse">
+    <linearGradient id="Unbenannter_Verlauf_330" data-name="Unbenannter Verlauf 330" x1="96.28" y1="11.72" x2="11.72" y2="96.28" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#22eb60"/>
       <stop offset=".5" stop-color="#ffd047"/>
       <stop offset="1" stop-color="#ff508a"/>
     </linearGradient>
   </defs>
-  <rect class="st0" x="0" y="0" width="108" height="108" rx="40" ry="40"/>
+  <rect class="cls-1" x="0" y="0" width="108" height="108" rx="40.01" ry="40.01"/>
 </svg>

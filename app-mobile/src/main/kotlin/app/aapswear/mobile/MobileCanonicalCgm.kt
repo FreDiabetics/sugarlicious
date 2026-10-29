@@ -108,21 +108,23 @@ internal object MobileCanonicalStateCoordinator {
         return committed
     }
 
-    suspend fun activateShareAccount(context: Context, identity: String) {
+    suspend fun activateShareAccount(context: Context, identity: String) = activateRemoteAccount(context, DataSourceId.DEXCOM_SHARE, identity)
+
+    suspend fun activateRemoteAccount(context: Context, source: DataSourceId, identity: String) {
         val update =
             inputMutex.withLock {
                 val inputs = MobileSourceInputStore(context)
-                if (!inputs.activateShareIdentity(identity)) return@withLock null
+                if (!inputs.activateRemoteIdentity(source, identity)) return@withLock null
                 val canonical = CanonicalStateStore(context)
                 canonical.reconcile()?.let { old ->
-                    val removedCurrent = old.glucose?.source == DataSourceId.DEXCOM_SHARE
-                    val removedFields = old.fieldSources.filterValues { it == DataSourceId.DEXCOM_SHARE }.keys
+                    val removedCurrent = old.glucose?.source == source
+                    val removedFields = old.fieldSources.filterValues { it == source }.keys
                     canonical.commit(
                         old.copy(
                             source = if (removedCurrent) DataSourceId.OTHER else old.source,
                             sourceContract = "PHONE_SOURCE_IDENTITY_CHANGED",
                             glucose = old.glucose.takeUnless { removedCurrent },
-                            glucoseHistory = old.glucoseHistory.filter { it.source != DataSourceId.DEXCOM_SHARE },
+                            glucoseHistory = old.glucoseHistory.filter { it.source != source },
                             glucosePredictions = if (removedCurrent) emptyList() else old.glucosePredictions,
                             capabilities = if (removedCurrent) old.capabilities - setOf(DataCapability.GLUCOSE, DataCapability.TREND, DataCapability.DELTA, DataCapability.AVERAGE_DELTA) else old.capabilities,
                             fieldSources = old.fieldSources - removedFields,
@@ -131,7 +133,7 @@ internal object MobileCanonicalStateCoordinator {
                     )
                 }
                 val committed = commitComposition(context, inputs.read(), System.currentTimeMillis()).first
-                inputs.completeShareIdentity(identity)
+                inputs.completeRemoteIdentity(source, identity)
                 committed
             }
         if (update != null) dispatchCanonicalDataChanged(context, update)
@@ -181,7 +183,7 @@ internal object MobileCanonicalStateCoordinator {
             }
         }
 
-        if (MobileSourceConfigurationStore.read(context).aapsTherapyEnabled) {
+        if (MobileSourceConfigurationStore.read(context).aapsTherapyEnabled || NightscoutConfigurationStore.read(context).enabled) {
             val aapsEvents =
                 mergedPhone.therapyEvents.mapNotNull { event ->
                     when (event.source) {
@@ -191,11 +193,16 @@ internal object MobileCanonicalStateCoordinator {
                     }
                 }
             val external = if (NightscoutConfigurationStore.read(context).enabled) NightscoutTreatmentStore.read(context, nowEpochMs) else emptyList()
+            val events =
+                app.aapswear.model.CanonicalTreatments
+                    .merge(aapsEvents, external)
+            val eventsField = app.aapswear.model.CanonicalDataField.THERAPY_EVENTS
             mergedPhone =
                 mergedPhone.copy(
-                    therapyEvents =
-                        app.aapswear.model.CanonicalTreatments
-                            .merge(aapsEvents, external),
+                    therapyEvents = events,
+                    capabilities = if (events.isEmpty()) mergedPhone.capabilities - DataCapability.TREATMENTS else mergedPhone.capabilities + DataCapability.TREATMENTS,
+                    fieldSources = if (events.isEmpty()) mergedPhone.fieldSources - eventsField else mergedPhone.fieldSources + (eventsField to if (aapsEvents.isEmpty()) DataSourceId.NIGHTSCOUT else DataSourceId.ANDROID_APS),
+                    fieldProvenance = if (events.isEmpty()) mergedPhone.fieldProvenance - eventsField else mergedPhone.fieldProvenance + (eventsField to app.aapswear.model.ValueProvenance.SOURCE),
                 )
         }
         val store = CanonicalStateStore(context)

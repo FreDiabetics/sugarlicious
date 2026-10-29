@@ -10,8 +10,11 @@ internal enum class MobileGlucoseSource(
 ) {
     NONE(null, "Keine"),
     ANDROID_APS(DataSourceId.ANDROID_APS, "AndroidAPS"),
-    DEXCOM_BROADCAST(DataSourceId.DEXCOM_G7_APP, "Dexcom G7 Broadcast"),
-    DEXCOM_SHARE(DataSourceId.DEXCOM_SHARE, "Dexcom Share"),
+    DEXCOM_BROADCAST(DataSourceId.DEXCOM_G7_APP, "BYODA"),
+    DEXCOM_SHARE(DataSourceId.DEXCOM_SHARE, "BYODA Share"),
+    NIGHTSCOUT(DataSourceId.NIGHTSCOUT, "Nightscout"),
+    XDRIP_PLUS(DataSourceId.XDRIP_PLUS, "xDrip+"),
+    LIBRE_PATCHED(DataSourceId.LIBRE_PATCHED, "Libre patched app"),
 }
 
 internal data class MobileSourceConfiguration(
@@ -20,6 +23,7 @@ internal data class MobileSourceConfiguration(
     val shareRegion: String = "ous",
     val credentialsRevision: Long = 0L,
     val enabledGlucoseSources: Set<MobileGlucoseSource> = setOf(glucoseSource).filter { it != MobileGlucoseSource.NONE }.toSet(),
+    val nightscoutRevision: Long = 0L,
 )
 
 internal object MobileSourceConfigurationStore {
@@ -34,8 +38,13 @@ internal object MobileSourceConfigurationStore {
             prefs.getBoolean("source.aaps.therapy", true),
             prefs.getString("source.share.region", "ous").takeIf { it in setOf("us", "ous") } ?: "ous",
             prefs.getLong("source.share.credentials_revision", 0L),
-            prefs.getStringSet("source.glucose.enabled", null)?.mapNotNull { name -> MobileGlucoseSource.entries.find { it.name == name && it != MobileGlucoseSource.NONE } }?.toSet()
-                ?: setOf(runCatching { MobileGlucoseSource.valueOf(prefs.getString("source.glucose", "ANDROID_APS")!!) }.getOrDefault(MobileGlucoseSource.ANDROID_APS)).filter { it != MobileGlucoseSource.NONE }.toSet(),
+            (
+                prefs.getStringSet("source.glucose.enabled", null)?.mapNotNull { name -> MobileGlucoseSource.entries.find { it.name == name && it != MobileGlucoseSource.NONE } }?.toSet()
+                    ?: setOf(runCatching { MobileGlucoseSource.valueOf(prefs.getString("source.glucose", "ANDROID_APS")!!) }.getOrDefault(MobileGlucoseSource.ANDROID_APS)).filter { it != MobileGlucoseSource.NONE }.toSet()
+            ).let { sources ->
+                if (sources.containsAll(DEXCOM_SOURCES)) sources - MobileGlucoseSource.DEXCOM_BROADCAST else sources
+            },
+            nightscoutRevision = prefs.getLong("source.nightscout.revision", 0L),
         )
     }
 
@@ -46,6 +55,27 @@ internal object MobileSourceConfigurationStore {
         preferences(context).edit { putStringSet("source.glucose.enabled", next.map { it.name }.toSet()) }
         PersistentBridgeService.start(context)
     }
+
+    fun preferredDexcom(context: Context): MobileGlucoseSource {
+        val active = read(context).enabledGlucoseSources
+        return when {
+            MobileGlucoseSource.DEXCOM_SHARE in active -> MobileGlucoseSource.DEXCOM_SHARE
+            MobileGlucoseSource.DEXCOM_BROADCAST in active -> MobileGlucoseSource.DEXCOM_BROADCAST
+            else -> runCatching { MobileGlucoseSource.valueOf(preferences(context).getString("source.dexcom.previous", "DEXCOM_BROADCAST")!!) }.getOrDefault(MobileGlucoseSource.DEXCOM_BROADCAST).takeIf { it in DEXCOM_SOURCES } ?: MobileGlucoseSource.DEXCOM_BROADCAST
+        }
+    }
+
+    fun setDexcom(context: Context, source: MobileGlucoseSource, enabled: Boolean) {
+        require(source in DEXCOM_SOURCES)
+        val next = read(context).enabledGlucoseSources - DEXCOM_SOURCES + if (enabled) setOf(source) else emptySet()
+        preferences(context).edit {
+            putString("source.dexcom.previous", source.name)
+            putStringSet("source.glucose.enabled", next.map { it.name }.toSet())
+        }
+        PersistentBridgeService.start(context)
+    }
+
+    private val DEXCOM_SOURCES = setOf(MobileGlucoseSource.DEXCOM_SHARE, MobileGlucoseSource.DEXCOM_BROADCAST)
 
     fun setAndroidApsEnabled(context: Context, enabled: Boolean) {
         val prefs = preferences(context)
@@ -66,6 +96,25 @@ internal object MobileSourceConfigurationStore {
             putStringSet("source.glucose.enabled", next.map { it.name }.toSet())
         }
         PersistentBridgeService.start(context)
+    }
+
+    fun setNightscoutEnabled(context: Context, enabled: Boolean) {
+        val prefs = preferences(context)
+        val current = read(context)
+        val nightscout = NightscoutConfigurationStore.read(context)
+        val currentGlucose = MobileGlucoseSource.NIGHTSCOUT in current.enabledGlucoseSources
+        val restoreGlucose = prefs.getBoolean("source.nightscout.previous_glucose", true)
+        val restoreTreatments = prefs.getBoolean("source.nightscout.previous_treatments", false) && nightscout.isValid()
+        val next = current.enabledGlucoseSources.toMutableSet()
+        if (!enabled || !restoreGlucose && restoreTreatments) next.remove(MobileGlucoseSource.NIGHTSCOUT) else next.add(MobileGlucoseSource.NIGHTSCOUT)
+        prefs.edit {
+            if (!enabled) {
+                putBoolean("source.nightscout.previous_glucose", currentGlucose)
+                putBoolean("source.nightscout.previous_treatments", nightscout.enabled)
+            }
+            putStringSet("source.glucose.enabled", next.map { it.name }.toSet())
+        }
+        NightscoutConfigurationStore.save(context, nightscout.copy(enabled = enabled && restoreTreatments), null)
     }
 
     fun setTherapy(context: Context, enabled: Boolean) {

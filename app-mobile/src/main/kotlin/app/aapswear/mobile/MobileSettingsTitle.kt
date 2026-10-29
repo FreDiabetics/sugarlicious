@@ -10,7 +10,7 @@ import androidx.compose.ui.text.withStyle
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 
-internal fun settingsTitleSplit(title: String): Int = title.offsetByCodePoints(0, title.codePointCount(0, title.length) / 2)
+internal fun settingsTitleSplit(title: String): Int = if (title.equals("Datenquellen", ignoreCase = true)) 5 else title.offsetByCodePoints(0, title.codePointCount(0, title.length) / 2)
 
 internal fun brandedSettingsTitle(title: String): CharSequence =
     SpannableString(title).apply {

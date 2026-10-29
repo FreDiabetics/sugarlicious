@@ -15,6 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -174,7 +175,7 @@ class MainActivityTest {
             .edit()
             .clear()
             .putString("themeMode", "DARK")
-            .putBoolean("showDetails", true)
+            .putBoolean("compact", true)
             .putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)
             .commit()
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.PRIMARY, Color.RED)
@@ -194,7 +195,7 @@ class MainActivityTest {
             },
         )
         openSettingsCategory(activity, "overview_graphs")
-        val actual = activity.findViewById<android.widget.Switch>(R.id.dashboard_details_switch)
+        val actual = activity.findViewById<android.widget.Switch>(R.id.dashboard_compact_switch)
         val expected = mobileSettingsSwitch(activity, actual.isChecked) {}
         val checkedState = intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked)
         assertEquals(expected.trackTintList?.getColorForState(checkedState, 0), actual.trackTintList?.getColorForState(checkedState, 0))
@@ -307,7 +308,7 @@ class MainActivityTest {
             .edit()
             .clear()
             .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
-            .putBoolean("showDetails", true)
+            .putBoolean("compact", true)
             .putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)
             .commit()
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
@@ -316,11 +317,12 @@ class MainActivityTest {
         activity.findViewById<View>(R.id.top_settings).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         openSettingsCategory(activity, "overview_graphs")
-        val details = activity.findViewById<android.widget.Switch>(R.id.dashboard_details_switch)
-        assertTrue(details.isChecked)
-        details.performClick()
+        assertNull(activity.findViewById<View>(R.id.dashboard_details_switch))
+        val compact = activity.findViewById<android.widget.Switch>(R.id.dashboard_compact_switch)
+        assertTrue(compact.isChecked)
+        compact.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
-        assertFalse(preferences.getBoolean("showDetails", true))
+        assertFalse(preferences.getBoolean("compact", true))
 
         activity.findViewById<View>(R.id.top_back).performClick()
         openSettingsCategory(activity, "notifications")
@@ -404,7 +406,6 @@ class MainActivityTest {
 
         val ui = DashboardUiPreferences.read(preferences)
         assertTrue(ui.showCgmGraph)
-        assertTrue(ui.showDetails)
         assertFalse(preferences.contains("cgm.targetRange"))
         assertTrue(ui.showCgmTargetValue)
         assertTrue(ui.showCgmBasal)
@@ -620,7 +621,7 @@ class MainActivityTest {
                         ?.removePrefix("settings-category-")
                 }
         }
-        val expected = listOf("general", "glucose_ranges", "overview_graphs", "appearance", "notifications", "data", "diagnostics", "about")
+        val expected = listOf("general", "glucose_ranges", "notifications", "overview_graphs", "appearance", "data", "diagnostics", "about")
         assertEquals(expected, categories())
         val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
         listOf("general" to "glucose_ranges", "overview_graphs" to "appearance", "data" to "diagnostics").forEach { (first, second) ->
@@ -632,7 +633,7 @@ class MainActivityTest {
         openSettingsCategory(activity, "general")
         assertTrue(categories().isEmpty())
         assertEquals(
-            "Allgemein",
+            "Datenquellen",
             activity
                 .findViewById<TextView>(R.id.app_title)
                 .text
@@ -642,7 +643,7 @@ class MainActivityTest {
         controller.recreate()
         activity = controller.get()
         assertEquals(
-            "Allgemein",
+            "Datenquellen",
             activity
                 .findViewById<TextView>(R.id.app_title)
                 .text

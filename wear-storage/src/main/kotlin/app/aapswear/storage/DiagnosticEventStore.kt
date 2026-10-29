@@ -1,6 +1,7 @@
 package app.aapswear.storage
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -67,15 +68,27 @@ class DiagnosticEventStore(
     ) {
         if (incoming.isEmpty()) return
         appContext.diagnosticEventDataStore.edit { preferences ->
-            val retained = normalize(decode(preferences[EVENTS_KEY]) + incoming, nowEpochMs)
-            preferences[EVENTS_KEY] = json.encodeToString(serializer, retained)
+            val raw = preferences[EVENTS_KEY]
+            val decoded = retainedForAppend(raw)
+            // Older installations are sanitized once before entering the trusted format.
+            // New/imported events are always sanitized, including secret metadata removal.
+            val existing = if (preferences[SANITIZED_KEY] == true) decoded else decoded.map(::sanitizeEvent)
+            val retained = normalize(existing + incoming.map(::sanitizeEvent), nowEpochMs)
+            val encoded = json.encodeToString(serializer, retained)
+            preferences[EVENTS_KEY] = encoded
+            preferences[SANITIZED_KEY] = true
+            rememberRetained(encoded, retained)
         }
     }
 
     suspend fun snapshot(): List<DiagnosticEvent> = events.first()
 
     suspend fun clear() {
-        appContext.diagnosticEventDataStore.edit { it.remove(EVENTS_KEY) }
+        appContext.diagnosticEventDataStore.edit {
+            it.remove(EVENTS_KEY)
+            it.remove(SANITIZED_KEY)
+            rememberRetained(null, emptyList())
+        }
     }
 
     private fun normalize(
@@ -85,7 +98,6 @@ class DiagnosticEventStore(
         values
             .asSequence()
             .filter { it.occurredAtEpochMs in (nowEpochMs - RETENTION_MS)..(nowEpochMs + FUTURE_TOLERANCE_MS) }
-            .map(::sanitizeEvent)
             .distinctBy(DiagnosticEvent::id)
             .sortedBy(DiagnosticEvent::occurredAtEpochMs)
             .toList()
@@ -103,6 +115,18 @@ class DiagnosticEventStore(
 
     private fun decode(raw: String?): List<DiagnosticEvent> = raw?.let { runCatching { json.decodeFromString(serializer, it) }.getOrNull() }.orEmpty()
 
+    // The cache is private to append: public snapshots decode independently so callers cannot
+    // mutate the trusted retained objects. Matching the exact stored payload also handles clear,
+    // restoration, different store instances and a failed preceding transaction safely.
+    private fun retainedForAppend(raw: String?): List<DiagnosticEvent> =
+        synchronized(CACHE_LOCK) {
+            if (raw != cachedRaw) {
+                cachedRaw = raw
+                cachedRetained = decode(raw)
+            }
+            cachedRetained
+        }
+
     private fun sanitizeMetadata(values: Map<String, Any?>): Map<String, String> =
         values.entries
             .asSequence()
@@ -113,9 +137,26 @@ class DiagnosticEventStore(
     private fun clean(
         value: String,
         maxLength: Int,
-    ): String = value.replace(Regex("[\\r\\n\\t]+"), " ").trim().take(maxLength)
+    ): String {
+        // Most persisted fields are already single-line. Avoid compiling a native ICU
+        // pattern and allocating a matcher for every field of every retained event.
+        val singleLine = if (value.any { it == '\r' || it == '\n' || it == '\t' }) value.replace(LINE_BREAKS, " ") else value
+        return singleLine.trim().take(maxLength)
+    }
 
     private companion object {
+        private val CACHE_LOCK = Any()
+        private var cachedRaw: String? = null
+        private var cachedRetained: List<DiagnosticEvent> = emptyList()
+
+        private fun rememberRetained(raw: String?, events: List<DiagnosticEvent>) =
+            synchronized(CACHE_LOCK) {
+                cachedRaw = raw
+                cachedRetained = events
+            }
+
+        val SANITIZED_KEY = booleanPreferencesKey("sanitized_v1")
+        val LINE_BREAKS = Regex("[\\r\\n\\t]+")
         val EVENTS_KEY = stringPreferencesKey("events_v1")
         const val MAX_EVENTS = 1_000
         const val MAX_METADATA_FIELDS = 12

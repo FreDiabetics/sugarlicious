@@ -12,12 +12,16 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" />
     <uses-permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" />
     <permission android:name="app.aapswear.g7watch.permission.READ_G7_DATA" android:protectionLevel="signature" />
     <permission android:name="app.aapswear.g7watch.permission.CONFIGURE_G7" android:protectionLevel="signature" />
 
     <queries>
+        <package android:name="com.monotype.android.font.samsungone" />
         <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
         <intent><action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" /><data android:scheme="package" /></intent>
         <intent><action android:name="android.settings.APP_NOTIFICATION_SETTINGS" /></intent>
@@ -36,6 +40,7 @@
         android:label="@string/app_name"
         android:theme="@style/G7WatchTheme"
         android:usesCleartextTraffic="false">
+        <service android:name=".G7AlarmAudioService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <meta-data android:name="com.google.android.wearable.standalone" android:value="true" />
         <activity
             android:name=".G7WatchActivity"
@@ -60,6 +65,7 @@
             android:name=".G7SettingsActivity"
             android:exported="false"
             android:taskAffinity="" />
+        <activity android:name=".G7SetupActivity" android:exported="false" android:taskAffinity="" />
         <activity
             android:name=".G7AlarmSettingsActivity"
             android:exported="false"
@@ -106,6 +112,9 @@
         <receiver android:name=".G7AdvertisementWakeReceiver" android:exported="false" />
         <receiver android:name=".G7SignalLossReceiver" android:exported="false" />
         <receiver android:name=".G7ErrorAcknowledgeReceiver" android:exported="false" />
+        <receiver android:name=".G7AlarmVolumeRestoreReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED" /></intent-filter>
+        </receiver>
         <receiver android:name=".G7CgmAlarmAcknowledgeReceiver" android:exported="false" />
         <receiver android:name=".G7CgmAlarmRepeatReceiver" android:exported="false" />
         <receiver
@@ -136,5 +145,13 @@
             android:authorities="app.aapswear.g7watch.alarm-sounds"
             android:exported="false"
             android:grantUriPermissions="true" />
+        <service android:name="app.aapswear.complications.GlucoseComplication" android:label="Glukose" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_01a_short"/></service>
+        <service android:name="app.aapswear.complications.GlucoseLongTextComplication" android:label="Glukose · Details" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="LONG_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_01b_long"/></service>
+        <service android:name="app.aapswear.complications.GlucoseRangedValueComplication" android:label="Glukose · Fortschritt" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_01c_ranged"/></service>
+        <service android:name="app.aapswear.complications.GlucoseTrendComplication" android:label="Glukose · Trend" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_02a_short"/></service>
+        <service android:name="app.aapswear.complications.GlucoseTrendLongTextComplication" android:label="Glukose · Trend · Details" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="LONG_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_02b_long"/></service>
+        <service android:name="app.aapswear.complications.GlucoseTrendRangedValueComplication" android:label="Glukose · Trend · Fortschritt" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="RANGED_VALUE"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_02c_ranged"/></service>
+        <service android:name="app.aapswear.complications.TrendOnlyComplication" android:label="Trend" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_08_short"/></service>
+        <service android:name="app.aapswear.complications.GlucoseDeltaComplication" android:label="Zeit · Delta" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER"><intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/></intent-filter><meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES" android:value="SHORT_TEXT"/><meta-data android:name="com.google.android.wearable.complications.STATIC_PREVIEW_DATA" android:resource="@xml/complication_preview_11_short"/></service>
     </application>
 </manifest>

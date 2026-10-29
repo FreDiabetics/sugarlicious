@@ -31,6 +31,22 @@ class G7CgmAlarmsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val notificationManager by lazy { context.getSystemService(NotificationManager::class.java) }
 
+    @Suppress("DEPRECATION")
+    @Test
+    fun `alarm routes bundled sound to own service without system notification chime`() {
+        val app = shadowOf(context as android.app.Application)
+        while (app.nextStartedService != null) { /* drain prior requests */ }
+        val settings = G7AlarmSettingsStore.read(context).copy(soundEnabled = true)
+        G7CgmAlarmNotifier.showTest(context, CgmAlarmType.VERY_LOW, settings)
+        val service = app.nextStartedService
+        assertEquals(G7AlarmAudioService::class.java.name, service.component?.className)
+        assertEquals(CgmAlarmType.VERY_LOW.name, service.getStringExtra("type"))
+        assertTrue(service.getBooleanExtra("test", false))
+        val notification = shadowOf(notificationManager).getNotification(G7CgmAlarmNotifier.testNotificationId(CgmAlarmType.VERY_LOW))
+        assertNull(notification.sound)
+        assertNull(notificationManager.getNotificationChannel(notification.channelId).sound)
+    }
+
     @Test
     fun `every collector alarm keeps its dedicated bundled asset`() {
         val expected =
@@ -82,20 +98,19 @@ class G7CgmAlarmsTest {
     }
 
     @Test
-    fun `all eight alarm channels use system managed alarm audio`() {
+    fun `all eight alarm channels are silent because the alarm service owns sound`() {
         val settings = G7AlarmSettingsStore.read(context)
         G7CgmAlarmNotifier.ensureAllChannels(context, settings)
 
         CgmAlarmType.entries.forEach { type ->
             val channel = notificationManager.getNotificationChannel(G7CgmAlarmNotifier.channelId(context, type, settings))
             assertNotNull(channel)
-            assertEquals(NotificationManager.IMPORTANCE_HIGH, channel.importance)
+            assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
             assertTrue(channel.shouldVibrate())
-            assertNotNull(channel.sound)
-            assertEquals("content", channel.sound.scheme)
+            assertNull(channel.sound)
             assertEquals(AudioAttributes.USAGE_ALARM, channel.audioAttributes.usage)
         }
-        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v5_") })
+        assertEquals(8, notificationManager.notificationChannels.count { it.id.startsWith("g7_cgm_alarm_v7_") })
     }
 
     @Test

@@ -152,10 +152,15 @@ fun resolveResponsiveTherapyLayout(
 fun resolveRoundTherapyLayout(
     availableSideDp: Float,
     appearance: TherapyProgressAppearance,
+    baseDiameterDp: Float = 66f,
 ): List<ResolvedTherapyIndicator> {
     val safe = appearance.validated()
     val metrics = TherapyProgressMetric.entries.filter(safe.enabledMetrics::contains)
-    val dimensions = metrics.map(safe::resolveDimensions)
+    val dimensions =
+        metrics.map { metric ->
+            val scale = baseDiameterDp / 66f
+            safe.resolveDimensions(metric).scaled(scale)
+        }
     val center = availableSideDp / 2f
     val gap = safe.gapDp.toFloat()
     val rawSlots =

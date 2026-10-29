@@ -85,9 +85,8 @@ class G7PermissionsActivity : Activity() {
                     textSize = 13f
                     minimumHeight = 48.dp
                     setTextColor(palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
-                    backgroundTintList =
-                        android.content.res.ColorStateList
-                            .valueOf(palette.settingsArgb(G7AppearanceRole.MENU_BACKGROUND))
+                    app.aapswear.uishared.WearSettingsUi
+                        .actionButton(this, palette.settingsArgb(G7AppearanceRole.MENU_SURFACE), palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY))
                     setOnClickListener { click() }
                 },
             )
@@ -111,6 +110,9 @@ class G7PermissionsActivity : Activity() {
                 open(fallback)
             }
         }
+        card("Einrichtung", "Schritt für Schritt", "Alle benötigten Freigaben erneut prüfen. Bestehende Sensordaten bleiben erhalten.", "Einrichtung öffnen") {
+            startActivity(android.content.Intent(this, G7SetupActivity::class.java))
+        }
         card("Bluetooth", status(state.bluetoothGranted), "Geräte in der Nähe: Sensorempfang und Verbindung. Kein Standortzugriff erforderlich.", "Berechtigungen öffnen") {
             requestOrOpen(setOf(android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT), G7SystemAccess.appSettingsIntents(packageName))
         }
@@ -123,19 +125,12 @@ class G7PermissionsActivity : Activity() {
         card("Genaue Alarme", status(state.exactAlarmsGranted), "Für zeitgenaue Wiederverbindung, Sensorfenster und Alarmwiederholung.", "Alarmzugriff öffnen") {
             open(G7SystemAccess.exactAlarmSettingsIntents(packageName))
         }
-        card("Nicht stören", status(state.dndAccessGranted), "Systemzugriff und Kanal-Ausnahme sind getrennt. Falls Wear OS keine Freigabe anbietet, bleibt sie nicht erlaubt. Lautstärke und gesperrte Kanäle können Alarme verhindern.", "Systemfreigabe öffnen") {
+        card("Nicht stören", g7AlarmAudioPolicyLabel(G7AlarmSystemAccess.snapshot(this)), "Systemzugriff: ${status(state.dndAccessGranted)}. Eigene Töne benötigen die Systemausnahme Alarme im Ruhemodus. Die Kanal-Ausnahme allein gibt den Ton nicht frei.", "Systemfreigabe öffnen") {
             if (G7AlarmSystemAccess.openPolicySettings(this) != G7SettingsOpenResult.OPENED) unavailable()
         }
-        state.alarmChannels.forEach { channel ->
-            val channelStatus =
-                when {
-                    channel.importance == null -> "Noch kein Kanal"
-                    channel.importance == NotificationManager.IMPORTANCE_NONE -> "Blockiert"
-                    else -> "Priorität ${channel.importance} · Nicht stören: ${if (state.dndAccessGranted && channel.bypassDnd) "Ausnahme erlaubt" else "keine Ausnahme"}"
-                }
-            card(channel.title, channelStatus, "Der tatsächliche Systemkanal entscheidet über die Ausgabe.", "Alarmkanal öffnen") {
-                open(G7SystemAccess.notificationSettingsIntents(packageName, channel.id))
-            }
+        val ready = state.alarmChannels.count { it.importance != null && it.importance > NotificationManager.IMPORTANCE_NONE && it.bypassDnd }
+        card("Alarmkanäle", "$ready von ${state.alarmChannels.size} mit Nicht-Stören-Ausnahme", "Alle Alarmkanäle gemeinsam verwalten. SugarWear spielt die eigenen Alarmtöne direkt ab.", "Alarmkanäle öffnen") {
+            open(G7SystemAccess.notificationSettingsIntents(packageName))
         }
         scroll.post { scroll.scrollTo(0, y) }
     }

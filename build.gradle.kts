@@ -298,6 +298,8 @@ abstract class VerifyArchitectureTask : DefaultTask() {
                 ":core-model",
                 ":data-source-api",
                 ":data-source-aaps",
+                ":data-source-dexcom",
+                ":data-source-external",
                 ":dexcom-g7",
                 ":wear-protocol",
                 ":wear-storage",
@@ -357,7 +359,7 @@ abstract class VerifyArchitectureTask : DefaultTask() {
 
 val architectureModules = setOf(
     ":app-mobile", ":app-wear", ":g7watch", ":core-model", ":data-source-api",
-    ":data-source-aaps", ":dexcom-g7", ":wear-protocol", ":wear-storage",
+    ":data-source-aaps", ":data-source-dexcom", ":data-source-external", ":dexcom-g7", ":wear-protocol", ":wear-storage",
     ":ui-shared", ":complications",
 )
 val verifyArchitecture = tasks.register<VerifyArchitectureTask>("verifyArchitecture") {

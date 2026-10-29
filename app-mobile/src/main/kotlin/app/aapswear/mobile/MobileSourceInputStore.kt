@@ -46,8 +46,8 @@ internal class MobileSourceInputStore(
         val updated =
             app.mobileSourceInputs.edit { values ->
                 val source = incoming.source
-                if (source == DataSourceId.DEXCOM_SHARE) {
-                    val activeIdentity = values[stringPreferencesKey("identity.DEXCOM_SHARE")]
+                if (source in setOf(DataSourceId.DEXCOM_SHARE, DataSourceId.NIGHTSCOUT)) {
+                    val activeIdentity = values[stringPreferencesKey("identity.${source.name}")]
                     if (activeIdentity != null && incoming.sourceVersion != activeIdentity) return@edit
                 }
                 val previous = decode(values)[source]
@@ -65,23 +65,28 @@ internal class MobileSourceInputStore(
     }
 
     /** Account-scoped archives preserve history without mixing two Share accounts. */
-    suspend fun activateShareIdentity(identity: String): Boolean {
+    suspend fun activateShareIdentity(identity: String): Boolean = activateRemoteIdentity(DataSourceId.DEXCOM_SHARE, identity)
+
+    suspend fun completeShareIdentity(identity: String) = completeRemoteIdentity(DataSourceId.DEXCOM_SHARE, identity)
+
+    suspend fun activateRemoteIdentity(source: DataSourceId, identity: String): Boolean {
+        require(source in setOf(DataSourceId.DEXCOM_SHARE, DataSourceId.NIGHTSCOUT))
+        val archivePrefix = if (source == DataSourceId.DEXCOM_SHARE) "share" else source.name.lowercase()
         var changed = false
         app.mobileSourceInputs.edit { values ->
-            val identityKey = stringPreferencesKey("identity.DEXCOM_SHARE")
+            val identityKey = stringPreferencesKey("identity.${source.name}")
             val old = values[identityKey]
-            val pendingKey = stringPreferencesKey("pending.DEXCOM_SHARE")
+            val pendingKey = stringPreferencesKey("pending.${source.name}")
             if (old == identity) {
                 changed = values[pendingKey] == identity
                 return@edit
             }
-            val source = DataSourceId.DEXCOM_SHARE
             val archiveIdentity = old ?: "legacy-unscoped"
-            values[stateKey(source)]?.let { values[stringPreferencesKey("archive.share.$archiveIdentity")] = it }
-            values[retiredKey(source)]?.let { values[stringPreferencesKey("archive.retired.share.$archiveIdentity")] = it }
-            val restored = values[stringPreferencesKey("archive.share.$identity")]
+            values[stateKey(source)]?.let { values[stringPreferencesKey("archive.$archivePrefix.$archiveIdentity")] = it }
+            values[retiredKey(source)]?.let { values[stringPreferencesKey("archive.retired.$archivePrefix.$archiveIdentity")] = it }
+            val restored = values[stringPreferencesKey("archive.$archivePrefix.$identity")]
             if (restored == null) values.remove(stateKey(source)) else values[stateKey(source)] = restored
-            val retired = values[stringPreferencesKey("archive.retired.share.$identity")]
+            val retired = values[stringPreferencesKey("archive.retired.$archivePrefix.$identity")]
             if (retired == null) values.remove(retiredKey(source)) else values[retiredKey(source)] = retired
             changed = true
             values[pendingKey] = identity
@@ -90,9 +95,9 @@ internal class MobileSourceInputStore(
         return changed
     }
 
-    suspend fun completeShareIdentity(identity: String) {
+    suspend fun completeRemoteIdentity(source: DataSourceId, identity: String) {
         app.mobileSourceInputs.edit { values ->
-            val pendingKey = stringPreferencesKey("pending.DEXCOM_SHARE")
+            val pendingKey = stringPreferencesKey("pending.${source.name}")
             if (values[pendingKey] == identity) values.remove(pendingKey)
         }
     }

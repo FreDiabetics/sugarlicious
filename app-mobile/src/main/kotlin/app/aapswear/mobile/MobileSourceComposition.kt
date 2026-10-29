@@ -11,7 +11,7 @@ import app.aapswear.model.Trend
 import app.aapswear.model.TrendRateProfile
 import app.aapswear.model.ValueProvenance
 
-internal val MOBILE_INPUT_SOURCES = setOf(DataSourceId.ANDROID_APS, DataSourceId.DEXCOM_G7_APP, DataSourceId.DEXCOM_SHARE)
+internal val MOBILE_INPUT_SOURCES = MobileGlucoseSource.entries.mapNotNull { it.sourceId }.toSet()
 private val GLUCOSE_CAPABILITIES = setOf(DataCapability.GLUCOSE, DataCapability.TREND, DataCapability.DELTA, DataCapability.AVERAGE_DELTA)
 private val GLUCOSE_FIELDS = setOf(CanonicalDataField.GLUCOSE, CanonicalDataField.TREND, CanonicalDataField.DELTA, CanonicalDataField.AVERAGE_DELTA)
 

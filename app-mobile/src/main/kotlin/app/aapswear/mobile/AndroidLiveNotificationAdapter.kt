@@ -89,6 +89,6 @@ internal object AndroidLiveNotificationAdapter {
             } else {
                 FixedInt(numeric.roundToInt(), null)
             }
-        return Metric(value, presentation.therapyText.orEmpty())
+        return Metric(value, presentation.therapyText?.takeIf { it.isNotBlank() } ?: "Glukose")
     }
 }

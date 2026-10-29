@@ -103,7 +103,6 @@ enum class G7AppearanceRole(
     GRAPH_AXIS_TEXT("graph_axis_text", AppearanceTerminology.GRAPH_AXIS_TEXT, G7AppearanceSection.GRAPH, 0xFFD2D2D2.toInt()),
     GRAPH_GRID("graph_grid", "Grid / Divider", G7AppearanceSection.GRAPH, 0xFF464646.toInt()),
     GRAPH_TILE_BORDER("graph_tile_border", "Graphkontur", G7AppearanceSection.GRAPH, 0),
-    GRAPH_PREDICTION("graph_prediction", "Prediction", G7AppearanceSection.GRAPH, 0xFFF4DE00.toInt()),
 }
 
 data class G7AppearancePalette(

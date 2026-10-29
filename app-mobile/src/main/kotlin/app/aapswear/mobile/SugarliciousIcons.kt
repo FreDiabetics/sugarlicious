@@ -79,6 +79,7 @@ internal fun sugarliciousIconView(
         clipChildren = false
         clipToPadding = false
         this.contentDescription = contentDescription
+        tooltipText = contentDescription
         importantForAccessibility =
             if (contentDescription == null) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
 

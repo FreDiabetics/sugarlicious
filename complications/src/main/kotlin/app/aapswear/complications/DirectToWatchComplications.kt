@@ -2,7 +2,6 @@ package app.aapswear.complications
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -19,9 +18,7 @@ import androidx.wear.watchface.complications.data.SmallImage
 import androidx.wear.watchface.complications.data.SmallImageComplicationData
 import androidx.wear.watchface.complications.data.SmallImageType
 import androidx.wear.watchface.complications.data.TimeRange
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
-import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmSourceState
@@ -567,7 +564,7 @@ object DirectToWatchPreferences {
 
     fun requestClockUpdate(context: Context, provider: Class<*>) {
         require(provider == DirectToWatchClockComplication::class.java || provider == DirectToWatchAmbientClockComplication::class.java)
-        ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, provider)).requestUpdateAll()
+        ActiveProviderUpdates.request(context, provider)
     }
 
     fun requestUpdates(context: Context) {
@@ -581,12 +578,12 @@ object DirectToWatchPreferences {
             DirectToWatchAmbientHeaderComplication::class.java,
             DirectToWatchAmbientGraphComplication::class.java,
         ).forEach { service ->
-            ComplicationDataSourceUpdateRequester.create(context, ComponentName(context, service)).requestUpdateAll()
+            ActiveProviderUpdates.request(context, service)
         }
     }
 }
 
-abstract class DirectToWatchComplicationService : SuspendingComplicationDataSourceService() {
+abstract class DirectToWatchComplicationService : TrackedComplicationService() {
     final override fun getPreviewData(type: ComplicationType): ComplicationData {
         val preview = build(previewState(), System.currentTimeMillis()) as SmallImageComplicationData
         // Native editors cache demo images. A live minute/reading validity window
@@ -600,6 +597,7 @@ abstract class DirectToWatchComplicationService : SuspendingComplicationDataSour
 
     final override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData =
         withContext(Dispatchers.IO) {
+            ActiveProviderUpdates.activate(this@DirectToWatchComplicationService, this@DirectToWatchComplicationService.javaClass, request.complicationInstanceId)
             build(G7LocalReadingResolver.resolveWatchDirect(this@DirectToWatchComplicationService), System.currentTimeMillis())
         }
 

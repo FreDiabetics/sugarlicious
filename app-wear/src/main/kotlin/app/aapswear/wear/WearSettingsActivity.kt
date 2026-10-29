@@ -1,7 +1,6 @@
 package app.aapswear.wear
 
 import android.app.Activity
-import android.content.ComponentName
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -13,7 +12,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
-import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import app.aapswear.complications.ComplicationUpdatePlanner
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
@@ -914,7 +912,7 @@ class WearSettingsActivity : Activity() {
                     progressBackgroundTintList = ColorStateList.valueOf(menuColors.tileBorder)
                     thumbTintList = ColorStateList.valueOf(menuColors.accent)
                     app.aapswear.uishared.WearSettingsUi
-                        .slider(this, menuColors.accent, menuColors.tileBorder)
+                        .slider(this, menuColors.accent, menuColors.tileBorder, title)
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             override fun onProgressChanged(
@@ -1018,7 +1016,8 @@ class WearSettingsActivity : Activity() {
         requestSugarliciousTileUpdates(this)
         if (trendChanged) {
             ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
-                ComplicationDataSourceUpdateRequester.create(this, ComponentName(this, provider)).requestUpdateAll()
+                app.aapswear.complications.ActiveProviderUpdates
+                    .request(this, provider)
             }
         }
         if (rebuild && !colorEditorOpen) buildUi()

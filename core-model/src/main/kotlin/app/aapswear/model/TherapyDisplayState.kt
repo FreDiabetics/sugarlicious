@@ -9,7 +9,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 @Serializable(with = DataSourceIdSerializer::class)
-enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, DEXCOM_G7_APP, DEXCOM_SHARE, NIGHTSCOUT, OTHER }
+enum class DataSourceId { DEXCOM_G7_WATCH, ANDROID_APS, DEXCOM_G7_APP, DEXCOM_SHARE, NIGHTSCOUT, OTHER, XDRIP_PLUS, LIBRE_PATCHED }
 
 object DataSourceIdSerializer : KSerializer<DataSourceId> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("DataSourceId", PrimitiveKind.STRING)
@@ -18,7 +18,6 @@ object DataSourceIdSerializer : KSerializer<DataSourceId> {
 
     override fun deserialize(decoder: Decoder): DataSourceId =
         when (val raw = decoder.decodeString()) {
-            "XDRIP_PLUS" -> DataSourceId.OTHER
             else -> DataSourceId.entries.firstOrNull { it.name == raw } ?: DataSourceId.OTHER
         }
 }
@@ -131,6 +130,8 @@ enum class CanonicalDataField {
     val insulinActivityUnitsPerMinute: Double? = null,
     /** Read-only SMB marker normalized from the public AAPS enacted payload. */
     val smbUnits: Double? = null,
+    /** Explicit delivery time; null for legacy markers with ambiguous timestamp provenance. */
+    val smbDeliveredAtEpochMs: Long? = null,
 )
 
 @Serializable data class InsulinState(

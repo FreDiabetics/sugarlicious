@@ -9,6 +9,7 @@ import android.provider.Settings
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,35 +25,31 @@ class G7AlarmSystemAccessTest {
     private val activity = Robolectric.buildActivity(android.app.Activity::class.java).setup().get()
 
     @Test
-    fun `policy settings use public Android actions in fallback order`() {
-        val actions = G7AlarmSystemAccess.settingsCandidates(activity).map(Intent::getAction)
-
-        assertEquals(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, actions[0])
-        assertEquals(Settings.ACTION_APP_NOTIFICATION_SETTINGS, actions[1])
-        assertEquals(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, actions[2])
-        assertEquals("package:${activity.packageName}", G7AlarmSystemAccess.settingsCandidates(activity)[2].data.toString())
-        assertEquals(Settings.ACTION_SETTINGS, actions[3])
-        assertFalse(actions.any { it == "android.settings.NOTIFICATION_POLICY_ACCESS_DETAIL_SETTINGS" })
+    fun `own audio follows effective alarm policy not notification channel bypass`() {
+        assertEquals(true, g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_ALL, false))
+        assertEquals(true, g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_ALARMS, false))
+        assertEquals(false, g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_NONE, true))
+        assertEquals(false, g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_PRIORITY, false))
+        assertEquals(true, g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_PRIORITY, true))
+        assertNull(g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_PRIORITY, null))
+        assertNull(g7DndAllowsAlarmAudio(NotificationManager.INTERRUPTION_FILTER_UNKNOWN, true))
     }
 
     @Test
-    fun `launch failure continues with next resolvable public setting`() {
+    fun `only a policy access settings screen can grant policy access`() {
+        assertEquals(listOf(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), G7AlarmSystemAccess.settingsCandidates(activity).map(Intent::getAction))
+    }
+
+    @Test
+    fun `unavailable policy screen does not misleadingly open unrelated settings`() {
         val attempted = mutableListOf<String?>()
         val result =
-            G7AlarmSystemAccess.openPolicySettings(
-                activity = activity,
-                canResolve = { true },
-                launch = {
-                    attempted += it.action
-                    if (attempted.size == 1) error("vendor rejected activity")
-                },
-            )
-
-        assertEquals(G7SettingsOpenResult.OPENED, result)
-        assertEquals(
-            listOf(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS, Settings.ACTION_APP_NOTIFICATION_SETTINGS),
-            attempted,
-        )
+            G7AlarmSystemAccess.openPolicySettings(activity, launch = {
+                attempted += it.action
+                error("vendor rejected activity")
+            })
+        assertEquals(G7SettingsOpenResult.FAILED, result)
+        assertEquals(listOf(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS), attempted)
     }
 
     @Test

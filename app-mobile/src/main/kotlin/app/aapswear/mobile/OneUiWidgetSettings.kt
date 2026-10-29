@@ -13,6 +13,7 @@ import android.view.Gravity
 import android.view.Window
 import android.view.WindowManager
 import android.widget.SeekBar
+import androidx.compose.animation.core.animateDecay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -174,6 +175,7 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
     var pullingHeader by remember(scroll, lazyScroll) { mutableStateOf(false) }
     val expandedTitleHeightDp = measuredSettingsExpandedTitleHeightDp(title)
     val maximumExpansionDp = maxOf(160f, expandedTitleHeightDp + compactHeaderHeightDp + 16f)
+    val headerDecay = androidx.compose.animation.rememberSplineBasedDecay<Float>()
     val scrollPositionPx: () -> Int = {
         scroll?.value ?: lazyScroll?.let { if (it.firstVisibleItemIndex == 0) it.firstVisibleItemScrollOffset else 4096 } ?: 0
     }
@@ -182,25 +184,38 @@ internal fun OneUiWidgetSettingsSurface(scroll: androidx.compose.foundation.Scro
             object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
                 override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
                     if ((scroll == null && lazyScroll == null) || source != androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput || scrollPositionPx() != 0 || (available.y <= 0f && headerExpansionDp == 0f && !pullingHeader)) return androidx.compose.ui.geometry.Offset.Zero
-                    pullingHeader = true
-                    headerExpansionDp = (headerExpansionDp + with(density) { available.y.toDp().value } * .55f).coerceIn(0f, maximumExpansionDp)
+                    val previous = headerExpansionDp
+                    headerExpansionDp = (previous + with(density) { available.y.toDp().value } * .55f).coerceIn(0f, maximumExpansionDp)
+                    pullingHeader = pullingHeader || headerExpansionDp != previous
                     return androidx.compose.ui.geometry
-                        .Offset(0f, available.y)
+                        .Offset(0f, (headerExpansionDp - previous) * density.density / .55f)
                 }
 
                 override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
                     if (pullingHeader) {
                         pullingHeader = false
-                        val target = settingsSubmenuExpansionTarget(headerExpansionDp, maximumExpansionDp, available.y / density.density)
+                        if (headerExpansionDp == 0f) return androidx.compose.ui.unit.Velocity.Zero
+                        var remainingVelocity = 0f
+                        androidx.compose.animation.core.AnimationState(headerExpansionDp, available.y / density.density * .55f).animateDecay(headerDecay) {
+                            headerExpansionDp = value.coerceIn(0f, maximumExpansionDp)
+                            if (value <= 0f) {
+                                remainingVelocity = velocity * density.density / .55f
+                                cancelAnimation()
+                            } else if (value >= maximumExpansionDp) {
+                                cancelAnimation()
+                            }
+                        }
+                        val target = settingsSubmenuExpansionTarget(headerExpansionDp, maximumExpansionDp)
                         androidx.compose.animation.core
                             .animate(
                                 headerExpansionDp,
                                 target,
                                 animationSpec =
                                     androidx.compose.animation.core
-                                        .tween(160),
+                                        .tween(320),
                             ) { value, _ -> headerExpansionDp = value }
-                        return available
+                        return androidx.compose.ui.unit
+                            .Velocity(0f, available.y - remainingVelocity)
                     }
                     return androidx.compose.ui.unit.Velocity.Zero
                 }

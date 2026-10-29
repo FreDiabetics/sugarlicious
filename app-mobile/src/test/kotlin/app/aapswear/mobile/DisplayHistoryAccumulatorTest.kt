@@ -24,6 +24,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DisplayHistoryAccumulatorTest {
+    @Test fun `SMB without delivery time is not timestamped using reception time`() {
+        val now = 1_800_000_000_000L
+        val state = TherapyDisplayState(receivedAtEpochMs = now, loop = LoopState(smbUnits = 0.5, enactedAtEpochMs = now))
+        assertTrue(DisplayHistoryAccumulator.merge(null, state, now).therapyHistory.none { it.smbUnits != null })
+    }
+
     @Test
     fun `partial updates retain provenance for retained fields and replace incoming fields`() {
         val now = 2_000_000L

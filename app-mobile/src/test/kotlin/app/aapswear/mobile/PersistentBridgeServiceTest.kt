@@ -254,6 +254,7 @@ class PersistentBridgeServiceTest {
         assertNotNull(notification)
         assertEquals("—", notification.extras.getCharSequence(Notification.EXTRA_TITLE).toString())
         assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertNotNull(notification.contentView)
         assertNotNull(notification.bigContentView)
@@ -350,10 +351,9 @@ class PersistentBridgeServiceTest {
         )
         assertEquals(
             R.drawable.ic_notification_outlined,
-            notification.extras
-                .getParcelable(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON, android.graphics.drawable.Icon::class.java)!!
-                .resId,
+            notification.smallIcon.resId,
         )
+        assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CHIP_ICON))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
         assertEquals(R.layout.notification_sugarlicious_collapsed, notification.contentView.layoutId)
         assertEquals(R.layout.notification_sugarlicious_expanded, notification.bigContentView.layoutId)

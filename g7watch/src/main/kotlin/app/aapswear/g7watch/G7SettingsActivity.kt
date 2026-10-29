@@ -16,7 +16,7 @@ internal enum class G7SettingsSection(
     val title: String,
     val summary: String,
 ) {
-    DISPLAY("Anzeige", "Farben und Darstellung des Collectors"),
+    DISPLAY("Anzeige", "Farben und Darstellung"),
     PERMISSIONS("Berechtigungen", "Bluetooth, Benachrichtigungen und Systemzugriff"),
     ALARMS("Alarme", "Glukosealarme und notwendige Systemrechte"),
     SUGARWEAR("Sensor", "Verbinden, trennen und Datenempfang pausieren"),
@@ -55,7 +55,7 @@ class G7SettingsActivity : Activity() {
                 addView(topBar(palette), fullWidth())
                 addView(
                     infoCard(
-                        "LIVE COLLECTOR STATUS",
+                        "Sensorempfang",
                         if (state.collectorEnabled) "Aktiv" else "Inaktiv",
                         state.lastReading?.let { "${it.glucoseMgDl.toInt()} · ${relativeAge(it.timestampEpochMs)}" }
                             ?: state.lastError?.safeMessage
@@ -143,7 +143,6 @@ class G7SettingsActivity : Activity() {
                     LinearLayout(this@G7SettingsActivity).apply {
                         orientation = LinearLayout.VERTICAL
                         addView(text(section.title, 11f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_PRIMARY), true))
-                        addView(text(section.summary, 8f, palette.settingsArgb(G7AppearanceRole.MENU_TEXT_SECONDARY)))
                     },
                     LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
                 )

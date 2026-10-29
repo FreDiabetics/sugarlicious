@@ -24,9 +24,9 @@ def load(path):
     return root
 
 
-def foreground(data):
+def foreground(data, motif=66):
     root = E.Element('vector', {f'{{{A}}}{k}': v for k, v in dict(width='108dp', height='108dp', viewportWidth='108', viewportHeight='108').items()})
-    group = E.SubElement(root, 'group', {f'{{{A}}}{k}': v for k,v in dict(scaleX=str(66/108), scaleY=str(66/108), translateX='21', translateY='21').items()})
+    group = E.SubElement(root, 'group', {f'{{{A}}}{k}': v for k,v in dict(scaleX=str(motif/108), scaleY=str(motif/108), translateX=str((108-motif)/2), translateY=str((108-motif)/2)).items()})
     E.SubElement(group, 'path', symbol_attributes(data))
     return E.tostring(root, encoding='unicode') + '\n'
 
@@ -76,7 +76,8 @@ def run(source_dir, preview_dir):
         path = copy.deepcopy(paths[0])
         path.attrib.pop('class', None)
         path.set('fill', '#ffffff')
-        group = E.SubElement(combined, f'{{{SVG}}}g', transform='translate(21 21) scale('+str(66/108)+')')
+        motif = 66
+        group = E.SubElement(combined, f'{{{SVG}}}g', transform=f'translate({(108-motif)/2} {(108-motif)/2}) scale({motif/108})')
         group.append(path)
         write(asset_dir / 'combined.svg', E.tostring(combined, encoding='unicode'))
         targets = ['ui-shared/src/main/res/drawable/ic_sugarwear_filled.xml'] if brand == 'SugarWear' else [
@@ -85,7 +86,8 @@ def run(source_dir, preview_dir):
                 'app-wear': ['drawable/ic_foreground.xml','drawable/ic_monochrome_outlined.xml','drawable/ic_notification.xml'],
             }.items() for rel in rels]
         for target in targets:
-            replace_normalized(ROOT / target, data, scale, offset)
+            notification = brand == 'Sugarlicious' and target.startswith('app-mobile/') and 'notification' in target
+            replace_normalized(ROOT / target, data, 82/108 if notification else scale, -8 if notification else offset)
         modules = ['g7watch'] if brand == 'SugarWear' else ['app-mobile','app-wear']
         gradient = bg.find(f'.//{{{SVG}}}linearGradient')
         rect = bg.find(f'{{{SVG}}}rect')
@@ -102,14 +104,14 @@ def run(source_dir, preview_dir):
             bg_name = 'sugarwear_launcher_background.xml' if module == 'g7watch' else 'ic_launcher_background.xml'
             # Adaptive colour and monochrome share the same centered safe motif.
             mono_name = 'ic_sensor_launcher_monochrome' if module == 'g7watch' else 'ic_launcher_monochrome'
-            write(res / 'drawable' / (mono_name + '.xml'), foreground(data))
+            write(res / 'drawable' / (mono_name + '.xml'), foreground(data, motif))
             for adaptive in res.glob('mipmap-anydpi-*/ic*launcher*.xml'):
                 tree = E.parse(adaptive)
                 mono = tree.getroot().find('monochrome')
                 if mono is not None:
                     mono.set(f'{{{A}}}drawable', '@drawable/' + mono_name)
                     write(adaptive, E.tostring(tree.getroot(), encoding='unicode') + '\n')
-            write(res / 'drawable' / fg_name, foreground(data))
+            write(res / 'drawable' / fg_name, foreground(data, motif))
             dest = res / 'drawable' / bg_name
             if raster:
                 image_name = bg_name[:-4] + '_art'
@@ -129,7 +131,7 @@ def run(source_dir, preview_dir):
             output=preview_dir/f'{brand.lower()}-{name}.png'
             cairosvg.svg2png(url=str(asset_dir/f'{name}.svg'),write_to=str(output),output_width=324,output_height=324)
             tile=Image.open(output).convert('RGBA'); sheet.paste(tile,(col*324,row*364+32),tile)
-            draw.text((col*324+8,row*364+8),f'{brand}: {name} '+('safe66/108' if name == 'combined' else 'source108'),fill='white')
+            draw.text((col*324+8,row*364+8),f'{brand}: {name} '+(f'safe{motif}/108' if name == 'combined' else 'source108'),fill='white')
     sheet.save(preview_dir/'adaptive108-contact-sheet.png')
 
 if __name__ == '__main__':
