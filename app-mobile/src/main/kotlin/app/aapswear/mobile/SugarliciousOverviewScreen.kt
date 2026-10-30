@@ -1,17 +1,15 @@
 package app.aapswear.mobile
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -19,12 +17,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LocalTextStyle
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,8 +35,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -45,12 +50,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -94,16 +96,16 @@ internal fun SugarliciousOverviewScreen(
                 .roundToInt()
         }
     val metrics = DashboardLayoutMetrics.forScreenHeight(screenHeightDp)
-    val gap = if (preferences.compact || preferences.showMetabolicGraph) 5.dp else 8.dp
-    val gapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
+    val gap = 12.dp
+    // Extra spacing scrolls with the cards rather than reducing the existing graph heights.
+    val referenceGapDp = if (preferences.compact || preferences.showMetabolicGraph) 5 else 8
     val visibility =
         DashboardVisibilityState(
             showTherapyDetails = false,
             showMetabolicGraph = preferences.showMetabolicGraph,
         )
-    val cgmGraphHeightDp = metrics.cgmGraphHeight(visibility, gapDp)
+    val cgmGraphHeightDp = maxOf(metrics.glucoseChartHeight, metrics.cgmGraphHeight(visibility.copy(showMetabolicGraph = false), referenceGapDp))
     val metabolicGraphHeightDp = maxOf(metrics.metabolicChartHeight - 10, 104)
-    val overviewHeightCompensationDp = if (preferences.showMetabolicGraph) 8 else 0
 
     val cgmChartViewport =
         rememberSaveable(
@@ -200,69 +202,100 @@ internal fun SugarliciousOverviewScreen(
         (if (TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) Color(0xFF9E9E9E) else SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole))).let { color -> if (displayable || TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
     val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
-    val tirStats = calculateTirStats(state, now)
+    val dailyRanges = remember(state, now / 60_000L, java.time.ZoneId.systemDefault()) { dailyGlucoseRanges(state, now) }
+    val overviewScroll = rememberScrollState()
+    var heroHeightPx by remember { mutableIntStateOf(with(density) { 240.dp.roundToPx() }) }
+    val compactVisible by remember { derivedStateOf { overviewScroll.value > heroHeightPx - with(density) { 88.dp.toPx() } } }
 
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(gap),
-    ) {
-        OverviewInlineHeader(
-            onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
-            diagnostics = diagnostics,
-            onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
-            sectionGapDp = gapDp,
-        )
+    fun collapseFraction(): Float = ((overviewScroll.value - heroHeightPx + with(density) { 88.dp.toPx() }) / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
 
-        GlucoseHeroCard(
-            glucoseText = glucoseText,
-            glucoseColor = glucoseColor,
-            trend = if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
-            delta = delta,
-            age = age,
-            unitLabel = unitLabel(unit),
-            tirStats = tirStats,
-            detailMode = preferences.glucoseTileDetailMode,
-            therapyIndicators =
-                therapyIndicatorPresentations(
-                    state = state.takeIf { displayable },
-                    iobMaximumUnits = preferences.iobProgressMaximumUnits,
-                    nowEpochMs = now,
-                    cobMaximumGrams = preferences.cobProgressMaximumGrams,
-                ),
-            visualSpec =
-                GlucoseVisualSpec.twoByTwoWidgetReference().scaled(
-                    preferences.glucoseScalePercent,
-                    preferences.trendScalePercent,
-                ),
-            heightDp = maxOf(metrics.summaryTileHeight + 18 - overviewHeightCompensationDp, 100),
-        )
-
-        if (preferences.showCgmGraph) {
-            GlucoseGraphSurface(
-                state = state,
-                preferences = preferences,
-                viewport = cgmChartViewport,
-                chartHeightDp = cgmGraphHeightDp,
-                now = now,
-                onGraphHours = callbacks.setGraphHours,
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(overviewScroll)
+                    .padding(horizontal = 2.dp, vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            OverviewInlineHeader(
+                onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
+                diagnostics = diagnostics,
+                onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
+                modifier = Modifier.overviewHeaderScrollFade(overviewScroll),
+                glucoseContent = {
+                    Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
+                        OverviewGlucoseHero(
+                            glucoseText = glucoseText,
+                            glucoseColor = glucoseColor,
+                            accentColor = if (displayable && rangePresentation.visibleRole == WidgetColorRole.IN_RANGE) SugarliciousColors.BrandGreen else glucoseColor,
+                            trend = if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
+                            delta = delta,
+                            age = age,
+                            unitLabel = unitLabel(unit),
+                            glucoseScalePercent = preferences.glucoseScalePercent,
+                            trendScalePercent = preferences.trendScalePercent,
+                        )
+                    }
+                },
             )
-        }
 
-        if (preferences.showMetabolicGraph) {
-            MetabolicGraphSurface(
-                state = state,
-                preferences = preferences,
-                viewport = metabolicChartViewport,
-                chartHeightDp = metabolicGraphHeightDp,
-                now = now,
-                scaleRightBlend = sharedScaleRightBlend,
+            if (preferences.showTherapyProgress) {
+                OverviewProgressCard(state.takeIf { displayable }, preferences, now)
+            }
+
+            if (preferences.showCgmGraph) {
+                GlucoseGraphSurface(
+                    state = state,
+                    preferences = preferences,
+                    viewport = cgmChartViewport,
+                    chartHeightDp = cgmGraphHeightDp,
+                    now = now,
+                    onGraphHours = callbacks.setGraphHours,
+                )
+            }
+
+            if (preferences.showMetabolicGraph) {
+                MetabolicGraphSurface(
+                    state = state,
+                    preferences = preferences,
+                    viewport = metabolicChartViewport,
+                    chartHeightDp = metabolicGraphHeightDp,
+                    now = now,
+                    scaleRightBlend = sharedScaleRightBlend,
+                )
+            }
+            if (preferences.showTir || preferences.showTitr) {
+                OverviewRangeCard(dailyRanges, preferences.showTir, preferences.showTitr)
+            }
+        }
+        if (compactVisible) {
+            OverviewCompactGlucoseHeader(
+                glucoseText,
+                glucoseColor,
+                if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
+                delta,
+                unitLabel(unit),
+                age,
+                Modifier.align(Alignment.TopCenter).graphicsLayer { alpha = collapseFraction() },
             )
         }
     }
 }
+
+/** Fade content only near the viewport edge, moving through the header with the gesture. */
+private fun Modifier.overviewHeaderScrollFade(scroll: ScrollState): Modifier =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent {
+        drawContent()
+        val offset = scroll.value.toFloat()
+        if (offset > 0f) {
+            val band = minOf(48.dp.toPx(), offset)
+            drawRect(
+                brush = Brush.verticalGradient(listOf(Color.Transparent, Color.White), startY = offset, endY = offset + band),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
 
 internal fun hasVisiblePredictions(
     predictions: List<GlucosePrediction>,
@@ -282,90 +315,23 @@ internal fun predictionFutureWindowMs(
 ): Long = if (enabled) PredictionDisplayTimeline.futureWindowMs(predictions, now) else 0L
 
 @Composable
-private fun GlucoseHeroCard(
-    glucoseText: String,
-    glucoseColor: Color,
-    trend: Trend,
-    delta: String,
-    age: String,
-    unitLabel: String,
-    tirStats: TirStats,
-    detailMode: GlucoseTileDetailMode,
-    therapyIndicators: List<TherapyIndicatorPresentation>,
-    visualSpec: GlucoseVisualSpec,
-    heightDp: Int,
-) {
-    val shape = RoundedCornerShape(28.dp)
-    val fontScale = LocalDensity.current.fontScale
-    val stacked = fontScale > 1.2f
-
-    @Composable
-    fun GlucosePane(modifier: Modifier) {
-        BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
-            val density = LocalDensity.current
-            val measurer = rememberTextMeasurer()
-            val metadata =
-                buildAnnotatedString {
-                    withStyle(SpanStyle(fontSize = 17.sp)) { append(delta) }
-                    withStyle(SpanStyle(fontSize = 14.sp)) { append(" $unitLabel · $age") }
-                }
-            val measuredWidth = measurer.measure(metadata, LocalTextStyle.current.copy(fontWeight = FontWeight.Bold), softWrap = false).size.width
-            val metadataScale = minOf(1f, with(density) { maxWidth.toPx() } / measuredWidth.coerceAtLeast(1))
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                GlucoseValueAndTrend(
-                    glucoseText,
-                    glucoseColor,
-                    trend,
-                    visualSpec.copy(glucoseTextSize = visualSpec.glucoseTextSize * 1.1f, trendHeight = visualSpec.trendHeight * 1.1f),
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    buildAnnotatedString {
-                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = (17 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(delta) }
-                        withStyle(SpanStyle(color = SugarliciousColors.TextSecondary, fontSize = (14 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(" $unitLabel · ") }
-                        withStyle(SpanStyle(color = SugarliciousColors.TextPrimary, fontSize = (14 * metadataScale).sp, fontWeight = FontWeight.Bold)) { append(age) }
-                    },
-                    color = SugarliciousColors.TextSecondary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-            }
-        }
-    }
-
-    @Composable
-    fun DetailsPane(modifier: Modifier) {
-        if (detailMode == GlucoseTileDetailMode.TIR) {
-            TirProgressColumn(stats = tirStats, modifier = modifier)
-        } else {
-            TherapyIndicatorRow(indicators = therapyIndicators, modifier = modifier)
-        }
-    }
-
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height((heightDp * if (stacked) fontScale * 2.2f else 1f).dp)
-            .background(SugarliciousColors.Surface, shape)
-            .border(1.dp, SugarliciousColors.Border.copy(alpha = .85f), shape)
-            .clip(shape)
-            .padding(horizontal = 18.dp, vertical = 2.dp),
-        contentAlignment = Alignment.Center,
+private fun OverviewRangeCard(ranges: DailyGlucoseRanges, showTir: Boolean, showTitr: Boolean) {
+    Row(
+        Modifier.fillMaxWidth().background(SugarliciousColors.Surface, RoundedCornerShape(28.dp)).padding(18.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        if (stacked) {
-            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                GlucosePane(Modifier.fillMaxWidth().weight(1f))
-                DetailsPane(Modifier.fillMaxWidth().weight(2f))
-            }
-        } else {
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                GlucosePane(Modifier.weight(132f).fillMaxHeight())
-                DetailsPane(Modifier.weight(224f).fillMaxHeight())
+        @Composable fun RangeColumn(stats: MeasuredRangeStats, title: String, bounds: String, modifier: Modifier) {
+            Column(modifier) {
+                Text("Heute", color = SugarliciousColors.TextSecondary, fontSize = 12.sp)
+                Text(title, color = SugarliciousColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(bounds, color = SugarliciousColors.TextSecondary, fontSize = 11.sp)
+                Text(stats.inRange?.let { "$it%" } ?: "—", color = SugarliciousColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                TirProgressColumn(stats, Modifier.fillMaxWidth())
             }
         }
+        if (showTitr) RangeColumn(ranges.titr, "Aktuelle Time in Tight Range", "70–140 mg/dL", Modifier.weight(1f))
+        if (showTir) RangeColumn(ranges.tir, "Aktuelle Time in Range", "70–180 mg/dL", Modifier.weight(1f))
     }
 }
 
@@ -391,55 +357,9 @@ internal fun GlucoseValueAndTrend(
     }
 }
 
-private data class TirStats(
-    val inRange: Int?,
-    val below: Int?,
-    val above: Int?,
-)
-
-private fun calculateTirStats(
-    state: TherapyDisplayState?,
-    now: Long,
-): TirStats {
-    val start = now - 24L * 60L * 60_000L
-    val targetLow = state?.target?.lowMgDl ?: 80.0
-    val targetHigh = state?.target?.highMgDl ?: 160.0
-    val samples =
-        buildList {
-            addAll(state?.glucoseHistory.orEmpty())
-            state?.glucose?.let {
-                add(
-                    app.aapswear.model.GlucoseSample(
-                        valueMgDl = it.valueMgDl,
-                        measuredAtEpochMs = it.measuredAtEpochMs,
-                    ),
-                )
-            }
-        }.filter {
-            it.measuredAtEpochMs in start..(now + 5 * 60_000L) &&
-                it.valueMgDl in 20.0..1000.0
-        }.associateBy { it.measuredAtEpochMs }
-            .values
-
-    if (samples.isEmpty()) {
-        return TirStats(null, null, null)
-    }
-
-    val total = samples.size.toDouble()
-    val below = samples.count { it.valueMgDl < targetLow }
-    val inRange = samples.count { it.valueMgDl in targetLow..targetHigh }
-    val above = samples.count { it.valueMgDl > targetHigh }
-
-    return TirStats(
-        inRange = (inRange / total * 100.0).roundToInt(),
-        below = (below / total * 100.0).roundToInt(),
-        above = (above / total * 100.0).roundToInt(),
-    )
-}
-
 @Composable
 private fun TirProgressColumn(
-    stats: TirStats,
+    stats: MeasuredRangeStats,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -503,7 +423,19 @@ private fun TirProgress(
             val radius =
                 androidx.compose.ui.geometry
                     .CornerRadius(size.height / 2f)
-            drawRoundRect(color = track, cornerRadius = radius)
+            val remainingStart = if (safePercent == 0) 0f else (size.width * safePercent / 100f + size.height * .6f).coerceAtMost(size.width)
+            if (remainingStart < size.width) {
+                drawRoundRect(
+                    color = track,
+                    topLeft =
+                        androidx.compose.ui.geometry
+                            .Offset(remainingStart, 0f),
+                    size =
+                        androidx.compose.ui.geometry
+                            .Size(size.width - remainingStart, size.height),
+                    cornerRadius = radius,
+                )
+            }
             if (safePercent > 0) {
                 drawRoundRect(
                     color = accent,

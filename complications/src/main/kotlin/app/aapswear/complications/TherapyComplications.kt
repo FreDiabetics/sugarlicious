@@ -178,11 +178,13 @@ abstract class TherapyComplicationService(
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
         ActiveProviderUpdates.activate(this, javaClass, request.complicationInstanceId)
         ActiveComplicationRegistry.activate(this, request.complicationInstanceId, catalogId)
-        val phoneState = TherapyStateStore(this).state.first()
-        return build(
-            declaredType ?: request.complicationType,
-            G7LocalReadingResolver.resolve(this, phoneState),
-        )
+        val resolved =
+            if (packageName == "app.aapswear.g7watch") {
+                G7LocalReadingResolver.resolveWatchDirect(this)
+            } else {
+                G7LocalReadingResolver.resolve(this, TherapyStateStore(this).state.first())
+            }
+        return build(declaredType ?: request.complicationType, resolved)
     }
 
     private fun build(

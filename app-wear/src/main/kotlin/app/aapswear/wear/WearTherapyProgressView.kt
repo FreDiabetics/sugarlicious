@@ -20,6 +20,7 @@ class WearTherapyProgressView
         internal var progress: Float? = null
             private set
         private var accent = Color.WHITE
+        private var markerEnabled = false
         private val geometry = TherapyRingGeometry()
         private val paint =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -28,9 +29,10 @@ class WearTherapyProgressView
             }
         private val bounds = RectF()
 
-        internal fun bind(value: Float?, color: Int) {
+        internal fun bind(value: Float?, color: Int, showMarker: Boolean = false) {
             progress = value?.takeIf { it.isFinite() }?.coerceIn(0f, 1f)
             accent = color
+            markerEnabled = showMarker
             invalidate()
         }
 
@@ -42,13 +44,27 @@ class WearTherapyProgressView
             val left = (width - diameter) / 2f + stroke / 2f
             val top = (height - diameter) / 2f + stroke / 2f
             bounds.set(left, top, left + diameter - stroke, top + diameter - stroke)
+            val outline = 1.5f * resources.displayMetrics.density
+            val marker = markerEnabled && progress != null
+            if (marker) bounds.inset(outline, outline)
+            val arcs = app.aapswear.model.progressArcSegments(progress, bounds.width() + stroke, stroke, geometry.sweepDegrees)
             paint.color = accent
+            paint.style = Paint.Style.STROKE
             paint.strokeWidth = stroke
             paint.alpha = (Color.alpha(accent) * .30f).roundToInt()
-            canvas.drawArc(bounds, geometry.composeStartDegrees, geometry.sweepDegrees, false, paint)
-            progress?.takeIf { it > 0f }?.let {
-                paint.alpha = Color.alpha(accent)
-                canvas.drawArc(bounds, geometry.composeStartDegrees, geometry.sweepDegrees * it, false, paint)
+            if (arcs.trackSweep > 0f) canvas.drawArc(bounds, geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, paint)
+            paint.alpha = Color.alpha(accent)
+            if (arcs.fillSweep > 0f) canvas.drawArc(bounds, geometry.composeStartDegrees, arcs.fillSweep, false, paint)
+            if (marker) {
+                val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
+                val x = bounds.centerX() + bounds.width() / 2f * kotlin.math.cos(angle).toFloat()
+                val y = bounds.centerY() + bounds.height() / 2f * kotlin.math.sin(angle).toFloat()
+                paint.style = Paint.Style.FILL
+                canvas.drawCircle(x, y, stroke / 2f, paint)
+                paint.color = Color.BLACK
+                paint.style = Paint.Style.STROKE
+                paint.strokeWidth = outline
+                canvas.drawCircle(x, y, stroke / 2f + outline / 2f, paint)
             }
         }
     }

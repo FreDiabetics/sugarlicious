@@ -42,7 +42,7 @@ class ApexProgressTest(unittest.TestCase):
     def test_optional_gap_preserves_rounded_fill_and_remaining_ends(self):
         option = self.face.find("UserConfigurations/BooleanConfiguration[@id='progressGap']")
         self.assertIsNotNone(option)
-        self.assertEqual("FALSE", option.get("defaultValue"))
+        self.assertEqual("TRUE", option.get("defaultValue"))
         for slot_id in range(7):
             ranged = self.face.find(f"Scene/ComplicationSlot[@slotId='{slot_id}']/Complication[@type='RANGED_VALUE']")
             remaining = ranged.find(f"Group[@name='progress-gap-{slot_id}']")

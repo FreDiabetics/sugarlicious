@@ -1201,15 +1201,24 @@ internal fun renderTherapyIndicatorWidget(
                 strokeWidth = stroke
                 strokeCap = Paint.Cap.ROUND
             }
-        canvas.drawArc(ringBounds, geometry.composeStartDegrees, geometry.sweepDegrees, false, trackPaint)
-        indicator.progress?.takeIf { it > 0f }?.let { progress ->
-            canvas.drawArc(
-                ringBounds,
-                geometry.composeStartDegrees,
-                geometry.sweepDegrees * progress.coerceIn(0f, 1f),
-                false,
-                Paint(trackPaint).apply { color = accent },
-            )
+        val marker = resolved.metric == TherapyProgressMetric.BASAL && indicator.progress != null
+        val outline = 1.5f * renderDensity
+        if (marker) ringBounds.inset(outline, outline)
+        val arcs = app.aapswear.model.progressArcSegments(indicator.progress, ringBounds.width() + stroke, stroke, geometry.sweepDegrees)
+        if (arcs.trackSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, trackPaint)
+        if (arcs.fillSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees, arcs.fillSweep, false, Paint(trackPaint).apply { color = accent })
+        if (marker) {
+            val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
+            val x = ringBounds.centerX() + ringBounds.width() / 2f * kotlin.math.cos(angle).toFloat()
+            val y = ringBounds.centerY() + ringBounds.height() / 2f * kotlin.math.sin(angle).toFloat()
+            val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
+            canvas.drawCircle(x, y, stroke / 2f, markerPaint)
+            markerPaint.apply {
+                color = android.graphics.Color.BLACK
+                style = Paint.Style.STROKE
+                strokeWidth = outline
+            }
+            canvas.drawCircle(x, y, stroke / 2f + outline / 2f, markerPaint)
         }
 
         valuePaint.textSize =

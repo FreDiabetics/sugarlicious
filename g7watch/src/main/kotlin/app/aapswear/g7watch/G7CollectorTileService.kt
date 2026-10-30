@@ -165,10 +165,7 @@ class G7CollectorTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val samsungOneTypefaces =
         G7TileTypefaceCache { bold ->
-            runCatching {
-                val fontContext = createPackageContext("com.monotype.android.font.samsungone", 0)
-                android.graphics.Typeface.createFromAsset(fontContext.assets, "fonts/SamsungOneUI-${if (bold) "Bold" else "Regular"}.ttf")
-            }.getOrNull()
+            app.aapswear.uishared.loadDeviceTileTypeface(this, bold)
         }
 
     override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
@@ -180,11 +177,12 @@ class G7CollectorTileService : TileService() {
         val future = SettableFuture.create<Tile>()
         tileScope.launch {
             runCatching {
+                val rendered = layout(requestParams)
                 Tile
                     .Builder()
-                    .setResourcesVersion(RESOURCES_VERSION)
+                    .setResourcesVersion(rendered.version)
                     .setFreshnessIntervalMillis(60_000L)
-                    .setTileTimeline(Timeline.fromLayoutElement(layout(requestParams)))
+                    .setTileTimeline(Timeline.fromLayoutElement(rendered.element))
                     .build()
             }.onSuccess(future::set)
                 .onFailure(future::setException)
@@ -197,7 +195,12 @@ class G7CollectorTileService : TileService() {
         super.onDestroy()
     }
 
-    private suspend fun layout(requestParams: RequestBuilders.TileRequest): LayoutElementBuilders.LayoutElement {
+    private data class RenderedTile(
+        val element: LayoutElementBuilders.LayoutElement,
+        val version: String,
+    )
+
+    private suspend fun layout(requestParams: RequestBuilders.TileRequest): RenderedTile {
         val reading =
             G7ReadingDatabase(this@G7CollectorTileService).let { database ->
                 try {
@@ -331,28 +334,31 @@ class G7CollectorTileService : TileService() {
                 }.addContent(valueCard)
                 .build()
 
-        return Box
-            .Builder()
-            .setWidth(expand())
-            .setHeight(expand())
-            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .setModifiers(
-                Modifiers
-                    .Builder()
-                    .setBackground(Background.Builder().setColor(argb(palette.argb(G7AppearanceRole.MENU_BACKGROUND))).build())
-                    .setClickable(
-                        Clickable
-                            .Builder()
-                            .setId(OPEN_COLLECTOR_CLICK_ID)
-                            .setOnClick(
-                                ActionBuilders.launchAction(
-                                    ComponentName(this, G7WatchActivity::class.java),
-                                ),
-                            ).build(),
-                    ).build(),
-            ).addContent(content)
-            .build()
+        val root =
+            Box
+                .Builder()
+                .setWidth(expand())
+                .setHeight(expand())
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                .setModifiers(
+                    Modifiers
+                        .Builder()
+                        .setBackground(Background.Builder().setColor(argb(palette.argb(G7AppearanceRole.MENU_BACKGROUND))).build())
+                        .setClickable(
+                            Clickable
+                                .Builder()
+                                .setId(OPEN_COLLECTOR_CLICK_ID)
+                                .setOnClick(
+                                    ActionBuilders.launchAction(
+                                        ComponentName(this, G7WatchActivity::class.java),
+                                    ),
+                                ).build(),
+                        ).build(),
+                ).addContent(content)
+                .build()
+        val token = listOf(presentation, warning, configuredTrendStyle, G7AppearanceRole.entries.map { palette.argb(it) }, resources.configuration.fontScale, resources.configuration.densityDpi).hashCode()
+        return RenderedTile(root, "$RESOURCES_VERSION-$token")
     }
 
     private fun trendImage(
@@ -403,28 +409,8 @@ class G7CollectorTileService : TileService() {
             return null
         }
         val face = samsungOneTypefaces.get(bold) ?: return null
-        val paint =
-            android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                typeface = face
-                textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, size, resources.displayMetrics)
-                this.color = color
-            }
         val content = if (metadata) app.aapswear.uishared.glucoseMetadataText(value) else value
-        val width =
-            kotlin.math
-                .ceil(
-                    android.text.Layout
-                        .getDesiredWidth(content, paint)
-                        .toDouble(),
-                ).toInt()
-                .coerceAtLeast(1)
-        val layout =
-            android.text.StaticLayout.Builder
-                .obtain(content, 0, content.length, paint, width)
-                .setIncludePad(false)
-                .build()
-        val bitmap = androidx.core.graphics.createBitmap(width, layout.height.coerceAtLeast(1))
-        layout.draw(android.graphics.Canvas(bitmap))
+        val bitmap = app.aapswear.uishared.renderDeviceTileTextBitmap(this, face, content, size, color)
         val bytes =
             java.io
                 .ByteArrayOutputStream()
@@ -508,7 +494,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-21-samsung-one"
+        private const val RESOURCES_VERSION = "g7-collector-22-device-one-font"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

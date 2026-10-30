@@ -29,6 +29,33 @@ import org.robolectric.shadows.ShadowAlarmManager
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
+    @Test fun `stopped overview defers state observation until visible again`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val mainLooper = shadowOf(android.os.Looper.getMainLooper())
+        mainLooper.idle()
+        controller.pause().stop()
+        val diagnostics = context.getSharedPreferences("diagnostics", android.content.Context.MODE_PRIVATE)
+        diagnostics.edit().remove("mobileObservedAt").commit()
+        kotlinx.coroutines.runBlocking {
+            app.aapswear.storage.TherapyStateStore(context).save(
+                app.aapswear.model.TherapyDisplayState(receivedAtEpochMs = 1234L),
+            )
+        }
+        repeat(20) {
+            mainLooper.idle()
+            Thread.sleep(10)
+        }
+        assertFalse("Hidden UI must not consume state or refresh charts", diagnostics.contains("mobileObservedAt"))
+        controller.restart().start().resume()
+        repeat(40) {
+            mainLooper.idle()
+            if (!diagnostics.contains("mobileObservedAt")) Thread.sleep(10)
+        }
+        assertTrue("Returning to the overview must immediately observe the latest state", diagnostics.contains("mobileObservedAt"))
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `settings overview hides back while submenus keep it`() {
         val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = controller.get()
@@ -664,7 +691,7 @@ class MainActivityTest {
         val activity = controller.get()
         val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
 
-        assertTrue(scroll.isUserScrollEnabled)
+        assertFalse("Overview uses its viewport-bounded Compose scroller", scroll.isUserScrollEnabled)
         assertEquals(View.GONE, activity.findViewById<View>(R.id.scroll_fade).visibility)
 
         activity.findViewById<View>(R.id.watch_fixed_header)

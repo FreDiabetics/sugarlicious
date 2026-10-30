@@ -36,4 +36,19 @@ class G7VigilClockUpdatesTest {
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertEquals("Destroyed runtime must release its receiver", emptyList<Class<*>>(), requested)
     }
+
+    @Test fun `ordinary active complication ages share existing runtime time receiver`() {
+        val context = RuntimeEnvironment.getApplication()
+        var refreshes = 0
+        val updates = G7VigilClockUpdates(context, refreshComplications = { refreshes++ }, requestUpdate = {})
+        updates.start()
+        assertEquals(1, refreshes)
+        context.sendBroadcast(Intent(Intent.ACTION_TIME_TICK))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(2, refreshes)
+        updates.stop()
+        context.sendBroadcast(Intent(Intent.ACTION_TIME_TICK))
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(2, refreshes)
+    }
 }

@@ -214,7 +214,7 @@
     </ListConfiguration>
     <BooleanConfiguration id="progressMarker" displayName="progress_marker" defaultValue="TRUE" />
     <BooleanConfiguration id="progressGradient" displayName="progress_gradient" defaultValue="TRUE" />
-    <BooleanConfiguration id="progressGap" displayName="progress_gap" defaultValue="FALSE" />
+    <BooleanConfiguration id="progressGap" displayName="progress_gap" defaultValue="TRUE" />
     <BooleanConfiguration id="glucoseColor" displayName="glucose_color" defaultValue="FALSE" />
     <BooleanConfiguration id="upperRightMarkers" displayName="upper_right_markers" defaultValue="TRUE" />
     <ColorConfiguration id="dialTheme" displayName="dial_theme" defaultValue="0">

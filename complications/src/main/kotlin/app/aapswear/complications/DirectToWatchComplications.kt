@@ -568,6 +568,7 @@ object DirectToWatchPreferences {
     }
 
     fun requestUpdates(context: Context) {
+        SugarWearComplicationUpdates.request(context)
         listOf(
             DirectToWatchHeaderComplication::class.java,
             DirectToWatchAnalogHeaderComplication::class.java,

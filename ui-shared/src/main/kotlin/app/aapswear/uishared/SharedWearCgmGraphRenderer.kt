@@ -68,6 +68,8 @@ data class SharedWearCgmGraphStyle(
     val timeAxisOuterLabelInsetDp: Float = 3f,
     val timeHoursBold: Boolean = true,
     val timeAxisBottomInsetDp: Float? = null,
+    val regularTypeface: android.graphics.Typeface? = null,
+    val boldTypeface: android.graphics.Typeface? = null,
 )
 
 object DirectToWatchGraphDefaults {
@@ -239,6 +241,7 @@ object SharedWearCgmGraphRenderer {
                 textSize = input.style.axisTextSizeSp * scaledDensity
                 app.aapswear.uishared.SystemTypography
                     .apply(this, true)
+                input.style.boldTypeface?.let { typeface = it }
             }
         val emptyText =
             Paint(axisText).apply {
@@ -523,7 +526,9 @@ object SharedWearCgmGraphRenderer {
                 val tickEnd = tickStart + spec.tickLengthDp * oneDp
                 // The live position is marked like every other axis value: a short solid tick at the
                 // exact X of the former full-height Now line. Label alignment must not move the tick.
-                SystemTypography.apply(text, tick.hoursBack == 0 || input.style.timeHoursBold)
+                val bold = tick.hoursBack == 0 || input.style.timeHoursBold
+                SystemTypography.apply(text, bold)
+                (if (bold) input.style.boldTypeface else input.style.regularTypeface)?.let { text.typeface = it }
                 val baseline = tickEnd + spec.tickToLabelGapDp * oneDp - text.ascent()
                 val bottomInset = input.style.timeAxisBottomInsetDp
                 val labelBaseline =

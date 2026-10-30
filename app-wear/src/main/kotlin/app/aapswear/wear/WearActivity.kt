@@ -386,7 +386,7 @@ class WearActivity : Activity() {
                 Triple(TherapyTileMetric.COB, R.id.wear_cob_progress, preferences.uiColors.cob),
                 Triple(TherapyTileMetric.BASAL, R.id.wear_basal_progress, preferences.uiColors.basal),
             ).forEach { (metric, id, color) ->
-                findViewById<WearTherapyProgressView>(id).bind(if (canShowValue) wearTherapyProgress(metric, state, now) else null, color)
+                findViewById<WearTherapyProgressView>(id).bind(if (canShowValue) wearTherapyProgress(metric, state, now) else null, color, metric == TherapyTileMetric.BASAL)
             }
             findViewById<TextView>(R.id.wear_iob_secondary).apply {
                 text = if (canShowValue) presentation.iobSecondary.orEmpty() else ""

@@ -4,21 +4,15 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import androidx.wear.protolayout.ColorBuilders.argb
-import androidx.wear.protolayout.DimensionBuilders.degrees
 import androidx.wear.protolayout.DimensionBuilders.dp
 import androidx.wear.protolayout.DimensionBuilders.expand
-import androidx.wear.protolayout.DimensionBuilders.sp
 import androidx.wear.protolayout.LayoutElementBuilders
-import androidx.wear.protolayout.LayoutElementBuilders.Arc
-import androidx.wear.protolayout.LayoutElementBuilders.ArcLine
 import androidx.wear.protolayout.LayoutElementBuilders.Box
 import androidx.wear.protolayout.LayoutElementBuilders.ColorFilter
 import androidx.wear.protolayout.LayoutElementBuilders.Column
-import androidx.wear.protolayout.LayoutElementBuilders.FontStyle
 import androidx.wear.protolayout.LayoutElementBuilders.Image
 import androidx.wear.protolayout.LayoutElementBuilders.Row
 import androidx.wear.protolayout.LayoutElementBuilders.Spacer
-import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders.Background
 import androidx.wear.protolayout.ModifiersBuilders.Border
 import androidx.wear.protolayout.ModifiersBuilders.Corner
@@ -75,7 +69,7 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
-private const val TILE_RESOURCES_VERSION = "sugarlicious-11-system-font-700"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-15-basal-tile-preserved"
 private const val TILE_GRAPH_RESOURCE_ID = "live_cgm_graph"
 private const val TILE_GRAPH_WIDTH_PX = 296
 private const val TILE_GRAPH_HEIGHT_PX = 120
@@ -264,6 +258,12 @@ internal fun wearTileGraphPoints(
 
 abstract class SugarliciousTileService : TileService() {
     private val tileScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val tileTypography = SugarliciousTileTypography(this)
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        tileTypography.clear()
+    }
 
     protected abstract val tileKind: WearTileKind
 
@@ -296,7 +296,7 @@ abstract class SugarliciousTileService : TileService() {
             }
         return Tile
             .Builder()
-            .setResourcesVersion(resourcesVersion)
+            .setResourcesVersion("$resourcesVersion-${listOf(state.hashCode(), colors.hashCode(), preferences.hashCode(), resources.configuration.fontScale, resources.configuration.densityDpi, now / 60_000L).hashCode()}")
             .setFreshnessIntervalMillis(60_000L)
             .setTileTimeline(
                 Timeline.fromLayoutElement(
@@ -309,11 +309,12 @@ abstract class SugarliciousTileService : TileService() {
                             therapySelection,
                             therapyAppearance,
                             minOf(requestParams.deviceConfiguration.screenWidthDp, requestParams.deviceConfiguration.screenHeightDp).toFloat(),
+                            tileTypography,
                         )
                     } else {
                         when (content) {
-                            WearTileContent.GLUCOSE -> glucoseTileContent(requestParams.scope, state, colors, now, preferences)
-                            WearTileContent.GRAPH -> graphTileContent(requestParams.scope, state, colors, now, preferences, resources.configuration.fontScale)
+                            WearTileContent.GLUCOSE -> glucoseTileContent(requestParams.scope, state, colors, now, preferences, tileTypography)
+                            WearTileContent.GRAPH -> graphTileContent(requestParams.scope, state, colors, now, preferences, resources.configuration.fontScale, tileTypography)
                         }
                     },
                 ),
@@ -336,18 +337,22 @@ private fun glucoseTileContent(
     colors: WatchUiColors,
     now: Long,
     preferences: WearDisplayPreferences,
+    textRenderer: SugarliciousTileTypography,
 ): LayoutElementBuilders.LayoutElement {
     val presentation = wearGlucoseTilePresentation(state, colors, now, preferences.cgmThresholds)
+    val trendSpace = presentation.trend?.let(TrendVisuals::spec)?.let { 7f + GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * preferences.trendArrowStyle.renderSpec().scale * it.aspectRatio } ?: 0f
     val primary =
         Row
             .Builder()
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .addContent(
-                tileText(
+                textRenderer.text(
+                    scope,
                     presentation.value,
                     42f * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent),
                     presentation.valueColor,
                     bold = true,
+                    maxWidthDp = (textRenderer.contentWidthDp - 28f - trendSpace).coerceAtLeast(24f),
                 ),
             ).apply {
                 val spec = presentation.trend?.let(TrendVisuals::spec)
@@ -362,7 +367,7 @@ private fun glucoseTileContent(
             .Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(tileText(presentation.status, 10f, presentation.statusColor, bold = true))
+            .addContent(textRenderer.text(scope, presentation.status, 10f, presentation.statusColor, bold = true))
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
             .addContent(card)
             .addContent(Spacer.Builder().setHeight(dp(6f)).build())
@@ -370,10 +375,10 @@ private fun glucoseTileContent(
                 Row
                     .Builder()
                     .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                    .addContent(tileText(presentation.meta.replace("  ·  ", " "), 14f, colors.deltaUnit, bold = true))
+                    .addContent(textRenderer.text(scope, presentation.meta.replace("  ·  ", " "), 14f, colors.deltaUnit, bold = true, maxWidthDp = textRenderer.contentWidthDp * .65f))
                     .apply {
                         Regex("\\b\\d+m\\b").find(presentation.footer)?.value?.let {
-                            addContent(tileText(" · $it", 14f, colors.textSecondary, bold = true))
+                            addContent(textRenderer.text(scope, " · $it", 14f, colors.textSecondary, bold = true, maxWidthDp = textRenderer.contentWidthDp * .35f))
                         }
                     }.build(),
             ).addContent(Spacer.Builder().setHeight(dp(4f)).build())
@@ -392,8 +397,9 @@ private fun graphTileContent(
     now: Long,
     preferences: WearDisplayPreferences,
     fontScale: Float,
+    textRenderer: SugarliciousTileTypography,
 ): LayoutElementBuilders.LayoutElement {
-    val bitmap = renderWearTileGraph(state, preferences, now, fontScale)
+    val bitmap = renderWearTileGraph(state, preferences, now, fontScale, textRenderer.typeface(false), textRenderer.typeface(true))
     val graphPixels =
         try {
             bitmap.toRgb565Image()
@@ -416,7 +422,7 @@ private fun graphTileContent(
         Column
             .Builder()
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(tileText("CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
+            .addContent(textRenderer.text(scope, "CGM · ${preferences.graphHours}h", 12f, colors.accent, bold = true))
             .addContent(Spacer.Builder().setHeight(dp(5f)).build())
             .addContent(
                 Image
@@ -434,6 +440,8 @@ internal fun renderWearTileGraph(
     preferences: WearDisplayPreferences,
     now: Long,
     fontScale: Float = 1f,
+    regularTypeface: android.graphics.Typeface? = null,
+    boldTypeface: android.graphics.Typeface? = null,
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(TILE_GRAPH_WIDTH_PX, TILE_GRAPH_HEIGHT_PX, Bitmap.Config.ARGB_8888)
     val graphColors = preferences.graphColors
@@ -484,6 +492,8 @@ internal fun renderWearTileGraph(
                         historicalDotOutlineEnabled = preferences.graphStyle.cgmHistoricalDotOutlineEnabled,
                         currentDotOutlineEnabled = true,
                         scaleLaneOpacityPercent = preferences.graphStyle.scaleLaneOpacityPercent,
+                        regularTypeface = regularTypeface,
+                        boldTypeface = boldTypeface,
                     ),
             ),
     )
@@ -563,26 +573,6 @@ private fun tileTrendImage(
 
 private fun trendResourceId(asset: TrendVisualAsset): String = "trend_${asset.name.lowercase()}"
 
-private fun tileText(
-    value: String,
-    size: Float,
-    color: Int,
-    bold: Boolean,
-): Text =
-    Text
-        .Builder()
-        .setText(value)
-        .setMaxLines(1)
-        .setFontStyle(
-            FontStyle
-                .Builder()
-                .setSize(sp(size))
-                .setColor(argb(color))
-                .setPreferredFontFamilies("sans-serif")
-                .setWeight(sugarliciousTileWeight(bold))
-                .build(),
-        ).build()
-
 internal fun requestSugarliciousTileUpdates(context: Context) {
     requestSugarliciousTileUpdates(context, setOf(GlucoseTileService::class.java, TherapyTileService::class.java))
 }
@@ -595,6 +585,7 @@ private fun therapyTileContent(
     selection: TherapyTileSelection,
     appearance: TherapyProgressAppearance,
     availableSideDp: Float,
+    textRenderer: SugarliciousTileTypography,
 ): LayoutElementBuilders.LayoutElement {
     val presentation = wearTherapyTilePresentation(state, now)
     val effectiveAppearance = appearance.copy(enabledMetrics = selection.canonical.mapTo(linkedSetOf()) { it.toProgressMetric() })
@@ -620,6 +611,7 @@ private fun therapyTileContent(
                 item.primaryTextSizeSp,
                 item.secondaryTextSizeSp,
                 item.iconSizeDp,
+                textRenderer,
             )
         group.addContent(
             Box
@@ -646,47 +638,44 @@ private fun therapyMetricCard(
     primaryTextSizeSp: Float,
     secondaryTextSizeSp: Float,
     configuredIconSizeDp: Float,
+    textRenderer: SugarliciousTileTypography,
 ): Box {
     val value = therapyMetricValue(metric, presentation)
-    val progress = wearTherapyProgress(metric, state, nowEpochMs) ?: 0f
+    val progress = wearTherapyProgress(metric, state, nowEpochMs)
     val accent =
         when (metric) {
             TherapyTileMetric.IOB -> colors.iob
             TherapyTileMetric.COB -> colors.cob
             TherapyTileMetric.BASAL -> colors.basal
         }
-    val backgroundArc =
-        ArcLine
-            .Builder()
-            .setLength(degrees(ring.sweepDegrees))
-            .setThickness(dp(ring.strokeWidthDp))
-            // ProtoLayout ArcLine requires an opaque color. Pre-composite the Mobile
-            // accent at 30% over the Tile background to preserve the same appearance.
-            .setColor(argb(opaqueOverlay(accent, colors.background, 0.30f)))
-            .build()
-    val progressArc =
-        ArcLine
-            .Builder()
-            .setLength(degrees(ring.sweepDegrees * progress))
-            .setThickness(dp(ring.strokeWidthDp))
-            .setColor(argb(accent))
-            .build()
-    val backgroundRing =
-        Arc
-            .Builder()
-            .setAnchorAngle(degrees(ring.protoLayoutStartDegrees))
-            .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
-            .addContent(backgroundArc)
-            .build()
-    val progressRing =
-        Arc
-            .Builder()
-            .setAnchorAngle(degrees(ring.protoLayoutStartDegrees))
-            .setAnchorType(LayoutElementBuilders.ARC_ANCHOR_START)
-            .addContent(progressArc)
+    val bitmap = renderTherapyTileRing(ring, progress, accent, colors.background, metric == TherapyTileMetric.BASAL)
+    val pixels =
+        try {
+            bitmap.toRgb565Image()
+        } finally {
+            bitmap.recycle()
+        }
+    val ringImage =
+        Image
+            .Builder(scope)
+            .setImageResource(
+                ImageResource
+                    .Builder()
+                    .setInlineResource(
+                        InlineImageResource
+                            .Builder()
+                            .setData(pixels.data)
+                            .setWidthPx(pixels.widthPx)
+                            .setHeightPx(pixels.heightPx)
+                            .setFormat(IMAGE_FORMAT_RGB_565)
+                            .build(),
+                    ).build(),
+                "therapy_ring_${metric.name.lowercase()}",
+            ).setWidth(dp(ring.diameterDp))
+            .setHeight(dp(ring.diameterDp))
             .build()
     val fittedPrimarySp = minOf(primaryTextSizeSp * 1.12f, ring.diameterDp * .78f / (value.length.coerceAtLeast(1) * .58f))
-    val valueContent = tileText(value, fittedPrimarySp, colors.textPrimary, bold = true)
+    val valueContent = textRenderer.text(scope, value, fittedPrimarySp, colors.textPrimary, bold = true, maxWidthDp = ring.diameterDp * .70f, maxHeightDp = ring.diameterDp * .34f)
     val secondary =
         when (metric) {
             TherapyTileMetric.IOB -> presentation.iobSecondary
@@ -700,7 +689,7 @@ private fun therapyMetricCard(
             .addContent(valueContent)
             .apply {
                 secondary?.let {
-                    addContent(tileText(it, secondaryTextSizeSp * 1.12f, colors.textSecondary, bold = false))
+                    addContent(textRenderer.text(scope, it, secondaryTextSizeSp * 1.12f, colors.textSecondary, bold = false, maxWidthDp = ring.diameterDp * .70f, maxHeightDp = ring.diameterDp * .20f))
                 }
             }.build()
     val iconState = wearTherapyIcon(metric, state, nowEpochMs)
@@ -734,11 +723,54 @@ private fun therapyMetricCard(
         .setHeight(dp(ring.diameterDp))
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
         .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-        .addContent(backgroundRing)
-        .addContent(progressRing)
+        .addContent(ringImage)
         .addContent(textContent)
         .addContent(iconOverlay)
         .build()
+}
+
+internal fun renderTherapyTileRing(ring: TherapyRingLayoutSpec, progress: Float?, accent: Int, background: Int, showMarker: Boolean): Bitmap {
+    val scale = 3f
+    val side = (ring.diameterDp * scale).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    canvas.drawColor(background)
+    val stroke = ring.strokeWidthDp * scale
+    val outline = 1.5f * scale
+    val marker = showMarker && progress?.isFinite() == true
+    val inset = stroke / 2f + if (marker) outline else 0f
+    val bounds = android.graphics.RectF(inset, inset, side - inset, side - inset)
+    val sweep = ring.sweepDegrees
+    val arcs = app.aapswear.model.progressArcSegments(progress, bounds.width() + stroke, stroke, sweep)
+    val paint =
+        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            style = android.graphics.Paint.Style.STROKE
+            strokeCap = android.graphics.Paint.Cap.ROUND
+            strokeWidth = stroke
+            color = opaqueOverlay(accent, background, .30f)
+        }
+    if (marker) {
+        paint.color = accent
+        canvas.drawArc(bounds, ring.geometry.composeStartDegrees, sweep, false, paint)
+    } else {
+        if (arcs.trackSweep > 0f) canvas.drawArc(bounds, ring.geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, paint)
+        paint.color = accent
+        if (arcs.fillSweep > 0f) canvas.drawArc(bounds, ring.geometry.composeStartDegrees, arcs.fillSweep, false, paint)
+    }
+    if (marker) {
+        val angle = Math.toRadians((ring.geometry.composeStartDegrees + arcs.fillSweep).toDouble())
+        val x = bounds.centerX() + bounds.width() / 2f * kotlin.math.cos(angle).toFloat()
+        val y = bounds.centerY() + bounds.height() / 2f * kotlin.math.sin(angle).toFloat()
+        paint.style = android.graphics.Paint.Style.FILL
+        canvas.drawCircle(x, y, stroke / 2f, paint)
+        paint.apply {
+            color = android.graphics.Color.BLACK
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = outline
+        }
+        canvas.drawCircle(x, y, stroke / 2f + outline / 2f, paint)
+    }
+    return bitmap
 }
 
 internal data class TherapyRingLayoutSpec(
