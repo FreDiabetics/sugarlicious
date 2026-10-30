@@ -423,7 +423,7 @@ private fun TirProgress(
             val radius =
                 androidx.compose.ui.geometry
                     .CornerRadius(size.height / 2f)
-            val remainingStart = if (safePercent == 0) 0f else (size.width * safePercent / 100f + size.height * .6f).coerceAtMost(size.width)
+            val remainingStart = if (safePercent == 0) 0f else (size.width * safePercent / 100f + size.height * .25f).coerceAtMost(size.width)
             if (remainingStart < size.width) {
                 drawRoundRect(
                     color = track,

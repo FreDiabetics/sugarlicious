@@ -183,8 +183,9 @@ internal fun TherapyCircularIndicator(
                 val stroke = (geometry.strokeWidthDp * proportionalScale).dp.toPx()
                 val basal = indicator.label == "Basal"
                 val marker = basal && indicator.progress != null
-                val outline = ((if (basal) 2.5f else 1.5f) * proportionalScale).dp.toPx()
-                val inset = stroke / 2f + if (marker) outline else 0f
+                val outline = (1.5f * proportionalScale).dp.toPx()
+                // Keep the arc geometry stable when refining the marker contour.
+                val inset = stroke / 2f + if (marker) (2.5f * proportionalScale).dp.toPx() else 0f
                 val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 val sweep = geometry.sweepDegrees
                 val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep)

@@ -46,7 +46,7 @@ internal fun OverviewCompactGlucoseHeader(glucose: String, color: Color, trend: 
             horizontalArrangement = Arrangement.spacedBy((12f * scale).dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlucoseValueAndTrend(glucose, readableGlucose, trend, GlucoseVisualSpec.twoByTwoWidgetReference().copy(glucoseTextSize = 30f * scale, trendHeight = 24f * scale))
+            GlucoseValueAndTrend(glucose, readableGlucose, trend, GlucoseVisualSpec.twoByTwoWidgetReference().copy(glucoseTextSize = 30f * scale, trendHeight = 20f * scale))
             OverviewReadingMetadata(delta, unit, age, compact = true, scale = scale)
         }
     }
