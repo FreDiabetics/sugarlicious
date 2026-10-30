@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repoRoot 'tools/watchface-catalog.ps1')
 
-$expectedProducts = @('sugarlicious-digital', 'sugarlicious-analog', 'sugarlicious-direct-to-watch', 'sugarlicious-orbit')
+$expectedProducts = @('sugarlicious-digital', 'sugarlicious-analog', 'sugarlicious-orbit')
 $actualProducts = @($ACTIVE_WATCHFACES.Module)
 if (Compare-Object $expectedProducts $actualProducts) {
     throw "Active product watchfaces differ: $($actualProducts -join ', ')"
@@ -11,9 +11,6 @@ if (Compare-Object $expectedProducts $actualProducts) {
 
 if (Compare-Object @('sugarlicious-digital', 'sugarlicious-analog', 'sugarlicious-orbit') @($SUGARLICIOUS_WATCHFACES.Module)) {
     throw 'Sugarlicious Push catalog must contain only Digital, ApeX and Orbit.'
-}
-if (@($SUGARWEAR_WATCHFACES).Count -ne 1 -or $SUGARWEAR_WATCHFACES[0].Module -ne 'sugarlicious-direct-to-watch') {
-    throw 'SugarWear catalog must contain only Vigil.'
 }
 $pushPreparation = Get-Content (Join-Path $repoRoot 'tools/watchface-push/Prepare-WatchFacePushAssets.ps1') -Raw
 if ($pushPreparation -match '\$ACTIVE_WATCHFACES' -or $pushPreparation -notmatch '\$SUGARLICIOUS_WATCHFACES') {
@@ -61,4 +58,4 @@ if ($controller -match 'legacyFaceSpecs|watchfacepush\.aaps|watchfacepush\.aimic
     throw 'Retired watchface deployment metadata remains in the Wear runtime.'
 }
 
-Write-Host 'PASS: product watchface matrix contains Digital, ApeX, Vigil, Orbit, and the validator fixture.'
+Write-Host 'PASS: product watchface matrix contains Digital, ApeX, Orbit, and the validator fixture.'

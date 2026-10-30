@@ -1,14 +1,9 @@
-import java.io.ByteArrayOutputStream
 import java.io.File
-import javax.inject.Inject
-import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.testing.Test
-import org.gradle.process.ExecOperations
 import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
@@ -23,214 +18,13 @@ plugins {
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0" apply false
 }
 
-subprojects {
-    tasks.withType<Test>().configureEach {
-        // Robolectric 4.17 uses the JDK's FileDescriptor bridge while bootstrapping
-        // Android 17. JDK 25 encapsulates that bridge unless it is opened to tests.
-        jvmArgs("--add-opens=java.base/jdk.internal.access=ALL-UNNAMED")
-    }
-
-    fun enableKotlinQualityGates() {
-        pluginManager.apply("dev.detekt")
-        pluginManager.apply("org.jlleitschuh.gradle.ktlint")
-    }
-
-    pluginManager.withPlugin("org.jetbrains.kotlin.android") { enableKotlinQualityGates() }
-    pluginManager.withPlugin("org.jetbrains.kotlin.jvm") { enableKotlinQualityGates() }
-    pluginManager.withPlugin("com.android.application") { enableKotlinQualityGates() }
-    pluginManager.withPlugin("com.android.library") { enableKotlinQualityGates() }
-
-    pluginManager.withPlugin("com.android.application") {
-        extensions.configure<ApplicationExtension>("android") {
-            packaging.jniLibs.keepDebugSymbols.addAll(
-                listOf(
-                    "**/libandroidx.graphics.path.so",
-                    "**/libdatastore_shared_counter.so",
-                ),
-            )
-        }
-    }
-
-    if (path.startsWith(":watchfaces:")) {
-        pluginManager.withPlugin("com.android.application") {
-            extensions.configure<ApplicationExtension>("android") {
-                sourceSets
-                    .getByName("main")
-                    .res
-                    .directories
-                    .add(rootProject.file("watchfaces/shared-res").absolutePath)
-                lint {
-                    // Android Lint does not model the platform-loaded WFF roots
-                    // (watch_face_info, watch_face_shapes and raw/watchface), so it reports
-                    // their complete reachable resource graph as unused. WFF schema validation
-                    // and the code-free APK verifier are the authoritative gates here.
-                    disable.add("UnusedResources")
-                    // R8 is required to strip Android-plugin generated DEX from these hasCode=false
-                    // packages. Resource shrinking cannot be enabled safely for WFF's platform-
-                    // resolved XML graph, so the code-free verifier enforces the actual contract.
-                    disable.add("NotShrinkingResources")
-                    // WFF packages intentionally reuse their full-bleed watchface preview as the
-                    // package icon. It is picker artwork, not a maskable launcher foreground.
-                    disable.add("IconLauncherShape")
-                    // Large WFF vectors are full-face picker previews. Raster copies would lose
-                    // density-independent fidelity and are not a runtime icon optimization.
-                    disable.add("VectorRaster")
-                }
-            }
-        }
-    }
-
-    tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
-        // Detekt analysis follows the Android/JVM 17 source contract. This affects
-        // analysis only; production compilation keeps each module's configured target.
-        jvmTarget.set("17")
-        buildUponDefaultConfig = true
-        config.setFrom(rootProject.file("config/detekt/detekt.yml"))
-    }
-}
+apply(from = "gradle/shared-conventions.gradle")
 
 // Mobile and Wear deliberately share app.sugarlicious because they are companion variants on
 // different devices. Keep their version monotonically aligned so an in-place update never
 // becomes a downgrade merely because one variant was built later than the other.
 extra["sugarliciousSuiteVersionCode"] = 71
 extra["sugarliciousSuiteVersionName"] = "0.7.1"
-
-abstract class InstallWatchProductDebugTask
-    @Inject
-    constructor(
-        private val execOperations: ExecOperations,
-    ) : DefaultTask() {
-        @get:org.gradle.api.tasks.Optional
-        @get:InputFile
-        abstract val mobileApk: RegularFileProperty
-
-        @get:org.gradle.api.tasks.Optional
-        @get:InputFile
-        abstract val wearApk: RegularFileProperty
-
-        @get:org.gradle.api.tasks.Optional
-        @get:InputFile
-        abstract val g7WatchApk: RegularFileProperty
-
-        @get:org.gradle.api.tasks.Optional
-        @get:InputFile
-        abstract val vigilApk: RegularFileProperty
-
-        @get:org.gradle.api.tasks.Input
-        abstract val companionProduct: org.gradle.api.provider.Property<Boolean>
-
-        @get:org.gradle.api.tasks.Input
-        abstract val legacyMigration: org.gradle.api.provider.Property<Boolean>
-
-        @TaskAction
-        fun install() {
-            check(!legacyMigration.get()) { "Legacy migration artifacts are not normal product installers" }
-            val devices =
-                adb("devices")
-                    .lineSequence()
-                    .drop(1)
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() && it.endsWith("\tdevice") }
-                    .map { it.substringBefore('\t') }
-                    // Wireless debugging may publish the same physical device through more than
-                    // one mDNS alias. Keep the safety gate for multiple real devices, but do not
-                    // reject duplicate transports that report the same hardware serial number.
-                    .distinctBy(::physicalId)
-                    .toList()
-
-            check(devices.isNotEmpty()) {
-                "Keine per ADB verbundenen Geräte gefunden. Smartphone und Watch müssen beide als 'device' erreichbar sein."
-            }
-
-            val watches = devices.filter(::isWatch)
-            val phones = devices.filterNot { it in watches }
-
-            check(!companionProduct.get() || phones.size == 1) {
-                "Genau ein Smartphone wird erwartet, gefunden: ${describe(phones)}. " +
-                    "Weitere Phones/Emulatoren vor der Installation trennen."
-            }
-            check(watches.size == 1) {
-                "Genau eine Wear-OS-Watch wird erwartet, gefunden: ${describe(watches)}. " +
-                    "Weitere Watches/Emulatoren vor der Installation trennen."
-            }
-
-            val watch = watches.single()
-            if (companionProduct.get()) {
-                val phone = phones.single()
-                logger.lifecycle("Sugarlicious Phone: ${model(phone)} [$phone]")
-                logger.lifecycle("Sugarlicious Watch: ${model(watch)} [$watch]")
-                installApk(phone, mobileApk.get().asFile, "Sugarlicious Mobile")
-                installApk(watch, wearApk.get().asFile, "Sugarlicious Wear")
-            } else {
-                logger.lifecycle("SugarWear Watch: ${model(watch)} [$watch]")
-                installApk(watch, g7WatchApk.get().asFile, "SugarWear")
-                installApk(watch, vigilApk.get().asFile, "Vigil")
-            }
-        }
-
-        private fun isWatch(serial: String): Boolean =
-            adb("-s", serial, "shell", "getprop", "ro.build.characteristics")
-                .trim()
-                .split(',')
-                .any { it.trim().equals("watch", ignoreCase = true) }
-
-        private fun model(serial: String): String =
-            adb("-s", serial, "shell", "getprop", "ro.product.model")
-                .trim()
-                .ifBlank { "unbekannt" }
-
-        private fun physicalId(serial: String): String =
-            adb("-s", serial, "shell", "getprop", "ro.serialno")
-                .trim()
-                .ifBlank { serial }
-
-        private fun describe(serials: List<String>): String =
-            if (serials.isEmpty()) "0"
-            else serials.joinToString { serial -> "${model(serial)} [$serial]" }
-
-        private fun installApk(
-            serial: String,
-            apk: File,
-            label: String,
-        ) {
-            check(apk.isFile) { "$label-APK fehlt: ${apk.absolutePath}" }
-            logger.lifecycle("Installiere $label auf ${model(serial)} …")
-            val output = adb("-s", serial, "install", "-r", "-t", apk.absolutePath).trim()
-            check(output.lineSequence().any { it.trim().equals("Success", ignoreCase = true) }) {
-                "$label wurde von ADB nicht als erfolgreich bestätigt:\n$output"
-            }
-        }
-
-        private fun adb(vararg arguments: String): String {
-            val stdout = ByteArrayOutputStream()
-            val stderr = ByteArrayOutputStream()
-            val result =
-                execOperations.exec {
-                    commandLine(adbExecutable(), *arguments)
-                    standardOutput = stdout
-                    errorOutput = stderr
-                    isIgnoreExitValue = true
-                }
-            val output = stdout.toString(Charsets.UTF_8)
-            val error = stderr.toString(Charsets.UTF_8)
-            check(result.exitValue == 0) {
-                "ADB fehlgeschlagen (${result.exitValue}): adb ${arguments.joinToString(" ")}\n$error\n$output"
-            }
-            return output
-        }
-
-        private fun adbExecutable(): String {
-            val windows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
-            val executableName = if (windows) "adb.exe" else "adb"
-            val sdkRoot = System.getenv("ANDROID_SDK_ROOT") ?: System.getenv("ANDROID_HOME")
-            if (!sdkRoot.isNullOrBlank()) {
-                val sdkAdb = File(sdkRoot, "platform-tools/$executableName")
-                if (sdkAdb.isFile) return sdkAdb.absolutePath
-            }
-            return executableName
-        }
-
-    }
 
 val watchFaceValidatorCli = configurations.create("watchFaceValidatorCli")
 
@@ -246,25 +40,13 @@ tasks.register<Copy>("prepareWatchFaceValidatorCli") {
     into(layout.buildDirectory.dir("watchface-push/tools"))
 }
 
-// Independent products: neither installer mutates packages owned by the other product.
-tasks.register<InstallWatchProductDebugTask>("installSugarliciousDebug") {
-    group = "install"
+extra["productInstallTaskName"] = "installSugarliciousDebug"
+extra["productPhoneApks"] = listOf("app-mobile/build/outputs/apk/debug/app-mobile-debug.apk")
+extra["productWatchApks"] = listOf("app-wear/build/outputs/apk/debug/app-wear-debug.apk")
+apply(from = "gradle/product-installer.gradle")
+tasks.named("installSugarliciousDebug") {
     description = "Builds and installs only Sugarlicious Mobile and its Wear companion."
-    companionProduct.set(true)
-    legacyMigration.set(providers.gradleProperty("legacyProductMigration").map { it == "true" }.orElse(false))
     dependsOn(":app-mobile:assembleDebug", ":app-wear:assembleDebug")
-    mobileApk.set(layout.projectDirectory.file("app-mobile/build/outputs/apk/debug/app-mobile-debug.apk"))
-    wearApk.set(layout.projectDirectory.file("app-wear/build/outputs/apk/debug/app-wear-debug.apk"))
-}
-
-tasks.register<InstallWatchProductDebugTask>("installSugarWearDebug") {
-    group = "install"
-    description = "Builds and installs only SugarWear and Vigil on one connected watch; no phone required."
-    companionProduct.set(false)
-    legacyMigration.set(providers.gradleProperty("legacyProductMigration").map { it == "true" }.orElse(false))
-    dependsOn(":g7watch:assembleDebug", ":watchfaces:sugarlicious-direct-to-watch:assembleDebug")
-    g7WatchApk.set(layout.projectDirectory.file("g7watch/build/outputs/apk/debug/g7watch-debug.apk"))
-    vigilApk.set(layout.projectDirectory.file("watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/debug/sugarlicious-direct-to-watch-debug.apk"))
 }
 
 abstract class VerifyArchitectureTask : DefaultTask() {
@@ -274,12 +56,9 @@ abstract class VerifyArchitectureTask : DefaultTask() {
     @get:InputFile
     abstract val mobileManifest: RegularFileProperty
 
-    @get:InputFile
-    abstract val watchManifest: RegularFileProperty
-
     @TaskAction
     fun verify() {
-        val applicationModules = setOf(":app-mobile", ":app-wear", ":g7watch")
+        val applicationModules = setOf(":app-mobile", ":app-wear")
         val sharedModules =
             setOf(
                 ":core-model",
@@ -337,23 +116,18 @@ abstract class VerifyArchitectureTask : DefaultTask() {
         check("android.permission.BLUETOOTH_CONNECT" !in mobilePermissions) {
             "Mobile must not request BLE connect permission; direct collection is Wear-only"
         }
-
-        val watchFeatures = manifestValues(watchManifest.get().asFile, "uses-feature", "name")
-        check("android.hardware.type.watch" in watchFeatures) { "SugarWear must remain Watch-only" }
-        check("android.hardware.bluetooth_le" in watchFeatures) { "SugarWear must require BLE hardware" }
     }
 }
 
 val architectureModules = setOf(
-    ":app-mobile", ":app-wear", ":g7watch", ":core-model", ":data-source-api",
+    ":app-mobile", ":app-wear", ":core-model", ":data-source-api",
     ":data-source-aaps", ":data-source-dexcom", ":data-source-external", ":dexcom-g7", ":wear-protocol", ":wear-storage",
     ":ui-shared", ":complications",
 )
 val verifyArchitecture = tasks.register<VerifyArchitectureTask>("verifyArchitecture") {
     group = "verification"
-    description = "Verifies Sugarlicious module direction and Wear-only G7 collector boundaries."
+    description = "Verifies Sugarlicious module direction and shared library boundaries."
     mobileManifest.set(layout.projectDirectory.file("app-mobile/src/main/AndroidManifest.xml"))
-    watchManifest.set(layout.projectDirectory.file("g7watch/src/main/AndroidManifest.xml"))
 }
 // Snapshot the configured dependency graph once, before execution. The verification task
 // receives plain values and declared file inputs, never live Project/script references.

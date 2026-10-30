@@ -10,7 +10,7 @@ val vigilHandResources = layout.buildDirectory.dir("generated/vigilHands/res")
 val syncVigilHandResources =
     tasks.register<Sync>("syncVigilHandResources") {
         into(vigilHandResources)
-        from(rootProject.file("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi")) {
+        from(projectDir.parentFile.resolve("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi")) {
             include("hour_hand_transparent.png", "minute_hand_transparent.png", "second_hand_transparent.png")
             into("drawable-nodpi")
         }

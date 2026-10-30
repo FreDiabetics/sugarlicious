@@ -11,11 +11,9 @@ class ProductInstallerTest(unittest.TestCase):
         for module, expected in (
             ("app-mobile", "app.sugarlicious"),
             ("app-wear", "app.sugarlicious"),
-            ("g7watch", "app.sugarwear"),
             ("watchfaces/sugarlicious-analog", "app.sugarlicious.watchfacepush.apex"),
             ("watchfaces/sugarlicious-orbit", "app.sugarlicious.watchfacepush.orbit"),
             ("watchfaces/sugarlicious-digital", "app.sugarlicious.watchfacepush.digital"),
-            ("watchfaces/sugarlicious-direct-to-watch", "app.sugarwear.watchfacepush.vigil"),
         ):
             source = (ROOT / module / "build.gradle.kts").read_text(encoding="utf-8")
             if module in ("app-mobile", "app-wear", "g7watch"):
@@ -25,33 +23,16 @@ class ProductInstallerTest(unittest.TestCase):
                 self.assertIn(f'applicationId = "{expected}"', source)
             self.assertRegex(source, r'namespace = "app\.aapswear\.')
 
-    def test_vigil_targets_the_independent_collector_with_retained_class_names(self):
-        import xml.etree.ElementTree as ET
-        root = ET.parse(ROOT / "watchfaces/sugarlicious-direct-to-watch/src/main/res/raw/watchface.xml").getroot()
-        for policy in root.iter("DefaultProviderPolicy"):
-            provider = policy.get("primaryProvider", "")
-            if provider:
-                self.assertTrue(provider.startswith("app.sugarwear/app.aapswear.complications."), provider)
-        for launch in root.iter("Launch"):
-            self.assertEqual("app.sugarwear/app.aapswear.g7watch.G7WatchActivity", launch.get("target"))
-
-    def test_installers_build_only_their_product(self):
+    def test_installer_builds_only_sugarlicious(self):
         source = (ROOT / "build.gradle.kts").read_text(encoding="utf-8")
-        for task, expected, companion in (
-            ("installSugarliciousDebug", {":app-mobile:assembleDebug", ":app-wear:assembleDebug"}, "true"),
-            ("installSugarWearDebug", {":g7watch:assembleDebug", ":watchfaces:sugarlicious-direct-to-watch:assembleDebug"}, "false"),
-        ):
-            block = source.split(f'>("{task}") {{', 1)[1].split("\n}", 1)[0]
-            self.assertEqual(expected, set(re.findall(r'"(:[^"\n]+:assembleDebug)"', block)))
-            self.assertIn(f"companionProduct.set({companion})", block)
-        installer = source.split("abstract class InstallWatchProductDebugTask", 1)[1].split("val watchFaceValidatorCli", 1)[0]
-        companion, standalone = installer.split("if (companionProduct.get()) {", 1)[1].split("} else {", 1)
-        self.assertNotIn("g7WatchApk.get()", companion)
-        self.assertNotIn("vigilApk.get()", companion)
-        self.assertNotIn("mobileApk.get()", standalone)
-        self.assertNotIn("wearApk.get()", standalone)
-        self.assertNotIn("uninstall", installer)
-        self.assertIn("!companionProduct.get() || phones.size == 1", installer)
+        block = source.split('tasks.named("installSugarliciousDebug") {', 1)[1].split("\n}", 1)[0]
+        self.assertEqual({":app-mobile:assembleDebug", ":app-wear:assembleDebug"}, set(re.findall(r'"(:[^"\n]+:assembleDebug)"', block)))
+        self.assertNotIn("installSugarWearDebug", source)
+        settings = (ROOT / "settings.gradle.kts").read_text(encoding="utf-8")
+        self.assertNotIn('":g7watch"', settings)
+        self.assertNotIn('":watchfaces:sugarlicious-direct-to-watch"', settings)
+        self.assertFalse((ROOT / "g7watch/build.gradle.kts").exists())
+        self.assertFalse((ROOT / "watchfaces/sugarlicious-direct-to-watch/build.gradle.kts").exists())
 
     def test_wear_build_does_not_prepare_vigil(self):
         source = (ROOT / "app-wear/build.gradle.kts").read_text(encoding="utf-8")

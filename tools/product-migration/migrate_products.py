@@ -226,12 +226,20 @@ def migrate(adb, key, apk, bridge):
     return result
 
 
+def artifact_directory(key, sugarwear_root=None):
+    if key == "sugarwear" and sugarwear_root is None:
+        raise MigrationError("sugarwear_repository_required")
+    root = Path(sugarwear_root).resolve() if key == "sugarwear" else ROOT
+    return root / PRODUCTS[key][2] / "build/outputs/apk/debug"
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phone")
     parser.add_argument("--watch", required=True)
     parser.add_argument("--product", choices=("sugarlicious", "sugarwear", "both"), required=True)
     parser.add_argument("--legacy-dir", type=Path, required=True)
+    parser.add_argument("--sugarwear-root", type=Path, help="Independent SugarWear checkout (required for SugarWear migration)")
     sdk = os.environ.get("ANDROID_SDK_ROOT") or os.environ.get("ANDROID_HOME")
     default_adb = str(Path(sdk) / "platform-tools" / ("adb.exe" if os.name == "nt" else "adb")) if sdk else (shutil.which("adb") or "adb")
     parser.add_argument("--adb", default=default_adb)
@@ -243,7 +251,7 @@ def main(argv=None):
         # Validate every requested APK and device before mutating any package.
         for key, serial in plan:
             old, new, module, _, bridge_name = PRODUCTS[key]
-            directory = ROOT / module / "build/outputs/apk/debug"
+            directory = artifact_directory(key, args.sugarwear_root)
             apk = validate_metadata(json.loads((directory / "output-metadata.json").read_text(encoding="utf-8")), new, directory)
             bridge = args.legacy_dir.resolve() / bridge_name
             if not apk.is_file() or not bridge.is_file():

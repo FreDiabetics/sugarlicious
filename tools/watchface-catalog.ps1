@@ -4,11 +4,7 @@ $SUGARLICIOUS_WATCHFACES = @(
     [pscustomobject]@{ Name = 'Orbit'; Module = 'sugarlicious-orbit'; Out = 'sugarlicious_orbit'; Asset = 'sugarlicious_orbit.apk' }
 )
 
-$SUGARWEAR_WATCHFACES = @(
-    [pscustomobject]@{ Name = 'Vigil'; Module = 'sugarlicious-direct-to-watch'; Out = 'sugarlicious_direct_to_watch'; Asset = 'sugarlicious_direct_to_watch.apk' }
-)
-# Validation and release builds cover both independent products.
-$ACTIVE_WATCHFACES = @($SUGARLICIOUS_WATCHFACES) + @($SUGARWEAR_WATCHFACES)
+$ACTIVE_WATCHFACES = @($SUGARLICIOUS_WATCHFACES)
 
 $catalogModules = @($ACTIVE_WATCHFACES.Module)
 $uniqueCatalogModules = @($catalogModules | Sort-Object -Unique)
