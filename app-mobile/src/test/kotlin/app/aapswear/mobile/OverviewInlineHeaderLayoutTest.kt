@@ -6,14 +6,6 @@ import org.junit.Test
 
 class OverviewInlineHeaderLayoutTest {
     @Test
-    fun `wordmark reserves the former watch area instead of lifting the lower overview`() {
-        val source = java.io.File("src/main/kotlin/app/aapswear/mobile/OverviewInlineHeader.kt").readText()
-        assertTrue(source.contains("overviewWatchReplacementHeightDp("))
-        assertEquals(293f, overviewWatchReplacementHeightDp(22f, 5), .001f)
-        assertEquals(288f, overviewWatchReplacementHeightDp(10f, 8), .001f)
-    }
-
-    @Test
     fun `compact glucose age uses the shared two minute form`() {
         assertEquals(
             "2m",

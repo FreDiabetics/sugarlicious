@@ -577,7 +577,11 @@ class PersistentBridgeService :
                 enableVibration(false)
                 setShowBadge(false)
             }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val manager = getSystemService(NotificationManager::class.java)
+        // Mobile and Wear share an application ID. A past Wear installation on a
+        // phone can leave this obsolete channel behind after the Mobile upgrade.
+        manager.deleteNotificationChannel("sugarlicious_wear_runtime")
+        manager.createNotificationChannel(channel)
     }
 
     private data class NotificationDisplay(

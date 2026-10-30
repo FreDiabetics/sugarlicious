@@ -13,7 +13,7 @@ def configure(root, strings):
     configs = root.find('UserConfigurations')
     if configs.find("BooleanConfiguration[@id='progressGap']") is None:
         index = list(configs).index(configs.find("BooleanConfiguration[@id='progressGradient']")) + 1
-        configs.insert(index, ET.Element('BooleanConfiguration', id='progressGap', displayName='progress_gap', defaultValue='FALSE'))
+        configs.insert(index, ET.Element('BooleanConfiguration', id='progressGap', displayName='progress_gap', defaultValue='TRUE'))
     label = strings.find("string[@name='progress_gap']")
     if label is None:
         label = ET.SubElement(strings, 'string', name='progress_gap')

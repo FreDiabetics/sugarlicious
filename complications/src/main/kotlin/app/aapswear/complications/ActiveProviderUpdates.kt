@@ -70,6 +70,12 @@ object ActiveProviderUpdates {
             .toIntArray()
     }
 
+    @Synchronized
+    fun requestKnownActive(context: Context, provider: Class<*>) {
+        val ids = preferences(context).getStringSet(provider.name, emptySet()).orEmpty()
+        if (ids.isNotEmpty()) request(context, provider)
+    }
+
     fun request(context: Context, provider: Class<*>) {
         val ids = targets(context, provider)
         if (ids != null && ids.isEmpty()) return

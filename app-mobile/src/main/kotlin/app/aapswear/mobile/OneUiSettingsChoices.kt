@@ -118,17 +118,15 @@ private fun OneUiThemeIllustration(dark: Boolean) {
             drawCircle(if (dark) Color.White else Color.DarkGray, 1.6f * sx, Offset((11f + index * 5.8f) * sx, (y + 10f) * sy))
         }
         listOf(Color(0xFF60C4F7), Color(0xFFFFA516), Color(0xFF28B6BD)).forEachIndexed { index, color ->
-            drawArc(
-                color,
-                130f,
-                270f,
-                false,
-                Offset((10f + index * 25f) * sx, 35f * sy),
-                Size(17f * sx, 17f * sy),
-                style =
-                    androidx.compose.ui.graphics.drawscope
-                        .Stroke(2.5f * sx, cap = androidx.compose.ui.graphics.StrokeCap.Round),
-            )
+            val stroke = 2.5f * sx
+            val arcs = app.aapswear.model.progressArcSegments(listOf(.6f, .3f, .8f)[index], 17f * sx, stroke, 270f)
+            val topLeft = Offset((10f + index * 25f) * sx, 35f * sy)
+            val arcSize = Size(17f * sx, 17f * sy)
+            val style =
+                androidx.compose.ui.graphics.drawscope
+                    .Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            if (arcs.trackSweep > 0f) drawArc(color.copy(alpha = .3f), 130f + arcs.trackStartOffset, arcs.trackSweep, false, topLeft, arcSize, style = style)
+            drawArc(color, 130f, arcs.fillSweep, false, topLeft, arcSize, style = style)
         }
         listOf(Color(0xFF60C4F7), Color(0xFFFFA516)).forEachIndexed { row, color ->
             val values = if (row == 0) listOf(8f, 4f, 2f, 5f, 9f, 11f, 9f, 6f) else listOf(10f, 8f, 4f, 2f, 5f, 9f, 10f, 8f)

@@ -76,8 +76,7 @@ internal class NightscoutCgmSource(
         job =
             scope.launch(Dispatchers.IO) {
                 MobileCanonicalStateCoordinator.activateRemoteAccount(context, DataSourceId.NIGHTSCOUT, identity)
-                val diagnostics = context.getSharedPreferences("source_diagnostics", Context.MODE_PRIVATE)
-                var backfilled = diagnostics.getString("nightscout_backfill_identity", null) == identity
+                val checkedGaps = mutableMapOf<Pair<Long, Long?>, Long>()
                 var failures = 0
                 while (isActive) {
                     var waitMs = if (cgmEnabled) 300_000L else 900_000L
@@ -91,10 +90,12 @@ internal class NightscoutCgmSource(
                                     ?.glucoseHistory
                                     .orEmpty()
                                     .map { it.measuredAtEpochMs }
+                                    .filter { it in localDayStartEpochMs(now)..now }
+                                    .distinct()
                                     .sorted()
 
                             suspend fun readWindow(since: Long, before: Long? = null): app.aapswear.model.TherapyDisplayState? {
-                                val upper = before?.let { "&find%5Bdate%5D%5B%24lt%5D=$it" }.orEmpty()
+                                val upper = "&find%5Bdate%5D%5B%24lt%5D=${before ?: (now + 1)}"
                                 val payload = NightscoutHttp.get(config, secret, "/api/v1/entries/sgv.json?find%5Bdate%5D%5B%24gt%5D=$since$upper&count=1440")
                                 ensureActive()
                                 val currentConfig = MobileSourceConfigurationStore.read(context)
@@ -108,24 +109,20 @@ internal class NightscoutCgmSource(
                                 if (received != null) MobileCanonicalStateCoordinator.savePhoneInput(context, received.copy(sourceVersion = identity), receivedAt)
                                 return received
                             }
-                            val since = if (backfilled) times.lastOrNull() ?: now - 86_400_000L else now - 86_400_000L
-                            val state = readWindow(maxOf(since, now - 86_400_000L))
-                            val gap = times.zipWithNext().firstOrNull { (a, b) -> b - a > 450_000L }
-                            if (backfilled && gap != null) {
-                                val gapKey = "$identity:${gap.first}:${gap.second}"
-                                val alreadyChecked = diagnostics.getString("nightscout_gap", null) == gapKey && now - diagnostics.getLong("nightscout_gap_at", 0L) < 1_800_000L
-                                if (!alreadyChecked) {
-                                    // Backfill only the missing interval, not the already cached suffix.
-                                    readWindow(gap.first, gap.second)
-                                    diagnostics.edit {
-                                        putString("nightscout_gap", gapKey)
-                                        putLong("nightscout_gap_at", now)
-                                    }
+                            checkedGaps.entries.removeAll { now - it.value >= 1_800_000L }
+                            val windows = nightscoutDailyWindows(times, now)
+                            var state: app.aapswear.model.TherapyDisplayState? = null
+                            for (window in windows) {
+                                val isHistoricalGap = window.second != null
+                                val alreadyChecked = isHistoricalGap && window in checkedGaps
+                                if (alreadyChecked) continue
+                                val received = readWindow(window.first, window.second)
+                                if (received != null) state = received
+                                if (isHistoricalGap) {
+                                    checkedGaps[window] = now
                                 }
                             }
                             ensureActive()
-                            backfilled = true
-                            diagnostics.edit { putString("nightscout_backfill_identity", identity) }
                             failures = 0
                             status(if (state?.glucose?.measuredAtEpochMs?.let { now - it <= 900_000L } == true) "Empfang aktiv" else "Keine neueren Werte")
                         }
@@ -147,5 +144,26 @@ internal class NightscoutCgmSource(
         job?.cancel()
         job = null
         signature = null
+    }
+}
+
+/** Exclusive API bounds: midnight itself is included, cached endpoints are not fetched again. */
+internal fun nightscoutDailyWindows(times: List<Long>, now: Long): List<Pair<Long, Long?>> {
+    val start = localDayStartEpochMs(now)
+    val today = times.filter { it in start..now }.distinct().sorted()
+    if (today.isEmpty()) return listOf((start - 1) to null)
+    val intervals =
+        today
+            .zipWithNext()
+            .map { (a, b) -> b - a }
+            .filter { it in 30_000L..330_000L }
+            .sorted()
+    val cadence = intervals.getOrNull((intervals.size - 1).coerceAtLeast(0) / 2)?.coerceIn(60_000L, 300_000L) ?: 300_000L
+    return buildList {
+        if (today.first() > start) add((start - 1) to today.first())
+        today.zipWithNext().forEach { (a, b) ->
+            if (b - a > cadence * 3 / 2) add(a to b)
+        }
+        add(today.last() to null)
     }
 }

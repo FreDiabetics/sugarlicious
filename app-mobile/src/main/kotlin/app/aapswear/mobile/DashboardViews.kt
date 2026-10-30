@@ -117,6 +117,10 @@ data class DashboardUiPreferences(
     val cgmThresholds: CgmThresholds = CgmThresholds.DEFAULT,
     val glucoseScalePercent: Int = GlucoseTrendSizing.DEFAULT_SCALE_PERCENT,
     val trendScalePercent: Int = DashboardSystemDefaults.TREND_SCALE_PERCENT,
+    val showTir: Boolean = glucoseTileDetailMode == GlucoseTileDetailMode.TIR,
+    val showTitr: Boolean = false,
+    val showTherapyProgress: Boolean = glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY,
+    val showProgressDetails: Boolean = true,
 ) {
     val enabledPredictionKinds: Set<PredictionKind>
         get() =
@@ -152,10 +156,11 @@ data class DashboardUiPreferences(
                     runCatching {
                         DisplayUnitPreference.valueOf(preferences.getString("unit", DashboardSystemDefaults.unit.name)!!)
                     }.getOrDefault(DashboardSystemDefaults.unit),
-                glucoseTileDetailMode =
-                    runCatching {
-                        GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, DashboardSystemDefaults.glucoseTileDetailMode.name)!!)
-                    }.getOrDefault(DashboardSystemDefaults.glucoseTileDetailMode),
+                glucoseTileDetailMode = legacyGlucoseTileMode(preferences),
+                showTir = preferences.getBoolean("overview.showTir", legacyGlucoseTileMode(preferences) == GlucoseTileDetailMode.TIR),
+                showTitr = preferences.getBoolean("overview.showTitr", false),
+                showTherapyProgress = preferences.getBoolean("overview.showTherapyProgress", legacyGlucoseTileMode(preferences) == GlucoseTileDetailMode.THERAPY),
+                showProgressDetails = preferences.getBoolean("overview.showProgressDetails", true),
                 iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
                 cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, DashboardSystemDefaults.COB_PROGRESS_MAXIMUM_GRAMS).coerceIn(10f, 500f),
                 iobGraphMaximumUnits = preferences.getFloat(IOB_GRAPH_MAXIMUM_KEY, 10f).coerceIn(1f, 30f),
@@ -214,6 +219,10 @@ data class DashboardUiPreferences(
                         .getInt(MOBILE_TREND_SCALE_KEY, DashboardSystemDefaults.TREND_SCALE_PERCENT)
                         .coerceIn(GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT),
             )
+
+        private fun legacyGlucoseTileMode(preferences: SharedPreferences): GlucoseTileDetailMode =
+            runCatching { GlucoseTileDetailMode.valueOf(preferences.getString(GLUCOSE_TILE_DETAIL_MODE_KEY, DashboardSystemDefaults.glucoseTileDetailMode.name)!!) }
+                .getOrDefault(DashboardSystemDefaults.glucoseTileDetailMode)
 
         const val MOBILE_GLUCOSE_SCALE_KEY = "visual.mobile.glucoseScalePercent"
         const val MOBILE_TREND_SCALE_KEY = "visual.mobile.trendScalePercent"
@@ -400,7 +409,7 @@ class DashboardViewFactory(
                     }
                 }
             }
-        parent.addView(composeView, fullWidth())
+        attachViewportCompose(parent, composeView)
         activeComposeScreen = DashboardScreen.OVERVIEW
         activeComposeView = composeView
     }
@@ -435,6 +444,12 @@ class DashboardViewFactory(
                     }
                 }
             }
+        attachViewportCompose(parent, composeView)
+        activeComposeScreen = DashboardScreen.WATCH
+        activeComposeView = composeView
+    }
+
+    private fun attachViewportCompose(parent: LinearLayout, composeView: androidx.compose.ui.platform.ComposeView) {
         val viewport = parent.parent as View
         // Bound the FIRST measure too: posting a resize after attaching is too late,
         // because ScrollView measures a wrap-content ComposeView with infinite height.
@@ -461,8 +476,6 @@ class DashboardViewFactory(
             },
         )
         composeView.post { resize.onLayoutChange(viewport, 0, 0, 0, 0, 0, 0, 0, 0) }
-        activeComposeScreen = DashboardScreen.WATCH
-        activeComposeView = composeView
     }
 
     private fun renderSettings(
@@ -661,21 +674,16 @@ class DashboardViewFactory(
                 }
             addView(
                 tile(null).apply {
-                    addView(settingsGroupLabel("GLUKOSE-KACHEL"))
-                    addView(
-                        choiceRow(
-                            "Glukose-Kachel",
-                            listOf(
-                                Triple("TIR", preferences.glucoseTileDetailMode == GlucoseTileDetailMode.TIR) {
-                                    callbacks.setGlucoseTileDetailMode(GlucoseTileDetailMode.TIR)
-                                },
-                                Triple("IOB · COB · Basal", preferences.glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY) {
-                                    callbacks.setGlucoseTileDetailMode(GlucoseTileDetailMode.THERAPY)
-                                },
-                            ),
-                        ),
-                    )
-                    if (preferences.glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY) {
+                    addView(settingsGroupLabel("ÜBERSICHTSKACHELN"))
+                    listOf(
+                        Triple("Time in Range", "overview.showTir", preferences.showTir),
+                        Triple("Time in Tight Range", "overview.showTitr", preferences.showTitr),
+                        Triple("Therapie-Progressbars", "overview.showTherapyProgress", preferences.showTherapyProgress),
+                        Triple("Zusatzinformationen", "overview.showProgressDetails", preferences.showProgressDetails),
+                    ).forEach { (label, key, enabled) ->
+                        addView(switchRowCompact(label, enabled, View.generateViewId()) { dashboardPreferences.edit { putBoolean(key, it) } })
+                    }
+                    if (preferences.showTherapyProgress) {
                         addView(divider())
                         addView(settingsGroupLabel("IOB-ANZEIGE"))
                         addView(

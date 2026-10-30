@@ -82,6 +82,7 @@ class MainActivity : ComponentActivity() {
     private var state: app.aapswear.model.TherapyDisplayState? = null
     private var screen = DashboardScreen.OVERVIEW
     private var clockJob: Job? = null
+    private var stateObservationJob: Job? = null
     private var settingsSwipeStartX = 0f
     private var settingsSwipeStartY = 0f
     private var settingsSwipeTracking = false
@@ -191,7 +192,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-    private val diagnosticsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> runOnUiThread(::refresh) }
+    private val diagnosticsListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            // The state collector already refreshes immediately after writing this stamp.
+            if (key != "mobileObservedAt") runOnUiThread(::refresh)
+        }
     private val uiListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnUiThread {
@@ -368,15 +373,6 @@ class MainActivity : ComponentActivity() {
             applicationContext.recordMobileDiagnostic("APP", "APP-START-100", "Mobile overview started")
         }
         requestNotificationPermissionIfNeeded()
-        scope.launch {
-            TherapyStateStore(this@MainActivity).state.collectLatest {
-                state = it?.mobilePhoneSourcesOnly()
-                getSharedPreferences("diagnostics", MODE_PRIVATE).edit {
-                    putLong("mobileObservedAt", System.currentTimeMillis())
-                }
-                refresh()
-            }
-        }
         refresh(forceSettingsRender = true)
     }
 
@@ -501,6 +497,16 @@ class MainActivity : ComponentActivity() {
         super.onStart()
         diagnostics.registerOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.registerOnSharedPreferenceChangeListener(uiListener)
+        stateObservationJob =
+            scope.launch {
+                TherapyStateStore(this@MainActivity).state.collectLatest {
+                    state = it?.mobilePhoneSourcesOnly()
+                    getSharedPreferences("diagnostics", MODE_PRIVATE).edit {
+                        putLong("mobileObservedAt", System.currentTimeMillis())
+                    }
+                    refresh()
+                }
+            }
         clockJob =
             scope.launch {
                 while (true) {
@@ -534,6 +540,8 @@ class MainActivity : ComponentActivity() {
         if (::factory.isInitialized) factory.clearDataSourceExpansion()
         clockJob?.cancel()
         clockJob = null
+        stateObservationJob?.cancel()
+        stateObservationJob = null
         diagnostics.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.unregisterOnSharedPreferenceChangeListener(uiListener)
         super.onStop()
@@ -738,7 +746,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        scroll.isUserScrollEnabled = screen != DashboardScreen.WATCH
+        scroll.isUserScrollEnabled = screen == DashboardScreen.SETTINGS
         scroll.sectionSnapEnabled = screen == DashboardScreen.SETTINGS && factory.settingsIsRoot
         findViewById<View>(R.id.scroll_fade).visibility =
             if (screen == DashboardScreen.OVERVIEW) View.GONE else View.VISIBLE

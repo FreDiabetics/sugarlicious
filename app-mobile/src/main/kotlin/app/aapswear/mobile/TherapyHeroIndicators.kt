@@ -148,7 +148,7 @@ internal fun TherapyIndicatorRow(
 }
 
 @Composable
-private fun TherapyCircularIndicator(
+internal fun TherapyCircularIndicator(
     indicator: TherapyIndicatorPresentation,
     modifier: Modifier,
     diameterDp: Float,
@@ -181,27 +181,25 @@ private fun TherapyCircularIndicator(
             Canvas(Modifier.fillMaxSize()) {
                 val geometry = TherapyRingGeometry()
                 val stroke = (geometry.strokeWidthDp * proportionalScale).dp.toPx()
-                val inset = stroke / 2f
-                val arcSize = Size(size.width - stroke, size.height - stroke)
-                drawArc(
-                    color = accent.copy(alpha = 0.30f),
-                    startAngle = geometry.composeStartDegrees,
-                    sweepAngle = geometry.sweepDegrees,
-                    useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = arcSize,
-                    style = Stroke(stroke, cap = StrokeCap.Round),
-                )
-                indicator.progress?.takeIf { it > 0f }?.let { progress ->
-                    drawArc(
-                        color = accent,
-                        startAngle = geometry.composeStartDegrees,
-                        sweepAngle = geometry.sweepDegrees * progress,
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = arcSize,
-                        style = Stroke(stroke, cap = StrokeCap.Round),
-                    )
+                val basal = indicator.label == "Basal"
+                val marker = basal && indicator.progress != null
+                val outline = (1.5f * proportionalScale).dp.toPx()
+                // Keep the arc geometry stable when refining the marker contour.
+                val inset = stroke / 2f + if (marker) (2.5f * proportionalScale).dp.toPx() else 0f
+                val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
+                val sweep = geometry.sweepDegrees
+                val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep)
+                if (marker) {
+                    drawArc(accent, geometry.composeStartDegrees, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                } else {
+                    if (arcs.trackSweep > 0f) drawArc(accent.copy(alpha = .30f), geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                    if (arcs.fillSweep > 0f) drawArc(accent, geometry.composeStartDegrees, arcs.fillSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                }
+                if (marker) {
+                    val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
+                    val center = Offset(size.width / 2f + arcSize.width / 2f * kotlin.math.cos(angle).toFloat(), size.height / 2f + arcSize.height / 2f * kotlin.math.sin(angle).toFloat())
+                    drawCircle(accent, stroke / 2f, center)
+                    drawCircle(androidx.compose.ui.graphics.Color.Black, stroke / 2f + outline / 2f, center, style = Stroke(outline))
                 }
             }
             Column(
