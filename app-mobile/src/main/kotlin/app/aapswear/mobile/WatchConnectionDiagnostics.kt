@@ -11,26 +11,41 @@ private const val REACHABILITY_CHECKED_AT = "watchReachabilityCheckedAt"
 private const val LAST_WATCH_CONTACT_AT = "lastWatchContactAt"
 
 internal suspend fun refreshReachableWatchNodeIds(context: Context): List<String> {
-    val nodeIds =
+    val nodes =
         Wearable
             .getNodeClient(context)
             .connectedNodes
             .await()
-            .map { it.id }
 
-    recordReachableWatchCount(context, nodeIds.size)
-    return nodeIds
+    recordReachableWatchCount(context, nodes.size, names = nodes.map { it.displayName })
+    return nodes.map { it.id }
 }
 
 internal fun recordReachableWatchCount(
     context: Context,
     count: Int,
     now: Long = System.currentTimeMillis(),
+    names: List<String>? = null,
 ) {
     context
         .getSharedPreferences(DIAGNOSTICS_PREFS, Context.MODE_PRIVATE)
         .edit {
             putInt(REACHABLE_WATCHES, count.coerceAtLeast(0))
+            if (count <= 0) {
+                remove("connectedWatchModels")
+            } else {
+                names?.let {
+                    putString(
+                        "connectedWatchModels",
+                        it
+                            .map(String::trim)
+                            .filter(String::isNotBlank)
+                            .distinct()
+                            .sorted()
+                            .joinToString(" � "),
+                    )
+                }
+            }
             putLong(REACHABILITY_CHECKED_AT, now)
             if (count > 0) putLong(LAST_WATCH_CONTACT_AT, now)
         }

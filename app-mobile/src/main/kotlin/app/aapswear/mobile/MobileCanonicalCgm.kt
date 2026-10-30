@@ -11,6 +11,7 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendDiagnostics
+import app.aapswear.model.withHistoryDerivedDelta
 import app.aapswear.storage.CanonicalStateStore
 import app.aapswear.storage.PhoneTherapyStateStore
 import app.aapswear.storage.TherapyStateStore
@@ -207,7 +208,7 @@ internal object MobileCanonicalStateCoordinator {
         }
         val store = CanonicalStateStore(context)
         val previous = store.reconcile()
-        mergedPhone = retainMobileDisplayHistory(restoreStoredMobileHistory(previous, inputs, nowEpochMs), mergedPhone, nowEpochMs)
+        mergedPhone = retainMobileDisplayHistory(restoreStoredMobileHistory(previous, inputs, nowEpochMs), mergedPhone, nowEpochMs).withHistoryDerivedDelta(app.aapswear.model.TrendRateProfile.SUGARLICIOUS)
         if (previous != null && mergedPhone.copy(canonicalRevision = previous.canonicalRevision) == previous) return previous to false
         return store.commit(mergedPhone) to true
     }

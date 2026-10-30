@@ -512,8 +512,8 @@ internal class G7ReadingDatabase(
 
     companion object {
         const val ACTION_G7_READING_UPDATED = "app.aapswear.g7watch.READING_UPDATED"
-        const val SUGARLICIOUS_PACKAGE = "app.aapswear"
-        const val READ_G7_PERMISSION = "app.aapswear.g7watch.permission.READ_G7_DATA"
+        const val SUGARLICIOUS_PACKAGE = "app.sugarlicious"
+        const val READ_G7_PERMISSION = "app.sugarwear.permission.READ_G7_DATA"
         const val RETENTION_MS = 30L * 24L * 60L * 60_000L
 
         // Thirty days contain 8,640 five-minute readings. The old 2,000-row cap silently

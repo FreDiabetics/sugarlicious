@@ -4,7 +4,7 @@ android {
     namespace = "app.aapswear.watchface.sugarlicious.directtowatch"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aapswear.watchfacepush.g6style"
+        applicationId = "app.sugarwear.watchfacepush.vigil"
         minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int

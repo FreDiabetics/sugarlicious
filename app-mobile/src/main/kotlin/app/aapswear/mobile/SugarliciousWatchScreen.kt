@@ -81,10 +81,10 @@ internal val sugarliciousWatchFaceCards =
             features = listOf("Graph", "AOD"),
         ),
         SugarliciousWatchFaceCard(
-            name = "Vigil",
-            style = "SugarWear",
-            slots = 3,
-            features = listOf("SugarWear", "3h Graph", "AOD", "Fixed Layout"),
+            name = "Digital",
+            style = "Digital",
+            slots = 8,
+            features = listOf("Graph", "AOD"),
         ),
         SugarliciousWatchFaceCard(
             name = "Orbit",

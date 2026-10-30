@@ -180,7 +180,7 @@ class WffGenerator {
                 )
                 if (ambient) appendLine("      <Variant mode=\"AMBIENT\" target=\"alpha\" value=\"0\" />")
                 appendLine(
-                    "      <DefaultProviderPolicy primaryProvider=\"app.aapswear/app.aapswear.complications.$provider\" primaryProviderType=\"$type\" defaultSystemProvider=\"EMPTY\" defaultSystemProviderType=\"EMPTY\" />",
+                    "      <DefaultProviderPolicy primaryProvider=\"app.sugarlicious/app.aapswear.complications.$provider\" primaryProviderType=\"$type\" defaultSystemProvider=\"EMPTY\" defaultSystemProviderType=\"EMPTY\" />",
                 )
                 appendLine("      <BoundingBox x=\"0\" y=\"0\" width=\"$w\" height=\"$h\" />")
                 if (image) {

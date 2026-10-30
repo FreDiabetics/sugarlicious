@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
@@ -33,7 +32,9 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyIndicatorGeometry
 import app.aapswear.model.TherapyIndicatorIcon
+import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.TherapyProgressSemantics
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.basalIndicatorIcon
@@ -47,7 +48,6 @@ internal data class TherapyIndicatorPresentation(
     val secondary: String? = null,
     val progress: Float? = null,
     @DrawableRes val iconRes: Int,
-    val iconSizeDp: Int = 19,
     val colorRole: SugarliciousColorRole,
 )
 
@@ -76,7 +76,6 @@ internal fun therapyIndicatorPresentations(
             value = TherapyDisplayFormatter.aaps(AapsDisplayField.COB, cob, state),
             progress = cob?.let { TherapyProgressSemantics.scaled(it, safeCobMaximum) },
             iconRes = SharedUiR.drawable.ic_cob,
-            iconSizeDp = 17,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
         ),
         TherapyIndicatorPresentation(
@@ -85,7 +84,6 @@ internal fun therapyIndicatorPresentations(
             secondary = basal?.percent?.takeIf { it != 100 }?.let { "@$it%" },
             progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
-            iconSizeDp = 16,
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
         ),
     )
@@ -114,13 +112,6 @@ internal fun basalIconResource(percent: Int?): Int =
 
 internal fun basalProgress(percent: Int): Float =
     requireNotNull(TherapyProgressSemantics.basal(percent))
-
-internal fun therapyIndicatorFontSizeSp(value: String): Int =
-    when {
-        value.length >= 8 -> 10
-        value.length >= 7 -> 12
-        else -> 14
-    }
 
 internal fun therapyIndicatorSecondaryFontSizeSp(value: String): Int =
     when {
@@ -155,13 +146,14 @@ internal fun TherapyCircularIndicator(
 ) {
     val accent = SugarliciousColors.color(indicator.colorRole)
     val density = LocalDensity.current
-    val proportionalScale = diameterDp / (66f * density.fontScale)
+    val proportionalScale = TherapyIndicatorGeometry.scale(diameterDp)
     val measurer = rememberTextMeasurer()
 
-    fun fittedSize(value: String, baseSp: Int): Float {
-        val nominal = baseSp * proportionalScale
+    fun fittedSize(value: String, baseSp: Float): Float {
+        // The measured ring already includes the surface's system scaling.
+        val nominal = TherapyIndicatorGeometry.fontSizeSp(baseSp, diameterDp, density.fontScale)
         val measured = measurer.measure(value, TextStyle(fontSize = nominal.sp, fontWeight = FontWeight.Bold), softWrap = false).size.width
-        val available = with(density) { (diameterDp * .76f).dp.toPx() }
+        val available = with(density) { (diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION).dp.toPx() }
         return nominal * minOf(1f, available / measured.coerceAtLeast(1))
     }
     Box(
@@ -183,9 +175,9 @@ internal fun TherapyCircularIndicator(
                 val stroke = (geometry.strokeWidthDp * proportionalScale).dp.toPx()
                 val basal = indicator.label == "Basal"
                 val marker = basal && indicator.progress != null
-                val outline = (1.5f * proportionalScale).dp.toPx()
+                val outline = (TherapyIndicatorGeometry.MARKER_OUTLINE_DP * proportionalScale).dp.toPx()
                 // Keep the arc geometry stable when refining the marker contour.
-                val inset = stroke / 2f + if (marker) (2.5f * proportionalScale).dp.toPx() else 0f
+                val inset = stroke / 2f + if (marker) (TherapyIndicatorGeometry.MARKER_INSET_DP * proportionalScale).dp.toPx() else 0f
                 val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 val sweep = geometry.sweepDegrees
                 val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep)
@@ -202,40 +194,42 @@ internal fun TherapyCircularIndicator(
                     drawCircle(androidx.compose.ui.graphics.Color.Black, stroke / 2f + outline / 2f, center, style = Stroke(outline))
                 }
             }
-            Column(
-                modifier = Modifier.align(Alignment.Center).padding(top = (3f * proportionalScale).dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                val valueTextSize = fittedSize(indicator.value, therapyIndicatorFontSizeSp(indicator.value))
+            val valueTextSize = fittedSize(indicator.value, TherapyIndicatorGeometry.VALUE_TEXT_SP)
+            Text(
+                indicator.value,
+                modifier = Modifier.align(Alignment.Center),
+                color = SugarliciousColors.TextPrimary,
+                fontSize = valueTextSize.sp,
+                lineHeight = valueTextSize.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false,
+            )
+            indicator.secondary?.let {
+                val secondaryTextSize = fittedSize(it, therapyIndicatorSecondaryFontSizeSp(it).toFloat())
                 Text(
-                    indicator.value,
-                    color = SugarliciousColors.TextPrimary,
-                    fontSize = valueTextSize.sp,
-                    lineHeight = valueTextSize.sp,
+                    it,
+                    modifier = Modifier.align(Alignment.Center).offset(y = (diameterDp * .17f).dp),
+                    color = SugarliciousColors.TextSecondary,
+                    fontSize = secondaryTextSize.sp,
+                    lineHeight = secondaryTextSize.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     softWrap = false,
                 )
-                indicator.secondary?.let {
-                    val secondaryTextSize = fittedSize(it, therapyIndicatorSecondaryFontSizeSp(it))
-                    Text(
-                        it,
-                        color = SugarliciousColors.TextSecondary,
-                        fontSize = secondaryTextSize.sp,
-                        lineHeight = secondaryTextSize.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                }
             }
+            val metric =
+                when (indicator.label) {
+                    "IOB" -> TherapyProgressMetric.IOB
+                    "COB" -> TherapyProgressMetric.COB
+                    else -> TherapyProgressMetric.BASAL
+                }
             SugarliciousIcon(
                 indicator.iconRes,
                 null,
-                Modifier.align(Alignment.BottomCenter).offset(y = (3f * proportionalScale).dp).size((indicator.iconSizeDp * LocalDensity.current.fontScale * proportionalScale).dp),
+                Modifier.align(Alignment.Center).offset(y = (diameterDp * (TherapyIndicatorGeometry.ICON_CENTER_Y_FRACTION - .5f)).dp).size(TherapyIndicatorGeometry.iconSizeDp(metric, diameterDp).dp),
                 accent,
             )
         }

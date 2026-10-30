@@ -4,7 +4,7 @@ android {
     namespace = "app.aapswear.watchface.sugarlicious.digital"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aapswear.watchfacepush.digital"
+        applicationId = "app.sugarlicious.watchfacepush.digital"
         minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int

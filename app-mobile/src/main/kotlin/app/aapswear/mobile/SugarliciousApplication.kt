@@ -15,6 +15,15 @@ class SugarliciousApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        app.aapswear.uishared.ProductMigrationLifecycle
+            .requireReady(this)
+        if (app.aapswear.uishared.ProductMigrationLifecycle
+                .isQuiesced(this) ||
+            app.aapswear.uishared.ProductMigrationLifecycle
+                .isRetired(this)
+        ) {
+            return
+        }
         reconcileWidgetAppearance(resources.configuration)
     }
 

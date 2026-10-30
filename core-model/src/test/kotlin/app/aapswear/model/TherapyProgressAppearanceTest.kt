@@ -56,8 +56,8 @@ class TherapyProgressAppearanceTest {
 
         assertEquals(99f, resolved.diameterDp, 0.001f)
         assertEquals(12.6f, resolved.strokeWidthDp, 0.001f)
-        assertEquals(34.2f, resolved.primaryTextSizeSp, 0.001f)
-        assertEquals(18.15f, resolved.secondaryTextSizeSp, 0.001f)
+        assertEquals(25.2f, resolved.primaryTextSizeSp, 0.001f)
+        assertEquals(16.5f, resolved.secondaryTextSizeSp, 0.001f)
         assertEquals(25.65f, resolved.iconSizeDp, 0.001f)
     }
 

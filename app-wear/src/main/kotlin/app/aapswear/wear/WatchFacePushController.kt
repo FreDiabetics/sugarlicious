@@ -48,17 +48,17 @@ internal object SugarliciousWatchFacePush {
     internal val activeFaceSpecs =
         listOf(
             FaceSpec(
-                "app.aapswear.watchfacepush.analog",
+                "app.sugarlicious.watchfacepush.apex",
                 "watchfaces/sugarlicious_analog.apk",
                 "watchfaces/sugarlicious_analog_token.txt",
             ),
             FaceSpec(
-                "app.aapswear.watchfacepush.g6style",
-                "watchfaces/sugarlicious_direct_to_watch.apk",
-                "watchfaces/sugarlicious_direct_to_watch_token.txt",
+                "app.sugarlicious.watchfacepush.digital",
+                "watchfaces/sugarlicious_digital.apk",
+                "watchfaces/sugarlicious_digital_token.txt",
             ),
             FaceSpec(
-                "app.aapswear.watchfacepush.orbit",
+                "app.sugarlicious.watchfacepush.orbit",
                 "watchfaces/sugarlicious_orbit.apk",
                 "watchfaces/sugarlicious_orbit_token.txt",
             ),

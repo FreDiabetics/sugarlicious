@@ -50,7 +50,7 @@ def append_user_flavors(root, strings, face):
             if face == "apex" and actual.get("slotId") == "7":
                 provider = "TirRangedValueComplication" if tir else "GlucoseGraphComplication"
                 kind = "RANGED_VALUE" if tir else "SMALL_IMAGE"
-                policy.attrib.update(primaryProvider=f"app.aapswear/app.aapswear.complications.{provider}", primaryProviderType=kind)
+                policy.attrib.update(primaryProvider=f"app.sugarlicious/app.aapswear.complications.{provider}", primaryProviderType=kind)
             slot.append(policy)
 
 

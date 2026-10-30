@@ -101,11 +101,14 @@ jobs:
         shell: pwsh
         run: ./tools/watchface-push/Prepare-WatchFacePushAssets.ps1
 
-      - name: Check Orbit geometry and editor assets
+      - name: Check watchface geometry and independent product installers
         run: |
           python3 -m pip install Pillow==11.3.0 CairoSVG==2.9.0
           python3 -m unittest discover -s tools/tests -p test_orbit_face.py
+          python3 -m unittest discover -s tools/tests -p test_vigil_hands.py
           python3 -m unittest discover -s tools/tests -p test_brand_assets.py
+          python3 -m unittest discover -s tools/tests -p test_product_installers.py
+          python3 -m unittest discover -s tools/product-migration -p 'test_*.py'
 
       - name: Enforce Kotlin static analysis and formatting
         run: ./gradlew detekt ktlintCheck

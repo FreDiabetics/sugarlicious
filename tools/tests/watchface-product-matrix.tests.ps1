@@ -9,6 +9,17 @@ if (Compare-Object $expectedProducts $actualProducts) {
     throw "Active product watchfaces differ: $($actualProducts -join ', ')"
 }
 
+if (Compare-Object @('sugarlicious-digital', 'sugarlicious-analog', 'sugarlicious-orbit') @($SUGARLICIOUS_WATCHFACES.Module)) {
+    throw 'Sugarlicious Push catalog must contain only Digital, ApeX and Orbit.'
+}
+if (@($SUGARWEAR_WATCHFACES).Count -ne 1 -or $SUGARWEAR_WATCHFACES[0].Module -ne 'sugarlicious-direct-to-watch') {
+    throw 'SugarWear catalog must contain only Vigil.'
+}
+$pushPreparation = Get-Content (Join-Path $repoRoot 'tools/watchface-push/Prepare-WatchFacePushAssets.ps1') -Raw
+if ($pushPreparation -match '\$ACTIVE_WATCHFACES' -or $pushPreparation -notmatch '\$SUGARLICIOUS_WATCHFACES') {
+    throw 'Push preparation must consume only the Sugarlicious product catalog.'
+}
+
 if (Get-Variable LEGACY_WATCHFACES -ErrorAction SilentlyContinue) {
     throw 'Retired watchfaces must not remain in the product catalog.'
 }

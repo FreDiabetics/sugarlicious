@@ -183,9 +183,9 @@ if (($effectiveTarget -eq "mobile") -or ($effectiveTarget -eq "all")) {
     Write-Host "Installing Mobile on $phone..."
     adb -s $phone install -r $mobileApk.FullName
     Assert-LastExitCode "Mobile install"
-    adb -s $phone shell am force-stop app.aapswear
+    adb -s $phone shell am force-stop app.sugarlicious
     Assert-LastExitCode "Mobile force-stop"
-    adb -s $phone shell am start -n app.aapswear/.mobile.MainActivity | Out-Host
+    adb -s $phone shell am start -n app.sugarlicious/app.aapswear.mobile.MainActivity | Out-Host
     Assert-LastExitCode "Mobile start"
 }
 
@@ -209,9 +209,9 @@ if (($effectiveTarget -eq "wear") -or ($effectiveTarget -eq "g7") -or ($effectiv
     Write-Host "Installing Wear on $watch..."
     adb -s $watch install -r $wearApk.FullName
     Assert-LastExitCode "Wear install"
-    adb -s $watch shell am force-stop app.aapswear
+    adb -s $watch shell am force-stop app.sugarlicious
     Assert-LastExitCode "Wear force-stop"
-    adb -s $watch shell am start -n app.aapswear/.wear.WearActivity | Out-Host
+    adb -s $watch shell am start -n app.sugarlicious/app.aapswear.wear.WearActivity | Out-Host
     Assert-LastExitCode "Wear start"
 
     if ($installWatchFaces) {

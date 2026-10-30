@@ -94,7 +94,24 @@ class SugarliciousTilesTest {
 
         assertEquals("1.20U", therapyMetricValue(TherapyTileMetric.IOB, presentation))
         assertEquals("18g", therapyMetricValue(TherapyTileMetric.COB, presentation))
-        assertEquals("0.70U/h", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
+        assertEquals("0.70U", therapyMetricValue(TherapyTileMetric.BASAL, presentation))
+    }
+
+    @Test
+    fun `enlarged therapy tile rings balance radial margins on round displays`() {
+        for (side in listOf(168f, 180f, 204f)) {
+            val appearance = app.aapswear.model.TherapyProgressAppearance()
+            val original = app.aapswear.model.resolveRoundTherapyLayout(side, appearance, side * .58f)
+            val adjusted = centeredTherapyTileLayout(side, appearance)
+            val center = side / 2f
+            adjusted.forEachIndexed { index, item ->
+                assertTrue(item.slot.diameterDp > original[index].slot.diameterDp)
+                assertTrue(kotlin.math.hypot(item.slot.centerXDp - center, item.slot.centerYDp - center) + item.slot.diameterDp / 2f <= center + .001f)
+            }
+            val radialExtents = adjusted.map { kotlin.math.hypot(it.slot.centerXDp - center, it.slot.centerYDp - center) + it.slot.diameterDp / 2f }
+            assertEquals(radialExtents[0], radialExtents[1], .001f)
+            assertEquals(radialExtents[0], radialExtents[2], .01f)
+        }
     }
 
     @Test

@@ -14,7 +14,7 @@ class VigilHandsTest(unittest.TestCase):
         self.assertIsNotNone(action)
         self.assertEqual("300", action.get("width"))
         self.assertEqual("108", action.get("height"))
-        self.assertEqual("app.aapswear.g7watch/app.aapswear.g7watch.G7WatchActivity", action.find("Launch").get("target"))
+        self.assertEqual("app.sugarwear/app.aapswear.g7watch.G7WatchActivity", action.find("Launch").get("target"))
 
     def test_analog_text_and_pairing_button_render_below_native_hands(self):
         root = ET.parse(FACE / "src/main/res/raw/watchface.xml").getroot()

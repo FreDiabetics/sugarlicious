@@ -8,13 +8,24 @@ from pathlib import Path
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
-from PIL import Image
+from PIL import Image, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 GENERATOR = ROOT / "tools/watchface-assets/generate_orbit.py"
 
 
 class OrbitFaceTest(unittest.TestCase):
+    def test_upper_right_gauge_fits_full_steps_without_ellipsis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        slot = xml.find(".//ComplicationSlot[@slotId='7']/Complication[@type='RANGED_VALUE']")
+        caption = slot.find("PartText/TextCircular")
+        self.assertEqual("FALSE", caption.get("ellipsis"))
+        font = ImageFont.truetype(str(ROOT / "watchfaces/sugarlicious-orbit/src/main/res/font/inter_tight.ttf"), int(caption.find("Font").get("size")))
+        length = float(caption.get("width")) / 2 * math.radians((float(caption.get("endAngle")) - float(caption.get("startAngle"))) % 360)
+        self.assertLess(font.getlength("100.000"), length - 12)
+
     def test_ambient_keeps_only_the_grey_seconds_hub(self):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
@@ -280,7 +291,8 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertAlmostEqual(start[1], 199.0598, places=3)
         self.assertAlmostEqual(end[0], 191.6782, places=3)
         self.assertAlmostEqual(end[1], 45.6130, places=3)
-        self.assertEqual(start[2:], (18, 7.2))  # inner diameter, proportional black contour
+        self.assertEqual(start[2], 18)  # Open inner diameter equals bar thickness.
+        self.assertAlmostEqual(start[3], 5.4)  # Thinner proportional black contour.
         with tempfile.TemporaryDirectory() as directory:
             face.generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
@@ -290,7 +302,7 @@ class OrbitFaceTest(unittest.TestCase):
             circle = owner.find(".//Ellipse")
             stroke = float(circle.find("Stroke").get("thickness"))
             inner = float(circle.get("width")) - stroke
-            self.assertAlmostEqual(stroke / inner, .4)
+            self.assertAlmostEqual(stroke / inner, .3)
             self.assertIsNone(circle.find("Fill"))
         self.assertIsNone(face.marker_geometry(0, 0, 10, 0, 90, 5, 10, 10, 8))
         self.assertIsNone(face.marker_geometry(0, 0, 10, 0, 90, math.nan, 0, 10, 8))

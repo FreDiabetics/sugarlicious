@@ -59,9 +59,9 @@ internal suspend fun resolveAndPublishCurrentG7AlertMode(
 }
 
 private const val ACTION_SET_G7_SOURCE = "app.aapswear.g7watch.SET_SOURCE"
-private const val G7_PACKAGE = "app.aapswear.g7watch"
+private const val G7_PACKAGE = "app.sugarwear"
 private const val G7_SOURCE_RECEIVER = "app.aapswear.g7watch.G7SourceControlReceiver"
 private const val EXTRA_G7_SELECTED = "g7_selected"
 private const val EXTRA_G7_ALARMS_ENABLED = "alarms_enabled"
 private const val EXTRA_G7_AUTOMATIC_ENABLE_AT = "automatic_enable_at"
-private const val G7_CONFIG_PERMISSION = "app.aapswear.g7watch.permission.CONFIGURE_G7"
+private const val G7_CONFIG_PERMISSION = "app.sugarwear.permission.CONFIGURE_G7"

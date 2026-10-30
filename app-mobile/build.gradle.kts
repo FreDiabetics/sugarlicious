@@ -103,7 +103,7 @@ android {
     namespace = "app.aapswear.mobile"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aapswear"
+        applicationId = if (providers.gradleProperty("legacyProductMigration").orNull == "true") "app.aapswear" else "app.sugarlicious"
         minSdk = 26
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

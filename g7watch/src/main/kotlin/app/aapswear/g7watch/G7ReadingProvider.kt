@@ -165,8 +165,8 @@ class G7ReadingProvider : ContentProvider() {
     ): Int = throw UnsupportedOperationException("Read-only provider")
 
     companion object {
-        val CONTENT_URI: Uri = "content://app.aapswear.g7watch.readings/readings".toUri()
-        val DIAGNOSTICS_URI: Uri = "content://app.aapswear.g7watch.readings/diagnostics".toUri()
-        val STATE_URI: Uri = "content://app.aapswear.g7watch.readings/state".toUri()
+        val CONTENT_URI: Uri = "content://app.sugarwear.readings/readings".toUri()
+        val DIAGNOSTICS_URI: Uri = "content://app.sugarwear.readings/diagnostics".toUri()
+        val STATE_URI: Uri = "content://app.sugarwear.readings/state".toUri()
     }
 }

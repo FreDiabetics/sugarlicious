@@ -48,6 +48,15 @@ class WatchConnectionDiagnosticsTest {
     }
 
     @Test
+    fun `reachable model names come from nodes and are cleared on disconnect`() {
+        recordReachableWatchCount(context, 1, names = listOf("Galaxy Watch Ultra"))
+        val preferences = context.getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
+        assertEquals("Galaxy Watch Ultra", DiagnosticsSnapshot.read(preferences).connectedWatchModels)
+        recordReachableWatchCount(context, 0)
+        assertEquals("", DiagnosticsSnapshot.read(preferences).connectedWatchModels)
+    }
+
+    @Test
     fun `phone data synchronization alone is not a watch connection signal`() {
         val diagnostics = context.getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
         diagnostics.edit().putString("lastSyncStatus", "ok").commit()

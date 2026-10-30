@@ -27,6 +27,7 @@ import app.aapswear.g7.G7SessionManager
 import app.aapswear.g7.G7SessionState
 import app.aapswear.g7.toCgm
 import app.aapswear.model.DiagnosticSeverity
+import app.aapswear.uishared.ProductMigrationLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,14 @@ class G7CollectorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (ProductMigrationLifecycle
+                .isQuiesced(this) ||
+            ProductMigrationLifecycle
+                .isRetired(this)
+        ) {
+            stopSelf()
+            return
+        }
         serviceRunning = true
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "SugarWear", NotificationManager.IMPORTANCE_LOW).apply {
@@ -93,6 +102,14 @@ class G7CollectorService : Service() {
         flags: Int,
         startId: Int,
     ): Int {
+        if (ProductMigrationLifecycle
+                .isQuiesced(this) ||
+            ProductMigrationLifecycle
+                .isRetired(this)
+        ) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val serviceStartAt = System.currentTimeMillis()
         if (intent?.action == ACTION_STOP) {
             stop(this)
@@ -1441,6 +1458,13 @@ class G7CollectorService : Service() {
         fun start(context: Context) =
             synchronized(G7SensorStateStore.lifecycleLock) {
                 val app = context.applicationContext
+                if (ProductMigrationLifecycle
+                        .isQuiesced(app) ||
+                    ProductMigrationLifecycle
+                        .isRetired(app)
+                ) {
+                    return@synchronized
+                }
                 val stateStore = G7SensorStateStore(app)
                 val current = stateStore.read()
                 if (current.sensor == null || G7CredentialStore(app).read() == null) return@synchronized

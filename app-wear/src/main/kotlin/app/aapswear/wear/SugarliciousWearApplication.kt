@@ -8,6 +8,12 @@ import app.aapswear.model.CgmRangeClass
 class SugarliciousWearApplication :
     Application(),
     ComplicationGlucoseColorSource {
+    override fun onCreate() {
+        super.onCreate()
+        app.aapswear.uishared.ProductMigrationLifecycle
+            .requireReady(this)
+    }
+
     override fun outOfRangeGlucoseColor(valueMgDl: Double): Int? {
         val preferences = WearDisplayPreferences.read(this)
         return when (preferences.cgmThresholds.classify(valueMgDl)) {

@@ -54,6 +54,7 @@ import app.aapswear.model.RangeExcursion
 import app.aapswear.model.RelativeGraphTimeAxis
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.TherapyIndicatorGeometry
 import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.TherapyRingGeometry
 import app.aapswear.model.TrendVisualSpec
@@ -1202,11 +1203,15 @@ internal fun renderTherapyIndicatorWidget(
                 strokeCap = Paint.Cap.ROUND
             }
         val marker = resolved.metric == TherapyProgressMetric.BASAL && indicator.progress != null
-        val outline = 1.5f * renderDensity
-        if (marker) ringBounds.inset(outline, outline)
+        val outline = TherapyIndicatorGeometry.MARKER_OUTLINE_DP * TherapyIndicatorGeometry.scale(ringDiameter)
+        if (marker) ringBounds.inset(TherapyIndicatorGeometry.MARKER_INSET_DP * TherapyIndicatorGeometry.scale(ringDiameter), TherapyIndicatorGeometry.MARKER_INSET_DP * TherapyIndicatorGeometry.scale(ringDiameter))
         val arcs = app.aapswear.model.progressArcSegments(indicator.progress, ringBounds.width() + stroke, stroke, geometry.sweepDegrees)
-        if (arcs.trackSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, trackPaint)
-        if (arcs.fillSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees, arcs.fillSweep, false, Paint(trackPaint).apply { color = accent })
+        if (marker) {
+            canvas.drawArc(ringBounds, geometry.composeStartDegrees, geometry.sweepDegrees, false, Paint(trackPaint).apply { color = accent })
+        } else {
+            if (arcs.trackSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, trackPaint)
+            if (arcs.fillSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees, arcs.fillSweep, false, Paint(trackPaint).apply { color = accent })
+        }
         if (marker) {
             val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
             val x = ringBounds.centerX() + ringBounds.width() / 2f * kotlin.math.cos(angle).toFloat()
@@ -1222,14 +1227,14 @@ internal fun renderTherapyIndicatorWidget(
         }
 
         valuePaint.textSize =
-            therapyIndicatorFontSizeSp(indicator.value) * renderDensity * context.resources.configuration.fontScale * (resolved.primaryTextSizeSp / 19f)
-        valuePaint.textSize *= minOf(1f, (diameter - stroke * 2f) / valuePaint.measureText(indicator.value).coerceAtLeast(1f))
+            resolved.primaryTextSizeSp * .88f * renderDensity
+        valuePaint.textSize *= minOf(1f, (ringDiameter * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION) / valuePaint.measureText(indicator.value).coerceAtLeast(1f))
         val valueBaseline = centerY - (valuePaint.ascent() + valuePaint.descent()) / 2f
         canvas.drawText(indicator.value, centerX, valueBaseline, valuePaint)
 
-        val iconSize = 17f * renderDensity * (resolved.iconSizeDp / 19f)
+        val iconSize = TherapyIndicatorGeometry.iconSizeDp(resolved.metric, ringDiameter) * (resolved.iconSizeDp / TherapyIndicatorGeometry.iconSizeDp(resolved.metric, resolved.slot.diameterDp).coerceAtLeast(.001f))
         val iconLeft = (centerX - iconSize / 2f).roundToInt()
-        val iconTop = therapyWidgetIconTopPx(centerY, diameter, iconSize, iconLeft.toFloat(), safeWidth.toFloat(), safeHeight.toFloat(), configuration.cornerRadiusDp * renderDensity).roundToInt()
+        val iconTop = therapyWidgetIconTopPx(centerY, ringDiameter, iconSize, iconLeft.toFloat(), safeWidth.toFloat(), safeHeight.toFloat(), configuration.cornerRadiusDp * renderDensity).roundToInt()
         val iconResource =
             when (resolved.metric) {
                 TherapyProgressMetric.IOB -> app.aapswear.uishared.R.drawable.ic_iob_bckgrnd
@@ -1340,7 +1345,7 @@ internal fun therapyWidgetIconTopPx(
     height: Float,
     cornerRadius: Float,
 ): Float {
-    val preferredTop = centerY + diameter / 2f - iconSize * .78f
+    val preferredTop = centerY + diameter * (TherapyIndicatorGeometry.ICON_CENTER_Y_FRACTION - .5f) - iconSize / 2f
     val sideDistance = minOf(iconLeft, width - iconLeft - iconSize)
     val bottomLimit = height - roundedWidgetContourInset(cornerRadius, sideDistance) - 1f
     return minOf(preferredTop, bottomLimit - iconSize)

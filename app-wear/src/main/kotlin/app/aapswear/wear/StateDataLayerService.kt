@@ -20,6 +20,7 @@ import app.aapswear.model.DiagnosticSeverity
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.SugarliciousComplicationIds
 import app.aapswear.model.TherapyDisplayState
+import app.aapswear.model.withHistoryDerivedDelta
 import app.aapswear.protocol.WatchRuntimeStatus
 import app.aapswear.protocol.WearProtocol
 import app.aapswear.storage.PersistentPredictionCache
@@ -316,13 +317,13 @@ class StateDataLayerService : WearableListenerService() {
             Intent("app.aapswear.g7watch.CONFIGURE")
                 .setComponent(
                     ComponentName(
-                        "app.aapswear.g7watch",
+                        "app.sugarwear",
                         "app.aapswear.g7watch.G7SetupReceiver",
                     ),
                 ).putExtra("pairing_code", command.pairingCode)
                 .putExtra("sensor_serial", command.sensorSerial)
                 .putExtra("gtin", command.gtin)
-        sendBroadcast(intent, "app.aapswear.g7watch.permission.CONFIGURE_G7")
+        sendBroadcast(intent, "app.sugarwear.permission.CONFIGURE_G7")
         scope.launch {
             applicationContext.recordWatchDiagnostic(
                 "G7",
@@ -494,11 +495,11 @@ class StateDataLayerService : WearableListenerService() {
             Intent("app.aapswear.g7watch.APPLY_GRAPH_COLORS")
                 .setComponent(
                     ComponentName(
-                        "app.aapswear.g7watch",
+                        "app.sugarwear",
                         "app.aapswear.g7watch.G7ColorSyncReceiver",
                     ),
                 ).putExtra("color_payload", payload),
-            "app.aapswear.g7watch.permission.CONFIGURE_G7",
+            "app.sugarwear.permission.CONFIGURE_G7",
         )
         scope.launch {
             applicationContext.recordWatchDiagnostic(
@@ -606,11 +607,12 @@ class StateDataLayerService : WearableListenerService() {
                 )
 
             val merged =
-                PersistentPredictionCache.merge(
-                    previous = old,
-                    incoming = incoming.copy(glucoseHistory = history),
-                    nowEpochMs = now,
-                )
+                PersistentPredictionCache
+                    .merge(
+                        previous = old,
+                        incoming = incoming.copy(glucoseHistory = history),
+                        nowEpochMs = now,
+                    ).withHistoryDerivedDelta(app.aapswear.model.TrendRateProfile.SUGARLICIOUS)
             if (!hasMeaningfulPhoneStateChange(old, merged)) return@withLock
 
             val selectedSource = WearDisplayPreferences.read(this@StateDataLayerService).dataSource

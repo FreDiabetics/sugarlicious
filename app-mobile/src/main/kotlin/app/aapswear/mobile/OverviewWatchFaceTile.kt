@@ -194,7 +194,8 @@ internal fun OverviewWatchFaceTile(
         runCatching { requestWatchRuntimeStatus(appContext) }
     }
 
-    val directToWatchRelevant = SugarliciousWatchFaceSelectionStore.isDirectToWatchRelevant(appContext, state)
+    // SugarWear has its own installer; reserved slot 1 is not a Sugarlicious carousel choice.
+    val directToWatchRelevant = false
     val savedFaceIndex = SugarliciousWatchFaceSelectionStore.read(appContext, selectedFaceIndex)
     val selectableSavedFaceIndex =
         SugarliciousWatchFaceSelectionStore.resolveSelectableFallback(
@@ -399,7 +400,8 @@ internal fun FaceDial(
     val faceModifier = modifier.clip(CircleShape)
     when (index) {
         0 -> SugarliciousAnalogFacePreview(state = state, modifier = faceModifier)
-        DIRECT_TO_WATCH_FACE_INDEX -> DirectToWatchFacePreview(state = state, modifier = faceModifier)
+        // Slot 1 stays hidden until its Digital preview/editor is exposed.
+        DIRECT_TO_WATCH_FACE_INDEX -> SugarliciousAnalogFacePreview(state = state, modifier = faceModifier)
         2 -> OrbitFacePreview(modifier = faceModifier)
         else ->
             SugarliciousFacePreview(

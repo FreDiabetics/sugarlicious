@@ -47,7 +47,7 @@ private fun readG7Diagnostics(context: Context): List<DiagnosticEvent> =
     runCatching {
         context.contentResolver
             .query(
-                Uri.parse("content://app.aapswear.g7watch.readings/diagnostics"),
+                Uri.parse("content://app.sugarwear.readings/diagnostics"),
                 null,
                 null,
                 null,

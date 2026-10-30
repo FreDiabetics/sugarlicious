@@ -145,7 +145,7 @@ internal data class WidgetInstanceConfiguration(
     val showTimeAxis: Boolean = true,
     val scaleMode: WidgetScaleMode = WidgetScaleMode.STATIC,
     val backgroundArgb: Int = Color.BLACK,
-    val launchPackage: String? = "app.aapswear",
+    val launchPackage: String? = "app.sugarlicious",
     val backgroundEnabled: Boolean = true,
     val outlineEnabled: Boolean = false,
     val outlineArgb: Int = Color.DKGRAY,

@@ -89,31 +89,42 @@ subprojects {
     }
 }
 
-// Mobile and Wear deliberately share app.aapswear because they are companion variants on
+// Mobile and Wear deliberately share app.sugarlicious because they are companion variants on
 // different devices. Keep their version monotonically aligned so an in-place update never
 // becomes a downgrade merely because one variant was built later than the other.
 extra["sugarliciousSuiteVersionCode"] = 71
 extra["sugarliciousSuiteVersionName"] = "0.7.1"
 
-abstract class InstallSugarliciousDebugTask
+abstract class InstallWatchProductDebugTask
     @Inject
     constructor(
         private val execOperations: ExecOperations,
     ) : DefaultTask() {
+        @get:org.gradle.api.tasks.Optional
         @get:InputFile
         abstract val mobileApk: RegularFileProperty
 
+        @get:org.gradle.api.tasks.Optional
         @get:InputFile
         abstract val wearApk: RegularFileProperty
 
+        @get:org.gradle.api.tasks.Optional
         @get:InputFile
         abstract val g7WatchApk: RegularFileProperty
 
+        @get:org.gradle.api.tasks.Optional
         @get:InputFile
         abstract val vigilApk: RegularFileProperty
 
+        @get:org.gradle.api.tasks.Input
+        abstract val companionProduct: org.gradle.api.provider.Property<Boolean>
+
+        @get:org.gradle.api.tasks.Input
+        abstract val legacyMigration: org.gradle.api.provider.Property<Boolean>
+
         @TaskAction
         fun install() {
+            check(!legacyMigration.get()) { "Legacy migration artifacts are not normal product installers" }
             val devices =
                 adb("devices")
                     .lineSequence()
@@ -134,7 +145,7 @@ abstract class InstallSugarliciousDebugTask
             val watches = devices.filter(::isWatch)
             val phones = devices.filterNot { it in watches }
 
-            check(phones.size == 1) {
+            check(!companionProduct.get() || phones.size == 1) {
                 "Genau ein Smartphone wird erwartet, gefunden: ${describe(phones)}. " +
                     "Weitere Phones/Emulatoren vor der Installation trennen."
             }
@@ -143,17 +154,18 @@ abstract class InstallSugarliciousDebugTask
                     "Weitere Watches/Emulatoren vor der Installation trennen."
             }
 
-            val phone = phones.single()
             val watch = watches.single()
-
-            logger.lifecycle("Sugarlicious Phone: ${model(phone)} [$phone]")
-            logger.lifecycle("Sugarlicious Watch: ${model(watch)} [$watch]")
-
-            installApk(phone, mobileApk.get().asFile, "Mobile")
-            removeAccidentalPhoneCollector(phone)
-            installApk(watch, wearApk.get().asFile, "Wear")
-            installApk(watch, g7WatchApk.get().asFile, "SugarWear")
-            installApk(watch, vigilApk.get().asFile, "Vigil")
+            if (companionProduct.get()) {
+                val phone = phones.single()
+                logger.lifecycle("Sugarlicious Phone: ${model(phone)} [$phone]")
+                logger.lifecycle("Sugarlicious Watch: ${model(watch)} [$watch]")
+                installApk(phone, mobileApk.get().asFile, "Sugarlicious Mobile")
+                installApk(watch, wearApk.get().asFile, "Sugarlicious Wear")
+            } else {
+                logger.lifecycle("SugarWear Watch: ${model(watch)} [$watch]")
+                installApk(watch, g7WatchApk.get().asFile, "SugarWear")
+                installApk(watch, vigilApk.get().asFile, "Vigil")
+            }
         }
 
         private fun isWatch(serial: String): Boolean =
@@ -189,34 +201,6 @@ abstract class InstallSugarliciousDebugTask
             }
         }
 
-        private fun removeAccidentalPhoneCollector(serial: String) {
-            val installed =
-                adb("-s", serial, "shell", "pm", "list", "packages", "--user", "0", G7_WATCH_PACKAGE)
-                    .lineSequence()
-                    .any { it.trim() == "package:$G7_WATCH_PACKAGE" }
-            if (!installed) return
-
-            logger.lifecycle(
-                "Entferne versehentlich auf dem Smartphone installiertes G7-Watch-Paket; " +
-                    "Paketdaten bleiben mit -k erhalten …",
-            )
-            val output =
-                adb(
-                    "-s",
-                    serial,
-                    "shell",
-                    "pm",
-                    "uninstall",
-                    "-k",
-                    "--user",
-                    "0",
-                    G7_WATCH_PACKAGE,
-                ).trim()
-            check(output.lineSequence().any { it.trim().equals("Success", ignoreCase = true) }) {
-                "Das Wear-only G7-Watch-Paket konnte auf dem Smartphone nicht sauber entfernt werden:\n$output"
-            }
-        }
-
         private fun adb(vararg arguments: String): String {
             val stdout = ByteArrayOutputStream()
             val stderr = ByteArrayOutputStream()
@@ -246,9 +230,6 @@ abstract class InstallSugarliciousDebugTask
             return executableName
         }
 
-        private companion object {
-            const val G7_WATCH_PACKAGE = "app.aapswear.g7watch"
-        }
     }
 
 val watchFaceValidatorCli = configurations.create("watchFaceValidatorCli")
@@ -265,17 +246,23 @@ tasks.register<Copy>("prepareWatchFaceValidatorCli") {
     into(layout.buildDirectory.dir("watchface-push/tools"))
 }
 
-tasks.register<InstallSugarliciousDebugTask>("installSugarliciousDebug") {
+// Independent products: neither installer mutates packages owned by the other product.
+tasks.register<InstallWatchProductDebugTask>("installSugarliciousDebug") {
     group = "install"
-    description = "Builds and installs Mobile on the phone and Wear + G7 Collector + Vigil on the watch."
-    dependsOn(
-        ":app-mobile:assembleDebug",
-        ":app-wear:assembleDebug",
-        ":g7watch:assembleDebug",
-        ":watchfaces:sugarlicious-direct-to-watch:assembleDebug",
-    )
+    description = "Builds and installs only Sugarlicious Mobile and its Wear companion."
+    companionProduct.set(true)
+    legacyMigration.set(providers.gradleProperty("legacyProductMigration").map { it == "true" }.orElse(false))
+    dependsOn(":app-mobile:assembleDebug", ":app-wear:assembleDebug")
     mobileApk.set(layout.projectDirectory.file("app-mobile/build/outputs/apk/debug/app-mobile-debug.apk"))
     wearApk.set(layout.projectDirectory.file("app-wear/build/outputs/apk/debug/app-wear-debug.apk"))
+}
+
+tasks.register<InstallWatchProductDebugTask>("installSugarWearDebug") {
+    group = "install"
+    description = "Builds and installs only SugarWear and Vigil on one connected watch; no phone required."
+    companionProduct.set(false)
+    legacyMigration.set(providers.gradleProperty("legacyProductMigration").map { it == "true" }.orElse(false))
+    dependsOn(":g7watch:assembleDebug", ":watchfaces:sugarlicious-direct-to-watch:assembleDebug")
     g7WatchApk.set(layout.projectDirectory.file("g7watch/build/outputs/apk/debug/g7watch-debug.apk"))
     vigilApk.set(layout.projectDirectory.file("watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/debug/sugarlicious-direct-to-watch-debug.apk"))
 }

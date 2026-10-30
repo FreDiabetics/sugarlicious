@@ -182,7 +182,7 @@ internal fun nativeSlotEditorOrder(faceIndex: Int, slots: List<NativeWatchSlot>)
 }
 
 internal fun isNativeSlotEditable(slot: NativeWatchSlot): Boolean =
-    slot.provider.substringBefore('/') == "app.aapswear" &&
+    slot.provider.substringBefore('/') == "app.sugarlicious" &&
         slot.provider.substringAfter('/', "").startsWith("app.aapswear.complications.")
 
 internal fun eligibleNativeVariants(slot: NativeWatchSlot): List<ComplicationVariant> =

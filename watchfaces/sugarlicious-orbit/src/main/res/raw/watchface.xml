@@ -355,22 +355,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="user_1" displayName="user_preset_1">
@@ -391,22 +391,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="user_2" displayName="user_preset_2">
@@ -427,22 +427,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="user_3" displayName="user_preset_3">
@@ -463,22 +463,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="user_4" displayName="user_preset_4">
@@ -499,22 +499,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="user_5" displayName="user_preset_5">
@@ -535,22 +535,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
     </Flavors>
@@ -4208,7 +4208,7 @@
     </Group>
     <ComplicationSlot slotId="0" displayName="slot_0" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="453.96999999999997" height="453.96999999999997" startAngle="280" endAngle="344" thickness="55.254999999999995" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -4265,10 +4265,10 @@
         <Group name="outer-0-marker" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressBars] == &quot;4&quot; || [CONFIGURATION.progressBars] == &quot;5&quot; || [CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] ? 255 : 0" />
           <PartDraw x="0" y="0" width="512" height="512">
-            <Ellipse x="244.051" y="25.601000000000013" width="23.898" height="23.898">
-              <Transform target="x" value="256 + 218.45 * sin(((284 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.949" />
-              <Transform target="y" value="256 - 218.45 * cos(((284 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.949" />
-              <Stroke color="#FF000000" thickness="6.828" />
+            <Ellipse x="244.9045" y="26.45450000000001" width="22.191" height="22.191">
+              <Transform target="x" value="256 + 218.45 * sin(((284 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.0955" />
+              <Transform target="y" value="256 - 218.45 * cos(((284 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.0955" />
+              <Stroke color="#FF000000" thickness="5.1209999999999996" />
             </Ellipse>
           </PartDraw>
         </Group>
@@ -4349,10 +4349,10 @@
         <Group name="outer-1-marker" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressBars] == &quot;4&quot; || [CONFIGURATION.progressBars] == &quot;5&quot; || [CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] ? 255 : 0" />
           <PartDraw x="0" y="0" width="512" height="512">
-            <Ellipse x="244.051" y="25.601000000000013" width="23.898" height="23.898">
-              <Transform target="x" value="256 + 218.45 * sin(((19 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.949" />
-              <Transform target="y" value="256 - 218.45 * cos(((19 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.949" />
-              <Stroke color="#FF000000" thickness="6.828" />
+            <Ellipse x="244.9045" y="26.45450000000001" width="22.191" height="22.191">
+              <Transform target="x" value="256 + 218.45 * sin(((19 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.0955" />
+              <Transform target="y" value="256 - 218.45 * cos(((19 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 57) * 0.017453292519943295)) - 11.0955" />
+              <Stroke color="#FF000000" thickness="5.1209999999999996" />
             </Ellipse>
           </PartDraw>
         </Group>
@@ -4445,8 +4445,8 @@
           </Group>
         </Group>
         <PartText x="0" y="0" width="512" height="512">
-          <TextCircular centerX="256" centerY="256" width="375.46" height="375.46" startAngle="27" endAngle="72" direction="CLOCKWISE" align="END" ellipsis="TRUE">
-            <Font family="inter_tight" size="32" weight="SEMI_BOLD" color="[CONFIGURATION.secondary.0]">
+          <TextCircular centerX="256" centerY="256" width="375.46" height="375.46" startAngle="25" endAngle="79" direction="CLOCKWISE" align="END" ellipsis="FALSE">
+            <Font family="inter_tight" size="30" weight="SEMI_BOLD" color="[CONFIGURATION.secondary.0]">
               <Template>%s<Parameter expression="[COMPLICATION.TEXT]" />
               </Template>
             </Font>
@@ -4464,7 +4464,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="2" displayName="slot_2" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="453.96999999999997" height="453.96999999999997" startAngle="100" endAngle="171" thickness="55.254999999999995" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -4521,10 +4521,10 @@
         <Group name="outer-2-marker" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressBars] == &quot;4&quot; || [CONFIGURATION.progressBars] == &quot;5&quot; || [CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] ? 255 : 0" />
           <PartDraw x="0" y="0" width="512" height="512">
-            <Ellipse x="244.051" y="25.601000000000013" width="23.898" height="23.898">
-              <Transform target="x" value="256 + 218.45 * sin(((103 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 63) * 0.017453292519943295)) - 11.949" />
-              <Transform target="y" value="256 - 218.45 * cos(((103 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 63) * 0.017453292519943295)) - 11.949" />
-              <Stroke color="#FF000000" thickness="6.828" />
+            <Ellipse x="244.9045" y="26.45450000000001" width="22.191" height="22.191">
+              <Transform target="x" value="256 + 218.45 * sin(((103 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 63) * 0.017453292519943295)) - 11.0955" />
+              <Transform target="y" value="256 - 218.45 * cos(((103 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * 63) * 0.017453292519943295)) - 11.0955" />
+              <Stroke color="#FF000000" thickness="5.1209999999999996" />
             </Ellipse>
           </PartDraw>
         </Group>
@@ -4548,7 +4548,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="3" displayName="slot_3" isCustomizable="TRUE" supportedTypes="RANGED_VALUE GOAL_PROGRESS SHORT_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingOval x="67" y="287" width="162" height="162" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -4855,10 +4855,10 @@
         <Group name="inner-4-marker" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressBars] == &quot;4&quot; || [CONFIGURATION.progressBars] == &quot;5&quot; || [CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] ? 255 : 0" />
           <PartDraw x="0" y="0" width="512" height="512">
-            <Ellipse x="227.328" y="82.828" width="57.344" height="57.344">
-              <Transform target="x" value="256 + 144.5 * sin(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 28.672" />
-              <Transform target="y" value="256 - 144.5 * cos(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 28.672" />
-              <Stroke color="#FF000000" thickness="16.384" />
+            <Ellipse x="229.376" y="84.876" width="53.248000000000005" height="53.248000000000005">
+              <Transform target="x" value="256 + 144.5 * sin(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 26.624000000000002" />
+              <Transform target="y" value="256 - 144.5 * cos(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 26.624000000000002" />
+              <Stroke color="#FF000000" thickness="12.288" />
             </Ellipse>
           </PartDraw>
         </Group>
@@ -4909,7 +4909,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="5" displayName="slot_5" isCustomizable="TRUE" supportedTypes="SHORT_TEXT RANGED_VALUE MONOCHROMATIC_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.aodStyle] == &quot;0&quot; ? 80 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="232.1" height="232.1" startAngle="90" endAngle="180" thickness="40.96" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -5017,10 +5017,10 @@
         <Group name="inner-5-marker" x="0" y="0" width="512" height="512">
           <Transform target="alpha" value="([CONFIGURATION.progressBars] == &quot;4&quot; || [CONFIGURATION.progressBars] == &quot;5&quot; || [CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) &amp;&amp; [COMPLICATION.RANGED_VALUE_MAX] &gt; [COMPLICATION.RANGED_VALUE_MIN] ? 255 : 0" />
           <PartDraw x="0" y="0" width="512" height="512">
-            <Ellipse x="227.328" y="131.758" width="57.344" height="57.344">
-              <Transform target="x" value="256 + 95.57 * sin(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 28.672" />
-              <Transform target="y" value="256 - 95.57 * cos(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 28.672" />
-              <Stroke color="#FF000000" thickness="16.384" />
+            <Ellipse x="229.376" y="133.806" width="53.248000000000005" height="53.248000000000005">
+              <Transform target="x" value="256 + 95.57 * sin(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 26.624000000000002" />
+              <Transform target="y" value="256 - 95.57 * cos(((180 + ([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)) * -90) * 0.017453292519943295)) - 26.624000000000002" />
+              <Stroke color="#FF000000" thickness="12.288" />
             </Ellipse>
           </PartDraw>
         </Group>
@@ -5071,7 +5071,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="8" displayName="slot_8" isCustomizable="FALSE" supportedTypes="SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="[CONFIGURATION.arcContent] == &quot;3&quot; ? 160 : 0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.OrbitGlucoseGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.OrbitGlucoseGraphComplication" primaryProviderType="SMALL_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingBox x="91" y="91" width="330" height="165" />
       <Complication type="EMPTY" />
       <Complication type="SMALL_IMAGE">
@@ -5097,7 +5097,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="9" displayName="slot_9" isCustomizable="FALSE" supportedTypes="MONOCHROMATIC_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.aapswear/app.aapswear.complications.OrbitDailyTirComplication" primaryProviderType="MONOCHROMATIC_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.OrbitDailyTirComplication" primaryProviderType="MONOCHROMATIC_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingBox x="91" y="91" width="330" height="165" />
       <Complication type="EMPTY" />
       <Complication type="MONOCHROMATIC_IMAGE">

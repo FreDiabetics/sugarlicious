@@ -39,6 +39,7 @@ import app.aapswear.model.GraphTimeWindow
 import app.aapswear.model.TherapyDisplayFormatter
 import app.aapswear.model.TherapyDisplayState
 import app.aapswear.model.TherapyEventKind
+import app.aapswear.model.TherapyIndicatorGeometry
 import app.aapswear.model.TherapyIndicatorIcon
 import app.aapswear.model.TherapyProgressAppearance
 import app.aapswear.model.TherapyProgressSemantics
@@ -48,7 +49,6 @@ import app.aapswear.model.TrendVisualAsset
 import app.aapswear.model.TrendVisuals
 import app.aapswear.model.basalIndicatorIcon
 import app.aapswear.model.effectiveBasalPresentation
-import app.aapswear.model.resolveRoundTherapyLayout
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.storage.TherapyStateStore
 import app.aapswear.uishared.SharedWearCgmGraphInput
@@ -69,7 +69,7 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
-private const val TILE_RESOURCES_VERSION = "sugarlicious-15-basal-tile-preserved"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-18-shared-therapy-proportions"
 private const val TILE_GRAPH_RESOURCE_ID = "live_cgm_graph"
 private const val TILE_GRAPH_WIDTH_PX = 296
 private const val TILE_GRAPH_HEIGHT_PX = 120
@@ -590,7 +590,7 @@ private fun therapyTileContent(
     val presentation = wearTherapyTilePresentation(state, now)
     val effectiveAppearance = appearance.copy(enabledMetrics = selection.canonical.mapTo(linkedSetOf()) { it.toProgressMetric() })
     val side = (availableSideDp - 12f).coerceAtLeast(1f)
-    val resolved = resolveRoundTherapyLayout(side, effectiveAppearance, baseDiameterDp = side * .58f)
+    val resolved = centeredTherapyTileLayout(side, effectiveAppearance)
     val group =
         Box
             .Builder()
@@ -674,26 +674,39 @@ private fun therapyMetricCard(
             ).setWidth(dp(ring.diameterDp))
             .setHeight(dp(ring.diameterDp))
             .build()
-    val fittedPrimarySp = minOf(primaryTextSizeSp * 1.12f, ring.diameterDp * .78f / (value.length.coerceAtLeast(1) * .58f))
-    val valueContent = textRenderer.text(scope, value, fittedPrimarySp, colors.textPrimary, bold = true, maxWidthDp = ring.diameterDp * .70f, maxHeightDp = ring.diameterDp * .34f)
+    val fittedPrimarySp = textRenderer.fittedTextSize(value, TherapyIndicatorGeometry.fontSizeSp(primaryTextSizeSp, TherapyIndicatorGeometry.REFERENCE_DIAMETER_DP, textRenderer.fontScale), ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, bold = true)
+    val valueContent = textRenderer.text(scope, value, fittedPrimarySp, colors.textPrimary, bold = true, maxWidthDp = ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, maxHeightDp = ring.diameterDp * .34f)
     val secondary =
         when (metric) {
             TherapyTileMetric.IOB -> presentation.iobSecondary
             TherapyTileMetric.COB -> null
-            TherapyTileMetric.BASAL -> presentation.basalSecondary
+            TherapyTileMetric.BASAL -> null
         }
     val textContent =
-        Column
+        Box
             .Builder()
+            .setWidth(dp(ring.diameterDp))
+            .setHeight(dp(ring.diameterDp))
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .addContent(valueContent)
             .apply {
                 secondary?.let {
-                    addContent(textRenderer.text(scope, it, secondaryTextSizeSp * 1.12f, colors.textSecondary, bold = false, maxWidthDp = ring.diameterDp * .70f, maxHeightDp = ring.diameterDp * .20f))
+                    addContent(
+                        Box
+                            .Builder()
+                            .setWidth(dp(ring.diameterDp))
+                            .setHeight(dp(ring.diameterDp))
+                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                            .setModifiers(Modifiers.Builder().setPadding(Padding.Builder().setTop(dp(ring.diameterDp * .34f)).build()).build())
+                            .addContent(textRenderer.text(scope, it, secondaryTextSizeSp, colors.textSecondary, bold = false, maxWidthDp = ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, maxHeightDp = ring.diameterDp * .12f))
+                            .build(),
+                    )
                 }
             }.build()
     val iconState = wearTherapyIcon(metric, state, nowEpochMs)
-    val iconSize = (if (metric == TherapyTileMetric.COB) 17f else 19f) * (configuredIconSizeDp / 19f)
+    val iconSize = configuredIconSizeDp
     val icon =
         Image
             .Builder(scope)
@@ -715,6 +728,7 @@ private fun therapyMetricCard(
             .setHeight(dp(ring.diameterDp))
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
+            .setModifiers(Modifiers.Builder().setPadding(Padding.Builder().setBottom(dp((ring.diameterDp * (1f - TherapyIndicatorGeometry.ICON_CENTER_Y_FRACTION) - iconSize / 2f).coerceAtLeast(0f))).build()).build())
             .addContent(icon)
             .build()
     return Box
@@ -736,9 +750,10 @@ internal fun renderTherapyTileRing(ring: TherapyRingLayoutSpec, progress: Float?
     val canvas = Canvas(bitmap)
     canvas.drawColor(background)
     val stroke = ring.strokeWidthDp * scale
-    val outline = 1.5f * scale
+    val proportionalScale = TherapyIndicatorGeometry.scale(ring.diameterDp)
+    val outline = TherapyIndicatorGeometry.MARKER_OUTLINE_DP * proportionalScale * scale
     val marker = showMarker && progress?.isFinite() == true
-    val inset = stroke / 2f + if (marker) outline else 0f
+    val inset = stroke / 2f + if (marker) TherapyIndicatorGeometry.MARKER_INSET_DP * proportionalScale * scale else 0f
     val bounds = android.graphics.RectF(inset, inset, side - inset, side - inset)
     val sweep = ring.sweepDegrees
     val arcs = app.aapswear.model.progressArcSegments(progress, bounds.width() + stroke, stroke, sweep)
@@ -821,7 +836,7 @@ internal fun therapyMetricValue(
     when (metric) {
         TherapyTileMetric.IOB -> presentation.iob
         TherapyTileMetric.COB -> presentation.cob
-        TherapyTileMetric.BASAL -> presentation.basal
+        TherapyTileMetric.BASAL -> presentation.basal.removeSuffix("/h")
     }
 
 internal fun wearTherapyProgress(

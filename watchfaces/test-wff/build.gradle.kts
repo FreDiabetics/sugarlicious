@@ -5,7 +5,7 @@ android {
     compileSdk = 37
     defaultConfig {
         applicationId =
-            "app.aapswear.watchface.test"
+            "app.sugarlicious.watchfacepush.test"
         ; minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int

@@ -3,7 +3,7 @@
         <receiver
             android:name=".DirectToWatchSettingsReceiver"
             android:exported="true"
-            android:permission="app.aapswear.g7watch.permission.CONFIGURE_G7">
+            android:permission="app.sugarwear.permission.CONFIGURE_G7">
             <intent-filter><action android:name="app.aapswear.APPLY_DIRECT_TO_WATCH_SETTINGS" /></intent-filter>
         </receiver>
         <service android:name=".DirectToWatchHeaderComplication" android:label="SugarWear · Glukose" android:icon="@drawable/ic_direct_to_watch_header" android:exported="true" android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">

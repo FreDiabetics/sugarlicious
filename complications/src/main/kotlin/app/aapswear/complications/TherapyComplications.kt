@@ -179,7 +179,7 @@ abstract class TherapyComplicationService(
         ActiveProviderUpdates.activate(this, javaClass, request.complicationInstanceId)
         ActiveComplicationRegistry.activate(this, request.complicationInstanceId, catalogId)
         val resolved =
-            if (packageName == "app.aapswear.g7watch") {
+            if (packageName == "app.sugarwear") {
                 G7LocalReadingResolver.resolveWatchDirect(this)
             } else {
                 G7LocalReadingResolver.resolve(this, TherapyStateStore(this).state.first())

@@ -29,13 +29,13 @@ class WatchFacePushControllerTest {
     fun `active marketplace slot wins over an inactive matching package`() {
         val slots =
             listOf(
-                ManagedWatchFaceSlot("inactive-match", "app.aapswear.watchfacepush.orbit", false),
+                ManagedWatchFaceSlot("inactive-match", "app.sugarlicious.watchfacepush.orbit", false),
                 ManagedWatchFaceSlot("active-slot", "app.aapswear.watchfacepush.rings", true),
             )
 
         assertEquals(
             "active-slot",
-            selectManagedWatchFaceSlot(slots, "app.aapswear.watchfacepush.orbit")?.slotId,
+            selectManagedWatchFaceSlot(slots, "app.sugarlicious.watchfacepush.orbit")?.slotId,
         )
     }
 
@@ -44,12 +44,12 @@ class WatchFacePushControllerTest {
         val slots =
             listOf(
                 ManagedWatchFaceSlot("fallback", "app.aapswear.watchfacepush.rings", false),
-                ManagedWatchFaceSlot("match", "app.aapswear.watchfacepush.orbit", false),
+                ManagedWatchFaceSlot("match", "app.sugarlicious.watchfacepush.orbit", false),
             )
 
         assertEquals(
             "match",
-            selectManagedWatchFaceSlot(slots, "app.aapswear.watchfacepush.orbit")?.slotId,
+            selectManagedWatchFaceSlot(slots, "app.sugarlicious.watchfacepush.orbit")?.slotId,
         )
     }
 
@@ -62,7 +62,7 @@ class WatchFacePushControllerTest {
 
         assertEquals(
             "legacy-slot",
-            selectManagedWatchFaceSlot(slots, "app.aapswear.watchfacepush.analog")?.slotId,
+            selectManagedWatchFaceSlot(slots, "app.sugarlicious.watchfacepush.apex")?.slotId,
         )
     }
 
@@ -98,16 +98,16 @@ class WatchFacePushControllerTest {
     }
 
     @Test
-    fun `ApeX Vigil and Orbit align with the visible selection cards`() {
+    fun `ApeX Digital and Orbit align with the visible selection cards`() {
         val active = SugarliciousWatchFacePush.activeFaceSpecs
 
         assertEquals(SUGARLICIOUS_MANAGED_FACE_COUNT, active.size)
         assertEquals(3, active.size)
         assertEquals(
             listOf(
-                "app.aapswear.watchfacepush.analog",
-                "app.aapswear.watchfacepush.g6style",
-                "app.aapswear.watchfacepush.orbit",
+                "app.sugarlicious.watchfacepush.apex",
+                "app.sugarlicious.watchfacepush.digital",
+                "app.sugarlicious.watchfacepush.orbit",
             ),
             active.map { it.packageName },
         )

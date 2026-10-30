@@ -270,6 +270,7 @@ data class DiagnosticsSnapshot(
     val lastSyncAt: Long,
     val syncStatus: String?,
     val syncError: String?,
+    val connectedWatchModels: String = "",
 ) {
     companion object {
         fun read(preferences: SharedPreferences) =
@@ -283,6 +284,7 @@ data class DiagnosticsSnapshot(
                 lastSyncAt = preferences.getLong("lastSyncAt", 0L),
                 syncStatus = preferences.getString("lastSyncStatus", null),
                 syncError = preferences.getString("lastSyncError", null),
+                connectedWatchModels = preferences.getString("connectedWatchModels", "").orEmpty(),
             )
     }
 }

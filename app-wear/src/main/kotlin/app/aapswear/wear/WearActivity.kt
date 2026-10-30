@@ -370,7 +370,7 @@ class WearActivity : Activity() {
             cob.text = if (canShowValue) TherapyDisplayFormatter.aaps(AapsDisplayField.COB, state?.carbs?.cobGrams, state) else "—"
             basal.text =
                 if (canShowValue) {
-                    TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basalDisplayUnitsPerHour(state?.basal), state)
+                    TherapyDisplayFormatter.aaps(AapsDisplayField.BASAL, basalDisplayUnitsPerHour(state?.basal), state).removeSuffix("/h")
                 } else {
                     "—"
                 }
@@ -469,7 +469,7 @@ class WearActivity : Activity() {
         listOf(R.id.wear_basal_card, R.id.wear_iob_card, R.id.wear_cob_card).forEach { id ->
             findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 20f)
         }
-        listOf(R.id.wear_connection_card, R.id.wear_settings_action).forEach { id ->
+        listOf(R.id.wear_connection_card).forEach { id ->
             findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 22f)
         }
         findViewById<View>(R.id.wear_graph_card).background = null
@@ -481,8 +481,6 @@ class WearActivity : Activity() {
             R.id.wear_iob,
             R.id.wear_cob,
             R.id.wear_source,
-            R.id.wear_settings_label,
-            R.id.wear_footer_text,
         ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textPrimary) }
 
         listOf(
@@ -497,16 +495,11 @@ class WearActivity : Activity() {
         iobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_iob, ui.iob, ui.tileBackground)
         cobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_cob, ui.cob, ui.tileBackground)
         basalIcon.renderSugarliciousWearIcon(currentBasalIconRes, ui.basal, ui.tileBackground)
-        findViewById<ImageView>(R.id.wear_settings_icon).renderSugarliciousWearIcon(
+        app.aapswear.uishared.WearOverviewSettingsButton.apply(
+            findViewById(R.id.wear_settings_action),
             R.drawable.ic_settings,
-            ui.textPrimary,
             ui.tileBackground,
-            colored = false,
-        )
-        findViewById<ImageView>(R.id.wear_footer_icon).renderSugarliciousWearIcon(
-            R.drawable.ic_foreground,
-            tintArgb = null,
-            backgroundArgb = ui.background,
+            ui.textPrimary,
         )
     }
 

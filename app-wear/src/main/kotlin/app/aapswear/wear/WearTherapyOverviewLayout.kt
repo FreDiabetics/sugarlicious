@@ -17,6 +17,7 @@ internal fun configureTherapyOverviewLayout(root: View, widthDp: Int = root.reso
         }
     }
     applySystemScaleLayout(root)
+    alignTherapyRingContents(root)
 }
 
 private fun applySystemScaleLayout(root: View) {
@@ -54,11 +55,43 @@ private fun applySystemScaleLayout(root: View) {
                 height = width
             }
     }
-    listOf(R.id.wear_iob_icon, R.id.wear_cob_icon, R.id.wear_basal_icon).forEach { id ->
-        root.findViewById<View>(id).layoutParams =
-            root.findViewById<View>(id).layoutParams.apply {
-                width = (19 * density * fontScale).roundToInt()
-                height = width
+}
+
+/** Ring contents share the same reference geometry as Mobile; auxiliary labels live outside. */
+private fun alignTherapyRingContents(root: View) {
+    val density = root.resources.displayMetrics.density
+    val geometry = app.aapswear.model.TherapyIndicatorGeometry
+    listOf(
+        Triple(R.id.wear_iob, R.id.wear_iob_icon, app.aapswear.model.TherapyProgressMetric.IOB),
+        Triple(R.id.wear_cob, R.id.wear_cob_icon, app.aapswear.model.TherapyProgressMetric.COB),
+        Triple(R.id.wear_basal, R.id.wear_basal_icon, app.aapswear.model.TherapyProgressMetric.BASAL),
+    ).forEach { (valueId, iconId, metric) ->
+        val value = root.findViewById<TextView>(valueId)
+        val frame = value.parent as android.widget.FrameLayout
+        val diameter = frame.layoutParams.width / density
+        value.textSize = geometry.VALUE_TEXT_SP
+        // Keep the shared 14sp reference for ordinary values, fitting longer precise
+        // values inside the same core instead of wrapping or dropping their unit.
+        value.maxLines = 1
+        value.setHorizontallyScrolling(false)
+        value.setAutoSizeTextTypeUniformWithConfiguration(
+            8,
+            geometry.VALUE_TEXT_SP.roundToInt(),
+            1,
+            android.util.TypedValue.COMPLEX_UNIT_SP,
+        )
+        value.layoutParams =
+            (value.layoutParams as android.widget.FrameLayout.LayoutParams).apply {
+                width = (diameter * geometry.VALUE_WIDTH_FRACTION * density).roundToInt()
+                gravity = android.view.Gravity.CENTER
             }
+        val iconSize = geometry.iconSizeDp(metric, diameter)
+        root.findViewById<View>(iconId).layoutParams =
+            android.widget.FrameLayout
+                .LayoutParams(
+                    (iconSize * density).roundToInt(),
+                    (iconSize * density).roundToInt(),
+                    android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL,
+                ).apply { topMargin = ((diameter * geometry.ICON_CENTER_Y_FRACTION - iconSize / 2f) * density).roundToInt() }
     }
 }
