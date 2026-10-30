@@ -15,7 +15,7 @@ $gradle =
 
 Write-Host 'Building Sugarlicious Watch Face Push packages...'
 
-$buildTasks = @($ACTIVE_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
+$buildTasks = @($SUGARLICIOUS_WATCHFACES | ForEach-Object { ":watchfaces:$($_.Module):assembleRelease" })
 $buildTasks += 'prepareWatchFaceValidatorCli'
 & $gradle @buildTasks
 
@@ -37,7 +37,7 @@ Remove-Item (Split-Path $generatedValues -Parent) -Recurse -Force -ErrorAction S
 New-Item -ItemType Directory -Path $generated -Force | Out-Null
 New-Item -ItemType Directory -Path $generatedValues -Force | Out-Null
 
-foreach ($face in $ACTIVE_WATCHFACES) {
+foreach ($face in $SUGARLICIOUS_WATCHFACES) {
     $apk =
         Get-ChildItem (Join-Path $root "watchfaces/$($face.Module)/build/outputs/apk/release") -Filter '*.apk' |
             Sort-Object LastWriteTime -Descending |
@@ -55,7 +55,7 @@ foreach ($face in $ACTIVE_WATCHFACES) {
     $validatorOutput =
         & java -jar $validator.FullName `
             "--apk_path=$validationApk" `
-            "--package_name=app.aapswear" 2>&1 |
+            "--package_name=app.sugarlicious" 2>&1 |
             Out-String
 
     if ($LASTEXITCODE -ne 0) {

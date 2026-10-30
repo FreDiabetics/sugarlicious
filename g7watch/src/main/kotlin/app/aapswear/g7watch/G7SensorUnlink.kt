@@ -134,7 +134,7 @@ internal fun unlinkG7Sensor(
     // views so Vigil switches to its detached status without requiring a new glucose insert.
     app.contentResolver.notifyChange(G7ReadingProvider.STATE_URI, null)
     app.contentResolver.notifyChange(G7ReadingProvider.CONTENT_URI, null)
-    app.sendBroadcast(Intent(G7ReadingDatabase.ACTION_G7_READING_UPDATED).setPackage("app.aapswear"))
+    app.sendBroadcast(Intent(G7ReadingDatabase.ACTION_G7_READING_UPDATED).setPackage("app.sugarlicious"))
     return G7UnlinkResult(bondRemovalStatus)
 }
 

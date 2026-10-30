@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 
@@ -62,7 +66,18 @@ internal fun OverviewInlineHeader(onSettings: () -> Unit, diagnostics: Diagnosti
 
             Spacer(Modifier.weight(1f))
 
-            Box(Modifier.clickable(onClick = onWatch)) { WatchConnectionPill(diagnostics, compact = true) }
+            Row(Modifier.weight(4f).clickable(onClick = onWatch), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
+                Text(
+                    if (isWatchConnected(diagnostics.reachableWatches)) diagnostics.connectedWatchModels.ifBlank { "Watch" } else "Keine Watch verbunden",
+                    modifier = Modifier.weight(1f, fill = false),
+                    color = Color.White,
+                    style = oneUiMenuTypography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.width(6.dp))
+                SugarliciousIcon(R.drawable.ic_galaxywatch_outline, null, modifier = Modifier.size(24.dp), tint = SugarliciousColors.BrandGreen, colored = false)
+            }
             SettingsHeaderButton(onSettings)
         }
     }
@@ -77,7 +92,7 @@ private fun SettingsHeaderButton(onSettings: () -> Unit, tint: androidx.compose.
         SugarliciousIcon(
             drawableRes = R.drawable.ic_settings,
             contentDescription = "Einstellungen",
-            modifier = Modifier.size(23.dp).offset(x = 7.dp),
+            modifier = Modifier.size(24.dp),
             tint = tint,
             colored = false,
         )

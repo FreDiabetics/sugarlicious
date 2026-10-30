@@ -66,9 +66,9 @@ class G7SystemAccessTest {
     }
 
     @Test fun `channel settings target own package and selected channel`() {
-        val intent = G7SystemAccess.notificationSettingsIntents("app.aapswear.g7watch", "urgent").first()
+        val intent = G7SystemAccess.notificationSettingsIntents("app.sugarwear", "urgent").first()
         assertEquals(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS, intent.action)
-        assertEquals("app.aapswear.g7watch", intent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
+        assertEquals("app.sugarwear", intent.getStringExtra(Settings.EXTRA_APP_PACKAGE))
         assertEquals("urgent", intent.getStringExtra(Settings.EXTRA_CHANNEL_ID))
     }
 

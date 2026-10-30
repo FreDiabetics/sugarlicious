@@ -410,7 +410,7 @@ class WidgetInstanceConfigurationTest {
                 true,
                 WidgetScaleMode.DYNAMIC,
                 Color.argb(120, 10, 20, 30),
-                "app.aapswear",
+                "app.sugarlicious",
                 backgroundEnabled = false,
                 graphCornerRadiusDp = 12,
                 glucoseScalePercent = 88,
@@ -489,7 +489,7 @@ class WidgetInstanceConfigurationTest {
 
     @Test
     fun `legacy global tap target is captured independently by each widget`() {
-        val sugarlicious = WidgetLaunchTarget("app.aapswear", "Sugarlicious")
+        val sugarlicious = WidgetLaunchTarget("app.sugarlicious", "Sugarlicious")
         val dexcom = WidgetLaunchTarget("com.dexcom.g7", "Dexcom G7")
         try {
             WidgetLaunchTargetStore.select(context, dexcom)

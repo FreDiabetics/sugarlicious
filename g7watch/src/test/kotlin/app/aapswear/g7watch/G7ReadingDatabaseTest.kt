@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import app.aapswear.g7.CgmReading
 import app.aapswear.g7.CgmReadingOrigin
 import app.aapswear.g7.CgmReadingStatus
+import app.aapswear.g7.G7Reading
+import app.aapswear.g7.toCgm
 import app.aapswear.model.DataSourceId
 import app.aapswear.model.Trend
 import kotlinx.coroutines.runBlocking
@@ -160,9 +162,15 @@ class G7ReadingDatabaseTest {
                 )
             database.insert(live)
 
-            val recomputed = live.copy(deltaMgDl = 4.0, trendRateMgDlPerMinute = 0.8, trend = Trend.FLAT)
+            val historical = live.copy(id = "historical", timestampEpochMs = now - 300_000L, glucoseMgDl = 119.0, origin = CgmReadingOrigin.BACKFILL)
+            database.insert(historical)
+            assertNull(database.latestReading.value?.deltaMgDl)
+            val packet = G7Reading(live.sensorId, live.sessionId, null, live.glucoseMgDl, now, now)
+            val recomputed = packet.toCgm(database.getLatestValidBefore(live.sensorId, live.sessionId, now)).copy(id = live.id)
+            assertEquals(4.0, recomputed.deltaMgDl!!, 0.0)
             assertEquals(true, database.updateDerivedFields(recomputed))
             assertEquals(recomputed, database.getLatest())
+            assertEquals(recomputed, database.latestReading.value)
         }
 
     @Test

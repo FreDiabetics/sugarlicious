@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
  <queries>
+        <package android:name="app.sugarlicious" />
+        <package android:name="app.aapswear" />
   <package android:name="info.nightscout.androidaps"/>
   <package android:name="com.dexcom.g7"/>
   <package android:name="com.samsung.android.app.watchmanager"/>
@@ -47,6 +49,8 @@
  </queries>
  <uses-permission android:name="com.dexcom.cgm.EXTERNAL_PERMISSION"/>
   <application android:name=".SugarliciousApplication" android:theme="@style/AppTheme" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:supportsRtl="false" android:usesCleartextTraffic="false">
+        <provider android:name=".ProductMigrationProvider" android:authorities="${applicationId}.product-migration" android:exported="true" android:initOrder="1000" tools:ignore="ExportedContentProvider" />
+
     <!-- Public third-party broadcast contracts have no shared sender permission.
          The receiver is opt-in per source and strictly validates the supported payloads. -->
     <receiver android:name=".ExternalBroadcastReceiver" android:exported="true" tools:ignore="ExportedReceiver">

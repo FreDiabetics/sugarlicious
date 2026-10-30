@@ -7,7 +7,7 @@ android {
     namespace = "app.aapswear.g7watch"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aapswear.g7watch"
+        applicationId = if (providers.gradleProperty("legacyProductMigration").orNull == "true") "app.aapswear.g7watch" else "app.sugarwear"
         minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int

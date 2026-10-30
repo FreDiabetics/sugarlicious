@@ -13,7 +13,7 @@ fun progressArcSegments(progress: Float?, diameter: Float, stroke: Float, sweep:
     if (fraction <= 0f) return ProgressArcSegments(0f, 0f, sweep)
     if (fraction >= 1f) return ProgressArcSegments(sweep, sweep, 0f)
     val radius = ((diameter - stroke) / 2f).coerceAtLeast(stroke / 2f).coerceAtLeast(.001f)
-    val capClearance = Math.toDegrees((stroke * 1.6f / radius).toDouble()).toFloat()
+    val capClearance = Math.toDegrees((stroke * 1.25f / radius).toDouble()).toFloat()
     val trackStart = (filled + capClearance).coerceAtMost(sweep)
     return ProgressArcSegments(filled, trackStart, sweep - trackStart)
 }

@@ -42,9 +42,9 @@ data class TherapyProgressAppearance(
         metric: TherapyProgressMetric,
         baseDiameterDp: Float = 66f,
         baseStrokeWidthDp: Float = 7f,
-        basePrimaryTextSizeSp: Float = 19f,
-        baseSecondaryTextSizeSp: Float = 11f,
-        baseIconSizeDp: Float = 19f,
+        basePrimaryTextSizeSp: Float = TherapyIndicatorGeometry.VALUE_TEXT_SP,
+        baseSecondaryTextSizeSp: Float = TherapyIndicatorGeometry.SECONDARY_TEXT_SP,
+        baseIconSizeDp: Float = TherapyIndicatorGeometry.iconSizeDp(metric, TherapyIndicatorGeometry.REFERENCE_DIAMETER_DP),
     ): ResolvedTherapyDimensions {
         val safe = validated()
         val local = safe.metricOverrides[metric]?.validated() ?: TherapyMetricAppearance()

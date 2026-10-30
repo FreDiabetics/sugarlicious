@@ -35,6 +35,7 @@ internal fun OverviewCompactGlucoseHeader(glucose: String, color: Color, trend: 
         }
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
+    val reference = GlucoseVisualSpec.twoByTwoWidgetReference()
     BoxWithConstraints(modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
         // Measure at the device font scale, then fit the complete single-line group.
         val glucoseWidth = measurer.measure(glucose, TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold), softWrap = false).size.width
@@ -46,7 +47,7 @@ internal fun OverviewCompactGlucoseHeader(glucose: String, color: Color, trend: 
             horizontalArrangement = Arrangement.spacedBy((12f * scale).dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            GlucoseValueAndTrend(glucose, readableGlucose, trend, GlucoseVisualSpec.twoByTwoWidgetReference().copy(glucoseTextSize = 30f * scale, trendHeight = 20f * scale))
+            GlucoseValueAndTrend(glucose, readableGlucose, trend, reference.copy(glucoseTextSize = 30f * scale, trendHeight = reference.trendHeight * (30f / reference.glucoseTextSize) * 1.2f * scale * density.fontScale))
             OverviewReadingMetadata(delta, unit, age, compact = true, scale = scale)
         }
     }

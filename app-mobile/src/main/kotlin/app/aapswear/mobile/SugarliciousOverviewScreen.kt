@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -104,7 +105,7 @@ internal fun SugarliciousOverviewScreen(
             showTherapyDetails = false,
             showMetabolicGraph = preferences.showMetabolicGraph,
         )
-    val cgmGraphHeightDp = maxOf(metrics.glucoseChartHeight, metrics.cgmGraphHeight(visibility.copy(showMetabolicGraph = false), referenceGapDp))
+    val preferredCgmGraphHeightDp = maxOf(metrics.glucoseChartHeight, metrics.cgmGraphHeight(visibility.copy(showMetabolicGraph = false), referenceGapDp))
     val metabolicGraphHeightDp = maxOf(metrics.metabolicChartHeight - 10, 104)
 
     val cgmChartViewport =
@@ -205,24 +206,40 @@ internal fun SugarliciousOverviewScreen(
     val dailyRanges = remember(state, now / 60_000L, java.time.ZoneId.systemDefault()) { dailyGlucoseRanges(state, now) }
     val overviewScroll = rememberScrollState()
     var heroHeightPx by remember { mutableIntStateOf(with(density) { 240.dp.roundToPx() }) }
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    var therapyHeightPx by remember { mutableIntStateOf(0) }
+    var rangesHeightPx by remember { mutableIntStateOf(0) }
     val compactVisible by remember { derivedStateOf { overviewScroll.value > heroHeightPx - with(density) { 88.dp.toPx() } } }
 
     fun collapseFraction(): Float = ((overviewScroll.value - heroHeightPx + with(density) { 88.dp.toPx() }) / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
 
-    Box(Modifier.fillMaxSize()) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val visibleHeights =
+            buildList<Float?> {
+                if (preferences.showTherapyProgress) add(with(density) { therapyHeightPx.toDp().value })
+                if (preferences.showCgmGraph) add(null)
+                if (preferences.showMetabolicGraph) add(metabolicGraphHeightDp.toFloat())
+                if (preferences.showTir || preferences.showTitr) add(with(density) { rangesHeightPx.toDp().value })
+            }
+        val cgmGraphHeightDp =
+            overviewFittedCgmHeight(
+                preferredCgmGraphHeightDp.toFloat(),
+                maxHeight.value,
+                with(density) { headerHeightPx.toDp().value },
+                visibleHeights,
+            ).toInt()
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(overviewScroll)
                     .padding(horizontal = 2.dp, vertical = 2.dp),
-            verticalArrangement = Arrangement.spacedBy(gap),
         ) {
             OverviewInlineHeader(
                 onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
                 diagnostics = diagnostics,
                 onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
-                modifier = Modifier.overviewHeaderScrollFade(overviewScroll),
+                modifier = Modifier.onSizeChanged { headerHeightPx = it.height }.overviewHeaderScrollFade(overviewScroll),
                 glucoseContent = {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         OverviewGlucoseHero(
@@ -240,33 +257,41 @@ internal fun SugarliciousOverviewScreen(
                 },
             )
 
-            if (preferences.showTherapyProgress) {
-                OverviewProgressCard(state.takeIf { displayable }, preferences, now)
-            }
+            // Keep the first card close to the action row; preserve spacing between cards.
+            Spacer(Modifier.height(2.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+                if (preferences.showTherapyProgress) {
+                    Box(Modifier.onSizeChanged { therapyHeightPx = it.height }) {
+                        OverviewProgressCard(state.takeIf { displayable }, preferences, now)
+                    }
+                }
 
-            if (preferences.showCgmGraph) {
-                GlucoseGraphSurface(
-                    state = state,
-                    preferences = preferences,
-                    viewport = cgmChartViewport,
-                    chartHeightDp = cgmGraphHeightDp,
-                    now = now,
-                    onGraphHours = callbacks.setGraphHours,
-                )
-            }
+                if (preferences.showCgmGraph) {
+                    GlucoseGraphSurface(
+                        state = state,
+                        preferences = preferences,
+                        viewport = cgmChartViewport,
+                        chartHeightDp = cgmGraphHeightDp,
+                        now = now,
+                        onGraphHours = callbacks.setGraphHours,
+                    )
+                }
 
-            if (preferences.showMetabolicGraph) {
-                MetabolicGraphSurface(
-                    state = state,
-                    preferences = preferences,
-                    viewport = metabolicChartViewport,
-                    chartHeightDp = metabolicGraphHeightDp,
-                    now = now,
-                    scaleRightBlend = sharedScaleRightBlend,
-                )
-            }
-            if (preferences.showTir || preferences.showTitr) {
-                OverviewRangeCard(dailyRanges, preferences.showTir, preferences.showTitr)
+                if (preferences.showMetabolicGraph) {
+                    MetabolicGraphSurface(
+                        state = state,
+                        preferences = preferences,
+                        viewport = metabolicChartViewport,
+                        chartHeightDp = metabolicGraphHeightDp,
+                        now = now,
+                        scaleRightBlend = sharedScaleRightBlend,
+                    )
+                }
+                if (preferences.showTir || preferences.showTitr) {
+                    Box(Modifier.onSizeChanged { rangesHeightPx = it.height }) {
+                        OverviewRangeCard(dailyRanges, preferences.showTir, preferences.showTitr)
+                    }
+                }
             }
         }
         if (compactVisible) {

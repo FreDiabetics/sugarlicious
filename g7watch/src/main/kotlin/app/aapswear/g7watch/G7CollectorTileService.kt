@@ -257,7 +257,7 @@ class G7CollectorTileService : TileService() {
                                 requestParams.scope,
                                 presentation.meta,
                                 SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
-                                palette.argb(G7AppearanceRole.GLUCOSE_DELTA),
+                                android.graphics.Color.WHITE,
                                 bold = true,
                             ),
                         )
@@ -268,7 +268,7 @@ class G7CollectorTileService : TileService() {
                                 requestParams.scope,
                                 presentation.age,
                                 SugarWearTypography.spec(SugarWearTypographyRole.META).sizeSp,
-                                palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY),
+                                android.graphics.Color.WHITE,
                                 bold = true,
                             ),
                         )
@@ -494,7 +494,7 @@ class G7CollectorTileService : TileService() {
             ).build()
 
     companion object {
-        private const val RESOURCES_VERSION = "g7-collector-22-device-one-font"
+        private const val RESOURCES_VERSION = "g7-collector-23-white-metadata-values"
         private const val OPEN_COLLECTOR_CLICK_ID = "open_g7_watch_collector"
         private const val TILE_HEADER_LANE_DP = 21f
         private const val TILE_HEADER_GAP_DP = 4f

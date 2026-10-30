@@ -17,7 +17,7 @@ import androidx.wear.watchface.complications.datasource.SuspendingComplicationDa
 
 internal object DirectToWatchActions {
     fun collector(context: Context): PendingIntent {
-        val component = ComponentName("app.aapswear.g7watch", "app.aapswear.g7watch.G7WatchActivity")
+        val component = ComponentName("app.sugarwear", "app.aapswear.g7watch.G7WatchActivity")
         val intent =
             context.packageManager.getLaunchIntentForPackage(component.packageName)?.apply {
                 this.component = component

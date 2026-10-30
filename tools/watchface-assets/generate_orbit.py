@@ -115,7 +115,7 @@ def marker_geometry(cx, cy, radius, start, end, value, minimum, maximum, thickne
         return None
     fraction = max(0, min(1, (value-minimum)/(maximum-minimum)))
     angle = math.radians(start + fraction * (end-start))
-    return cx + radius * math.sin(angle), cy - radius * math.cos(angle), thickness, thickness * .4
+    return cx + radius * math.sin(angle), cy - radius * math.cos(angle), thickness, thickness * .3
 
 
 def ranged(parent, name, cx, cy, radius, start, end, thickness, palette, segmented=False, gap=0,
@@ -147,7 +147,7 @@ def ranged(parent, name, cx, cy, radius, start, end, thickness, palette, segment
          endAngle=(end+edge) % 360, colors="#FFFFFFFF #00FFFFFF", positions="0 1", direction="COUNTER_CLOCKWISE" if end < start else "CLOCKWISE")
     marker = group(parent, f"{name}-marker", f'[CONFIGURATION.progressMarker] == "TRUE" && {valid}')
     point = drawing(marker)
-    contour = thickness * .4  # Match ApeX's visual contour-to-track ratio at every bar size.
+    contour = thickness * .3  # Thin contour; the open inner diameter remains equal to the track thickness.
     outer = thickness + contour  # Centered stroke preserves a bar-sized open inner diameter.
     circle = node(point, "Ellipse", x=cx-outer/2, y=cy-radius-outer/2, width=outer, height=outer)
     angle = f"(({start} + {fraction} * {end-start}) * 0.017453292519943295)"
@@ -435,7 +435,7 @@ def generate(output):
             line = node(drawing(mark), "Line", startX=256+(251-length)*math.sin(angle), startY=256-(251-length)*math.cos(angle), endX=256+251*math.sin(angle), endY=256-251*math.cos(angle))
             node(line, "Stroke", color=P+".1]", thickness=thick, cap="ROUND" if rounded else "BUTT")
 
-    providers = "app.aapswear/app.aapswear.complications."
+    providers = "app.sugarlicious/app.aapswear.complications."
     for identity, name, start, end, provider in (
         (0, "Oben links", 284, 341, "IobRangedValueComplication"),
         (1, "Oben rechts", 19, 76, "PhoneBatteryComplication"),
@@ -462,8 +462,13 @@ def generate(output):
         icon_radius = (166 if identity != 2 else 165)*512/450
         a = math.radians(icon_angle)
         for content in (short, value):
-            circular(content, "[COMPLICATION.TEXT]", 187.73, caption_start, caption_end, 32, S+".0]",
-                     align="START" if identity == 2 else "END", clockwise=identity != 2)
+            numeric_steps = identity == 1 and content is value
+            caption = circular(content, "[COMPLICATION.TEXT]", 187.73,
+                               25 if numeric_steps else caption_start, 79 if numeric_steps else caption_end,
+                               30 if numeric_steps else 32, S+".0]",
+                               align="START" if identity == 2 else "END", clockwise=identity != 2)
+            if numeric_steps:
+                caption.find("TextCircular").set("ellipsis", "FALSE")
             icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 256+icon_radius*math.sin(a),
                  256-icon_radius*math.cos(a), 28*512/450, S+".0]", angle=icon_angle+(180 if identity == 2 else 0))
 

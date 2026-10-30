@@ -23,9 +23,21 @@ class TherapyHeroIndicatorsTest {
     @Test
     fun `COB and basal overview icons use compact bounds without shrinking IOB`() {
         val indicators = therapyIndicatorPresentations(state(), 10f, 1_000L)
-        assertEquals(19, indicators[0].iconSizeDp)
-        assertEquals(17, indicators[1].iconSizeDp)
-        assertEquals(16, indicators[2].iconSizeDp)
+        assertEquals(
+            19f,
+            app.aapswear.model.TherapyIndicatorGeometry
+                .iconSizeDp(app.aapswear.model.TherapyProgressMetric.IOB, 66f),
+        )
+        assertEquals(
+            17f,
+            app.aapswear.model.TherapyIndicatorGeometry
+                .iconSizeDp(app.aapswear.model.TherapyProgressMetric.COB, 66f),
+        )
+        assertEquals(
+            16f,
+            app.aapswear.model.TherapyIndicatorGeometry
+                .iconSizeDp(app.aapswear.model.TherapyProgressMetric.BASAL, 66f),
+        )
     }
 
     @Test
@@ -81,15 +93,6 @@ class TherapyHeroIndicatorsTest {
         assertEquals("0.75U", basal.value)
         assertEquals("@150%", basal.secondary)
         assertEquals(app.aapswear.uishared.R.drawable.ic_basalmore, basal.iconRes)
-    }
-
-    @Test
-    fun `long values shrink before they can overlap the ring`() {
-        assertEquals(14, therapyIndicatorFontSizeSp("0.23U"))
-        assertEquals(12, therapyIndicatorFontSizeSp("0.75U/h"))
-        assertEquals(10, therapyIndicatorFontSizeSp("12.00U/h"))
-        assertEquals(10, therapyIndicatorSecondaryFontSizeSp("0,3U·8m"))
-        assertEquals(10, therapyIndicatorSecondaryFontSizeSp("@150%"))
     }
 
     @Test

@@ -63,7 +63,7 @@ abstract class PrepareDefaultWatchFaceTask
                         "-jar",
                         validator.absolutePath,
                         "--apk_path=${watchFaceApk.get().asFile.absolutePath}",
-                        "--package_name=app.aapswear",
+                        "--package_name=app.sugarlicious",
                     )
                     standardOutput = validatorOutput
                     errorOutput = validatorOutput
@@ -121,10 +121,6 @@ val analogWatchFaceApk =
     rootProject.layout.projectDirectory.file(
         "watchfaces/sugarlicious-analog/build/outputs/apk/release/sugarlicious-analog-release.apk",
     )
-val directToWatchFaceApk =
-    rootProject.layout.projectDirectory.file(
-        "watchfaces/sugarlicious-direct-to-watch/build/outputs/apk/release/sugarlicious-direct-to-watch-release.apk",
-    )
 val validatorDirectory = rootProject.layout.buildDirectory.dir("watchface-push/tools")
 val orbitWatchFaceApk =
     rootProject.layout.projectDirectory.file(
@@ -176,23 +172,6 @@ val prepareAnalogWatchFace =
         tokenResourceName.set("")
     }
 
-val prepareDirectToWatchFace =
-    tasks.register<PrepareDefaultWatchFaceTask>("prepareDirectToWatchFace") {
-        dependsOn(
-            ":watchfaces:sugarlicious-direct-to-watch:assembleRelease",
-            ":prepareWatchFaceValidatorCli",
-        )
-        watchFaceApk.set(directToWatchFaceApk)
-        validatorJars.from(
-            rootProject.fileTree(validatorDirectory) { include("validator-push-cli-*.jar") },
-        )
-        outputApk.set(generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_direct_to_watch.apk") })
-        outputTokenResource.set(
-            generatedWatchFaceAssets.map { it.file("watchfaces/sugarlicious_direct_to_watch_token.txt") },
-        )
-        tokenResourceName.set("")
-    }
-
 val prepareOrbitWatchFace =
     tasks.register<PrepareDefaultWatchFaceTask>("prepareOrbitWatchFace") {
         dependsOn(":watchfaces:sugarlicious-orbit:assembleRelease", ":prepareWatchFaceValidatorCli")
@@ -207,7 +186,6 @@ tasks.configureEach {
     if (
         name != prepareDefaultWatchFace.name &&
         name != prepareAnalogWatchFace.name &&
-        name != prepareDirectToWatchFace.name &&
         name != prepareOrbitWatchFace.name &&
         (
             name.contains("Assets") ||
@@ -215,7 +193,7 @@ tasks.configureEach {
                 name.endsWith("SourceSetPaths")
         )
     ) {
-        dependsOn(prepareDefaultWatchFace, prepareAnalogWatchFace, prepareDirectToWatchFace, prepareOrbitWatchFace)
+        dependsOn(prepareDefaultWatchFace, prepareAnalogWatchFace, prepareOrbitWatchFace)
     }
 }
 
@@ -223,7 +201,7 @@ android {
     namespace = "app.aapswear.wear"
     compileSdk = 37
     defaultConfig {
-        applicationId = "app.aapswear"
+        applicationId = if (providers.gradleProperty("legacyProductMigration").orNull == "true") "app.aapswear" else "app.sugarlicious"
         minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
@@ -231,6 +209,9 @@ android {
     }
     testOptions { unitTests.isIncludeAndroidResources = true }
     sourceSets["main"].assets.directories.add(generatedWatchFaceAssets.get().asFile.path)
+    // Old build directories may still contain Vigil from earlier coupled builds.
+    // Keep those generated files out of Sugarlicious even without a clean build.
+    androidResources.ignoreAssetsPattern = "sugarlicious_direct_to_watch.apk:sugarlicious_direct_to_watch_token.txt"
     sourceSets["main"].res.directories.add(generatedWatchFaceResources.get().asFile.path)
 }
 

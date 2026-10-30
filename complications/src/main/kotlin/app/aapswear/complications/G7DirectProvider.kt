@@ -119,7 +119,7 @@ internal class AndroidDirectCgmProvider(
     private fun Cursor.nullableDouble(name: String): Double? = requiredIndex(name).let { if (isNull(it)) null else getDouble(it) }
 
     private companion object {
-        val READINGS_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/readings")
-        val STATE_URI: Uri = Uri.parse("content://app.aapswear.g7watch.readings/state")
+        val READINGS_URI: Uri = Uri.parse("content://app.sugarwear.readings/readings")
+        val STATE_URI: Uri = Uri.parse("content://app.sugarwear.readings/state")
     }
 }

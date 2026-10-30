@@ -711,10 +711,10 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertEquals("[CONFIGURATION.materialSubTheme.1]", title.getAttribute("color"))
         }
         val graphPolicy = slot("7").getElementsByTagName("DefaultProviderPolicy").item(0) as Element
-        assertEquals("app.aapswear/app.aapswear.complications.GlucoseGraphComplication", graphPolicy.getAttribute("primaryProvider"))
+        assertEquals("app.sugarlicious/app.aapswear.complications.GlucoseGraphComplication", graphPolicy.getAttribute("primaryProvider"))
         assertEquals("SMALL_IMAGE", graphPolicy.getAttribute("primaryProviderType"))
         val bottomPolicy = slot("6").getElementsByTagName("DefaultProviderPolicy").item(0) as Element
-        assertEquals("app.aapswear/app.aapswear.complications.GlucoseTrendRangedValueComplication", bottomPolicy.getAttribute("primaryProvider"))
+        assertEquals("app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication", bottomPolicy.getAttribute("primaryProvider"))
     }
 
     @Test

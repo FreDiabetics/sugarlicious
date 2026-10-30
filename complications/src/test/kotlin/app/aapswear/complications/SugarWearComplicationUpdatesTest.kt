@@ -18,10 +18,10 @@ class SugarWearComplicationUpdatesTest {
                 override fun getPackageName() = name
             }
         val requests = mutableListOf<Class<*>>()
-        SugarWearComplicationUpdates.request(context("app.aapswear.g7watch")) { _, type -> requests += type }
+        SugarWearComplicationUpdates.request(context("app.sugarwear")) { _, type -> requests += type }
         assertEquals(setOf(GlucoseComplication::class.java, GlucoseLongTextComplication::class.java, GlucoseRangedValueComplication::class.java, GlucoseTrendComplication::class.java, GlucoseTrendLongTextComplication::class.java, GlucoseTrendRangedValueComplication::class.java, TrendOnlyComplication::class.java, GlucoseDeltaComplication::class.java), requests.toSet())
         requests.clear()
-        SugarWearComplicationUpdates.request(context("app.aapswear")) { _, type -> requests += type }
+        SugarWearComplicationUpdates.request(context("app.sugarlicious")) { _, type -> requests += type }
         assertTrue(requests.isEmpty())
     }
 }

@@ -35,10 +35,10 @@ class WearRuntimeLifecycleTest {
     }
 
     @Test fun `battery exemption request is package specific and first choice`() {
-        val intents = WearBackgroundAccess.batterySettingsIntents("app.aapswear")
+        val intents = WearBackgroundAccess.batterySettingsIntents("app.sugarlicious")
 
         assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, intents.first().action)
-        assertEquals("package:app.aapswear", intents.first().dataString)
+        assertEquals("package:app.sugarlicious", intents.first().dataString)
     }
 
     @Suppress("DEPRECATION") // Notification sound has no replacement inspection API.

@@ -45,25 +45,31 @@ class WearActivityTest {
     }
 
     @Test
-    fun `brand is shown once at the end of the wearable menu`() {
+    fun `overview ends with native settings action and contains no app branding`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
-        val footerIcon = activity.findViewById<ImageView>(R.id.wear_footer_icon)
-        val footerText = activity.findViewById<TextView>(R.id.wear_footer_text)
-        val footer = footerIcon.parent as View
-        val menu = footer.parent as ViewGroup
+        val settings = activity.findViewById<android.widget.Button>(R.id.wear_settings_action)
+        val menu = settings.parent as ViewGroup
+        val views = mutableListOf<View>()
 
-        assertEquals(0, activity.resources.getIdentifier("wear_header_logo", "id", activity.packageName))
-        assertEquals(0, activity.resources.getIdentifier("wear_header_title", "id", activity.packageName))
-        assertEquals((52 * activity.resources.displayMetrics.density).toInt(), footerIcon.layoutParams.width)
-        assertEquals("Sugarlicious", footerText.text.toString())
-        val expectedTextSize =
-            TypedValue.applyDimension(
-                TypedValue.COMPLEX_UNIT_SP,
-                15f,
-                activity.resources.displayMetrics,
-            )
-        assertEquals(expectedTextSize, footerText.textSize, 0.01f)
-        assertTrue(menu.indexOfChild(footer) > menu.indexOfChild(activity.findViewById(R.id.wear_settings_action)))
+        fun collect(view: View) {
+            views += view
+            if (view is ViewGroup) repeat(view.childCount) { collect(view.getChildAt(it)) }
+        }
+        collect(menu)
+        assertTrue(views.filterIsInstance<TextView>().none { it.text.toString() == "Sugarlicious" })
+        assertTrue(views.filterIsInstance<ImageView>().none { it.contentDescription?.toString() == "Sugarlicious" })
+        assertEquals("Einstellungen", settings.text.toString())
+        assertEquals(menu.childCount - 1, menu.indexOfChild(settings))
+        assertTrue(settings.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt())
+        assertNotNull(settings.compoundDrawablesRelative[0])
+        settings.performClick()
+        assertEquals(
+            WearSettingsActivity::class.java.name,
+            org.robolectric.Shadows
+                .shadowOf(activity)
+                .nextStartedActivity.component
+                ?.className,
+        )
     }
 
     @Test

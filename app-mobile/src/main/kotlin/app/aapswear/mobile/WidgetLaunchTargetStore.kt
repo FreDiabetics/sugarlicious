@@ -15,7 +15,7 @@ internal object WidgetLaunchTargetStore {
 
     private val knownTargets =
         listOf(
-            WidgetLaunchTarget("app.aapswear", "Sugarlicious"),
+            WidgetLaunchTarget("app.sugarlicious", "Sugarlicious"),
             WidgetLaunchTarget("info.nightscout.androidaps", "AndroidAPS"),
             WidgetLaunchTarget("info.nightscout.androidaps.dev", "AndroidAPS Dev"),
             WidgetLaunchTarget("info.nightscout.aaps", "AndroidAPS"),

@@ -89,6 +89,10 @@ internal class G7CredentialStore(
         }
     }
 
+    // Keep the Boolean disk-commit result so migration cannot acknowledge an unwritten key.
+    @Suppress("UseKtx")
+    fun commitPendingWrites(): Boolean = preferences.edit().commit()
+
     fun clearAll() {
         preferences.edit { clear() }
     }

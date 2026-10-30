@@ -19,13 +19,13 @@ object SugarWearComplicationUpdates {
     fun request(context: Context) = request(context, ActiveProviderUpdates::request)
 
     internal fun request(context: Context, requestProvider: (Context, Class<*>) -> Unit) {
-        if (context.packageName != "app.aapswear.g7watch") return
+        if (context.packageName != "app.sugarwear") return
         providers.forEach { requestProvider(context, it) }
     }
 
     /** Minute ticks never probe providers that have no acknowledged active instance. */
     fun refreshActive(context: Context) {
-        if (context.packageName != "app.aapswear.g7watch") return
+        if (context.packageName != "app.sugarwear") return
         providers.forEach { ActiveProviderUpdates.requestKnownActive(context, it) }
     }
 }

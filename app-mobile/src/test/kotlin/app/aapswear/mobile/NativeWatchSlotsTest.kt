@@ -14,7 +14,7 @@ class NativeWatchSlotsTest {
             assertTrue(!isNativeSlotEditable(external))
             assertTrue(eligibleNativeVariants(external).isEmpty())
         }
-        val own = slot.copy(provider = "app.aapswear/app.aapswear.complications.GlucoseComplication")
+        val own = slot.copy(provider = "app.sugarlicious/app.aapswear.complications.GlucoseComplication")
         assertTrue(isNativeSlotEditable(own))
         assertTrue(eligibleNativeVariants(own).isNotEmpty())
     }

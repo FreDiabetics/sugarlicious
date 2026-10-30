@@ -102,7 +102,7 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
             NightscoutAccessFields(if (nightscoutGlucose) nightscoutStatus else "")
         }
         SourceCard("xDrip+", R.drawable.ic_source_xdrip, MobileGlucoseSource.XDRIP_PLUS in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.XDRIP_PLUS, it) }, expandedCards, originalIconColors = true) {
-            Text("In xDrip+ unter Inter-App-Einstellungen »Lokal senden« und »Kompatibler Broadcast« aktivieren. Als Empfänger app.aapswear eintragen oder das Empfängerfeld leer lassen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
+            Text("In xDrip+ unter Inter-App-Einstellungen »Lokal senden« und »Kompatibler Broadcast« aktivieren. Als Empfänger app.sugarlicious eintragen oder das Empfängerfeld leer lassen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         }
         SourceCard("Libre patched app", R.drawable.ic_librepatched, MobileGlucoseSource.LIBRE_PATCHED in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.LIBRE_PATCHED, it) }, expandedCards) {
             Text("Empfängt berechnete Scanwerte und den dabei mitgelieferten Verlauf der gepatchten Libre-App. Für kontinuierliche, aufbereitete Werte xDrip+ verwenden; ungeglättete Live-Rohwerte werden nicht übernommen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)

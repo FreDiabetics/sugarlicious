@@ -819,9 +819,8 @@ class G7WatchActivityLayoutTest {
         assertTrue(texts.any { it.startsWith("3h") })
         assertFalse(texts.any { it.contains("Watch Direct", ignoreCase = true) })
 
-        val titleIndex = texts.indexOf("SugarWear")
         assertFalse(texts.contains("Systemstatus"))
-        assertTrue(titleIndex >= 0)
+        assertFalse(texts.contains("SugarWear"))
         assertFalse(texts.contains("by Sugarlicious"))
         assertFalse(texts.contains("SENSOR"))
         assertFalse(texts.contains("VERBINDUNG"))
@@ -830,10 +829,12 @@ class G7WatchActivityLayoutTest {
         assertFalse(texts.any { it == "Sensor einrichten" || it == "Sensor neu verbinden" })
         assertFalse(texts.any { it == "Collector starten" || it == "Collector stoppen" })
         assertFalse(texts.contains("←"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "Einstellungen"))
-        assertNotNull(findImageByDescription(activity.findViewById(android.R.id.content), "SugarWear"))
-
-        assertFalse(containsNativeButton(activity.findViewById(android.R.id.content)))
+        val root = activity.findViewById<View>(android.R.id.content)
+        val settings = findText(root, "Einstellungen")
+        assertTrue(settings is android.widget.Button)
+        assertNotNull((settings as android.widget.Button).compoundDrawablesRelative[0])
+        assertNull(findImageByDescription(root, "SugarWear"))
+        assertTrue(containsNativeButton(root))
         activity.finish()
     }
 
@@ -884,7 +885,7 @@ class G7WatchActivityLayoutTest {
     }
 
     @Test
-    fun `overview omits system status pill and settings icon opens settings`() {
+    fun `overview omits system status pill and native settings action opens settings`() {
         val activity =
             Robolectric
                 .buildActivity(G7WatchActivity::class.java)
@@ -896,7 +897,11 @@ class G7WatchActivityLayoutTest {
 
         assertNull(findText(root, "Systemstatus"))
 
-        findImageByDescription(root, "Einstellungen")!!.performClick()
+        val settings = findText(root, "Einstellungen")
+        assertTrue(settings is android.widget.Button)
+        assertNotNull((settings as android.widget.Button).compoundDrawablesRelative[0])
+        assertTrue(settings.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt())
+        settings.performClick()
         assertEquals(
             G7SettingsActivity::class.java.name,
             Shadows

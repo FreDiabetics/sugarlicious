@@ -45,14 +45,14 @@ class SugarliciousWatchFaceSelectionStoreTest {
     }
 
     @Test
-    fun `Vigil persists in the reduced catalog`() {
+    fun `reserved Digital slot retains its persisted index`() {
         SugarliciousWatchFaceSelectionStore.write(context, DIRECT_TO_WATCH_FACE_INDEX)
         assertEquals(DIRECT_TO_WATCH_FACE_INDEX, SugarliciousWatchFaceSelectionStore.read(context))
     }
 
     @Test
     fun `Orbit appends without moving existing faces and persists independently`() {
-        assertEquals(listOf("ApeX", "Vigil", "Orbit"), sugarliciousWatchFaceCards.map { it.name })
+        assertEquals(listOf("ApeX", "Digital", "Orbit"), sugarliciousWatchFaceCards.map { it.name })
         assertEquals(sugarliciousWatchFaceCards.map { it.name }, sugarliciousWatchFaceNames)
         SugarliciousWatchFaceSelectionStore.write(context, 2)
         assertEquals(2, SugarliciousWatchFaceSelectionStore.read(context))

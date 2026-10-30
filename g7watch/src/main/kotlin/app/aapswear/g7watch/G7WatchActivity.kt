@@ -219,7 +219,9 @@ class G7WatchActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, systemBackCallback)
-        G7RuntimeReconciler.reconcile(this, G7RuntimeEntryPoint.WATCH_APP)
+        val setup = getSharedPreferences("g7_setup", MODE_PRIVATE)
+        // Imported pending cycles refer to the old UID's alarms; rearm them for this package.
+        G7RuntimeReconciler.reconcile(this, if (setup.getBoolean("productAccessReview", false)) G7RuntimeEntryPoint.PACKAGE_REPLACED else G7RuntimeEntryPoint.WATCH_APP)
         // Pairing credentials must not be copied into the Activity saved-state bundle.
         pairingCodeDraft = ""
         val restoredStep =
@@ -231,8 +233,13 @@ class G7WatchActivity : Activity() {
             pairingStartedAtEpochMs = G7SensorStateStore(this).read().pairingStartedAtEpochMs ?: System.currentTimeMillis()
         }
         consumePairingIntent()
-        val setup = getSharedPreferences("g7_setup", MODE_PRIVATE)
-        if (!setup.getBoolean("complete", false)) {
+        if (setup.getBoolean("productAccessReview", false)) {
+            setup.edit { remove("productAccessReview") }
+            val access = G7SystemAccess.snapshot(this)
+            if (!access.bluetoothGranted || !access.notificationsGranted || !access.batteryUnrestricted || !access.exactAlarmsGranted || !access.dndAccessGranted) {
+                startActivity(Intent(this, G7SetupActivity::class.java))
+            }
+        } else if (!setup.getBoolean("complete", false)) {
             if (G7SensorStateStore(this).read().sensor != null || G7CredentialStore(this).read() != null) {
                 // Existing installations keep their running sensor; onboarding is for fresh installs.
                 setup.edit { putBoolean("complete", true) }
@@ -714,7 +721,7 @@ class G7WatchActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 14.dp, 18.dp, 30.dp)
+                setPadding(18.dp, 30.dp, 18.dp, 30.dp)
                 setBackgroundColor(background)
             }
 
@@ -734,36 +741,18 @@ class G7WatchActivity : Activity() {
         content.addView(header())
 
         content.addView(
-            ImageView(this).apply {
-                setImageResource(R.drawable.ic_settings)
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                setPadding(12.dp, 12.dp, 12.dp, 12.dp)
-                setColorFilter(palette.argb(G7AppearanceRole.MENU_TEXT_SECONDARY), PorterDuff.Mode.SRC_IN)
+            android.widget.Button(this).apply {
+                app.aapswear.uishared.WearOverviewSettingsButton.apply(
+                    this,
+                    R.drawable.ic_settings,
+                    palette.argb(G7AppearanceRole.MENU_SURFACE),
+                    palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY),
+                )
                 setOnClickListener { startActivity(Intent(this@G7WatchActivity, G7SettingsActivity::class.java)) }
-                contentDescription = "Einstellungen"
             },
-            LinearLayout.LayoutParams(48.dp, 48.dp).apply {
-                topMargin = 3.dp
-                gravity = Gravity.CENTER_HORIZONTAL
-            },
-        )
-
-        content.addView(
-            ImageView(this).apply {
-                setImageResource(app.aapswear.uishared.R.drawable.ic_sugarwear_filled)
-                contentDescription = "SugarWear"
-                // Draw the vector at its actual display size; CENTER_INSIDE caps it at 24dp.
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                setPadding(6.dp, 6.dp, 6.dp, 6.dp)
-            },
-            LinearLayout.LayoutParams(54.dp, 54.dp).apply {
-                topMargin = 9.dp
-                gravity = Gravity.CENTER_HORIZONTAL
-            },
-        )
-        content.addView(
-            label("SugarWear", 15f, palette.argb(G7AppearanceRole.MENU_TEXT_PRIMARY), true).apply {
-                setPadding(3.dp, 2.dp, 3.dp, 0)
+            cardParams(top = 12).apply {
+                marginStart = 6.dp
+                marginEnd = 6.dp
             },
         )
         scrollView =

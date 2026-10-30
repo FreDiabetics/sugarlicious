@@ -43,7 +43,20 @@ internal class SugarliciousTileTypography(
         images.evictAll()
     }
 
+    val fontScale: Float get() = context.resources.configuration.fontScale
+
     fun typeface(bold: Boolean) = faces.get(bold)
+
+    fun fittedTextSize(value: String, sizeSp: Float, maxWidthDp: Float, bold: Boolean): Float {
+        val metrics = context.resources.displayMetrics
+        val paint =
+            android.text.TextPaint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                typeface = faces.get(bold) ?: app.aapswear.uishared.SystemTypography
+                    .typeface(bold)
+                textSize = android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, sizeSp, metrics)
+            }
+        return sizeSp * minOf(1f, maxWidthDp * metrics.density / paint.measureText(value).coerceAtLeast(1f))
+    }
 
     fun text(scope: ProtoLayoutScope, value: String, size: Float, color: Int, bold: Boolean, maxWidthDp: Float = contentWidthDp, maxHeightDp: Float? = null): LayoutElementBuilders.LayoutElement {
         val face = faces.get(bold)

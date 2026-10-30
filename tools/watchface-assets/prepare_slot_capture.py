@@ -29,7 +29,7 @@ def prepare(source: Path, destination: Path, name: str):
     tree.write(xml, encoding="utf-8", xml_declaration=True)
     manifest = ET.parse(source / "AndroidManifest.xml")
     root = manifest.getroot()
-    root.set("package", f"app.aapswear.watchfacepush.slotcapture{name}")
+    root.set("package", f"app.sugarlicious.watchfacepush.slotcapture{name}")
     android = "{http://schemas.android.com/apk/res/android}"
     application = root.find("application")
     application.set(android + "label", f"Slot Capture {name}")
