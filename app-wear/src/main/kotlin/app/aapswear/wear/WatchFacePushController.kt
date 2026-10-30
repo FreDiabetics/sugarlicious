@@ -34,6 +34,7 @@ internal object SugarliciousWatchFacePush {
     private const val LAST_APPLIED_FACE = "last_applied_face"
     private const val LAST_APPLIED_AT = "last_applied_at"
     private const val DIRECT_ACTIVATION_ATTEMPTED = "direct_activation_attempted"
+    private const val ACTIVATION_PACKAGE = "activation_package"
     private const val SETTLING_WINDOW_MS = 15_000L
     private const val MANUAL_ACTIVATION_MESSAGE =
         "Watchface geladen - auf der Uhr lange drücken und Sugarlicious auswählen"
@@ -101,7 +102,7 @@ internal object SugarliciousWatchFacePush {
 
         if (detected != null) return detected
 
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = activationPreferences(context)
         val appliedAt = prefs.getLong(LAST_APPLIED_AT, 0L)
         if (System.currentTimeMillis() - appliedAt !in 0..SETTLING_WINDOW_MS) return null
         return prefs
@@ -230,8 +231,7 @@ internal object SugarliciousWatchFacePush {
         context: Context,
         index: Int,
     ) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        activationPreferences(context)
             .edit()
             .putInt(LAST_APPLIED_FACE, index)
             .putLong(LAST_APPLIED_AT, System.currentTimeMillis())
@@ -239,8 +239,28 @@ internal object SugarliciousWatchFacePush {
     }
 
     internal fun directActivationWasAttempted(context: Context): Boolean {
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val prefs = activationPreferences(context)
         return prefs.getBoolean(DIRECT_ACTIVATION_ATTEMPTED, false)
+    }
+
+    @Synchronized
+    private fun activationPreferences(context: Context): android.content.SharedPreferences {
+        val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val owner = preferences.getString(ACTIVATION_PACKAGE, null)
+        if (owner != context.packageName) {
+            val imported = owner != null || File(context.noBackupFilesDir, "product-migration-complete").takeIf { it.isFile }?.readText() == "acknowledged"
+            preferences
+                .edit()
+                .apply {
+                    putString(ACTIVATION_PACKAGE, context.packageName)
+                    if (imported) {
+                        remove(DIRECT_ACTIVATION_ATTEMPTED)
+                        remove(LAST_APPLIED_FACE)
+                        remove(LAST_APPLIED_AT)
+                    }
+                }.apply()
+        }
+        return preferences
     }
 
     private suspend fun activateInstalledSlot(
@@ -299,8 +319,7 @@ internal object SugarliciousWatchFacePush {
     }
 
     private fun markDirectActivationAttempted(context: Context) {
-        context
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        activationPreferences(context)
             .edit()
             .putBoolean(DIRECT_ACTIVATION_ATTEMPTED, true)
             .apply()

@@ -80,6 +80,35 @@ class WatchFacePushControllerTest {
     }
 
     @Test
+    fun `a migrated activation attempt belongs to the former package`() {
+        val preferences = context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        preferences
+            .edit()
+            .putString("activation_package", "app.aapswear")
+            .putBoolean("direct_activation_attempted", true)
+            .putLong("last_applied_at", 123L)
+            .commit()
+        assertFalse(SugarliciousWatchFacePush.directActivationWasAttempted(context))
+        assertFalse(preferences.contains("last_applied_at"))
+        assertEquals(context.packageName, preferences.getString("activation_package", null))
+        preferences.edit().putBoolean("direct_activation_attempted", true).commit()
+        assertTrue(SugarliciousWatchFacePush.directActivationWasAttempted(context))
+    }
+
+    @Test
+    fun `old unscoped activation marker is reset only for acknowledged package migration`() {
+        val preferences = context.getSharedPreferences("sugarlicious_watchface_push", Context.MODE_PRIVATE)
+        preferences.edit().putBoolean("direct_activation_attempted", true).commit()
+        val marker = java.io.File(context.noBackupFilesDir, "product-migration-complete")
+        marker.writeText("acknowledged")
+        try {
+            assertFalse(SugarliciousWatchFacePush.directActivationWasAttempted(context))
+        } finally {
+            marker.delete()
+        }
+    }
+
+    @Test
     fun `default watchface is bundled for the system picker`() {
         assertTrue(context.getString(R.string.default_wf_token).isNotBlank())
 
