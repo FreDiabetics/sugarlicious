@@ -1,6 +1,6 @@
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("mobile", "wear", "g7", "all", "wfp")]
+    [ValidateSet("mobile", "wear", "all", "wfp")]
     [string]$Target = "mobile",
     [switch]$Test,
     [switch]$NoPull,
@@ -119,7 +119,7 @@ if (-not $NoPull) {
 }
 
 $needsPhone = $Target -in @("mobile", "all")
-$needsWatch = $Target -in @("wear", "g7", "all", "wfp")
+$needsWatch = $Target -in @("wear", "all", "wfp")
 $adbDevices = @(Get-ConnectedAdbDevices)
 
 $phone = $null
@@ -151,23 +151,15 @@ if ($effectiveTarget -eq "mobile") {
 } elseif ($effectiveTarget -eq "wear") {
     if ($Test) { $gradleTasks += ":app-wear:testDebugUnitTest" }
     $gradleTasks += ":app-wear:assembleDebug"
-} elseif ($effectiveTarget -eq "g7") {
-    if ($Test) {
-        $gradleTasks += ":dexcom-g7:test"
-        $gradleTasks += ":g7watch:testDebugUnitTest"
-    }
-    $gradleTasks += ":g7watch:assembleDebug"
 } elseif ($effectiveTarget -eq "all") {
     if ($Test) {
         $gradleTasks += ":app-mobile:testDebugUnitTest"
         $gradleTasks += ":app-wear:testDebugUnitTest"
         $gradleTasks += ":complications:testDebugUnitTest"
         $gradleTasks += ":dexcom-g7:test"
-        $gradleTasks += ":g7watch:testDebugUnitTest"
     }
     $gradleTasks += ":app-mobile:assembleDebug"
     $gradleTasks += ":app-wear:assembleDebug"
-    $gradleTasks += ":g7watch:assembleDebug"
 } else {
     throw "Unsupported target: $effectiveTarget"
 }
@@ -189,21 +181,7 @@ if (($effectiveTarget -eq "mobile") -or ($effectiveTarget -eq "all")) {
     Assert-LastExitCode "Mobile start"
 }
 
-if (($effectiveTarget -eq "wear") -or ($effectiveTarget -eq "g7") -or ($effectiveTarget -eq "all")) {
-    if (($effectiveTarget -eq "g7") -or ($effectiveTarget -eq "all")) {
-        $g7WatchApk = Get-ChildItem .\g7watch\build\outputs\apk\debug\*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($null -eq $g7WatchApk) { throw "SugarWear APK not found" }
-        Write-Host "Installing SugarWear on $watch..."
-        adb -s $watch install -r $g7WatchApk.FullName
-        Assert-LastExitCode "SugarWear install"
-    }
-
-    if (($effectiveTarget -ne "wear") -and ($effectiveTarget -ne "all")) {
-        Write-Host ""
-        Write-Host "OK: $effectiveTarget built and installed."
-        exit 0
-    }
-
+if (($effectiveTarget -eq "wear") -or ($effectiveTarget -eq "all")) {
     $wearApk = Get-ChildItem .\app-wear\build\outputs\apk\debug\*.apk | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($null -eq $wearApk) { throw "Wear APK not found" }
     Write-Host "Installing Wear on $watch..."

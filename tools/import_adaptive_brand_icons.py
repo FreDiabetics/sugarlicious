@@ -51,7 +51,7 @@ def replace_normalized(path, data, scale, offset):
     write(path, E.tostring(root, encoding='unicode')+'\n')
 
 
-def run(source_dir, preview_dir):
+def run(source_dir, preview_dir, product="sugarlicious", repository_root=ROOT):
     import cairosvg
     from PIL import Image, ImageDraw
     preview_dir.mkdir(parents=True, exist_ok=True)
@@ -61,6 +61,9 @@ def run(source_dir, preview_dir):
         ('SugarWear', '', 'sugarwear', 56/108, 5),
         ('Sugarlicious', '2', 'app-icons', 60/108, 3),
     ]):
+        if brand.lower() != product:
+            continue
+        product_root = repository_root.resolve()
         fg_path = source_dir / f'ic_foreground{suffix}.svg'
         bg_path = source_dir / f'ic_background{suffix}.svg'
         fg, bg = load(fg_path), load(bg_path)
@@ -68,7 +71,7 @@ def run(source_dir, preview_dir):
         if len(paths) != 1:
             raise ValueError('Expected one exact source symbol')
         data = paths[0].get('d')
-        asset_dir = ROOT / 'design-assets' / directory / 'adaptive108'
+        asset_dir = product_root / 'design-assets' / directory / 'adaptive108'
         asset_dir.mkdir(parents=True, exist_ok=True)
         for source, name in [(fg_path, 'foreground.svg'), (bg_path, 'background.svg')]:
             shutil.copyfile(source, asset_dir / name)
@@ -87,7 +90,13 @@ def run(source_dir, preview_dir):
             }.items() for rel in rels]
         for target in targets:
             notification = brand == 'Sugarlicious' and target.startswith('app-mobile/') and 'notification' in target
-            replace_normalized(ROOT / target, data, 82/108 if notification else scale, -8 if notification else offset)
+            target_path = product_root / target
+            if brand == 'SugarWear' and not target_path.is_file():
+                canonical = E.parse(product_root / 'shared/sugarlicious' / target).getroot()
+                if not any(path.get(f'{{{A}}}pathData') == data for path in canonical.iter('path')):
+                    raise ValueError('Update canonical ui-shared SugarWear symbol and its submodule revision first')
+            else:
+                replace_normalized(target_path, data, 82/108 if notification else scale, -8 if notification else offset)
         modules = ['g7watch'] if brand == 'SugarWear' else ['app-mobile','app-wear']
         gradient = bg.find(f'.//{{{SVG}}}linearGradient')
         rect = bg.find(f'{{{SVG}}}rect')
@@ -99,7 +108,7 @@ def run(source_dir, preview_dir):
             r = float(radius); edge = 108-r
             shape = f'M{radius},0H{edge:g}A{radius},{radius} 0 0 1 108,{radius}V{edge:g}A{radius},{radius} 0 0 1 {edge:g},108H{radius}A{radius},{radius} 0 0 1 0,{edge:g}V{radius}A{radius},{radius} 0 0 1 {radius},0Z'
         for module in modules:
-            res = ROOT / module / 'src/main/res'
+            res = product_root / module / 'src/main/res'
             fg_name = 'ic_sensor_launcher_foreground.xml' if module == 'g7watch' else 'ic_launcher_foreground.xml'
             bg_name = 'sugarwear_launcher_background.xml' if module == 'g7watch' else 'ic_launcher_background.xml'
             # Adaptive colour and monochrome share the same centered safe motif.
@@ -126,7 +135,7 @@ def run(source_dir, preview_dir):
                 vector.find('path').set(f'{{{A}}}pathData',shape)
                 write(dest,E.tostring(vector,encoding='unicode')+'\n')
             if module != 'g7watch':
-                cairosvg.svg2png(url=str(asset_dir/'combined.svg'),write_to=str(ROOT/module/'src/main/ic_launcher-playstore.png'),output_width=512,output_height=512)
+                cairosvg.svg2png(url=str(asset_dir/'combined.svg'),write_to=str(product_root/module/'src/main/ic_launcher-playstore.png'),output_width=512,output_height=512)
         for col, name in enumerate(['background','foreground','combined']):
             output=preview_dir/f'{brand.lower()}-{name}.png'
             cairosvg.svg2png(url=str(asset_dir/f'{name}.svg'),write_to=str(output),output_width=324,output_height=324)
@@ -138,4 +147,6 @@ if __name__ == '__main__':
     parser=argparse.ArgumentParser(__doc__)
     parser.add_argument('--source-dir',type=Path,default=Path('C:/Users/typ1d/Desktop/Sugarlicious/Watchfaces'))
     parser.add_argument('--preview-dir',type=Path,default=ROOT/'app-mobile/build/reports/brand-icons108')
-    args=parser.parse_args();run(args.source_dir,args.preview_dir)
+    parser.add_argument('--product', choices=('sugarlicious', 'sugarwear'), default='sugarlicious')
+    parser.add_argument('--repository-root', type=Path, default=ROOT)
+    args=parser.parse_args();run(args.source_dir,args.preview_dir,args.product,args.repository_root)

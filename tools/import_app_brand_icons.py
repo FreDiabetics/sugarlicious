@@ -59,70 +59,46 @@ def background(path, gradient):
     write(path, E.tostring(root, encoding="unicode") + "\n")
 
 
-def import_icons(sugarwear, sugarlicious, preview_dir):
+def import_icons(source, preview_dir, repository_root=ROOT, product="sugarlicious"):
+    """Use one importer with product-owned paths; never write into the shared checkout."""
     import cairosvg
-    from PIL import Image, ImageDraw
-
+    root = Path(repository_root).resolve()
+    source = Path(source).resolve()
     preview_dir.mkdir(parents=True, exist_ok=True)
-    before = {}
-    for name, master in [("SugarWear", ROOT / "design-assets/sugarwear/ic_sugarwear.svg"), ("Sugarlicious", ROOT / "design-assets/app-icons/ic_sugarlicious.svg")]:
-        out = preview_dir / f"{name.lower()}-before.png"
-        cairosvg.svg2png(url=str(master), write_to=str(out), output_width=264, output_height=264)
-        before[name] = out
-    wear_path, wear_gradient = artwork(sugarwear)
-    sugar_path, sugar_gradient = artwork(sugarlicious)
-    for directory, source, data, full_name, symbol_name in [
-        (ROOT / "design-assets/sugarwear", sugarwear, wear_path, "ic_sugarwear.svg", "ic_sugarwear_symbol.svg"),
-        (ROOT / "design-assets/app-icons", sugarlicious, sugar_path, "ic_sugarlicious.svg", "ic_sugarlicious_symbol.svg"),
-    ]:
+    data, gradient = artwork(source)
+    if product == "sugarwear":
+        directory = root / "design-assets/sugarwear"
+        full_name, symbol_name = "ic_sugarwear.svg", "ic_sugarwear_symbol.svg"
+        targets = {"g7watch": ["drawable/ic_sensor_launcher_foreground.xml", "drawable/ic_sensor_launcher_monochrome.xml", "drawable/ic_notification.xml"]}
+        backgrounds = ["g7watch/src/main/res/drawable/sugarwear_launcher_background.xml"]
+    else:
+        directory = root / "design-assets/app-icons"
+        full_name, symbol_name = "ic_sugarlicious.svg", "ic_sugarlicious_symbol.svg"
+        targets = {
+            "app-mobile": ["drawable/ic_launcher_foreground.xml", "drawable/ic_launcher_monochrome.xml", "drawable/ic_foreground.xml", "drawable/ic_sugarlicious_monochrome.xml", "drawable/ic_notification.xml", "drawable/ic_notification_outlined.xml", "drawable-anydpi/ic_notification.xml", "drawable-anydpi/ic_notification_outlined.xml"],
+            "app-wear": ["drawable/ic_foreground.xml", "drawable/ic_monochrome_outlined.xml", "drawable/ic_notification.xml"],
+        }
+        backgrounds = [f"{module}/src/main/res/drawable/ic_launcher_background.xml" for module in targets]
+    directory.mkdir(parents=True, exist_ok=True)
+    if source != (directory / full_name).resolve():
         shutil.copyfile(source, directory / full_name)
-        write(directory / symbol_name, symbol_svg(data))
-    for master in (ROOT / "design-assets/app-icons").glob("*.svg"):
-        if master.name not in {"ic_sugarlicious.svg", "logo_big.svg"}:
-            write(master, symbol_svg(sugar_path))
-    shutil.copyfile(sugarlicious, ROOT / "design-assets/app-icons/logo_big.svg")
-    write(ROOT / "design-assets/g7watch/ic_notification.svg", symbol_svg(wear_path))
-    targets = {
-        "app-mobile": ["drawable/ic_launcher_foreground.xml", "drawable/ic_launcher_monochrome.xml", "drawable/ic_foreground.xml", "drawable/ic_sugarlicious_monochrome.xml", "drawable/ic_notification.xml", "drawable/ic_notification_outlined.xml", "drawable-anydpi/ic_notification.xml", "drawable-anydpi/ic_notification_outlined.xml"],
-        "app-wear": ["drawable/ic_foreground.xml", "drawable/ic_monochrome_outlined.xml", "drawable/ic_notification.xml"],
-    }
+    write(directory / symbol_name, symbol_svg(data))
     for module, files in targets.items():
         for relative in files:
-            replace_symbol(ROOT / module / "src/main/res" / relative, sugar_path)
-    replace_symbol(ROOT / "ui-shared/src/main/res/drawable/ic_sugarwear_filled.xml", wear_path)
-    background(ROOT / "g7watch/src/main/res/drawable/sugarwear_launcher_background.xml", wear_gradient)
-    background(ROOT / "app-mobile/src/main/res/drawable/ic_launcher_background.xml", sugar_gradient)
-    background(ROOT / "app-wear/src/main/res/drawable/ic_launcher_background.xml", sugar_gradient)
-    # Keep existing foreground and monochrome wrappers/insets, replacing only background refs.
-    for adaptive in (ROOT / "app-wear/src/main/res/mipmap-anydpi-v26").glob("ic_launcher*.xml"):
-        write(adaptive, adaptive.read_text(encoding="utf-8").replace("@mipmap/ic_launcher_background", "@drawable/ic_launcher_background"))
-    for stale in (ROOT / "app-wear/src/main/res").glob("mipmap-*/ic_launcher_background.webp"):
-        stale.unlink()
-    for module in ("app-mobile", "app-wear"):
-        cairosvg.svg2png(url=str(sugarlicious), write_to=str(ROOT / module / "src/main/ic_launcher-playstore.png"), output_width=512, output_height=512)
-    sheet = Image.new("RGB", (264 * 4, 310 * 2), "#25252c")
-    draw = ImageDraw.Draw(sheet)
-    for row, (name, source, data) in enumerate([("SugarWear", sugarwear, wear_path), ("Sugarlicious", sugarlicious, sugar_path)]):
-        full = preview_dir / f"{name.lower()}-after.png"
-        symbol = preview_dir / f"{name.lower()}-symbol.png"
-        cairosvg.svg2png(url=str(source), write_to=str(full), output_width=264, output_height=264)
-        cairosvg.svg2png(bytestring=symbol_svg(data).encode(), write_to=str(symbol), output_width=264, output_height=264)
-        for col, (label, path) in enumerate([("Before master", before[name]), ("Supplied source", full), ("Imported full master", ROOT / ("design-assets/sugarwear/ic_sugarwear.svg" if row == 0 else "design-assets/app-icons/ic_sugarlicious.svg")), ("Symbol only", symbol)]):
-            if path.suffix == ".svg":
-                rendered = preview_dir / f"{name.lower()}-imported.png"
-                cairosvg.svg2png(url=str(path), write_to=str(rendered), output_width=264, output_height=264)
-                path = rendered
-            tile = Image.open(path).convert("RGBA")
-            sheet.paste(tile, (col * 264, row * 310 + 35), tile)
-            draw.text((col * 264 + 8, row * 310 + 8), f"{name}: {label}", fill="white")
-    sheet.save(preview_dir / "brand-contact-sheet.png")
-    print(f"Imported source paths and gradients; review {preview_dir / 'brand-contact-sheet.png'}")
+            replace_symbol(root / module / "src/main/res" / relative, data)
+    for relative in backgrounds:
+        background(root / relative, gradient)
+    for module in targets:
+        cairosvg.svg2png(url=str(source), write_to=str(root / module / "src/main/ic_launcher-playstore.png"), output_width=512, output_height=512)
+    cairosvg.svg2png(url=str(source), write_to=str(preview_dir / "imported-master.png"), output_width=432, output_height=432)
+    cairosvg.svg2png(bytestring=symbol_svg(data).encode(), write_to=str(preview_dir / "imported-symbol.png"), output_width=432, output_height=432)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(__doc__)
-    parser.add_argument("--sugarwear", type=Path, default=Path("C:/Users/typ1d/Desktop/Sugarlicious/Watchfaces/ic_sugarwear.svg"))
-    parser.add_argument("--sugarlicious", type=Path, default=Path("C:/Users/typ1d/Desktop/Sugarlicious/Watchfaces/ic_Sugarlicious.svg"))
-    parser.add_argument("--preview-dir", type=Path, default=ROOT / "app-mobile/build/reports/brand-icons")
+    parser.add_argument("--source", required=True, type=Path, help="Supplied 66-unit source master")
+    parser.add_argument("--product", choices=("sugarlicious", "sugarwear"), default="sugarlicious")
+    parser.add_argument("--repository-root", type=Path, default=ROOT)
+    parser.add_argument("--preview-dir", type=Path)
     args = parser.parse_args()
-    import_icons(args.sugarwear, args.sugarlicious, args.preview_dir)
+    import_icons(args.source, args.preview_dir or args.repository_root / "build/reports/brand-icons", args.repository_root, args.product)

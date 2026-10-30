@@ -1,21 +1,31 @@
 # Independent product installation
 
-Run one command for the product you want from the repository root in the Android Studio terminal.
+Sugarlicious and SugarWear are separate repositories and products.
 
-Sugarlicious Mobile and Wear companion (one connected phone and one connected watch):
+## Sugarlicious
+
+From [FreDiabetics/sugarlicious](https://github.com/FreDiabetics/sugarlicious), with one connected phone and one connected watch:
 
 ```powershell
 .\gradlew.bat installSugarliciousDebug
 ```
 
-SugarWear collector and its Vigil watchface (one connected watch; no phone needed):
+Installs only Mobile and its Wear companion (`app.sugarlicious`). The optional Push catalog contains Digital, ApeX and Orbit. It never installs SugarWear or Vigil.
+
+## SugarWear and Vigil
+
+Clone [FreDiabetics/sugarwear](https://github.com/FreDiabetics/sugarwear) with `git clone --recurse-submodules https://github.com/FreDiabetics/sugarwear.git`. From that checkout, with one connected watch:
 
 ```powershell
 .\gradlew.bat installSugarWearDebug
 ```
 
-The installers update only their own product APKs. They do not uninstall or clear another product. Sugarlicious does not install SugarWear, Vigil, or separate watchface packages. Its optional Push catalog contains Digital, ApeX and Orbit; Vigil belongs only to SugarWear. All four watchfaces remain in the build and validation matrix.
+Installs only `app.sugarwear` and `app.sugarwear.watchfacepush.vigil`. Neither installer clears data or changes the other product.
 
-Public Android package identities are `app.sugarlicious` (Mobile/Wear), `app.sugarwear` and `app.sugarwear.watchfacepush.vigil`. Optional Sugarlicious faces use `app.sugarlicious.watchfacepush.apex`, `.orbit` and `.digital`.
+## Shared source ownership
 
-Existing installations under the former IDs need the one-time signed migration in `tools/product-migration/migrate_products.py` before using the normal installers. It transfers settings, history and decrypted credentials into the new app's protected storage, then disables the old package without deleting its data. The tool requires explicitly identified devices and cached legacy bridge APKs built with `-PlegacyProductMigration=true`. Ordinary installers reject that build flag. Native widget and complication bindings belong to Android package identities and must be added or assigned again after migration; sensor pairing itself is preserved.
+SugarWear pins this repository as `shared/sugarlicious`. Only core-model, dexcom-g7, wear-protocol, wear-storage, ui-shared and complications are included as library projects. Shared conventions, artwork resources and generic tools also have one canonical source here; they are not copied into SugarWear. Product app modules, Vigil and its artwork/tests belong exclusively to SugarWear. Updating the gitlink is an explicit, tested shared-library upgrade.
+
+## Legacy identity migration
+
+Existing installations under former IDs need the one-time signed migration in `tools/product-migration/migrate_products.py`. It preserves settings, history and decrypted credentials, then disables the old package without deleting its data. Explicit devices and cached legacy bridge APKs built with `-PlegacyProductMigration=true` are required. For SugarWear, also pass `--sugarwear-root` pointing to its independent checkout. Ordinary installers reject the legacy build flag. Native widget/complication bindings require reassignment after an identity migration; sensor pairing is preserved.

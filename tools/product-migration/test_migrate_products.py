@@ -9,6 +9,13 @@ SPEC.loader.exec_module(migration)
 
 
 class MigrationPreflightTests(unittest.TestCase):
+    def test_sugarwear_artifacts_require_its_explicit_independent_checkout(self):
+        with self.assertRaisesRegex(migration.MigrationError, "sugarwear_repository_required"):
+            migration.artifact_directory("sugarwear")
+        other = Path("independent-sugarwear").resolve()
+        self.assertEqual(other / "g7watch/build/outputs/apk/debug", migration.artifact_directory("sugarwear", other))
+        self.assertEqual(migration.ROOT / "app-mobile/build/outputs/apk/debug", migration.artifact_directory("mobile", other))
+
     def test_existing_migration_repairs_previously_granted_broadcast_permission(self):
         class ExistingTarget:
             def installed(self, package):
