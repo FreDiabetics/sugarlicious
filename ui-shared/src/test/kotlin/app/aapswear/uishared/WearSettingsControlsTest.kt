@@ -19,6 +19,39 @@ import org.robolectric.annotation.Config
 class WearSettingsControlsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    private fun stepButton(root: android.view.View, text: String): android.widget.Button {
+        if (root is android.widget.Button && root.text.toString() == text) return root
+        if (root is android.view.ViewGroup) {
+            repeat(root.childCount) { index ->
+                val found = runCatching { stepButton(root.getChildAt(index), text) }.getOrNull()
+                if (found != null) return found
+            }
+        }
+        error("Missing step button $text")
+    }
+
+    @Test fun `nested slider retains a usable full width track on a 192 dp watch`() {
+        val slider = SeekBar(context)
+        WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
+        val control = WearSettingsUi.inlineSlider(slider) {}
+        // 192dp viewport minus page (32), element (16) and nested card (26) insets.
+        val available = WearSettingsUi.dp(context, 118)
+        control.measure(
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(available, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
+        )
+        control.layout(0, 0, control.measuredWidth, control.measuredHeight)
+        assertEquals(available, slider.measuredWidth)
+        assertTrue(slider.measuredWidth - slider.paddingLeft - slider.paddingRight >= WearSettingsUi.dp(context, 96))
+        val decrease = stepButton(control, "−")
+        val increase = stepButton(control, "+")
+        assertTrue(decrease.measuredWidth >= WearSettingsUi.dp(context, 48))
+        assertTrue(increase.measuredHeight >= WearSettingsUi.dp(context, 48))
+        assertEquals(decrease.measuredWidth, increase.measuredWidth)
+    }
+
     @Test fun `round page padding adapts to watch width without changing child layout`() {
         fun root(width: Int): android.widget.LinearLayout {
             val config =
@@ -60,10 +93,10 @@ class WearSettingsControlsTest {
         val writes = mutableListOf<Int>()
         val row = WearSettingsUi.inlineSlider(slider) { writes += it }
         assertTrue(writes.isEmpty())
-        assertTrue(row.getChildAt(1) === slider)
-        row.getChildAt(2).performClick()
-        row.getChildAt(2).performClick()
-        row.getChildAt(0).performClick()
+        assertTrue(slider.parent === row)
+        stepButton(row, "+").performClick()
+        stepButton(row, "+").performClick()
+        stepButton(row, "−").performClick()
         assertEquals(listOf(3, 2), writes)
         assertEquals(0, gestureWrites)
         assertEquals(2, slider.progress)

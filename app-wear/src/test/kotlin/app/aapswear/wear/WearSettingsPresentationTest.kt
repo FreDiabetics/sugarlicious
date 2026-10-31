@@ -63,7 +63,7 @@ class WearSettingsPresentationTest {
                 val page = scroll.getChildAt(0) as LinearLayout
                 val sliders = descendants(page).filterIsInstance<ScrollSafeSeekBar>().toList()
                 assertTrue(sliders.isNotEmpty())
-                assertTrue(sliders.all { (it.parent as ViewGroup).childCount == 3 })
+                assertTrue(sliders.all { (it.parent as LinearLayout).orientation == LinearLayout.VERTICAL })
                 assertTrue(descendants(page).any { it is ScrollSafeSwitch })
             }
             assertEquals(before, WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)))

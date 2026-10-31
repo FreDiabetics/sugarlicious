@@ -242,13 +242,15 @@ object WearSettingsUi {
     /** Only button steps persist here; native gesture callbacks remain owned by the caller. */
     fun inlineSlider(slider: SeekBar, onStep: (Int) -> Unit): LinearLayout =
         LinearLayout(slider.context).apply {
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
 
             fun stepButton(label: String, description: String, delta: Int) =
                 android.widget.Button(context).apply {
                     text = label
                     contentDescription = listOfNotNull(slider.contentDescription?.toString(), description).joinToString(": ")
                     actionButton(this, Color.rgb(36, 36, 39), Color.WHITE)
+                    textSize = 20f
+                    SystemTypography.apply(this, false)
                     setPadding(0, 0, 0, 0)
                     setOnClickListener {
                         if (!slider.isEnabled) return@setOnClickListener
@@ -259,9 +261,16 @@ object WearSettingsUi {
                         }
                     }
                 }
-            addView(stepButton("−", "Verringern", -1), LinearLayout.LayoutParams(dp(context, 48), ViewGroup.LayoutParams.WRAP_CONTENT))
-            addView(slider, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(stepButton("+", "Erhöhen", 1), LinearLayout.LayoutParams(dp(context, 48), ViewGroup.LayoutParams.WRAP_CONTENT))
+            // Preserve the full gesture track even inside narrow, nested round-screen cards.
+            addView(slider, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(
+                LinearLayout(context).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(stepButton("−", "Verringern", -1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(context, 3) })
+                    addView(stepButton("+", "Erhöhen", 1), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(context, 3) })
+                },
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            )
         }
 
     fun header(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
