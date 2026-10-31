@@ -7,6 +7,12 @@ import android.widget.Button
 object WearOverviewSettingsButton {
     fun apply(button: Button, iconResource: Int, surface: Int, foreground: Int) {
         WearSettingsUi.actionButton(button, surface, foreground)
+        button.background =
+            android.graphics.drawable.RippleDrawable(
+                ColorStateList.valueOf(0x22FFFFFF),
+                WearSettingsUi.background(button.context, surface),
+                null,
+            )
         (button.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.topMargin = WearSettingsUi.dp(button.context, 12)
         button.setText(R.string.shared_settings)
         button.includeFontPadding = false
