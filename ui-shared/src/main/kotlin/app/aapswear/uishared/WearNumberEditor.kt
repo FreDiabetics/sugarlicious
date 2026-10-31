@@ -26,7 +26,7 @@ internal object WearNumberEditor {
         val root =
             LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(18), dp(32), dp(18), dp(56))
+                WearSettingsUi.pagePadding(this)
                 setBackgroundColor(Color.BLACK)
             }
         root.addView(WearSettingsUi.header(activity, title, Color.WHITE) { dialog.dismiss() })

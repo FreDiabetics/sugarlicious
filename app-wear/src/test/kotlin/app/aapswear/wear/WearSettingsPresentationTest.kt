@@ -4,7 +4,6 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -38,7 +37,7 @@ class WearSettingsPresentationTest {
         val category = descendants(scroll).single { it.tag == "settings-category-glucose" }
         val label = descendants(category).filterIsInstance<TextView>().single { it.text.toString() == "Glukose" }
         assertEquals(Color.WHITE, label.currentTextColor)
-        assertEquals(Color.rgb(35, 35, 38), (category.background as GradientDrawable).color!!.defaultColor)
+        assertEquals(Color.rgb(35, 35, 38), ((category.parent as View).background as GradientDrawable).color!!.defaultColor)
         assertEquals(before, WearDisplayPreferences.read(context, AppearanceMode.DARK))
         controller.pause().stop().destroy()
     }
@@ -54,7 +53,7 @@ class WearSettingsPresentationTest {
         keys.forEach { key ->
             descendants(content).single { it.tag == key }.performClick()
             if (key == "settings-category-graph") {
-                val buttons = descendants(content).filterIsInstance<Button>().toList()
+                val buttons = descendants(content).filterIsInstance<TextView>().toList()
                 WearDisplayPreferences.allowedGraphHours.forEach { hours ->
                     val label = activity.getString(R.string.graph_hours, hours)
                     val button = buttons.single { it.text.toString().removePrefix("✓  ") == label }
@@ -64,7 +63,7 @@ class WearSettingsPresentationTest {
                 val page = scroll.getChildAt(0) as LinearLayout
                 val sliders = descendants(page).filterIsInstance<ScrollSafeSeekBar>().toList()
                 assertTrue(sliders.isNotEmpty())
-                assertTrue(sliders.all { (it.parent as View).parent === page })
+                assertTrue(sliders.all { (it.parent as ViewGroup).childCount == 3 })
                 assertTrue(descendants(page).any { it is ScrollSafeSwitch })
             }
             assertEquals(before, WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)))

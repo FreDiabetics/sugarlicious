@@ -44,7 +44,7 @@ internal object WearColorPicker {
         val root =
             LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(18), dp(32), dp(18), dp(56))
+                WearSettingsUi.pagePadding(this)
                 setBackgroundColor(Color.BLACK)
             }
         val header = WearSettingsUi.header(activity, title, Color.WHITE) { dialog.dismiss() }
@@ -78,9 +78,9 @@ internal object WearColorPicker {
                 filters = arrayOf(InputFilter.LengthFilter(9))
                 setTextColor(Color.WHITE)
                 textSize = 15f
+                SystemTypography.apply(this, false)
                 minHeight = dp(48)
                 gravity = Gravity.CENTER
-                minHeight = dp(48)
                 setPadding(dp(6), dp(10), dp(6), dp(10))
                 background = WearSettingsUi.background(activity, surface)
             }
@@ -121,7 +121,15 @@ internal object WearColorPicker {
                     minHeight = dp(48)
                     setPadding(dp(6), dp(10), dp(6), dp(10))
                     background = WearSettingsUi.background(activity, surface)
+                    isSelected = index == 0
+                    setTextColor(if (index == 0) accent else Color.WHITE)
                     setOnClickListener {
+                        repeat(tabs.childCount) { tabIndex ->
+                            (tabs.getChildAt(tabIndex) as TextView).apply {
+                                isSelected = tabIndex == index
+                                setTextColor(if (isSelected) accent else Color.WHITE)
+                            }
+                        }
                         palette.visibility = if (index == 0) View.VISIBLE else View.GONE
                         spectrum.visibility = if (index == 1) View.VISIBLE else View.GONE
                     }
@@ -142,7 +150,7 @@ internal object WearColorPicker {
                         background = WearSettingsUi.swatch(activity, preset)
                         setOnClickListener { choose(preset) }
                     },
-                    LinearLayout.LayoutParams(dp(42), dp(42)).apply { setMargins(dp(5), dp(5), dp(5), dp(5)) },
+                    LinearLayout.LayoutParams(dp(48), dp(48)).apply { setMargins(dp(2), dp(4), dp(2), dp(4)) },
                 )
             }
             palette.addView(row, params())
@@ -167,6 +175,16 @@ internal object WearColorPicker {
                     addView(value)
                 },
             )
+
+            fun updateChannel(value: Int) {
+                when (index) {
+                    0 -> hsv[0] = value.toFloat()
+                    1 -> hsv[1] = value / 100f
+                    2 -> hsv[2] = value / 100f
+                    3 -> alpha = (value * 2.55f).roundToInt()
+                }
+                refresh(true)
+            }
             val slider =
                 ScrollSafeSeekBar(activity).apply {
                     tag = "wear_color_slider_$index"
@@ -175,14 +193,7 @@ internal object WearColorPicker {
                     setOnSeekBarChangeListener(
                         object : SeekBar.OnSeekBarChangeListener {
                             override fun onProgressChanged(seekBar: SeekBar?, value: Int, fromUser: Boolean) {
-                                if (!fromUser || syncing) return
-                                when (index) {
-                                    0 -> hsv[0] = value.toFloat()
-                                    1 -> hsv[1] = value / 100f
-                                    2 -> hsv[2] = value / 100f
-                                    3 -> alpha = (value * 2.55f).roundToInt()
-                                }
-                                refresh(true)
+                                if (fromUser && !syncing) updateChannel(value)
                             }
 
                             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
@@ -192,7 +203,7 @@ internal object WearColorPicker {
                     )
                 }
             sliders += slider
-            card.addView(slider)
+            card.addView(WearSettingsUi.inlineSlider(slider, ::updateChannel))
             spectrum.addView(card, params())
         }
         root.addView(hex, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) })

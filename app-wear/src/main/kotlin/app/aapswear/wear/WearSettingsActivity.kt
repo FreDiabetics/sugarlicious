@@ -7,7 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -25,6 +24,7 @@ import app.aapswear.protocol.WatchGraphColors
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.uishared.SharedColorEditor
 import app.aapswear.uishared.SharedNumberEditor
+import app.aapswear.uishared.WearSettingsUi
 import kotlin.math.roundToInt
 
 class WearSettingsActivity : Activity() {
@@ -35,6 +35,9 @@ class WearSettingsActivity : Activity() {
     private var selectedSettingsCategory: String? = null
     private var categoryListScrollY = 0
     private var colorEditorOpen = false
+    private var sectionContainer: LinearLayout? = null
+    private val contentRoot: LinearLayout get() = sectionContainer ?: root
+    private val navigationRows = mutableListOf<View>()
 
     // Settings stay legible while the user edits the display palette.
     private val menuColors =
@@ -44,19 +47,30 @@ class WearSettingsActivity : Activity() {
             tileBorder = Color.rgb(68, 68, 72),
             textPrimary = Color.WHITE,
             textSecondary = Color.rgb(177, 177, 185),
-            accent = Color.rgb(137, 181, 255),
+            accent = 0xFF22EB60.toInt(),
         )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { navigateBack() }
+        selectedSettingsCategory = savedInstanceState?.getString("settings-category")
+        categoryListScrollY = savedInstanceState?.getInt("settings-list-scroll") ?: 0
         selectedAppearanceMode = WearDisplayPreferences.activeAppearanceMode(this)
         current = WearDisplayPreferences.read(this, selectedAppearanceMode)
         buildUi()
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString("settings-category", selectedSettingsCategory)
+        outState.putInt("settings-list-scroll", categoryListScrollY)
+    }
+
     private fun buildUi(scrollPosition: Int? = null) {
         val restoreScrollY = scrollPosition ?: if (::scrollView.isInitialized) scrollView.scrollY else 0
         current = WearDisplayPreferences.read(this, selectedAppearanceMode)
+        sectionContainer = null
+        navigationRows.clear()
         val ui = menuColors
         val scroll =
             app.aapswear.uishared.WearSettingsScrollView(this).apply {
@@ -69,7 +83,7 @@ class WearSettingsActivity : Activity() {
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(18.dp, 32.dp, 18.dp, 56.dp)
+                WearSettingsUi.pagePadding(this)
             }
         scroll.addView(root, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         setContentView(scroll)
@@ -100,17 +114,19 @@ class WearSettingsActivity : Activity() {
             },
             fullWidth(),
         )
-        root.addView(
-            choiceRow(
-                listOf("Hell" to AppearanceMode.LIGHT, "Dunkel" to AppearanceMode.DARK),
-                selectedAppearanceMode,
-            ) { mode ->
-                selectedAppearanceMode = mode
-                WearDisplayPreferences.setActiveAppearanceMode(this, mode)
-                buildUi()
-            },
-            cardParams(),
-        )
+        if (selectedSettingsCategory in setOf("display", "glucose", "trend", "delta", "therapy", "graph", "tiles", "watchfaces")) {
+            root.addView(
+                choiceRow(
+                    listOf("Hell" to AppearanceMode.LIGHT, "Dunkel" to AppearanceMode.DARK),
+                    selectedAppearanceMode,
+                ) { mode ->
+                    selectedAppearanceMode = mode
+                    WearDisplayPreferences.setActiveAppearanceMode(this, mode)
+                    buildUi()
+                },
+                cardParams(),
+            )
+        }
 
         settingsCategory("display", "App-Oberfläche", "Hintergrund, Flächen und allgemeine Texte") {
             section("APP")
@@ -132,7 +148,7 @@ class WearSettingsActivity : Activity() {
 
         settingsCategory("glucose", "Glukose", "Einheit, Zielbereich, Farben und Größe") {
             section("EINHEIT")
-            root.addView(
+            contentRoot.addView(
                 choiceRow(
                     listOf("Auto" to WatchGlucoseUnit.AAPS, "mg/dL" to WatchGlucoseUnit.MG_DL, "mmol/L" to WatchGlucoseUnit.MMOL_L),
                     current.glucoseUnit,
@@ -140,7 +156,7 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             section("ZIELBEREICH")
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     "Tief",
                     (current.cgmThresholds.veryLowMgDl.toInt() + 1).coerceAtLeast(40),
@@ -152,7 +168,7 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     "Hoch",
                     (current.cgmThresholds.lowMgDl.toInt() + 1).coerceAtMost(300),
@@ -173,7 +189,7 @@ class WearSettingsActivity : Activity() {
             }
             colorRow(AppearanceTerminology.GLUCOSE_HIGH, current.uiColors.glucoseHigh, WatchUiColors().glucoseHigh) { updateUiColors { c -> c.copy(glucoseHigh = it) } }
             section("GRÖSSE")
-            root.addView(
+            contentRoot.addView(
                 sliderCard("Glukosewert", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.glucoseScalePercent, {
                     "$it %"
                 }) {
@@ -184,7 +200,7 @@ class WearSettingsActivity : Activity() {
         }
 
         settingsCategory("trend", "Trendpfeil", "Größe, Füllung, Kontur und Deckkraft") {
-            root.addView(
+            contentRoot.addView(
                 sliderCard("Trendpfeil", GlucoseTrendSizing.MIN_SCALE_PERCENT, GlucoseTrendSizing.MAX_SCALE_PERCENT, current.trendScalePercent, {
                     "$it %"
                 }) {
@@ -204,7 +220,7 @@ class WearSettingsActivity : Activity() {
             ) {
                 save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(fillColor = it)))
             }
-            root.addView(
+            contentRoot.addView(
                 switchRow("Trendpfeil-Kontur", current.trendArrowStyle.outlineEnabled) {
                     save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineEnabled = it)))
                 },
@@ -220,7 +236,7 @@ class WearSettingsActivity : Activity() {
                 ) {
                     save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(outlineColor = it)))
                 }
-                root.addView(
+                contentRoot.addView(
                     sliderCard(
                         "Konturdicke",
                         25,
@@ -233,13 +249,13 @@ class WearSettingsActivity : Activity() {
                     cardParams(),
                 )
             }
-            root.addView(
+            contentRoot.addView(
                 sliderCard("Trend-Deckkraft", 0, 100, (current.trendArrowStyle.alpha * 100).roundToInt(), { "$it %" }) {
                     save(current.copy(trendArrowStyle = current.trendArrowStyle.copy(alpha = it / 100f)), rebuild = false)
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
                     WearDisplayPreferences.resetTrendArrowStyle(this, selectedAppearanceMode)
                     buildUi()
@@ -260,17 +276,17 @@ class WearSettingsActivity : Activity() {
 
         settingsCategory("graph", "Graph", "Zeitraum, Punkte, Linien und Prognosen") {
             section("ZEITSKALA")
-            root.addView(
+            contentRoot.addView(
                 choiceRow(WearDisplayPreferences.allowedGraphHours.map { getString(R.string.graph_hours, it) to it }, current.graphHours) {
                     save(current.copy(graphHours = it))
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 switchRow("IOB / COB / Basal anzeigen", current.showTherapyStats) { save(current.copy(showTherapyStats = it)) },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 switchRow("Kachelkontur", current.graphStyle.borderEnabled) {
                     save(current.copy(graphStyle = current.graphStyle.copy(borderEnabled = it)))
                 },
@@ -291,7 +307,7 @@ class WearSettingsActivity : Activity() {
                 }
             }
 
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     title = "Punktgröße",
                     min = 15,
@@ -306,7 +322,7 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 switchRow(AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE, current.graphStyle.cgmHistoricalDotOutlineEnabled) {
                     save(
                         current.copy(
@@ -316,7 +332,7 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     title = AppearanceTerminology.GRAPH_HISTORICAL_DOT_OUTLINE_WIDTH,
                     min = 25,
@@ -336,7 +352,7 @@ class WearSettingsActivity : Activity() {
                 },
                 cardParams(),
             )
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     title = AppearanceTerminology.GRAPH_CURRENT_DOT_OUTLINE_WIDTH,
                     min = 25,
@@ -357,7 +373,7 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
             section("SKALA")
-            root.addView(
+            contentRoot.addView(
                 sliderCard(
                     title = "Skalenbereich",
                     min = 0,
@@ -414,7 +430,7 @@ class WearSettingsActivity : Activity() {
             colorRow(AppearanceTerminology.GRAPH_NOW_LINE, current.graphColors.nowLine, WatchGraphColors().nowLine) { updateGraphColors { c -> c.copy(nowLine = it) } }
             colorRow(AppearanceTerminology.GRAPH_DIVIDER, current.graphColors.divider, WatchGraphColors().divider) { updateGraphColors { c -> c.copy(divider = it) } }
             section("PROGNOSEN")
-            root.addView(
+            contentRoot.addView(
                 switchRow("Prognosen anzeigen", current.showPredictions) { save(current.copy(showPredictions = it)) },
                 cardParams(),
             )
@@ -465,10 +481,10 @@ class WearSettingsActivity : Activity() {
         }
 
         settingsCategory("watchfaces", "Watchfaces", "Auswahl und weitere Gestaltung in der Mobile-App") {
-            root.addView(infoCard("Watchface-Auswahl", "Sugarlicious Mobile öffnen und den Bereich Watchfaces wählen."), cardParams())
+            contentRoot.addView(infoCard("Watchface-Auswahl", "Sugarlicious Mobile öffnen und den Bereich Watchfaces wählen."), cardParams())
         }
         settingsCategory("connection", "Verbindung", "Synchronisierung und Hintergrundzugriff") {
-            root.addView(
+            contentRoot.addView(
                 actionCard("Akku-Optimierung", if (WearBackgroundAccess.isBatteryUnrestricted(this)) "Freigegeben" else "Prüfen") {
                     WearBackgroundAccess.openBatterySettings(this)
                 },
@@ -476,13 +492,13 @@ class WearSettingsActivity : Activity() {
             )
         }
         settingsCategory("diagnostics", "Diagnose", "Status, Freshness und Datenquelle") {
-            root.addView(
+            contentRoot.addView(
                 infoCard("Live-Status", "Zurück in der Übersicht werden Quelle, Alter und Verbindungsstatus angezeigt."),
                 cardParams(),
             )
         }
         settingsCategory("about", "Über", "Sugarlicious Wear") {
-            root.addView(
+            contentRoot.addView(
                 infoCard(
                     "Sugarlicious Wear",
                     app.aapswear.uishared.AppReleaseInfo
@@ -491,7 +507,12 @@ class WearSettingsActivity : Activity() {
                 cardParams(),
             )
         }
-        scroll.post { scroll.scrollTo(0, restoreScrollY) }
+        if (selectedSettingsCategory == null) {
+            navigationRows.chunked(4).forEach { rows ->
+                root.addView(WearSettingsUi.navigationGroup(this, rows, menuColors.tileBackground), fullWidth().apply { topMargin = 12.dp })
+            }
+        }
+        scroll.post { scroll.scrollTo(0, restoreScrollY.coerceIn(0, (root.height - scroll.height).coerceAtLeast(0))) }
     }
 
     private fun updateGraphColors(transform: (WatchGraphColors) -> WatchGraphColors) {
@@ -546,7 +567,7 @@ class WearSettingsActivity : Activity() {
     private fun tileContentRows(kind: WearTileKind) {
         val selected = WearTileContentStore.read(this, kind)
         listOf(WearTileContent.GLUCOSE, WearTileContent.GRAPH).chunked(3).forEach { rowItems ->
-            root.addView(
+            contentRoot.addView(
                 choiceRow(rowItems.map { it.label to it }, selected) { content ->
                     WearTileContentStore.write(this, kind, content)
                     requestSugarliciousTileUpdates(this)
@@ -573,7 +594,7 @@ class WearSettingsActivity : Activity() {
             suffix: String = "%",
             changed: (Int) -> Unit,
         ) {
-            root.addView(sliderCard(title, range.first, range.last, value, { "$it$suffix" }, changed), cardParams())
+            contentRoot.addView(sliderCard(title, range.first, range.last, value, { "$it$suffix" }, changed), cardParams())
         }
         addSlider("Gesamtgröße", 50..150, appearance.groupScalePercent) { save(appearance.copy(groupScalePercent = it)) }
         addSlider("Abstand", 0..24, appearance.gapDp, " dp") { save(appearance.copy(gapDp = it)) }
@@ -593,7 +614,7 @@ class WearSettingsActivity : Activity() {
             val label = metric.toTileMetric().label
             section(label)
             val local = appearance.metricOverrides[metric] ?: TherapyMetricAppearance()
-            root.addView(
+            contentRoot.addView(
                 switchRow("Anzeigen", metric in appearance.enabledMetrics) { enabled ->
                     val selected = if (enabled) appearance.enabledMetrics + metric else appearance.enabledMetrics - metric
                     if (selected.isNotEmpty()) save(appearance.copy(enabledMetrics = selected)) else buildUi()
@@ -615,10 +636,19 @@ class WearSettingsActivity : Activity() {
             addSlider("$label · untere Zeile", 60..180, local.secondaryTextPercent) { update { value -> value.copy(secondaryTextPercent = it) } }
             addSlider("$label · Icon", 50..180, local.iconPercent) { update { value -> value.copy(iconPercent = it) } }
         }
-        root.addView(
+        contentRoot.addView(
             actionCard("Progressanzeigen zurücksetzen", "Standard") { save(TherapyProgressAppearance()) },
             cardParams(),
         )
+    }
+
+    private fun navigateBack() {
+        if (selectedSettingsCategory == null) {
+            finish()
+        } else {
+            selectedSettingsCategory = null
+            buildUi(scrollPosition = categoryListScrollY)
+        }
     }
 
     private fun settingsCategory(
@@ -633,61 +663,19 @@ class WearSettingsActivity : Activity() {
             }
             return
         }
-        val chevron =
-            TextView(this).apply {
-                text = "›"
-                textSize =
-                    app.aapswear.uishared.WearSettingsUi
-                        .textSize(19f)
-                gravity = Gravity.CENTER
-                setTextColor(menuColors.textSecondary)
-            }
-        val header =
-            LinearLayout(this).apply {
-                tag = "settings-category-$key"
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                minimumHeight = 58.dp
-                setPadding(13.dp, 8.dp, 8.dp, 8.dp)
-                background = cardBackground()
-                isClickable = true
-                isFocusable = true
-                addView(
-                    LinearLayout(this@WearSettingsActivity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        addView(
-                            TextView(this@WearSettingsActivity).apply {
-                                text = title
-                                textSize =
-                                    app.aapswear.uishared.WearSettingsUi
-                                        .textSize(11f)
-                                setTextColor(menuColors.textPrimary)
-                                app.aapswear.uishared.SystemTypography
-                                    .apply(this, true)
-                            },
-                        )
-                        addView(
-                            TextView(this@WearSettingsActivity).apply {
-                                text = summary
-                                app.aapswear.uishared.SystemTypography
-                                    .apply(this, false)
-                                textSize =
-                                    app.aapswear.uishared.WearSettingsUi
-                                        .textSize(8f)
-                                setTextColor(menuColors.textSecondary)
-                            },
-                        )
-                    },
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-                )
-                addView(chevron, LinearLayout.LayoutParams(28.dp, 38.dp))
-                setOnClickListener {
+        navigationRows +=
+            WearSettingsUi
+                .navigationRow(
+                    this,
+                    title,
+                    summary,
+                    menuColors.textPrimary,
+                    menuColors.textSecondary,
+                ) {
                     categoryListScrollY = scrollView.scrollY
                     selectedSettingsCategory = key
                     buildUi(scrollPosition = 0)
-                }
-            }
-        root.addView(header, cardParams())
+                }.apply { tag = "settings-category-$key" }
     }
 
     private fun infoCard(
@@ -759,18 +747,14 @@ class WearSettingsActivity : Activity() {
         }
 
     private fun section(text: String) {
-        root.addView(
-            TextView(this).apply {
-                this.text = text
-                textSize = 14f
-                setTextColor(menuColors.accent)
-                app.aapswear.uishared.SystemTypography
-                    .apply(this, true)
-                letterSpacing = 0.08f
-                setPadding(5.dp, 15.dp, 5.dp, 6.dp)
-            },
-            fullWidth(),
-        )
+        sectionContainer =
+            WearSettingsUi
+                .elementCard(
+                    this,
+                    text.lowercase().replaceFirstChar { it.titlecase() },
+                    menuColors.tileBackground,
+                    menuColors.textPrimary,
+                ).also { root.addView(it, fullWidth().apply { topMargin = 12.dp }) }
     }
 
     private fun switchRow(
@@ -822,30 +806,8 @@ class WearSettingsActivity : Activity() {
     ): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(5.dp, 5.dp, 5.dp, 5.dp)
             choices.forEach { (label, value) ->
-                val active = selected == value
-                addView(
-                    Button(this@WearSettingsActivity).apply {
-                        text = if (active) "✓  $label" else label
-                        app.aapswear.uishared.SystemTypography
-                            .apply(this, active)
-                        textSize = 15f
-                        isAllCaps = false
-                        minimumHeight = 44.dp
-                        setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-                        minWidth = 0
-                        minimumWidth = 0
-                        setTextColor(menuColors.textPrimary)
-                        background = pillBackground(active)
-                        setOnClickListener { changed(value) }
-                    },
-                    fullWidth().apply {
-                        marginStart = 1.dp
-                        marginEnd = 1.dp
-                    },
-                )
+                addView(WearSettingsUi.choice(this@WearSettingsActivity, label, selected == value, menuColors.accent, menuColors.tileBackground) { changed(value) }, fullWidth())
             }
         }
 
@@ -870,8 +832,8 @@ class WearSettingsActivity : Activity() {
                 TextView(this@WearSettingsActivity).apply {
                     text = value(progress)
                     textSize = 15f
-                    gravity = Gravity.END
-                    setTextColor(menuColors.accent)
+                    gravity = Gravity.START
+                    setTextColor(menuColors.textSecondary)
                     app.aapswear.uishared.SystemTypography
                         .apply(this, true)
                     setPadding(10.dp, 5.dp, 10.dp, 5.dp)
@@ -931,7 +893,14 @@ class WearSettingsActivity : Activity() {
                         },
                     )
                 }
-            addView(slider, fullWidth())
+            addView(
+                WearSettingsUi.inlineSlider(slider) { raw ->
+                    selectedValue = raw + min
+                    valueText.text = value(selectedValue)
+                    changed(selectedValue)
+                },
+                fullWidth(),
+            )
         }
 
     private fun colorRow(
@@ -940,7 +909,7 @@ class WearSettingsActivity : Activity() {
         defaultColor: Int,
         changed: (Int) -> Unit,
     ) {
-        root.addView(
+        contentRoot.addView(
             LinearLayout(this).apply {
                 minimumHeight = 48.dp
                 setOnClickListener { showColorPicker(title, color, defaultColor, changed) }
@@ -1026,7 +995,7 @@ class WearSettingsActivity : Activity() {
     private fun cardBackground(radiusDp: Float = 20f): GradientDrawable =
         GradientDrawable().apply {
             cornerRadius = maxOf(radiusDp, 26f) * resources.displayMetrics.density
-            setColor(this@WearSettingsActivity.menuColors.tileBackground)
+            setColor(if (sectionContainer != null) Color.TRANSPARENT else menuColors.tileBackground)
             setStroke(0, this@WearSettingsActivity.menuColors.tileBorder)
         }
 
