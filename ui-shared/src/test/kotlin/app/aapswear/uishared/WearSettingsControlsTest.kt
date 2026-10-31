@@ -19,6 +19,123 @@ import org.robolectric.annotation.Config
 class WearSettingsControlsTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    private fun stepButton(root: android.view.View, text: String): android.widget.Button {
+        if (root is android.widget.Button && root.text.toString() == text) return root
+        if (root is android.view.ViewGroup) {
+            repeat(root.childCount) { index ->
+                val found = runCatching { stepButton(root.getChildAt(index), text) }.getOrNull()
+                if (found != null) return found
+            }
+        }
+        error("Missing step button $text")
+    }
+
+    @Test fun `nested slider retains a usable full width track on a 192 dp watch`() {
+        val slider = SeekBar(context)
+        WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
+        val control = WearSettingsUi.inlineSlider(slider) {}
+        // 192dp viewport minus page (32), element (16) and nested card (26) insets.
+        val available = WearSettingsUi.dp(context, 118)
+        control.measure(
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(available, android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
+        )
+        control.layout(0, 0, control.measuredWidth, control.measuredHeight)
+        assertEquals(available, slider.measuredWidth)
+        assertTrue(slider.measuredWidth - slider.paddingLeft - slider.paddingRight >= WearSettingsUi.dp(context, 96))
+        val decrease = stepButton(control, "−")
+        val increase = stepButton(control, "+")
+        assertTrue(decrease.measuredWidth >= WearSettingsUi.dp(context, 48))
+        assertTrue(increase.measuredHeight >= WearSettingsUi.dp(context, 48))
+        assertEquals(decrease.measuredWidth, increase.measuredWidth)
+    }
+
+    @Test fun `round page padding adapts to watch width without changing child layout`() {
+        fun root(width: Int): android.widget.LinearLayout {
+            val config =
+                android.content.res.Configuration(context.resources.configuration).apply {
+                    screenLayout = (
+                        screenLayout and
+                            android.content.res.Configuration.SCREENLAYOUT_ROUND_MASK
+                                .inv()
+                    ) or android.content.res.Configuration.SCREENLAYOUT_ROUND_YES
+                    screenWidthDp = width
+                }
+            return android.widget.LinearLayout(context.createConfigurationContext(config)).also { WearSettingsUi.pagePadding(it) }
+        }
+        val small = root(192)
+        val large = root(240)
+        assertTrue(large.paddingLeft > small.paddingLeft)
+        assertTrue(small.paddingBottom > small.paddingLeft)
+        assertEquals(small.paddingLeft, small.paddingRight)
+    }
+
+    @Test fun `step buttons preserve native callbacks and persist only effective changes`() {
+        val slider =
+            SeekBar(context).apply {
+                max = 3
+                progress = 2
+            }
+        var gestureWrites = 0
+        slider.setOnSeekBarChangeListener(
+            object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) gestureWrites++
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar?) = Unit
+
+                override fun onStopTrackingTouch(bar: SeekBar?) = Unit
+            },
+        )
+        val writes = mutableListOf<Int>()
+        val row = WearSettingsUi.inlineSlider(slider) { writes += it }
+        assertTrue(writes.isEmpty())
+        assertTrue(slider.parent === row)
+        stepButton(row, "+").performClick()
+        stepButton(row, "+").performClick()
+        stepButton(row, "−").performClick()
+        assertEquals(listOf(3, 2), writes)
+        assertEquals(0, gestureWrites)
+        assertEquals(2, slider.progress)
+    }
+
+    @Test fun `choice exposes checked radio semantics and a full width touch target`() {
+        val row = WearSettingsUi.choice(context, "Systemfarbe", true, Color.GREEN, Color.DKGRAY) {}
+        val info = row.createAccessibilityNodeInfo()
+        assertTrue(info.isCheckable)
+        assertTrue(info.isChecked)
+        assertEquals(android.widget.RadioButton::class.java.name, info.className)
+        assertTrue(row.minimumHeight >= WearSettingsUi.dp(context, 48))
+        assertEquals(android.view.ViewGroup.LayoutParams.MATCH_PARENT, row.layoutParams.width)
+    }
+
+    @Test fun `navigation rows grow for large fonts and groups own inset separators`() {
+        val scaled =
+            context.createConfigurationContext(
+                android.content.res
+                    .Configuration(context.resources.configuration)
+                    .apply { fontScale = 2f },
+            )
+        val first = WearSettingsUi.navigationRow(scaled, "Farben und Darstellung", "Individuell konfigurieren", Color.WHITE, Color.GRAY) {}
+        val second = WearSettingsUi.navigationRow(scaled, "Alarme", null, Color.WHITE, Color.GRAY) {}
+        val group = WearSettingsUi.navigationGroup(scaled, listOf(first, second), Color.DKGRAY)
+        group.measure(
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(WearSettingsUi.dp(scaled, 160), android.view.View.MeasureSpec.EXACTLY),
+            android.view.View.MeasureSpec
+                .makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
+        )
+        assertEquals(3, group.childCount)
+        assertTrue(first.measuredHeight > WearSettingsUi.dp(scaled, 48))
+        assertEquals(2, first.childCount)
+        assertEquals(1, second.childCount)
+        val separator = group.getChildAt(1).layoutParams as android.widget.LinearLayout.LayoutParams
+        assertTrue(separator.marginStart > 0)
+    }
+
     @Test fun `slider exposes its purpose and remains keyboard accessible`() {
         val slider = SeekBar(context)
         WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
