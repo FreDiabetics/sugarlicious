@@ -54,6 +54,16 @@ class ApexProgressTest(unittest.TestCase):
             self.assertIn("< 1", remaining.find("Transform[@target='alpha']").get("value"))
             self.assertIn('[CONFIGURATION.progressGap] == "TRUE"', remaining.find("Transform[@target='alpha']").get("value"))
 
+    def test_outer_gap_is_smaller_than_the_previous_orbit_ratio(self):
+        for slot_id in range(4):
+            ranged = self.face.find(f"Scene/ComplicationSlot[@slotId='{slot_id}']/Complication[@type='RANGED_VALUE']")
+            track = next(part.find("Arc") for part in ranged.findall("PartDraw") if part.find("Arc") is not None)
+            radius = float(track.get("width")) / 2
+            thickness = float(track.find("Stroke").get("thickness"))
+            gap = 19.5 * (thickness / radius) / (12 / 59) * 0.8
+            expression = ranged.find(f"Group[@name='progress-gap-{slot_id}']/PartDraw/Arc/Transform[@target='endAngle']").get("value")
+            self.assertIn(f"{gap:.6f}", expression)
+
 
 if __name__ == "__main__":
     unittest.main()

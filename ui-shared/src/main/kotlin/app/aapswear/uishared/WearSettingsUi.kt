@@ -18,6 +18,17 @@ import kotlin.math.roundToInt
 
 /** Shared round-screen settings vocabulary. Uses public Android widgets, not private Samsung APIs. */
 object WearSettingsUi {
+    const val MENU_BACKGROUND: Int = 0xFF000000.toInt()
+    const val MENU_SURFACE: Int = 0xFF202020.toInt()
+    const val MENU_TEXT: Int = 0xFFFFFFFF.toInt()
+    const val MENU_SECONDARY: Int = 0xFFB6B6BB.toInt()
+
+    fun pageHeader(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
+        header(context, title, textColor, back).apply {
+            val inset = dp(context, 11)
+            setPadding(inset, 0, inset, 0)
+        }
+
     /** Flat One UI Watch action surface, with no platform button inset or elevation shadow. */
     fun actionButton(view: android.widget.Button, cardSurface: Int, foreground: Int) {
         val density = view.resources.displayMetrics.density
