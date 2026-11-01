@@ -40,14 +40,16 @@ class WearSettingsActivity : Activity() {
     private val navigationRows = mutableListOf<View>()
 
     // Settings stay legible while the user edits the display palette.
-    private val menuColors =
+    private val menuColors get() =
         WatchUiColors(
-            background = Color.BLACK,
-            tileBackground = Color.rgb(35, 35, 38),
-            tileBorder = Color.rgb(68, 68, 72),
-            textPrimary = Color.WHITE,
-            textSecondary = Color.rgb(177, 177, 185),
-            accent = 0xFF22EB60.toInt(),
+            background = WearSettingsUi.MENU_BACKGROUND,
+            tileBackground = WearSettingsUi.MENU_SURFACE,
+            tileBorder = Color.TRANSPARENT,
+            textPrimary = WearSettingsUi.MENU_TEXT,
+            textSecondary = WearSettingsUi.MENU_SECONDARY,
+            accent =
+                app.aapswear.uishared.SugarliciousAccentPalette
+                    .primary(selectedAppearanceMode == AppearanceMode.DARK),
         )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,7 +106,7 @@ class WearSettingsActivity : Activity() {
                 else -> getString(R.string.watch_settings_title)
             }
         root.addView(
-            app.aapswear.uishared.WearSettingsUi.header(this, pageTitle, menuColors.textPrimary) {
+            app.aapswear.uishared.WearSettingsUi.pageHeader(this, pageTitle, menuColors.textPrimary) {
                 if (selectedSettingsCategory != null) {
                     selectedSettingsCategory = null
                     buildUi(scrollPosition = categoryListScrollY)
@@ -508,7 +510,7 @@ class WearSettingsActivity : Activity() {
             )
         }
         if (selectedSettingsCategory == null) {
-            navigationRows.chunked(4).forEach { rows ->
+            navigationRows.chunked(3).forEach { rows ->
                 root.addView(WearSettingsUi.navigationGroup(this, rows, menuColors.tileBackground), fullWidth().apply { topMargin = 12.dp })
             }
         }
@@ -668,14 +670,17 @@ class WearSettingsActivity : Activity() {
                 .navigationRow(
                     this,
                     title,
-                    summary,
+                    null,
                     menuColors.textPrimary,
                     menuColors.textSecondary,
                 ) {
                     categoryListScrollY = scrollView.scrollY
                     selectedSettingsCategory = key
                     buildUi(scrollPosition = 0)
-                }.apply { tag = "settings-category-$key" }
+                }.apply {
+                    tag = "settings-category-$key"
+                    contentDescription = "$title. $summary"
+                }
     }
 
     private fun infoCard(
@@ -765,7 +770,7 @@ class WearSettingsActivity : Activity() {
         LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(13.dp, 8.dp, 10.dp, 8.dp)
+            setPadding(10.dp, 8.dp, 10.dp, 8.dp)
             background = cardBackground()
             addView(
                 TextView(this@WearSettingsActivity).apply {
@@ -824,7 +829,7 @@ class WearSettingsActivity : Activity() {
     ): View =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(13.dp, 9.dp, 13.dp, 8.dp)
+            setPadding(10.dp, 9.dp, 10.dp, 8.dp)
             background = cardBackground()
             var selectedValue = progress.coerceIn(min, max)
             lateinit var slider: app.aapswear.uishared.ScrollSafeSeekBar
@@ -915,8 +920,15 @@ class WearSettingsActivity : Activity() {
                 setOnClickListener { showColorPicker(title, color, defaultColor, changed) }
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(13.dp, 8.dp, 11.dp, 8.dp)
+                setPadding(10.dp, 8.dp, 10.dp, 8.dp)
                 background = cardBackground()
+                addView(
+                    View(this@WearSettingsActivity).apply {
+                        background = colorCircle(color)
+                        contentDescription = title
+                    },
+                    LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 10.dp },
+                )
                 addView(
                     TextView(this@WearSettingsActivity).apply {
                         text = title
@@ -928,13 +940,6 @@ class WearSettingsActivity : Activity() {
                             .apply(this, true)
                     },
                     LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-                )
-                addView(
-                    View(this@WearSettingsActivity).apply {
-                        background = colorCircle(color)
-                        contentDescription = title
-                    },
-                    LinearLayout.LayoutParams(32.dp, 32.dp),
                 )
             },
             cardParams(),

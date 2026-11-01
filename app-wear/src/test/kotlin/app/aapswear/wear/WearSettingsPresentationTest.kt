@@ -37,7 +37,7 @@ class WearSettingsPresentationTest {
         val category = descendants(scroll).single { it.tag == "settings-category-glucose" }
         val label = descendants(category).filterIsInstance<TextView>().single { it.text.toString() == "Glukose" }
         assertEquals(Color.WHITE, label.currentTextColor)
-        assertEquals(Color.rgb(35, 35, 38), ((category.parent as View).background as GradientDrawable).color!!.defaultColor)
+        assertEquals(app.aapswear.uishared.WearSettingsUi.MENU_SURFACE, ((category.parent as View).background as GradientDrawable).color!!.defaultColor)
         assertEquals(before, WearDisplayPreferences.read(context, AppearanceMode.DARK))
         controller.pause().stop().destroy()
     }

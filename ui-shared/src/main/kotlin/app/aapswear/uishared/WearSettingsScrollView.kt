@@ -15,6 +15,8 @@ class WearSettingsScrollView(
 
     init {
         isFocusableInTouchMode = true
+        // Keep rotary focus without tinting the entire settings page as a focused control.
+        defaultFocusHighlightEnabled = false
         overScrollMode = OVER_SCROLL_NEVER
         isVerticalScrollBarEnabled = false
     }

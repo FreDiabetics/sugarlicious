@@ -38,6 +38,9 @@ def configure(root, strings):
         thickness = float(arc.find('Stroke').get('thickness'))
         # Orbit's reference separation, scaled by stroke width/radius.
         gap = 19.5 * (thickness / radius) / ((12 * 512 / 450) / (59 * 512 / 450))
+        # Outer tracks need a tighter gap than the small central gauges.
+        if identity in {'0', '1', '2', '3'}:
+            gap *= 0.8
         active = f'[CONFIGURATION.progressGap] == "TRUE" && {VALID}'
         if identity == '1':
             active += ' && [CONFIGURATION.upperRightMarkers] != "TRUE"'
@@ -65,7 +68,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--resources', type=Path, required=True)
     args = parser.parse_args()
-    face = ET.parse(args.resources / 'raw/watchface.xml').getroot()
+    face = ET.parse(args.resources / 'raw/watchface.xml', parser=ET.XMLParser(target=ET.TreeBuilder(insert_comments=True))).getroot()
     strings = ET.parse(args.resources / 'values/strings.xml').getroot()
     configure(face, strings)
     for name, root in (('raw/watchface.xml', face), ('values/strings.xml', strings)):

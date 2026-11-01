@@ -30,6 +30,12 @@ class WearSettingsControlsTest {
         error("Missing step button $text")
     }
 
+    @Test fun `rotary scroll focus never highlights the entire settings surface`() {
+        val scroll = WearSettingsScrollView(context)
+        assertTrue(scroll.isFocusableInTouchMode)
+        assertFalse(scroll.defaultFocusHighlightEnabled)
+    }
+
     @Test fun `nested slider retains a usable full width track on a 192 dp watch`() {
         val slider = SeekBar(context)
         WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
@@ -102,7 +108,9 @@ class WearSettingsControlsTest {
         assertEquals(2, slider.progress)
     }
 
-    @Test fun `choice exposes checked radio semantics and a full width touch target`() {
+    @Suppress("DEPRECATION") // This API-35 test verifies the Boolean accessibility compatibility path.
+    @Test
+    fun `choice exposes checked radio semantics and a full width touch target`() {
         val row = WearSettingsUi.choice(context, "Systemfarbe", true, Color.GREEN, Color.DKGRAY) {}
         val info = row.createAccessibilityNodeInfo()
         assertTrue(info.isCheckable)

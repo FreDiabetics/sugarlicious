@@ -8,6 +8,6 @@
     <string name="complication_preview_tir" formatted="false">100%</string>
     <string name="tap_to_refresh">Tippen zum Aktualisieren</string>
     <string name="phone_unreachable">Telefon derzeit nicht erreichbar</string>
-    <string name="watch_settings_title">Watch Einstellungen</string>
+    <string name="watch_settings_title">Einstellungen</string>
     <string name="graph_hours">%1$dh</string>
 </resources>

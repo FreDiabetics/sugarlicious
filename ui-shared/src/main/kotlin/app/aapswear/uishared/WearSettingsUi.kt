@@ -18,6 +18,17 @@ import kotlin.math.roundToInt
 
 /** Shared round-screen settings vocabulary. Uses public Android widgets, not private Samsung APIs. */
 object WearSettingsUi {
+    const val MENU_BACKGROUND: Int = 0xFF000000.toInt()
+    const val MENU_SURFACE: Int = 0xFF202020.toInt()
+    const val MENU_TEXT: Int = 0xFFFFFFFF.toInt()
+    const val MENU_SECONDARY: Int = 0xFFB6B6BB.toInt()
+
+    fun pageHeader(context: Context, title: String, textColor: Int, back: () -> Unit): LinearLayout =
+        header(context, title, textColor, back).apply {
+            val inset = dp(context, 11)
+            setPadding(inset, 0, inset, 0)
+        }
+
     /** Flat One UI Watch action surface, with no platform button inset or elevation shadow. */
     fun actionButton(view: android.widget.Button, cardSurface: Int, foreground: Int) {
         val density = view.resources.displayMetrics.density
@@ -229,11 +240,16 @@ object WearSettingsUi {
             isFocusable = true
             accessibilityDelegate =
                 object : View.AccessibilityDelegate() {
+                    @Suppress("DEPRECATION") // Wear OS API 33-35 still requires the Boolean checked setter.
                     override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
                         super.onInitializeAccessibilityNodeInfo(host, info)
                         info.className = android.widget.RadioButton::class.java.name
                         info.isCheckable = true
-                        info.isChecked = selected
+                        if (android.os.Build.VERSION.SDK_INT >= 36) {
+                            info.setChecked(if (selected) AccessibilityNodeInfo.CHECKED_STATE_TRUE else AccessibilityNodeInfo.CHECKED_STATE_FALSE)
+                        } else {
+                            info.isChecked = selected
+                        }
                     }
                 }
             setOnClickListener { onClick() }
