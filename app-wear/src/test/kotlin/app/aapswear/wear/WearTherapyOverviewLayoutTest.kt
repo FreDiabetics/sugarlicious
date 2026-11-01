@@ -55,7 +55,7 @@ class WearTherapyOverviewLayoutTest {
         root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(1600, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, 480, 1600)
         assertEquals(ring.height / 2f, value.top + value.height / 2f, context.resources.displayMetrics.density)
-        assertEquals(14f * context.resources.displayMetrics.scaledDensity, value.textSize, .1f)
+        assertEquals(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 14f, context.resources.displayMetrics), value.textSize, .1f)
     }
 
     @Test

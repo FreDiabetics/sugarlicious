@@ -27,6 +27,37 @@ class WearNumberEditorTest {
         controller.pause().stop().destroy()
     }
 
+    @Test fun `numeric editor keeps actions reachable above the keyboard and restores padding`() {
+        val controller = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = controller.get()
+        shadowOf(activity.packageManager).setSystemFeature(PackageManager.FEATURE_WATCH, true)
+        SharedNumberEditor.show(activity, "Größe", 12, 1, 30) {}
+        val dialog = ShadowDialog.getLatestDialog()
+        val scroll = dialog.window!!.decorView.findViewWithTag<android.view.View>("wear_number_scroll")
+        val keyboard =
+            androidx.core.view.WindowInsetsCompat
+                .Builder()
+                .setInsets(
+                    androidx.core.view.WindowInsetsCompat.Type
+                        .ime(),
+                    androidx.core.graphics.Insets
+                        .of(0, 0, 0, 120),
+                ).build()
+        androidx.core.view.ViewCompat
+            .dispatchApplyWindowInsets(scroll, keyboard)
+        assertEquals(120, scroll.paddingBottom)
+        androidx.core.view.ViewCompat
+            .dispatchApplyWindowInsets(
+                scroll,
+                androidx.core.view.WindowInsetsCompat
+                    .Builder()
+                    .build(),
+            )
+        assertEquals(0, scroll.paddingBottom)
+        dialog.dismiss()
+        controller.pause().stop().destroy()
+    }
+
     @Test fun `invalid input stays open and cancel never writes while valid input commits once`() {
         val controller = Robolectric.buildActivity(Activity::class.java).setup()
         val activity = controller.get()
