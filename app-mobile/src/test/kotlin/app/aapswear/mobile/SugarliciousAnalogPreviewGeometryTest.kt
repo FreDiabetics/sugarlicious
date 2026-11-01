@@ -791,7 +791,8 @@ class SugarliciousAnalogPreviewGeometryTest {
                 near(start, text, "startAngle")
                 near(if (index == 3) 391.3956 else 390.2578, text, "width")
                 assertEquals(if (index < 2) "CLOCKWISE" else "COUNTER_CLOCKWISE", text.getAttribute("direction"))
-                assertEquals(if (index >= 2) "END" else "START", text.getAttribute("align"))
+                assertEquals(if (index == 0) "START" else "END", text.getAttribute("align"))
+                if (index == 1) near(88.0, text, "endAngle")
             }
         }
     }
