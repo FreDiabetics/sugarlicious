@@ -10,6 +10,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.TypedValue
+import androidx.core.graphics.createBitmap
 import kotlin.math.ceil
 
 /** Device-owned regular/bold fonts; no bundled copy and no repeated package lookup per reading. */
@@ -60,5 +61,5 @@ fun renderDeviceTileTextBitmap(context: Context, face: Typeface, content: CharSe
         paint.textSize *= maxHeightPx.coerceAtLeast(1).toFloat() / layout.height
         layout = buildLayout()
     }
-    return Bitmap.createBitmap(layout.width, layout.height.coerceAtLeast(1), Bitmap.Config.ARGB_8888).also { layout.draw(Canvas(it)) }
+    return createBitmap(layout.width, layout.height.coerceAtLeast(1)).also { layout.draw(Canvas(it)) }
 }

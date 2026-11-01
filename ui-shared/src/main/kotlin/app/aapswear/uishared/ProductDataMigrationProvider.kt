@@ -10,6 +10,7 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.util.AtomicFile
+import androidx.core.net.toUri
 import org.json.JSONObject
 import java.io.File
 import java.io.FileNotFoundException
@@ -55,7 +56,7 @@ abstract class ProductDataMigrationProvider : ContentProvider() {
             }
             val authority = "$legacyPackage.product-migration"
             if (state == MigrationState.ACKNOWLEDGE) {
-                checkNotNull(ctx.contentResolver.call(Uri.parse("content://$authority"), "accepted", null, null))
+                checkNotNull(ctx.contentResolver.call("content://$authority".toUri(), "accepted", null, null))
                 writeMarker(marker, "acknowledged")
                 File(ctx.noBackupFilesDir, FAILURE).delete()
                 return true
@@ -76,12 +77,12 @@ abstract class ProductDataMigrationProvider : ContentProvider() {
                 check(ctx.packageManager.checkSignatures(legacyPackage, targetPackage) == PackageManager.SIGNATURE_MATCH) {
                     "Migration signature mismatch"
                 }
-                verifiedAttemptSource = Uri.parse("content://$authority")
-                ctx.contentResolver.openInputStream(Uri.parse("content://$authority/snapshot"))!!.use { input ->
+                verifiedAttemptSource = "content://$authority".toUri()
+                ctx.contentResolver.openInputStream("content://$authority/snapshot".toUri())!!.use { input ->
                     importArchive(ctx, ZipInputStream(input))
                 }
                 writeMarker(marker, "imported")
-                checkNotNull(ctx.contentResolver.call(Uri.parse("content://$authority"), "accepted", null, null))
+                checkNotNull(ctx.contentResolver.call("content://$authority".toUri(), "accepted", null, null))
                 writeMarker(marker, "acknowledged")
             }
             File(ctx.noBackupFilesDir, FAILURE).delete()

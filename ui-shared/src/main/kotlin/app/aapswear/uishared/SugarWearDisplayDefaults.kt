@@ -2,6 +2,7 @@ package app.aapswear.uishared
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 
 /** Galaxy reference captured 2026-10-27; contains display settings only, never sensor credentials/history. */
 object SugarWearDisplayDefaults {
@@ -270,11 +271,7 @@ object SugarWearDisplayDefaults {
 
     fun reset(context: Context) {
         references.keys.forEach { name ->
-            context
-                .getSharedPreferences(name, Context.MODE_PRIVATE)
-                .edit()
-                .clear()
-                .commit()
+            context.getSharedPreferences(name, Context.MODE_PRIVATE).edit(commit = true) { clear() }
         }
     }
 }

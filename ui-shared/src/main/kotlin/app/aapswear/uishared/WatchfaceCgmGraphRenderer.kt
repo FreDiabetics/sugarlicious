@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import androidx.core.graphics.withSave
 import app.aapswear.model.CgmQuality
 import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
@@ -120,15 +121,15 @@ object WatchfaceCgmGraphRenderer {
             return toneColor(tone)
         }
         val current = samples.last()
-        val saved = canvas.save()
-        canvas.clipOutPath(Path().apply { addCircle(x(current), y(current.valueMgDl), 4.4f * unit, Path.Direction.CW) })
-        samples.forEachIndexed { index, sample ->
-            if (index != samples.lastIndex) {
-                dot.color = pointColor(sample.valueMgDl)
-                canvas.drawCircle(x(sample), y(sample.valueMgDl), 3.1f * unit, dot)
+        canvas.withSave {
+            canvas.clipOutPath(Path().apply { addCircle(x(current), y(current.valueMgDl), 4.4f * unit, Path.Direction.CW) })
+            samples.forEachIndexed { index, sample ->
+                if (index != samples.lastIndex) {
+                    dot.color = pointColor(sample.valueMgDl)
+                    canvas.drawCircle(x(sample), y(sample.valueMgDl), 3.1f * unit, dot)
+                }
             }
         }
-        canvas.restoreToCount(saved)
         // Orbit's opaque center hides guide labels beneath the newest sample; preserve its ring.
         if (semicircle) {
             dot.color = Color.BLACK
