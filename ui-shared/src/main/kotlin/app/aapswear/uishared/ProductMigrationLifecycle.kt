@@ -25,6 +25,7 @@ object ProductMigrationLifecycle {
         check(ProductDataMigrationProvider.migrationFailure(context) == null) { "Product data migration incomplete" }
     }
 
+    @android.annotation.SuppressLint("UseKtx") // KTX edit does not return the commit result required by this migration barrier.
     @Suppress("DEPRECATION")
     fun prepareSource(context: Context) {
         check(isQuiesced(context) || isRetired(context)) { "Legacy process must be quiesced by the migration tool" }

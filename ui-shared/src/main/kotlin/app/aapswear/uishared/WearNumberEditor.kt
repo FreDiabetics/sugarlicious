@@ -8,6 +8,9 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 
 /** Wear-only value entry: natural text heights and a round-safe scrollable surface. */
 internal object WearNumberEditor {
@@ -95,16 +98,24 @@ internal object WearNumberEditor {
         }
         val scroll =
             WearSettingsScrollView(activity).apply {
+                tag = "wear_number_scroll"
                 isFillViewport = true
                 addView(root)
             }
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
+            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            insets
+        }
         dialog.setContentView(scroll)
         dialog.setOnDismissListener { onDismiss() }
         dialog.show()
         dialog.window?.apply {
             setBackgroundDrawableResource(android.R.color.black)
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-            setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
+            WindowCompat.setDecorFitsSystemWindows(this, false)
+            setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         }
         scroll.requestFocus()
         return dialog
