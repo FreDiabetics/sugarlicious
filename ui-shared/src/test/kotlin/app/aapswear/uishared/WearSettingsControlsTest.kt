@@ -108,7 +108,9 @@ class WearSettingsControlsTest {
         assertEquals(2, slider.progress)
     }
 
-    @Test fun `choice exposes checked radio semantics and a full width touch target`() {
+    @Suppress("DEPRECATION") // This API-35 test verifies the Boolean accessibility compatibility path.
+    @Test
+    fun `choice exposes checked radio semantics and a full width touch target`() {
         val row = WearSettingsUi.choice(context, "Systemfarbe", true, Color.GREEN, Color.DKGRAY) {}
         val info = row.createAccessibilityNodeInfo()
         assertTrue(info.isCheckable)
