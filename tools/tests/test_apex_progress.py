@@ -39,6 +39,15 @@ class ApexProgressTest(unittest.TestCase):
         for transform in ranged.findall("Group[@name='progress-fill-1']//Transform[@target='endAngle']"):
             self.assertIn('[CONFIGURATION.upperRightMarkers] != "TRUE"', transform.get("value"))
 
+    def test_upper_right_value_keeps_its_trailing_edge_fixed(self):
+        ranged = self.face.find("Scene/ComplicationSlot[@slotId='1']/Complication[@type='RANGED_VALUE']")
+        texts = ranged.findall('.//TextCircular')
+        self.assertEqual(3, len(texts))
+        for text in texts:
+            self.assertEqual('END', text.get('align'))
+            self.assertEqual('88', text.get('endAngle'))
+            self.assertEqual('CLOCKWISE', text.get('direction'))
+
     def test_optional_gap_preserves_rounded_fill_and_remaining_ends(self):
         option = self.face.find("UserConfigurations/BooleanConfiguration[@id='progressGap']")
         self.assertIsNotNone(option)

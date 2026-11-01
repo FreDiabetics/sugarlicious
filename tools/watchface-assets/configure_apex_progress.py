@@ -23,6 +23,11 @@ def configure(root, strings):
         ranged = slot.find("Complication[@type='RANGED_VALUE']")
         if ranged is None or identity == '7':
             continue
+        if identity == '1':
+            # Keep the value's trailing edge fixed beside the final tick.
+            # Apply to therapy, glucose-color and ordinary provider text alike.
+            for text in ranged.findall('.//TextCircular'):
+                text.set('align', 'END')
         effective = f'({MARKER} && [CONFIGURATION.progressGap] != "TRUE"'
         if identity == '1':
             effective += ' && [CONFIGURATION.upperRightMarkers] != "TRUE"'
