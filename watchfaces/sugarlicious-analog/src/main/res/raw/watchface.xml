@@ -1709,7 +1709,7 @@
           </Expressions>
           <Compare expression="therapyValue">
             <PartText x="0" y="0" width="512" height="512">
-              <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="START" ellipsis="TRUE">
+              <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="END" ellipsis="TRUE">
                 <Font weight="BOLD" family="SYNC_TO_DEVICE" size="30" color="[CONFIGURATION.materialAccent.0]">
                   <Template>%s %s<Parameter expression="subText([COMPLICATION.TEXT], clamp(textLength([COMPLICATION.TEXT]) - 1, 0, textLength([COMPLICATION.TEXT])), textLength([COMPLICATION.TEXT])) == &quot;U&quot; ? numberFormat(&quot;#.#&quot;, subText([COMPLICATION.TEXT], 0, clamp(textLength([COMPLICATION.TEXT]) - 1, 0, textLength([COMPLICATION.TEXT])))) : subText([COMPLICATION.TEXT], 0, clamp(textLength([COMPLICATION.TEXT]) - 1, 0, textLength([COMPLICATION.TEXT])))" />
                     <Parameter expression="subText([COMPLICATION.TEXT], clamp(textLength([COMPLICATION.TEXT]) - 1, 0, textLength([COMPLICATION.TEXT])), textLength([COMPLICATION.TEXT]))" />
@@ -1725,7 +1725,7 @@
               </Expressions>
               <Compare expression="glucoseColor1x2">
                 <PartText x="0" y="0" width="512" height="512">
-                  <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="START" ellipsis="TRUE">
+                  <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="END" ellipsis="TRUE">
                     <Font weight="BOLD" family="SYNC_TO_DEVICE" size="30" color="[COMPLICATION.RANGED_VALUE_COLORS]">
                       <Template>%s<Parameter expression="[COMPLICATION.TEXT]" />
                       </Template>
@@ -1735,7 +1735,7 @@
               </Compare>
               <Default>
                 <PartText x="0" y="0" width="512" height="512">
-                  <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="START" ellipsis="TRUE">
+                  <TextCircular centerX="256.0529" centerY="255.9554" width="390.2578" height="390.2578" startAngle="67" endAngle="88" direction="CLOCKWISE" align="END" ellipsis="TRUE">
                     <Font weight="BOLD" family="SYNC_TO_DEVICE" size="30" color="[CONFIGURATION.materialAccent.0]">
                       <Template>%s<Parameter expression="[COMPLICATION.TEXT]" />
                       </Template>
