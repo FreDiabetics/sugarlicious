@@ -30,6 +30,12 @@ class WearSettingsControlsTest {
         error("Missing step button $text")
     }
 
+    @Test fun `rotary scroll focus never highlights the entire settings surface`() {
+        val scroll = WearSettingsScrollView(context)
+        assertTrue(scroll.isFocusableInTouchMode)
+        assertFalse(scroll.defaultFocusHighlightEnabled)
+    }
+
     @Test fun `nested slider retains a usable full width track on a 192 dp watch`() {
         val slider = SeekBar(context)
         WearSettingsUi.slider(slider, Color.GREEN, Color.DKGRAY, "Konturdicke")
