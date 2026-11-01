@@ -240,11 +240,16 @@ object WearSettingsUi {
             isFocusable = true
             accessibilityDelegate =
                 object : View.AccessibilityDelegate() {
+                    @Suppress("DEPRECATION") // Wear OS API 33-35 still requires the Boolean checked setter.
                     override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
                         super.onInitializeAccessibilityNodeInfo(host, info)
                         info.className = android.widget.RadioButton::class.java.name
                         info.isCheckable = true
-                        info.isChecked = selected
+                        if (android.os.Build.VERSION.SDK_INT >= 36) {
+                            info.setChecked(if (selected) AccessibilityNodeInfo.CHECKED_STATE_TRUE else AccessibilityNodeInfo.CHECKED_STATE_FALSE)
+                        } else {
+                            info.isChecked = selected
+                        }
                     }
                 }
             setOnClickListener { onClick() }
