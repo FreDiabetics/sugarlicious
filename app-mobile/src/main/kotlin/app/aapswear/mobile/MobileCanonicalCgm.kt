@@ -133,6 +133,7 @@ internal object MobileCanonicalStateCoordinator {
                         ),
                     )
                 }
+                TherapyStateStore(context).removeSourceHistory(source)
                 val committed = commitComposition(context, inputs.read(), System.currentTimeMillis()).first
                 inputs.completeRemoteIdentity(source, identity)
                 committed

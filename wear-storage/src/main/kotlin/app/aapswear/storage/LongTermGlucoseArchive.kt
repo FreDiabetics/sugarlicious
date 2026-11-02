@@ -95,6 +95,23 @@ internal class LongTermGlucoseArchive(
             }
         }
 
+    suspend fun removeSource(source: DataSourceId) =
+        withContext(Dispatchers.IO) {
+            lock.withLock {
+                val db = writableDatabase
+                var changed = false
+                db.beginTransaction()
+                try {
+                    changed = db.delete("samples", "source=?", arrayOf(source.name)) > 0
+                    changed = db.delete("invalid_boundaries", "source=?", arrayOf(source.name)) > 0 || changed
+                    db.setTransactionSuccessful()
+                } finally {
+                    db.endTransaction()
+                }
+                if (changed) revision.value += 1
+            }
+        }
+
     suspend fun read(start: Long, now: Long): List<GlucoseSample> =
         withContext(Dispatchers.IO) {
             lock.withLock {

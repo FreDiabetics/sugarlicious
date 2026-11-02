@@ -3,6 +3,7 @@ package app.aapswear.storage
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucoseSample
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -14,6 +15,21 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class LongTermGlucoseArchiveTest {
+    @Test fun `account switch removes only that source including invalid boundaries after reopening`() =
+        runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            context.deleteDatabase("measured_glucose_archive.db")
+            val now = 1_800_000_000_000L
+            val retained = GlucoseSample(100.0, now, source = DataSourceId.ANDROID_APS)
+            LongTermGlucoseArchive(context).use { archive ->
+                archive.record(listOf(retained, retained.copy(source = DataSourceId.DEXCOM_SHARE), retained.copy(source = DataSourceId.DEXCOM_SHARE, measuredAtEpochMs = now - 60_000, quality = CgmQuality.INVALID)), now)
+                archive.removeSource(DataSourceId.DEXCOM_SHARE)
+            }
+            LongTermGlucoseArchive(context).use { archive ->
+                assertEquals(listOf(retained), archive.read(now - 600_000, now))
+            }
+        }
+
     @Test fun `archive survives reopening keeps ninety days and excludes expired invalid and future samples`() =
         runBlocking {
             val context = ApplicationProvider.getApplicationContext<Context>()
