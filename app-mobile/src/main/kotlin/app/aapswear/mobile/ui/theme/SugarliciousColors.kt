@@ -52,6 +52,8 @@ enum class SugarliciousColorRole(
         true,
     ),
     SURFACE("surface", AppearanceTerminology.SURFACE_BACKGROUND, SugarliciousColorGroup.APP, 0xFF191919.toInt(), 0xFFFDFDFD.toInt(), true),
+    OVERVIEW_GLUCOSE_PILL("overview_glucose_pill", "Glukosepille � Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
+    OVERVIEW_TIR_PILL("overview_tir_pill", "TIR-Auswahlpille � Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
     SURFACE_HIGH("surface_high", "Erh철hte Fl채che", SugarliciousColorGroup.APP, 0xFF303030.toInt(), 0xFFE7E7E7.toInt()),
     SURFACE_RAISED("surface_raised", "Progress-/Raised-Fl채che", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt()),
     SURFACE_SELECTED("surface_selected", "Ausgew채hlte Fl채che", SugarliciousColorGroup.APP, 0xFF3A3A3A.toInt(), 0xFFDCE8DF.toInt()),

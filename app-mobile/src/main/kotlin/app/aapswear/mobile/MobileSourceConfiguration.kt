@@ -24,6 +24,7 @@ internal data class MobileSourceConfiguration(
     val credentialsRevision: Long = 0L,
     val enabledGlucoseSources: Set<MobileGlucoseSource> = setOf(glucoseSource).filter { it != MobileGlucoseSource.NONE }.toSet(),
     val nightscoutRevision: Long = 0L,
+    val aapsPredictionsEnabled: Boolean = aapsTherapyEnabled,
 )
 
 internal object MobileSourceConfigurationStore {
@@ -45,6 +46,7 @@ internal object MobileSourceConfigurationStore {
                 if (sources.containsAll(DEXCOM_SOURCES)) sources - MobileGlucoseSource.DEXCOM_BROADCAST else sources
             },
             nightscoutRevision = prefs.getLong("source.nightscout.revision", 0L),
+            aapsPredictionsEnabled = prefs.getBoolean("source.aaps.predictions", prefs.getBoolean("source.aaps.therapy", true)),
         )
     }
 
@@ -85,12 +87,16 @@ internal object MobileSourceConfigurationStore {
             if (!enabled) {
                 putBoolean("source.aaps.previous_glucose", MobileGlucoseSource.ANDROID_APS in next)
                 putBoolean("source.aaps.previous_therapy", current.aapsTherapyEnabled)
+                putBoolean("source.aaps.previous_predictions", current.aapsPredictionsEnabled)
                 next.remove(MobileGlucoseSource.ANDROID_APS)
                 putBoolean("source.aaps.therapy", false)
+                putBoolean("source.aaps.predictions", false)
             } else {
                 val restoreGlucose = prefs.getBoolean("source.aaps.previous_glucose", true)
                 val restoreTherapy = prefs.getBoolean("source.aaps.previous_therapy", true)
-                if (restoreGlucose || !restoreTherapy) next.add(MobileGlucoseSource.ANDROID_APS)
+                val restorePredictions = prefs.getBoolean("source.aaps.previous_predictions", restoreTherapy)
+                putBoolean("source.aaps.predictions", restorePredictions)
+                if (restoreGlucose || !restoreTherapy && !restorePredictions) next.add(MobileGlucoseSource.ANDROID_APS)
                 putBoolean("source.aaps.therapy", restoreTherapy)
             }
             putStringSet("source.glucose.enabled", next.map { it.name }.toSet())
@@ -117,8 +123,17 @@ internal object MobileSourceConfigurationStore {
         NightscoutConfigurationStore.save(context, nightscout.copy(enabled = enabled && restoreTreatments), null)
     }
 
+    fun setPredictions(context: Context, enabled: Boolean) {
+        preferences(context).edit { putBoolean("source.aaps.predictions", enabled) }
+        PersistentBridgeService.start(context)
+    }
+
     fun setTherapy(context: Context, enabled: Boolean) {
-        preferences(context).edit { putBoolean("source.aaps.therapy", enabled) }
+        val predictions = read(context).aapsPredictionsEnabled
+        preferences(context).edit {
+            putBoolean("source.aaps.predictions", predictions)
+            putBoolean("source.aaps.therapy", enabled)
+        }
         PersistentBridgeService.start(context)
     }
 }

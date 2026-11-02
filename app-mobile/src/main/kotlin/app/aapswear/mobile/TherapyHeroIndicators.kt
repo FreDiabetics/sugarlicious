@@ -180,7 +180,7 @@ internal fun TherapyCircularIndicator(
                 val inset = stroke / 2f + if (marker) (TherapyIndicatorGeometry.MARKER_INSET_DP * proportionalScale).dp.toPx() else 0f
                 val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 val sweep = geometry.sweepDegrees
-                val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep)
+                val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep, capClearanceStrokeRatio = if (basal) 1.25f else 1.4f)
                 if (marker) {
                     drawArc(accent, geometry.composeStartDegrees, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
                 } else {

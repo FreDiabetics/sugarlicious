@@ -111,6 +111,8 @@ object ComplicationUpdatePlanner {
         listOf(
             GlucoseGraphComplication::class.java,
             OrbitGlucoseGraphComplication::class.java,
+            NativeApexGraphComplication::class.java,
+            NativeOrbitGraphComplication::class.java,
             GlucoseGraphLargeComplication::class.java,
             DirectToWatchGraphComplication::class.java,
         )

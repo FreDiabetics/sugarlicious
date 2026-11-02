@@ -64,7 +64,9 @@ class TherapyComplicationsTest {
 
     @Test
     fun `all documented providers remain active`() {
-        assertEquals(44, AllProviders.classes.distinct().size)
+        val internalGraphs = setOf(NativeApexGraphComplication::class.java, NativeOrbitGraphComplication::class.java)
+        assertEquals(44, AllProviders.classes.distinct().count { it !in internalGraphs })
+        assertTrue(internalGraphs.all { it in AllProviders.classes })
         assertEquals(GlucoseComplication::class.java, AllProviders.classes.first())
         assertTrue(DateComplication::class.java in AllProviders.classes)
         assertTrue(PumpBatteryComplication::class.java in AllProviders.classes)

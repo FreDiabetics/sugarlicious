@@ -40,11 +40,21 @@ class ComplicationStaticPreviewTest {
     fun `picker labels describe content without numeric codes or Android type jargon`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val labels = mutableSetOf<String>()
-        AllProviders.classes.forEach { provider ->
+        publicProviders().forEach { provider ->
             val info = context.packageManager.getServiceInfo(ComponentName(context, provider), 0)
             val label = info.loadLabel(context.packageManager).toString()
             assertTrue("Ambiguous duplicate picker label: $label", labels.add(label))
             assertFalse(label, Regex("^(\\d)|Short Text|Long Text|Ranged Value|Small Image|Goal Progress|Weighted Elements").containsMatchIn(label))
+        }
+    }
+
+    private fun publicProviders(): List<Class<*>> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        return AllProviders.classes.filter { provider ->
+            !context.packageManager
+                .getServiceInfo(ComponentName(context, provider), PackageManager.GET_META_DATA)
+                .metaData
+                .getBoolean("android.support.wearable.complications.HIDDEN", false)
         }
     }
 
@@ -65,7 +75,6 @@ class ComplicationStaticPreviewTest {
             ComplicationType.LONG_TEXT,
             ComplicationType.SMALL_IMAGE,
             ComplicationType.SMALL_IMAGE,
-            ComplicationType.MONOCHROMATIC_IMAGE,
             ComplicationType.PHOTO_IMAGE,
             ComplicationType.SHORT_TEXT,
             ComplicationType.SHORT_TEXT,
@@ -98,10 +107,10 @@ class ComplicationStaticPreviewTest {
 
     @Test
     fun `all providers expose their declared dynamic preview type`() {
-        assertEquals(44, AllProviders.classes.size)
-        assertEquals(AllProviders.classes.size, expectedTypes.size)
+        assertEquals(43, publicProviders().size)
+        assertEquals(publicProviders().size, expectedTypes.size)
 
-        AllProviders.classes.zip(expectedTypes).forEach { (provider, expectedType) ->
+        publicProviders().zip(expectedTypes).forEach { (provider, expectedType) ->
             val service = buildService(provider)
             assertEquals(provider.simpleName, expectedType, service.getPreviewData(expectedType)!!.type)
         }
@@ -113,7 +122,7 @@ class ComplicationStaticPreviewTest {
         val staticResourceIds = mutableSetOf<Int>()
         val providerIconIds = mutableSetOf<Int>()
 
-        AllProviders.classes.zip(expectedTypes).forEach { (provider, expectedType) ->
+        publicProviders().zip(expectedTypes).forEach { (provider, expectedType) ->
             val component = ComponentName(context, provider)
             val serviceInfo = context.packageManager.getServiceInfo(component, PackageManager.GET_META_DATA)
             val iconId = serviceInfo.iconResource
@@ -144,8 +153,8 @@ class ComplicationStaticPreviewTest {
             assertMatchingFields(provider, staticData, dynamicData)
         }
 
-        assertEquals(42, staticResourceIds.size)
-        assertEquals(44, providerIconIds.size)
+        assertEquals(41, staticResourceIds.size)
+        assertEquals(43, providerIconIds.size)
     }
 
     private fun assertMatchingFields(

@@ -26,21 +26,40 @@ class OrbitFaceTest(unittest.TestCase):
         length = float(caption.get("width")) / 2 * math.radians((float(caption.get("endAngle")) - float(caption.get("startAngle"))) % 360)
         self.assertLess(font.getlength("100.000"), length - 12)
 
-    def test_ambient_keeps_only_the_grey_seconds_hub(self):
+    def test_ambient_and_seconds_off_use_white_hub_with_black_center(self):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
         hub = xml.find(".//Group[@name='ambient-seconds-hub']")
-        self.assertEqual(hub.get("alpha"), "0")
+        self.assertIn('secondSweep] == "3"', hub.find("Transform").get("value"))
         self.assertEqual(hub.find("Variant[@mode='AMBIENT']").get("value"), "255")
-        self.assertEqual(hub.find("PartImage").get("tintColor"), "#FF9E9E9E")
+        self.assertEqual([e.find("Fill").get("color") for e in hub.findall("PartDraw/Ellipse")], ["#FFFFFFFF", "#FF000000"])
 
     def test_aod_never_resurrects_the_background_glow(self):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
         glow = xml.find(".//Group[@name='background']")
-        self.assertEqual(glow.find("Variant[@mode='AMBIENT'][@target='alpha']").get("value"), "0")
+        self.assertIsNone(glow)
+
+    def test_retired_settings_have_no_render_or_preset_references(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        serialized = ET.tostring(xml, encoding="unicode")
+        for key in ("dialIndex", "minuteStyle", "aodStyle", "backgroundGlow", "weatherSymbols"):
+            self.assertNotIn(key, serialized)
+        for slot in xml.findall("Scene/ComplicationSlot"):
+            self.assertEqual(slot.find("Variant").get("value"), "255" if slot.get("slotId") in ("3", "8") else "0")
+        visibility = xml.find(".//Group[@name='graph-mode-only']")
+        self.assertEqual(visibility.find("Variant").get("value"), "255")
+        for index in range(5):
+            caption = xml.find(f".//Group[@name='moon-caption-{index}']//Parameter").get("expression")
+            for word in ("MON", "DIE", "MIT", "DON", "FRE", "SAM", "SON"):
+                self.assertIn('"'+word+'"', caption)
+            self.assertIn("DAY_OF_WEEK", caption)
+        for image in xml.findall(".//SecondHand"):
+            self.assertEqual(image.find("Variant").get("value"), "0")
 
     def test_lower_round_gauge_has_no_indicator(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -65,7 +84,7 @@ class OrbitFaceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
-        expected = {"secondSweep": "1", "arcContent": "3", "progressBars": "7", "backgroundGlow": "FALSE", "batteryIndicator": "TRUE", "glucoseColor": "TRUE"}
+        expected = {"secondSweep": "1", "arcContent": "3", "progressBars": "7", "batteryIndicator": "TRUE", "glucoseColor": "TRUE"}
         actual = {item.get("id"): item.get("defaultValue") for item in xml.find("UserConfigurations")}
         self.assertEqual({key: actual[key] for key in expected}, expected)
 
@@ -92,7 +111,7 @@ class OrbitFaceTest(unittest.TestCase):
         for offset in range(5):
             station = xml.find(f".//Group[@name='forecast-{offset}']")
             templates = station.findall(".//Template")
-            self.assertIn("%s:00", [t.text for t in templates])
+            self.assertNotIn("%s:00", [t.text for t in templates])
             self.assertIn("%s°", [t.text for t in templates])
             for parameter in station.findall(".//Template/Parameter"):
                 self.assertNotIn(' + ":00"', parameter.get("expression"))
@@ -109,7 +128,7 @@ class OrbitFaceTest(unittest.TestCase):
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
             strings = ET.parse(Path(directory) / "values/strings.xml").getroot()
         labels = {s.get("name"): s.text for s in strings}
-        self.assertEqual(labels["dialIndex"], "Index")
+        self.assertNotIn("dialIndex", labels)
         self.assertEqual(labels["secondSweep"], "Sekundenzeiger")
         self.assertIsNone(xml.find("UserConfigurations/BooleanConfiguration[@id='handTint']"))
         for path in xml.findall(".//Group[@name='battery-graph']//Arc"):
@@ -161,11 +180,10 @@ class OrbitFaceTest(unittest.TestCase):
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
         config = xml.find("UserConfigurations")
-        for key, count in (("dialIndex", 2), ("dialInk", 2), ("secondSweep", 3), ("weatherSymbols", 2), ("weatherLaunch", 2)):
+        for key, count in (("dialInk", 2), ("secondSweep", 4), ("weatherLaunch", 2)):
             self.assertEqual(len(config.find(f"ListConfiguration[@id='{key}']")), count, key)
         self.assertIsNone(config.find("ListConfiguration[@id='secondStyle']"))
-        roman = xml.find(".//Group[@name='index-1-0']//Font")
-        self.assertGreaterEqual(float(roman.get("size")), 64)
+        self.assertIsNone(xml.find(".//Group[@name='index-1']"))
         lower = xml.find(".//Group[@name='center-disc-graph']//Arc")
         self.assertEqual((lower.get("startAngle"), lower.get("endAngle")), ("90", "270"))
         self.assertIsNotNone(xml.find(".//Group[@name='battery-graph']//Arc"))
@@ -183,7 +201,7 @@ class OrbitFaceTest(unittest.TestCase):
         weather = xml.find(".//Group[@name='weather']")
         resources = [p.get("resource", "") for p in weather.findall(".//Image")]
         self.assertTrue(any(r.startswith("orbit_weather_samsung_") for r in resources))
-        self.assertTrue(any(r.startswith("orbit_weather_google_") for r in resources))
+        self.assertFalse(any(r.startswith("orbit_weather_google_") for r in resources))
         self.assertIn("WEATHER.IS_DAY", ET.tostring(weather, encoding="unicode"))
         for image in weather.findall(".//PartImage"):
             self.assertEqual(image.get("width"), image.get("height"))
@@ -199,25 +217,25 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertTrue(fonts)
         self.assertTrue(all(font.get("family") == "SYNC_TO_DEVICE" for font in fonts))
 
-    def test_weather_matches_measured_reference_spokes_and_alternating_caption(self):
+    def test_weather_matches_measured_reference_spokes_with_stable_temperature(self):
         with tempfile.TemporaryDirectory() as directory:
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
         weather = xml.find(".//Group[@name='weather']")
         for offset, angle in enumerate((-70, -35, 0, 35, 70)):
             station = weather.find(f"Group[@name='forecast-{offset}']")
-            label = station.find("Group[@name='forecast-time']/PartText/TextCircular")
+            label = station.find(".//Group[@name='forecast-temperature']/PartText/TextCircular")
             self.assertIsNotNone(label)
             self.assertAlmostEqual(float(label.get("width")), 251 * 512 / 450)
-            self.assertAlmostEqual(float(label.get("startAngle")), 343)
-            self.assertEqual(float(station.find("Group[@name='forecast-time']").get("angle")), angle)
+            self.assertAlmostEqual(float(label.get("startAngle")), 345)
+            self.assertEqual(float(station.find(".//Group[@name='forecast-temperature']").get("angle")), angle)
             self.assertAlmostEqual(float(label.find("Font").get("size")), 24 * 512 / 450)
             art = station.find(".//Group[@name='weather-art-0']")
             self.assertEqual(float(art.get("angle")), angle)
             image = art.find(".//PartImage")
             self.assertAlmostEqual(float(image.get("x"))+float(image.get("width"))/2, 256, delta=1)
             self.assertAlmostEqual(float(image.get("y"))+float(image.get("height"))/2, 140 * 512 / 450, delta=1)
-        self.assertIn("[SECOND] % 10", ET.tostring(weather, encoding="unicode"))
+        self.assertNotIn("[SECOND]", ET.tostring(weather, encoding="unicode"))
 
     def test_bounds_and_gradient_wrap_follow_visible_arcs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -322,7 +340,7 @@ class OrbitFaceTest(unittest.TestCase):
             if "displayName" in element.attrib:
                 self.assertIn(element.get("displayName"), known_strings)
         names = {element.get("id") for element in config}
-        self.assertTrue({"primary", "secondary", "tertiary", "arcContent", "progressBars", "apexHands", "secondSweep", "aodStyle"} <= names)
+        self.assertTrue({"primary", "secondary", "tertiary", "arcContent", "progressBars", "apexHands", "secondSweep"} <= names)
         self.assertLessEqual(len(config), 20)
         self.assertNotIn("night", names)
         self.assertNotIn("upperMode", names)
@@ -334,18 +352,18 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertEqual(battery.get("defaultSystemProviderType"), "RANGED_VALUE")
         for slot in slots:
             self.assertEqual(slot.find("Complication[@type='EMPTY']").tag, "Complication")
-        self.assertIn("SMALL_IMAGE", slots[-2].get("supportedTypes"))
-        self.assertEqual(len(config.find("ColorConfiguration[@id='primary']")), 74)
-        self.assertEqual(len(config.find("ColorConfiguration[@id='secondary']")), 74)
-        self.assertEqual(len(config.find("ColorConfiguration[@id='tertiary']")), 74)
+        self.assertIn("LONG_TEXT", xml.find("Scene/ComplicationSlot[@slotId='8']").get("supportedTypes"))
+        self.assertEqual(len(config.find("ColorConfiguration[@id='primary']")), 45)
+        self.assertEqual(len(config.find("ColorConfiguration[@id='secondary']")), 45)
+        self.assertEqual(len(config.find("ColorConfiguration[@id='tertiary']")), 45)
         self.assertEqual(len(xml.findall("Scene/ComplicationSlot/BoundingArc")), 5)
         outer_row = xml.find("Scene/ComplicationSlot[@slotId='4']/BoundingArc")
         inner_row = xml.find("Scene/ComplicationSlot[@slotId='5']/BoundingArc")
         self.assertGreater(float(outer_row.get("width"))/2-float(outer_row.get("thickness")), float(inner_row.get("width"))/2)
         graph = xml.find("Scene/ComplicationSlot[@slotId='8']")
-        self.assertEqual(graph.find("Variant[@mode='AMBIENT'][@target='alpha']").get("value"), '[CONFIGURATION.arcContent] == "3" ? 160 : 0')
+        self.assertEqual(graph.find("Variant[@mode='AMBIENT'][@target='alpha']").get("value"), "255")
         panels = xml.find(".//Group[@name='inner-panels']")
-        self.assertIn('[CONFIGURATION.arcContent] != "3"', panels.find("Variant[@mode='AMBIENT']").get("value"))
+        self.assertEqual("0", panels.find("Variant[@mode='AMBIENT']").get("value"))
 
     def test_every_exposed_setting_has_a_consumer_and_marker_uses_radians(self):
         face = self.generator()
@@ -360,7 +378,7 @@ class OrbitFaceTest(unittest.TestCase):
         self.assertIn("0.017453292519943", marker.find("Transform[@target='x']").get("value"))
         for gradient in xml.findall(".//SweepGradient"):
             self.assertNotIn("CONFIGURATION", gradient.get("colors"), "Samsung does not resolve configuration arrays in SweepGradient colors")
-            self.assertEqual(gradient.get("colors"), "#FFFFFFFF #00FFFFFF", "Reference fades light start into vivid end, not vice versa")
+            self.assertIn(gradient.get("colors"), ("#FFFFFFFF #00FFFFFF", "#00FFFFFF #FFFFFFFF"))
 
     def test_numeric_dial_reuses_only_three_cropped_apex_glyphs(self):
         face = self.generator()
@@ -387,8 +405,8 @@ class OrbitFaceTest(unittest.TestCase):
             self.assertIsNotNone(choice.find(".//HourHand"))
             self.assertIsNotNone(choice.find(".//MinuteHand"))
             self.assertIsNone(choice.find(".//HourHand").get("tintColor"))
-        self.assertEqual(len(config.find("Flavors")), 12)
-        self.assertEqual(len(config.find("ListConfiguration[@id='weatherSymbols']")), 2)
+        self.assertEqual(len(config.find("Flavors")), 6)
+        self.assertIsNone(config.find("ListConfiguration[@id='weatherSymbols']"))
         self.assertEqual(len(config.find("ListConfiguration[@id='weatherLaunch']")), 2)
         weather = xml.find(".//Group[@name='weather']")
         parameters = {p.get("expression", "") for p in weather.findall(".//Parameter")}
@@ -399,7 +417,58 @@ class OrbitFaceTest(unittest.TestCase):
         transforms = [t.get("value", "") for t in moon.findall(".//Transform")]
         self.assertTrue(any("MOON_PHASE_POSITION" in t for t in transforms), "Moon images must follow the real phase")
 
-    def test_outer_icons_follow_reference_radius_and_tangent(self):
+    def test_round_gradient_spans_actual_arc_and_keeps_rounded_caps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        for name in ("round", "round-goal"):
+            gradient = xml.find(f".//Group[@name='{name}-gradient']")
+            self.assertEqual(float(gradient.get("angle")), 212)
+            self.assertAlmostEqual(float(gradient.get("x")) + float(gradient.get("width"))/2, 148)
+            self.assertAlmostEqual(float(gradient.get("y")) + float(gradient.get("height"))/2, 368)
+            fixed = gradient.find("Group[@name='fixed-gradient-content']")
+            shader = fixed.find(".//SweepGradient")
+            self.assertEqual(float(shader.get("endAngle")) - float(shader.get("startAngle")), 280)
+            mask = fixed.find("PartDraw/Arc")
+            self.assertEqual(mask.find("Stroke").get("cap"), "ROUND")
+            self.assertIsNotNone(mask.find("Transform[@target='endAngle']"))
+            self.assertIsNone(gradient.find("Group[@name='indicator-gradient-content']"))
+
+    def test_indicator_keeps_gradient_static_and_fills_only_the_bar_span(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        for identity, span in (("0", 57), ("7", 57), ("2", 63)):
+            slot = xml.find(f"Scene//ComplicationSlot[@slotId='{identity}']")
+            self.assertIsNone(slot.find(".//Group[@name='indicator-gradient-content']"))
+            fixed = slot.find(".//Group[@name='fixed-gradient-content']")
+            shader = fixed.find(".//SweepGradient")
+            self.assertEqual(float(shader.get("endAngle")) - float(shader.get("startAngle")), span)
+            self.assertEqual(shader.findall("Transform"), [])
+            mask = fixed.find("PartDraw/Arc")
+            self.assertEqual(mask.find("Stroke").get("cap"), "ROUND")
+            self.assertIn("progressBars", mask.find("Transform").get("value"))
+
+    def test_upper_captions_anchor_before_bar_end_and_grow_left(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        for identity, anchor in (("0", 344), ("7", 78)):
+            for kind in ("SHORT_TEXT", "RANGED_VALUE"):
+                label = xml.find(f".//ComplicationSlot[@slotId='{identity}']/Complication[@type='{kind}']/PartText/TextCircular")
+                self.assertEqual(label.get("align"), "END")
+                self.assertEqual(float(label.get("endAngle")), anchor)
+
+    def test_provider_trend_icons_never_rotate_flat_into_down(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            root = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
+        for part in root.findall("Scene//ComplicationSlot//PartImage"):
+            if part.find("Image[@resource='[COMPLICATION.MONOCHROMATIC_IMAGE]']") is not None:
+                self.assertEqual(float(part.get("angle", "0")), 0)
+                self.assertIsNone(part.find("Transform[@target='angle']"))
+
+    def test_outer_icons_keep_native_orientation_and_reference_position(self):
         face = self.generator()
         with tempfile.TemporaryDirectory() as directory:
             face.generate(Path(directory))
@@ -411,7 +480,7 @@ class OrbitFaceTest(unittest.TestCase):
                 self.assertIsNotNone(icon)
                 self.assertAlmostEqual(float(icon.get("x"))+float(icon.get("width"))/2, expected[0], delta=1)
                 self.assertAlmostEqual(float(icon.get("y"))+float(icon.get("height"))/2, expected[1], delta=1)
-                self.assertEqual(float(icon.get("angle", "0")), expected[2])
+                self.assertEqual(float(icon.get("angle", "0")), 0)
 
     def test_round_complication_has_separate_remaining_arc_and_reference_gap(self):
         face = self.generator()
@@ -455,11 +524,11 @@ class OrbitFaceTest(unittest.TestCase):
             self.generator().generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
         slot = xml.find("Scene/ComplicationSlot[@slotId='8']")
-        self.assertIn("OrbitGlucoseGraphComplication", ET.tostring(slot, encoding="unicode"))
+        self.assertIn("NativeOrbitGraphComplication", ET.tostring(slot, encoding="unicode"))
         image = slot.find(".//PartImage")
         self.assertEqual((float(image.get("width")), float(image.get("height"))), (330, 165))
         self.assertEqual((float(image.get("x")), float(image.get("y"))), (91, 91))
-        content = slot.find("Complication[@type='SMALL_IMAGE']")
+        content = slot.find("Complication[@type='LONG_TEXT']")
         self.assertFalse(content.findall(".//Stroke[@thickness='2']"), "no independent graph contour")
         clip = content.find(".//Group[@name='graph-clipped']")
         self.assertEqual(clip.get("tintColor"), "[CONFIGURATION.primary.0]")
@@ -471,19 +540,45 @@ class OrbitFaceTest(unittest.TestCase):
         panels = xml.find(".//Group[@name='inner-panels']")
         self.assertIn('[CONFIGURATION.arcContent] != "3"', panels.find("Transform").get("value"))
 
-    def test_upper_right_segments_are_masked_fill_not_overlaid_tick_lines(self):
+    def test_reference_ticks_include_caps_in_the_measured_length(self):
+        import math
+        with tempfile.TemporaryDirectory() as directory:
+            self.generator().generate(Path(directory))
+            root = ET.parse(Path(directory) / 'raw/watchface.xml').getroot()
+        ticks = root.find("Scene/ComplicationSlot[@slotId='7']//Group[@name='radial-value-ticks']")
+        lines = ticks.findall('PartDraw/Line')[::3]
+        self.assertEqual(12, len(lines))
+        track = root.find("Scene/ComplicationSlot[@slotId='7']/Complication[@type='RANGED_VALUE']/Group[@name='outer-1-track']")
+        self.assertIn('[CONFIGURATION.progressBars] == "7"', track.find('Transform').get('value'))
+        self.assertIn('? 255 :', track.find('Transform').get('value'))
+        self.assertEqual('60', track.find('PartDraw').get('alpha'))
+        for line in lines:
+            width = float(line.find('Stroke').get('thickness'))
+            length = math.hypot(float(line.get('endX'))-float(line.get('startX')),float(line.get('endY'))-float(line.get('startY'))) + width
+            self.assertAlmostEqual(15*512/450, length, delta=.005)
+            outer = math.hypot(float(line.get('endX'))-256,float(line.get('endY'))-256)+width/2
+            self.assertAlmostEqual(199.5*512/450,outer,places=2)
+        round_range = root.find("Scene/ComplicationSlot[@slotId='3']/Complication[@type='RANGED_VALUE']")
+        main = next(p for p in round_range.findall('.//PartText') if '[COMPLICATION.TEXT]' in ET.tostring(p,encoding='unicode'))
+        self.assertAlmostEqual(36*512/450,float(main.find('.//Font').get('size')))
+        self.assertIn('340', main.find("Transform[@target='y']").get('value'))
+        self.assertEqual('TRUE',main.find('Text').get('isAutoSize'))
+
+    def test_upper_right_ticks_share_apex_gradient_and_moving_indicator(self):
         face = self.generator()
         with tempfile.TemporaryDirectory() as directory:
             face.generate(Path(directory))
             xml = ET.parse(Path(directory) / "raw/watchface.xml").getroot()
-        segments = xml.find(".//Group[@name='outer-1-segments']")
-        mask = segments.find("Group[@renderMode='MASK']")
-        self.assertIsNotNone(mask)
-        self.assertEqual(len(mask.findall(".//RoundRectangle")), 13)
-        self.assertFalse(segments.findall(".//Line"))
-        marker = mask.find("PartDraw[@name='segment-current']")
-        self.assertIn("floor", marker.find("Transform[@target='angle']").get("value"))
-        self.assertAlmostEqual(float(marker.find("RoundRectangle").get("height")), 24*512/450)
+        ticks = xml.find("Scene/ComplicationSlot[@slotId='7']//Group[@name='radial-value-ticks']")
+        self.assertIsNotNone(ticks)
+        self.assertEqual(36, len(ticks.findall('PartDraw')))
+        self.assertFalse(ticks.findall('.//Group[@renderMode="MASK"]'))
+        self.assertIn('floor(clamp(', ticks.find("PartDraw/Line/Transform").get('value'))
+        light = ticks.findall("PartDraw[@name='tick-0-light']/Transform")[0]
+        self.assertIn('255.0000', light.get('value'))
+        self.assertIn('0.0000', ticks.find("PartDraw[@name='tick-11-light']/Transform").get('value'))
+        for identity in ('0', '2', '3'):
+            self.assertIsNone(xml.find(f"Scene/ComplicationSlot[@slotId='{identity}']//Group[@name='radial-value-ticks']"))
 
 
 if __name__ == "__main__":

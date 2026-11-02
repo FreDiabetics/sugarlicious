@@ -13,6 +13,15 @@ class ProgressArcSegmentsTest {
         assertEquals(0f, progressArcSegments(1f, 80f, 7f).trackSweep, .001f)
     }
 
+    @Test fun `larger therapy separation changes only the remaining arc not progress or endpoints`() {
+        val original = progressArcSegments(.5f, 80f, 7f)
+        val wider = progressArcSegments(.5f, 80f, 7f, capClearanceStrokeRatio = 1.4f)
+        assertEquals(original.fillSweep, wider.fillSweep, .001f)
+        assertTrue(wider.trackStartOffset > original.trackStartOffset)
+        assertEquals(280f, wider.trackStartOffset + wider.trackSweep, .001f)
+        assertEquals(0f, progressArcSegments(1f, 80f, 7f, capClearanceStrokeRatio = 1.4f).trackSweep, .001f)
+    }
+
     @Test fun `middle gap exceeds both round caps and preserves the filled value angle`() {
         val arcs = progressArcSegments(.5f, 80f, 7f)
         assertEquals(140f, arcs.fillSweep, .001f)

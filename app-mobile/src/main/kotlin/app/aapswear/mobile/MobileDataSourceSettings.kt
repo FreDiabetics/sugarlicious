@@ -66,9 +66,10 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
                 }
             }
         }
-        val aapsActive = MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources || configuration.aapsTherapyEnabled
-        SourceCard("AndroidAPS", R.drawable.ic_source_androidaps, aapsActive, { MobileSourceConfigurationStore.setAndroidApsEnabled(context, it) }, expandedCards) {
+        val aapsActive = MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources || configuration.aapsTherapyEnabled || configuration.aapsPredictionsEnabled
+        SourceCard("AndroidAPS", aapsActive, { MobileSourceConfigurationStore.setAndroidApsEnabled(context, it) }, expandedCards) {
             WidgetToggleSetting("Glukosewerte", MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources) { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.ANDROID_APS, it) }
+            WidgetToggleSetting("Vorhersagen", configuration.aapsPredictionsEnabled) { MobileSourceConfigurationStore.setPredictions(context, it) }
             WidgetToggleSetting("Therapiedaten", configuration.aapsTherapyEnabled) { MobileSourceConfigurationStore.setTherapy(context, it) }
         }
         val dexcom = MobileSourceConfigurationStore.preferredDexcom(context)
@@ -81,11 +82,11 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
                 MobileSourceConfigurationStore.setDexcom(context, source, enabled)
             }
         }
-        SourceCard("BYODA", if (dexcom == MobileGlucoseSource.DEXCOM_SHARE) R.drawable.ic_dexcomfollow else R.drawable.ic_dexcomapp, dexcomActive, { selectDexcom(dexcom, it) }, expandedCards) {
+        SourceCard("BYODA", dexcomActive, { selectDexcom(dexcom, it) }, expandedCards) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 listOf(MobileGlucoseSource.DEXCOM_BROADCAST, MobileGlucoseSource.DEXCOM_SHARE).forEach { source ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(painterResource(if (source == MobileGlucoseSource.DEXCOM_SHARE) R.drawable.ic_dexcomfollow else R.drawable.ic_dexcomapp), null, tint = OneUiWidgetStyle.primary, modifier = Modifier.size(36.dp))
+                        SourceBrandIcon(36.dp)
                         Text(source.label, color = OneUiWidgetStyle.primary, fontSize = 14.sp)
                         RadioButton(selected = dexcom == source, onClick = { selectDexcom(source, true) })
                     }
@@ -95,29 +96,43 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
         }
         val nightscout = NightscoutConfigurationStore.read(context)
         val nightscoutGlucose = MobileGlucoseSource.NIGHTSCOUT in configuration.enabledGlucoseSources
-        SourceCard("Nightscout", R.drawable.ic_source_nightscout, nightscoutGlucose || nightscout.enabled, { MobileSourceConfigurationStore.setNightscoutEnabled(context, it) }, expandedCards) {
+        SourceCard("Nightscout", nightscoutGlucose || nightscout.enabled, { MobileSourceConfigurationStore.setNightscoutEnabled(context, it) }, expandedCards) {
             WidgetToggleSetting("Glukosewerte", nightscoutGlucose) { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.NIGHTSCOUT, it) }
             WidgetToggleSetting("Therapiedaten", nightscout.enabled, enabled = nightscout.isValid() || nightscout.enabled) { NightscoutConfigurationStore.save(context, nightscout.copy(enabled = it), null) }
             Text("Nightscout ergänzt Boli und Kohlenhydrate. IOB, COB und Basal liefert weiterhin AndroidAPS.", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
             NightscoutAccessFields(if (nightscoutGlucose) nightscoutStatus else "")
         }
-        SourceCard("xDrip+", R.drawable.ic_source_xdrip, MobileGlucoseSource.XDRIP_PLUS in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.XDRIP_PLUS, it) }, expandedCards, originalIconColors = true) {
+        SourceCard("xDrip+", MobileGlucoseSource.XDRIP_PLUS in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.XDRIP_PLUS, it) }, expandedCards) {
             Text("In xDrip+ unter Inter-App-Einstellungen »Lokal senden« und »Kompatibler Broadcast« aktivieren. Als Empfänger app.sugarlicious eintragen oder das Empfängerfeld leer lassen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         }
-        SourceCard("Libre patched app", R.drawable.ic_librepatched, MobileGlucoseSource.LIBRE_PATCHED in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.LIBRE_PATCHED, it) }, expandedCards) {
+        SourceCard("Libre patched app", MobileGlucoseSource.LIBRE_PATCHED in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.LIBRE_PATCHED, it) }, expandedCards) {
             Text("Empfängt berechnete Scanwerte und den dabei mitgelieferten Verlauf der gepatchten Libre-App. Für kontinuierliche, aufbereitete Werte xDrip+ verwenden; ungeglättete Live-Rohwerte werden nicht übernommen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         }
     }
 }
 
-@Composable private fun SourceCard(title: String, icon: Int, active: Boolean, onActive: (Boolean) -> Unit, expandedCards: MutableMap<String, Boolean>, originalIconColors: Boolean = false, content: (@Composable () -> Unit)? = null) {
+@Composable private fun SourceBrandIcon(size: androidx.compose.ui.unit.Dp) {
+    // The canonical foreground includes adaptive-icon insets; compensate visually,
+    // keeping a normal settings-icon layout box and the original vector artwork.
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        SugarliciousIcon(
+            R.drawable.ic_foreground,
+            null,
+            tint = OneUiWidgetStyle.primary,
+            colored = false,
+            modifier = Modifier.requiredSize(size * (60f / 28f)),
+        )
+    }
+}
+
+@Composable private fun SourceCard(title: String, active: Boolean, onActive: (Boolean) -> Unit, expandedCards: MutableMap<String, Boolean>, content: (@Composable () -> Unit)? = null) {
     val expanded = expandedCards[title] == true
     val nameInteraction = remember { MutableInteractionSource() }
     val namePressed by nameInteraction.collectIsPressedAsState()
     Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(icon), null, tint = if (originalIconColors) androidx.compose.ui.graphics.Color.Unspecified else OneUiWidgetStyle.primary, modifier = Modifier.size(28.dp))
+                SourceBrandIcon(28.dp)
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
                     Text(title, color = OneUiWidgetStyle.primary, fontSize = 16.sp, modifier = Modifier.background(if (namePressed) OneUiWidgetStyle.primary.copy(alpha = .10f) else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(4.dp)).semantics { stateDescription = if (expanded) "Geöffnet" else "Geschlossen" }.clickable(interactionSource = nameInteraction, indication = null, role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (expanded) "Zuklappen" else "Aufklappen") { expandedCards[title] = !expanded })

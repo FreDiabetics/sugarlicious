@@ -5,7 +5,6 @@ no executable reference code or layout is consumed. Existing Sugarlicious colors
 and ApeX hand resources are shared at build time instead of forked.
 """
 import argparse
-import csv
 import json
 import math
 import runpy
@@ -40,7 +39,7 @@ def group(parent, name, show=None, **attributes):
     return result
 
 
-def ambient(parent, value="[CONFIGURATION.aodStyle] == \"0\" ? 80 : 0"):
+def ambient(parent, value="0"):
     node(parent, "Variant", mode="AMBIENT", target="alpha", value=value)
 
 
@@ -86,9 +85,9 @@ def circular(parent, expression, radius, start, end, size, color, align="CENTER"
     return part
 
 
-def icon(parent, expression, cx, cy, size, color, angle=0):
+def icon(parent, expression, cx, cy, size, color):
     size = round(size)
-    part = node(parent, "PartImage", x=round(cx-size/2), y=round(cy-size/2), width=size, height=size, tintColor=color, angle=angle)
+    part = node(parent, "PartImage", x=round(cx-size/2), y=round(cy-size/2), width=size, height=size, tintColor=color, angle=0)
     node(part, "Image", resource=expression)
 
 
@@ -108,6 +107,55 @@ def provider_caption(parent, radius, start=173, end=99):
                                           "width": "27", "height": "27", "color": P+".0]"}))
     inline.find(".//Template").text = " %s"
     circular(node(condition, "Default"), "[COMPLICATION.TEXT]", radius, start, end, 30, P+".0]", clockwise=False)
+
+
+def round_provider_caption(content, kind):
+    """Measured provider fields; keep one field per role for native previews."""
+    scale = 512 / 450
+    has_icon = '[COMPLICATION.MONOCHROMATIC_IMAGE] != null'
+    no_title = '[COMPLICATION.TITLE] == ""'
+
+    def field(parent, expression, x, y, width, height, size, color):
+        part = text(parent, expression, round((58+x)*scale), round((252+y)*scale), round(width*scale), round(height*scale), size*scale, color)
+        part.find('Text').set('isAutoSize', 'TRUE')
+        return part
+
+    def value(parent, color):
+        short = kind == 'SHORT_TEXT'
+        part = field(parent, '[COMPLICATION.TEXT]', 6 if short else 31, 50 if short else 29, 130 if short else 80, 40 if short else 44, 34 if short else 36, color)
+        if short:
+            transform(part, 'y', f'({has_icon}) ? ({no_title} ? {round((252+65)*scale)} : {round((252+50)*scale)}) : ({no_title} ? {round((252+47)*scale)} : {round((252+65)*scale)})')
+            transform(part.find('.//Font'), 'size', f'({has_icon}) && !({no_title}) ? {34*scale} : {36*scale}')
+            transform(part, 'height', f'({has_icon}) && !({no_title}) ? {round(40*scale)} : {round(46*scale)}')
+        else:
+            transform(part, 'y', f'{no_title} ? {round((252+47)*scale)} : {round((252+29)*scale)}')
+            transform(part, 'x', f'{no_title} ? {round((58+26)*scale)} : {round((58+31)*scale)}')
+            transform(part, 'width', f'{no_title} ? {round(90*scale)} : {round(80*scale)}')
+        return part
+
+    if kind == 'RANGED_VALUE':
+        semantic = node(content, 'Condition')
+        rules = node(semantic, 'Expressions')
+        node(rules, 'Expression', name='glucose').text = '[CONFIGURATION.glucoseColor] == "TRUE" && [COMPLICATION.RANGED_VALUE_MIN] == 40 && [COMPLICATION.RANGED_VALUE_MAX] == 260 && (textLength([COMPLICATION.RANGED_VALUE_COLORS]) == 7 || textLength([COMPLICATION.RANGED_VALUE_COLORS]) == 9)'
+        value(node(semantic, 'Compare', expression='glucose'), '[COMPLICATION.RANGED_VALUE_COLORS]')
+        value(node(semantic, 'Default'), T+'.0]')
+    else:
+        value(content, T+'.0]')
+    short = kind == 'SHORT_TEXT'
+    title = field(content, '[COMPLICATION.TITLE]', 6 if short else 31, 83 if short else 62, 130 if short else 80, 40 if short else 44, 28 if short else 26, S+'.1]')
+    if short:
+        transform(title, 'y', f'({has_icon}) ? {round((252+83)*scale)} : {round((252+26)*scale)}')
+    # Provider foregrounds fill their image; the reference system icons include
+    # padding. Match visible ink while retaining the measured image centers.
+    source_size = 32 if short else 34
+    size = source_size * scale * .68
+    cx, cy = (58+71)*scale, (252+(34 if short else 117))*scale
+    icon(content, '[COMPLICATION.MONOCHROMATIC_IMAGE]', cx, cy, size, S+'.1]')
+    if short:
+        image = content.findall('PartImage')[-1]
+        small, large = round(32*scale*.68), round(34*scale*.68)
+        for target, empty, normal in (('x',cx-large/2,cx-small/2),('y',(252+45)*scale-large/2,cy-small/2),('width',large,small),('height',large,small)):
+            transform(image, target, f'{no_title} ? {empty} : {normal}')
 
 
 def marker_geometry(cx, cy, radius, start, end, value, minimum, maximum, thickness):
@@ -135,16 +183,30 @@ def ranged(parent, name, cx, cy, radius, start, end, thickness, palette, segment
     path.set("direction", "COUNTER_CLOCKWISE" if end < start else "CLOCKWISE")
     transform(path, "endAngle", f'[CONFIGURATION.progressMarker] == "TRUE" ? {end} : {start} + {fraction} * {end-start}')
     gradient = group(fill, f"{name}-gradient", '[CONFIGURATION.progressStyle] == "1"' if segmented else '[CONFIGURATION.progressStyle] == "1" || [CONFIGURATION.progressStyle] == "3"')
-    base = arc(gradient, cx, cy, radius, start, start, palette+".2]", thickness)
-    base.set("direction", "COUNTER_CLOCKWISE" if end < start else "CLOCKWISE")
-    transform(base, "endAngle", f'[CONFIGURATION.progressMarker] == "TRUE" ? {end} : {start} + {fraction} * {end-start}')
-    path = arc(gradient, cx, cy, radius, start, start, "#FFFFFFFF", thickness)
+    # Local coordinates keep the round gauge's gradient away from the 360° seam.
+    # Rotate the entire gradient geometry, never modulo-normalize its endpoints.
+    round_gradient = name in ("round", "round-goal")
+    if round_gradient:
+        box = 2 * math.ceil(radius + thickness/2 + 2)
+        gradient.attrib.update(x=str(round(cx-box/2)), y=str(round(cy-box/2)), width=str(box), height=str(box), angle=str(start-8))
+        gx, gy, gs, ge = box/2, box/2, 8, end-start+8
+    else:
+        gx, gy, gs, ge = cx, cy, start, end
+    filled_end = f'[CONFIGURATION.progressMarker] == "TRUE" ? {ge} : {gs} + {fraction} * {ge-gs}'
+    base = arc(gradient, gx, gy, radius, gs, gs, palette+".2]", thickness)
+    base.set("direction", "COUNTER_CLOCKWISE" if ge < gs else "CLOCKWISE")
+    transform(base, "endAngle", filled_end)
+    path = arc(gradient, gx, gy, radius, gs, gs, "#FFFFFFFF", thickness)
     gradient[-1].set("tintColor", palette+".0]")
-    path.set("direction", "COUNTER_CLOCKWISE" if end < start else "CLOCKWISE")
-    transform(path, "endAngle", f'[CONFIGURATION.progressMarker] == "TRUE" ? {end} : {start} + {fraction} * {end-start}')
+    path.set("direction", "COUNTER_CLOCKWISE" if ge < gs else "CLOCKWISE")
+    transform(path, "endAngle", filled_end)
     edge = -3 if end < start else 3
-    node(path.find("Stroke"), "SweepGradient", centerX=cx, centerY=cy, startAngle=(start-edge) % 360,
-         endAngle=(end+edge) % 360, colors="#FFFFFFFF #00FFFFFF", positions="0 1", direction="COUNTER_CLOCKWISE" if end < start else "CLOCKWISE")
+    shader = node(path.find("Stroke"), "SweepGradient", centerX=gx, centerY=gy,
+                  startAngle=0 if round_gradient else (start-edge) % 360,
+                  endAngle=ge+8 if round_gradient else (end+edge) % 360,
+                  colors="#FFFFFFFF #00FFFFFF", positions="0 1", direction="COUNTER_CLOCKWISE" if ge < gs else "CLOCKWISE")
+    if round_gradient:
+        transform(shader, "endAngle", f"16 + clamp({fraction}, 0, 1) * {end-start}")
     marker = group(parent, f"{name}-marker", f'[CONFIGURATION.progressMarker] == "TRUE" && {valid}')
     point = drawing(marker)
     contour = thickness * .3  # Thin contour; the open inner diameter remains equal to the track thickness.
@@ -160,31 +222,7 @@ def ranged(parent, name, cx, cy, radius, start, end, thickness, palette, segment
         for element in parent.iter("Transform"):
             value = element.get("value", "")
             element.set("value", value.replace('[CONFIGURATION.progressMarker]', '"FALSE"'))
-    if segmented:
-        # The reference has a segmented FILL, not pale ticks painted over a
-        # continuous colored arc. Its current segment extends inward, never
-        # outside the outer radius. Preserve the underlying dark rest track.
-        step = f'([CONFIGURATION.progressMarker] == "TRUE" ? 11 : floor(clamp({fraction}, 0, 0.99) * 12))'
-        marks = group(parent, f"{name}-segments", f'({valid}) && ({fraction} > 0 || [CONFIGURATION.progressMarker] == "TRUE") && ([CONFIGURATION.progressStyle] == "2" || [CONFIGURATION.progressStyle] == "3")')
-        mask = group(marks, "segment-mask", renderMode="MASK")
-        scale = 512/450
-        for index in range(13):
-            part = drawing(mask, "segment-current" if index == 12 else f"segment-{index}")
-            part.set("angle", str(20+5*index if index < 12 else 20))
-            if index == 12:
-                transform(part, "angle", f"20 + 5 * {step}")
-            node(node(part, "RoundRectangle", x=cx-2.5*scale, y=cy-199.5*scale,
-                      width=5*scale, height=(24 if index in (11, 12) else 15)*scale,
-                      cornerRadiusX=2.5*scale, cornerRadiusY=2.5*scale), "Fill", color="#FFFFFFFF")
-        arc(marks, cx, cy, radius, start, end, palette+".2]", 40*scale, cap="BUTT")
-        paint = marks[-1].find("Arc")
-        transform(paint, "endAngle", f"23 + 5 * {step}")
-        light = group(marks, "segment-gradient", '[CONFIGURATION.progressStyle] == "3"')
-        paint = arc(light, cx, cy, radius, start, end, "#FFFFFFFF", 40*scale, cap="BUTT")
-        light[-1].set("tintColor", palette+".0]")
-        transform(paint, "endAngle", f"23 + 5 * {step}")
-        node(paint.find("Stroke"), "SweepGradient", centerX=cx, centerY=cy,
-             startAngle=16, endAngle=79, colors="#FFFFFFFF #00FFFFFF", positions="0 1")
+    # Shared tick rendering is applied after the consolidated choices below.
 
 
 def slot(parent, identity, label, types, provider, bounds, curved=False):
@@ -242,26 +280,15 @@ def upper_arc(parent):
     for offset, degrees in enumerate((-70, -35, 0, 35, 70)):
         token = "WEATHER" if offset == 0 else f"WEATHER.HOURS.{offset}"
         station = group(weather, f"forecast-{offset}")
-        hours = group(station, "forecast-time", '[SECOND] % 10 <= 4', angle=degrees)
-        hour = f"(([HOUR_0_23] + {offset}) % 24)"
-        label = circular(hours, hour, ARC_CAPTION_RADIUS, 343, 17, 24*512/450, "#FFB3B3B3", family="SYNC_TO_DEVICE")
-        transform(label, "alpha", '[IS_24_HOUR_MODE] ? 255 : 0')
-        label.find(".//Template").text = "%s:00"
-        label = circular(hours, f"{hour} % 12 == 0 ? 12 : {hour} % 12", ARC_CAPTION_RADIUS, 345, 15, 24*512/450, "#FFB3B3B3", family="SYNC_TO_DEVICE")
-        transform(label, "alpha", '[IS_24_HOUR_MODE] ? 0 : 255')
-        label.find(".//Template").text = "%s%s"
-        node(label.find(".//Template"), "Parameter", expression=f'{hour} < 12 ? "AM" : "PM"')
         condition = node(station, "Condition")
         expressions = node(condition, "Expressions")
         node(expressions, "Expression", name=f"weather{offset}").text = f"[WEATHER.IS_AVAILABLE] && ![WEATHER.IS_ERROR] && [{token}.IS_AVAILABLE]" if offset else "[WEATHER.IS_AVAILABLE] && ![WEATHER.IS_ERROR]"
         available = node(condition, "Compare", expression=f"weather{offset}")
-        for pack in range(2):
-            glyph = group(available, f"weather-pack-{pack}-{offset}", f'[CONFIGURATION.weatherSymbols] == "{pack}"')
-            weather_symbol(glyph, 256, 140*512/450, token, pack, degrees)
-        temperature = group(available, "forecast-temperature", '[SECOND] % 10 > 4', angle=degrees)
+        weather_symbol(available, 256, 140*512/450, token, 0, degrees)
+        temperature = group(available, "forecast-temperature", angle=degrees)
         label = circular(temperature, f'round([{token}.TEMPERATURE])', ARC_CAPTION_RADIUS, 345, 15, 24*512/450, "#FFB3B3B3", family="SYNC_TO_DEVICE")
         label.find(".//Template").text = "%s°"
-        unavailable = group(node(condition, "Default"), "forecast-unavailable", '[SECOND] % 10 > 4', angle=degrees)
+        unavailable = group(node(condition, "Default"), "forecast-unavailable", angle=degrees)
         circular(unavailable, '"—"', ARC_CAPTION_RADIUS, 345, 15, 24*512/450, "#FF999999", family="SYNC_TO_DEVICE")
 
     moon = group(upper, "moon", '[CONFIGURATION.arcWidget] == "2"')
@@ -269,7 +296,7 @@ def upper_arc(parent):
     node(button, "Launch", target="CALENDAR")
     for offset, degrees in enumerate((-70, -35, 0, 35, 70)):
         caption = group(moon, f"moon-caption-{offset}", angle=degrees)
-        circular(caption, f'icuText("EEE", [UTC_TIMESTAMP] + {offset*86400000})',
+        circular(caption, "".join(f'(([DAY_OF_WEEK] - 1 + {offset}) % 7) == {day} ? "{word}" : ' for day, word in enumerate(("SON", "MON", "DIE", "MIT", "DON", "FRE"))) + '"SAM"',
                  ARC_CAPTION_RADIUS, 345, 375, 24*512/450, "#FFB3B3B3", family="SYNC_TO_DEVICE")
         # Original 34px moon, centered at 225/140 in its 450px dial.
         cx, cy = 256, 140*512/450
@@ -316,8 +343,7 @@ def generate(output):
         node(configs, "BooleanConfiguration", id=identity, displayName=label(identity, title), defaultValue="TRUE" if default else "FALSE")
 
     # Numeric reference measurements only, not imported artwork or executable XML.
-    with Path(__file__).with_name("orbit_palettes.csv").open(encoding="utf-8", newline="") as stream:
-        palettes = list(csv.DictReader(stream))
+    palettes = runpy.run_path(str(ROOT / "tools/watchface-assets/curated_palettes.py"))["load_palettes"]()
     for identity, title, default in (("primary", "Zifferblatt", "70"), ("secondary", "Komplikationen", "70"), ("tertiary", "Akzente", "0")):
         c = node(configs, "ColorConfiguration", id=identity, displayName=label(identity, title), defaultValue=default)
         for entry in palettes:
@@ -327,47 +353,35 @@ def generate(output):
     choices("apexHands", "Zeiger", ["ApeX · Standard", "ApeX · Transparent", "ApeX · Schwarz"])
     for index, option in enumerate(configs.find("ListConfiguration[@id='apexHands']")):
         option.set("icon", f"orbit_hand_preview_{index + 15}")
-    choices("secondSweep", "Sekundenzeiger", ["Weiß", "Getönt", "Rot"], default="1")
-    choices("dialIndex", "Index", ["Arabisch", "Römisch"])
+    choices("secondSweep", "Sekundenzeiger", ["Wei\u00df", "Theme", "Rot", "Aus"], default="1")
     choices("dialInk", "Indexfarbe", ["Weiß", "Theme"])
     choices("arcContent", "Arc", ["Datum", "Wetter", "Mond", "Graph", "TIR"], default="3")
-    choices("weatherSymbols", "Wettersymbole", ["Samsung Weather", "Google Weather"])
     choices("weatherLaunch", "Wetter-App", ["Samsung Weather", "Google Weather"])
     weather_art = json.loads((ROOT / "watchfaces/sugarlicious-orbit/reference/weather/manifest.json").read_text(encoding="utf-8"))
-    for key in ("weatherSymbols", "weatherLaunch"):
+    for key in ("weatherLaunch",):
         for pack, option in enumerate(configs.find(f"ListConfiguration[@id='{key}']")):
             option.set("icon", weather_art["packs"][("samsung", "google")[pack] + "_day"]["8"])
-    choices("aodStyle", "AOD", ["Gedimmt", "Ziffern und Zeiger", "Nur Zeiger"])
     choices("progressBars", "Progress Bars", ["Einfarbig", "Farbverlauf", "Segmente", "Segmente · Verlauf", "Einfarbig · Dot", "Farbverlauf · Dot", "Segmente · Dot", "Segmente · Verlauf · Dot"], default="7")
-    choices("minuteStyle", "Minuten", ["Rund · Stunden", "Kantig · Stunden", "Rund · Minuten", "Kantig · Minuten"], default="2")
     switch("batteryIndicator", "Akkustand", True)
-    switch("backgroundGlow", "Hintergrund")
     switch("glucoseColor", "Glukosefarbe", True)
     flavors = node(configs, "Flavors", defaultValue="0")
     for index, (primary, secondary, tertiary, hands, face_index, arc_mode) in enumerate((
-        ("71", "59", "65", "0", "0", "1"),
-        ("43", "34", "54", "13", "1", "2"),
-        ("23", "25", "30", "12", "0", "0"),
-        ("59", "40", "45", "11", "1", "1"),
-        ("71", "59", "65", "10", "2", "2"),
-        ("22", "21", "1", "9", "0", "0"),
+        ("70", "70", "70", "0", "0", "1"),
+        ("79", "79", "79", "13", "1", "2"),
+        ("80", "80", "80", "12", "0", "0"),
+        ("81", "81", "81", "11", "1", "1"),
+        ("82", "82", "82", "10", "2", "2"),
+        ("83", "83", "83", "9", "0", "0"),
     )):
         flavor = node(flavors, "Flavor", id=index, displayName=label(f"preset_{index}", f"Design {index+1}"))
-        for key, value in (("primary", primary), ("secondary", secondary), ("tertiary", tertiary), ("apexHands", str(index % 3)), ("dialIndex", str(int(face_index) % 2)), ("arcContent", arc_mode)):
+        for key, value in (("primary", primary), ("secondary", secondary), ("tertiary", tertiary), ("apexHands", str(index % 3)), ("arcContent", arc_mode)):
             node(flavor, "Configuration", id=key, optionId=value)
 
     scene = node(root, "Scene", backgroundColor="#FF000000")
     face = group(scene, "dial")
-    glow = group(face, "background", '[CONFIGURATION.backgroundGlow] == "TRUE"')
-    # Ambient alpha overrides the active visibility transform; a dimming value
-    # would resurrect even a disabled full-dial glow whenever AOD begins.
-    ambient(glow, "0")
-    node(node(drawing(glow), "Ellipse", x=0, y=0, width=512, height=512), "Fill", color=P+".2]")
-    glow.set("alpha", "96")
-    glow.find("Transform").set("value", '[CONFIGURATION.backgroundGlow] == "TRUE" ? 96 : 0')
     # Concentric reference panels, only the open lower-left quadrant is reserved for the round slot.
     panels = group(face, "inner-panels", '[CONFIGURATION.upperMode] == "0"')
-    ambient(panels, '[CONFIGURATION.upperMode] == "0" && [CONFIGURATION.aodStyle] == "0" ? 80 : 0')
+    ambient(panels)
     panels.set("tintColor", P+".0]")
     outer, split, inner = 145*512/450, 108.5*512/450, 59*512/450
     arc(panels, 256, 256, (outer+split)/2, 270, 450, "#FF363636", outer-split, cap="BUTT")
@@ -380,45 +394,37 @@ def generate(output):
     arc(lower_center, 256, 256, 33.5, 90, 270, "#FF202020", 67, cap="BUTT")
 
     indices = group(face, "indices")
-    ambient(indices, '[CONFIGURATION.aodStyle] == "2" ? 0 : 110')
-    values = [["12", "3", "6", "9"], ["XII", "III", "VI", "IX"]]
-    for style, words in enumerate(values):
-        variant = group(indices, f"index-{style}", f'[CONFIGURATION.dialIndex] == "{style}"')
-        for tone, color in enumerate((WHITE, T+".2]")):
-            colored = group(variant, f"index-{style}-{tone}", f'[CONFIGURATION.dialInk] == "{tone}"')
-            if style == 0:
-                # Exact measured alpha bounds in canonical 450px ApeX artwork.
-                # MASK crops the shared source; no altered duplicate PNG to drift.
-                for digit, sx, sy, sw, sh, cx, cy in (
-                    ("12", 196, 6, 55, 27, 256, 61),
-                    ("6", 209, 419, 33, 27, 256, 466),
-                    ("9", 3, 209, 27, 32, 55, 256),
-                ):
-                    scale = 1.7
-                    sprite = group(colored, f"apex-digit-{digit}-{tone}")
-                    if digit == "9":
-                        sprite.set("angle", "90")
-                        sprite.set("pivotX", str(55/512))
-                        sprite.set("pivotY", "0.5")
-                    left, top = round(cx-sw*scale/2), round(cy-sh*scale/2)
-                    mask = drawing(sprite)
-                    mask.set("renderMode", "MASK")
-                    node(node(mask, "Rectangle", x=left-1, y=top-1, width=round(sw*scale)+2, height=round(sh*scale)+2), "Fill", color="#FFFFFFFF")
-                    image = node(sprite, "PartImage", x=round(left-sx*scale), y=round(top-sy*scale),
-                                 width=765, height=765, tintColor=color)
-                    node(image, "Image", resource="sugarlicious_analog_template")
-                continue
-            for index, (x, y, w, h) in enumerate(((188, 18, 136, 82), (424, 218, 80, 76), (202, 425, 108, 80), (8, 218, 86, 76))):
-                if index == 1:
-                    continue  # reference places a date capsule instead of the three
-                text(colored, f'"{words[index]}"', x, y, w, h, 68 if style == 0 else 66, color)
+    ambient(indices)
+    variant = group(indices, "index-0")
+    for tone, color in enumerate((WHITE, T+".2]")):
+        colored = group(variant, f"index-0-{tone}", f'[CONFIGURATION.dialInk] == "{tone}"')
+        # Exact measured alpha bounds in canonical 450px ApeX artwork.
+        # MASK crops the shared source; no altered duplicate PNG to drift.
+        for digit, sx, sy, sw, sh, cx, cy in (
+            ("12", 196, 6, 55, 27, 256, 61),
+            ("6", 209, 419, 33, 27, 256, 466),
+            ("9", 3, 209, 27, 32, 55, 256),
+        ):
+            scale = 1.7
+            sprite = group(colored, f"apex-digit-{digit}-{tone}")
+            if digit == "9":
+                sprite.set("angle", "90")
+                sprite.set("pivotX", str(55/512))
+                sprite.set("pivotY", "0.5")
+            left, top = round(cx-sw*scale/2), round(cy-sh*scale/2)
+            mask = drawing(sprite)
+            mask.set("renderMode", "MASK")
+            node(node(mask, "Rectangle", x=left-1, y=top-1, width=round(sw*scale)+2, height=round(sh*scale)+2), "Fill", color="#FFFFFFFF")
+            image = node(sprite, "PartImage", x=round(left-sx*scale), y=round(top-sy*scale),
+                         width=765, height=765, tintColor=color)
+            node(image, "Image", resource="sugarlicious_analog_template")
     date = group(indices, "date-capsule")
     node(node(drawing(date), "RoundRectangle", x=426, y=233, width=58, height=37, cornerRadiusX=6, cornerRadiusY=6), "Fill", color=S+".1]")
     date.find("PartDraw").set("alpha", "55")
     text(date, "[DAY]", 424, 230, 62, 42, 30, T+".0]")
 
     minutes = group(face, "minute-markers")
-    ambient(minutes, '[CONFIGURATION.aodStyle] == "0" ? 70 : 0')
+    ambient(minutes)
     for index in range(60):
         angle = math.radians(index*6)
         if index % 15 == 0:
@@ -427,13 +433,9 @@ def generate(output):
             length, thick = 7, 6
         else:
             length, thick = 3, 3
-        for rounded in (False, True):
-            predicate = '[CONFIGURATION.minuteStyle] == "0" || [CONFIGURATION.minuteStyle] == "2"' if rounded else '[CONFIGURATION.minuteStyle] == "1" || [CONFIGURATION.minuteStyle] == "3"'
-            if index % 5:
-                predicate = f'({predicate}) && ([CONFIGURATION.minuteStyle] == "2" || [CONFIGURATION.minuteStyle] == "3")'
-            mark = group(minutes, f"minute-{index}-{rounded}", predicate)
-            line = node(drawing(mark), "Line", startX=256+(251-length)*math.sin(angle), startY=256-(251-length)*math.cos(angle), endX=256+251*math.sin(angle), endY=256-251*math.cos(angle))
-            node(line, "Stroke", color=P+".1]", thickness=thick, cap="ROUND" if rounded else "BUTT")
+        mark = group(minutes, f"minute-{index}-True")
+        line = node(drawing(mark), "Line", startX=256+(251-length)*math.sin(angle), startY=256-(251-length)*math.cos(angle), endX=256+251*math.sin(angle), endY=256-251*math.cos(angle))
+        node(line, "Stroke", color=P+".1]", thickness=thick, cap="ROUND")
 
     providers = "app.sugarlicious/app.aapswear.complications."
     for identity, name, start, end, provider in (
@@ -458,22 +460,23 @@ def generate(output):
         short = node(owner, "Complication", type="SHORT_TEXT")
         value = node(owner, "Complication", type="RANGED_VALUE")
         ranged(value, f"outer-{identity}", 256, 256, 218.45, start, end, 17.07, S, identity == 1)
-        caption_start, caption_end, icon_angle = ((300, 344, -74), (27, 72, 21), (166, 113, 106))[identity]
+        caption_start, caption_end, icon_angle = ((300, 344, -74), (33, 78, 21), (166, 113, 106))[identity]
         icon_radius = (166 if identity != 2 else 165)*512/450
         a = math.radians(icon_angle)
         for content in (short, value):
             numeric_steps = identity == 1 and content is value
             caption = circular(content, "[COMPLICATION.TEXT]", 187.73,
-                               25 if numeric_steps else caption_start, 79 if numeric_steps else caption_end,
-                               30 if numeric_steps else 32, S+".0]",
+                               caption_start, caption_end,
+                               32, S+".0]",
                                align="START" if identity == 2 else "END", clockwise=identity != 2)
             if numeric_steps:
                 caption.find("TextCircular").set("ellipsis", "FALSE")
             icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 256+icon_radius*math.sin(a),
-                 256-icon_radius*math.cos(a), 28*512/450, S+".0]", angle=icon_angle+(180 if identity == 2 else 0))
+                 256-icon_radius*math.cos(a), 28*512/450, S+".0]")
 
     owner = slot(face, 3, label("slot_3", "Unten links"), "RANGED_VALUE GOAL_PROGRESS SHORT_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE", providers+"GlucoseTrendRangedValueComplication", (67, 287, 162, 162))
     owner.find("BoundingBox").tag = "BoundingOval"
+    owner.find("Variant").set("value", "255")
     for kind in ("SHORT_TEXT", "RANGED_VALUE", "GOAL_PROGRESS"):
         content = node(owner, "Complication", type=kind)
         background = drawing(content)
@@ -486,16 +489,7 @@ def generate(output):
             fraction = f"({target} <= 0 ? 0 : clamp([COMPLICATION.GOAL_PROGRESS_VALUE] / {target}, 0, 1))"
             ranged(content, "round-goal", 148, 368, 59*512/450, 220, 500, 12*512/450, P,
                    gap=19.5, fraction=fraction, valid=f"{target} > 0")
-        text(content, "[COMPLICATION.TITLE]", 95, 314, 106, 27, 22, S+".1]")
-        if kind == "RANGED_VALUE":
-            semantic = node(content, "Condition")
-            expressions = node(semantic, "Expressions")
-            node(expressions, "Expression", name="glucose").text = '[CONFIGURATION.glucoseColor] == "TRUE" && [COMPLICATION.RANGED_VALUE_MIN] == 40 && [COMPLICATION.RANGED_VALUE_MAX] == 260 && (textLength([COMPLICATION.RANGED_VALUE_COLORS]) == 7 || textLength([COMPLICATION.RANGED_VALUE_COLORS]) == 9)'
-            text(node(semantic, "Compare", expression="glucose"), "[COMPLICATION.TEXT]", 85, 344, 126, 47, 39, "[COMPLICATION.RANGED_VALUE_COLORS]")
-            text(node(semantic, "Default"), "[COMPLICATION.TEXT]", 85, 344, 126, 47, 39, T+".0]")
-        else:
-            text(content, "[COMPLICATION.TEXT]", 85, 344, 126, 47, 39, T+".0]")
-        icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 148, 421, 32, S+".1]")
+        round_provider_caption(content, kind)
 
     content = node(owner, "Complication", type="MONOCHROMATIC_IMAGE")
     icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 148, 368, 91, P+".0]")
@@ -529,12 +523,12 @@ def generate(output):
             provider_caption(content, radius)
         content = node(owner, "Complication", type="MONOCHROMATIC_IMAGE")
         a = math.radians(136)
-        icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 256+radius*math.sin(a), 256-radius*math.cos(a), 32, P+".0]", angle=-44)
+        icon(content, "[COMPLICATION.MONOCHROMATIC_IMAGE]", 256+radius*math.sin(a), 256-radius*math.cos(a), 32, P+".0]")
 
     upper_arc(face)
 
     graph_group = group(face, "upper-graph", '[CONFIGURATION.upperMode] == "1"')
-    ambient(graph_group, '[CONFIGURATION.upperMode] == "1" ? 160 : 0')
+    ambient(graph_group, "255")
     # Retire the old ApeX-backed slot 6 so existing favorites bind the new provider on update.
     owner = slot(graph_group, 8, label("slot_8", "Graph"), "SMALL_IMAGE", providers+"OrbitGlucoseGraphComplication", (91, 91, 330, 165))
     owner.set("isCustomizable", "FALSE")  # fixed canonical CGM provider; no empty Arc-mode picker box
@@ -580,23 +574,20 @@ def generate(output):
         for tag, kind in (("HourHand", "hour"), ("MinuteHand", "minute")):
             node(clock, tag, resource=f"{kind}_hand{suffix}",
                  x=0, y=0, width=512, height=512, pivotX="0.5", pivotY="0.5")
-        for seconds in range(3):
+        for seconds in (0, 1, 2):
             mode = group(variant, f"seconds-{style}-{seconds}", f'[CONFIGURATION.secondSweep] == "{seconds}"')
             clock = node(mode, "AnalogClock", x=0, y=0, width=512, height=512)
             hand = node(clock, "SecondHand", resource="second_hand"+suffix,
-                        tintColor=("#FFFFFFFF", T+".1]", "#FFFF4040")[seconds],
+                        tintColor={0: "#FFFFFFFF", 1: T+".1]", 2: "#FFFF4040"}[seconds],
                         x=0, y=0, width=512, height=512, pivotX="0.5", pivotY="0.5")
             ambient(hand, "0")
             node(hand, "Sweep", frequency=15)
 
-    # Preserve the canonical seconds-hand hub in AOD without drawing a frozen
-    # seconds hand. Crop the existing artwork instead of inventing a new pivot.
-    hub = group(hands, "ambient-seconds-hub", alpha=0)
+    # The fixed hub is visible with seconds disabled and throughout AOD.
+    hub = group(hands, "ambient-seconds-hub", '[CONFIGURATION.secondSweep] == "3"')
     ambient(hub, "255")
-    mask = drawing(hub)
-    mask.set("renderMode", "MASK")
-    node(node(mask, "Ellipse", x=247, y=247, width=18, height=18), "Fill", color="#FFFFFFFF")
-    node(node(hub, "PartImage", x=0, y=0, width=512, height=512, tintColor="#FF9E9E9E"), "Image", resource="second_hand")
+    node(node(drawing(hub), "Ellipse", x=247, y=247, width=18, height=18), "Fill", color="#FFFFFFFF")
+    node(node(drawing(hub), "Ellipse", x=252, y=252, width=8, height=8), "Fill", color="#FF000000")
 
     # WFF only permits selectable complications directly under Scene, not Group.
     # Keep each slot unique; visibility belongs to its content, never to ghost icon slots.
@@ -606,9 +597,10 @@ def generate(output):
                 continue
             parent.remove(child)
             if child.get("slotId") == "8":
-                child.find("Variant[@mode='AMBIENT'][@target='alpha']").set("value", '[CONFIGURATION.upperMode] == "1" ? 160 : 0')
+                child.find("Variant[@mode='AMBIENT'][@target='alpha']").set("value", "255")
                 content = child.find("Complication[@type='SMALL_IMAGE']")
                 visibility = group(content, "graph-mode-only", '[CONFIGURATION.upperMode] == "1"')
+                ambient(visibility, "255")
                 for item in list(content):
                     if item is not visibility:
                         content.remove(item)
@@ -635,13 +627,16 @@ def generate(output):
             for style in range(4):
                 value = value.replace(f'[CONFIGURATION.progressStyle] == "{style}"', f'([CONFIGURATION.progressBars] == "{style}" || [CONFIGURATION.progressBars] == "{style+4}")')
             element.set(attribute, value)
-    order = ["dialIndex", "dialInk", "apexHands", "secondSweep", "minuteStyle", "aodStyle", "backgroundGlow", "primary", "secondary", "tertiary", "arcContent", "weatherSymbols", "weatherLaunch", "progressBars", "batteryIndicator", "glucoseColor"]
+    order = [ "dialInk", "apexHands", "secondSweep", "primary", "secondary", "tertiary", "arcContent", "weatherLaunch", "progressBars", "batteryIndicator", "glucoseColor"]
     for key in order:
         item = next(item for item in configs if item.get("id") == key)
         configs.remove(item)
         configs.insert(order.index(key), item)
 
-    runpy.run_path(str(ROOT / "tools/watchface-assets/user_flavors.py"))["append_user_flavors"](root, strings, "orbit")
+    runpy.run_path(str(ROOT / "tools/watchface-assets/user_flavors.py"))["replace_user_flavors"](root, strings, "orbit")
+    runpy.run_path(str(ROOT / "tools/watchface-assets/configure_indicator_gradient.py"))["configure"](root, "orbit")
+    runpy.run_path(str(ROOT / "tools/watchface-assets/segmented_progress.py"))["configure"](root, "orbit")
+    runpy.run_path(str(ROOT / "tools/watchface-assets/restore_native_hands.py"))["configure"](root, "orbit")
     for name, tree in (("raw/watchface.xml", root), ("values/strings.xml", strings)):
         target = output / name
         target.parent.mkdir(parents=True, exist_ok=True)

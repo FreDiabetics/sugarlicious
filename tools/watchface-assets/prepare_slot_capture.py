@@ -24,7 +24,7 @@ def prepare(source: Path, destination: Path, name: str):
         elif child.tag == "ComplicationSlot":
             policy = child.find("DefaultProviderPolicy")
             kind = policy.get("primaryProviderType", policy.get("defaultSystemProviderType")) if policy is not None else ""
-            if kind in ("SMALL_IMAGE", "LARGE_IMAGE", "MONOCHROMATIC_IMAGE"):
+            if child.get("isCustomizable") != "TRUE" or kind in ("SMALL_IMAGE", "LARGE_IMAGE", "MONOCHROMATIC_IMAGE"):
                 scene.remove(child)
     tree.write(xml, encoding="utf-8", xml_declaration=True)
     manifest = ET.parse(source / "AndroidManifest.xml")
@@ -34,7 +34,7 @@ def prepare(source: Path, destination: Path, name: str):
     application = root.find("application")
     application.set(android + "label", f"Slot Capture {name}")
     application.attrib.pop(android + "dataExtractionRules", None)
-    minimum, target = ("36", "37") if name == "orbit" else ("34", "35")
+    minimum, target = "36", "37"
     ET.SubElement(root, "uses-sdk", {android + "minSdkVersion": minimum, android + "targetSdkVersion": target})
     manifest.write(destination / "AndroidManifest.xml", encoding="utf-8", xml_declaration=True)
 

@@ -19,6 +19,31 @@ class MobileSourceConfigurationTest {
         prefs.edit().clear().commit()
     }
 
+    @Test fun `changing therapy after migration keeps the forecast switch independent`() {
+        assertTrue(MobileSourceConfigurationStore.read(context).aapsPredictionsEnabled)
+        MobileSourceConfigurationStore.setTherapy(context, false)
+        assertTrue(MobileSourceConfigurationStore.read(context).aapsPredictionsEnabled)
+        MobileSourceConfigurationStore.setPredictions(context, false)
+        MobileSourceConfigurationStore.setTherapy(context, true)
+        assertFalse(MobileSourceConfigurationStore.read(context).aapsPredictionsEnabled)
+    }
+
+    @Test fun `forecast-only AndroidAPS master restore never enables AndroidAPS dots`() {
+        prefs
+            .edit()
+            .putStringSet("source.glucose.enabled", setOf("DEXCOM_BROADCAST"))
+            .putBoolean("source.aaps.therapy", false)
+            .putBoolean("source.aaps.predictions", true)
+            .commit()
+        MobileSourceConfigurationStore.setAndroidApsEnabled(context, false)
+        assertFalse(MobileSourceConfigurationStore.read(context).aapsPredictionsEnabled)
+        MobileSourceConfigurationStore.setAndroidApsEnabled(context, true)
+        val restored = MobileSourceConfigurationStore.read(context)
+        assertTrue(restored.aapsPredictionsEnabled)
+        assertFalse(restored.aapsTherapyEnabled)
+        assertEquals(setOf(MobileGlucoseSource.DEXCOM_BROADCAST), restored.enabledGlucoseSources)
+    }
+
     @Test fun `Nightscout treatment-only source remains active without enabling glucose after master restore`() {
         context
             .getSharedPreferences("nightscout_treatment_config", Context.MODE_PRIVATE)

@@ -15,8 +15,8 @@ import app.aapswear.mobile.ui.theme.SugarliciousColors
 internal fun OverviewReadingMetadata(delta: String, unit: String, age: String, compact: Boolean = false, scale: Float = 1f) {
     val numberSize = (if (compact) 15f else 24f).times(scale).sp
     val labelSize = (if (compact) 13f else 18f).times(scale).sp
-    val number = SpanStyle(color = if (compact) Color.White else SugarliciousColors.TextPrimary, fontSize = numberSize, fontWeight = FontWeight.Bold)
-    val label = SpanStyle(color = if (compact) Color(0xFFB5B5B5) else SugarliciousColors.TextSecondary, fontSize = labelSize, fontWeight = FontWeight.SemiBold)
+    val number = SpanStyle(color = if (compact && !SugarliciousColors.palette.isLight) Color.White else SugarliciousColors.TextPrimary, fontSize = numberSize, fontWeight = FontWeight.Bold)
+    val label = SpanStyle(color = if (compact && !SugarliciousColors.palette.isLight) Color(0xFFB5B5B5) else SugarliciousColors.TextSecondary, fontSize = labelSize, fontWeight = FontWeight.SemiBold)
     val deltaText =
         buildAnnotatedString {
             withStyle(number) { append(delta) }

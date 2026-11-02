@@ -16,6 +16,9 @@ object DailyTimeInRange {
     const val ARCHIVE_WINDOW_MS = 6L * 24 * 60 * 60_000
     const val ARCHIVE_MAX_POINTS = 9_000
 
+    // Extra calendar-day margin covers the oldest selected day across DST transitions.
+    const val LONG_TERM_ARCHIVE_WINDOW_MS = 92L * 24 * 60 * 60_000
+
     fun calculate(samples: List<GlucoseSample>, now: Long, zone: ZoneId, thresholds: CgmThresholds): List<DailyTir> {
         val today = Instant.ofEpochMilli(now).atZone(zone).toLocalDate()
         val valid = CanonicalCgmHistory.merge(samples, now, windowMs = ARCHIVE_WINDOW_MS, futureToleranceMs = 0, maxPoints = ARCHIVE_MAX_POINTS)

@@ -36,6 +36,7 @@ internal data class NativeSlotText(
     val emptyTitleY: Float? = null,
     val therapyUnitFormatting: Boolean = false,
     val color: Int = 0xFFFFFFFF.toInt(),
+    val letterSpacing: Float = 0f,
 )
 
 internal data class NativeSlotTemplate(
@@ -124,7 +125,7 @@ private fun templateFor(element: Element, palettes: Map<String, List<Int>>): Nat
                         expression.contains("COMPLICATION.TITLE") -> "[COMPLICATION.TITLE]"
                         else -> "[COMPLICATION.TEXT]"
                     }
-                NativeSlotText(bounds, font.num("size", 24f), contentExpression, circular?.getAttribute("direction") != "COUNTER_CLOCKWISE", circular?.getAttribute("align") ?: "CENTER", emptyTitleY, expression.contains("numberFormat"), resolveNativeFontColor(font.getAttribute("color"), palettes))
+                NativeSlotText(bounds, font.num("size", 24f), contentExpression, circular?.getAttribute("direction") != "COUNTER_CLOCKWISE", circular?.getAttribute("align") ?: "CENTER", emptyTitleY, expression.contains("numberFormat"), resolveNativeFontColor(font.getAttribute("color"), palettes), font.num("letterSpacing", 0f))
             }.distinctBy { it.bounds to it.expression }
             .distinctBy { it.bounds }
     val image = element.elements("PartImage").firstOrNull { it.elements("Image").any { image -> image.getAttribute("resource").contains("COMPLICATION") } }
