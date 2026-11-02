@@ -18,99 +18,165 @@
       <ListOption id="3" displayName="seconds_red" />
       <ListOption id="2" displayName="option_off" />
     </ListConfiguration>
-    <ColorConfiguration id="materialAccent" displayName="material_color_label" defaultValue="537">
-      <ColorOption id="51" displayName="curated_palette_3" colors="#FFFFB7BA #FFFF6C72 #FFFF2335 #FF522324" />
-      <ColorOption id="551" displayName="curated_palette_203" colors="#FFFF2335 #FFFF6C72 #FFFFB7BA #FF522324" />
-      <ColorOption id="37" displayName="curated_palette_70" colors="#FFFFDBBD #FFFBB576 #FFF88F33 #FF503A26" />
-      <ColorOption id="537" displayName="curated_palette_270" colors="#FFF88F33 #FFFBB576 #FFFFDBBD #FF503A26" />
-      <ColorOption id="88" displayName="curated_palette_48" colors="#FFFFF5B1 #FFFFE45C #FFFFD20D #FF52491D" />
-      <ColorOption id="588" displayName="curated_palette_248" colors="#FFFFD20D #FFFFE45C #FFFFF5B1 #FF52491D" />
+    <ColorConfiguration id="materialAccent" displayName="material_color_label" defaultValue="37">
+      <ColorOption id="99" displayName="curated_palette_74" colors="#FFF2F2F2 #FFFF0F0F #FFFF0F0F #FF520505" />
+      <ColorOption id="51" displayName="curated_palette_3" colors="#FFFFEAEA #FFFF9391 #FFFF4642 #FF522F2E" />
+      <ColorOption id="52" displayName="curated_palette_4" colors="#FFFFF3F2 #FFFFA49F #FFFF665D #FF523433" />
+      <ColorOption id="12" displayName="curated_palette_41" colors="#FFFFDFDC #FFFFB1AC #FFFF776D #FF523937" />
+      <ColorOption id="82" displayName="curated_palette_42" colors="#FFFFE8E5 #FFFFA294 #FFFF5B43 #FF52342F" />
+      <ColorOption id="84" displayName="curated_palette_44" colors="#FFFFD1C4 #FFFF997A #FFFF693B #FF523127" />
+      <ColorOption id="37" displayName="curated_palette_70" colors="#FFFFCCB1 #FFFF935C #FFFF5F0D #FF522F1D" />
+      <ColorOption id="10" displayName="curated_palette_5" colors="#FFFFE8DA #FFFFC6A3 #FFFF975D #FF523F34" />
+      <ColorOption id="83" displayName="curated_palette_43" colors="#FFFFF5EF #FFFDB78F #FFFF985E #FF513B2E" />
+      <ColorOption id="105" displayName="curated_palette_75" colors="#FFD9CBC5 #FFD7BBAB #FFCCA792 #FF453C37" />
+      <ColorOption id="98" displayName="curated_palette_73" colors="#FFF2F2F2 #FFFF8316 #FFFF8316 #FF522A07" />
+      <ColorOption id="91" displayName="curated_palette_51" colors="#FFFFF4EA #FFFAE7D6 #FFFFDAB8 #FF504A44" />
+      <ColorOption id="106" displayName="curated_palette_76" colors="#FFE0D9D4 #FFC8B5A3 #FFB49E88 #FF403A34" />
+      <ColorOption id="85" displayName="curated_palette_45" colors="#FFF4EBE0 #FFD8AB77 #FFF0A752 #FF453726" />
+      <ColorOption id="86" displayName="curated_palette_46" colors="#FFFFF1DB #FFF8C67C #FFFFB74A #FF4F3F28" />
+      <ColorOption id="87" displayName="curated_palette_47" colors="#FFFFF4DD #FFFFD88A #FFFFC551 #FF52452C" />
+      <ColorOption id="9" displayName="curated_palette_52" colors="#FFFFF0D2 #FFFFD889 #FFFFCC63 #FF52452C" />
+      <ColorOption id="53" displayName="curated_palette_6" colors="#FFFFF6E1 #FFFFE9B9 #FFFFCE63 #FF524B3B" />
+      <ColorOption id="90" displayName="curated_palette_50" colors="#FFFFF9E1 #FFC4B575 #FFF1D870 #FF3F3A25" />
+      <ColorOption id="108" displayName="curated_palette_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91 #FF403F38" />
+      <ColorOption id="88" displayName="curated_palette_48" colors="#FFFFFEE0 #FFFFFA86 #FFFFF630 #FF52502B" />
+      <ColorOption id="54" displayName="curated_palette_7" colors="#FFFEFFE9 #FFFCFFB6 #FFF9FF52 #FF51523A" />
+      <ColorOption id="46" displayName="curated_palette_61" colors="#FFEFF0E4 #FFDFDFDF #FFE8F0B3 #FF474747" />
+      <ColorOption id="97" displayName="curated_palette_59" colors="#FFDCDCD5 #FFC6CCA3 #FFAFBA69 #FF3F4134" />
+      <ColorOption id="55" displayName="curated_palette_8" colors="#FFFAFFE4 #FFEAFF8E #FFDEFF4C #FF4B522D" />
+      <ColorOption id="47" displayName="curated_palette_60" colors="#FFEFF0E4 #FFEEFF80 #FFCEFF1C #FF4C5229" />
       <ColorOption id="61" displayName="curated_palette_14" colors="#FFD4DAB6 #FFA4AF73 #FF758544 #FF343825" />
-      <ColorOption id="561" displayName="curated_palette_214" colors="#FF758544 #FFA4AF73 #FFD4DAB6 #FF343825" />
-      <ColorOption id="79" displayName="curated_palette_32" colors="#FFBBD9FF #FF65A8FF #FF1675F5 #FF203652" />
-      <ColorOption id="579" displayName="curated_palette_232" colors="#FF1675F5 #FF65A8FF #FFBBD9FF #FF203652" />
-      <ColorOption id="81" displayName="curated_palette_36" colors="#FFDCC0FF #FFB16CFF #FF8529F5 #FF392352" />
-      <ColorOption id="581" displayName="curated_palette_236" colors="#FF8529F5 #FFB16CFF #FFDCC0FF #FF392352" />
-      <ColorOption id="13" displayName="curated_palette_40" colors="#FFFFBFE5 #FFFF73C0 #FFF52C99 #FF52253D" />
-      <ColorOption id="513" displayName="curated_palette_240" colors="#FFF52C99 #FFFF73C0 #FFFFBFE5 #FF52253D" />
-      <ColorOption id="101" displayName="curated_palette_75" colors="#FFEBD2BC #FFC99A74 #FFA56C40 #FF403125" />
-      <ColorOption id="601" displayName="curated_palette_275" colors="#FFA56C40 #FFC99A74 #FFEBD2BC #FF403125" />
-      <ColorOption id="49" displayName="curated_palette_1" colors="#FFFFFFFF #FFF2F2F2 #FFE6E6E6 #FF4D4D4D" />
-      <ColorOption id="549" displayName="curated_palette_201" colors="#FFE6E6E6 #FFF2F2F2 #FFFFFFFF #FF4D4D4D" />
+      <ColorOption id="58" displayName="curated_palette_11" colors="#FFF0FFCD #FFDEFF91 #FFC7FF45 #FF47522E" />
+      <ColorOption id="56" displayName="curated_palette_9" colors="#FFF4FFDF #FFEBFFC3 #FFCEFF6C #FF4B523E" />
+      <ColorOption id="57" displayName="curated_palette_10" colors="#FFEBFFD2 #FFD3FF9B #FFB0FF4D #FF445232" />
+      <ColorOption id="59" displayName="curated_palette_12" colors="#FFEDFFD5 #FFD6FF9E #FFAEFF4A #FF445233" />
+      <ColorOption id="65" displayName="curated_palette_72" colors="#FFCDDECD #FFC3E9C3 #FFB7F297 #FF3E4B3E" />
+      <ColorOption id="102" displayName="curated_palette_71" colors="#FFD3E2D3 #FFBFD9BF #FFACC89E #FF3D453D" />
+      <ColorOption id="60" displayName="curated_palette_13" colors="#FFE5FFE0 #FFADFF9A #FF70FF3D #FF375231" />
+      <ColorOption id="100" displayName="curated_palette_79" colors="#FFE3FFE0 #FFA9FF9A #FF4EFF58 #FF365231" />
+      <ColorOption id="64" displayName="curated_palette_17" colors="#FFE0FFE4 #FF9FF7AD #FF52FF6D #FF334F37" />
+      <ColorOption id="101" displayName="curated_palette_15" colors="#FFE8FFF2 #FFBEFFD9 #FF57FF9D #FF3D5245" />
+      <ColorOption id="63" displayName="curated_palette_16" colors="#FFD1FFE6 #FF65DF9D #FF41FF99 #FF204732" />
+      <ColorOption id="70" displayName="curated_palette_22" colors="#FFB4CCC2 #FF8BB6A5 #FFF5FFFB #FF2C3A35" />
+      <ColorOption id="66" displayName="curated_palette_18" colors="#FFE5FFF5 #FFABFFDF #FF5EFFC0 #FF375247" />
+      <ColorOption id="67" displayName="curated_palette_19" colors="#FFDEF4EC #FFBEECDB #FFAAF6D9 #FF3D4C46" />
+      <ColorOption id="71" displayName="curated_palette_23" colors="#FFCDE1DA #FF76B89F #FF8EAFA3 #FF263B33" />
+      <ColorOption id="69" displayName="curated_palette_21" colors="#FFE1ECE9 #FFCCE4DF #FFBBF6E6 #FF414947" />
+      <ColorOption id="73" displayName="curated_palette_24" colors="#FFEEFFFD #FFE5FFFB #FFD6FFF9 #FF495250" />
+      <ColorOption id="16" displayName="curated_palette_26" colors="#FFD5FAFF #FFA8F4FF #FF5EEBFF #FF364E52" />
+      <ColorOption id="74" displayName="curated_palette_25" colors="#FFDAFFFF #FFBEF6FF #FF93F0FF #FF3D4F52" />
+      <ColorOption id="75" displayName="curated_palette_27" colors="#FFCCEFFF #FF99E0FF #FF5ACDFF #FF314852" />
+      <ColorOption id="76" displayName="curated_palette_29" colors="#FFE6F5FF #FFA8DDFF #FF5EC1FF #FF364752" />
+      <ColorOption id="96" displayName="curated_palette_58" colors="#FFE5F2FF #FF2391FF #FF2391FF #FF0B2E52" />
+      <ColorOption id="79" displayName="curated_palette_32" colors="#FFC6E3FF #FF8BC6FF #FF3A9CFF #FF2C3F52" />
+      <ColorOption id="77" displayName="curated_palette_30" colors="#FFE2EDFF #FFA3C6FF #FF5E9BFF #FF343F52" />
+      <ColorOption id="80" displayName="curated_palette_33" colors="#FFD8E6FF #FF9EC2FF #FF619BFF #FF333E52" />
+      <ColorOption id="78" displayName="curated_palette_31" colors="#FFD6E5FF #FF88B4FF #FF639CFF #FF2C3A52" />
+      <ColorOption id="17" displayName="curated_palette_34" colors="#FFCFDBFF #FFA5BAFF #FF687EFF #FF353C52" />
+      <ColorOption id="15" displayName="curated_palette_35" colors="#FFD6DAFF #FF959DFD #FF5D68FF #FF303251" />
+      <ColorOption id="81" displayName="curated_palette_36" colors="#FFD8C8FF #FFB99AFF #FF8E58FF #FF3B3152" />
+      <ColorOption id="14" displayName="curated_palette_38" colors="#FFEECBFF #FFE2A5FF #FFCC62FF #FF483552" />
+      <ColorOption id="11" displayName="curated_palette_39" colors="#FFFDE0FF #FFF8A6FF #FFF25FFF #FF4F3552" />
+      <ColorOption id="13" displayName="curated_palette_40" colors="#FFFFD9F3 #FFFFB3E6 #FFFF66CE #FF52394A" />
       <ColorOption id="999" displayName="curated_palette_999" colors="#FFFFFFFF #FFFFFFFF #FFFFFFFF #FF525252" />
-      <ColorOption id="48" displayName="curated_palette_0" colors="#FFE9E9E9 #FFD0D0D0 #FFB8B8B8 #FF434343" />
-      <ColorOption id="548" displayName="curated_palette_200" colors="#FFB8B8B8 #FFD0D0D0 #FFE9E9E9 #FF434343" />
-      <ColorOption id="100" displayName="curated_palette_77" colors="#FFDAD5D0 #FFB7ADA4 #FF93877C #FF3B3734" />
-      <ColorOption id="600" displayName="curated_palette_277" colors="#FF93877C #FFB7ADA4 #FFDAD5D0 #FF3B3734" />
-      <ColorOption id="92" displayName="curated_palette_54" colors="#FFD1D3D8 #FFA2A6AF #FF777D89 #FF343538" />
-      <ColorOption id="592" displayName="curated_palette_254" colors="#FF777D89 #FFA2A6AF #FFD1D3D8 #FF343538" />
-      <ColorOption id="106" displayName="curated_palette_83" colors="#FFC4F2FF #FF66BFF1 #FFFF725E #FF213D4D" />
-      <ColorOption id="606" displayName="curated_palette_283" colors="#FFFF725E #FF66BFF1 #FFC4F2FF #FF213D4D" />
-      <ColorOption id="109" displayName="curated_palette_86" colors="#FFBBDFFF #FF728CFF #FFFF5A36 #FF242D52" />
-      <ColorOption id="609" displayName="curated_palette_286" colors="#FFFF5A36 #FF728CFF #FFBBDFFF #FF242D52" />
-      <ColorOption id="105" displayName="curated_palette_82" colors="#FFE8CEFF #FFB877F5 #FFFFD34F #FF3B264E" />
-      <ColorOption id="605" displayName="curated_palette_282" colors="#FFFFD34F #FFB877F5 #FFE8CEFF #FF3B264E" />
-      <ColorOption id="111" displayName="curated_palette_88" colors="#FFFFC5DC #FFF34D6B #FF25B7D3 #FF4E1922" />
-      <ColorOption id="611" displayName="curated_palette_288" colors="#FF25B7D3 #FFF34D6B #FFFFC5DC #FF4E1922" />
-      <ColorOption id="104" displayName="curated_palette_81" colors="#FFC9FFE4 #FF73E6C1 #FF2586FF #FF254A3E" />
-      <ColorOption id="604" displayName="curated_palette_281" colors="#FF2586FF #FF73E6C1 #FFC9FFE4 #FF254A3E" />
-      <ColorOption id="110" displayName="curated_palette_87" colors="#FFF0FFB5 #FFA6F04D #FF8E4DFF #FF354D19" />
-      <ColorOption id="610" displayName="curated_palette_287" colors="#FF8E4DFF #FFA6F04D #FFF0FFB5 #FF354D19" />
-      <ColorOption id="102" displayName="curated_palette_79" colors="#FFC1F4FF #FF6BE0C2 #FFA55CFF #FF22483E" />
-      <ColorOption id="602" displayName="curated_palette_279" colors="#FFA55CFF #FF6BE0C2 #FFC1F4FF #FF22483E" />
-      <ColorOption id="107" displayName="curated_palette_84" colors="#FFFFE5B0 #FFFF8C42 #FFB942FF #FF522D15" />
-      <ColorOption id="607" displayName="curated_palette_284" colors="#FFB942FF #FFFF8C42 #FFFFE5B0 #FF522D15" />
-      <ColorOption id="103" displayName="curated_palette_80" colors="#FFFFD0C1 #FFFF9470 #FFF33A9B #FF522F24" />
-      <ColorOption id="603" displayName="curated_palette_280" colors="#FFF33A9B #FFFF9470 #FFFFD0C1 #FF522F24" />
-      <ColorOption id="108" displayName="curated_palette_85" colors="#FFC9FFEC #FF36D9CE #FFFF4F9A #FF114542" />
-      <ColorOption id="608" displayName="curated_palette_285" colors="#FFFF4F9A #FF36D9CE #FFC9FFEC #FF114542" />
+      <ColorOption id="89" displayName="curated_palette_49" colors="#FFFEF6E1 #FFFEF6E1 #FFFEF6E1 #FF514F48" />
+      <ColorOption id="50" displayName="curated_palette_2" colors="#FFFFF7E4 #FFFFF7E4 #FFFCF7EB #FF524F49" />
+      <ColorOption id="92" displayName="curated_palette_54" colors="#FFF2F6FF #FFA0A3AB #FFDFE3EF #FF333437" />
+      <ColorOption id="49" displayName="curated_palette_1" colors="#FFFFFFFF #FFE4E4E4 #FFEAEAEA #FF494949" />
+      <ColorOption id="68" displayName="curated_palette_20" colors="#FFE2F0E6 #FFDFDFDF #FFBFDCC4 #FF474747" />
+      <ColorOption id="48" displayName="curated_palette_0" colors="#FFE3E3E3 #FFBCBCBC #FFDADADA #FF3C3C3C" />
+      <ColorOption id="107" displayName="curated_palette_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F #FF3E3B38" />
+      <ColorOption id="42" displayName="curated_palette_65" colors="#FFDAEBFF #FFFF6F6F #FFFF2A2A #FF522424" />
+      <ColorOption id="94" displayName="curated_palette_56" colors="#FFFF4D4D #FFFEFEFE #FFFEFEFE #FF515151" />
+      <ColorOption id="95" displayName="curated_palette_57" colors="#FFD2D2D2 #FFF5F5F5 #FFFF5B58 #FF4E4E4E" />
+      <ColorOption id="93" displayName="curated_palette_55" colors="#FFDFFFF3 #FFA9FFDF #FFFF8A00 #FF365247" />
+      <ColorOption id="38" displayName="curated_palette_69" colors="#FFD9D9D9 #FF94BFFF #FFACFF38 #FF2F3D52" />
+      <ColorOption id="41" displayName="curated_palette_66" colors="#FFDAF9FF #FF84FFE2 #FF58FF32 #FF2A5248" />
+      <ColorOption id="39" displayName="curated_palette_68" colors="#FFD2FFDF #FF00FF88 #FF3881FF #FF00522C" />
+      <ColorOption id="103" displayName="curated_palette_63" colors="#FFE1EAFF #FFF7EA49 #FF2F69FF #FF4F4B17" />
+      <ColorOption id="43" displayName="curated_palette_64" colors="#FFD8F7FF #FFBAD1FF #FF5836FF #FF3C4352" />
+      <ColorOption id="104" displayName="curated_palette_67" colors="#FFEBEBEB #FFB0FF54 #FF8356FF #FF38521B" />
+      <ColorOption id="45" displayName="curated_palette_62" colors="#FFB5FBFF #FFE2FDFF #FFFF6DC9 #FF485152" />
     </ColorConfiguration>
     <ColorConfiguration id="materialSubTheme" displayName="material_subtheme_label" defaultValue="61">
-      <ColorOption id="51" displayName="curated_palette_3" colors="#FFFFB7BA #FFFF6C72 #FFFF2335" />
-      <ColorOption id="551" displayName="curated_palette_203" colors="#FFFF2335 #FFFF6C72 #FFFFB7BA" />
-      <ColorOption id="37" displayName="curated_palette_70" colors="#FFFFDBBD #FFFBB576 #FFF88F33" />
-      <ColorOption id="537" displayName="curated_palette_270" colors="#FFF88F33 #FFFBB576 #FFFFDBBD" />
-      <ColorOption id="88" displayName="curated_palette_48" colors="#FFFFF5B1 #FFFFE45C #FFFFD20D" />
-      <ColorOption id="588" displayName="curated_palette_248" colors="#FFFFD20D #FFFFE45C #FFFFF5B1" />
+      <ColorOption id="99" displayName="curated_palette_74" colors="#FFF2F2F2 #FFFF0F0F #FFFF0F0F" />
+      <ColorOption id="51" displayName="curated_palette_3" colors="#FFFFEAEA #FFFF9391 #FFFF4642" />
+      <ColorOption id="52" displayName="curated_palette_4" colors="#FFFFF3F2 #FFFFA49F #FFFF665D" />
+      <ColorOption id="12" displayName="curated_palette_41" colors="#FFFFDFDC #FFFFB1AC #FFFF776D" />
+      <ColorOption id="82" displayName="curated_palette_42" colors="#FFFFE8E5 #FFFFA294 #FFFF5B43" />
+      <ColorOption id="84" displayName="curated_palette_44" colors="#FFFFD1C4 #FFFF997A #FFFF693B" />
+      <ColorOption id="37" displayName="curated_palette_70" colors="#FFFFCCB1 #FFFF935C #FFFF5F0D" />
+      <ColorOption id="10" displayName="curated_palette_5" colors="#FFFFE8DA #FFFFC6A3 #FFFF975D" />
+      <ColorOption id="83" displayName="curated_palette_43" colors="#FFFFF5EF #FFFDB78F #FFFF985E" />
+      <ColorOption id="105" displayName="curated_palette_75" colors="#FFD9CBC5 #FFD7BBAB #FFCCA792" />
+      <ColorOption id="98" displayName="curated_palette_73" colors="#FFF2F2F2 #FFFF8316 #FFFF8316" />
+      <ColorOption id="91" displayName="curated_palette_51" colors="#FFFFF4EA #FFFAE7D6 #FFFFDAB8" />
+      <ColorOption id="106" displayName="curated_palette_76" colors="#FFE0D9D4 #FFC8B5A3 #FFB49E88" />
+      <ColorOption id="85" displayName="curated_palette_45" colors="#FFF4EBE0 #FFD8AB77 #FFF0A752" />
+      <ColorOption id="86" displayName="curated_palette_46" colors="#FFFFF1DB #FFF8C67C #FFFFB74A" />
+      <ColorOption id="87" displayName="curated_palette_47" colors="#FFFFF4DD #FFFFD88A #FFFFC551" />
+      <ColorOption id="9" displayName="curated_palette_52" colors="#FFFFF0D2 #FFFFD889 #FFFFCC63" />
+      <ColorOption id="53" displayName="curated_palette_6" colors="#FFFFF6E1 #FFFFE9B9 #FFFFCE63" />
+      <ColorOption id="90" displayName="curated_palette_50" colors="#FFFFF9E1 #FFC4B575 #FFF1D870" />
+      <ColorOption id="108" displayName="curated_palette_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91" />
+      <ColorOption id="88" displayName="curated_palette_48" colors="#FFFFFEE0 #FFFFFA86 #FFFFF630" />
+      <ColorOption id="54" displayName="curated_palette_7" colors="#FFFEFFE9 #FFFCFFB6 #FFF9FF52" />
+      <ColorOption id="46" displayName="curated_palette_61" colors="#FFEFF0E4 #FFDFDFDF #FFE8F0B3" />
+      <ColorOption id="97" displayName="curated_palette_59" colors="#FFDCDCD5 #FFC6CCA3 #FFAFBA69" />
+      <ColorOption id="55" displayName="curated_palette_8" colors="#FFFAFFE4 #FFEAFF8E #FFDEFF4C" />
+      <ColorOption id="47" displayName="curated_palette_60" colors="#FFEFF0E4 #FFEEFF80 #FFCEFF1C" />
       <ColorOption id="61" displayName="curated_palette_14" colors="#FFD4DAB6 #FFA4AF73 #FF758544" />
-      <ColorOption id="561" displayName="curated_palette_214" colors="#FF758544 #FFA4AF73 #FFD4DAB6" />
-      <ColorOption id="79" displayName="curated_palette_32" colors="#FFBBD9FF #FF65A8FF #FF1675F5" />
-      <ColorOption id="579" displayName="curated_palette_232" colors="#FF1675F5 #FF65A8FF #FFBBD9FF" />
-      <ColorOption id="81" displayName="curated_palette_36" colors="#FFDCC0FF #FFB16CFF #FF8529F5" />
-      <ColorOption id="581" displayName="curated_palette_236" colors="#FF8529F5 #FFB16CFF #FFDCC0FF" />
-      <ColorOption id="13" displayName="curated_palette_40" colors="#FFFFBFE5 #FFFF73C0 #FFF52C99" />
-      <ColorOption id="513" displayName="curated_palette_240" colors="#FFF52C99 #FFFF73C0 #FFFFBFE5" />
-      <ColorOption id="101" displayName="curated_palette_75" colors="#FFEBD2BC #FFC99A74 #FFA56C40" />
-      <ColorOption id="601" displayName="curated_palette_275" colors="#FFA56C40 #FFC99A74 #FFEBD2BC" />
-      <ColorOption id="49" displayName="curated_palette_1" colors="#FFFFFFFF #FFF2F2F2 #FFE6E6E6" />
-      <ColorOption id="549" displayName="curated_palette_201" colors="#FFE6E6E6 #FFF2F2F2 #FFFFFFFF" />
+      <ColorOption id="58" displayName="curated_palette_11" colors="#FFF0FFCD #FFDEFF91 #FFC7FF45" />
+      <ColorOption id="56" displayName="curated_palette_9" colors="#FFF4FFDF #FFEBFFC3 #FFCEFF6C" />
+      <ColorOption id="57" displayName="curated_palette_10" colors="#FFEBFFD2 #FFD3FF9B #FFB0FF4D" />
+      <ColorOption id="59" displayName="curated_palette_12" colors="#FFEDFFD5 #FFD6FF9E #FFAEFF4A" />
+      <ColorOption id="65" displayName="curated_palette_72" colors="#FFCDDECD #FFC3E9C3 #FFB7F297" />
+      <ColorOption id="102" displayName="curated_palette_71" colors="#FFD3E2D3 #FFBFD9BF #FFACC89E" />
+      <ColorOption id="60" displayName="curated_palette_13" colors="#FFE5FFE0 #FFADFF9A #FF70FF3D" />
+      <ColorOption id="100" displayName="curated_palette_79" colors="#FFE3FFE0 #FFA9FF9A #FF4EFF58" />
+      <ColorOption id="64" displayName="curated_palette_17" colors="#FFE0FFE4 #FF9FF7AD #FF52FF6D" />
+      <ColorOption id="101" displayName="curated_palette_15" colors="#FFE8FFF2 #FFBEFFD9 #FF57FF9D" />
+      <ColorOption id="63" displayName="curated_palette_16" colors="#FFD1FFE6 #FF65DF9D #FF41FF99" />
+      <ColorOption id="70" displayName="curated_palette_22" colors="#FFB4CCC2 #FF8BB6A5 #FFF5FFFB" />
+      <ColorOption id="66" displayName="curated_palette_18" colors="#FFE5FFF5 #FFABFFDF #FF5EFFC0" />
+      <ColorOption id="67" displayName="curated_palette_19" colors="#FFDEF4EC #FFBEECDB #FFAAF6D9" />
+      <ColorOption id="71" displayName="curated_palette_23" colors="#FFCDE1DA #FF76B89F #FF8EAFA3" />
+      <ColorOption id="69" displayName="curated_palette_21" colors="#FFE1ECE9 #FFCCE4DF #FFBBF6E6" />
+      <ColorOption id="73" displayName="curated_palette_24" colors="#FFEEFFFD #FFE5FFFB #FFD6FFF9" />
+      <ColorOption id="16" displayName="curated_palette_26" colors="#FFD5FAFF #FFA8F4FF #FF5EEBFF" />
+      <ColorOption id="74" displayName="curated_palette_25" colors="#FFDAFFFF #FFBEF6FF #FF93F0FF" />
+      <ColorOption id="75" displayName="curated_palette_27" colors="#FFCCEFFF #FF99E0FF #FF5ACDFF" />
+      <ColorOption id="76" displayName="curated_palette_29" colors="#FFE6F5FF #FFA8DDFF #FF5EC1FF" />
+      <ColorOption id="96" displayName="curated_palette_58" colors="#FFE5F2FF #FF2391FF #FF2391FF" />
+      <ColorOption id="79" displayName="curated_palette_32" colors="#FFC6E3FF #FF8BC6FF #FF3A9CFF" />
+      <ColorOption id="77" displayName="curated_palette_30" colors="#FFE2EDFF #FFA3C6FF #FF5E9BFF" />
+      <ColorOption id="80" displayName="curated_palette_33" colors="#FFD8E6FF #FF9EC2FF #FF619BFF" />
+      <ColorOption id="78" displayName="curated_palette_31" colors="#FFD6E5FF #FF88B4FF #FF639CFF" />
+      <ColorOption id="17" displayName="curated_palette_34" colors="#FFCFDBFF #FFA5BAFF #FF687EFF" />
+      <ColorOption id="15" displayName="curated_palette_35" colors="#FFD6DAFF #FF959DFD #FF5D68FF" />
+      <ColorOption id="81" displayName="curated_palette_36" colors="#FFD8C8FF #FFB99AFF #FF8E58FF" />
+      <ColorOption id="14" displayName="curated_palette_38" colors="#FFEECBFF #FFE2A5FF #FFCC62FF" />
+      <ColorOption id="11" displayName="curated_palette_39" colors="#FFFDE0FF #FFF8A6FF #FFF25FFF" />
+      <ColorOption id="13" displayName="curated_palette_40" colors="#FFFFD9F3 #FFFFB3E6 #FFFF66CE" />
       <ColorOption id="999" displayName="curated_palette_999" colors="#FFFFFFFF #FFFFFFFF #FFFFFFFF" />
-      <ColorOption id="48" displayName="curated_palette_0" colors="#FFE9E9E9 #FFD0D0D0 #FFB8B8B8" />
-      <ColorOption id="548" displayName="curated_palette_200" colors="#FFB8B8B8 #FFD0D0D0 #FFE9E9E9" />
-      <ColorOption id="100" displayName="curated_palette_77" colors="#FFDAD5D0 #FFB7ADA4 #FF93877C" />
-      <ColorOption id="600" displayName="curated_palette_277" colors="#FF93877C #FFB7ADA4 #FFDAD5D0" />
-      <ColorOption id="92" displayName="curated_palette_54" colors="#FFD1D3D8 #FFA2A6AF #FF777D89" />
-      <ColorOption id="592" displayName="curated_palette_254" colors="#FF777D89 #FFA2A6AF #FFD1D3D8" />
-      <ColorOption id="106" displayName="curated_palette_83" colors="#FFC4F2FF #FF66BFF1 #FFFF725E" />
-      <ColorOption id="606" displayName="curated_palette_283" colors="#FFFF725E #FF66BFF1 #FFC4F2FF" />
-      <ColorOption id="109" displayName="curated_palette_86" colors="#FFBBDFFF #FF728CFF #FFFF5A36" />
-      <ColorOption id="609" displayName="curated_palette_286" colors="#FFFF5A36 #FF728CFF #FFBBDFFF" />
-      <ColorOption id="105" displayName="curated_palette_82" colors="#FFE8CEFF #FFB877F5 #FFFFD34F" />
-      <ColorOption id="605" displayName="curated_palette_282" colors="#FFFFD34F #FFB877F5 #FFE8CEFF" />
-      <ColorOption id="111" displayName="curated_palette_88" colors="#FFFFC5DC #FFF34D6B #FF25B7D3" />
-      <ColorOption id="611" displayName="curated_palette_288" colors="#FF25B7D3 #FFF34D6B #FFFFC5DC" />
-      <ColorOption id="104" displayName="curated_palette_81" colors="#FFC9FFE4 #FF73E6C1 #FF2586FF" />
-      <ColorOption id="604" displayName="curated_palette_281" colors="#FF2586FF #FF73E6C1 #FFC9FFE4" />
-      <ColorOption id="110" displayName="curated_palette_87" colors="#FFF0FFB5 #FFA6F04D #FF8E4DFF" />
-      <ColorOption id="610" displayName="curated_palette_287" colors="#FF8E4DFF #FFA6F04D #FFF0FFB5" />
-      <ColorOption id="102" displayName="curated_palette_79" colors="#FFC1F4FF #FF6BE0C2 #FFA55CFF" />
-      <ColorOption id="602" displayName="curated_palette_279" colors="#FFA55CFF #FF6BE0C2 #FFC1F4FF" />
-      <ColorOption id="107" displayName="curated_palette_84" colors="#FFFFE5B0 #FFFF8C42 #FFB942FF" />
-      <ColorOption id="607" displayName="curated_palette_284" colors="#FFB942FF #FFFF8C42 #FFFFE5B0" />
-      <ColorOption id="103" displayName="curated_palette_80" colors="#FFFFD0C1 #FFFF9470 #FFF33A9B" />
-      <ColorOption id="603" displayName="curated_palette_280" colors="#FFF33A9B #FFFF9470 #FFFFD0C1" />
-      <ColorOption id="108" displayName="curated_palette_85" colors="#FFC9FFEC #FF36D9CE #FFFF4F9A" />
-      <ColorOption id="608" displayName="curated_palette_285" colors="#FFFF4F9A #FF36D9CE #FFC9FFEC" />
+      <ColorOption id="89" displayName="curated_palette_49" colors="#FFFEF6E1 #FFFEF6E1 #FFFEF6E1" />
+      <ColorOption id="50" displayName="curated_palette_2" colors="#FFFFF7E4 #FFFFF7E4 #FFFCF7EB" />
+      <ColorOption id="92" displayName="curated_palette_54" colors="#FFF2F6FF #FFA0A3AB #FFDFE3EF" />
+      <ColorOption id="49" displayName="curated_palette_1" colors="#FFFFFFFF #FFE4E4E4 #FFEAEAEA" />
+      <ColorOption id="68" displayName="curated_palette_20" colors="#FFE2F0E6 #FFDFDFDF #FFBFDCC4" />
+      <ColorOption id="48" displayName="curated_palette_0" colors="#FFE3E3E3 #FFBCBCBC #FFDADADA" />
+      <ColorOption id="107" displayName="curated_palette_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F" />
+      <ColorOption id="42" displayName="curated_palette_65" colors="#FFDAEBFF #FFFF6F6F #FFFF2A2A" />
+      <ColorOption id="94" displayName="curated_palette_56" colors="#FFFF4D4D #FFFEFEFE #FFFEFEFE" />
+      <ColorOption id="95" displayName="curated_palette_57" colors="#FFD2D2D2 #FFF5F5F5 #FFFF5B58" />
+      <ColorOption id="93" displayName="curated_palette_55" colors="#FFDFFFF3 #FFA9FFDF #FFFF8A00" />
+      <ColorOption id="38" displayName="curated_palette_69" colors="#FFD9D9D9 #FF94BFFF #FFACFF38" />
+      <ColorOption id="41" displayName="curated_palette_66" colors="#FFDAF9FF #FF84FFE2 #FF58FF32" />
+      <ColorOption id="39" displayName="curated_palette_68" colors="#FFD2FFDF #FF00FF88 #FF3881FF" />
+      <ColorOption id="103" displayName="curated_palette_63" colors="#FFE1EAFF #FFF7EA49 #FF2F69FF" />
+      <ColorOption id="43" displayName="curated_palette_64" colors="#FFD8F7FF #FFBAD1FF #FF5836FF" />
+      <ColorOption id="104" displayName="curated_palette_67" colors="#FFEBEBEB #FFB0FF54 #FF8356FF" />
+      <ColorOption id="45" displayName="curated_palette_62" colors="#FFB5FBFF #FFE2FDFF #FFFF6DC9" />
     </ColorConfiguration>
     <ListConfiguration id="backgroundPattern" displayName="background_pattern" defaultValue="0">
       <ListOption id="0" displayName="pattern_none" />
@@ -133,7 +199,7 @@
         <Configuration id="indexStyle" optionId="0" />
         <Configuration id="handStyle" optionId="1" />
         <Configuration id="secondStyle" optionId="1" />
-        <Configuration id="materialAccent" optionId="537" />
+        <Configuration id="materialAccent" optionId="37" />
         <Configuration id="materialSubTheme" optionId="61" />
         <Configuration id="backgroundPattern" optionId="0" />
         <Configuration id="progressBars" optionId="5" />
@@ -164,8 +230,8 @@
         <Configuration id="indexStyle" optionId="0" />
         <Configuration id="handStyle" optionId="1" />
         <Configuration id="secondStyle" optionId="1" />
-        <Configuration id="materialAccent" optionId="537" />
-        <Configuration id="materialSubTheme" optionId="537" />
+        <Configuration id="materialAccent" optionId="37" />
+        <Configuration id="materialSubTheme" optionId="37" />
         <Configuration id="backgroundPattern" optionId="0" />
         <Configuration id="progressBars" optionId="5" />
         <Configuration id="glucoseColor" optionId="FALSE" />
@@ -195,8 +261,8 @@
         <Configuration id="indexStyle" optionId="0" />
         <Configuration id="handStyle" optionId="1" />
         <Configuration id="secondStyle" optionId="1" />
-        <Configuration id="materialAccent" optionId="561" />
-        <Configuration id="materialSubTheme" optionId="561" />
+        <Configuration id="materialAccent" optionId="61" />
+        <Configuration id="materialSubTheme" optionId="61" />
         <Configuration id="backgroundPattern" optionId="0" />
         <Configuration id="progressBars" optionId="4" />
         <Configuration id="glucoseColor" optionId="FALSE" />
@@ -257,8 +323,8 @@
         <Configuration id="indexStyle" optionId="0" />
         <Configuration id="handStyle" optionId="1" />
         <Configuration id="secondStyle" optionId="1" />
-        <Configuration id="materialAccent" optionId="102" />
-        <Configuration id="materialSubTheme" optionId="102" />
+        <Configuration id="materialAccent" optionId="43" />
+        <Configuration id="materialSubTheme" optionId="43" />
         <Configuration id="backgroundPattern" optionId="0" />
         <Configuration id="progressBars" optionId="3" />
         <Configuration id="glucoseColor" optionId="FALSE" />
@@ -288,8 +354,8 @@
         <Configuration id="indexStyle" optionId="0" />
         <Configuration id="handStyle" optionId="1" />
         <Configuration id="secondStyle" optionId="1" />
-        <Configuration id="materialAccent" optionId="107" />
-        <Configuration id="materialSubTheme" optionId="107" />
+        <Configuration id="materialAccent" optionId="42" />
+        <Configuration id="materialSubTheme" optionId="42" />
         <Configuration id="backgroundPattern" optionId="0" />
         <Configuration id="progressBars" optionId="7" />
         <Configuration id="glucoseColor" optionId="FALSE" />
@@ -1185,9 +1251,9 @@
           </PartDraw>
           <PartDraw name="tick-6-base" x="0" y="0" width="512" height="512">
             <Transform target="alpha" value="(([CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) || 6 &lt;= (floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10))) ? ((([CONFIGURATION.progressBars] == &quot;3&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;)) ? 255 : 0) : 0" />
-            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018501">
+            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018498">
               <Transform target="startX" value="256.179 + ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.7273736415730487" />
-              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687335" />
+              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687336" />
               <Stroke color="[CONFIGURATION.materialAccent.2]" thickness="5.12001" cap="ROUND">
                 <Transform target="thickness" value="(floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 6.144012 : 5.12001" />
               </Stroke>
@@ -1195,9 +1261,9 @@
           </PartDraw>
           <PartDraw name="tick-6-light" x="0" y="0" width="512" height="512">
             <Transform target="alpha" value="(([CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) || 6 &lt;= (floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10))) ? ((([CONFIGURATION.progressBars] == &quot;3&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;)) ? 85.0000 : 0) : 0" />
-            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018501">
+            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018498">
               <Transform target="startX" value="256.179 + ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.7273736415730487" />
-              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687335" />
+              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687336" />
               <Stroke color="[CONFIGURATION.materialAccent.0]" thickness="5.12001" cap="ROUND">
                 <Transform target="thickness" value="(floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 6.144012 : 5.12001" />
               </Stroke>
@@ -1205,9 +1271,9 @@
           </PartDraw>
           <PartDraw name="tick-6-solid" x="0" y="0" width="512" height="512">
             <Transform target="alpha" value="(([CONFIGURATION.progressBars] == &quot;6&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;) || 6 &lt;= (floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10))) ? ((([CONFIGURATION.progressBars] == &quot;3&quot; || [CONFIGURATION.progressBars] == &quot;7&quot;)) ? 0 : 255) : 0" />
-            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018501">
+            <Line startX="392.31748756951674" startY="126.54096128119932" endX="404.7313552981515" endY="114.82908112018498">
               <Transform target="startX" value="256.179 + ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.7273736415730487" />
-              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687335" />
+              <Transform target="startY" value="254.981 - ((floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 176.92443 : 187.16445) * 0.6862416378687336" />
               <Stroke color="[CONFIGURATION.materialAccent.1]" thickness="5.12001" cap="ROUND">
                 <Transform target="thickness" value="(floor(clamp(([COMPLICATION.RANGED_VALUE_MAX] &lt;= [COMPLICATION.RANGED_VALUE_MIN] ? 0 : clamp(([COMPLICATION.RANGED_VALUE_VALUE] - [COMPLICATION.RANGED_VALUE_MIN]) / ([COMPLICATION.RANGED_VALUE_MAX] - [COMPLICATION.RANGED_VALUE_MIN]), 0, 1)), 0, 0.99) * 10)) == 6 ? 6.144012 : 5.12001" />
               </Stroke>
@@ -1488,6 +1554,20 @@
       <Complication type="SHORT_TEXT">
         <PartImage x="58" y="308" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.2]">
           <Image resource="[COMPLICATION.MONOCHROMATIC_IMAGE]" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
+          <Transform target="x" value="57.5000" />
+          <Transform target="y" value="307.5000" />
           <Transform target="x" value="57.5000" />
           <Transform target="y" value="307.5000" />
           <Transform target="x" value="57.5000" />

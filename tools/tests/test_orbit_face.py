@@ -353,9 +353,9 @@ class OrbitFaceTest(unittest.TestCase):
         for slot in slots:
             self.assertEqual(slot.find("Complication[@type='EMPTY']").tag, "Complication")
         self.assertIn("LONG_TEXT", xml.find("Scene/ComplicationSlot[@slotId='8']").get("supportedTypes"))
-        self.assertEqual(len(config.find("ColorConfiguration[@id='primary']")), 45)
-        self.assertEqual(len(config.find("ColorConfiguration[@id='secondary']")), 45)
-        self.assertEqual(len(config.find("ColorConfiguration[@id='tertiary']")), 45)
+        self.assertEqual(len(config.find("ColorConfiguration[@id='primary']")), 78)
+        self.assertEqual(len(config.find("ColorConfiguration[@id='secondary']")), 78)
+        self.assertEqual(len(config.find("ColorConfiguration[@id='tertiary']")), 78)
         self.assertEqual(len(xml.findall("Scene/ComplicationSlot/BoundingArc")), 5)
         outer_row = xml.find("Scene/ComplicationSlot[@slotId='4']/BoundingArc")
         inner_row = xml.find("Scene/ComplicationSlot[@slotId='5']/BoundingArc")

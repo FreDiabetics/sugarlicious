@@ -77,9 +77,9 @@ class NativeWatchSlotsTest {
                 .single { it.id == 0 }
                 .templates
                 .getValue("RANGED_VALUE")
-        assertEquals(0xFFF88F33.toInt(), apex.iconColor)
-        assertEquals(0x37FBB576, apex.trackColor)
-        assertEquals(0xFFFFDBBD.toInt(), apex.fillColor)
+        assertEquals(0xFFFFCCB1.toInt(), apex.iconColor)
+        assertEquals(0x37FF935C, apex.trackColor)
+        assertEquals(0xFFFF5F0D.toInt(), apex.fillColor)
         assertEquals(0xFFD4DAB6.toInt(), orbit.iconColor)
         assertEquals(0x3CA4AF73, orbit.trackColor)
         assertEquals(0xFF758544.toInt(), orbit.fillColor)
@@ -143,7 +143,7 @@ class NativeWatchSlotsTest {
                 .single { it.id == 4 }
                 .templates
                 .getValue("SHORT_TEXT")
-        assertEquals(0xFFF88F33.toInt(), apex.texts.single { it.expression.contains("TEXT") }.color)
+        assertEquals(0xFFFFCCB1.toInt(), apex.texts.single { it.expression.contains("TEXT") }.color)
         assertEquals(0xFFA4AF73.toInt(), apex.texts.single { it.expression.contains("TITLE") }.color)
         val orbit =
             source("sugarlicious-orbit")

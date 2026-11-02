@@ -18,146 +18,245 @@
       <ListOption id="2" displayName="secondSweep_2" />
       <ListOption id="3" displayName="secondSweep_3" />
     </ListConfiguration>
-    <ColorConfiguration id="primary" displayName="primary" defaultValue="270">
-      <ColorOption id="3" displayName="primary_3" colors="#FFFFB7BA #FFFF6C72 #FFFF2335" />
-      <ColorOption id="203" displayName="primary_203" colors="#FFFF2335 #FFFF6C72 #FFFFB7BA" />
-      <ColorOption id="70" displayName="primary_70" colors="#FFFFDBBD #FFFBB576 #FFF88F33" />
-      <ColorOption id="270" displayName="primary_270" colors="#FFF88F33 #FFFBB576 #FFFFDBBD" />
-      <ColorOption id="48" displayName="primary_48" colors="#FFFFF5B1 #FFFFE45C #FFFFD20D" />
-      <ColorOption id="248" displayName="primary_248" colors="#FFFFD20D #FFFFE45C #FFFFF5B1" />
+    <ColorConfiguration id="primary" displayName="primary" defaultValue="70">
+      <ColorOption id="74" displayName="primary_74" colors="#FFF2F2F2 #FFFF0F0F #FFFF0F0F" />
+      <ColorOption id="3" displayName="primary_3" colors="#FFFFEAEA #FFFF9391 #FFFF4642" />
+      <ColorOption id="4" displayName="primary_4" colors="#FFFFF3F2 #FFFFA49F #FFFF665D" />
+      <ColorOption id="41" displayName="primary_41" colors="#FFFFDFDC #FFFFB1AC #FFFF776D" />
+      <ColorOption id="42" displayName="primary_42" colors="#FFFFE8E5 #FFFFA294 #FFFF5B43" />
+      <ColorOption id="44" displayName="primary_44" colors="#FFFFD1C4 #FFFF997A #FFFF693B" />
+      <ColorOption id="70" displayName="primary_70" colors="#FFFFCCB1 #FFFF935C #FFFF5F0D" />
+      <ColorOption id="5" displayName="primary_5" colors="#FFFFE8DA #FFFFC6A3 #FFFF975D" />
+      <ColorOption id="43" displayName="primary_43" colors="#FFFFF5EF #FFFDB78F #FFFF985E" />
+      <ColorOption id="75" displayName="primary_75" colors="#FFD9CBC5 #FFD7BBAB #FFCCA792" />
+      <ColorOption id="73" displayName="primary_73" colors="#FFF2F2F2 #FFFF8316 #FFFF8316" />
+      <ColorOption id="51" displayName="primary_51" colors="#FFFFF4EA #FFFAE7D6 #FFFFDAB8" />
+      <ColorOption id="76" displayName="primary_76" colors="#FFE0D9D4 #FFC8B5A3 #FFB49E88" />
+      <ColorOption id="45" displayName="primary_45" colors="#FFF4EBE0 #FFD8AB77 #FFF0A752" />
+      <ColorOption id="46" displayName="primary_46" colors="#FFFFF1DB #FFF8C67C #FFFFB74A" />
+      <ColorOption id="47" displayName="primary_47" colors="#FFFFF4DD #FFFFD88A #FFFFC551" />
+      <ColorOption id="52" displayName="primary_52" colors="#FFFFF0D2 #FFFFD889 #FFFFCC63" />
+      <ColorOption id="6" displayName="primary_6" colors="#FFFFF6E1 #FFFFE9B9 #FFFFCE63" />
+      <ColorOption id="50" displayName="primary_50" colors="#FFFFF9E1 #FFC4B575 #FFF1D870" />
+      <ColorOption id="78" displayName="primary_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91" />
+      <ColorOption id="48" displayName="primary_48" colors="#FFFFFEE0 #FFFFFA86 #FFFFF630" />
+      <ColorOption id="7" displayName="primary_7" colors="#FFFEFFE9 #FFFCFFB6 #FFF9FF52" />
+      <ColorOption id="61" displayName="primary_61" colors="#FFEFF0E4 #FFDFDFDF #FFE8F0B3" />
+      <ColorOption id="59" displayName="primary_59" colors="#FFDCDCD5 #FFC6CCA3 #FFAFBA69" />
+      <ColorOption id="8" displayName="primary_8" colors="#FFFAFFE4 #FFEAFF8E #FFDEFF4C" />
+      <ColorOption id="60" displayName="primary_60" colors="#FFEFF0E4 #FFEEFF80 #FFCEFF1C" />
       <ColorOption id="14" displayName="primary_14" colors="#FFD4DAB6 #FFA4AF73 #FF758544" />
-      <ColorOption id="214" displayName="primary_214" colors="#FF758544 #FFA4AF73 #FFD4DAB6" />
-      <ColorOption id="32" displayName="primary_32" colors="#FFBBD9FF #FF65A8FF #FF1675F5" />
-      <ColorOption id="232" displayName="primary_232" colors="#FF1675F5 #FF65A8FF #FFBBD9FF" />
-      <ColorOption id="36" displayName="primary_36" colors="#FFDCC0FF #FFB16CFF #FF8529F5" />
-      <ColorOption id="236" displayName="primary_236" colors="#FF8529F5 #FFB16CFF #FFDCC0FF" />
-      <ColorOption id="40" displayName="primary_40" colors="#FFFFBFE5 #FFFF73C0 #FFF52C99" />
-      <ColorOption id="240" displayName="primary_240" colors="#FFF52C99 #FFFF73C0 #FFFFBFE5" />
-      <ColorOption id="75" displayName="primary_75" colors="#FFEBD2BC #FFC99A74 #FFA56C40" />
-      <ColorOption id="275" displayName="primary_275" colors="#FFA56C40 #FFC99A74 #FFEBD2BC" />
-      <ColorOption id="1" displayName="primary_1" colors="#FFFFFFFF #FFF2F2F2 #FFE6E6E6" />
-      <ColorOption id="201" displayName="primary_201" colors="#FFE6E6E6 #FFF2F2F2 #FFFFFFFF" />
+      <ColorOption id="11" displayName="primary_11" colors="#FFF0FFCD #FFDEFF91 #FFC7FF45" />
+      <ColorOption id="9" displayName="primary_9" colors="#FFF4FFDF #FFEBFFC3 #FFCEFF6C" />
+      <ColorOption id="10" displayName="primary_10" colors="#FFEBFFD2 #FFD3FF9B #FFB0FF4D" />
+      <ColorOption id="12" displayName="primary_12" colors="#FFEDFFD5 #FFD6FF9E #FFAEFF4A" />
+      <ColorOption id="72" displayName="primary_72" colors="#FFCDDECD #FFC3E9C3 #FFB7F297" />
+      <ColorOption id="71" displayName="primary_71" colors="#FFD3E2D3 #FFBFD9BF #FFACC89E" />
+      <ColorOption id="13" displayName="primary_13" colors="#FFE5FFE0 #FFADFF9A #FF70FF3D" />
+      <ColorOption id="79" displayName="primary_79" colors="#FFE3FFE0 #FFA9FF9A #FF4EFF58" />
+      <ColorOption id="17" displayName="primary_17" colors="#FFE0FFE4 #FF9FF7AD #FF52FF6D" />
+      <ColorOption id="15" displayName="primary_15" colors="#FFE8FFF2 #FFBEFFD9 #FF57FF9D" />
+      <ColorOption id="16" displayName="primary_16" colors="#FFD1FFE6 #FF65DF9D #FF41FF99" />
+      <ColorOption id="22" displayName="primary_22" colors="#FFB4CCC2 #FF8BB6A5 #FFF5FFFB" />
+      <ColorOption id="18" displayName="primary_18" colors="#FFE5FFF5 #FFABFFDF #FF5EFFC0" />
+      <ColorOption id="19" displayName="primary_19" colors="#FFDEF4EC #FFBEECDB #FFAAF6D9" />
+      <ColorOption id="23" displayName="primary_23" colors="#FFCDE1DA #FF76B89F #FF8EAFA3" />
+      <ColorOption id="21" displayName="primary_21" colors="#FFE1ECE9 #FFCCE4DF #FFBBF6E6" />
+      <ColorOption id="24" displayName="primary_24" colors="#FFEEFFFD #FFE5FFFB #FFD6FFF9" />
+      <ColorOption id="26" displayName="primary_26" colors="#FFD5FAFF #FFA8F4FF #FF5EEBFF" />
+      <ColorOption id="25" displayName="primary_25" colors="#FFDAFFFF #FFBEF6FF #FF93F0FF" />
+      <ColorOption id="27" displayName="primary_27" colors="#FFCCEFFF #FF99E0FF #FF5ACDFF" />
+      <ColorOption id="29" displayName="primary_29" colors="#FFE6F5FF #FFA8DDFF #FF5EC1FF" />
+      <ColorOption id="58" displayName="primary_58" colors="#FFE5F2FF #FF2391FF #FF2391FF" />
+      <ColorOption id="32" displayName="primary_32" colors="#FFC6E3FF #FF8BC6FF #FF3A9CFF" />
+      <ColorOption id="30" displayName="primary_30" colors="#FFE2EDFF #FFA3C6FF #FF5E9BFF" />
+      <ColorOption id="33" displayName="primary_33" colors="#FFD8E6FF #FF9EC2FF #FF619BFF" />
+      <ColorOption id="31" displayName="primary_31" colors="#FFD6E5FF #FF88B4FF #FF639CFF" />
+      <ColorOption id="34" displayName="primary_34" colors="#FFCFDBFF #FFA5BAFF #FF687EFF" />
+      <ColorOption id="35" displayName="primary_35" colors="#FFD6DAFF #FF959DFD #FF5D68FF" />
+      <ColorOption id="36" displayName="primary_36" colors="#FFD8C8FF #FFB99AFF #FF8E58FF" />
+      <ColorOption id="38" displayName="primary_38" colors="#FFEECBFF #FFE2A5FF #FFCC62FF" />
+      <ColorOption id="39" displayName="primary_39" colors="#FFFDE0FF #FFF8A6FF #FFF25FFF" />
+      <ColorOption id="40" displayName="primary_40" colors="#FFFFD9F3 #FFFFB3E6 #FFFF66CE" />
       <ColorOption id="999" displayName="primary_999" colors="#FFFFFFFF #FFFFFFFF #FFFFFFFF" />
-      <ColorOption id="0" displayName="primary_0" colors="#FFE9E9E9 #FFD0D0D0 #FFB8B8B8" />
-      <ColorOption id="200" displayName="primary_200" colors="#FFB8B8B8 #FFD0D0D0 #FFE9E9E9" />
-      <ColorOption id="77" displayName="primary_77" colors="#FFDAD5D0 #FFB7ADA4 #FF93877C" />
-      <ColorOption id="277" displayName="primary_277" colors="#FF93877C #FFB7ADA4 #FFDAD5D0" />
-      <ColorOption id="54" displayName="primary_54" colors="#FFD1D3D8 #FFA2A6AF #FF777D89" />
-      <ColorOption id="254" displayName="primary_254" colors="#FF777D89 #FFA2A6AF #FFD1D3D8" />
-      <ColorOption id="83" displayName="primary_83" colors="#FFC4F2FF #FF66BFF1 #FFFF725E" />
-      <ColorOption id="283" displayName="primary_283" colors="#FFFF725E #FF66BFF1 #FFC4F2FF" />
-      <ColorOption id="86" displayName="primary_86" colors="#FFBBDFFF #FF728CFF #FFFF5A36" />
-      <ColorOption id="286" displayName="primary_286" colors="#FFFF5A36 #FF728CFF #FFBBDFFF" />
-      <ColorOption id="82" displayName="primary_82" colors="#FFE8CEFF #FFB877F5 #FFFFD34F" />
-      <ColorOption id="282" displayName="primary_282" colors="#FFFFD34F #FFB877F5 #FFE8CEFF" />
-      <ColorOption id="88" displayName="primary_88" colors="#FFFFC5DC #FFF34D6B #FF25B7D3" />
-      <ColorOption id="288" displayName="primary_288" colors="#FF25B7D3 #FFF34D6B #FFFFC5DC" />
-      <ColorOption id="81" displayName="primary_81" colors="#FFC9FFE4 #FF73E6C1 #FF2586FF" />
-      <ColorOption id="281" displayName="primary_281" colors="#FF2586FF #FF73E6C1 #FFC9FFE4" />
-      <ColorOption id="87" displayName="primary_87" colors="#FFF0FFB5 #FFA6F04D #FF8E4DFF" />
-      <ColorOption id="287" displayName="primary_287" colors="#FF8E4DFF #FFA6F04D #FFF0FFB5" />
-      <ColorOption id="79" displayName="primary_79" colors="#FFC1F4FF #FF6BE0C2 #FFA55CFF" />
-      <ColorOption id="279" displayName="primary_279" colors="#FFA55CFF #FF6BE0C2 #FFC1F4FF" />
-      <ColorOption id="84" displayName="primary_84" colors="#FFFFE5B0 #FFFF8C42 #FFB942FF" />
-      <ColorOption id="284" displayName="primary_284" colors="#FFB942FF #FFFF8C42 #FFFFE5B0" />
-      <ColorOption id="80" displayName="primary_80" colors="#FFFFD0C1 #FFFF9470 #FFF33A9B" />
-      <ColorOption id="280" displayName="primary_280" colors="#FFF33A9B #FFFF9470 #FFFFD0C1" />
-      <ColorOption id="85" displayName="primary_85" colors="#FFC9FFEC #FF36D9CE #FFFF4F9A" />
-      <ColorOption id="285" displayName="primary_285" colors="#FFFF4F9A #FF36D9CE #FFC9FFEC" />
+      <ColorOption id="49" displayName="primary_49" colors="#FFFEF6E1 #FFFEF6E1 #FFFEF6E1" />
+      <ColorOption id="2" displayName="primary_2" colors="#FFFFF7E4 #FFFFF7E4 #FFFCF7EB" />
+      <ColorOption id="54" displayName="primary_54" colors="#FFF2F6FF #FFA0A3AB #FFDFE3EF" />
+      <ColorOption id="1" displayName="primary_1" colors="#FFFFFFFF #FFE4E4E4 #FFEAEAEA" />
+      <ColorOption id="20" displayName="primary_20" colors="#FFE2F0E6 #FFDFDFDF #FFBFDCC4" />
+      <ColorOption id="0" displayName="primary_0" colors="#FFE3E3E3 #FFBCBCBC #FFDADADA" />
+      <ColorOption id="77" displayName="primary_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F" />
+      <ColorOption id="65" displayName="primary_65" colors="#FFDAEBFF #FFFF6F6F #FFFF2A2A" />
+      <ColorOption id="56" displayName="primary_56" colors="#FFFF4D4D #FFFEFEFE #FFFEFEFE" />
+      <ColorOption id="57" displayName="primary_57" colors="#FFD2D2D2 #FFF5F5F5 #FFFF5B58" />
+      <ColorOption id="55" displayName="primary_55" colors="#FFDFFFF3 #FFA9FFDF #FFFF8A00" />
+      <ColorOption id="69" displayName="primary_69" colors="#FFD9D9D9 #FF94BFFF #FFACFF38" />
+      <ColorOption id="66" displayName="primary_66" colors="#FFDAF9FF #FF84FFE2 #FF58FF32" />
+      <ColorOption id="68" displayName="primary_68" colors="#FFD2FFDF #FF00FF88 #FF3881FF" />
+      <ColorOption id="63" displayName="primary_63" colors="#FFE1EAFF #FFF7EA49 #FF2F69FF" />
+      <ColorOption id="64" displayName="primary_64" colors="#FFD8F7FF #FFBAD1FF #FF5836FF" />
+      <ColorOption id="67" displayName="primary_67" colors="#FFEBEBEB #FFB0FF54 #FF8356FF" />
+      <ColorOption id="62" displayName="primary_62" colors="#FFB5FBFF #FFE2FDFF #FFFF6DC9" />
     </ColorConfiguration>
     <ColorConfiguration id="secondary" displayName="secondary" defaultValue="14">
-      <ColorOption id="3" displayName="secondary_3" colors="#FFFFB7BA #FFFF6C72 #FFFF2335" />
-      <ColorOption id="203" displayName="secondary_203" colors="#FFFF2335 #FFFF6C72 #FFFFB7BA" />
-      <ColorOption id="70" displayName="secondary_70" colors="#FFFFDBBD #FFFBB576 #FFF88F33" />
-      <ColorOption id="270" displayName="secondary_270" colors="#FFF88F33 #FFFBB576 #FFFFDBBD" />
-      <ColorOption id="48" displayName="secondary_48" colors="#FFFFF5B1 #FFFFE45C #FFFFD20D" />
-      <ColorOption id="248" displayName="secondary_248" colors="#FFFFD20D #FFFFE45C #FFFFF5B1" />
+      <ColorOption id="74" displayName="secondary_74" colors="#FFF2F2F2 #FFFF0F0F #FFFF0F0F" />
+      <ColorOption id="3" displayName="secondary_3" colors="#FFFFEAEA #FFFF9391 #FFFF4642" />
+      <ColorOption id="4" displayName="secondary_4" colors="#FFFFF3F2 #FFFFA49F #FFFF665D" />
+      <ColorOption id="41" displayName="secondary_41" colors="#FFFFDFDC #FFFFB1AC #FFFF776D" />
+      <ColorOption id="42" displayName="secondary_42" colors="#FFFFE8E5 #FFFFA294 #FFFF5B43" />
+      <ColorOption id="44" displayName="secondary_44" colors="#FFFFD1C4 #FFFF997A #FFFF693B" />
+      <ColorOption id="70" displayName="secondary_70" colors="#FFFFCCB1 #FFFF935C #FFFF5F0D" />
+      <ColorOption id="5" displayName="secondary_5" colors="#FFFFE8DA #FFFFC6A3 #FFFF975D" />
+      <ColorOption id="43" displayName="secondary_43" colors="#FFFFF5EF #FFFDB78F #FFFF985E" />
+      <ColorOption id="75" displayName="secondary_75" colors="#FFD9CBC5 #FFD7BBAB #FFCCA792" />
+      <ColorOption id="73" displayName="secondary_73" colors="#FFF2F2F2 #FFFF8316 #FFFF8316" />
+      <ColorOption id="51" displayName="secondary_51" colors="#FFFFF4EA #FFFAE7D6 #FFFFDAB8" />
+      <ColorOption id="76" displayName="secondary_76" colors="#FFE0D9D4 #FFC8B5A3 #FFB49E88" />
+      <ColorOption id="45" displayName="secondary_45" colors="#FFF4EBE0 #FFD8AB77 #FFF0A752" />
+      <ColorOption id="46" displayName="secondary_46" colors="#FFFFF1DB #FFF8C67C #FFFFB74A" />
+      <ColorOption id="47" displayName="secondary_47" colors="#FFFFF4DD #FFFFD88A #FFFFC551" />
+      <ColorOption id="52" displayName="secondary_52" colors="#FFFFF0D2 #FFFFD889 #FFFFCC63" />
+      <ColorOption id="6" displayName="secondary_6" colors="#FFFFF6E1 #FFFFE9B9 #FFFFCE63" />
+      <ColorOption id="50" displayName="secondary_50" colors="#FFFFF9E1 #FFC4B575 #FFF1D870" />
+      <ColorOption id="78" displayName="secondary_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91" />
+      <ColorOption id="48" displayName="secondary_48" colors="#FFFFFEE0 #FFFFFA86 #FFFFF630" />
+      <ColorOption id="7" displayName="secondary_7" colors="#FFFEFFE9 #FFFCFFB6 #FFF9FF52" />
+      <ColorOption id="61" displayName="secondary_61" colors="#FFEFF0E4 #FFDFDFDF #FFE8F0B3" />
+      <ColorOption id="59" displayName="secondary_59" colors="#FFDCDCD5 #FFC6CCA3 #FFAFBA69" />
+      <ColorOption id="8" displayName="secondary_8" colors="#FFFAFFE4 #FFEAFF8E #FFDEFF4C" />
+      <ColorOption id="60" displayName="secondary_60" colors="#FFEFF0E4 #FFEEFF80 #FFCEFF1C" />
       <ColorOption id="14" displayName="secondary_14" colors="#FFD4DAB6 #FFA4AF73 #FF758544" />
-      <ColorOption id="214" displayName="secondary_214" colors="#FF758544 #FFA4AF73 #FFD4DAB6" />
-      <ColorOption id="32" displayName="secondary_32" colors="#FFBBD9FF #FF65A8FF #FF1675F5" />
-      <ColorOption id="232" displayName="secondary_232" colors="#FF1675F5 #FF65A8FF #FFBBD9FF" />
-      <ColorOption id="36" displayName="secondary_36" colors="#FFDCC0FF #FFB16CFF #FF8529F5" />
-      <ColorOption id="236" displayName="secondary_236" colors="#FF8529F5 #FFB16CFF #FFDCC0FF" />
-      <ColorOption id="40" displayName="secondary_40" colors="#FFFFBFE5 #FFFF73C0 #FFF52C99" />
-      <ColorOption id="240" displayName="secondary_240" colors="#FFF52C99 #FFFF73C0 #FFFFBFE5" />
-      <ColorOption id="75" displayName="secondary_75" colors="#FFEBD2BC #FFC99A74 #FFA56C40" />
-      <ColorOption id="275" displayName="secondary_275" colors="#FFA56C40 #FFC99A74 #FFEBD2BC" />
-      <ColorOption id="1" displayName="secondary_1" colors="#FFFFFFFF #FFF2F2F2 #FFE6E6E6" />
-      <ColorOption id="201" displayName="secondary_201" colors="#FFE6E6E6 #FFF2F2F2 #FFFFFFFF" />
+      <ColorOption id="11" displayName="secondary_11" colors="#FFF0FFCD #FFDEFF91 #FFC7FF45" />
+      <ColorOption id="9" displayName="secondary_9" colors="#FFF4FFDF #FFEBFFC3 #FFCEFF6C" />
+      <ColorOption id="10" displayName="secondary_10" colors="#FFEBFFD2 #FFD3FF9B #FFB0FF4D" />
+      <ColorOption id="12" displayName="secondary_12" colors="#FFEDFFD5 #FFD6FF9E #FFAEFF4A" />
+      <ColorOption id="72" displayName="secondary_72" colors="#FFCDDECD #FFC3E9C3 #FFB7F297" />
+      <ColorOption id="71" displayName="secondary_71" colors="#FFD3E2D3 #FFBFD9BF #FFACC89E" />
+      <ColorOption id="13" displayName="secondary_13" colors="#FFE5FFE0 #FFADFF9A #FF70FF3D" />
+      <ColorOption id="79" displayName="secondary_79" colors="#FFE3FFE0 #FFA9FF9A #FF4EFF58" />
+      <ColorOption id="17" displayName="secondary_17" colors="#FFE0FFE4 #FF9FF7AD #FF52FF6D" />
+      <ColorOption id="15" displayName="secondary_15" colors="#FFE8FFF2 #FFBEFFD9 #FF57FF9D" />
+      <ColorOption id="16" displayName="secondary_16" colors="#FFD1FFE6 #FF65DF9D #FF41FF99" />
+      <ColorOption id="22" displayName="secondary_22" colors="#FFB4CCC2 #FF8BB6A5 #FFF5FFFB" />
+      <ColorOption id="18" displayName="secondary_18" colors="#FFE5FFF5 #FFABFFDF #FF5EFFC0" />
+      <ColorOption id="19" displayName="secondary_19" colors="#FFDEF4EC #FFBEECDB #FFAAF6D9" />
+      <ColorOption id="23" displayName="secondary_23" colors="#FFCDE1DA #FF76B89F #FF8EAFA3" />
+      <ColorOption id="21" displayName="secondary_21" colors="#FFE1ECE9 #FFCCE4DF #FFBBF6E6" />
+      <ColorOption id="24" displayName="secondary_24" colors="#FFEEFFFD #FFE5FFFB #FFD6FFF9" />
+      <ColorOption id="26" displayName="secondary_26" colors="#FFD5FAFF #FFA8F4FF #FF5EEBFF" />
+      <ColorOption id="25" displayName="secondary_25" colors="#FFDAFFFF #FFBEF6FF #FF93F0FF" />
+      <ColorOption id="27" displayName="secondary_27" colors="#FFCCEFFF #FF99E0FF #FF5ACDFF" />
+      <ColorOption id="29" displayName="secondary_29" colors="#FFE6F5FF #FFA8DDFF #FF5EC1FF" />
+      <ColorOption id="58" displayName="secondary_58" colors="#FFE5F2FF #FF2391FF #FF2391FF" />
+      <ColorOption id="32" displayName="secondary_32" colors="#FFC6E3FF #FF8BC6FF #FF3A9CFF" />
+      <ColorOption id="30" displayName="secondary_30" colors="#FFE2EDFF #FFA3C6FF #FF5E9BFF" />
+      <ColorOption id="33" displayName="secondary_33" colors="#FFD8E6FF #FF9EC2FF #FF619BFF" />
+      <ColorOption id="31" displayName="secondary_31" colors="#FFD6E5FF #FF88B4FF #FF639CFF" />
+      <ColorOption id="34" displayName="secondary_34" colors="#FFCFDBFF #FFA5BAFF #FF687EFF" />
+      <ColorOption id="35" displayName="secondary_35" colors="#FFD6DAFF #FF959DFD #FF5D68FF" />
+      <ColorOption id="36" displayName="secondary_36" colors="#FFD8C8FF #FFB99AFF #FF8E58FF" />
+      <ColorOption id="38" displayName="secondary_38" colors="#FFEECBFF #FFE2A5FF #FFCC62FF" />
+      <ColorOption id="39" displayName="secondary_39" colors="#FFFDE0FF #FFF8A6FF #FFF25FFF" />
+      <ColorOption id="40" displayName="secondary_40" colors="#FFFFD9F3 #FFFFB3E6 #FFFF66CE" />
       <ColorOption id="999" displayName="secondary_999" colors="#FFFFFFFF #FFFFFFFF #FFFFFFFF" />
-      <ColorOption id="0" displayName="secondary_0" colors="#FFE9E9E9 #FFD0D0D0 #FFB8B8B8" />
-      <ColorOption id="200" displayName="secondary_200" colors="#FFB8B8B8 #FFD0D0D0 #FFE9E9E9" />
-      <ColorOption id="77" displayName="secondary_77" colors="#FFDAD5D0 #FFB7ADA4 #FF93877C" />
-      <ColorOption id="277" displayName="secondary_277" colors="#FF93877C #FFB7ADA4 #FFDAD5D0" />
-      <ColorOption id="54" displayName="secondary_54" colors="#FFD1D3D8 #FFA2A6AF #FF777D89" />
-      <ColorOption id="254" displayName="secondary_254" colors="#FF777D89 #FFA2A6AF #FFD1D3D8" />
-      <ColorOption id="83" displayName="secondary_83" colors="#FFC4F2FF #FF66BFF1 #FFFF725E" />
-      <ColorOption id="283" displayName="secondary_283" colors="#FFFF725E #FF66BFF1 #FFC4F2FF" />
-      <ColorOption id="86" displayName="secondary_86" colors="#FFBBDFFF #FF728CFF #FFFF5A36" />
-      <ColorOption id="286" displayName="secondary_286" colors="#FFFF5A36 #FF728CFF #FFBBDFFF" />
-      <ColorOption id="82" displayName="secondary_82" colors="#FFE8CEFF #FFB877F5 #FFFFD34F" />
-      <ColorOption id="282" displayName="secondary_282" colors="#FFFFD34F #FFB877F5 #FFE8CEFF" />
-      <ColorOption id="88" displayName="secondary_88" colors="#FFFFC5DC #FFF34D6B #FF25B7D3" />
-      <ColorOption id="288" displayName="secondary_288" colors="#FF25B7D3 #FFF34D6B #FFFFC5DC" />
-      <ColorOption id="81" displayName="secondary_81" colors="#FFC9FFE4 #FF73E6C1 #FF2586FF" />
-      <ColorOption id="281" displayName="secondary_281" colors="#FF2586FF #FF73E6C1 #FFC9FFE4" />
-      <ColorOption id="87" displayName="secondary_87" colors="#FFF0FFB5 #FFA6F04D #FF8E4DFF" />
-      <ColorOption id="287" displayName="secondary_287" colors="#FF8E4DFF #FFA6F04D #FFF0FFB5" />
-      <ColorOption id="79" displayName="secondary_79" colors="#FFC1F4FF #FF6BE0C2 #FFA55CFF" />
-      <ColorOption id="279" displayName="secondary_279" colors="#FFA55CFF #FF6BE0C2 #FFC1F4FF" />
-      <ColorOption id="84" displayName="secondary_84" colors="#FFFFE5B0 #FFFF8C42 #FFB942FF" />
-      <ColorOption id="284" displayName="secondary_284" colors="#FFB942FF #FFFF8C42 #FFFFE5B0" />
-      <ColorOption id="80" displayName="secondary_80" colors="#FFFFD0C1 #FFFF9470 #FFF33A9B" />
-      <ColorOption id="280" displayName="secondary_280" colors="#FFF33A9B #FFFF9470 #FFFFD0C1" />
-      <ColorOption id="85" displayName="secondary_85" colors="#FFC9FFEC #FF36D9CE #FFFF4F9A" />
-      <ColorOption id="285" displayName="secondary_285" colors="#FFFF4F9A #FF36D9CE #FFC9FFEC" />
+      <ColorOption id="49" displayName="secondary_49" colors="#FFFEF6E1 #FFFEF6E1 #FFFEF6E1" />
+      <ColorOption id="2" displayName="secondary_2" colors="#FFFFF7E4 #FFFFF7E4 #FFFCF7EB" />
+      <ColorOption id="54" displayName="secondary_54" colors="#FFF2F6FF #FFA0A3AB #FFDFE3EF" />
+      <ColorOption id="1" displayName="secondary_1" colors="#FFFFFFFF #FFE4E4E4 #FFEAEAEA" />
+      <ColorOption id="20" displayName="secondary_20" colors="#FFE2F0E6 #FFDFDFDF #FFBFDCC4" />
+      <ColorOption id="0" displayName="secondary_0" colors="#FFE3E3E3 #FFBCBCBC #FFDADADA" />
+      <ColorOption id="77" displayName="secondary_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F" />
+      <ColorOption id="65" displayName="secondary_65" colors="#FFDAEBFF #FFFF6F6F #FFFF2A2A" />
+      <ColorOption id="56" displayName="secondary_56" colors="#FFFF4D4D #FFFEFEFE #FFFEFEFE" />
+      <ColorOption id="57" displayName="secondary_57" colors="#FFD2D2D2 #FFF5F5F5 #FFFF5B58" />
+      <ColorOption id="55" displayName="secondary_55" colors="#FFDFFFF3 #FFA9FFDF #FFFF8A00" />
+      <ColorOption id="69" displayName="secondary_69" colors="#FFD9D9D9 #FF94BFFF #FFACFF38" />
+      <ColorOption id="66" displayName="secondary_66" colors="#FFDAF9FF #FF84FFE2 #FF58FF32" />
+      <ColorOption id="68" displayName="secondary_68" colors="#FFD2FFDF #FF00FF88 #FF3881FF" />
+      <ColorOption id="63" displayName="secondary_63" colors="#FFE1EAFF #FFF7EA49 #FF2F69FF" />
+      <ColorOption id="64" displayName="secondary_64" colors="#FFD8F7FF #FFBAD1FF #FF5836FF" />
+      <ColorOption id="67" displayName="secondary_67" colors="#FFEBEBEB #FFB0FF54 #FF8356FF" />
+      <ColorOption id="62" displayName="secondary_62" colors="#FFB5FBFF #FFE2FDFF #FFFF6DC9" />
     </ColorConfiguration>
     <ColorConfiguration id="tertiary" displayName="tertiary" defaultValue="14">
-      <ColorOption id="3" displayName="tertiary_3" colors="#FFFFB7BA #FFFF6C72 #FFFF2335" />
-      <ColorOption id="203" displayName="tertiary_203" colors="#FFFF2335 #FFFF6C72 #FFFFB7BA" />
-      <ColorOption id="70" displayName="tertiary_70" colors="#FFFFDBBD #FFFBB576 #FFF88F33" />
-      <ColorOption id="270" displayName="tertiary_270" colors="#FFF88F33 #FFFBB576 #FFFFDBBD" />
-      <ColorOption id="48" displayName="tertiary_48" colors="#FFFFF5B1 #FFFFE45C #FFFFD20D" />
-      <ColorOption id="248" displayName="tertiary_248" colors="#FFFFD20D #FFFFE45C #FFFFF5B1" />
+      <ColorOption id="74" displayName="tertiary_74" colors="#FFF2F2F2 #FFFF0F0F #FFFF0F0F" />
+      <ColorOption id="3" displayName="tertiary_3" colors="#FFFFEAEA #FFFF9391 #FFFF4642" />
+      <ColorOption id="4" displayName="tertiary_4" colors="#FFFFF3F2 #FFFFA49F #FFFF665D" />
+      <ColorOption id="41" displayName="tertiary_41" colors="#FFFFDFDC #FFFFB1AC #FFFF776D" />
+      <ColorOption id="42" displayName="tertiary_42" colors="#FFFFE8E5 #FFFFA294 #FFFF5B43" />
+      <ColorOption id="44" displayName="tertiary_44" colors="#FFFFD1C4 #FFFF997A #FFFF693B" />
+      <ColorOption id="70" displayName="tertiary_70" colors="#FFFFCCB1 #FFFF935C #FFFF5F0D" />
+      <ColorOption id="5" displayName="tertiary_5" colors="#FFFFE8DA #FFFFC6A3 #FFFF975D" />
+      <ColorOption id="43" displayName="tertiary_43" colors="#FFFFF5EF #FFFDB78F #FFFF985E" />
+      <ColorOption id="75" displayName="tertiary_75" colors="#FFD9CBC5 #FFD7BBAB #FFCCA792" />
+      <ColorOption id="73" displayName="tertiary_73" colors="#FFF2F2F2 #FFFF8316 #FFFF8316" />
+      <ColorOption id="51" displayName="tertiary_51" colors="#FFFFF4EA #FFFAE7D6 #FFFFDAB8" />
+      <ColorOption id="76" displayName="tertiary_76" colors="#FFE0D9D4 #FFC8B5A3 #FFB49E88" />
+      <ColorOption id="45" displayName="tertiary_45" colors="#FFF4EBE0 #FFD8AB77 #FFF0A752" />
+      <ColorOption id="46" displayName="tertiary_46" colors="#FFFFF1DB #FFF8C67C #FFFFB74A" />
+      <ColorOption id="47" displayName="tertiary_47" colors="#FFFFF4DD #FFFFD88A #FFFFC551" />
+      <ColorOption id="52" displayName="tertiary_52" colors="#FFFFF0D2 #FFFFD889 #FFFFCC63" />
+      <ColorOption id="6" displayName="tertiary_6" colors="#FFFFF6E1 #FFFFE9B9 #FFFFCE63" />
+      <ColorOption id="50" displayName="tertiary_50" colors="#FFFFF9E1 #FFC4B575 #FFF1D870" />
+      <ColorOption id="78" displayName="tertiary_78" colors="#FFE4E3DA #FFC7C4AE #FFAFAC91" />
+      <ColorOption id="48" displayName="tertiary_48" colors="#FFFFFEE0 #FFFFFA86 #FFFFF630" />
+      <ColorOption id="7" displayName="tertiary_7" colors="#FFFEFFE9 #FFFCFFB6 #FFF9FF52" />
+      <ColorOption id="61" displayName="tertiary_61" colors="#FFEFF0E4 #FFDFDFDF #FFE8F0B3" />
+      <ColorOption id="59" displayName="tertiary_59" colors="#FFDCDCD5 #FFC6CCA3 #FFAFBA69" />
+      <ColorOption id="8" displayName="tertiary_8" colors="#FFFAFFE4 #FFEAFF8E #FFDEFF4C" />
+      <ColorOption id="60" displayName="tertiary_60" colors="#FFEFF0E4 #FFEEFF80 #FFCEFF1C" />
       <ColorOption id="14" displayName="tertiary_14" colors="#FFD4DAB6 #FFA4AF73 #FF758544" />
-      <ColorOption id="214" displayName="tertiary_214" colors="#FF758544 #FFA4AF73 #FFD4DAB6" />
-      <ColorOption id="32" displayName="tertiary_32" colors="#FFBBD9FF #FF65A8FF #FF1675F5" />
-      <ColorOption id="232" displayName="tertiary_232" colors="#FF1675F5 #FF65A8FF #FFBBD9FF" />
-      <ColorOption id="36" displayName="tertiary_36" colors="#FFDCC0FF #FFB16CFF #FF8529F5" />
-      <ColorOption id="236" displayName="tertiary_236" colors="#FF8529F5 #FFB16CFF #FFDCC0FF" />
-      <ColorOption id="40" displayName="tertiary_40" colors="#FFFFBFE5 #FFFF73C0 #FFF52C99" />
-      <ColorOption id="240" displayName="tertiary_240" colors="#FFF52C99 #FFFF73C0 #FFFFBFE5" />
-      <ColorOption id="75" displayName="tertiary_75" colors="#FFEBD2BC #FFC99A74 #FFA56C40" />
-      <ColorOption id="275" displayName="tertiary_275" colors="#FFA56C40 #FFC99A74 #FFEBD2BC" />
-      <ColorOption id="1" displayName="tertiary_1" colors="#FFFFFFFF #FFF2F2F2 #FFE6E6E6" />
-      <ColorOption id="201" displayName="tertiary_201" colors="#FFE6E6E6 #FFF2F2F2 #FFFFFFFF" />
+      <ColorOption id="11" displayName="tertiary_11" colors="#FFF0FFCD #FFDEFF91 #FFC7FF45" />
+      <ColorOption id="9" displayName="tertiary_9" colors="#FFF4FFDF #FFEBFFC3 #FFCEFF6C" />
+      <ColorOption id="10" displayName="tertiary_10" colors="#FFEBFFD2 #FFD3FF9B #FFB0FF4D" />
+      <ColorOption id="12" displayName="tertiary_12" colors="#FFEDFFD5 #FFD6FF9E #FFAEFF4A" />
+      <ColorOption id="72" displayName="tertiary_72" colors="#FFCDDECD #FFC3E9C3 #FFB7F297" />
+      <ColorOption id="71" displayName="tertiary_71" colors="#FFD3E2D3 #FFBFD9BF #FFACC89E" />
+      <ColorOption id="13" displayName="tertiary_13" colors="#FFE5FFE0 #FFADFF9A #FF70FF3D" />
+      <ColorOption id="79" displayName="tertiary_79" colors="#FFE3FFE0 #FFA9FF9A #FF4EFF58" />
+      <ColorOption id="17" displayName="tertiary_17" colors="#FFE0FFE4 #FF9FF7AD #FF52FF6D" />
+      <ColorOption id="15" displayName="tertiary_15" colors="#FFE8FFF2 #FFBEFFD9 #FF57FF9D" />
+      <ColorOption id="16" displayName="tertiary_16" colors="#FFD1FFE6 #FF65DF9D #FF41FF99" />
+      <ColorOption id="22" displayName="tertiary_22" colors="#FFB4CCC2 #FF8BB6A5 #FFF5FFFB" />
+      <ColorOption id="18" displayName="tertiary_18" colors="#FFE5FFF5 #FFABFFDF #FF5EFFC0" />
+      <ColorOption id="19" displayName="tertiary_19" colors="#FFDEF4EC #FFBEECDB #FFAAF6D9" />
+      <ColorOption id="23" displayName="tertiary_23" colors="#FFCDE1DA #FF76B89F #FF8EAFA3" />
+      <ColorOption id="21" displayName="tertiary_21" colors="#FFE1ECE9 #FFCCE4DF #FFBBF6E6" />
+      <ColorOption id="24" displayName="tertiary_24" colors="#FFEEFFFD #FFE5FFFB #FFD6FFF9" />
+      <ColorOption id="26" displayName="tertiary_26" colors="#FFD5FAFF #FFA8F4FF #FF5EEBFF" />
+      <ColorOption id="25" displayName="tertiary_25" colors="#FFDAFFFF #FFBEF6FF #FF93F0FF" />
+      <ColorOption id="27" displayName="tertiary_27" colors="#FFCCEFFF #FF99E0FF #FF5ACDFF" />
+      <ColorOption id="29" displayName="tertiary_29" colors="#FFE6F5FF #FFA8DDFF #FF5EC1FF" />
+      <ColorOption id="58" displayName="tertiary_58" colors="#FFE5F2FF #FF2391FF #FF2391FF" />
+      <ColorOption id="32" displayName="tertiary_32" colors="#FFC6E3FF #FF8BC6FF #FF3A9CFF" />
+      <ColorOption id="30" displayName="tertiary_30" colors="#FFE2EDFF #FFA3C6FF #FF5E9BFF" />
+      <ColorOption id="33" displayName="tertiary_33" colors="#FFD8E6FF #FF9EC2FF #FF619BFF" />
+      <ColorOption id="31" displayName="tertiary_31" colors="#FFD6E5FF #FF88B4FF #FF639CFF" />
+      <ColorOption id="34" displayName="tertiary_34" colors="#FFCFDBFF #FFA5BAFF #FF687EFF" />
+      <ColorOption id="35" displayName="tertiary_35" colors="#FFD6DAFF #FF959DFD #FF5D68FF" />
+      <ColorOption id="36" displayName="tertiary_36" colors="#FFD8C8FF #FFB99AFF #FF8E58FF" />
+      <ColorOption id="38" displayName="tertiary_38" colors="#FFEECBFF #FFE2A5FF #FFCC62FF" />
+      <ColorOption id="39" displayName="tertiary_39" colors="#FFFDE0FF #FFF8A6FF #FFF25FFF" />
+      <ColorOption id="40" displayName="tertiary_40" colors="#FFFFD9F3 #FFFFB3E6 #FFFF66CE" />
       <ColorOption id="999" displayName="tertiary_999" colors="#FFFFFFFF #FFFFFFFF #FFFFFFFF" />
-      <ColorOption id="0" displayName="tertiary_0" colors="#FFE9E9E9 #FFD0D0D0 #FFB8B8B8" />
-      <ColorOption id="200" displayName="tertiary_200" colors="#FFB8B8B8 #FFD0D0D0 #FFE9E9E9" />
-      <ColorOption id="77" displayName="tertiary_77" colors="#FFDAD5D0 #FFB7ADA4 #FF93877C" />
-      <ColorOption id="277" displayName="tertiary_277" colors="#FF93877C #FFB7ADA4 #FFDAD5D0" />
-      <ColorOption id="54" displayName="tertiary_54" colors="#FFD1D3D8 #FFA2A6AF #FF777D89" />
-      <ColorOption id="254" displayName="tertiary_254" colors="#FF777D89 #FFA2A6AF #FFD1D3D8" />
-      <ColorOption id="83" displayName="tertiary_83" colors="#FFC4F2FF #FF66BFF1 #FFFF725E" />
-      <ColorOption id="283" displayName="tertiary_283" colors="#FFFF725E #FF66BFF1 #FFC4F2FF" />
-      <ColorOption id="86" displayName="tertiary_86" colors="#FFBBDFFF #FF728CFF #FFFF5A36" />
-      <ColorOption id="286" displayName="tertiary_286" colors="#FFFF5A36 #FF728CFF #FFBBDFFF" />
-      <ColorOption id="82" displayName="tertiary_82" colors="#FFE8CEFF #FFB877F5 #FFFFD34F" />
-      <ColorOption id="282" displayName="tertiary_282" colors="#FFFFD34F #FFB877F5 #FFE8CEFF" />
-      <ColorOption id="88" displayName="tertiary_88" colors="#FFFFC5DC #FFF34D6B #FF25B7D3" />
-      <ColorOption id="288" displayName="tertiary_288" colors="#FF25B7D3 #FFF34D6B #FFFFC5DC" />
-      <ColorOption id="81" displayName="tertiary_81" colors="#FFC9FFE4 #FF73E6C1 #FF2586FF" />
-      <ColorOption id="281" displayName="tertiary_281" colors="#FF2586FF #FF73E6C1 #FFC9FFE4" />
-      <ColorOption id="87" displayName="tertiary_87" colors="#FFF0FFB5 #FFA6F04D #FF8E4DFF" />
-      <ColorOption id="287" displayName="tertiary_287" colors="#FF8E4DFF #FFA6F04D #FFF0FFB5" />
-      <ColorOption id="79" displayName="tertiary_79" colors="#FFC1F4FF #FF6BE0C2 #FFA55CFF" />
-      <ColorOption id="279" displayName="tertiary_279" colors="#FFA55CFF #FF6BE0C2 #FFC1F4FF" />
-      <ColorOption id="84" displayName="tertiary_84" colors="#FFFFE5B0 #FFFF8C42 #FFB942FF" />
-      <ColorOption id="284" displayName="tertiary_284" colors="#FFB942FF #FFFF8C42 #FFFFE5B0" />
-      <ColorOption id="80" displayName="tertiary_80" colors="#FFFFD0C1 #FFFF9470 #FFF33A9B" />
-      <ColorOption id="280" displayName="tertiary_280" colors="#FFF33A9B #FFFF9470 #FFFFD0C1" />
-      <ColorOption id="85" displayName="tertiary_85" colors="#FFC9FFEC #FF36D9CE #FFFF4F9A" />
-      <ColorOption id="285" displayName="tertiary_285" colors="#FFFF4F9A #FF36D9CE #FFC9FFEC" />
+      <ColorOption id="49" displayName="tertiary_49" colors="#FFFEF6E1 #FFFEF6E1 #FFFEF6E1" />
+      <ColorOption id="2" displayName="tertiary_2" colors="#FFFFF7E4 #FFFFF7E4 #FFFCF7EB" />
+      <ColorOption id="54" displayName="tertiary_54" colors="#FFF2F6FF #FFA0A3AB #FFDFE3EF" />
+      <ColorOption id="1" displayName="tertiary_1" colors="#FFFFFFFF #FFE4E4E4 #FFEAEAEA" />
+      <ColorOption id="20" displayName="tertiary_20" colors="#FFE2F0E6 #FFDFDFDF #FFBFDCC4" />
+      <ColorOption id="0" displayName="tertiary_0" colors="#FFE3E3E3 #FFBCBCBC #FFDADADA" />
+      <ColorOption id="77" displayName="tertiary_77" colors="#FFDBD8D3 #FFC1B9AE #FFB8AD9F" />
+      <ColorOption id="65" displayName="tertiary_65" colors="#FFDAEBFF #FFFF6F6F #FFFF2A2A" />
+      <ColorOption id="56" displayName="tertiary_56" colors="#FFFF4D4D #FFFEFEFE #FFFEFEFE" />
+      <ColorOption id="57" displayName="tertiary_57" colors="#FFD2D2D2 #FFF5F5F5 #FFFF5B58" />
+      <ColorOption id="55" displayName="tertiary_55" colors="#FFDFFFF3 #FFA9FFDF #FFFF8A00" />
+      <ColorOption id="69" displayName="tertiary_69" colors="#FFD9D9D9 #FF94BFFF #FFACFF38" />
+      <ColorOption id="66" displayName="tertiary_66" colors="#FFDAF9FF #FF84FFE2 #FF58FF32" />
+      <ColorOption id="68" displayName="tertiary_68" colors="#FFD2FFDF #FF00FF88 #FF3881FF" />
+      <ColorOption id="63" displayName="tertiary_63" colors="#FFE1EAFF #FFF7EA49 #FF2F69FF" />
+      <ColorOption id="64" displayName="tertiary_64" colors="#FFD8F7FF #FFBAD1FF #FF5836FF" />
+      <ColorOption id="67" displayName="tertiary_67" colors="#FFEBEBEB #FFB0FF54 #FF8356FF" />
+      <ColorOption id="62" displayName="tertiary_62" colors="#FFB5FBFF #FFE2FDFF #FFFF6DC9" />
     </ColorConfiguration>
     <ListConfiguration id="arcContent" displayName="arcContent" defaultValue="3">
       <ListOption id="0" displayName="arcContent_0" />
@@ -187,7 +286,7 @@
         <Configuration id="dialInk" optionId="1" />
         <Configuration id="apexHands" optionId="1" />
         <Configuration id="secondSweep" optionId="1" />
-        <Configuration id="primary" optionId="270" />
+        <Configuration id="primary" optionId="70" />
         <Configuration id="secondary" optionId="14" />
         <Configuration id="tertiary" optionId="14" />
         <Configuration id="arcContent" optionId="3" />
@@ -218,9 +317,9 @@
         <Configuration id="dialInk" optionId="1" />
         <Configuration id="apexHands" optionId="1" />
         <Configuration id="secondSweep" optionId="1" />
-        <Configuration id="primary" optionId="270" />
-        <Configuration id="secondary" optionId="270" />
-        <Configuration id="tertiary" optionId="270" />
+        <Configuration id="primary" optionId="70" />
+        <Configuration id="secondary" optionId="70" />
+        <Configuration id="tertiary" optionId="70" />
         <Configuration id="arcContent" optionId="3" />
         <Configuration id="weatherLaunch" optionId="0" />
         <Configuration id="progressBars" optionId="5" />
@@ -249,9 +348,9 @@
         <Configuration id="dialInk" optionId="1" />
         <Configuration id="apexHands" optionId="1" />
         <Configuration id="secondSweep" optionId="1" />
-        <Configuration id="primary" optionId="214" />
-        <Configuration id="secondary" optionId="214" />
-        <Configuration id="tertiary" optionId="214" />
+        <Configuration id="primary" optionId="14" />
+        <Configuration id="secondary" optionId="14" />
+        <Configuration id="tertiary" optionId="14" />
         <Configuration id="arcContent" optionId="3" />
         <Configuration id="weatherLaunch" optionId="0" />
         <Configuration id="progressBars" optionId="4" />
@@ -311,9 +410,9 @@
         <Configuration id="dialInk" optionId="1" />
         <Configuration id="apexHands" optionId="1" />
         <Configuration id="secondSweep" optionId="1" />
-        <Configuration id="primary" optionId="79" />
-        <Configuration id="secondary" optionId="79" />
-        <Configuration id="tertiary" optionId="79" />
+        <Configuration id="primary" optionId="64" />
+        <Configuration id="secondary" optionId="64" />
+        <Configuration id="tertiary" optionId="64" />
         <Configuration id="arcContent" optionId="4" />
         <Configuration id="weatherLaunch" optionId="0" />
         <Configuration id="progressBars" optionId="3" />
@@ -342,9 +441,9 @@
         <Configuration id="dialInk" optionId="1" />
         <Configuration id="apexHands" optionId="1" />
         <Configuration id="secondSweep" optionId="1" />
-        <Configuration id="primary" optionId="84" />
-        <Configuration id="secondary" optionId="84" />
-        <Configuration id="tertiary" optionId="84" />
+        <Configuration id="primary" optionId="65" />
+        <Configuration id="secondary" optionId="65" />
+        <Configuration id="tertiary" optionId="65" />
         <Configuration id="arcContent" optionId="3" />
         <Configuration id="weatherLaunch" optionId="0" />
         <Configuration id="progressBars" optionId="7" />

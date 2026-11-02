@@ -15,7 +15,7 @@ class SavedWatchfaceDefaultsTest(unittest.TestCase):
         for setting in ("materialAccent", "materialSubTheme"):
             selected = preset.find(f"Configuration[@id='{setting}']").get("optionId")
             palette = root.find(f"UserConfigurations/ColorConfiguration[@id='{setting}']/ColorOption[@id='{selected}']")
-            self.assertEqual("curated_palette_79", palette.get("displayName"))
+            self.assertEqual("curated_palette_64", palette.get("displayName"))
 
     def test_six_new_native_flavors_are_valid_and_cover_tir_graph_marker_and_gradient(self):
         for face in ("sugarlicious-analog", "sugarlicious-orbit"):

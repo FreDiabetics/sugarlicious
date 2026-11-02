@@ -9,11 +9,11 @@ import xml.etree.ElementTree as ET
 # designs with family-specific palette IDs; no extra watchface settings.
 PROFILES = (
     ("standard", "Standard", None, None, None, None),
-    ("ultra", "Ultra Orange", "270", "537", "3", "5"),
-    ("military", "Military", "214", "561", "3", "4"),
+    ("ultra", "Ultra Orange", "70", "37", "3", "5"),
+    ("military", "Military", "14", "61", "3", "4"),
     ("polar", "Polar", "999", "999", "4", "0"),
-    ("aurora", "Aurora", "79", "102", "4", "3"),
-    ("solar", "Solarsturm", "84", "107", "3", "7"),
+    ("aurora", "Aurora", "64", "43", "4", "3"),
+    ("solar", "Solarsturm", "65", "42", "3", "7"),
 )
 
 

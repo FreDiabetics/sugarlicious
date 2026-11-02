@@ -1,8 +1,5 @@
-"""Shared curated WFF color catalog; stable IDs preserve retained selections.
-
-Both faces expand the same twenty-two source palettes into paired soft/bold options. Run this tool for ApeX after generating
-or editing its WFF resources. Companion settings/previews read the resulting WFF.
-Bold variants swap only the first and third existing tones. ApeX retains its original dim container.
+"""Original shared reference palettes, one option per combination, plus Olive.
+Stable IDs preserve the explicitly retained Olive selection. No derived tone swaps.
 """
 import argparse
 import csv
@@ -18,25 +15,18 @@ def load_palettes():
     for key in ("id", "apex_id"):
         if len({entry[key] for entry in entries}) != len(entries):
             raise ValueError(f"Duplicate palette {key}")
-    if len(entries) != 22 or sum(entry["kind"] == "combination" for entry in entries) != 10:
-        raise ValueError("Expected twelve core palettes and exactly ten combinations")
-    base_order = ["Rot", "Orange", "Gelb", "Olivgrün", "Blau", "Violett", "Pink", "Braun", "Weiß", "Hellgrau", "Warmgrau", "Graphit"]
+    if len(entries) != 78 or sum(entry['origin'] == 'original' for entry in entries) != 76:
+        raise ValueError('Expected76 original palettes plus preserved Olive and pure white')
     def order(entry):
-        if entry["kind"] != "combination":
-            return (0, base_order.index(entry["name"]))
-        rgb = tuple(int(entry["vivid"][i:i+2], 16) / 255 for i in (0, 2, 4))
-        hue = colorsys.rgb_to_hsv(*rgb)[0] * 360
-        return (1, hue - 360 if hue > 340 else hue)
-    variants = []
-    for entry in sorted(entries, key=order):
-        variants.append(dict(entry, name=entry["name"] + " · Sanft", strong=entry["vivid"], soft=entry["light"]))
-        # Same color multiset, only the light/main roles exchange positions.
-        variants.append(dict(entry, id=str(int(entry["id"]) + 200), apex_id=str(int(entry["apex_id"]) + 500),
-                             name=entry["name"] + " · Kräftig", light=entry["vivid"], vivid=entry["light"], strong=entry["vivid"], soft=entry["light"]))
-        if entry["name"] == "Weiß":
-            # Explicitly requested all-white option, separate from the swapped pair.
-            variants.append(dict(entry, id="999", apex_id="999", name="Reinweiß", light="FFFFFF", medium="FFFFFF", vivid="FFFFFF", strong="FFFFFF", soft="FFFFFF"))
-    return variants
+        rgb = tuple(int(entry['vivid'][i:i+2],16)/255 for i in (0,2,4))
+        hue,saturation,value = colorsys.rgb_to_hsv(*rgb)
+        if entry['kind'] == 'combination':
+            return (2,hue,entry['name'])
+        if max(colorsys.rgb_to_hsv(*(int(entry[t][i:i+2],16)/255 for i in (0,2,4)))[1] for t in ('light','medium','vivid')) < .15:
+            return (1,-value,entry['name'])
+        degrees=hue*360
+        return (0,degrees-360 if degrees>345 else degrees,entry['name'])
+    return sorted(entries,key=order)
 
 
 def shade(color, factor):
@@ -49,6 +39,10 @@ def dim(color):
 
 def apply_apex_palettes(root, strings):
     entries = load_palettes()
+    labels = {'curated_palette_' + entry['id'] for entry in entries}
+    for label in list(strings):
+        if label.get('name','').startswith('curated_palette_') and label.get('name') not in labels:
+            strings.remove(label)
     for identity in ("materialAccent", "materialSubTheme"):
         config = root.find(f"UserConfigurations/ColorConfiguration[@id='{identity}']")
         if config is None:

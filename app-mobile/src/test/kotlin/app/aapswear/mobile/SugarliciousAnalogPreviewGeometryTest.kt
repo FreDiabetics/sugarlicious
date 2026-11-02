@@ -24,7 +24,7 @@ class SugarliciousAnalogPreviewGeometryTest {
 
     @Test fun `default configuration matches the captured Apex template`() {
         val root = document()
-        val expected = mapOf("materialAccent" to "537", "materialSubTheme" to "61", "handStyle" to "1", "secondStyle" to "1", "progressBars" to "5")
+        val expected = mapOf("materialAccent" to "37", "materialSubTheme" to "61", "handStyle" to "1", "secondStyle" to "1", "progressBars" to "5")
         val nodes = root.getElementsByTagName("UserConfigurations").item(0).childNodes
         (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }.forEach { element ->
             expected[element.getAttribute("id")]?.let { assertEquals(it, element.getAttribute("defaultValue")) }
@@ -194,8 +194,8 @@ class SugarliciousAnalogPreviewGeometryTest {
         listOf("materialAccent", "materialSubTheme").forEach { id ->
             val config = (0 until configs.length).map { configs.item(it) as Element }.single { it.getAttribute("id") == id }
             val options = config.nodes("ColorOption")
-            assertEquals(45, options.size)
-            assertEquals(45, options.map { it.getAttribute("id") }.toSet().size)
+            assertEquals(78, options.size)
+            assertEquals(78, options.map { it.getAttribute("id") }.toSet().size)
             assertTrue(options.all { it.getAttribute("colors").split(" ").size == if (id == "materialAccent") 4 else 3 })
             val white =
                 options
@@ -210,13 +210,8 @@ class SugarliciousAnalogPreviewGeometryTest {
                     .getAttribute("colors")
                     .split(" ")
                     .take(3)
-            val vivid =
-                options
-                    .single { it.getAttribute("id") == "537" }
-                    .getAttribute("colors")
-                    .split(" ")
-                    .take(3)
-            assertEquals(orange.reversed(), vivid)
+            assertEquals(listOf("#FFFFCCB1", "#FFFF935C", "#FFFF5F0D"), orange)
+            assertFalse(options.any { it.getAttribute("id") == "537" })
         }
     }
 
@@ -293,7 +288,7 @@ class SugarliciousAnalogPreviewGeometryTest {
             val orange = (0 until options.length).map { options.item(it) as Element }.singleOrNull { it.getAttribute("id") == "37" }
             assertTrue("measured reference palette missing", orange != null)
             assertEquals(
-                "#FFFFDBBD #FFFBB576 #FFF88F33",
+                "#FFFFCCB1 #FFFF935C #FFFF5F0D",
                 orange!!
                     .getAttribute("colors")
                     .split(" ")

@@ -1,54 +1,48 @@
-"""Palette variants are permutations, never newly composed color sets."""
+"""The measured original palette catalog is preserved without synthetic variants."""
 from pathlib import Path
+import hashlib
+import json
 import runpy
 import unittest
 import xml.etree.ElementTree as E
 
-ROOT = Path(__file__).resolve().parents[2]
-CATALOG = runpy.run_path(str(ROOT / "tools/watchface-assets/curated_palettes.py"))
-
+ROOT=Path(__file__).resolve().parents[2]
+CATALOG=runpy.run_path(str(ROOT/'tools/watchface-assets/curated_palettes.py'))
 
 class CuratedPaletteTest(unittest.TestCase):
-    def test_each_bold_palette_swaps_exactly_two_original_tones(self):
-        options = CATALOG["load_palettes"]()
-        self.assertEqual(len(options), 45)
-        self.assertEqual(len({o["id"] for o in options}), 45)
-        pairs = [o for o in options if o["id"] != "999"]
-        for soft, bold in zip(pairs[::2], pairs[1::2]):
-            self.assertTrue(soft["name"].endswith(" · Sanft"))
-            self.assertTrue(bold["name"].endswith(" · Kräftig"))
-            self.assertEqual(int(soft["id"]) + 200, int(bold["id"]))
-            self.assertEqual(int(soft["apex_id"]) + 500, int(bold["apex_id"]))
-            before = [soft[k] for k in ("light", "medium", "vivid")]
-            after = [bold[k] for k in ("light", "medium", "vivid")]
-            self.assertEqual(after, before[::-1])
-            self.assertEqual(sorted(after), sorted(before))
+    def test_original_inventory_is_complete_and_unchanged(self):
+        entries=CATALOG['load_palettes']()
+        original=sorted((r['name'],r['light'],r['medium'],r['vivid']) for r in entries if r['origin']=='original')
+        self.assertEqual(76,len(original))
+        self.assertEqual('f2b58d19e5740898a398daa0f7abc2c72b9fef025a0784738959ee81740a445c',hashlib.sha256(json.dumps(original,separators=(',',':')).encode()).hexdigest())
+        self.assertEqual(78,len(entries))
+        for key in ('id','apex_id','name'):
+            self.assertEqual(78,len({r[key] for r in entries}))
 
-    def test_requested_main_tones_and_separate_pure_white_option(self):
-        options = {o["id"]: o for o in CATALOG["load_palettes"]()}
-        self.assertEqual(options["270"]["light"], "F88F33")
-        self.assertEqual(options["214"]["light"], "758544")
-        self.assertEqual([options["999"][k] for k in ("light", "medium", "vivid")], ["FFFFFF"] * 3)
+    def test_original_orange_and_preserved_olive(self):
+        entries={r['id']:r for r in CATALOG['load_palettes']()}
+        self.assertEqual(['FFCCB1','FF935C','FF5F0D'],[entries['70'][k] for k in ('light','medium','vivid')])
+        self.assertEqual(['D4DAB6','A4AF73','758544'],[entries['14'][k] for k in ('light','medium','vivid')])
+        self.assertEqual('61',entries['14']['apex_id'])
+        self.assertEqual(['FFFFFF']*3,[entries['999'][k] for k in ('light','medium','vivid')])
 
-    def test_both_native_faces_keep_original_tone_counts_and_role_swap(self):
-        for family, identities, strong_id, size in (("sugarlicious-analog", ("materialAccent", "materialSubTheme"), "537", (4, 3)), ("sugarlicious-orbit", ("primary", "secondary", "tertiary"), "270", (3, 3, 3))):
-            root = E.parse(ROOT / f"watchfaces/{family}/src/main/res/raw/watchface.xml").getroot()
-            for identity, count in zip(identities, size):
-                config = root.find(f"UserConfigurations/ColorConfiguration[@id='{identity}']")
-                self.assertEqual(len(config), 45)
-                self.assertEqual(len(config.find(f"ColorOption[@id='{strong_id}']").get("colors").split()), count)
-                self.assertEqual(config.find(f"ColorOption[@id='{strong_id}']").get("colors").split()[:3], ["#FFF88F33", "#FFFBB576", "#FFFFDBBD"])
+    def test_both_faces_use_the_same_original_trios(self):
+        entries=CATALOG['load_palettes']()
+        for family,keys,idkey in (('sugarlicious-analog',('materialAccent','materialSubTheme'),'apex_id'),('sugarlicious-orbit',('primary','secondary','tertiary'),'id')):
+            root=E.parse(ROOT/f'watchfaces/{family}/src/main/res/raw/watchface.xml').getroot()
+            for key in keys:
+                options=root.find(f"UserConfigurations/ColorConfiguration[@id='{key}']")
+                self.assertEqual(78,len(options))
+                for entry in entries:
+                    tones=options.find(f"ColorOption[@id='{entry[idkey]}']").get('colors').split()
+                    self.assertEqual(['#FF'+entry[k] for k in ('light','medium','vivid')],tones[:3])
+                    self.assertEqual(4 if key=='materialAccent' else 3,len(tones))
 
-    def test_color_table_order_and_ten_three_color_combinations_at_end(self):
-        options = CATALOG["load_palettes"]()
-        self.assertEqual(sum(o["kind"] == "combination" for o in options), 20)
-        self.assertTrue(all(o["kind"] == "combination" for o in options[-20:]))
-        self.assertEqual([o["name"].split(" · ")[0] for o in options[:14:2]], ["Rot", "Orange", "Gelb", "Olivgrün", "Blau", "Violett", "Pink"])
-        for option in options[-20:]:
-            self.assertEqual(len({option[k] for k in ("light", "medium", "vivid")}), 3)
-        neutrals = [o["name"] for o in options if o["name"].split(" · ")[0] in {"Weiß", "Reinweiß", "Hellgrau", "Warmgrau", "Graphit"}]
-        self.assertEqual(neutrals, ["Weiß · Sanft", "Weiß · Kräftig", "Reinweiß", "Hellgrau · Sanft", "Hellgrau · Kräftig", "Warmgrau · Sanft", "Warmgrau · Kräftig", "Graphit · Sanft", "Graphit · Kräftig"])
+    def test_multicolor_combinations_finish_the_hue_sorted_catalog(self):
+        entries=CATALOG['load_palettes']()
+        index=next(i for i,r in enumerate(entries) if r['kind']=='combination')
+        self.assertTrue(all(r['kind']=='combination' for r in entries[index:]))
+        self.assertEqual(11,len(entries)-index)
+        self.assertTrue(all('Sanft' not in r['name'] and 'Kräftig' not in r['name'] for r in entries))
 
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__=='__main__': unittest.main()
