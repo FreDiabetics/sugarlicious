@@ -5,8 +5,8 @@ android {
     compileSdk = 37
     defaultConfig {
         applicationId = "app.sugarlicious.watchfacepush.apex"
-        minSdk = 34
-        targetSdk = 35
+        minSdk = 36
+        targetSdk = 36
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
         versionName = rootProject.extra["sugarliciousSuiteVersionName"] as String
     }

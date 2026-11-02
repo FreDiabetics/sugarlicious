@@ -30,8 +30,12 @@ internal fun OverviewProgressCard(state: TherapyDisplayState?, preferences: Dash
     val locale = LocalConfiguration.current.locales[0]
     val indicators = therapyIndicatorPresentations(state, preferences.iobProgressMaximumUnits, now, preferences.cobProgressMaximumGrams)
     BoxWithConstraints(Modifier.fillMaxWidth().background(SugarliciousColors.Surface, RoundedCornerShape(28.dp)).padding(18.dp)) {
-        val fontScale = LocalDensity.current.fontScale
-        val columnWidth = maxOf(104f * fontScale, (maxWidth.value - 24f) / 3f).coerceAtMost(maxWidth.value)
+        val density = LocalDensity.current
+        val fontScale = density.fontScale
+        val columnWidth =
+            with(density) {
+                overviewProgressColumnWidthPx(constraints.maxWidth, 12.dp.roundToPx(), (104.dp * fontScale).roundToPx()).toDp().value
+            }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             indicators.forEach { indicator ->
                 Column(Modifier.width(columnWidth.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {

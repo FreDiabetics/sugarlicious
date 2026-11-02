@@ -15,6 +15,15 @@ class PersistentPredictionCacheTest {
     private val minute = 60_000L
     private val now = 10_000L * minute
 
+    @Test fun `new forecast generation cannot retain an older lower lane`() {
+        val previous = state(predictions = listOf(prediction(PredictionKind.IOB, now - 5 * minute, now + 60 * minute), prediction(PredictionKind.UAM, now - 5 * minute, now + 45 * minute)))
+        val fresh = prediction(PredictionKind.IOB, now, now + 60 * minute)
+        val result = PersistentPredictionCache.merge(previous, state(predictions = listOf(fresh)), now)
+        assertEquals(listOf(fresh), result.glucosePredictions)
+        val delayed = PersistentPredictionCache.merge(result, previous, now)
+        assertEquals(listOf(fresh), delayed.glucosePredictions)
+    }
+
     @Test
     fun `empty transient update retains persisted predictions`() {
         val previous =

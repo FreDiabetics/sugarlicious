@@ -3,6 +3,7 @@ package app.aapswear.storage
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import app.aapswear.model.DataCapability
+import app.aapswear.model.DataSourceId
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.GlucoseState
@@ -22,6 +23,21 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class TherapyStateStoreTest {
+    @Test
+    fun `remote account reset cannot reimport old account from daily cache`() =
+        runBlocking {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val now = System.currentTimeMillis()
+            val retained = GlucoseSample(110.0, now, source = DataSourceId.ANDROID_APS)
+            val store = TherapyStateStore(context)
+            store.removeSourceHistory(DataSourceId.ANDROID_APS)
+            store.removeSourceHistory(DataSourceId.NIGHTSCOUT)
+            store.recordHistory(TherapyDisplayState(receivedAtEpochMs = now, glucoseHistory = listOf(retained, retained.copy(source = DataSourceId.NIGHTSCOUT))), now)
+            store.removeSourceHistory(DataSourceId.NIGHTSCOUT)
+            assertEquals(listOf(retained), store.recordHistory(null, now))
+            assertEquals(listOf(retained), store.rangeHistory(now - 60_000, now))
+        }
+
     @Test
     fun `daily tir archive survives new state without extending the live graph history`() =
         runBlocking {

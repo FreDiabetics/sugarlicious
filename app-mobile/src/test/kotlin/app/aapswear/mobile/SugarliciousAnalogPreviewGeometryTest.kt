@@ -1,10 +1,5 @@
 package app.aapswear.mobile
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.float
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,14 +17,14 @@ class SugarliciousAnalogPreviewGeometryTest {
         val small =
             (0 until graph.getElementsByTagName("Complication").length)
                 .map { graph.getElementsByTagName("Complication").item(it) as Element }
-                .single { it.getAttribute("type") == "SMALL_IMAGE" }
+                .single { it.getAttribute("type") == "LONG_TEXT" }
         val policies = small.getElementsByTagName("Variant")
         assertTrue((0 until policies.length).all { (policies.item(it) as Element).getAttribute("value").toInt() > 0 })
     }
 
     @Test fun `default configuration matches the captured Apex template`() {
         val root = document()
-        val expected = mapOf("materialAccent" to "37", "materialSubTheme" to "37", "progressMarker" to "TRUE", "progressGradient" to "TRUE")
+        val expected = mapOf("materialAccent" to "37", "materialSubTheme" to "61", "handStyle" to "1", "secondStyle" to "1", "progressBars" to "5")
         val nodes = root.getElementsByTagName("UserConfigurations").item(0).childNodes
         (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }.forEach { element ->
             expected[element.getAttribute("id")]?.let { assertEquals(it, element.getAttribute("defaultValue")) }
@@ -58,14 +53,14 @@ class SugarliciousAnalogPreviewGeometryTest {
     @Test
     fun `every circular progress fill switches gradient and solid visibility directly`() {
         (0..6).forEach { id ->
-            val nodes = slot(id.toString()).getElementsByTagName("Group")
-            val groups = (0 until nodes.length).map { nodes.item(it) as Element }
+            val groups = slot(id.toString()).nodes("Group")
             listOf("gradient" to "255 : 0", "solid" to "0 : 255").forEach { (mode, alpha) ->
-                val group = groups.singleOrNull { it.getAttribute("name") == "progress-$mode-$id" }
-                assertTrue("slot $id needs a directly bound $mode layer", group != null)
-                val transform = group!!.getElementsByTagName("Transform").item(0) as Element
-                assertEquals("[CONFIGURATION.progressGradient] == \"TRUE\" ? $alpha", transform.getAttribute("value"))
-                assertEquals(if (mode == "gradient") 1 else 0, group.getElementsByTagName("SweepGradient").length)
+                val group = groups.single { it.getAttribute("name") == "progress-$mode-$id" }
+                val expression = group.nodes("Transform").first().getAttribute("value")
+                assertTrue(expression.contains("CONFIGURATION.progressBars"))
+                assertTrue(expression.endsWith("? $alpha"))
+                assertFalse(expression.contains("CONFIGURATION.progressGradient"))
+                assertEquals(if (mode == "gradient") 1 else 0, group.nodes("SweepGradient").size)
             }
         }
     }
@@ -77,97 +72,75 @@ class SugarliciousAnalogPreviewGeometryTest {
         assertEquals("switch visibility without rebuilding the editor listener map", 0, hands.getElementsByTagName("ListConfiguration").length)
         assertEquals(3, hands.getElementsByTagName("HourHand").length)
         assertEquals(3, hands.getElementsByTagName("MinuteHand").length)
-        assertEquals(6, hands.getElementsByTagName("SecondHand").length)
+        assertEquals(9, hands.getElementsByTagName("SecondHand").length)
     }
 
     @Test
     fun `smooth seconds use highest supported WFF1 sweep frequency for all hand sets`() {
         val sweeps = document().getElementsByTagName("Sweep")
-        assertEquals(3, sweeps.length)
+        assertEquals(9, sweeps.length)
         (0 until sweeps.length).forEach { assertEquals("15", (sweeps.item(it) as Element).getAttribute("frequency")) }
     }
 
     @Test
     fun `point mode shows the full unchanged colored bar under a hollow black contour`() {
-        (0..7).forEach { id ->
-            val groups = slot(id.toString()).getElementsByTagName("Group")
-            val fill = (0 until groups.length).map { groups.item(it) as Element }.single { it.getAttribute("name") == "progress-fill-$id" }
-            val directTransforms = (0 until fill.childNodes.length).mapNotNull { fill.childNodes.item(it) as? Element }.filter { it.tagName == "Transform" }
-            assertTrue("point mode must retain the value fill", directTransforms.none { it.getAttribute("target") == "alpha" })
-            val marker = (0 until groups.length).map { groups.item(it) as Element }.single { it.getAttribute("name") == "progress-marker-$id" }
-            val circles = marker.getElementsByTagName("Ellipse")
-            assertEquals("one unfilled ring", 1, circles.length)
-            assertEquals("no fill, dark disk or eraser underneath", 0, marker.getElementsByTagName("Fill").length)
-            assertEquals("#FF000000", (marker.getElementsByTagName("Stroke").item(0) as Element).getAttribute("color"))
-            val transforms = fill.getElementsByTagName("Transform")
-            val ends = (0 until transforms.length).map { transforms.item(it) as Element }.filter { it.getAttribute("target") in setOf("endAngle", "endX") }
-            assertTrue(ends.isNotEmpty())
-            val endpoint = listOf(333, 63, 151, 243, 500, 500, 500, 90)[id]
-            val markerMode = if (id == 7) "[CONFIGURATION.progressMarker] == \"TRUE\"" else "([CONFIGURATION.progressMarker] == \"TRUE\" && [CONFIGURATION.progressGap] != \"TRUE\"${if (id == 1) " && [CONFIGURATION.upperRightMarkers] != \"TRUE\"" else ""})"
-            assertTrue("no dark remainder in valid marker mode", ends.all { it.getAttribute("value").startsWith("$markerMode && [COMPLICATION.RANGED_VALUE_MAX] > [COMPLICATION.RANGED_VALUE_MIN] ? $endpoint :") })
-            if (id == 1) {
-                val segmentSwitches = (0 until transforms.length).map { transforms.item(it) as Element }.filter { it.getAttribute("target") == "alpha" && it.getAttribute("value").contains("upperRightMarkers") }
-                assertTrue(segmentSwitches.isNotEmpty())
-                assertTrue("segment selection is independent of the marker", segmentSwitches.all { !it.getAttribute("value").contains("CONFIGURATION.progressMarker") })
-                val ranged = marker.parentNode as Element
-                val directGroups = (0 until ranged.childNodes.length).mapNotNull { ranged.childNodes.item(it) as? Element }
-                assertEquals("ring must render above segment artwork", marker, directGroups.last())
-                val segments = (0 until ranged.getElementsByTagName("PartDraw").length).map { ranged.getElementsByTagName("PartDraw").item(it) as Element }.filter { it.getAttribute("name").startsWith("upper-right-segment-") }
-                assertEquals(33, segments.size)
-                assertTrue("segmented bars honor marker eligibility instead of forcing a full bar", segments.all { (it.getElementsByTagName("Transform").item(0) as Element).getAttribute("value").contains("$markerMode ||") })
-            }
+        (0..3).forEach { id ->
+            val groups = slot(id.toString()).nodes("Group")
+            val fill = groups.single { it.getAttribute("name") == "progress-fill-$id" }
+            val direct = (0 until fill.childNodes.length).mapNotNull { fill.childNodes.item(it) as? Element }
+            assertTrue(direct.none { it.tagName == "Transform" && it.getAttribute("target") == "alpha" })
+            val marker = groups.single { it.getAttribute("name") == "progress-marker-$id" }
+            assertEquals(1, marker.nodes("Ellipse").size)
+            assertTrue(marker.nodes("Fill").isEmpty())
+            assertEquals("#FF000000", marker.nodes("Stroke").single().getAttribute("color"))
+            val endpoints = fill.nodes("Transform").filter { it.getAttribute("target") == "endAngle" }
+            assertTrue(endpoints.isNotEmpty())
+            assertTrue(endpoints.all { it.getAttribute("value").contains("CONFIGURATION.progressBars") })
+            if (id == 1) assertEquals(30, slot("1").nodes("Line").size)
         }
+        (4..6).forEach { id -> assertFalse(slot(id.toString()).nodes("Group").any { it.getAttribute("name").startsWith("progress-marker-") }) }
     }
 
     @Test
     fun `point indicator inner diameter matches track thickness in every ranged slot`() {
-        (0..7).forEach { id ->
-            val variants = slot(id.toString()).getElementsByTagName("Complication")
-            val ranged = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "RANGED_VALUE" }
-            val draws = ranged.getElementsByTagName("PartDraw")
-            val groups = ranged.getElementsByTagName("Group")
-            val marker = (0 until groups.length).map { groups.item(it) as Element }.single { it.getAttribute("name") == "progress-marker-$id" }
-            val track = (0 until draws.length).map { draws.item(it) as Element }.first { it.getAttribute("alpha") == "55" }
-            val thickness = (track.getElementsByTagName("Stroke").item(0) as Element).getAttribute("thickness").toDouble()
-            val circles = marker.getElementsByTagName("Ellipse")
-            assertEquals("one contour, no extra complication slot", 1, circles.length)
-            (0 until circles.length).forEach { index ->
-                val circle = circles.item(index) as Element
-                val stroke = (circle.getElementsByTagName("Stroke").item(0) as Element).getAttribute("thickness").toDouble()
-                assertEquals(listOf(6.778676, 6.778676, 6.778676, 6.778676, 4.24, 4.24, 5.185784, 2.84)[id], stroke, .0001)
-                assertTrue("contour must remain clearly visible at watch size", stroke >= thickness * .25)
-                assertTrue("center must remain visibly hollow", circle.getAttribute("width").toDouble() - stroke >= thickness * .4)
-                assertEquals("inner contour follows both track edges", thickness, circle.getAttribute("width").toDouble() - stroke, .0001)
-                assertEquals(circle.getAttribute("width"), circle.getAttribute("height"))
-                assertEquals("just the black contour", 1, circle.getElementsByTagName("Stroke").length)
-            }
-            val transforms = marker.getElementsByTagName("Transform")
-            assertTrue((0 until transforms.length).map { transforms.item(it) as Element }.any { it.getAttribute("target") == "alpha" && it.getAttribute("value").contains("CONFIGURATION.progressMarker") })
+        (0..3).forEach { id ->
+            val marker = slot(id.toString()).nodes("Group").single { it.getAttribute("name") == "progress-marker-$id" }
+            val circle = marker.nodes("Ellipse").single()
+            val stroke = circle.nodes("Stroke").single()
+            val thickness =
+                sourceArcs(id.toString())
+                    .first()
+                    .nodes("Stroke")
+                    .first()
+                    .getAttribute("thickness")
+                    .toDouble()
+            assertEquals(5.640898, stroke.getAttribute("thickness").toDouble(), .0001)
+            assertEquals(23.845376, circle.getAttribute("width").toDouble(), .0001)
+            assertEquals(circle.getAttribute("width"), circle.getAttribute("height"))
+            val inside = circle.getAttribute("width").toDouble() - stroke.getAttribute("thickness").toDouble()
+            assertTrue(inside >= thickness && inside <= thickness + 1.14)
+            assertEquals("#FF000000", stroke.getAttribute("color"))
         }
     }
 
     @Test
     fun `only image graph receives a pattern knockout behind its transparent artwork`() {
-        val variants = slot("7").getElementsByTagName("Complication")
-        val image = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "SMALL_IMAGE" }
-        val children = (0 until image.childNodes.length).mapNotNull { image.childNodes.item(it) as? Element }
-        assertEquals(listOf("Group"), children.map { it.tagName })
-        val group = children.single()
-        val backing = group.getElementsByTagName("Rectangle").item(0) as Element
-        val backingDraw = backing.parentNode as Element
-        assertEquals("97", backingDraw.getAttribute("height"))
-        assertEquals("91", backingDraw.getAttribute("y"))
-        assertEquals("#FF000000", (backing.getElementsByTagName("Fill").item(0) as Element).getAttribute("color"))
-        val mask = group.getElementsByTagName("PartDraw").item(0) as Element
-        val graph = group.getElementsByTagName("PartImage").item(0) as Element
-        assertEquals("MASK", mask.getAttribute("renderMode"))
-        val maskArc = mask.getElementsByTagName("Arc").item(0) as Element
-        assertEquals("256", maskArc.getAttribute("centerX"))
-        assertEquals("256", maskArc.getAttribute("centerY"))
-        assertEquals("165", maskArc.getAttribute("width"))
-        assertEquals("165", (maskArc.getElementsByTagName("Stroke").item(0) as Element).getAttribute("thickness"))
+        val content = slot("7").nodes("Complication").single { it.getAttribute("type") == "LONG_TEXT" }
+        val group = content.nodes("Group").single { it.getAttribute("name") == "graph-clipped-content" }
+        val backing = group.nodes("Rectangle").single()
+        val draw = backing.parentNode as Element
+        assertEquals("97", draw.getAttribute("height"))
+        assertEquals("91", draw.getAttribute("y"))
+        assertEquals("#FF000000", backing.nodes("Fill").single().getAttribute("color"))
+        val mask = group.nodes("PartDraw").first { it.getAttribute("renderMode") == "MASK" }
+        val arc = mask.nodes("Arc").single()
+        near(256.0, arc, "centerX")
+        near(256.0, arc, "centerY")
+        near(165.0, arc, "width")
+        near(165.0, arc.nodes("Stroke").single(), "thickness")
         assertEquals("[CONFIGURATION.materialAccent.0]", group.getAttribute("tintColor"))
-        assertTrue("preserve neutral dot tones before theme tinting", !graph.hasAttribute("tintColor"))
+        assertEquals("[COMPLICATION.MONOCHROMATIC_IMAGE]", group.nodes("Image").single().getAttribute("resource"))
+        (0..6).forEach { id -> assertTrue(slot(id.toString()).nodes("Rectangle").isEmpty()) }
     }
 
     @Test
@@ -194,71 +167,51 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `weekday layout replaces graph and retains German labels without extra complication slots`() {
-        val variants = slot("7").getElementsByTagName("Complication")
-        val text = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "SHORT_TEXT" }
-        val groups = text.getElementsByTagName("Group")
-        val days = (0..6).map { index -> (0 until groups.length).map { groups.item(it) as Element }.single { it.getAttribute("name") == "weekday-$index" } }
-        val labels = listOf("M", "D", "M", "D", "F", "S", "S")
-        days.forEachIndexed { index, day ->
-            assertEquals("\"${labels[index]}\"", (day.getElementsByTagName("Parameter").item(0) as Element).getAttribute("expression"))
-        }
-        assertTrue("Wednesday selection must clear the upper ranged label", days[2].getAttribute("y").toDouble() >= 86)
-        assertEquals(0, text.getElementsByTagName("Image").let { nodes -> (0 until nodes.length).count { (nodes.item(it) as Element).getAttribute("resource") == "[COMPLICATION.SMALL_IMAGE]" } })
-        val left = 211.0
-        val top = 138.0
-        val right = 301.0
-        val bottom = 194.0
-        days.forEach { day ->
-            val angle = Math.toRadians(day.getAttribute("angle").toDouble())
-            val halfWidth = 18 * kotlin.math.abs(kotlin.math.cos(angle)) + 15 * kotlin.math.abs(kotlin.math.sin(angle))
-            val halfHeight = 18 * kotlin.math.abs(kotlin.math.sin(angle)) + 15 * kotlin.math.abs(kotlin.math.cos(angle))
-            val cx = day.getAttribute("x").toDouble() + 18
-            val cy = day.getAttribute("y").toDouble() + 18
-            assertTrue("${day.getAttribute("name")} selection overlaps graph", right <= cx - halfWidth || left >= cx + halfWidth || bottom <= cy - halfHeight || top >= cy + halfHeight)
-        }
+    fun `Apex upper content is a fixed graph without Arc alternatives`() {
+        val graph = slot("7")
+        assertEquals("FALSE", graph.getAttribute("isCustomizable"))
+        assertEquals("LONG_TEXT EMPTY", graph.getAttribute("supportedTypes"))
+        val groups = document().getElementsByTagName("Group")
+        val names = (0 until groups.length).map { (groups.item(it) as Element).getAttribute("name") }
+        assertTrue(names.none { it.startsWith("weekday-") || it in setOf("original-weekdays-date", "date-icon-only") })
+        assertEquals(8, document().getElementsByTagName("Scene").item(0).let { (it as Element).nodes("ComplicationSlot").size })
     }
 
     @Test
     fun `upper alternative renders provider title text image and real ranged progress`() {
-        val variants = slot("7").getElementsByTagName("Complication")
-        listOf("SHORT_TEXT", "RANGED_VALUE").forEach { type ->
-            val variant = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == type }
-            val parameters = variant.getElementsByTagName("Parameter")
-            val fields = (0 until parameters.length).map { (parameters.item(it) as Element).getAttribute("expression") }
-            assertTrue(fields.containsAll(listOf("[COMPLICATION.TITLE]", "[COMPLICATION.TEXT]")))
-            assertTrue((variant.getElementsByTagName("Image").item(0) as Element).getAttribute("resource").contains("MONOCHROMATIC_IMAGE"))
-            if (type == "RANGED_VALUE") {
-                val transforms = variant.getElementsByTagName("Transform")
-                assertTrue("ranged value must not silently become text only", (0 until transforms.length).any { (transforms.item(it) as Element).getAttribute("value").contains("RANGED_VALUE_VALUE") })
-            }
-        }
+        val graph = slot("7")
+        assertEquals(setOf("LONG_TEXT", "EMPTY"), graph.nodes("Complication").map { it.getAttribute("type") }.toSet())
+        assertEquals("app.sugarlicious/app.aapswear.complications.NativeApexGraphComplication", graph.nodes("DefaultProviderPolicy").single().getAttribute("primaryProvider"))
+        val configs = document().getElementsByTagName("UserConfigurations").item(0) as Element
+        val ids = (0 until configs.childNodes.length).mapNotNull { configs.childNodes.item(it) as? Element }.map { it.getAttribute("id") }
+        assertFalse(ids.any { it in setOf("upperMode", "arcContent", "weatherLaunch") })
+        assertTrue(graph.nodes("Reference").any { it.getAttribute("name") == "nativeHandsOpacity" })
     }
 
     @Test
     fun `both native color menus expose every measured reference palette within platform limit`() {
-        val fixtureFile = repoFile("watchfaces/sugarlicious-analog/reference/public-theme-colors.json")
-        val fixtureJson = Json.parseToJsonElement(fixtureFile.readText())
-        val fixture = fixtureJson.jsonObject.getValue("palettes").jsonArray
-        val nodes = document().getElementsByTagName("ColorConfiguration")
+        val configs = document().getElementsByTagName("ColorConfiguration")
         listOf("materialAccent", "materialSubTheme").forEach { id ->
-            val config = (0 until nodes.length).map { nodes.item(it) as Element }.single { it.getAttribute("id") == id }
-            val choices = config.getElementsByTagName("ColorOption")
-            assertTrue(choices.length <= 100)
-            val colors =
-                (0 until choices.length)
-                    .map {
-                        (choices.item(it) as Element)
-                            .getAttribute("colors")
-                            .split(" ")
-                            .take(3)
-                            .joinToString(" ")
-                    }.toSet()
-            fixture.forEach { palette ->
-                val roles = palette.jsonObject.getValue("colors").jsonArray
-                val tones = listOf(roles[0], roles[1], roles[3]).joinToString(" ") { it.jsonPrimitive.content }
-                assertTrue("$id missing ${palette.jsonObject.getValue("name")}", tones in colors)
-            }
+            val config = (0 until configs.length).map { configs.item(it) as Element }.single { it.getAttribute("id") == id }
+            val options = config.nodes("ColorOption")
+            assertEquals(78, options.size)
+            assertEquals(78, options.map { it.getAttribute("id") }.toSet().size)
+            assertTrue(options.all { it.getAttribute("colors").split(" ").size == if (id == "materialAccent") 4 else 3 })
+            val white =
+                options
+                    .single { it.getAttribute("id") == "999" }
+                    .getAttribute("colors")
+                    .split(" ")
+                    .take(3)
+            assertEquals(listOf("#FFFFFFFF", "#FFFFFFFF", "#FFFFFFFF"), white)
+            val orange =
+                options
+                    .single { it.getAttribute("id") == "37" }
+                    .getAttribute("colors")
+                    .split(" ")
+                    .take(3)
+            assertEquals(listOf("#FFFFCCB1", "#FFFF935C", "#FFFF5F0D"), orange)
+            assertFalse(options.any { it.getAttribute("id") == "537" })
         }
     }
 
@@ -280,43 +233,40 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `every clinical slot honors night color and hides in hands only ambient mode`() {
+    fun `ambient retains only lower glucose and fixed graph`() {
         (0..6).forEach { id ->
             val node = slot(id.toString())
-            assertEquals("slot $id", "[CONFIGURATION.nightMode]", node.getAttribute("tintColor"))
-            val ambient = node.getElementsByTagName("Variant").item(0) as? Element
-            assertTrue("slot $id needs ambient policy", ambient != null)
-            assertEquals("[CONFIGURATION.aodStyle] == \"0\" ? 96 : 0", ambient!!.getAttribute("value"))
+            assertEquals("#FFFFFFFF", node.getAttribute("tintColor"))
+            val ambient = node.nodes("Variant").first { it.getAttribute("mode") == "AMBIENT" && it.getAttribute("target") == "alpha" }
+            assertEquals(if (id == 6) "160" else "0", ambient.getAttribute("value"))
         }
+        val source = repoFile("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml").readText()
+        assertFalse(source.contains("CONFIGURATION.nightMode"))
+        assertFalse(source.contains("CONFIGURATION.aodStyle"))
     }
 
     @Test
-    fun `opaque circle cleanup follows graph and precedes clinical ink`() {
+    fun `opaque decoration cleanup precedes graph and clinical ink`() {
         val root = document()
-        val parts = root.getElementsByTagName("PartDraw")
-        val cleanup = (0 until parts.length).map { parts.item(it) as Element }.singleOrNull { it.getAttribute("name") == "erase-baked-circles" }
-        assertTrue("cleanup must not disappear with contours in ambient", cleanup != null)
-        assertEquals("Scene", cleanup!!.parentNode.nodeName)
-        assertEquals(3, cleanup.getElementsByTagName("Ellipse").length)
-        assertEquals(0, cleanup.getElementsByTagName("Variant").length)
-        assertTrue(cleanup.compareDocumentPosition((root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot").item(0)).toInt() and 2 != 0)
-        val sceneSlots = (root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot")
-        val middleLeft = (0 until sceneSlots.length).map { sceneSlots.item(it) as Element }.single { it.getAttribute("slotId") == "4" }
-        assertTrue(cleanup.compareDocumentPosition(middleLeft).toInt() and 4 != 0)
+        val cleanup = root.getElementsByTagName("PartDraw").let { nodes -> (0 until nodes.length).map { nodes.item(it) as Element }.single { it.getAttribute("name") == "erase-baked-circles" } }
+        assertEquals("Scene", cleanup.parentNode.nodeName)
+        assertEquals(3, cleanup.nodes("Ellipse").size)
+        assertEquals("0", cleanup.nodes("Variant").single().getAttribute("value"))
+        val graph = root.getElementsByTagName("ComplicationSlot").let { nodes -> (0 until nodes.length).map { nodes.item(it) as Element }.single { it.getAttribute("slotId") == "7" && it.parentNode.nodeName == "Scene" } }
+        assertTrue(cleanup.compareDocumentPosition(graph).toInt() and 4 != 0)
+        val clinical = root.getElementsByTagName("ComplicationSlot").let { nodes -> (0 until nodes.length).map { nodes.item(it) as Element }.single { it.getAttribute("slotId") == "4" && it.parentNode.nodeName == "Scene" } }
+        assertTrue(graph.compareDocumentPosition(clinical).toInt() and 4 != 0)
     }
 
     @Test
     fun `reference decoration exposes native options without creating new complication slots`() {
         val root = document()
         val user = root.getElementsByTagName("UserConfigurations").item(0) as Element
-        val ids = (0 until user.childNodes.length).mapNotNull { user.childNodes.item(it) as? Element }.map { it.getAttribute("id") }.toSet()
-        assertTrue(ids.containsAll(setOf("dialTheme", "nightMode", "backgroundPattern", "secondStyle", "indexStyle", "minuteMarkers", "aodStyle", "showAmPm", "unreadIndicator")))
-        assertEquals(8, (root.getElementsByTagName("Scene").item(0) as Element).getElementsByTagName("ComplicationSlot").length)
+        val ids = (0 until user.childNodes.length).mapNotNull { user.childNodes.item(it) as? Element }.map { it.getAttribute("id") }.filter(String::isNotEmpty)
+        assertEquals(listOf("indexStyle", "handStyle", "secondStyle", "materialAccent", "materialSubTheme", "backgroundPattern", "progressBars", "glucoseColor"), ids)
+        assertEquals(8, (root.getElementsByTagName("Scene").item(0) as Element).nodes("ComplicationSlot").size)
         val source = repoFile("watchfaces/sugarlicious-analog/src/main/res/raw/watchface.xml").readText()
-        listOf("nightMode", "backgroundPattern", "secondStyle", "indexStyle", "minuteMarkers", "aodStyle", "showAmPm", "unreadIndicator").forEach { id ->
-            val scene = source.substringAfter("<Scene")
-            assertTrue("option $id must affect the scene", scene.contains("CONFIGURATION.$id") || scene.contains("<ListConfiguration id=\"$id\""))
-        }
+        listOf("nightMode", "aodStyle", "minuteMarkers", "showAmPm", "unreadIndicator", "dialTheme").forEach { assertFalse(source.contains("CONFIGURATION.$it")) }
     }
 
     @Test
@@ -360,9 +310,9 @@ class SugarliciousAnalogPreviewGeometryTest {
     fun `bottom icon grows while all three contours use the dark subtheme track`() {
         val images = slot("6").getElementsByTagName("PartImage")
         val icon = images.item(0) as Element
-        near(32.0, icon, "width")
-        near(32.0, icon, "height")
-        near(114.0, icon, "y")
+        near(26.0, icon, "width")
+        near(26.0, icon, "height")
+        near(117.0, icon, "y")
         val draws = document().getElementsByTagName("PartDraw")
         (0 until draws.length).map { draws.item(it) as Element }.filter { it.getAttribute("name").endsWith("-contour") }.forEach {
             assertEquals("55", it.getAttribute("alpha"))
@@ -375,58 +325,50 @@ class SugarliciousAnalogPreviewGeometryTest {
         val lines = slot("1").getElementsByTagName("Line")
         val first = lines.item(0) as Element
         val last = lines.item(lines.length - 1) as Element
-
-        fun length(line: Element): Double = kotlin.math.hypot(line.getAttribute("endX").toDouble() - line.getAttribute("startX").toDouble(), line.getAttribute("endY").toDouble() - line.getAttribute("startY").toDouble())
-
-        assertTrue(length(last) > length(first) * 1.4)
+        val current = last.nodes("Transform").single { it.getAttribute("target") == "startX" }.getAttribute("value")
+        assertTrue(current.contains("floor(clamp("))
+        assertTrue(current.contains("== 9"))
+        assertTrue(current.contains("?"))
         assertTrue((first.getElementsByTagName("Stroke").item(0) as Element).getAttribute("thickness").toFloat() >= 5f)
         val types = slot("3").getElementsByTagName("Complication")
         val range = (0 until types.length).map { types.item(it) as Element }.single { it.getAttribute("type") == "RANGED_VALUE" }
         val text = range.getElementsByTagName("TextCircular").item(0) as Element
         assertEquals("END", text.getAttribute("align"))
-        near(248.0, text, "endAngle")
+        near(246.0, text, "endAngle")
     }
 
     @Test
-    fun `progress gradients and upper right markers are independent native options`() {
-        val root = document()
-        val options = root.getElementsByTagName("BooleanConfiguration")
-        val ids = (0 until options.length).map { (options.item(it) as Element).getAttribute("id") }.toSet()
-        assertTrue(ids.containsAll(setOf("progressGradient", "upperRightMarkers")))
-        assertEquals(7, root.getElementsByTagName("SweepGradient").length)
-        assertEquals(33, slot("1").getElementsByTagName("Line").length)
-        (0 until root.getElementsByTagName("SweepGradient").length).forEach { index ->
-            val gradient = root.getElementsByTagName("SweepGradient").item(index) as Element
-            val tones = gradient.getAttribute("colors").split(" ")
-            assertEquals("#00FFFFFF", tones.first())
-            assertEquals("#FFFFFFFF", tones.last())
-            assertEquals("gradient remains tied to the full scale, not the changing progress endpoint", 0, gradient.getElementsByTagName("Transform").length)
+    fun `consolidated progress styles switch gradients and upper right markers`() {
+        val user = document().getElementsByTagName("UserConfigurations").item(0) as Element
+        val config = user.nodes("ListConfiguration").single { it.getAttribute("id") == "progressBars" }
+        assertEquals((0..7).map(Int::toString), config.nodes("ListOption").map { it.getAttribute("id") })
+        assertEquals(7, document().getElementsByTagName("SweepGradient").length)
+        assertEquals(30, slot("1").nodes("Line").size)
+        val shaders = document().getElementsByTagName("SweepGradient")
+        (0 until shaders.length).forEach { index ->
+            val gradient = shaders.item(index) as Element
+            assertEquals(listOf("#FFFFFFFF", "#00FFFFFF"), gradient.getAttribute("colors").split(" "))
+            assertTrue(gradient.nodes("Transform").isEmpty())
             assertTrue(gradient.getAttribute("endAngle").toDouble() > gradient.getAttribute("startAngle").toDouble())
-            val draw = gradient.parentNode.parentNode.parentNode as Element
-            assertTrue(draw.getAttribute("tintColor").startsWith("[CONFIGURATION.material"))
         }
     }
 
     @Test
     fun `progress gradients clamp round caps instead of wrapping vivid color onto the pale start`() {
-        val gradients = document().getElementsByTagName("SweepGradient")
-        (0 until gradients.length).forEach { index ->
-            val gradient = gradients.item(index) as Element
-            val stroke = gradient.parentNode as Element
-            val arc = stroke.parentNode as Element
-            val start = arc.getAttribute("startAngle").toDouble()
-            val span = if (arc.getAttribute("width").toDouble() > 300) 48.0 else 280.0
-            val radius = arc.getAttribute("width").toDouble() / 2
-            val capAngle = Math.toDegrees(kotlin.math.asin((stroke.getAttribute("thickness").toDouble() / 2 + 1) / radius))
-            val gradientStart = gradient.getAttribute("startAngle").toDouble()
-            val gradientEnd = gradient.getAttribute("endAngle").toDouble()
-            assertTrue("start cap crosses the shader seam", gradientStart < start - capAngle)
-            assertTrue("full end cap crosses the shader seam", gradientEnd > start + span + capAngle)
-            val colors = gradient.getAttribute("colors").split(" ")
-            assertEquals(listOf("#00FFFFFF", "#00FFFFFF", "#FFFFFFFF", "#FFFFFFFF"), colors)
-            val stops = gradient.getAttribute("positions").split(" ").map(String::toDouble)
-            assertEquals(start, gradientStart + stops[1] * (gradientEnd - gradientStart), .02)
-            assertEquals(start + span, gradientStart + stops[2] * (gradientEnd - gradientStart), .02)
+        val groups = document().getElementsByTagName("Group")
+        val fixed = (0 until groups.length).map { groups.item(it) as Element }.filter { it.getAttribute("name") == "fixed-gradient-content" }
+        assertEquals(7, fixed.size)
+        fixed.forEach { group ->
+            val shader = group.nodes("SweepGradient").single()
+            val span = shader.getAttribute("endAngle").toDouble() - shader.getAttribute("startAngle").toDouble()
+            assertTrue(span == 48.0 || span == 280.0)
+            assertTrue(shader.nodes("Transform").isEmpty())
+            listOf("start", "end").forEach { endpoint ->
+                val cap = group.nodes("PartDraw").single { it.getAttribute("name") == "$endpoint-rounded-cap-base" }
+                val ellipse = cap.nodes("Ellipse").single()
+                assertEquals(ellipse.getAttribute("width"), ellipse.getAttribute("height"))
+                assertTrue(ellipse.nodes("Fill").isNotEmpty())
+            }
         }
     }
 
@@ -494,7 +436,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         (0..6).forEach { id ->
             assertEquals("RANGED_VALUE SHORT_TEXT EMPTY", slot(id.toString()).getAttribute("supportedTypes"))
         }
-        assertEquals("SMALL_IMAGE SHORT_TEXT RANGED_VALUE EMPTY", slot("7").getAttribute("supportedTypes"))
+        assertEquals("LONG_TEXT EMPTY", slot("7").getAttribute("supportedTypes"))
     }
 
     @Test
@@ -552,48 +494,21 @@ class SugarliciousAnalogPreviewGeometryTest {
     }
 
     @Test
-    fun `complication text is larger than WFS baseline and consistently bold`() {
-        val source =
-            kotlinx.serialization.json.Json
-                .parseToJsonElement(repoFile("watchfaces/sugarlicious-analog/reference/wfs-geometry.json").readText())
-                .jsonObject
-        val slots = source.getValue("slots").jsonArray
+    fun `measured complication typography retains system font and bold weight`() {
         (0..6).forEach { id ->
-            val sourceSlot = slots[id].jsonObject
-            val sourceText =
-                sourceSlot
-                    .getValue("children")
-                    .jsonArray
-                    .map { it.jsonObject }
-                    .first { it.getValue("field").jsonPrimitive.content == "shortText" }
-            val valueSize = kotlin.math.round(sourceText.getValue("fontSize").jsonPrimitive.float * 512 / 450).toInt()
-            val fonts = slot(id.toString()).getElementsByTagName("Font")
-            (0 until fonts.length).forEach {
-                val font = fonts.item(it) as Element
-                val isTitle =
-                    font
-                        .getElementsByTagName("Parameter")
-                        .item(0)
-                        ?.attributes
-                        ?.getNamedItem("expression")
-                        ?.nodeValue
-                        ?.contains("[COMPLICATION.TITLE]") == true
+            slot(id.toString()).nodes("Font").forEach { font ->
+                val title = font.nodes("Parameter").any { it.getAttribute("expression").contains("[COMPLICATION.TITLE]") }
                 val expected =
-                    if (isTitle) {
-                        if (id == 4) 27 else 25
+                    if (id < 4) {
+                        29.6
+                    } else if (title) {
+                        32.0
                     } else {
-                        valueSize
+                        39.0
                     }
-                val owner = generateSequence(font.parentNode) { it.parentNode }.filterIsInstance<Element>().first { it.tagName == "Complication" }
-                val ranged = owner.getAttribute("type") == "RANGED_VALUE"
-                if (font.getAttribute("size") == "24") {
-                    assertTrue(font.getAttribute("size").toInt() < 31)
-                } else if (id < 4 && ranged) {
-                    assertEquals(if (id == 0) 28 else 30, font.getAttribute("size").toInt())
-                } else {
-                    assertTrue("slot $id title=$isTitle must be enlarged", font.getAttribute("size").toInt() > expected)
-                }
-                assertEquals("slot $id must be bold", "BOLD", font.getAttribute("weight"))
+                assertEquals(expected, font.getAttribute("size").toDouble(), .01)
+                assertEquals("BOLD", font.getAttribute("weight"))
+                assertEquals("SYNC_TO_DEVICE", font.getAttribute("family"))
             }
         }
     }
@@ -630,18 +545,18 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertTrue((0 until fonts.length).any { (fonts.item(it) as Element).getAttribute("color") == "[CONFIGURATION.$id.0]" })
             val strokes = root.getElementsByTagName("Stroke")
             assertTrue((0 until strokes.length).any { (strokes.item(it) as Element).getAttribute("color") == "[CONFIGURATION.$id.1]" })
-            val draws = root.getElementsByTagName("PartDraw")
-            assertTrue((0 until draws.length).any { (draws.item(it) as Element).getAttribute("tintColor") == "[CONFIGURATION.$id.2]" })
+            val fills = root.getElementsByTagName("Fill")
+            assertTrue((0 until strokes.length).any { (strokes.item(it) as Element).getAttribute("color") == "[CONFIGURATION.$id.2]" } || (0 until fills.length).any { (fills.item(it) as Element).getAttribute("color") == "[CONFIGURATION.$id.2]" })
         }
     }
 
     @Test
-    fun `neutral graph fills the same upper inner semicircle as Orbit`() {
+    fun `neutral graph stays in the cap above middle complications`() {
         val variants = slot("7").getElementsByTagName("Complication")
         val image =
             (0 until variants.length)
                 .map { variants.item(it) as Element }
-                .single { it.getAttribute("type") == "SMALL_IMAGE" }
+                .single { it.getAttribute("type") == "LONG_TEXT" }
                 .getElementsByTagName("PartImage")
                 .item(0) as Element
         val left = image.getAttribute("x").toInt()
@@ -711,8 +626,8 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertEquals("[CONFIGURATION.materialSubTheme.1]", title.getAttribute("color"))
         }
         val graphPolicy = slot("7").getElementsByTagName("DefaultProviderPolicy").item(0) as Element
-        assertEquals("app.sugarlicious/app.aapswear.complications.GlucoseGraphComplication", graphPolicy.getAttribute("primaryProvider"))
-        assertEquals("SMALL_IMAGE", graphPolicy.getAttribute("primaryProviderType"))
+        assertEquals("app.sugarlicious/app.aapswear.complications.NativeApexGraphComplication", graphPolicy.getAttribute("primaryProvider"))
+        assertEquals("LONG_TEXT", graphPolicy.getAttribute("primaryProviderType"))
         val bottomPolicy = slot("6").getElementsByTagName("DefaultProviderPolicy").item(0) as Element
         assertEquals("app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication", bottomPolicy.getAttribute("primaryProvider"))
     }
@@ -722,7 +637,7 @@ class SugarliciousAnalogPreviewGeometryTest {
         val root = document()
         listOf("HourHand", "MinuteHand", "SecondHand").forEach { tag ->
             val nodes = root.getElementsByTagName(tag)
-            assertEquals(if (tag == "SecondHand") 6 else 3, nodes.length)
+            assertEquals(if (tag == "SecondHand") 9 else 3, nodes.length)
             (0 until nodes.length).forEach { index ->
                 val hand = nodes.item(index) as Element
                 val resource = hand.getAttribute("resource")
@@ -750,39 +665,41 @@ class SugarliciousAnalogPreviewGeometryTest {
     @Test
     fun `outer progress uses source outside diameter minus stroke`() {
         listOf("0" to 285.0, "1" to 15.0, "2" to 103.0, "3" to 195.0).forEach { (id, start) ->
-            val arcs = slot(id).getElementsByTagName("Arc")
-            assertEquals(5, arcs.length)
-            (0 until arcs.length).forEach { index ->
-                val arc = arcs.item(index) as Element
+            val arcs = sourceArcs(id)
+            assertEquals(3, arcs.size)
+            arcs.forEach { arc ->
                 near(391.3956, arc, "width")
                 near(if (arc.getAttribute("direction") == "COUNTER_CLOCKWISE") start + 48.0 else start, arc, "startAngle")
-                near(17.0667, arc.getElementsByTagName("Stroke").item(0) as Element, "thickness")
+                near(17.0667, arc.nodes("Stroke").single(), "thickness")
             }
-            val fillArc = (0 until arcs.length).map { arcs.item(it) as Element }.first { it.getAttribute("direction") == "CLOCKWISE" && it.getElementsByTagName("Transform").length > 0 }
-            val transform = fillArc.getElementsByTagName("Transform").item(0) as Element
-            assertTrue(transform.getAttribute("value").contains("* 48"))
-            assertTrue(transform.getAttribute("value").contains("=="))
+            val fill = arcs.first { it.getAttribute("direction") == "CLOCKWISE" && it.nodes("Transform").isNotEmpty() }
+            assertTrue(
+                fill
+                    .nodes("Transform")
+                    .first()
+                    .getAttribute("value")
+                    .contains("* 48"),
+            )
         }
     }
 
     @Test
-    fun `outer images retain original cardinal anchors not inferred arc midpoints`() {
-        listOf(50.4605 to 220.9077, 267.6812 to 46.5433, 439.8649 to 258.9285)
-            .forEachIndexed { index, (x, y) ->
-                val images = slot(index.toString()).getElementsByTagName("PartImage")
-                (0 until images.length).forEach { n ->
-                    val image = images.item(n) as Element
-                    near(x, image, "x")
-                    near(y, image, "y")
-                    near(25.0311, image, "width")
-                    near(25.0311, image, "height")
-                }
-            }
+    fun `outer icons stay on measured reference circle while keeping accepted tracks`() {
+        listOf(61.37 to 235.54, 276.14 to 61.37, 450.63 to 276.14, 235.54 to 450.63).forEachIndexed { index, (x, y) ->
+            val image =
+                slot(index.toString())
+                    .nodes("Complication")
+                    .single { it.getAttribute("type") == "RANGED_VALUE" }
+                    .nodes("PartImage")
+                    .first()
+            assertEquals(x, image.getAttribute("x").toDouble() + image.getAttribute("width").toDouble() / 2, 2.0)
+            assertEquals(y, image.getAttribute("y").toDouble() + image.getAttribute("height").toDouble() / 2, 2.0)
+        }
     }
 
     @Test
     fun `curved text paths are independent of progress sweeps`() {
-        listOf(338.0, 67.0, 178.0, 270.0).forEachIndexed { index, start ->
+        listOf(337.0, 66.0, 181.0, 282.0).forEachIndexed { index, start ->
             val variants = slot(index.toString()).getElementsByTagName("Complication")
             val ranged = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "RANGED_VALUE" }
             val texts = ranged.getElementsByTagName("TextCircular")
@@ -791,8 +708,8 @@ class SugarliciousAnalogPreviewGeometryTest {
                 near(start, text, "startAngle")
                 near(if (index == 3) 391.3956 else 390.2578, text, "width")
                 assertEquals(if (index < 2) "CLOCKWISE" else "COUNTER_CLOCKWISE", text.getAttribute("direction"))
-                assertEquals(if (index == 0) "START" else "END", text.getAttribute("align"))
-                if (index == 1) near(88.0, text, "endAngle")
+                assertEquals(if (index < 2) "START" else "END", text.getAttribute("align"))
+                if (index == 1) near(90.0, text, "endAngle")
             }
         }
     }
@@ -804,31 +721,29 @@ class SugarliciousAnalogPreviewGeometryTest {
             assertEquals(0, slot(id).getElementsByTagName("BoundingBox").length)
         }
         val value = slot("4").getElementsByTagName("PartText").item(0) as Element
-        near(8.0, value, "x")
+        near(3.0, value, "x")
         near(60.0, value, "y")
-        near(107.0, value, "width")
-        near(38.0, value, "height")
+        near(117.0, value, "width")
+        near(48.0, value, "height")
     }
 
     @Test
     fun `bottom ring retains WFS center stroke and open segment icon`() {
-        val arcs = slot("6").getElementsByTagName("Arc")
-        assertEquals(5, arcs.length)
-        (0 until arcs.length).forEach { index ->
-            val arc = arcs.item(index) as Element
+        val arcs = sourceArcs("6")
+        assertEquals(3, arcs.size)
+        arcs.forEach { arc ->
             near(75.0, arc, "centerX")
             near(76.2622, arc, "centerY")
             near(125.1556, arc, "width")
             near(if (arc.getAttribute("direction") == "COUNTER_CLOCKWISE") 500.0 else 220.0, arc, "startAngle")
-            near(11.3778, arc.getElementsByTagName("Stroke").item(0) as Element, "thickness")
+            near(11.3778, arc.nodes("Stroke").single(), "thickness")
         }
-        val variants = slot("6").getElementsByTagName("Complication")
-        val ranged = (0 until variants.length).map { variants.item(it) as Element }.single { it.getAttribute("type") == "RANGED_VALUE" }
-        val image = ranged.getElementsByTagName("PartImage").item(0) as Element
-        near(59.0, image, "x")
-        near(114.0, image, "y")
-        near(32.0, image, "width")
-        near(32.0, image, "height")
+        val ranged = slot("6").nodes("Complication").single { it.getAttribute("type") == "RANGED_VALUE" }
+        val image = ranged.nodes("PartImage").first()
+        near(64.0, image, "x")
+        near(117.0, image, "y")
+        near(26.0, image, "width")
+        near(26.0, image, "height")
     }
 
     @Test
@@ -856,6 +771,22 @@ class SugarliciousAnalogPreviewGeometryTest {
         val preview = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(repoFile("watchfaces/sugarlicious-analog/src/main/res/drawable-nodpi/preview.xml"))
         assertEquals("bitmap", preview.documentElement.tagName)
         assertEquals("@drawable/apex_template_preview", preview.documentElement.getAttribute("android:src"))
+    }
+
+    private fun Element.nodes(tag: String): List<Element> = getElementsByTagName(tag).let { nodes -> (0 until nodes.length).map { nodes.item(it) as Element } }
+
+    /** Original WFS geometry excludes gradient arcs expressed in translated local groups. */
+    private fun sourceArcs(id: String): List<Element> {
+        val owner = slot(id)
+        return owner.nodes("Arc").filter { arc ->
+            var parent = arc.parentNode
+            var gradient = false
+            while (parent !== owner && parent is Element) {
+                if (parent.getAttribute("name") == "fixed-gradient-content") gradient = true
+                parent = parent.parentNode
+            }
+            !gradient
+        }
     }
 
     private fun near(expected: Double, element: Element, attribute: String) =

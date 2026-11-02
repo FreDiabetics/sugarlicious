@@ -79,10 +79,10 @@ class NativeWatchSlotsTest {
                 .getValue("RANGED_VALUE")
         assertEquals(0xFFFFCCB1.toInt(), apex.iconColor)
         assertEquals(0x37FF935C, apex.trackColor)
-        assertEquals(0xFFFFCCB1.toInt(), apex.fillColor)
-        assertEquals(0xFFFFD5C0.toInt(), orbit.iconColor)
-        assertEquals(0x3CFF935C, orbit.trackColor)
-        assertEquals(0xFFFF5F0D.toInt(), orbit.fillColor)
+        assertEquals(0xFFFF5F0D.toInt(), apex.fillColor)
+        assertEquals(0xFFD4DAB6.toInt(), orbit.iconColor)
+        assertEquals(0x3CA4AF73, orbit.trackColor)
+        assertEquals(0xFF758544.toInt(), orbit.fillColor)
     }
 
     @Test
@@ -114,7 +114,28 @@ class NativeWatchSlotsTest {
     }
 
     @Test
-    fun `native font colors use original WFF default palette roles`() {
+    fun `slot previews preserve measured native character spacing`() {
+        val slots = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots)
+        assertTrue(
+            slots
+                .single { it.id == 1 }
+                .templates
+                .getValue("RANGED_VALUE")
+                .texts
+                .all { it.letterSpacing == -.03f },
+        )
+        assertTrue(
+            slots
+                .single { it.id == 0 }
+                .templates
+                .getValue("RANGED_VALUE")
+                .texts
+                .all { it.letterSpacing == 0f },
+        )
+    }
+
+    @Test
+    fun `native font colors use captured WFF default palette roles`() {
         val apex =
             source("sugarlicious-analog")
                 .inputStream()
@@ -123,7 +144,7 @@ class NativeWatchSlotsTest {
                 .templates
                 .getValue("SHORT_TEXT")
         assertEquals(0xFFFFCCB1.toInt(), apex.texts.single { it.expression.contains("TEXT") }.color)
-        assertEquals(0xFFFF935C.toInt(), apex.texts.single { it.expression.contains("TITLE") }.color)
+        assertEquals(0xFFA4AF73.toInt(), apex.texts.single { it.expression.contains("TITLE") }.color)
         val orbit =
             source("sugarlicious-orbit")
                 .inputStream()
@@ -131,8 +152,8 @@ class NativeWatchSlotsTest {
                 .single { it.id == 3 }
                 .templates
                 .getValue("SHORT_TEXT")
-        assertEquals(0xFFE3E3E3.toInt(), orbit.texts.single { it.expression.contains("TEXT") }.color)
-        assertEquals(0xFFFF935C.toInt(), orbit.texts.single { it.expression.contains("TITLE") }.color)
+        assertEquals(0xFFD4DAB6.toInt(), orbit.texts.single { it.expression.contains("TEXT") }.color)
+        assertEquals(0xFFA4AF73.toInt(), orbit.texts.single { it.expression.contains("TITLE") }.color)
         assertEquals(0xFF123456.toInt(), resolveNativeFontColor("#FF123456", emptyMap()))
         assertEquals(0xFF123456.toInt(), resolveNativeFontColor("[COMPLICATION.RANGED_VALUE_COLORS]", mapOf("materialAccent" to listOf(0xFF123456.toInt()))))
     }
@@ -140,7 +161,7 @@ class NativeWatchSlotsTest {
     @Test
     fun `native delta provider retains its canonical age and delta presentation`() {
         val slots = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots)
-        assertEquals(app.aapswear.model.SugarliciousComplicationIds.TIME_DELTA, nativeDefaultVariant(slots.single { it.id == 4 }))
+        assertEquals(app.aapswear.model.SugarliciousComplicationIds.TIME_DELTA, nativeDefaultVariant(slots.single { it.provider.endsWith(".GlucoseDeltaComplication") }))
     }
 
     @Test
@@ -151,7 +172,7 @@ class NativeWatchSlotsTest {
             assertEquals(1, resolved.size)
             assertEquals("1.2\u2009U", resolved.single().value)
             assertEquals(
-                238f,
+                232.5f,
                 resolved
                     .single()
                     .template.bounds.y,
@@ -166,7 +187,7 @@ class NativeWatchSlotsTest {
         val resolved = resolveNativeTemplateText(middle.templates.getValue("SHORT_TEXT"), "1.2 U", "15 g")
         assertEquals(2, resolved.size)
         assertEquals(setOf("1.2\u2009U", "15\u2009g"), resolved.map { it.value }.toSet())
-        assertEquals(setOf(215f, 255f), resolved.map { it.template.bounds.y }.toSet())
+        assertEquals(setOf(210f, 255f), resolved.map { it.template.bounds.y }.toSet())
         val date = resolveNativeTemplateText(middle.templates.getValue("SHORT_TEXT"), "", "Sonntag")
         assertEquals("Sonntag", date.single().value)
     }
@@ -230,8 +251,9 @@ class NativeWatchSlotsTest {
 
     @Test
     fun `expanded content never crosses adjoining outer slots but uses free arc gaps`() {
-        val apex = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots).map { it.bounds }
-        val a = nativeSlotPreviewContentBounds(apex[1], apex)
+        val apexSlots = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots)
+        val apex = apexSlots.map { it.bounds }
+        val a = nativeSlotPreviewContentBounds(apexSlots.single { it.id == 0 }.bounds, apex)
         assertEquals(270f, a.startAngle, 0f)
         assertEquals(360f, a.endAngle, 0f)
         val orbit = source("sugarlicious-orbit").inputStream().use(::readNativeWatchSlots).map { it.bounds }
@@ -253,7 +275,7 @@ class NativeWatchSlotsTest {
     @Test
     fun `isolated previews retain native provider and format without watchface artwork`() {
         val slots = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots)
-        assertTrue(slots.single { it.id == 0 }.provider.endsWith("TirRangedValueComplication"))
+        assertTrue(slots.single { it.id == 0 }.provider.endsWith("IobRangedValueComplication"))
         assertEquals("RANGED_VALUE", slots.single { it.id == 0 }.providerType)
         assertEquals("WATCH_BATTERY", slots.single { it.id == 1 }.systemProvider)
     }
@@ -262,9 +284,9 @@ class NativeWatchSlotsTest {
     fun `all editable scene slots are shown without flavor duplicates or fixed internal providers`() {
         val apex = source("sugarlicious-analog").inputStream().use(::readNativeWatchSlots)
         val orbit = source("sugarlicious-orbit").inputStream().use(::readNativeWatchSlots)
-        assertEquals((0..7).toSet(), apex.map { it.id }.toSet())
+        assertEquals((0..6).toSet(), apex.map { it.id }.toSet())
         assertEquals(setOf(0, 2, 3, 4, 5, 7), orbit.map { it.id }.toSet())
-        assertEquals(8, apex.size)
+        assertEquals(7, apex.size)
         assertEquals(6, orbit.size)
         assertTrue(apex.all { it.supportedTypes.isNotEmpty() })
     }

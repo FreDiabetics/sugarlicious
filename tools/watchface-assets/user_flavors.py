@@ -1,57 +1,61 @@
-"""Native WFF presets. Keep existing flavors and append six stable user choices."""
+"""Replace native flavor inventories with six coordinated visual profiles."""
 import argparse
 import copy
+import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
+# Standard preserves the existing source defaults. The other five are shared
+# designs with family-specific palette IDs; no extra watchface settings.
+PROFILES = (
+    ("standard", "Standard", None, None, None, None),
+    ("ultra", "Ultra Orange", "70", "37", "3", "5"),
+    ("military", "Military", "14", "61", "3", "4"),
+    ("polar", "Polar", "999", "999", "4", "0"),
+    ("aurora", "Aurora", "64", "43", "4", "3"),
+    ("solar", "Solarsturm", "65", "42", "3", "7"),
+)
 
-def append_user_flavors(root, strings, face):
+
+def replace_user_flavors(root, strings, face):
     configs = root.find("UserConfigurations")
+    captured = json.loads(Path(__file__).with_name("captured_native_defaults.json").read_text()).get(face, {})
+    for identity, value in captured.get("configurations", {}).items():
+        configs.find(f"*[@id='{identity}']").set("defaultValue", value)
+    for identity, attributes in captured.get("providers", {}).items():
+        policy = root.find(f"Scene/ComplicationSlot[@slotId='{identity}']/DefaultProviderPolicy")
+        policy.attrib.clear()
+        policy.attrib.update(attributes)
     flavors = configs.find("Flavors")
     if flavors is None:
-        flavors = ET.SubElement(configs, "Flavors", defaultValue="user_0")
-    for old in list(flavors):
-        if old.get("id", "").startswith("user_"):
-            flavors.remove(old)
-    flavors.set("defaultValue", "user_0")
-    # Current orange/graph baseline first, then saturated and readable alternatives.
-    choices = (
-        ("Graph Orange", False, "70", "37", True, True, "7"),
-        ("TIR Aqua", True, "26", "31", False, False, "0"),
-        ("Graph Rot", False, "65", "42", True, False, "4"),
-        ("TIR Violett", True, "64", "43", False, True, "1"),
-        ("Graph Limette", False, "69", "38", True, False, "6"),
-        ("TIR Eis", True, "25", "76", False, True, "3"),
-    )
-    for index, (name, tir, orbit_color, apex_color, marker, gradient, bars) in enumerate(choices):
-        label = f"user_preset_{index}"
+        flavors = ET.SubElement(configs, "Flavors")
+    old_labels = {old.get("displayName") for old in flavors}
+    flavors.clear()
+    flavors.set("defaultValue", "profile_standard")
+    for label in list(strings):
+        if label.get("name") in old_labels:
+            strings.remove(label)
+    for identity, name, orbit_color, apex_color, arc, bars in PROFILES:
+        label = f"native_profile_{identity}"
         existing = strings.find(f"string[@name='{label}']")
         if existing is None:
             existing = ET.SubElement(strings, "string", name=label)
         existing.text = name
-        flavor = ET.SubElement(flavors, "Flavor", id=f"user_{index}", displayName=label)
+        flavor = ET.SubElement(flavors, "Flavor", id=f"profile_{identity}", displayName=label)
         values = {item.get("id"): item.get("defaultValue") for item in configs if item.tag != "Flavors" and item.get("defaultValue") is not None}
-        if face == "orbit":
-            values.update(primary=orbit_color, secondary=orbit_color, tertiary=orbit_color,
-                          arcContent="4" if tir else "3", progressBars=bars)
-        else:
-            values.update(materialAccent=apex_color, materialSubTheme=apex_color,
-                          progressMarker=str(marker).upper(), progressGradient=str(gradient).upper())
+        if face == "orbit" and orbit_color is not None:
+            values.update(primary=orbit_color, secondary=orbit_color, tertiary=orbit_color, arcContent=arc, progressBars=bars)
+        elif face == "apex" and apex_color is not None:
+            values.update(materialAccent=apex_color, materialSubTheme=apex_color, progressBars=bars)
         for key, value in values.items():
             ET.SubElement(flavor, "Configuration", id=key, optionId=value)
-        for actual in root.findall("Scene//ComplicationSlot"):
+        for actual in root.findall("Scene/ComplicationSlot"):
             if actual.get("isCustomizable") != "TRUE":
                 continue
             policy = actual.find("DefaultProviderPolicy")
-            if policy is None:
-                continue
-            slot = ET.SubElement(flavor, "ComplicationSlot", slotId=actual.get("slotId"))
-            policy = copy.deepcopy(policy)
-            if face == "apex" and actual.get("slotId") == "7":
-                provider = "TirRangedValueComplication" if tir else "GlucoseGraphComplication"
-                kind = "RANGED_VALUE" if tir else "SMALL_IMAGE"
-                policy.attrib.update(primaryProvider=f"app.sugarlicious/app.aapswear.complications.{provider}", primaryProviderType=kind)
-            slot.append(policy)
+            if policy is not None:
+                slot = ET.SubElement(flavor, "ComplicationSlot", slotId=actual.get("slotId"))
+                slot.append(copy.deepcopy(policy))
 
 
 if __name__ == "__main__":
@@ -61,7 +65,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     root = ET.parse(args.resources / "raw/watchface.xml").getroot()
     strings = ET.parse(args.resources / "values/strings.xml").getroot()
-    append_user_flavors(root, strings, args.face)
+    replace_user_flavors(root, strings, args.face)
     for relative, tree in (("raw/watchface.xml", root), ("values/strings.xml", strings)):
         ET.indent(tree, space="  ")
         ET.ElementTree(tree).write(args.resources / relative, encoding="utf-8", xml_declaration=True)

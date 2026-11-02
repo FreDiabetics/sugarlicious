@@ -15,6 +15,23 @@ class MobileSourceCompositionTest {
             insulin = if (source == DataSourceId.ANDROID_APS) InsulinState(totalIob = 2.0) else null,
         )
 
+    @Test fun `Dexcom dots and AndroidAPS forecasts are independent streams`() {
+        val forecast = GlucosePrediction(PredictionKind.IOB, listOf(GlucoseSample(120.0, now), GlucoseSample(110.0, now + 300_000)))
+        val aaps = state(DataSourceId.ANDROID_APS, 120.0).copy(glucosePredictions = listOf(forecast))
+        val dexcom = state(DataSourceId.DEXCOM_G7_APP, 123.0)
+        val inputs = mapOf(aaps.source to aaps, dexcom.source to dexcom)
+        val config = MobileSourceConfiguration(enabledGlucoseSources = setOf(MobileGlucoseSource.DEXCOM_BROADCAST), aapsTherapyEnabled = false, aapsPredictionsEnabled = true)
+        val result = MobileSourceComposition.compose(inputs, config, now)
+        assertEquals(dexcom.glucose, result.glucose)
+        assertEquals(listOf(forecast), result.glucosePredictions)
+        assertTrue(DataCapability.PREDICTIONS in result.capabilities)
+        assertNull(result.insulin)
+        val disabled = MobileSourceComposition.compose(inputs, config.copy(aapsPredictionsEnabled = false), now)
+        assertTrue(disabled.glucosePredictions.isEmpty())
+        assertFalse(DataCapability.PREDICTIONS in disabled.capabilities)
+        assertEquals(dexcom.glucose, disabled.glucose)
+    }
+
     @Test fun `new sources compete only when enabled and preserve AndroidAPS therapy`() {
         val aaps = state(DataSourceId.ANDROID_APS, 120.0)
         val xdrip = state(DataSourceId.XDRIP_PLUS, 125.0).copy(glucose = state(DataSourceId.XDRIP_PLUS, 125.0).glucose!!.copy(measuredAtEpochMs = now))

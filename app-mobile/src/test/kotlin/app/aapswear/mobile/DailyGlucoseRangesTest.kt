@@ -87,4 +87,28 @@ class DailyGlucoseRangesTest {
         assertEquals(300_000L, result.tir.coveredDurationMs)
         assertEquals(100, result.tir.inRange)
     }
+
+    @Test fun `period integrates archive durations rather than averaging daily percentages`() {
+        val older = listOf(sample(-2 * 1440, 200.0), sample(-2 * 1440 + 5, 200.0))
+        val state = TherapyDisplayState(receivedAtEpochMs = midnight, glucoseHistory = listOf(sample(0, 100.0), sample(5, 100.0), sample(10, 100.0)))
+        val result = dailyGlucoseRanges(state, midnight + 600_000, zone, days = 3, archive = older)
+        assertEquals(900_000L, result.tir.coveredDurationMs)
+        assertEquals(67, result.tir.inRange)
+        assertEquals(33, result.tir.above)
+        assertEquals(100, dailyGlucoseRanges(state, midnight + 600_000, zone, days = 1, archive = older).tir.inRange)
+    }
+
+    @Test fun `ninety day window includes oldest selected calendar day only`() {
+        val archived = listOf(sample(-89 * 1440, 100.0), sample(-89 * 1440 + 5, 100.0), sample(-90 * 1440, 200.0), sample(-90 * 1440 + 5, 200.0))
+        val result = dailyGlucoseRanges(null, midnight + 600_000, zone, days = 90, archive = archived)
+        assertEquals(300_000L, result.tir.coveredDurationMs)
+        assertEquals(100, result.tir.inRange)
+    }
+
+    @Test fun `persisted invalid archive boundary prevents interpolation through sensor errors`() {
+        val archived = listOf(sample(-1440, 100.0), sample(-1438, Double.NaN).copy(quality = CgmQuality.INVALID), sample(-1435, 100.0))
+        val result = dailyGlucoseRanges(null, midnight + 600_000, zone, days = 3, archive = archived)
+        assertEquals(0L, result.tir.coveredDurationMs)
+        assertNull(result.tir.inRange)
+    }
 }

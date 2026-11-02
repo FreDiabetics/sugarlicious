@@ -58,7 +58,7 @@ internal fun OverviewGlucoseHero(
             } + arrowWidth + 6f
         val fit = minOf(1f, maxWidth.value / groupWidth.coerceAtLeast(1f))
         Column(
-            Modifier.fillMaxWidth().heightIn(min = 240.dp).padding(vertical = 30.dp),
+            Modifier.fillMaxWidth().heightIn(min = 280.dp).padding(vertical = 48.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {

@@ -26,13 +26,28 @@ private const val DEFAULT_CADENCE_MS = 300_000L
 private const val MAX_CONTINUOUS_INTERVAL_MS = 450_000L
 
 /** Integrates only short, compatible measured intervals. No extrapolation or gap filling. */
-internal fun dailyGlucoseRanges(state: TherapyDisplayState?, now: Long, zone: ZoneId = ZoneId.systemDefault()): DailyGlucoseRanges {
-    val start = localDayStartEpochMs(now, zone)
+internal fun dailyGlucoseRanges(
+    state: TherapyDisplayState?,
+    now: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+    days: Int = 1,
+    archive: List<GlucoseSample> = emptyList(),
+): DailyGlucoseRanges {
+    require(days in OverviewRangePeriodStore.periods)
+    val start =
+        Instant
+            .ofEpochMilli(now)
+            .atZone(zone)
+            .toLocalDate()
+            .minusDays(days.toLong() - 1)
+            .atStartOfDay(zone)
+            .toInstant()
+            .toEpochMilli()
     val current = state?.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, it.source, it.sensorId, it.sessionId, it.sequenceNumber, it.receivedAtEpochMs, it.quality) }
-    val raw = state?.glucoseHistory.orEmpty() + listOfNotNull(current)
+    val raw = archive + state?.glucoseHistory.orEmpty() + listOfNotNull(current)
     val samples =
         CanonicalCgmHistory
-            .merge(raw, now, state?.source, (now - start + MAX_CONTINUOUS_INTERVAL_MS).coerceAtLeast(1L), maxPoints = raw.size.coerceAtLeast(1))
+            .merge(raw, now, state?.source, (now - start + MAX_CONTINUOUS_INTERVAL_MS).coerceAtLeast(1L), futureToleranceMs = 0, maxPoints = raw.size.coerceAtLeast(1))
             .filter { it.measuredAtEpochMs in (start - MAX_CONTINUOUS_INTERVAL_MS)..now }
     val sampleCount = samples.count { it.measuredAtEpochMs >= start }
     val validTimes = samples.groupBy { Triple(it.source, it.sensorId, it.sessionId) }.mapValues { (_, values) -> values.mapTo(hashSetOf()) { it.measuredAtEpochMs } }

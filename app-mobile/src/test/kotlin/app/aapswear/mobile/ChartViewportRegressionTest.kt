@@ -5,6 +5,7 @@ import app.aapswear.model.GlucoseSample
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.RelativeGraphTimeAxis
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,6 +13,19 @@ import org.junit.Test
 class ChartViewportRegressionTest {
     private val hour = 60L * 60_000L
     private val now = 48L * hour
+
+    @Test fun `zero pixel fling frames keep coasting while a blocked nonzero step stops`() {
+        val viewport = ChartViewport(6)
+        val now = 1_800_000_000_000L
+        // At the live edge, a no-motion animation frame is not a blocked pan.
+        assertTrue(viewport.panFlingFrame(0f, 1000f, now))
+        assertFalse(viewport.panFlingFrame(-10f, 1000f, now))
+        assertTrue(viewport.panFlingFrame(20f, 1000f, now))
+        val end = viewport.snapshot(now).endEpochMs
+        assertTrue(viewport.panFlingFrame(0f, 1000f, now))
+        assertEquals(end, viewport.snapshot(now).endEpochMs)
+        assertTrue(viewport.panFlingFrame(10f, 1000f, now))
+    }
 
     @Test
     fun `prediction viewport ends at last supplied prediction instead of a fixed window`() {

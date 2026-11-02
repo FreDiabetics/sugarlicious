@@ -17,6 +17,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.VelocityTracker
 import android.view.View
+import android.view.ViewConfiguration
 import android.widget.OverScroller
 import androidx.core.content.edit
 import androidx.core.graphics.withClip
@@ -61,6 +62,12 @@ internal fun applyGraphBoundaryPaint(paint: Paint, configuredArgb: Int) {
     paint.alpha = Color.alpha(configuredArgb)
 }
 
+internal fun mobileBasalMaximum(points: List<TherapyHistorySample>, start: Long, end: Long, current: Boolean, base: Boolean): Double =
+    windowedStepSamples(points.filter { it.baseBasalUnitsPerHour != null || it.basalUnitsPerHour != null }.sortedBy { it.measuredAtEpochMs }, start, end)
+        .flatMap { sample -> listOfNotNull(if (base) sample.baseBasalUnitsPerHour ?: sample.basalUnitsPerHour else null, if (current) effectiveBasal(sample) else null) }
+        .maxOrNull()
+        ?.coerceAtLeast(0.1) ?: 0.1
+
 /** Same top-down basal geometry for Mobile CGM and the therapy widget's IOB lane. */
 internal fun drawMobileBasalOverlay(
     canvas: Canvas,
@@ -79,6 +86,7 @@ internal fun drawMobileBasalOverlay(
             strokeJoin = Paint.Join.ROUND
         },
     fillPaint: Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL },
+    maximumOverride: Double? = null,
 ) {
     val sorted =
         points
@@ -95,10 +103,11 @@ internal fun drawMobileBasalOverlay(
             }
         }
     val maxBasal =
-        max(
-            0.1,
-            selectedValues.maxOrNull() ?: 0.1,
-        )
+        maximumOverride
+            ?: max(
+                0.1,
+                selectedValues.maxOrNull() ?: 0.1,
+            )
 
     fun basalY(value: Double): Float = plot.top + (value.coerceIn(0.0, maxBasal) / maxBasal).toFloat() * plot.height() * BASAL_HEIGHT_FRACTION
     val effective = visible.map { it.measuredAtEpochMs to effectiveBasal(it) }
@@ -191,6 +200,14 @@ internal class ChartViewport(
     private var navigationEndEpochMs: Long? = null
     var axisIntervalHours: Int? = null
         private set
+
+    private val gestureOwners = mutableSetOf<Any>()
+    val isNavigatingGesture: Boolean get() = gestureOwners.isNotEmpty()
+
+    fun setNavigatingGesture(owner: Any, active: Boolean) {
+        val changed = if (active) gestureOwners.add(owner) else gestureOwners.remove(owner)
+        if (changed) notifyChanged()
+    }
 
     val visibleHours: Float get() = hours + futureWindowMs.toFloat() / HOUR_MS
 
@@ -289,6 +306,10 @@ internal class ChartViewport(
         return false
     }
 
+    /** Subpixel fling frames must keep running; only a nonzero blocked step hits an edge. */
+    fun panFlingFrame(deltaPixels: Float, width: Float, referenceNow: Long = System.currentTimeMillis()): Boolean =
+        deltaPixels == 0f || pan(deltaPixels, width, referenceNow)
+
     fun returnToNow() {
         if (panMs == 0L && mode == Mode.LIVE_FOLLOW) return
         panMs = 0L
@@ -359,12 +380,25 @@ internal abstract class InteractiveChartView(
     attrs: AttributeSet? = null,
     protected val viewport: ChartViewport,
 ) : View(context, attrs) {
+    private val basalScale = SettledGraphScale<Double> { a, b, f -> a + (b - a) * f }
+
+    protected fun settledBasalMaximum(points: List<TherapyHistorySample>, start: Long, end: Long, current: Boolean, base: Boolean): Double {
+        val result = basalScale.resolve(mobileBasalMaximum(points, start, end, current, base), viewport.isNavigatingGesture, android.os.SystemClock.uptimeMillis())
+        if (basalScale.animating) postInvalidateOnAnimation()
+        return result
+    }
+
     private var lastX = 0f
     private var downX = 0f
     private var downY = 0f
     private var moving = false
+    private var touching = false
     private var velocityTracker: VelocityTracker? = null
-    private val flingScroller = OverScroller(context)
+    private val flingConfiguration = ViewConfiguration.get(context)
+    private val flingScroller =
+        OverScroller(context).apply {
+            setFriction(ViewConfiguration.getScrollFriction() * .72f)
+        }
     private var flingX = 0
     private val viewportListener: () -> Unit = { invalidate() }
     private val scaleDetector by lazy {
@@ -397,6 +431,9 @@ internal abstract class InteractiveChartView(
 
     override fun onDetachedFromWindow() {
         viewport.removeListener(viewportListener)
+        if (touching || !flingScroller.isFinished) viewport.setNavigatingGesture(this, false)
+        touching = false
+        flingScroller.forceFinished(true)
         super.onDetachedFromWindow()
     }
 
@@ -406,6 +443,8 @@ internal abstract class InteractiveChartView(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 flingScroller.forceFinished(true)
+                touching = true
+                viewport.setNavigatingGesture(this, true)
                 velocityTracker?.recycle()
                 velocityTracker = VelocityTracker.obtain().also { it.addMovement(event) }
                 lastX = event.x
@@ -439,9 +478,9 @@ internal abstract class InteractiveChartView(
                 if (event.actionMasked == MotionEvent.ACTION_UP && moving) {
                     velocityTracker?.apply {
                         addMovement(event)
-                        computeCurrentVelocity(1000)
+                        computeCurrentVelocity(1000, flingConfiguration.scaledMaximumFlingVelocity.toFloat())
                         val velocity = xVelocity.toInt()
-                        if (abs(velocity) >= 250) {
+                        if (abs(velocity) >= flingConfiguration.scaledMinimumFlingVelocity) {
                             flingX = 0
                             flingScroller.fling(0, 0, velocity, 0, Int.MIN_VALUE, Int.MAX_VALUE, 0, 0)
                             postInvalidateOnAnimation()
@@ -450,6 +489,8 @@ internal abstract class InteractiveChartView(
                 }
                 velocityTracker?.recycle()
                 velocityTracker = null
+                touching = false
+                viewport.setNavigatingGesture(this, !flingScroller.isFinished)
                 if (!moving) performClick()
                 return true
             }
@@ -460,11 +501,19 @@ internal abstract class InteractiveChartView(
     override fun performClick(): Boolean = super.performClick()
 
     override fun computeScroll() {
-        if (!flingScroller.computeScrollOffset()) return
+        if (!flingScroller.computeScrollOffset()) {
+            if (!touching) viewport.setNavigatingGesture(this, false)
+            return
+        }
         val nextX = flingScroller.currX
-        val moved = viewport.pan((nextX - flingX).toFloat(), width.toFloat())
+        val moved = viewport.panFlingFrame((nextX - flingX).toFloat(), width.toFloat())
         flingX = nextX
-        if (moved) postInvalidateOnAnimation() else flingScroller.forceFinished(true)
+        if (moved) {
+            postInvalidateOnAnimation()
+        } else {
+            flingScroller.forceFinished(true)
+            if (!touching) viewport.setNavigatingGesture(this, false)
+        }
     }
 }
 
@@ -509,6 +558,10 @@ internal class GlucoseDashboardChart
         private var graphMinimumMgDl = CgmGraphYScale.DEFAULT_MINIMUM_MG_DL
         private var graphScaleMode = CgmGraphScaleMode.LOGARITHMIC
         private var renderedYScale: CgmGraphYScale? = null
+        private val smoothCgmScale =
+            SettledGraphScale<CgmGraphYScale> { a, b, f ->
+                b.copy(minimumMgDl = a.minimumMgDl + (b.minimumMgDl - a.minimumMgDl) * f, maximumMgDl = a.maximumMgDl + (b.maximumMgDl - a.maximumMgDl) * f)
+            }
         private val staticScaleStore = StaticGraphScaleStore(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE))
         private val axisScaleSession = GraphScaleSession().also(staticScaleStore::restore)
         private var stateSignature: List<Any?>? = null
@@ -776,7 +829,10 @@ internal class GlucoseDashboardChart
                         staticMaximumMgDl = graphMaximumMgDl,
                         requiredValuesMgDl = listOf(0.0, targetVeryLow, targetLow, targetHigh, targetVeryHigh),
                     )
-                val yScale = stableCgmScale(renderedYScale, proposedYScale).also { renderedYScale = it }
+                val desiredScale = stableCgmScale(renderedYScale, proposedYScale)
+                if (!viewport.isNavigatingGesture) renderedYScale = desiredScale
+                val yScale = smoothCgmScale.resolve(desiredScale, viewport.isNavigatingGesture, android.os.SystemClock.uptimeMillis())
+                if (smoothCgmScale.animating) postInvalidateOnAnimation()
                 val targetVeryTop = mapGlucoseY(targetVeryHigh, dataPlot, yScale)
                 val targetTop = mapGlucoseY(targetHigh, dataPlot, yScale)
                 val targetBottom = mapGlucoseY(targetLow, dataPlot, yScale)
@@ -1142,7 +1198,7 @@ internal class GlucoseDashboardChart
             points: List<TherapyHistorySample>,
             showCurrent: Boolean,
             showBase: Boolean,
-        ) = drawMobileBasalOverlay(canvas, plot, start, end, points, showCurrent, showBase, density, SugarliciousColors.argb(SugarliciousColorRole.SECONDARY), linePaint, fillPaint)
+        ) = drawMobileBasalOverlay(canvas, plot, start, end, points, showCurrent, showBase, density, SugarliciousColors.argb(SugarliciousColorRole.SECONDARY), linePaint, fillPaint, maximumOverride = settledBasalMaximum(points, start, end, showCurrent, showBase))
 
         private fun drawInsulinActivity(
             canvas: Canvas,
@@ -1263,6 +1319,11 @@ internal class MetabolicDashboardChart
         private var stateSignature: List<Any?>? = null
         private var markerVisibility = TreatmentMarkerVisibility()
         private var renderNowEpochMs: Long = System.currentTimeMillis()
+        private val smoothMetabolicScale =
+            SettledGraphScale<MobileMetabolicScales> { a, b, f ->
+                fun axis(x: GraphAxisScale, y: GraphAxisScale) = y.copy(bounds = GraphBounds(x.bounds.minimum + (y.bounds.minimum - x.bounds.minimum) * f, x.bounds.maximum + (y.bounds.maximum - x.bounds.maximum) * f))
+                MobileMetabolicScales(axis(a.iob, b.iob), axis(a.cob, b.cob), axis(a.activity, b.activity))
+            }
         private var scaleRightBlend = 0f
         private var showTimeAxis = true
         private var iobGraphScaleMode = CgmGraphScaleMode.LOGARITHMIC
@@ -1363,7 +1424,7 @@ internal class MetabolicDashboardChart
                 val cobPlot = bounds.cobData
                 // AndroidAPS calculates IOB/COB samples at five-minute timestamps and draws those
                 // actual samples. Sugarlicious must not fabricate a future decay from two observations.
-                val scales =
+                val proposedScales =
                     resolveMetabolicScales(
                         session = axisScaleSession,
                         iobMode = iobGraphScaleMode,
@@ -1376,9 +1437,11 @@ internal class MetabolicDashboardChart
                         viewportStartEpochMs = start,
                         viewportEndEpochMs = end,
                     )
+                val scales = smoothMetabolicScale.resolve(proposedScales, viewport.isNavigatingGesture, android.os.SystemClock.uptimeMillis())
+                if (smoothMetabolicScale.animating) postInvalidateOnAnimation()
                 if (persistAxisScale) {
-                    staticScaleStore.persist(GraphAxis.IOB, scales.iob)
-                    staticScaleStore.persist(GraphAxis.COB, scales.cob)
+                    staticScaleStore.persist(GraphAxis.IOB, proposedScales.iob)
+                    staticScaleStore.persist(GraphAxis.COB, proposedScales.cob)
                 }
                 val iobRange = scales.iob
                 val cobRange = scales.cob
@@ -1388,7 +1451,7 @@ internal class MetabolicDashboardChart
                 val dividerX = mapX(dividerTimestamp, start, end, iobDataPlot)
                 canvas.withClip(Path().apply { addRoundRect(bounds.plotRegion, radius, radius, Path.Direction.CW) }) {
                     if (showBasalOverlay) {
-                        drawMobileBasalOverlay(canvas, iobPlot, start, end, allPoints, true, true, this@MetabolicDashboardChart.density, SugarliciousColors.argb(SugarliciousColorRole.SECONDARY))
+                        drawMobileBasalOverlay(canvas, iobPlot, start, end, allPoints, true, true, this@MetabolicDashboardChart.density, SugarliciousColors.argb(SugarliciousColorRole.SECONDARY), maximumOverride = settledBasalMaximum(allPoints, start, end, true, true))
                     }
                     drawLane(canvas, iobDataPlot, points, start, end, dividerTimestamp, iob = true, range = iobRange, drawScale = false)
                     drawInsulinActivity(canvas, iobDataPlot, allPoints, start, end, dividerTimestamp, scales.activity, scales.iob)

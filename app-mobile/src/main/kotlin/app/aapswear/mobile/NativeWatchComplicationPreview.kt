@@ -244,6 +244,7 @@ internal fun DrawScope.drawNativeSlotDemo(slot: NativeWatchSlot, variantId: Int?
             val value = resolved.value
             paint.color = text.color
             paint.textSize = text.size
+            paint.letterSpacing = text.letterSpacing
             val b = text.bounds
             if (b.kind == "BoundingArc") {
                 val sweep = if (text.clockwise) (b.endAngle - b.startAngle + 360f) % 360f else -((b.startAngle - b.endAngle + 360f) % 360f)

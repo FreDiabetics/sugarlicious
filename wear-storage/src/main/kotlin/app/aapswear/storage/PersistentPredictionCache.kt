@@ -54,9 +54,16 @@ object PersistentPredictionCache {
         incoming: List<GlucosePrediction>,
         nowEpochMs: Long,
     ): List<GlucosePrediction> {
+        val old = normalized(previous, nowEpochMs)
+        val fresh = normalized(incoming, nowEpochMs)
+        // One forecast packet is one calculation. Keeping a missing kind from an older
+        // run mixes seeds (and therefore glucose heights) from different loop cycles.
+        val oldGeneration = old.maxOfOrNull { it.samples.first().measuredAtEpochMs }
+        val newGeneration = fresh.maxOfOrNull { it.samples.first().measuredAtEpochMs }
+        val generation = listOfNotNull(oldGeneration, newGeneration).maxOrNull() ?: return emptyList()
         val byKind = linkedMapOf<PredictionKind, GlucosePrediction>()
-        normalized(previous, nowEpochMs).forEach { byKind[it.kind] = it }
-        normalized(incoming, nowEpochMs).forEach { byKind[it.kind] = it }
+        old.filter { it.samples.first().measuredAtEpochMs == generation }.forEach { byKind[it.kind] = it }
+        fresh.filter { it.samples.first().measuredAtEpochMs == generation }.forEach { byKind[it.kind] = it }
         return PredictionKind.entries.mapNotNull(byKind::get)
     }
 

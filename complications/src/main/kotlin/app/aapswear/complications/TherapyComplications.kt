@@ -172,7 +172,7 @@ abstract class TherapyComplicationService(
     override fun getPreviewData(type: ComplicationType): ComplicationData {
         // One instant for both fixture samples and viewport boundaries, including the oldest dot.
         val now = System.currentTimeMillis()
-        return build(declaredType ?: type, preview(now), now)
+        return build(if (kind == ProviderKind.GRAPH && type == ComplicationType.LONG_TEXT) type else declaredType ?: type, preview(now), now, previewMode = true)
     }
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData {
@@ -184,13 +184,14 @@ abstract class TherapyComplicationService(
             } else {
                 G7LocalReadingResolver.resolve(this, TherapyStateStore(this).state.first())
             }
-        return build(declaredType ?: request.complicationType, resolved)
+        return build(if (kind == ProviderKind.GRAPH && request.complicationType == ComplicationType.LONG_TEXT) request.complicationType else declaredType ?: request.complicationType, resolved)
     }
 
     private fun build(
         type: ComplicationType,
         state: TherapyDisplayState?,
         now: Long = System.currentTimeMillis(),
+        previewMode: Boolean = false,
     ): ComplicationData {
         val thresholds = readCgmThresholds()
         val glucose = state?.glucose
@@ -369,26 +370,35 @@ abstract class TherapyComplicationService(
             kind == ProviderKind.GRAPH ||
             kind == ProviderKind.GRAPH_LARGE
         ) {
+            val bitmap = renderImage(state = therapyState, kind = kind, now = now)
             val icon =
-                Icon.createWithBitmap(
-                    renderImage(
-                        state = therapyState,
-                        kind = kind,
-                        now = now,
-                    ),
-                )
-            return if (type == ComplicationType.PHOTO_IMAGE) {
-                PhotoImageComplicationData
-                    .Builder(icon, description)
-                    .setTapAction(tap)
-                    .build()
-            } else {
-                SmallImageComplicationData
-                    .Builder(
-                        SmallImage.Builder(icon, SmallImageType.PHOTO).build(),
-                        description,
-                    ).setTapAction(tap)
-                    .build()
+                if (kind == ProviderKind.GRAPH && type == ComplicationType.LONG_TEXT) {
+                    // Keep normal and ambient graph payloads lossless and compact.
+                    val encoded =
+                        java.io.ByteArrayOutputStream().use { output ->
+                            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+                            output.toByteArray()
+                        }
+                    Icon.createWithData(encoded, 0, encoded.size)
+                } else {
+                    Icon.createWithBitmap(bitmap)
+                }
+            return when {
+                kind == ProviderKind.GRAPH && type == ComplicationType.LONG_TEXT ->
+                    LongTextComplicationData
+                        .Builder(PlainComplicationText.Builder(if (previewMode) "full" else WatchfaceHandsOpacity.text(this, graphProfile)).build(), description)
+                        .setMonochromaticImage(MonochromaticImage.Builder(icon).setAmbientImage(icon).build())
+                        .build()
+                type == ComplicationType.PHOTO_IMAGE ->
+                    PhotoImageComplicationData
+                        .Builder(icon, description)
+                        .setTapAction(tap)
+                        .build()
+                else ->
+                    SmallImageComplicationData
+                        .Builder(SmallImage.Builder(icon, SmallImageType.PHOTO).build(), description)
+                        .setTapAction(tap)
+                        .build()
             }
         }
 
@@ -1201,6 +1211,17 @@ class OrbitGlucoseGraphComplication :
         WatchfaceGraphProfile.ORBIT,
     )
 
+/** Internal WFF graph envelopes; hidden from the user's complication picker. */
+class NativeApexGraphComplication : TherapyComplicationService(ProviderKind.GRAPH, ComplicationType.LONG_TEXT)
+
+class NativeOrbitGraphComplication :
+    TherapyComplicationService(
+        ProviderKind.GRAPH,
+        ComplicationType.LONG_TEXT,
+        SugarliciousComplicationIds.GRAPH_ORBIT,
+        WatchfaceGraphProfile.ORBIT,
+    )
+
 class GlucoseGraphLargeComplication :
     TherapyComplicationService(
         ProviderKind.GRAPH_LARGE,
@@ -1306,6 +1327,8 @@ object AllProviders {
             GlucoseTrendDeltaAgeLongTextComplication::class.java,
             GlucoseGraphComplication::class.java,
             OrbitGlucoseGraphComplication::class.java,
+            NativeApexGraphComplication::class.java,
+            NativeOrbitGraphComplication::class.java,
             OrbitDailyTirComplication::class.java,
             GlucoseGraphLargeComplication::class.java,
             TrendOnlyComplication::class.java,

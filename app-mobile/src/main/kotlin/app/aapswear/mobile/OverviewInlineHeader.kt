@@ -5,19 +5,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Text
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 
@@ -30,71 +30,81 @@ internal object OverviewHeaderLayout {
 }
 
 @Composable
-internal fun OverviewInlineHeader(onSettings: () -> Unit, diagnostics: DiagnosticsSnapshot, onWatch: () -> Unit, modifier: Modifier = Modifier, glucoseContent: @Composable () -> Unit) {
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        glucoseContent()
+internal fun OverviewInlineHeader(
+    onSettings: () -> Unit,
+    diagnostics: DiagnosticsSnapshot,
+    onWatch: () -> Unit,
+    modifier: Modifier = Modifier,
+    pinActionsToBottom: Boolean = false,
+    chromeAlpha: Float = 1f,
+    chromeTranslationY: Dp = 0.dp,
+    glucoseContent: @Composable () -> Unit,
+) {
+    Column(modifier.then(if (pinActionsToBottom) Modifier.fillMaxSize() else Modifier.fillMaxWidth()), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (pinActionsToBottom) {
+            Box(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+                glucoseContent()
+            }
+        } else {
+            glucoseContent()
+        }
         Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(38.dp)
-                    .offset(y = (-2).dp)
-                    .padding(
-                        start = OverviewHeaderLayout.START_PADDING_DP.dp,
-                        end = OverviewHeaderLayout.END_PADDING_DP.dp,
-                    ),
+                    .graphicsLayer {
+                        alpha = chromeAlpha.coerceIn(0f, 1f)
+                        translationY = chromeTranslationY.toPx()
+                    }.padding(start = OverviewHeaderLayout.START_PADDING_DP.dp, end = OverviewHeaderLayout.END_PADDING_DP.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier =
-                    Modifier.size(
-                        width = OverviewHeaderLayout.LOGO_SLOT_WIDTH_DP.dp,
-                        height = 38.dp,
-                    ),
+                Modifier.size(width = OverviewHeaderLayout.LOGO_SLOT_WIDTH_DP.dp, height = 48.dp).graphicsLayer {
+                    translationX = 18.dp.toPx() * (1f - chromeAlpha.coerceIn(0f, 1f))
+                },
                 contentAlignment = Alignment.CenterStart,
             ) {
                 SugarliciousIcon(
-                    drawableRes = R.drawable.ic_foreground,
-                    contentDescription = null,
+                    R.drawable.ic_foreground,
+                    null,
                     tint = SugarliciousColors.BrandGreen,
-                    modifier =
-                        Modifier
-                            .requiredSize(OverviewHeaderLayout.LOGO_SIZE_DP.dp)
-                            .offset(x = OverviewHeaderLayout.LOGO_X_OFFSET_DP.dp),
+                    modifier = Modifier.requiredSize(OverviewHeaderLayout.LOGO_SIZE_DP.dp),
                 )
             }
-
             Spacer(Modifier.weight(1f))
-
-            Row(Modifier.weight(4f).clickable(onClick = onWatch), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.End) {
-                Text(
-                    if (isWatchConnected(diagnostics.reachableWatches)) diagnostics.connectedWatchModels.ifBlank { "Watch" } else "Keine Watch verbunden",
-                    modifier = Modifier.weight(1f, fill = false),
-                    color = Color.White,
-                    style = oneUiMenuTypography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.width(6.dp))
-                SugarliciousIcon(R.drawable.ic_galaxywatch_outline, null, modifier = Modifier.size(24.dp), tint = SugarliciousColors.BrandGreen, colored = false)
+            Box(
+                Modifier.graphicsLayer {
+                    translationX = -18.dp.toPx() * (1f - chromeAlpha.coerceIn(0f, 1f))
+                },
+            ) {
+                OverviewHeaderActions(onWatch, onSettings, enabled = chromeAlpha > .05f)
             }
-            SettingsHeaderButton(onSettings)
         }
     }
 }
 
+/** Identical, adequately sized touch targets outside and inside the sticky pill. */
 @Composable
-private fun SettingsHeaderButton(onSettings: () -> Unit, tint: androidx.compose.ui.graphics.Color = SugarliciousColors.TextSecondary) {
-    Box(
-        modifier = Modifier.size(38.dp).clickable(onClick = onSettings),
-        contentAlignment = Alignment.Center,
-    ) {
-        SugarliciousIcon(
-            drawableRes = R.drawable.ic_settings,
-            contentDescription = "Einstellungen",
-            modifier = Modifier.size(24.dp),
-            tint = tint,
-            colored = false,
-        )
+internal fun OverviewHeaderActions(onWatch: () -> Unit, onSettings: () -> Unit, enabled: Boolean = true, compact: Boolean = false) {
+    val targetSize = 48.dp
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(targetSize).clickable(enabled = enabled, onClick = onWatch), contentAlignment = Alignment.Center) {
+            SugarliciousIcon(
+                R.drawable.ic_galaxywatch_filled,
+                "Smartwatch",
+                modifier = Modifier.size(24.dp).offset(x = if (compact) 8.dp else 0.dp),
+                tint = SugarliciousColors.BrandGreen,
+                colored = false,
+            )
+        }
+        Box(Modifier.size(targetSize).clickable(enabled = enabled, onClick = onSettings), contentAlignment = Alignment.Center) {
+            SugarliciousIcon(
+                R.drawable.ic_settings,
+                "Einstellungen",
+                modifier = Modifier.size(24.dp),
+                tint = SugarliciousColors.TextSecondary,
+                colored = false,
+            )
+        }
     }
 }

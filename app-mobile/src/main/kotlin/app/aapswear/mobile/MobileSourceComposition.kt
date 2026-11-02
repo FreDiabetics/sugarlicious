@@ -57,10 +57,16 @@ internal object MobileSourceComposition {
                         .forEach { (field, _) -> put(field, DataSourceId.ANDROID_APS) }
                 }
             }
-        val predictionsMatch =
-            selected == DataSourceId.ANDROID_APS ||
-                glucose != null &&
-                therapy?.glucose?.let { it.measuredAtEpochMs == glucose.measuredAtEpochMs && it.valueMgDl == glucose.valueMgDl } == true
+        // Forecasts retain AndroidAPS values/timestamps independently of the selected CGM.
+        val predictions =
+            inputs[DataSourceId.ANDROID_APS]
+                ?.let {
+                    app.aapswear.storage.PersistentPredictionCache
+                        .merge(null, it, now)
+                        .glucosePredictions
+                }.orEmpty()
+                .takeIf { configuration.aapsPredictionsEnabled }
+                .orEmpty()
         val provenance =
             therapy?.fieldProvenance.orEmpty().filterKeys { it !in GLUCOSE_FIELDS } +
                 (if (glucose == null) emptyMap() else cgm.fieldProvenance.filterKeys { it in GLUCOSE_FIELDS })
@@ -71,12 +77,7 @@ internal object MobileSourceComposition {
             receivedAtEpochMs = maxOf(cgm?.receivedAtEpochMs ?: 0L, therapy?.receivedAtEpochMs ?: 0L).takeIf { it > 0L } ?: now,
             glucose = glucose,
             glucoseHistory = CanonicalCgmHistory.merge(inputs.filterKeys { it == selected }.values.flatMap { value -> value.glucoseHistory + listOfNotNull(value.glucose?.let { GlucoseSample(it.valueMgDl, it.measuredAtEpochMs, it.source, it.sensorId, it.sessionId, it.sequenceNumber, it.receivedAtEpochMs, it.quality) }) }, now, selected, maxPoints = DisplayHistoryAccumulator.MAX_POINTS),
-            glucosePredictions =
-                therapy
-                    ?.glucosePredictions
-                    .orEmpty()
-                    .takeIf { predictionsMatch }
-                    .orEmpty(),
+            glucosePredictions = predictions,
             therapyHistory = therapy?.therapyHistory.orEmpty(),
             therapyEvents = therapy?.therapyEvents.orEmpty(),
             targetHistory = therapy?.targetHistory.orEmpty(),
@@ -89,7 +90,7 @@ internal object MobileSourceComposition {
             device = therapy?.device,
             profile = therapy?.profile,
             aapsDisplaySemantics = therapy?.aapsDisplaySemantics,
-            capabilities = cgmCapabilities + (therapy?.capabilities.orEmpty() - GLUCOSE_CAPABILITIES) + if (therapy?.insulin != null) setOf(DataCapability.IOB) else emptySet(),
+            capabilities = cgmCapabilities + (therapy?.capabilities.orEmpty() - GLUCOSE_CAPABILITIES - DataCapability.PREDICTIONS) + (if (predictions.isNotEmpty()) setOf(DataCapability.PREDICTIONS) else emptySet()) + if (therapy?.insulin != null) setOf(DataCapability.IOB) else emptySet(),
             fieldProvenance = provenance,
             fieldSources = fields,
         )
