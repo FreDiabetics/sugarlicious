@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
@@ -61,15 +60,10 @@ internal fun OverviewCompactGlucoseHeader(
             .padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp)
             .fillMaxWidth()
             .drawWithCache {
-                val offsetY = 6.dp.toPx()
+                val offsetY = 10.dp.toPx()
                 val radius = minOf(40.dp.toPx(), size.height / 2f, size.width / 2f)
                 val strength = if (SugarliciousColors.palette.isLight) .32f else .78f
-                val shadow =
-                    Brush.verticalGradient(
-                        listOf(Color.Black.copy(alpha = strength), Color.Transparent),
-                        startY = size.height - 2.dp.toPx(),
-                        endY = size.height + offsetY,
-                    )
+                val shadow = Color.Black.copy(alpha = strength)
                 onDrawBehind {
                     // Reuse the pill silhouette; only its downward offset remains visible.
                     drawRoundRect(shadow, Offset(0f, offsetY), size, CornerRadius(radius))

@@ -36,7 +36,7 @@ class LiveNotificationAdaptersTest {
 
     @Test
     @Config(sdk = [35])
-    fun `Samsung owns icon rendering while Now Bar keeps its green background`() {
+    fun `Samsung owns icon rendering and uses the OS accent background`() {
         val builder = builder()
         SamsungLiveNotificationAdapter.apply(context, builder, presentation(), "Samsung")
         val extras = builder.build().extras
@@ -149,7 +149,7 @@ class LiveNotificationAdaptersTest {
         assertEquals(texts.nowBarPrimary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(texts.nowBarSecondary, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_SECONDARY_INFO))
         assertEquals(texts.chipExpandedText, notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_TEXT))
-        assertEquals(0xFF22EB60.toInt(), notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR))
+        assertEquals(SamsungLiveNotificationAdapter.systemAccentColor(context), notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR))
         assertFalse(notification.extras.containsKey(SamsungLiveNotificationAdapter.EXTRA_CHIP_EXPANDED_VIEW))
         assertFalse(notification.extras.getBoolean(Notification.EXTRA_REQUEST_PROMOTED_ONGOING))
     }

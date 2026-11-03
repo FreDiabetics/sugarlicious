@@ -54,6 +54,27 @@ class PersistentBridgeServiceTest {
     }
 
     @Test
+    @Config(sdk = [35])
+    fun `system palette changes refresh the existing notification`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        runBlocking { TherapyStateStore(context).save(TherapyDisplayState(receivedAtEpochMs = System.currentTimeMillis())) }
+        val controller = Robolectric.buildService(PersistentBridgeService::class.java).create().startCommand(0, 1)
+        val main = shadowOf(android.os.Looper.getMainLooper())
+        main.idle()
+        try {
+            val service = controller.get()
+            val manager = service.getSystemService(NotificationManager::class.java)
+            manager.cancel(PersistentBridgeService.NOTIFICATION_ID)
+            assertNull(shadowOf(manager).getNotification(PersistentBridgeService.NOTIFICATION_ID))
+            service.onConfigurationChanged(android.content.res.Configuration(service.resources.configuration))
+            assertNotNull(shadowOf(manager).getNotification(PersistentBridgeService.NOTIFICATION_ID))
+        } finally {
+            controller.destroy()
+            main.idle()
+        }
+    }
+
+    @Test
     fun `repeated ordinary start suppresses identical notification but explicit refresh posts`() {
         assertFalse(shouldPostNotificationOnStart(true, null, "same", "same"))
         assertTrue(shouldPostNotificationOnStart(true, null, "new", "old"))
@@ -346,7 +367,7 @@ class PersistentBridgeServiceTest {
         assertEquals(1, notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_STYLE))
         assertEquals("118 ↘", notification.extras.getString(SamsungLiveNotificationAdapter.EXTRA_NOWBAR_PRIMARY_INFO))
         assertEquals(
-            context.getColor(R.color.app_accent),
+            SamsungLiveNotificationAdapter.systemAccentColor(context),
             notification.extras.getInt(SamsungLiveNotificationAdapter.EXTRA_CHIP_BACKGROUND_COLOR),
         )
         assertEquals(
