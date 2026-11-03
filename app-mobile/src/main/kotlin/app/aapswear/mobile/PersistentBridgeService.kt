@@ -165,6 +165,11 @@ class PersistentBridgeService :
             }
     }
 
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (foregroundStarted) notifyUpdated()
+    }
+
     override fun onStartCommand(
         intent: Intent?,
         flags: Int,

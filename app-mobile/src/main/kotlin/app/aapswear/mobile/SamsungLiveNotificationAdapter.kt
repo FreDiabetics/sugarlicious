@@ -53,7 +53,7 @@ internal object SamsungLiveNotificationAdapter {
         val extras =
             Bundle().apply {
                 putInt(EXTRA_STYLE, STANDARD_STYLE)
-                putInt(EXTRA_CHIP_BACKGROUND_COLOR, android.graphics.Color.rgb(0x22, 0xEB, 0x60))
+                putInt(EXTRA_CHIP_BACKGROUND_COLOR, systemAccentColor(context))
                 putString(EXTRA_PRIMARY_INFO, texts.drawerPrimary)
                 putString(EXTRA_NOWBAR_PRIMARY_INFO, texts.nowBarPrimary)
                 putString(EXTRA_CHIP_EXPANDED_TEXT, texts.chipExpandedText)

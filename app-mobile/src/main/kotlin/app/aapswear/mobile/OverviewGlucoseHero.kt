@@ -192,6 +192,9 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, stats: Me
                     }
                 }
             }
+            if (distribution != null) {
+                drawRoundRect(gradient, cornerRadius = CornerRadius(size.height / 2f), alpha = .30f)
+            }
             if (distribution == null) {
                 drawRoundRect(SugarliciousColors.TextSecondary.copy(alpha = .25f), cornerRadius = CornerRadius(size.height / 2f))
             } else if (fraction == null) {
