@@ -68,6 +68,8 @@ private fun alignTherapyRingContents(root: View) {
     ).forEach { (valueId, iconId, metric) ->
         val value = root.findViewById<TextView>(valueId)
         val frame = value.parent as android.widget.FrameLayout
+        frame.clipChildren = false
+        frame.clipToPadding = false
         val diameter = frame.layoutParams.width / density
         value.textSize = geometry.VALUE_TEXT_SP
         // Keep the shared 14sp reference for ordinary values, fitting longer precise

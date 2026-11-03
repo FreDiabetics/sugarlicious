@@ -5,6 +5,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class CgmGraphYScaleTest {
+    @Test fun `optional gentle log reduces low band emphasis and keeps an exact inverse`() {
+        val strict = CgmGraphYScale(CgmGraphScaleMode.LOGARITHMIC, 0.0, 400.0)
+        val gentle = strict.copy(logarithmicOffsetMgDl = 200.0)
+        assertTrue(gentle.ratio(80.0) < strict.ratio(80.0))
+        for (value in listOf(0.0, 20.0, 40.0, 50.0, 80.0, 140.0, 220.0, 400.0)) {
+            assertEquals(value, gentle.inverseRatio(gentle.ratio(value)), 0.000001)
+        }
+        val linear = gentle.copy(mode = CgmGraphScaleMode.STATIC)
+        assertEquals(strict.copy(mode = CgmGraphScaleMode.STATIC).ratio(80.0), linear.ratio(80.0), 0.0)
+    }
+
     @Test fun `static CGM scale maps real zero to its lower boundary`() {
         val scale =
             CgmGraphYScale.resolve(

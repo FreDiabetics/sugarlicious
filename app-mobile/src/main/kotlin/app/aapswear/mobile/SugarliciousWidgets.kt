@@ -1163,6 +1163,7 @@ internal fun renderTherapyIndicatorWidget(
             app.aapswear.uishared.SystemTypography
                 .apply(this, true)
         }
+    val therapyRingRenderer = app.aapswear.uishared.TherapyRingRenderer()
     resolvedLayout.forEach { original ->
         val resolved =
             if (showBasalDetails && original.metric == TherapyProgressMetric.BASAL) {
@@ -1195,36 +1196,7 @@ internal fun renderTherapyIndicatorWidget(
         fun metricColor(part: String) = palette.argb(WidgetColorRole.valueOf("${resolved.metric.name}_$part"))
         val accent = metricColor("PROGRESS")
         valuePaint.color = metricColor("VALUE")
-        val trackPaint =
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = metricColor("TRACK")
-                style = Paint.Style.STROKE
-                strokeWidth = stroke
-                strokeCap = Paint.Cap.ROUND
-            }
-        val marker = resolved.metric == TherapyProgressMetric.BASAL && indicator.progress != null
-        val outline = TherapyIndicatorGeometry.MARKER_OUTLINE_DP * TherapyIndicatorGeometry.scale(ringDiameter)
-        if (marker) ringBounds.inset(TherapyIndicatorGeometry.MARKER_INSET_DP * TherapyIndicatorGeometry.scale(ringDiameter), TherapyIndicatorGeometry.MARKER_INSET_DP * TherapyIndicatorGeometry.scale(ringDiameter))
-        val arcs = app.aapswear.model.progressArcSegments(indicator.progress, ringBounds.width() + stroke, stroke, geometry.sweepDegrees)
-        if (marker) {
-            canvas.drawArc(ringBounds, geometry.composeStartDegrees, geometry.sweepDegrees, false, Paint(trackPaint).apply { color = accent })
-        } else {
-            if (arcs.trackSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, trackPaint)
-            if (arcs.fillSweep > 0f) canvas.drawArc(ringBounds, geometry.composeStartDegrees, arcs.fillSweep, false, Paint(trackPaint).apply { color = accent })
-        }
-        if (marker) {
-            val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
-            val x = ringBounds.centerX() + ringBounds.width() / 2f * kotlin.math.cos(angle).toFloat()
-            val y = ringBounds.centerY() + ringBounds.height() / 2f * kotlin.math.sin(angle).toFloat()
-            val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
-            canvas.drawCircle(x, y, stroke / 2f, markerPaint)
-            markerPaint.apply {
-                color = android.graphics.Color.BLACK
-                style = Paint.Style.STROKE
-                strokeWidth = outline
-            }
-            canvas.drawCircle(x, y, stroke / 2f + outline / 2f, markerPaint)
-        }
+        therapyRingRenderer.draw(canvas, ringBounds, stroke, indicator.progress, accent, geometry, trackColor = metricColor("TRACK"))
 
         valuePaint.textSize =
             resolved.primaryTextSizeSp * .88f * renderDensity

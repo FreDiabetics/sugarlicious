@@ -596,7 +596,7 @@ class MainActivity : ComponentActivity() {
             )
         window.statusBarColor = backgroundColor
         window.navigationBarColor = backgroundColor
-        val light = screen == DashboardScreen.OVERVIEW && SugarliciousColors.palette.isLight
+        val light = SugarliciousColors.palette.isLight
         if (Build.VERSION.SDK_INT >= 30) {
             val mask =
                 android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or

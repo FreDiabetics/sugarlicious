@@ -6,9 +6,11 @@ object TherapyIndicatorGeometry {
     const val VALUE_TEXT_SP = 14f
     const val SECONDARY_TEXT_SP = 10f
     const val VALUE_WIDTH_FRACTION = .70f
-    const val ICON_CENTER_Y_FRACTION = .85f
-    const val MARKER_OUTLINE_DP = 1.5f
-    const val MARKER_INSET_DP = 2.5f
+    const val ICON_CENTER_Y_FRACTION = .885f
+
+    /** Room below the ring for the icon in its open segment. */
+    fun iconBottomOverflowDp(diameter: Float, iconSize: Float): Float =
+        (diameter * ICON_CENTER_Y_FRACTION + iconSize / 2f - diameter).coerceAtLeast(0f)
 
     fun scale(diameter: Float): Float = diameter.coerceAtLeast(0f) / REFERENCE_DIAMETER_DP
 
@@ -20,6 +22,6 @@ object TherapyIndicatorGeometry {
         when (metric) {
             TherapyProgressMetric.IOB -> 19f
             TherapyProgressMetric.COB -> 17f
-            TherapyProgressMetric.BASAL -> 16f
+            TherapyProgressMetric.BASAL -> 19f
         } * scale(diameter)
 }

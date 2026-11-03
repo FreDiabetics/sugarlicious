@@ -47,7 +47,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
-import app.aapswear.model.FreshnessPolicy
 import app.aapswear.model.GlucosePrediction
 import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
@@ -71,10 +70,9 @@ internal fun SugarliciousOverviewScreen(
 ) {
     val unit = preferences.unitFor(state)
     val glucose = state?.glucose
-    val freshness = FreshnessPolicy.classify(glucose?.measuredAtEpochMs, now)
-    val knownGlucose =
-        app.aapswear.model.TherapyDisplayFormatter
-            .isGlucoseKnown(state)
+    val headerStatus = softMotionHeaderStatus(state, now)
+    val freshness = headerStatus.freshness
+    val knownGlucose = headerStatus.hasValue
     val displayable = TherapyDisplayFormatter.isGlucoseDisplayable(state, now)
     val density = LocalDensity.current
     val screenHeightDp =
@@ -179,6 +177,7 @@ internal fun SugarliciousOverviewScreen(
         cgmChartViewport.setFutureWindow(predictionViewportPolicy.effectiveFutureWindowMs, now)
     }
 
+    val glucoseBarStats = rememberGlucoseBarStats(state, now, preferences.cgmThresholds)
     val glucoseText = if (knownGlucose && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
     val rangePresentation =
         widgetRangePresentation(
@@ -188,32 +187,35 @@ internal fun SugarliciousOverviewScreen(
             now = now,
         )
     val glucoseColor =
-        (if (TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) Color(0xFF9E9E9E) else SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole))).let { color -> if (displayable || TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) color else color.copy(alpha = 0.62f) }
+        (if (TherapyDisplayFormatter.freshness(state, now) !in setOf(app.aapswear.model.Freshness.CURRENT, app.aapswear.model.Freshness.DELAYED)) Color(0xFF9E9E9E) else SugarliciousColors.color(overviewGlucoseColorRole(rangePresentation.visibleRole))).let { color -> if (displayable || TherapyDisplayFormatter.freshness(state, now) == app.aapswear.model.Freshness.SIGNAL_LOSS) color else color.copy(alpha = 0.62f) }
     val delta = if (displayable) formatDelta(glucose?.deltaMgDl, unit) else "—"
-    val age = TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now)
+    val age = if (displayable) TherapyDisplayFormatter.ageMinutes(glucose?.measuredAtEpochMs, now) else "\u2014"
+    var glucoseDetailsOpen by remember { mutableStateOf(false) }
     var rangePickerOpen by remember { mutableStateOf(false) }
     var rangePickerBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     val overviewScroll = rememberScrollState()
     var heroHeightPx by remember { mutableIntStateOf(with(density) { 240.dp.roundToPx() }) }
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var therapyHeightPx by remember { mutableIntStateOf(0) }
+    var cgmHeadingHeightPx by remember { mutableIntStateOf(with(density) { 28.dp.roundToPx() }) }
+    var metabolicHeightPx by remember { mutableIntStateOf(with(density) { (metabolicGraphHeightDp + 28).dp.roundToPx() }) }
     val compactVisible by remember { derivedStateOf { overviewScroll.value > heroHeightPx - with(density) { 88.dp.toPx() } } }
-
-    fun chromeCollapseFraction(): Float = ((overviewScroll.value - heroHeightPx + with(density) { 144.dp.toPx() }) / with(density) { 40.dp.toPx() }).coerceIn(0f, 1f)
 
     fun collapseFraction(): Float = ((overviewScroll.value - heroHeightPx + with(density) { 88.dp.toPx() }) / with(density) { 48.dp.toPx() }).coerceIn(0f, 1f)
 
+    if (glucoseDetailsOpen) SoftMotionGlucoseDetails(state, now, glucoseText, delta, unitLabel(unit)) { glucoseDetailsOpen = false }
     BoxWithConstraints(Modifier.fillMaxSize().outsideDoubleTap(rangePickerOpen, rangePickerBounds) { rangePickerOpen = false }) {
         val visibleHeights =
             buildList<Float?> {
                 if (preferences.showTherapyProgress) add(with(density) { therapyHeightPx.toDp().value })
                 if (preferences.showCgmGraph) add(null)
+                if (preferences.showMetabolicGraph) add(with(density) { metabolicHeightPx.toDp().value })
             }
         val cgmGraphHeightDp =
             overviewFittedCgmHeight(
                 preferredCgmGraphHeightDp.toFloat(),
                 maxHeight.value,
-                if (maxWidth > maxHeight) 0f else with(density) { headerHeightPx.toDp().value },
+                if (maxWidth > maxHeight) 0f else with(density) { (headerHeightPx + if (preferences.showCgmGraph) cgmHeadingHeightPx else 0).toDp().value },
                 visibleHeights,
             ).toInt()
         val landscape = maxWidth > maxHeight
@@ -221,27 +223,30 @@ internal fun SugarliciousOverviewScreen(
         @Composable fun Header() {
             OverviewInlineHeader(
                 onSettings = { callbacks.navigate(DashboardScreen.SETTINGS) },
-                diagnostics = diagnostics,
                 onWatch = { callbacks.navigate(DashboardScreen.WATCH) },
                 modifier =
                     Modifier
                         .onSizeChanged { headerHeightPx = it.height }
                         .then(if (landscape) Modifier else Modifier.overviewHeaderScrollFade(overviewScroll)),
                 pinActionsToBottom = landscape,
-                chromeAlpha = if (landscape) 1f else 1f - chromeCollapseFraction(),
-                chromeTranslationY = if (landscape) 0.dp else (-24f * chromeCollapseFraction()).dp,
                 glucoseContent = {
                     Box(Modifier.onSizeChanged { heroHeightPx = it.height }) {
                         OverviewGlucoseHero(
                             glucoseText = glucoseText,
                             glucoseColor = glucoseColor,
-                            accentColor = if (displayable && rangePresentation.visibleRole == WidgetColorRole.IN_RANGE) SugarliciousColors.BrandGreen else glucoseColor,
+                            glucoseMgDl = glucose?.valueMgDl,
+                            thresholds = preferences.cgmThresholds,
+                            rangeStats = glucoseBarStats,
                             trend = if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
                             delta = delta,
                             age = age,
                             unitLabel = unitLabel(unit),
                             glucoseScalePercent = preferences.glucoseScalePercent,
                             trendScalePercent = preferences.trendScalePercent,
+                            active = headerStatus.waveActive,
+                            centeredGlucose = landscape,
+                            status = headerStatus.label,
+                            onClick = { glucoseDetailsOpen = true },
                         )
                     }
                 },
@@ -259,18 +264,23 @@ internal fun SugarliciousOverviewScreen(
                 }
 
                 if (preferences.showCgmGraph) {
-                    GlucoseGraphSurface(
-                        state = state,
-                        preferences = preferences,
-                        viewport = cgmChartViewport,
-                        chartHeightDp = cgmGraphHeightDp,
-                        now = now,
-                        onGraphHours = callbacks.setGraphHours,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Box(Modifier.onSizeChanged { cgmHeadingHeightPx = it.height + with(density) { 4.dp.roundToPx() } }) {
+                            OverviewSectionHeading("Glukoseverlauf und Basalrate")
+                        }
+                        GlucoseGraphSurface(
+                            state = state,
+                            preferences = preferences,
+                            viewport = cgmChartViewport,
+                            chartHeightDp = cgmGraphHeightDp,
+                            now = now,
+                            onGraphHours = callbacks.setGraphHours,
+                        )
+                    }
                 }
 
                 if (preferences.showMetabolicGraph) {
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.onSizeChanged { metabolicHeightPx = it.height }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         OverviewSectionHeading("Insulin und Kohlenhydrate")
                         MetabolicGraphSurface(
                             state = state,
@@ -375,6 +385,7 @@ internal fun GlucoseValueAndTrend(
     trend: Trend,
     visualSpec: GlucoseVisualSpec,
     trendStyle: app.aapswear.model.TrendArrowStyle = MobileTrendArrowAppearance.style,
+    trendColor: Color = glucoseColor,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
@@ -386,7 +397,7 @@ internal fun GlucoseValueAndTrend(
             letterSpacing = (-0.8).sp,
         )
         Spacer(Modifier.width(6.dp))
-        SugarliciousTrendIndicator(trend, arrowSize = visualSpec.trendHeight.dp, color = glucoseColor, style = trendStyle)
+        SugarliciousTrendIndicator(trend, arrowSize = visualSpec.trendHeight.dp, color = trendColor, style = trendStyle)
     }
 }
 

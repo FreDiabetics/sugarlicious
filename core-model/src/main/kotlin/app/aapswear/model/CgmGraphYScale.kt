@@ -11,32 +11,37 @@ data class CgmGraphYScale(
     val mode: CgmGraphScaleMode,
     val minimumMgDl: Double,
     val maximumMgDl: Double,
+    val logarithmicOffsetMgDl: Double = 0.0,
 ) {
     init {
+        require(logarithmicOffsetMgDl.isFinite() && logarithmicOffsetMgDl >= 0.0)
         require(minimumMgDl >= 0.0)
         require(maximumMgDl > minimumMgDl)
     }
 
     fun ratio(valueMgDl: Double): Double {
-        if (!usesCompressedSensorFloor) return asAxisScale().ratio(valueMgDl)
+        if (!usesCompressedSensorFloor) return asAxisScale().ratio(valueMgDl + offset)
         val bounded = valueMgDl.coerceIn(0.0, maximumMgDl)
         if (bounded <= SENSOR_FLOOR_MG_DL) {
             return bounded / SENSOR_FLOOR_MG_DL * SENSOR_FLOOR_AXIS_FRACTION
         }
         return SENSOR_FLOOR_AXIS_FRACTION +
-            sensorReadableScale().ratio(bounded) * (1.0 - SENSOR_FLOOR_AXIS_FRACTION)
+            sensorReadableScale().ratio(bounded + offset) * (1.0 - SENSOR_FLOOR_AXIS_FRACTION)
     }
 
     fun inverseRatio(ratio: Double): Double {
-        if (!usesCompressedSensorFloor) return asAxisScale().inverseRatio(ratio)
+        if (!usesCompressedSensorFloor) return asAxisScale().inverseRatio(ratio) - offset
         val bounded = ratio.coerceIn(0.0, 1.0)
         if (bounded <= SENSOR_FLOOR_AXIS_FRACTION) {
             return bounded / SENSOR_FLOOR_AXIS_FRACTION * SENSOR_FLOOR_MG_DL
         }
         return sensorReadableScale().inverseRatio(
             (bounded - SENSOR_FLOOR_AXIS_FRACTION) / (1.0 - SENSOR_FLOOR_AXIS_FRACTION),
-        )
+        ) - offset
     }
+
+    // Offset zero preserves the strict logarithm for all existing callers.
+    private val offset: Double get() = if (mode.isLogarithmic) logarithmicOffsetMgDl else 0.0
 
     private val usesCompressedSensorFloor: Boolean
         get() = minimumMgDl == 0.0 && maximumMgDl > SENSOR_FLOOR_MG_DL
@@ -44,17 +49,17 @@ data class CgmGraphYScale(
     private fun sensorReadableScale() =
         GraphAxisScale(
             mode = mode,
-            bounds = GraphBounds(SENSOR_FLOOR_MG_DL, maximumMgDl),
+            bounds = GraphBounds(SENSOR_FLOOR_MG_DL + offset, maximumMgDl + offset),
             logarithmicDomain = LogarithmicDomain.POSITIVE,
         )
 
     private fun asAxisScale() =
         GraphAxisScale(
             mode = mode,
-            bounds = GraphBounds(minimumMgDl, maximumMgDl),
+            bounds = GraphBounds(minimumMgDl + offset, maximumMgDl + offset),
             // A signed log transform has a defined origin. This keeps the physical 0 mg/dL
             // baseline visible in logarithmic modes instead of pretending that 40 is zero.
-            logarithmicDomain = if (minimumMgDl == 0.0) LogarithmicDomain.SIGNED else LogarithmicDomain.POSITIVE,
+            logarithmicDomain = if (minimumMgDl == 0.0 && offset == 0.0) LogarithmicDomain.SIGNED else LogarithmicDomain.POSITIVE,
         )
 
     companion object {

@@ -120,7 +120,6 @@ data class DashboardUiPreferences(
     val showTir: Boolean = glucoseTileDetailMode == GlucoseTileDetailMode.TIR,
     val showTitr: Boolean = false,
     val showTherapyProgress: Boolean = glucoseTileDetailMode == GlucoseTileDetailMode.THERAPY,
-    val showProgressDetails: Boolean = true,
 ) {
     val enabledPredictionKinds: Set<PredictionKind>
         get() =
@@ -160,7 +159,6 @@ data class DashboardUiPreferences(
                 showTir = preferences.getBoolean("overview.showTir", legacyGlucoseTileMode(preferences) == GlucoseTileDetailMode.TIR),
                 showTitr = preferences.getBoolean("overview.showTitr", false),
                 showTherapyProgress = preferences.getBoolean("overview.showTherapyProgress", legacyGlucoseTileMode(preferences) == GlucoseTileDetailMode.THERAPY),
-                showProgressDetails = preferences.getBoolean("overview.showProgressDetails", true),
                 iobProgressMaximumUnits = preferences.getFloat(IOB_PROGRESS_MAXIMUM_KEY, 10f).coerceIn(0f, 30f),
                 cobProgressMaximumGrams = preferences.getFloat(COB_PROGRESS_MAXIMUM_KEY, DashboardSystemDefaults.COB_PROGRESS_MAXIMUM_GRAMS).coerceIn(10f, 500f),
                 iobGraphMaximumUnits = preferences.getFloat(IOB_GRAPH_MAXIMUM_KEY, 10f).coerceIn(1f, 30f),
@@ -681,7 +679,6 @@ class DashboardViewFactory(
                         Triple("Time in Range", "overview.showTir", preferences.showTir),
                         Triple("Time in Tight Range", "overview.showTitr", preferences.showTitr),
                         Triple("Therapie-Progressbars", "overview.showTherapyProgress", preferences.showTherapyProgress),
-                        Triple("Zusatzinformationen", "overview.showProgressDetails", preferences.showProgressDetails),
                     ).forEach { (label, key, enabled) ->
                         addView(switchRowCompact(label, enabled, View.generateViewId()) { dashboardPreferences.edit { putBoolean(key, it) } })
                     }
@@ -727,8 +724,8 @@ class DashboardViewFactory(
                                         when (mode) {
                                             CgmGraphScaleMode.STATIC -> "Statisch"
                                             CgmGraphScaleMode.DYNAMIC -> "Dynamisch"
-                                            CgmGraphScaleMode.LOGARITHMIC -> "Logarithmisch"
-                                            CgmGraphScaleMode.LOGARITHMIC_DYNAMIC -> "Logarithmisch-dynamisch"
+                                            CgmGraphScaleMode.LOGARITHMIC -> "Logarithmisch · sanft"
+                                            CgmGraphScaleMode.LOGARITHMIC_DYNAMIC -> "Logarithmisch-dynamisch · sanft"
                                         },
                                         preferences.graphScaleMode == mode,
                                     ) {

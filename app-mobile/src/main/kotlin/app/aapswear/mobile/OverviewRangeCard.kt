@@ -69,7 +69,7 @@ internal fun OverviewRangeCard(state: TherapyDisplayState?, now: Long, showTir: 
             .toInstant()
             .toEpochMilli()
     val archive by produceState<RangeArchiveWindow?>(null, store, revision, start) {
-        value = RangeArchiveWindow(store.rangeHistory(start, now))
+        value = withContext(Dispatchers.IO) { RangeArchiveWindow(store.rangeHistory(start, now)) }
     }
     // Publish the label and statistics together after that period's archive loads.
     // Never briefly relabel a one-day calculation as ninety-day data.
@@ -104,7 +104,7 @@ internal fun OverviewRangeCard(state: TherapyDisplayState?, now: Long, showTir: 
                             indication = ripple(bounded = true),
                             onClickLabel = "Zeitraum wechseln",
                             onLongClickLabel = "Zeitraum ausw�hlen",
-                            onLongClick = { onChoosingPeriod(!choosingPeriod) },
+                            onLongClick = { onChoosingPeriod(true) },
                             onClick = { days = OverviewRangePeriodStore.advance(context, days, available) },
                         ).padding(vertical = 2.dp),
             )
@@ -148,7 +148,7 @@ internal fun OverviewRangeCard(state: TherapyDisplayState?, now: Long, showTir: 
                     listOf<(MeasuredRangeStats) -> Int?>({ it.above }, { it.inRange }, { it.below }).mapIndexed { index, selector ->
                         transition
                             .animateFloat(
-                                transitionSpec = { spring(dampingRatio = .86f, stiffness = Spring.StiffnessLow) },
+                                transitionSpec = { spring(dampingRatio = .78f, stiffness = 180f) },
                                 label = "${if (tight) "titr" else "tir"}-$index",
                             ) { target -> (selector(if (tight) target.titr else target.tir) ?: 0).toFloat() }
                             .value

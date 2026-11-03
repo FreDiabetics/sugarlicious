@@ -609,7 +609,6 @@ private fun therapyTileContent(
                 now,
                 TherapyRingLayoutSpec(item.slot.diameterDp, strokeWidthDp = item.strokeWidthDp),
                 item.primaryTextSizeSp,
-                item.secondaryTextSizeSp,
                 item.iconSizeDp,
                 textRenderer,
             )
@@ -617,7 +616,7 @@ private fun therapyTileContent(
             Box
                 .Builder()
                 .setWidth(dp(item.slot.rightDp))
-                .setHeight(dp(item.slot.bottomDp))
+                .setHeight(dp(item.slot.bottomDp + TherapyIndicatorGeometry.iconBottomOverflowDp(item.slot.diameterDp, item.iconSizeDp)))
                 .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_RIGHT)
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
                 .addContent(card)
@@ -636,7 +635,6 @@ private fun therapyMetricCard(
     nowEpochMs: Long,
     ring: TherapyRingLayoutSpec,
     primaryTextSizeSp: Float,
-    secondaryTextSizeSp: Float,
     configuredIconSizeDp: Float,
     textRenderer: SugarliciousTileTypography,
 ): Box {
@@ -648,7 +646,7 @@ private fun therapyMetricCard(
             TherapyTileMetric.COB -> colors.cob
             TherapyTileMetric.BASAL -> colors.basal
         }
-    val bitmap = renderTherapyTileRing(ring, progress, accent, colors.background, metric == TherapyTileMetric.BASAL)
+    val bitmap = renderTherapyTileRing(ring, progress, accent, colors.background)
     val pixels =
         try {
             bitmap.toRgb565Image()
@@ -676,12 +674,6 @@ private fun therapyMetricCard(
             .build()
     val fittedPrimarySp = textRenderer.fittedTextSize(value, TherapyIndicatorGeometry.fontSizeSp(primaryTextSizeSp, TherapyIndicatorGeometry.REFERENCE_DIAMETER_DP, textRenderer.fontScale), ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, bold = true)
     val valueContent = textRenderer.text(scope, value, fittedPrimarySp, colors.textPrimary, bold = true, maxWidthDp = ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, maxHeightDp = ring.diameterDp * .34f)
-    val secondary =
-        when (metric) {
-            TherapyTileMetric.IOB -> presentation.iobSecondary
-            TherapyTileMetric.COB -> null
-            TherapyTileMetric.BASAL -> null
-        }
     val textContent =
         Box
             .Builder()
@@ -690,23 +682,10 @@ private fun therapyMetricCard(
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .addContent(valueContent)
-            .apply {
-                secondary?.let {
-                    addContent(
-                        Box
-                            .Builder()
-                            .setWidth(dp(ring.diameterDp))
-                            .setHeight(dp(ring.diameterDp))
-                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                            .setModifiers(Modifiers.Builder().setPadding(Padding.Builder().setTop(dp(ring.diameterDp * .34f)).build()).build())
-                            .addContent(textRenderer.text(scope, it, secondaryTextSizeSp, colors.textSecondary, bold = false, maxWidthDp = ring.diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION, maxHeightDp = ring.diameterDp * .12f))
-                            .build(),
-                    )
-                }
-            }.build()
+            .build()
     val iconState = wearTherapyIcon(metric, state, nowEpochMs)
     val iconSize = configuredIconSizeDp
+    val iconOverflow = TherapyIndicatorGeometry.iconBottomOverflowDp(ring.diameterDp, iconSize)
     val icon =
         Image
             .Builder(scope)
@@ -725,7 +704,7 @@ private fun therapyMetricCard(
         Box
             .Builder()
             .setWidth(dp(ring.diameterDp))
-            .setHeight(dp(ring.diameterDp))
+            .setHeight(dp(ring.diameterDp + iconOverflow))
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
             .setModifiers(Modifiers.Builder().setPadding(Padding.Builder().setBottom(dp((ring.diameterDp * (1f - TherapyIndicatorGeometry.ICON_CENTER_Y_FRACTION) - iconSize / 2f).coerceAtLeast(0f))).build()).build())
@@ -734,57 +713,27 @@ private fun therapyMetricCard(
     return Box
         .Builder()
         .setWidth(dp(ring.diameterDp))
-        .setHeight(dp(ring.diameterDp))
+        .setHeight(dp(ring.diameterDp + iconOverflow))
         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
         .addContent(ringImage)
         .addContent(textContent)
         .addContent(iconOverlay)
         .build()
 }
 
-internal fun renderTherapyTileRing(ring: TherapyRingLayoutSpec, progress: Float?, accent: Int, background: Int, showMarker: Boolean): Bitmap {
+internal fun renderTherapyTileRing(ring: TherapyRingLayoutSpec, progress: Float?, accent: Int, background: Int): Bitmap {
     val scale = 3f
     val side = (ring.diameterDp * scale).toInt().coerceAtLeast(1)
     val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     canvas.drawColor(background)
     val stroke = ring.strokeWidthDp * scale
-    val proportionalScale = TherapyIndicatorGeometry.scale(ring.diameterDp)
-    val outline = TherapyIndicatorGeometry.MARKER_OUTLINE_DP * proportionalScale * scale
-    val marker = showMarker && progress?.isFinite() == true
-    val inset = stroke / 2f + if (marker) TherapyIndicatorGeometry.MARKER_INSET_DP * proportionalScale * scale else 0f
+    val inset = stroke / 2f
     val bounds = android.graphics.RectF(inset, inset, side - inset, side - inset)
-    val sweep = ring.sweepDegrees
-    val arcs = app.aapswear.model.progressArcSegments(progress, bounds.width() + stroke, stroke, sweep)
-    val paint =
-        android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            style = android.graphics.Paint.Style.STROKE
-            strokeCap = android.graphics.Paint.Cap.ROUND
-            strokeWidth = stroke
-            color = opaqueOverlay(accent, background, .30f)
-        }
-    if (marker) {
-        paint.color = accent
-        canvas.drawArc(bounds, ring.geometry.composeStartDegrees, sweep, false, paint)
-    } else {
-        if (arcs.trackSweep > 0f) canvas.drawArc(bounds, ring.geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, paint)
-        paint.color = accent
-        if (arcs.fillSweep > 0f) canvas.drawArc(bounds, ring.geometry.composeStartDegrees, arcs.fillSweep, false, paint)
-    }
-    if (marker) {
-        val angle = Math.toRadians((ring.geometry.composeStartDegrees + arcs.fillSweep).toDouble())
-        val x = bounds.centerX() + bounds.width() / 2f * kotlin.math.cos(angle).toFloat()
-        val y = bounds.centerY() + bounds.height() / 2f * kotlin.math.sin(angle).toFloat()
-        paint.style = android.graphics.Paint.Style.FILL
-        canvas.drawCircle(x, y, stroke / 2f, paint)
-        paint.apply {
-            color = android.graphics.Color.BLACK
-            style = android.graphics.Paint.Style.STROKE
-            strokeWidth = outline
-        }
-        canvas.drawCircle(x, y, stroke / 2f + outline / 2f, paint)
-    }
+    app.aapswear.uishared
+        .TherapyRingRenderer()
+        .draw(canvas, bounds, stroke, progress, accent, ring.geometry)
     return bitmap
 }
 
@@ -871,21 +820,6 @@ private fun wearTherapyIconResource(icon: TherapyIndicatorIcon): Int =
         TherapyIndicatorIcon.BASAL_LESS -> app.aapswear.uishared.R.drawable.ic_basalless
         TherapyIndicatorIcon.BASAL_MORE -> app.aapswear.uishared.R.drawable.ic_basalmore
     }
-
-internal fun opaqueOverlay(
-    foreground: Int,
-    background: Int,
-    alpha: Float,
-): Int {
-    val amount = alpha.coerceIn(0f, 1f)
-
-    fun channel(shift: Int): Int {
-        val front = foreground ushr shift and 0xFF
-        val back = background ushr shift and 0xFF
-        return (back + (front - back) * amount).toInt().coerceIn(0, 255)
-    }
-    return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
-}
 
 internal fun affectedSugarliciousTiles(
     old: TherapyDisplayState?,
