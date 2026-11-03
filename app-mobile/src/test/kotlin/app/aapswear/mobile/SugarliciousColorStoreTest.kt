@@ -18,6 +18,35 @@ import org.robolectric.annotation.Config
 class SugarliciousColorStoreTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    @Test fun `wave follows configured range text until its own picker is set and target stays green`() {
+        val preferences = context.getSharedPreferences("independent_wave_colors", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        listOf(AppearanceMode.DARK, AppearanceMode.LIGHT).forEach { mode ->
+            val pairs = mapOf(SugarliciousColorRole.OVERVIEW_WAVE_LOW to SugarliciousColorRole.GLUCOSE_LOW, SugarliciousColorRole.OVERVIEW_WAVE_VERY_LOW to SugarliciousColorRole.GLUCOSE_VERY_LOW, SugarliciousColorRole.OVERVIEW_WAVE_HIGH to SugarliciousColorRole.GLUCOSE_HIGH, SugarliciousColorRole.OVERVIEW_WAVE_VERY_HIGH to SugarliciousColorRole.GLUCOSE_VERY_HIGH)
+            pairs.forEach { (wave, text) ->
+                SugarliciousColorStore.save(preferences, mode, text, Color.MAGENTA)
+                assertEquals(Color.MAGENTA, SugarliciousColorStore.load(preferences, mode).argb(wave))
+                SugarliciousColorStore.save(preferences, mode, wave, Color.CYAN)
+                assertEquals(Color.CYAN, SugarliciousColorStore.load(preferences, mode).argb(wave))
+                assertEquals(Color.MAGENTA, SugarliciousColorStore.load(preferences, mode).argb(text))
+            }
+            assertEquals(0xFF22EB60.toInt(), SugarliciousColorStore.load(preferences, mode).argb(SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE))
+        }
+    }
+
+    @Test fun `data colors retain the exact hue across modes while neutral ink and current outline invert`() {
+        val preferences = context.getSharedPreferences("matching_data_color_defaults", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        val dark = SugarliciousColorStore.load(preferences, AppearanceMode.DARK)
+        val light = SugarliciousColorStore.load(preferences, AppearanceMode.LIGHT)
+        listOf(SugarliciousColorRole.RANGE_LOW, SugarliciousColorRole.RANGE_HIGH, SugarliciousColorRole.GLUCOSE_LOW, SugarliciousColorRole.GLUCOSE_HIGH, SugarliciousColorRole.THERAPY_IOB_PROGRESS, SugarliciousColorRole.THERAPY_COB_PROGRESS, SugarliciousColorRole.THERAPY_BASAL_PROGRESS, SugarliciousColorRole.GRAPH_IOB, SugarliciousColorRole.GRAPH_COB, SugarliciousColorRole.GRAPH_INSULIN_ACTIVITY).forEach { role ->
+            assertEquals(role.name, dark.argb(role), light.argb(role))
+        }
+        assertEquals(Color.BLACK, dark.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE))
+        assertEquals(Color.WHITE, light.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE))
+        assertTrue(dark.argb(SugarliciousColorRole.TEXT_PRIMARY) != light.argb(SugarliciousColorRole.TEXT_PRIMARY))
+    }
+
     @Test
     fun `very high and very low dots have independent persistent color pickers`() {
         val preferences = context.getSharedPreferences("urgent_dot_colors", Context.MODE_PRIVATE)
@@ -67,15 +96,15 @@ class SugarliciousColorStoreTest {
 
         mapOf(
             SugarliciousColorRole.GLUCOSE_IN_RANGE to Color.BLACK,
-            SugarliciousColorRole.GLUCOSE_HIGH to 0xFFF3C404.toInt(),
+            SugarliciousColorRole.GLUCOSE_HIGH to 0xFFFCC93B.toInt(),
             SugarliciousColorRole.RANGE_IN_RANGE to 0xFFEDEDED.toInt(),
-            SugarliciousColorRole.PROGRESS_IN_RANGE to 0xFF25C947.toInt(),
+            SugarliciousColorRole.PROGRESS_IN_RANGE to 0xFF4BFA7C.toInt(),
             SugarliciousColorRole.CGM_DOT_LOW to Color.BLACK,
             SugarliciousColorRole.CGM_DOT_IN_RANGE to Color.BLACK,
             SugarliciousColorRole.CGM_DOT_HIGH to Color.BLACK,
-            SugarliciousColorRole.GRAPH_COB to 0xFFFF8F0D.toInt(),
-            SugarliciousColorRole.GRAPH_VERY_HIGH_LINE to 0x00FFFFFF,
-            SugarliciousColorRole.GRAPH_VERY_LOW_LINE to 0x00FFFFFF,
+            SugarliciousColorRole.GRAPH_COB to 0xFFFF9D18.toInt(),
+            SugarliciousColorRole.GRAPH_VERY_HIGH_LINE to 0x00FCC93B,
+            SugarliciousColorRole.GRAPH_VERY_LOW_LINE to 0x00F73D45,
             SugarliciousColorRole.GRAPH_SIGNAL_LOSS to 0x38808080,
         ).forEach { (role, expected) -> assertEquals("light ${role.name}", expected, light.argb(role)) }
     }

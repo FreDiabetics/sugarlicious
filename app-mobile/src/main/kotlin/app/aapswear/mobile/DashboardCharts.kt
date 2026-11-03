@@ -68,7 +68,7 @@ internal fun mobileBasalMaximum(points: List<TherapyHistorySample>, start: Long,
         .maxOrNull()
         ?.coerceAtLeast(0.1) ?: 0.1
 
-/** Same top-down basal geometry for Mobile CGM and the therapy widget's IOB lane. */
+/** Compact top-down BR/TBR overlay shared by the Mobile CGM and IOB graphs. */
 internal fun drawMobileBasalOverlay(
     canvas: Canvas,
     plot: RectF,
@@ -136,7 +136,7 @@ internal fun drawMobileBasalOverlay(
 private const val HOUR_MS = 60L * 60_000L
 internal const val MAX_VISIBLE_GRAPH_HOURS = 24f
 internal const val MIN_VISIBLE_HISTORY_HOURS = 1f
-private const val BASAL_HEIGHT_FRACTION = 0.28f
+internal const val BASAL_HEIGHT_FRACTION = 0.10f
 private const val ACTIVITY_HEIGHT_FRACTION = 0.80f
 internal const val GRAPH_CORNER_RADIUS_DP = 18f
 private const val GLUCOSE_DISPLAY_MAX = 400.0
@@ -818,16 +818,12 @@ internal class GlucoseDashboardChart
                 val targetLeft = plot.left
                 val targetRight = plot.right
                 val proposedYScale =
-                    CgmGraphYScale.resolve(
+                    resolveMobileCgmScale(
                         mode = graphScaleMode,
-                        visibleValuesMgDl =
-                            buildList {
-                                addAll(history.map(GlucoseSample::valueMgDl))
-                                addAll(visiblePredictions.flatMap { it.samples }.map(GlucoseSample::valueMgDl))
-                            },
-                        staticMinimumMgDl = graphMinimumMgDl,
-                        staticMaximumMgDl = graphMaximumMgDl,
-                        requiredValuesMgDl = listOf(0.0, targetVeryLow, targetLow, targetHigh, targetVeryHigh),
+                        measuredValues = history.map(GlucoseSample::valueMgDl),
+                        configuredMinimum = graphMinimumMgDl,
+                        configuredMaximum = graphMaximumMgDl,
+                        thresholds = thresholds,
                     )
                 val desiredScale = stableCgmScale(renderedYScale, proposedYScale)
                 if (!viewport.isNavigatingGesture) renderedYScale = desiredScale
@@ -892,13 +888,13 @@ internal class GlucoseDashboardChart
                     linePaint.strokeCap = Paint.Cap.BUTT
                     linePaint.pathEffect = null
                     applyGraphBoundaryPaint(linePaint, graphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_VERY_HIGH_LINE)))
-                    canvas.drawLine(targetLeft, targetVeryTop, targetRight, targetVeryTop, linePaint)
+                    if (targetVeryHigh in yScale.minimumMgDl..yScale.maximumMgDl) canvas.drawLine(targetLeft, targetVeryTop, targetRight, targetVeryTop, linePaint)
                     applyGraphBoundaryPaint(linePaint, graphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_HIGH_LINE)))
-                    canvas.drawLine(targetLeft, targetTop, targetRight, targetTop, linePaint)
+                    if (targetHigh in yScale.minimumMgDl..yScale.maximumMgDl) canvas.drawLine(targetLeft, targetTop, targetRight, targetTop, linePaint)
                     applyGraphBoundaryPaint(linePaint, graphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LOW_LINE)))
-                    canvas.drawLine(targetLeft, targetBottom, targetRight, targetBottom, linePaint)
+                    if (targetLow in yScale.minimumMgDl..yScale.maximumMgDl) canvas.drawLine(targetLeft, targetBottom, targetRight, targetBottom, linePaint)
                     applyGraphBoundaryPaint(linePaint, graphBoundaryColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_VERY_LOW_LINE)))
-                    canvas.drawLine(targetLeft, targetVeryBottom, targetRight, targetVeryBottom, linePaint)
+                    if (targetVeryLow in yScale.minimumMgDl..yScale.maximumMgDl) canvas.drawLine(targetLeft, targetVeryBottom, targetRight, targetVeryBottom, linePaint)
                     linePaint.strokeCap = Paint.Cap.ROUND
                 }
 
@@ -1010,6 +1006,8 @@ internal class GlucoseDashboardChart
                 val futureLaneVisible = end > now && now in start..end
 
                 history.forEachIndexed { index, point ->
+                    // A fixed viewport may exclude real values; never pretend they equal an edge value.
+                    if (point.valueMgDl !in yScale.minimumMgDl..yScale.maximumMgDl) return@forEachIndexed
                     val mappedX = mapGraphTimeX(point.measuredAtEpochMs, start, end, timeBounds)
                     val y = mapGlucoseY(point.valueMgDl, dataPlot, yScale)
                     val current = index == history.lastIndex
@@ -1048,16 +1046,19 @@ internal class GlucoseDashboardChart
                 if (showTargetRange && targetLeft < targetRight) {
                     val scaleValues =
                         listOf(
-                            glucoseLabel(targetVeryHigh) to targetVeryTop,
-                            glucoseLabel(targetHigh) to targetTop,
-                            glucoseLabel(targetLow) to targetBottom,
-                            glucoseLabel(targetVeryLow) to targetVeryBottom,
-                        )
-                    drawTargetScale(canvas, scaleValues, plot, onRight = false, alpha = 1f - scaleRightBlend)
-                    drawTargetScale(canvas, scaleValues, plot, onRight = true, alpha = scaleRightBlend)
+                            targetVeryHigh to targetVeryTop,
+                            targetHigh to targetTop,
+                            targetLow to targetBottom,
+                            targetVeryLow to targetVeryBottom,
+                        ).filter { (value, _) -> value in yScale.minimumMgDl..yScale.maximumMgDl }
+                            .map { (value, y) -> glucoseLabel(value) to y }
+                    drawTargetScale(canvas, scaleValues, plot, onRight = false, alpha = 1f - scaleRightBlend, edgeTop = dataPlot.top, primaryLabels = setOf(glucoseLabel(targetHigh), glucoseLabel(targetLow)))
+                    drawTargetScale(canvas, scaleValues, plot, onRight = true, alpha = scaleRightBlend, edgeTop = dataPlot.top, primaryLabels = setOf(glucoseLabel(targetHigh), glucoseLabel(targetLow)))
                 }
-                drawGraphMaximumScale(canvas, plot, dataPlot.top, onRight = false, yScale.maximumMgDl, alpha = 1f - scaleRightBlend)
-                drawGraphMaximumScale(canvas, plot, dataPlot.top, onRight = true, yScale.maximumMgDl, alpha = scaleRightBlend)
+                drawGraphEdgeScale(canvas, plot, dataPlot.top, onRight = false, yScale.maximumMgDl, alpha = 1f - scaleRightBlend)
+                drawGraphEdgeScale(canvas, plot, dataPlot.top, onRight = true, yScale.maximumMgDl, alpha = scaleRightBlend)
+                drawGraphEdgeScale(canvas, plot, dataPlot.bottom, onRight = false, yScale.minimumMgDl, alpha = 1f - scaleRightBlend)
+                drawGraphEdgeScale(canvas, plot, dataPlot.bottom, onRight = true, yScale.minimumMgDl, alpha = scaleRightBlend)
 
                 if (history.size < 2) {
                     drawText(
@@ -1104,7 +1105,7 @@ internal class GlucoseDashboardChart
                         Paint.Align.RIGHT -> currentTimeLabelAnchor(x, plot.right, 3f.dp)
                         else -> x
                     }
-                val labelSize = if (isNow) 12f else 10f
+                val labelSize = 11.5f
                 val tickX = x
                 canvas.drawLine(tickX, plot.bottom + 2f.dp, tickX, plot.bottom + 8f.dp, linePaint)
                 drawText(
@@ -1115,7 +1116,7 @@ internal class GlucoseDashboardChart
                     labelSize,
                     SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
                     align,
-                    bold = true,
+                    bold = false,
                 )
             }
         }
@@ -1126,6 +1127,8 @@ internal class GlucoseDashboardChart
             plot: RectF,
             onRight: Boolean,
             alpha: Float = 1f,
+            edgeTop: Float = plot.top,
+            primaryLabels: Set<String> = emptySet(),
         ) {
             if (alpha <= 0f) return
             val paint =
@@ -1145,18 +1148,27 @@ internal class GlucoseDashboardChart
             linePaint.strokeWidth = 1f.dp
             linePaint.pathEffect = null
             val x = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
-            values.forEach { (label, y) ->
+            val minimumSpacing = metrics.descent - metrics.ascent + 2f.dp
+            var previousY = Float.NEGATIVE_INFINITY
+            values.sortedBy { it.second }.forEach { (label, y) ->
+                if (abs(y - edgeTop) < minimumSpacing || abs(y - plot.bottom) < minimumSpacing || y - previousY < minimumSpacing) return@forEach
+                previousY = y
+                val primary = label in primaryLabels
+                paint.color = mobileScaleLabelColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL), primary)
+                paint.alpha = (Color.alpha(paint.color) * alpha.coerceIn(0f, 1f)).toInt()
+                app.aapswear.uishared.SystemTypography
+                    .apply(paint, primary)
                 if (onRight) {
                     canvas.drawLine(plot.right + tickGap, y, plot.right + tickGap + tickLength, y, linePaint)
                 } else {
                     canvas.drawLine(plot.left - tickGap, y, plot.left - tickGap - tickLength, y, linePaint)
                 }
-                val baseline = y - (metrics.ascent + metrics.descent) / 2f
+                val baseline = y - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2f
                 canvas.drawText(label, x, baseline, paint)
             }
         }
 
-        private fun drawGraphMaximumScale(
+        private fun drawGraphEdgeScale(
             canvas: Canvas,
             plot: RectF,
             tickY: Float,
@@ -1168,11 +1180,11 @@ internal class GlucoseDashboardChart
             val paint =
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 11.5f, resources.displayMetrics)
-                    color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL)
+                    color = mobileScaleLabelColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL), false)
                     textAlign = if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT
                     app.aapswear.uishared.SystemTypography
-                        .apply(this, true)
-                    this.alpha = (255f * alpha.coerceIn(0f, 1f)).toInt()
+                        .apply(this, false)
+                    this.alpha = (Color.alpha(color) * alpha.coerceIn(0f, 1f)).toInt()
                 }
             val tickGap = 2f.dp
             val tickLength = 5f.dp
@@ -1251,6 +1263,8 @@ internal class GlucoseDashboardChart
                 val x = mapX(point.measuredAtEpochMs, start, end, plot)
                 if (x < plot.left - radius) return@forEach
                 if (x > maximumPredictionCenter) return@forEach
+                // ratio() clamps by design; skip overflow instead of piling dots along the edge.
+                if (!point.valueMgDl.isFinite() || point.valueMgDl < yScale.minimumMgDl || point.valueMgDl > yScale.maximumMgDl) return@forEach
                 val y = mapGlucoseY(point.valueMgDl, plot, yScale)
                 if (outlineWidth > 0f) {
                     dotOutlinePaint.color = SugarliciousColors.argb(SugarliciousColorRole.GRAPH_CURRENT_OUTLINE)
@@ -1542,7 +1556,7 @@ internal class MetabolicDashboardChart
                         Paint.Align.RIGHT -> cob.right - 3f.dp
                         else -> x
                     }
-                val labelSize = if (isNow) 12f else 10f
+                val labelSize = 11.5f
                 val tickX = timeLabelCenterX(tick.label, labelX, align, labelSize)
                 canvas.drawLine(tickX, cob.bottom + 2f.dp, tickX, cob.bottom + 8f.dp, linePaint)
                 drawText(
@@ -1553,7 +1567,7 @@ internal class MetabolicDashboardChart
                     labelSize,
                     SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL),
                     align,
-                    bold = true,
+                    bold = false,
                 )
             }
         }
@@ -1614,12 +1628,12 @@ internal class MetabolicDashboardChart
             val tickLength = 5f.dp
             val labelX = if (onRight) plot.right + tickGap + tickLength + 2f.dp else plot.left - tickGap - tickLength - 2f.dp
             val labelColor = withAlpha(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL), (255f * alpha.coerceIn(0f, 1f)).toInt())
-            val scaleTextSizeSp = if (onRight) 10f else 11.5f
+            val scaleTextSizeSp = 11.5f
             val scalePaint =
                 Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     textSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, scaleTextSizeSp, resources.displayMetrics)
                     app.aapswear.uishared.SystemTypography
-                        .apply(this, true)
+                        .apply(this, false)
                 }
             val scaleMetrics = scalePaint.fontMetrics
             val tickLayout = metabolicAxisTickLayout(plot, range, scaleMetrics)
@@ -1632,7 +1646,7 @@ internal class MetabolicDashboardChart
                 scaleTextSizeSp,
                 labelColor,
                 align,
-                bold = true,
+                bold = false,
             )
             drawMetabolicScaleTick(canvas, plot, tickLayout.maximumCenterY, onRight, alpha)
             if (range.bounds.minimum < -0.01) {
@@ -1644,7 +1658,7 @@ internal class MetabolicDashboardChart
                     scaleTextSizeSp,
                     labelColor,
                     align,
-                    bold = true,
+                    bold = false,
                 )
                 drawMetabolicScaleTick(canvas, plot, tickLayout.minimumCenterY, onRight, alpha)
             }
@@ -1693,10 +1707,10 @@ internal class MetabolicDashboardChart
                 label,
                 labelX,
                 baseline,
-                9f,
-                withAlpha(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL), (255f * alpha.coerceIn(0f, 1f)).toInt()),
+                11.5f,
+                withAlpha(mobileScaleLabelColor(SugarliciousColors.argb(SugarliciousColorRole.GRAPH_LABEL), range.bounds.minimum >= -0.01), (255f * alpha.coerceIn(0f, 1f) * if (range.bounds.minimum >= -0.01) 1f else .55f).toInt()),
                 if (onRight) Paint.Align.LEFT else Paint.Align.RIGHT,
-                bold = true,
+                bold = false,
             )
         }
 
@@ -2010,8 +2024,13 @@ internal fun resolveMetabolicScales(
     therapyEvents: List<app.aapswear.model.TherapyEvent> = emptyList(),
     viewportStartEpochMs: Long = Long.MIN_VALUE,
     viewportEndEpochMs: Long = Long.MAX_VALUE,
-): MobileMetabolicScales =
-    MobileMetabolicScales(
+): MobileMetabolicScales {
+    // Restored static bounds must still include the current configured maximum.
+    if (iobMode == CgmGraphScaleMode.STATIC || iobMode == CgmGraphScaleMode.LOGARITHMIC) {
+        val fixed = session.fixedBounds(GraphAxis.IOB)
+        if (fixed != null && iobMaximumUnits != null && iobMaximumUnits.isFinite() && fixed.maximum < iobMaximumUnits) session.clear(GraphAxis.IOB)
+    }
+    return MobileMetabolicScales(
         iob =
             limitIobNegativeBounds(
                 session.resolve(
@@ -2045,6 +2064,7 @@ internal fun resolveMetabolicScales(
         activity =
             insulinActivityScale(visiblePoints.mapNotNull { it.insulinActivityUnitsPerMinute }),
     )
+}
 
 private fun limitIobNegativeBounds(scale: GraphAxisScale): GraphAxisScale {
     val minimum = max(-2.0, scale.bounds.minimum)
@@ -2640,3 +2660,7 @@ private fun View.timeLabelCenterX(
         Paint.Align.CENTER -> anchorX
     }
 }
+
+/** Secondary labels preserve the selected scale hue while reducing visual emphasis. */
+internal fun mobileScaleLabelColor(color: Int, primary: Boolean): Int =
+    if (primary) color else withAlpha(color, (Color.alpha(color) * .55f).toInt())

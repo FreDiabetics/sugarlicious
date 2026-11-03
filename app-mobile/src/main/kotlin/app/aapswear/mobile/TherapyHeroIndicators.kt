@@ -1,6 +1,8 @@
 package app.aapswear.mobile
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,6 +51,7 @@ internal data class TherapyIndicatorPresentation(
     val progress: Float? = null,
     @DrawableRes val iconRes: Int,
     val colorRole: SugarliciousColorRole,
+    val numericValue: Double? = null,
 )
 
 internal fun therapyIndicatorPresentations(
@@ -70,6 +73,7 @@ internal fun therapyIndicatorPresentations(
             progress = iob?.let { TherapyProgressSemantics.scaled(it, safeIobMaximum) },
             iconRes = SharedUiR.drawable.ic_iob,
             colorRole = SugarliciousColorRole.THERAPY_IOB_PROGRESS,
+            numericValue = iob,
         ),
         TherapyIndicatorPresentation(
             label = "COB",
@@ -77,6 +81,7 @@ internal fun therapyIndicatorPresentations(
             progress = cob?.let { TherapyProgressSemantics.scaled(it, safeCobMaximum) },
             iconRes = SharedUiR.drawable.ic_cob,
             colorRole = SugarliciousColorRole.THERAPY_COB_PROGRESS,
+            numericValue = cob,
         ),
         TherapyIndicatorPresentation(
             label = "Basal",
@@ -85,6 +90,7 @@ internal fun therapyIndicatorPresentations(
             progress = basal?.percent?.let(::basalProgress),
             iconRes = basalIconResource(basal?.percent),
             colorRole = SugarliciousColorRole.THERAPY_BASAL_PROGRESS,
+            numericValue = basal?.unitsPerHour,
         ),
     )
 }
@@ -144,6 +150,12 @@ internal fun TherapyCircularIndicator(
     modifier: Modifier,
     diameterDp: Float,
 ) {
+    val animatedProgress =
+        animateFloatAsState(
+            targetValue = indicator.progress ?: 0f,
+            animationSpec = spring(dampingRatio = app.aapswear.model.TherapyRingStyle.MOTION_DAMPING, stiffness = app.aapswear.model.TherapyRingStyle.MOTION_STIFFNESS),
+            label = "${indicator.label} progress",
+        )
     val accent = SugarliciousColors.color(indicator.colorRole)
     val density = LocalDensity.current
     val proportionalScale = TherapyIndicatorGeometry.scale(diameterDp)
@@ -152,7 +164,7 @@ internal fun TherapyCircularIndicator(
     fun fittedSize(value: String, baseSp: Float): Float {
         // The measured ring already includes the surface's system scaling.
         val nominal = TherapyIndicatorGeometry.fontSizeSp(baseSp, diameterDp, density.fontScale)
-        val measured = measurer.measure(value, TextStyle(fontSize = nominal.sp, fontWeight = FontWeight.Bold), softWrap = false).size.width
+        val measured = measurer.measure(value, TextStyle(fontSize = nominal.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"), softWrap = false).size.width
         val available = with(density) { (diameterDp * TherapyIndicatorGeometry.VALUE_WIDTH_FRACTION).dp.toPx() }
         return nominal * minOf(1f, available / measured.coerceAtLeast(1))
     }
@@ -171,41 +183,18 @@ internal fun TherapyCircularIndicator(
     ) {
         Box(Modifier.size(diameterDp.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
+                val displayedProgress = indicator.progress?.let { animatedProgress.value.coerceIn(0f, 1f) }
                 val geometry = TherapyRingGeometry()
                 val stroke = (geometry.strokeWidthDp * proportionalScale).dp.toPx()
-                val basal = indicator.label == "Basal"
-                val marker = basal && indicator.progress != null
-                val outline = (TherapyIndicatorGeometry.MARKER_OUTLINE_DP * proportionalScale).dp.toPx()
-                // Keep the arc geometry stable when refining the marker contour.
-                val inset = stroke / 2f + if (marker) (TherapyIndicatorGeometry.MARKER_INSET_DP * proportionalScale).dp.toPx() else 0f
+                val inset = stroke / 2f
                 val arcSize = Size(size.width - inset * 2f, size.height - inset * 2f)
                 val sweep = geometry.sweepDegrees
-                val arcs = app.aapswear.model.progressArcSegments(indicator.progress, arcSize.width + stroke, stroke, sweep, capClearanceStrokeRatio = if (basal) 1.25f else 1.4f)
-                if (marker) {
-                    drawArc(accent, geometry.composeStartDegrees, sweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-                } else {
-                    if (arcs.trackSweep > 0f) drawArc(accent.copy(alpha = .30f), geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-                    if (arcs.fillSweep > 0f) drawArc(accent, geometry.composeStartDegrees, arcs.fillSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
-                }
-                if (marker) {
-                    val angle = Math.toRadians((geometry.composeStartDegrees + arcs.fillSweep).toDouble())
-                    val center = Offset(size.width / 2f + arcSize.width / 2f * kotlin.math.cos(angle).toFloat(), size.height / 2f + arcSize.height / 2f * kotlin.math.sin(angle).toFloat())
-                    drawCircle(accent, stroke / 2f, center)
-                    drawCircle(androidx.compose.ui.graphics.Color.Black, stroke / 2f + outline / 2f, center, style = Stroke(outline))
-                }
+                val arcs = app.aapswear.model.progressArcSegments(displayedProgress, arcSize.width + stroke, stroke, sweep, capClearanceStrokeRatio = app.aapswear.model.TherapyRingStyle.CAP_CLEARANCE_STROKE_RATIO)
+                if (arcs.trackSweep > 0f) drawArc(accent.copy(alpha = app.aapswear.model.TherapyRingStyle.TRACK_ALPHA), geometry.composeStartDegrees + arcs.trackStartOffset, arcs.trackSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
+                if (arcs.fillSweep > 0f) drawArc(accent, geometry.composeStartDegrees, arcs.fillSweep, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round))
             }
             val valueTextSize = fittedSize(indicator.value, TherapyIndicatorGeometry.VALUE_TEXT_SP)
-            Text(
-                indicator.value,
-                modifier = Modifier.align(Alignment.Center),
-                color = SugarliciousColors.TextPrimary,
-                fontSize = valueTextSize.sp,
-                lineHeight = valueTextSize.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                softWrap = false,
-            )
+            SplitFlapTherapyValue(indicator.value, indicator.numericValue, valueTextSize, Modifier.align(Alignment.Center))
             indicator.secondary?.let {
                 val secondaryTextSize = fittedSize(it, therapyIndicatorSecondaryFontSizeSp(it).toFloat())
                 Text(
@@ -235,3 +224,6 @@ internal fun TherapyCircularIndicator(
         }
     }
 }
+
+/** Increasing magnitudes advance the reel; decreasing magnitudes reverse it. */
+internal fun therapyValueRollDirection(previous: Double, next: Double): Int = if (next >= previous) 1 else -1

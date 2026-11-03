@@ -39,6 +39,15 @@ class WidgetColorsTest {
             .commit()
     }
 
+    @Test fun `widget data colors match modes and current point has a white light outline`() {
+        val dark = WidgetColorStore.load(context, AppearanceMode.DARK)
+        val light = WidgetColorStore.load(context, AppearanceMode.LIGHT)
+        listOf(WidgetColorRole.RANGE_HIGH, WidgetColorRole.RANGE_LOW, WidgetColorRole.HIGH_LINE, WidgetColorRole.LOW_LINE).forEach { role -> assertEquals(role.name, dark.argb(role), light.argb(role)) }
+        assertEquals(Color.WHITE, light.argb(WidgetColorRole.CURRENT_DOT_OUTLINE))
+        assertEquals(Color.BLACK, dark.argb(WidgetColorRole.CURRENT_DOT_OUTLINE))
+        assertTrue(dark.argb(WidgetColorRole.TREND) != light.argb(WidgetColorRole.TREND))
+    }
+
     @Test
     fun `all glucose severities have deterministic independent roles`() {
         assertEquals(WidgetColorRole.URGENT_LOW, widgetGlucoseColorRole(40.0, 80.0, 160.0))

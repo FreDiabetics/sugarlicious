@@ -140,15 +140,21 @@ internal fun OneUiWidgetSettingsTheme(dark: Boolean = isSystemInDarkTheme(), con
             tertiary = UiColor(brand.tertiary),
             onTertiary = UiColor.Black,
             inversePrimary = accent,
-            surface = UiColor(0xFF1C1C1C),
-            onSurface = UiColor.White,
-            onSurfaceVariant = UiColor.White,
+            surface = if (dark) UiColor(0xFF1C1C1C) else UiColor.White,
+            onSurface = if (dark) UiColor.White else UiColor(0xFF252525),
+            onSurfaceVariant = if (dark) UiColor.White else UiColor(0xFF666666),
         )
     val colors =
         if (dark) {
             OneUiWidgetSettingsColors(accent = scheme.primary)
         } else {
             OneUiWidgetSettingsColors(
+                page = UiColor(0xFFF2F2F2),
+                card = UiColor.White,
+                primary = UiColor(0xFF252525),
+                secondary = UiColor(0xFF666666),
+                link = UiColor(0xFF252525),
+                action = UiColor(0xFFE7E7E7),
                 accent = scheme.primary,
             )
         }

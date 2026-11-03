@@ -20,8 +20,17 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TherapyHeroIndicatorsTest {
+    @Test fun `split flap rolls individual decimal places through carries and reversals`() {
+        assertEquals(2, splitFlapSteps('9', '1', 1))
+        assertEquals(2, splitFlapSteps('1', '9', -1))
+        assertEquals(0, splitFlapSteps('5', '5', 1))
+        assertEquals(0, splitFlapSteps('U', 'U', 1))
+        assertEquals(9, splitFlapSteps('1', '0', 1))
+        assertTrue(therapyIndicatorPresentations(null, 10f, 1000L).all { it.numericValue == null })
+    }
+
     @Test
-    fun `COB and basal overview icons use compact bounds without shrinking IOB`() {
+    fun `Basal icon matches IOB while COB retains its approved size`() {
         val indicators = therapyIndicatorPresentations(state(), 10f, 1_000L)
         assertEquals(
             19f,
@@ -34,7 +43,7 @@ class TherapyHeroIndicatorsTest {
                 .iconSizeDp(app.aapswear.model.TherapyProgressMetric.COB, 66f),
         )
         assertEquals(
-            16f,
+            19f,
             app.aapswear.model.TherapyIndicatorGeometry
                 .iconSizeDp(app.aapswear.model.TherapyProgressMetric.BASAL, 66f),
         )

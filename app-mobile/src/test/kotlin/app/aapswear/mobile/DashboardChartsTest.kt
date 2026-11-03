@@ -291,7 +291,9 @@ class DashboardChartsTest {
                 Color.green(it) > 150 && Color.green(it) > Color.red(it) * 1.3
             }
         val predictionPixels = count(bitmap) { Color.blue(it) > 180 && Color.green(it) > 120 }
-        assertTrue("inRange=$inRangePixels", inRangePixels > 20)
+        // Scale changes move the thin target marker across subpixels; test presence, not fixed coverage.
+        assertTrue("target marker missing", inRangePixels > 0)
+        assertTrue("source observations missing", count(bitmap) { Color.red(it) > 235 && Color.green(it) > 235 && Color.blue(it) > 235 } > state.glucoseHistory.size)
         assertTrue("prediction=$predictionPixels", predictionPixels > 2)
     }
 
@@ -838,6 +840,14 @@ class DashboardChartsTest {
         assertTrue(mapActivityY(-.01, activity, plot, iob) in 80f..100f)
     }
 
+    @Test fun `restored static IOB maximum cannot hide configured ten units`() {
+        val session = app.aapswear.model.GraphScaleSession()
+        session.useConfiguredBounds(app.aapswear.model.GraphAxis.IOB, app.aapswear.model.GraphBounds(0.0, 1.0))
+        val points = listOf(TherapyHistorySample(1_000L, totalIob = 0.8))
+        val scales = resolveMetabolicScales(session, CgmGraphScaleMode.STATIC, points, points, iobMaximumUnits = 10.0)
+        assertEquals(10.0, scales.iob.bounds.maximum, 0.0)
+    }
+
     @Test fun `dynamic iob ignores the configured static maximum`() {
         val scales =
             resolveMetabolicScales(
@@ -906,6 +916,31 @@ class DashboardChartsTest {
 
         assertEquals(app.aapswear.model.CgmGraphScaleMode.DYNAMIC, scales.iob.mode)
         assertEquals(app.aapswear.model.CgmGraphScaleMode.LOGARITHMIC, scales.cob.mode)
+    }
+
+    @Test fun `mobile BR TBR stays inside a compact top tenth of the graph`() {
+        val bitmap = Bitmap.createBitmap(420, 220, Bitmap.Config.ARGB_8888)
+        val plot = RectF(0f, 0f, 420f, 200f)
+        drawMobileBasalOverlay(
+            Canvas(bitmap),
+            plot,
+            0L,
+            600_000L,
+            listOf(
+                TherapyHistorySample(0L, basalUnitsPerHour = 1.6, baseBasalUnitsPerHour = .8),
+                TherapyHistorySample(600_000L, basalUnitsPerHour = 1.6, baseBasalUnitsPerHour = .8),
+            ),
+            true,
+            true,
+            1f,
+            Color.CYAN,
+        )
+        assertTrue(count(bitmap) { Color.alpha(it) > 0 } > 0)
+        for (y in 24 until bitmap.height) {
+            for (x in 0 until bitmap.width) {
+                assertEquals("BR/TBR occupied CGM space at $x,$y", 0, Color.alpha(bitmap.getPixel(x, y)))
+            }
+        }
     }
 
     @Test fun `basal overlay uses the complete graph plot`() {
@@ -1371,6 +1406,51 @@ class DashboardChartsTest {
             )
 
         assertEquals(24L * hour, availableOverviewHistoryWindowMs(state, now, requestedHours = 24))
+    }
+
+    @Test fun `out of range predictions neither expand dynamic bounds nor pile up at plot edge`() {
+        val now = 50L * 60 * 60_000L
+        for (mode in listOf(CgmGraphScaleMode.DYNAMIC, CgmGraphScaleMode.LOGARITHMIC_DYNAMIC)) {
+            val scales = mutableListOf<app.aapswear.model.CgmGraphYScale>()
+
+            fun image(prediction: Double): Bitmap {
+                val state =
+                    TherapyDisplayState(
+                        receivedAtEpochMs = now,
+                        glucose = GlucoseState(120.0, GlucoseUnit.MG_DL, measuredAtEpochMs = now),
+                        glucoseHistory = listOf(GlucoseSample(110.0, now - 300_000), GlucoseSample(120.0, now)),
+                        glucosePredictions =
+                            listOf(
+                                GlucosePrediction(
+                                    PredictionKind.IOB,
+                                    listOf(
+                                        GlucoseSample(prediction, now),
+                                        GlucoseSample(prediction, now + 300_000),
+                                    ),
+                                ),
+                            ),
+                    )
+                val viewport = ChartViewport(2).apply { setFutureWindow(30 * 60_000L) }
+                val chart =
+                    GlucoseDashboardChart(context, sharedViewport = viewport).apply {
+                        bind(state, GlucoseUnit.MG_DL, true, 2, showPredictionIob = true, graphScaleMode = mode, clockEpochMs = now)
+                    }
+                val bitmap = render(chart, 240)
+                scales +=
+                    GlucoseDashboardChart::class.java
+                        .getDeclaredField("renderedYScale")
+                        .apply { isAccessible = true }
+                        .get(chart) as app.aapswear.model.CgmGraphYScale
+                return bitmap
+            }
+            val first = image(600.0)
+            val second = image(900.0)
+            assertEquals("Prediction magnitude changed the actual rendered scale", scales[0], scales[1])
+            assertTrue(scales.all { it.maximumMgDl < 600.0 })
+            val predictionColor = SugarliciousColors.argb(SugarliciousColorRole.PREDICTION_IOB)
+            assertEquals("Out-of-range dots accumulated at the plot edge", 0, count(first) { it == predictionColor })
+            assertEquals("Out-of-range dots accumulated at the plot edge", 0, count(second) { it == predictionColor })
+        }
     }
 
     private fun render(

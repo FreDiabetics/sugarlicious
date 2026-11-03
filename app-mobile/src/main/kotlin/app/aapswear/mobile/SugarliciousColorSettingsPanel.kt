@@ -88,6 +88,7 @@ internal fun MobileSettingsObjectCard(title: String, content: @Composable Column
 internal fun mobileAppearanceObjectTitle(role: SugarliciousColorRole): String =
     when {
         role in setOf(SugarliciousColorRole.OVERVIEW_GLUCOSE_PILL, SugarliciousColorRole.OVERVIEW_TIR_PILL) -> "Übersicht · Pillen"
+        role.name.startsWith("OVERVIEW_WAVE_") -> "Glukosebalken"
         role.name.startsWith("GLUCOSE_") -> "Glukosewert"
         role == SugarliciousColorRole.DELTA_UNIT -> "Delta"
         role.name.startsWith("CGM_DOT_") || role == SugarliciousColorRole.GRAPH_CURRENT_OUTLINE -> "CGM-Punkte"

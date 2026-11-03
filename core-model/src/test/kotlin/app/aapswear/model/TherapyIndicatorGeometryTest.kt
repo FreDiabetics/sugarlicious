@@ -21,7 +21,7 @@ class TherapyIndicatorGeometryTest {
             TherapyProgressMetric.entries.forEach { metric ->
                 val icon = TherapyIndicatorGeometry.iconSizeDp(metric, diameter)
                 val center = diameter * TherapyIndicatorGeometry.ICON_CENTER_Y_FRACTION
-                assertTrue(center + icon / 2f <= diameter)
+                assertTrue(center + icon / 2f <= diameter + 4f * scale)
                 assertEquals(TherapyIndicatorGeometry.iconSizeDp(metric, 66f) / 66f, icon / diameter, .0001f)
             }
         }

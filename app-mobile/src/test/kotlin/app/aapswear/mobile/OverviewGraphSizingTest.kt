@@ -12,30 +12,27 @@ class OverviewGraphSizingTest {
     }
 
     @Test fun `metabolic graph stays readable on compact and large profiles`() {
-        assertEquals(180, overviewMetabolicGraphHeight(98))
-        assertEquals(202, overviewMetabolicGraphHeight(170))
+        assertEquals(120, overviewMetabolicGraphHeight(98))
+        assertEquals(145, overviewMetabolicGraphHeight(170))
     }
 
     @Test fun `independently scrolling landscape does not shrink chart to fit cards`() {
         assertEquals(400f, overviewFittedCgmHeight(400f, 360f, 0f, listOf(180f, null, 202f)))
     }
 
-    @Test fun `therapy and CGM exactly fill initial viewport regardless of following cards`() {
-        val height = overviewFittedCgmHeight(400f, 800f, 280f, listOf(180f, null, 300f, 240f))
-        assertEquals(322f, height)
-        assertEquals(800f, 280f + 6f + 12f + 180f + height)
+    @Test fun `first three cards fit while the fourth stays below the fold`() {
+        val height = overviewFittedCgmHeight(400f, 1000f, 280f, listOf(180f, null, 300f, 240f))
+        assertEquals(210f, height)
+        assertEquals(1000f, 280f + 30f + 180f + height + 300f)
+        assertEquals(height, overviewFittedCgmHeight(400f, 1000f, 280f, listOf(180f, null, 300f)))
     }
 
-    @Test fun `disabling therapy lifts graph to same top and extends it to bottom`() {
-        assertEquals(514f, overviewFittedCgmHeight(400f, 800f, 280f, listOf(null, 300f)))
+    @Test fun `disabling therapy gives the CGM more room while preserving metabolic card`() {
+        assertEquals(202f, overviewFittedCgmHeight(400f, 800f, 280f, listOf(null, 300f)))
         assertEquals(514f, overviewFittedCgmHeight(400f, 800f, 280f, listOf(null)))
     }
 
-    @Test fun `following cards never shrink CGM and accessible minimum remains usable`() {
-        assertEquals(
-            overviewFittedCgmHeight(400f, 800f, 280f, listOf(180f, null)),
-            overviewFittedCgmHeight(400f, 800f, 280f, listOf(180f, null, 500f)),
-        )
-        assertEquals(96f, overviewFittedCgmHeight(400f, 500f, 280f, listOf(180f, null)))
+    @Test fun `large text preserves a readable floor rather than distorting graphs`() {
+        assertEquals(96f, overviewFittedCgmHeight(400f, 500f, 280f, listOf(180f, null, 300f)))
     }
 }

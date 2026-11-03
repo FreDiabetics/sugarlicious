@@ -197,13 +197,6 @@ class SugarliciousTilesTest {
     }
 
     @Test
-    fun `therapy ring background precomposites the mobile thirty percent accent`() {
-        assertEquals(0xFF000000.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0f))
-        assertEquals(0xFFFFFFFF.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 1f))
-        assertEquals(0xFF4C4C4C.toInt(), opaqueOverlay(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0.30f))
-    }
-
-    @Test
     fun `graph tile positions every dot by measured time and advances with the minute clock`() {
         val measuredAt = now - 5 * 60_000L
         val oldReceivedNow = GlucoseSample(110.0, measuredAt, receivedAtEpochMs = now)

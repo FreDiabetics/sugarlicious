@@ -2,20 +2,22 @@ package app.aapswear.mobile
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
@@ -56,19 +58,30 @@ internal fun OverviewCompactGlucoseHeader(
         }
     Row(
         modifier
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(start = 2.dp, end = 2.dp, top = 4.dp, bottom = 16.dp)
             .fillMaxWidth()
-            .background(background, RoundedCornerShape(40.dp))
+            .drawWithCache {
+                val offsetY = 6.dp.toPx()
+                val radius = minOf(40.dp.toPx(), size.height / 2f, size.width / 2f)
+                val strength = if (SugarliciousColors.palette.isLight) .32f else .78f
+                val shadow =
+                    Brush.verticalGradient(
+                        listOf(Color.Black.copy(alpha = strength), Color.Transparent),
+                        startY = size.height - 2.dp.toPx(),
+                        endY = size.height + offsetY,
+                    )
+                onDrawBehind {
+                    // Reuse the pill silhouette; only its downward offset remains visible.
+                    drawRoundRect(shadow, Offset(0f, offsetY), size, CornerRadius(radius))
+                }
+            }.background(background, RoundedCornerShape(40.dp))
             .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
-            SugarliciousIcon(R.drawable.ic_foreground, null, tint = SugarliciousColors.BrandGreen, modifier = Modifier.requiredSize(58.dp))
-        }
         CompactReading(glucose, readableGlucose, trend, delta, unit, age, Modifier.weight(1f).offset(x = 8.dp))
         if (onWatch != null && onSettings != null) {
-            OverviewHeaderActions(onWatch, onSettings, compact = true)
+            OverviewActionMenu(onWatch, onSettings)
         }
     }
 }
@@ -118,6 +131,7 @@ private fun CompactReading(glucose: String, color: Color, trend: Trend, delta: S
                     glucoseTextSize = 30f * glucoseScale,
                     trendHeight = arrowDp.value * glucoseScale,
                 ),
+                trendColor = SugarliciousColors.TextPrimary,
             )
         }
         if (stacked) {

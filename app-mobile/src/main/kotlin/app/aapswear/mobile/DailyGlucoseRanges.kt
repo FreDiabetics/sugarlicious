@@ -2,6 +2,7 @@ package app.aapswear.mobile
 
 import app.aapswear.model.CanonicalCgmHistory
 import app.aapswear.model.CgmQuality
+import app.aapswear.model.CgmThresholds
 import app.aapswear.model.GlucoseSample
 import app.aapswear.model.TherapyDisplayState
 import java.time.Instant
@@ -15,6 +16,8 @@ internal data class MeasuredRangeStats(
     val below: Int?,
     val above: Int?,
     val coveredDurationMs: Long = 0L,
+    val belowDurationMs: Double? = null,
+    val aboveDurationMs: Double? = null,
 )
 
 internal data class DailyGlucoseRanges(
@@ -32,6 +35,7 @@ internal fun dailyGlucoseRanges(
     zone: ZoneId = ZoneId.systemDefault(),
     days: Int = 1,
     archive: List<GlucoseSample> = emptyList(),
+    thresholds: CgmThresholds? = null,
 ): DailyGlucoseRanges {
     require(days in OverviewRangePeriodStore.periods)
     val start =
@@ -88,9 +92,9 @@ internal fun dailyGlucoseRanges(
         val inside = (total - below - above).coerceAtLeast(0.0)
 
         fun percent(duration: Double) = (100.0 * duration / total).roundToInt().coerceIn(0, 100)
-        return MeasuredRangeStats(sampleCount, percent(inside), percent(below), percent(above), total)
+        return MeasuredRangeStats(sampleCount, percent(inside), percent(below), percent(above), total, below, above)
     }
-    return DailyGlucoseRanges(stats(70.0, 180.0), stats(70.0, 140.0))
+    return DailyGlucoseRanges(stats(thresholds?.lowMgDl ?: 70.0, thresholds?.highMgDl ?: 180.0), stats(70.0, 140.0))
 }
 
 private data class CoveredGlucoseInterval(

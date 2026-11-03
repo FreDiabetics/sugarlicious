@@ -286,9 +286,9 @@ internal object WidgetColorStore {
             val value = color(source)
             return if (role.name.endsWith("_TRACK")) (value and 0x00FFFFFF) or (((android.graphics.Color.alpha(value) * .30f).toInt()) shl 24) else value
         }
-        if (role in listOf(WidgetColorRole.TREND, WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW)) return android.graphics.Color.WHITE
-        if (role in listOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)) return android.graphics.Color.BLACK
-        if (role == WidgetColorRole.DELTA_ICON) return 0xFFCCCCCC.toInt()
+        if (role in listOf(WidgetColorRole.TREND, WidgetColorRole.TREND_HIGH, WidgetColorRole.TREND_IN_RANGE, WidgetColorRole.TREND_LOW)) return color(SugarliciousColorRole.TEXT_PRIMARY)
+        if (role in listOf(WidgetColorRole.DELTA_SYMBOL, WidgetColorRole.AGE_SYMBOL, WidgetColorRole.TIR_SYMBOL)) return color(SugarliciousColorRole.BACKGROUND)
+        if (role == WidgetColorRole.DELTA_ICON) return color(SugarliciousColorRole.DELTA_UNIT)
         if (role == WidgetColorRole.AGE_ICON) return 0xFF59FFFF.toInt()
         if (role == WidgetColorRole.TIR_ICON) return 0xFF59FF59.toInt()
         if (role == WidgetColorRole.HIGH_REGION_LABEL) return 0xFF151515.toInt()

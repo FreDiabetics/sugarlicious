@@ -75,12 +75,12 @@ class SettingsSnapTest {
         assertNull(settingsSnapTarget(200, listOf(0, 300, 650), 1200f, 1f, 800))
     }
 
-    @Test fun `menu text stays white and cards stay neutral in either appearance`() {
+    @Test fun `menu text and neutral surfaces follow the selected appearance`() {
         listOf(false, true).forEach { light ->
-            assertEquals(Color.WHITE, MobileSettingsStyle.text(light))
-            assertEquals(Color.WHITE, MobileSettingsStyle.secondary(light))
-            assertEquals(Color.BLACK, MobileSettingsStyle.page(light))
-            assertEquals(Color.rgb(28, 28, 28), MobileSettingsStyle.card(light))
+            assertEquals(if (light) Color.rgb(37, 37, 37) else Color.WHITE, MobileSettingsStyle.text(light))
+            assertEquals(if (light) Color.rgb(102, 102, 102) else Color.WHITE, MobileSettingsStyle.secondary(light))
+            assertEquals(if (light) Color.rgb(242, 242, 242) else Color.BLACK, MobileSettingsStyle.page(light))
+            assertEquals(if (light) Color.WHITE else Color.rgb(28, 28, 28), MobileSettingsStyle.card(light))
         }
     }
 }
