@@ -260,7 +260,9 @@ internal class MobileSourceSettingsViewModel(
     }
 
     fun editNightscout() {
-        mutableNightscout.update { it.copy(editing = true) }
+        if (nightscout.value.editing || nightscout.value.saving) return
+        val saved = state.value.nightscout
+        mutableNightscout.value = NightscoutSettingsDraft(url = saved.baseUrl, authMode = saved.authMode)
     }
 
     fun cancelNightscout() {

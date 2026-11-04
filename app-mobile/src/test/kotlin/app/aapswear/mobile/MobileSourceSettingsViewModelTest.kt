@@ -9,6 +9,29 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MobileSourceSettingsViewModelTest {
+    @Test fun `new nightscout edit uses current configuration and preserves an active draft`() =
+        runTest {
+            val store = Store()
+            val original = NightscoutConfiguration(false, "https://old.example", NightscoutAuthMode.API_SECRET)
+            store.state.value = MobileSourceSettingsSnapshot(nightscout = original)
+            val model = MobileSourceSettingsViewModel(store, backgroundScope, kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler))
+            model.setVisible(true)
+            runCurrent()
+            assertFalse(model.nightscout.value.editing)
+            val updated = original.copy(baseUrl = "https://new.example", authMode = NightscoutAuthMode.ACCESS_TOKEN)
+            store.state.value = store.state.value.copy(nightscout = updated)
+            runCurrent()
+            model.editNightscout()
+            assertEquals(updated.baseUrl, model.nightscout.value.url)
+            assertEquals(updated.authMode, model.nightscout.value.authMode)
+            model.updateNightscout(url = "https://draft.example", secret = "private")
+            store.state.value = store.state.value.copy(nightscout = original)
+            runCurrent()
+            model.editNightscout()
+            assertEquals("https://draft.example", model.nightscout.value.url)
+            assertEquals("private", model.nightscout.value.secret)
+        }
+
     private class Store : MobileSourceSettingsStore {
         override val state = MutableStateFlow(MobileSourceSettingsSnapshot())
         var savedAccount = ""
