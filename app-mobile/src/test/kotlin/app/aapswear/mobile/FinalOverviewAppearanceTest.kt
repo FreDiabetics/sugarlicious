@@ -2,11 +2,12 @@ package app.aapswear.mobile
 
 import android.content.Context
 import android.content.res.Configuration
-import android.graphics.Color
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.ui.graphics.toArgb
 import androidx.test.core.app.ApplicationProvider
+import app.aapswear.mobile.ui.theme.SugarliciousColorRole
+import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,13 +34,19 @@ class FinalOverviewAppearanceTest {
         }
     }
 
-    @Test fun `glucose underlay is neutral opaque gray lighter than the tile surface`() {
-        listOf(0xff191919.toInt(), 0xff303030.toInt(), 0xfffdfdfd.toInt()).forEach { tile ->
-            val track = glucoseBarTrackArgb(tile)
-            assertEquals(255, Color.alpha(track))
-            assertEquals(Color.red(track), Color.green(track))
-            assertEquals(Color.red(track), Color.blue(track))
-            assertTrue(Color.red(track) > Color.red(tile))
+    @Test fun `all four glucose bar colors have independent pickers including underlay alpha`() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences("bar_color_regression", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+        val roles = listOf(SugarliciousColorRole.OVERVIEW_WAVE_LOW, SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE, SugarliciousColorRole.OVERVIEW_WAVE_HIGH, SugarliciousColorRole.OVERVIEW_WAVE_UNDERLAY)
+        app.aapswear.model.AppearanceMode.entries.forEach { mode ->
+            roles.forEachIndexed { index, role ->
+                assertTrue(role.configurable)
+                assertEquals("Glukosebalken", mobileAppearanceObjectTitle(role))
+                val argb = 0x66112200 + index
+                SugarliciousColorStore.save(prefs, mode, role, argb)
+                assertEquals(argb, SugarliciousColorStore.load(prefs, mode).argb(role))
+            }
         }
     }
 }

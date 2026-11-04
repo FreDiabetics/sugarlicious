@@ -178,7 +178,6 @@ internal fun SugarliciousOverviewScreen(
         cgmChartViewport.setFutureWindow(predictionViewportPolicy.effectiveFutureWindowMs, now)
     }
 
-    val glucoseBarStats = rememberGlucoseBarStats(state, now, preferences.cgmThresholds)
     val glucoseText = if (knownGlucose && glucose != null) formatGlucose(glucose.valueMgDl, unit) else "—"
     val rangePresentation =
         widgetRangePresentation(
@@ -237,7 +236,6 @@ internal fun SugarliciousOverviewScreen(
                             glucoseColor = glucoseColor,
                             glucoseMgDl = glucose?.valueMgDl,
                             thresholds = preferences.cgmThresholds,
-                            rangeStats = glucoseBarStats,
                             trend = if (displayable) glucose?.trend ?: Trend.UNKNOWN else Trend.UNKNOWN,
                             delta = delta,
                             age = age,

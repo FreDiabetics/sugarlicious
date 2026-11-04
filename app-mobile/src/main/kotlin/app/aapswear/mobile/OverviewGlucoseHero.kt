@@ -1,8 +1,8 @@
 package app.aapswear.mobile
 
-import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalDensity
@@ -54,7 +53,6 @@ internal fun OverviewGlucoseHero(
     glucoseColor: Color,
     glucoseMgDl: Double?,
     thresholds: CgmThresholds,
-    rangeStats: MeasuredRangeStats,
     trend: Trend,
     delta: String,
     age: String,
@@ -94,7 +92,7 @@ internal fun OverviewGlucoseHero(
                 )
             }
             Spacer(Modifier.height(6.dp))
-            GlucoseRangeBar(glucoseMgDl.takeIf { active }, thresholds, rangeStats, waveHeight.value.coerceAtLeast(66f))
+            GlucoseRangeBar(glucoseMgDl.takeIf { active }, thresholds, waveHeight.value.coerceAtLeast(66f))
             Spacer(Modifier.height(22.dp))
             FlowRow(Modifier.padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftMotionInfoPill(
@@ -147,19 +145,18 @@ internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Colo
     }
 
 @Composable
-private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, stats: MeasuredRangeStats, heightDp: Float) {
-    val distribution = glucoseBarDistribution(stats)
-    val fraction = distribution?.let { range -> value?.let { glucoseBarMarker(it, thresholds, range) } }
-    val motion = updateTransition(Triple(distribution?.lowEnd ?: 0f, distribution?.highStart ?: 1f, fraction ?: .5f), label = "glucose bar motion")
-    val animatedLow by motion.animateFloat(transitionSpec = { spring(dampingRatio = 1f, stiffness = 90f, visibilityThreshold = .0001f) }, label = "low time share") { it.first }
-    val animatedHigh by motion.animateFloat(transitionSpec = { spring(dampingRatio = 1f, stiffness = 90f, visibilityThreshold = .0001f) }, label = "high time share") { it.second }
-    val animatedPosition by motion.animateFloat(transitionSpec = { spring(dampingRatio = 1f, stiffness = 90f, visibilityThreshold = .0001f) }, label = "glucose position") { it.third }
-    val low = animatedLow.coerceIn(0f, 1f)
-    val high = animatedHigh.coerceIn(low, 1f)
-    val position = animatedPosition.coerceIn(0f, 1f)
-    val lowColor = SugarliciousColors.GlucoseLow
-    val targetColor = SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
-    val highColor = SugarliciousColors.GlucoseHigh
+private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp: Float) {
+    val state = glucoseBarState(value, thresholds)
+    val position by animateFloatAsState(state?.position ?: .5f, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose position")
+    val selectedColor =
+        when (state?.range) {
+            GlucoseBarRange.LOW -> SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_LOW)
+            GlucoseBarRange.TARGET -> SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
+            GlucoseBarRange.HIGH -> SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_HIGH)
+            null -> Color.Transparent
+        }
+    val barColor by animateColorAsState(selectedColor, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose interval color")
+    val underlay = SugarliciousColors.color(app.aapswear.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_UNDERLAY)
     Box(Modifier.fillMaxWidth(.88f).height(heightDp.dp)) {
         Canvas(
             Modifier
@@ -168,45 +165,21 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, stats: Me
                 .align(Alignment.BottomCenter)
                 .clearAndSetSemantics {},
         ) {
-            val colors =
-                buildList {
-                    add(0f to if (low > 0f) lowColor else targetColor)
-                    if (low > 0f) {
-                        add(low to lowColor)
-                        add(low to targetColor)
-                    }
-                    if (high < 1f) {
-                        add(high to targetColor)
-                        add(high to highColor)
-                    }
-                    add(1f to if (high < 1f) highColor else targetColor)
-                }
-            val gradient = Brush.horizontalGradient(*colors.toTypedArray(), startX = 0f, endX = size.width)
             val gap = 7.dp.toPx()
-            val marker = size.width * position
+            val marker = size.width * position.coerceIn(0f, 1f)
 
             fun segment(left: Float, right: Float) {
                 if (right > left) {
                     clipRect(left, 0f, right, size.height) {
-                        drawRoundRect(gradient, Offset(left, 0f), Size(right - left, size.height), CornerRadius(size.height / 2f))
+                        drawRoundRect(barColor, Offset(left, 0f), Size(right - left, size.height), CornerRadius(size.height / 2f))
                     }
                 }
             }
-            drawRoundRect(Color(glucoseBarTrackArgb(SugarliciousColors.argb(app.aapswear.mobile.ui.theme.SugarliciousColorRole.SURFACE))), cornerRadius = CornerRadius(size.height / 2f))
-            if (distribution != null && fraction == null) {
-                drawRoundRect(gradient, cornerRadius = CornerRadius(size.height / 2f), alpha = .35f)
-            } else if (distribution != null) {
+            drawRoundRect(underlay, cornerRadius = CornerRadius(size.height / 2f))
+            if (state != null) {
                 segment(0f, (marker - gap / 2f).coerceAtLeast(0f))
                 segment((marker + gap / 2f).coerceAtMost(size.width), size.width)
             }
         }
     }
-}
-
-private const val GLUCOSE_TRACK_LIGHTENING_FRACTION = .20f
-
-internal fun glucoseBarTrackArgb(tileArgb: Int): Int {
-    val base = maxOf((tileArgb ushr 16) and 0xff, (tileArgb ushr 8) and 0xff, tileArgb and 0xff)
-    val gray = (base + maxOf(1, ((255 - base) * GLUCOSE_TRACK_LIGHTENING_FRACTION).toInt())).coerceAtMost(255)
-    return (0xff shl 24) or (gray shl 16) or (gray shl 8) or gray
 }

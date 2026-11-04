@@ -211,6 +211,7 @@ internal fun brandTool(command: String, args: List<String>, defaultRoot: Path) {
         }
         if (!wear) svgPng(serialized(combined), root.resolve("$module/src/main/ic_launcher-playstore.png"), 512)
     }
+    brandPresentations(listOf("--product", product, "--repository-root", root.toString()), root)
     val sheet = BufferedImage(972, 728, BufferedImage.TYPE_INT_RGB)
     for (y in 0 until 728) for (x in 0 until 972) sheet.setRGB(x, y, 0x25252c)
 

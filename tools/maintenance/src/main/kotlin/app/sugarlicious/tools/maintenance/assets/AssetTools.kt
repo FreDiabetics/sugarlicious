@@ -76,6 +76,7 @@ internal fun options(args: List<String>, allowed: Set<String>): Map<String, Stri
 fun runAssetTool(command: String, args: List<String>): Int? {
     val root = Path.of(System.getProperty("user.dir")).toAbsolutePath()
     when (command) {
+        "refresh-brand-presentations" -> brandPresentations(args, root)
         "import-app-brand-icons", "import-adaptive-brand-icons" -> brandTool(command, args, root)
         "import-orbit-weather" -> weatherTool(args, root)
         "render-orbit-hands" -> handTool(args, root)

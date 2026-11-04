@@ -1,35 +1,39 @@
 package app.aapswear.mobile
 
 import app.aapswear.model.CgmThresholds
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
+import org.junit.Assert.*
 import org.junit.Test
 
 class GlucoseBarScaleTest {
-    @Test fun `marker follows glucose and clamps only at scale ends`() {
-        val scale = glucoseBarScale(CgmThresholds.DEFAULT)
-        assertEquals(.25f, scale.fraction(100.0)!!, .001f)
-        assertEquals(0f, scale.fraction(-1.0)!!, .001f)
-        assertEquals(1f, scale.fraction(500.0)!!, .001f)
-        assertNull(scale.fraction(Double.NaN))
+    @Test fun `current interval fills the bar independently of history`() {
+        val thresholds = CgmThresholds.DEFAULT
+        val low = glucoseBarState(55.0, thresholds)!!
+        assertEquals(GlucoseBarRange.LOW, low.range)
+        assertEquals(.5f, low.position, .0001f)
+        assertEquals(.5f, glucoseBarState(125.0, thresholds)!!.position, .0001f)
+        assertEquals(GlucoseBarRange.TARGET, glucoseBarState(125.0, thresholds)!!.range)
+        assertEquals(.5f, glucoseBarState(290.0, thresholds)!!.position, .0001f)
+        assertEquals(GlucoseBarRange.HIGH, glucoseBarState(290.0, thresholds)!!.range)
     }
 
-    @Test fun `ninety percent time in range occupies ninety percent of bar`() {
-        val distribution = glucoseBarDistribution(MeasuredRangeStats(100, 90, 5, 5, 300000))!!
-        assertEquals(.9f, distribution.highStart - distribution.lowEnd, .0001f)
-        assertEquals(.5f, glucoseBarMarker(125.0, CgmThresholds.DEFAULT, distribution)!!, .0001f)
-        assertEquals(.05f, glucoseBarMarker(70.0, CgmThresholds.DEFAULT, distribution)!!, .0001f)
-        assertEquals(.95f, glucoseBarMarker(180.0, CgmThresholds.DEFAULT, distribution)!!, .0001f)
+    @Test fun `boundaries follow canonical classification and clamp display endpoints`() {
+        val thresholds = CgmThresholds.DEFAULT
+        assertEquals(GlucoseBarRange.LOW, glucoseBarState(70.0, thresholds)!!.range)
+        assertEquals(1f, glucoseBarState(70.0, thresholds)!!.position)
+        assertEquals(GlucoseBarRange.HIGH, glucoseBarState(180.0, thresholds)!!.range)
+        assertEquals(0f, glucoseBarState(180.0, thresholds)!!.position)
+        assertEquals(0f, glucoseBarState(20.0, thresholds)!!.position)
+        assertEquals(1f, glucoseBarState(500.0, thresholds)!!.position)
+        assertNull(glucoseBarState(null, thresholds))
+        assertNull(glucoseBarState(Double.NaN, thresholds))
+        assertNull(glucoseBarState(Double.POSITIVE_INFINITY, thresholds))
+        assertNull(glucoseBarState(120.0, thresholds.copy(lowMgDl = 500.0)))
     }
 
-    @Test fun `missing measured coverage never invents range shares`() {
-        assertNull(glucoseBarDistribution(MeasuredRangeStats(1, null, null, null)))
-        assertNull(glucoseBarMarker(Double.NaN, CgmThresholds.DEFAULT, GlucoseBarDistribution(.1f, .9f)))
-    }
-
-    @Test fun `short measured excursions survive rounded zero percent`() {
-        val distribution = glucoseBarDistribution(MeasuredRangeStats(100, 100, 0, 0, 100000, 400.0, 100.0))!!
-        assertEquals(.004f, distribution.lowEnd, .00001f)
-        assertEquals(.999f, distribution.highStart, .00001f)
+    @Test fun `configured thresholds define interval mapping`() {
+        val thresholds = CgmThresholds.DEFAULT.copy(lowMgDl = 80.0, highMgDl = 160.0)
+        assertEquals(.5f, glucoseBarState(60.0, thresholds)!!.position, .0001f)
+        assertEquals(.5f, glucoseBarState(120.0, thresholds)!!.position, .0001f)
+        assertEquals(.5f, glucoseBarState(280.0, thresholds)!!.position, .0001f)
     }
 }

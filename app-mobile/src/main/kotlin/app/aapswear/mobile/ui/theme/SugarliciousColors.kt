@@ -52,8 +52,8 @@ enum class SugarliciousColorRole(
         true,
     ),
     SURFACE("surface", AppearanceTerminology.SURFACE_BACKGROUND, SugarliciousColorGroup.APP, 0xFF191919.toInt(), 0xFFFDFDFD.toInt(), true),
-    OVERVIEW_GLUCOSE_PILL("overview_glucose_pill", "Glukosepille � Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
-    OVERVIEW_TIR_PILL("overview_tir_pill", "TIR-Auswahlpille � Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
+    OVERVIEW_GLUCOSE_PILL("overview_glucose_pill", "Glukosepille · Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
+    OVERVIEW_TIR_PILL("overview_tir_pill", "TIR-Auswahlpille · Hintergrund", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt(), true),
     SURFACE_HIGH("surface_high", "Erhöhte Fläche", SugarliciousColorGroup.APP, 0xFF303030.toInt(), 0xFFE7E7E7.toInt()),
     SURFACE_RAISED("surface_raised", "Progress-/Raised-Fläche", SugarliciousColorGroup.APP, 0xFF363636.toInt(), 0xFFDDDDDD.toInt()),
     SURFACE_SELECTED("surface_selected", "Ausgewählte Fläche", SugarliciousColorGroup.APP, 0xFF3A3A3A.toInt(), 0xFFDCE8DF.toInt()),
@@ -327,9 +327,10 @@ enum class SugarliciousColorRole(
     GRAPH_SIGNAL_LOSS("graph_signal_loss", "Signalverlust", SugarliciousColorGroup.GRAPH, 0xB26E6E6E.toInt(), 0x38808080, true),
     GRAPH_CURRENT_OUTLINE("graph_current_outline", "Aktueller Punkt · Kontur", SugarliciousColorGroup.GRAPH, 0xFF000000.toInt(), 0xFFFFFFFF.toInt()),
     OVERVIEW_WAVE_VERY_LOW("overview_wave_very_low", "Sehr tief", SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), configurable = false),
-    OVERVIEW_WAVE_LOW("overview_wave_low", "Tief", SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), configurable = false),
+    OVERVIEW_WAVE_LOW("overview_wave_low", "Tief", SugarliciousColorGroup.GLUCOSE, 0xFFF73D45.toInt(), configurable = true),
     OVERVIEW_WAVE_IN_RANGE("overview_wave_in_range", "Im Ziel", SugarliciousColorGroup.GLUCOSE, 0xFF22EB60.toInt(), configurable = true),
-    OVERVIEW_WAVE_HIGH("overview_wave_high", "Hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFCC93B.toInt(), configurable = false),
+    OVERVIEW_WAVE_HIGH("overview_wave_high", "Hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFCC93B.toInt(), configurable = true),
+    OVERVIEW_WAVE_UNDERLAY("overview_wave_underlay", "Unterlage", SugarliciousColorGroup.GLUCOSE, 0x4DB0B0B0, 0x4D808080, true),
     OVERVIEW_WAVE_VERY_HIGH("overview_wave_very_high", "Sehr hoch", SugarliciousColorGroup.GLUCOSE, 0xFFFCC93B.toInt(), configurable = false),
     ;
 
