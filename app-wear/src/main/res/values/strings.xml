@@ -10,4 +10,6 @@
     <string name="phone_unreachable">Telefon derzeit nicht erreichbar</string>
     <string name="watch_settings_title">Einstellungen</string>
     <string name="graph_hours">%1$dh</string>
+    <string name="settings_load_error">Einstellungen konnten nicht geladen oder gespeichert werden. Erneut versuchen</string>
+    <string name="settings_loading">Einstellungen werden geladen &#8230;</string>
 </resources>

@@ -113,27 +113,27 @@
             </LinearLayout>
 
             <LinearLayout android:id="@+id/wear_therapy_row" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <app.aapswear.wear.SquareTherapyCard android:id="@+id/wear_iob_card" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="7dp" android:layout_marginEnd="3dp" android:gravity="center" android:orientation="vertical">
+            <app.sugarlicious.wear.SquareTherapyCard android:id="@+id/wear_iob_card" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="7dp" android:layout_marginEnd="3dp" android:gravity="center" android:orientation="vertical">
                 <FrameLayout android:layout_width="66dp" android:layout_height="66dp">
-                    <app.aapswear.wear.WearTherapyProgressView android:id="@+id/wear_iob_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
+                    <app.sugarlicious.wear.WearTherapyProgressView android:id="@+id/wear_iob_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
                     <TextView android:includeFontPadding="false" android:id="@+id/wear_iob" android:layout_width="46dp" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="—" android:textColor="@color/wear_text" android:textSize="14sp" android:textStyle="bold" />
                     <ImageView android:id="@+id/wear_iob_icon" android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="bottom|center_horizontal" android:contentDescription="IOB" android:src="@drawable/ic_iob" android:tint="@color/wear_accent" />
                 </FrameLayout>
                 <TextView android:includeFontPadding="false" android:id="@+id/wear_iob_secondary" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:visibility="gone" android:textColor="@color/wear_text_secondary" android:textSize="10sp" android:textStyle="bold" />
-            </app.aapswear.wear.SquareTherapyCard>
-            <app.aapswear.wear.SquareTherapyCard android:id="@+id/wear_cob_card" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="7dp" android:layout_marginStart="3dp" android:gravity="center" android:orientation="vertical">
+            </app.sugarlicious.wear.SquareTherapyCard>
+            <app.sugarlicious.wear.SquareTherapyCard android:id="@+id/wear_cob_card" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginTop="7dp" android:layout_marginStart="3dp" android:gravity="center" android:orientation="vertical">
                 <FrameLayout android:layout_width="66dp" android:layout_height="66dp">
-                    <app.aapswear.wear.WearTherapyProgressView android:id="@+id/wear_cob_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
+                    <app.sugarlicious.wear.WearTherapyProgressView android:id="@+id/wear_cob_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
                     <TextView android:includeFontPadding="false" android:id="@+id/wear_cob" android:layout_width="46dp" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="—" android:textColor="@color/wear_text" android:textSize="14sp" android:textStyle="bold" />
                     <ImageView android:id="@+id/wear_cob_icon" android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="bottom|center_horizontal" android:contentDescription="COB" android:src="@drawable/ic_cob" android:tint="@color/wear_accent" />
                 </FrameLayout>
                 <TextView android:includeFontPadding="false" android:id="@+id/wear_cob_secondary" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:visibility="gone" android:textColor="@color/wear_text_secondary" android:textSize="10sp" android:textStyle="bold" />
-            </app.aapswear.wear.SquareTherapyCard>
+            </app.sugarlicious.wear.SquareTherapyCard>
             </LinearLayout>
 
             <LinearLayout android:baselineAligned="false" android:id="@+id/wear_basal_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="96dp" android:layout_marginTop="7dp" android:padding="9dp" android:gravity="center_vertical" android:orientation="horizontal">
                 <FrameLayout android:layout_width="66dp" android:layout_height="66dp">
-                    <app.aapswear.wear.WearTherapyProgressView android:id="@+id/wear_basal_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
+                    <app.sugarlicious.wear.WearTherapyProgressView android:id="@+id/wear_basal_progress" android:layout_width="match_parent" android:layout_height="match_parent" android:importantForAccessibility="no" />
                     <TextView android:includeFontPadding="false" android:id="@+id/wear_basal" android:layout_width="46dp" android:layout_height="wrap_content" android:layout_gravity="center" android:gravity="center" android:text="—" android:textColor="@color/wear_text" android:textSize="14sp" android:textStyle="bold" />
                     <ImageView android:id="@+id/wear_basal_icon" android:layout_width="19dp" android:layout_height="19dp" android:layout_gravity="bottom|center_horizontal" android:contentDescription="Basal" android:src="@drawable/ic_complication_basal" android:tint="@color/wear_accent" />
                 </FrameLayout>
@@ -149,7 +149,7 @@
                 </LinearLayout>
             </LinearLayout>
             <FrameLayout android:id="@+id/wear_graph_card" android:layout_width="match_parent" android:layout_height="138dp" android:layout_marginTop="7dp">
-                <app.aapswear.wear.WearGlucoseChart android:id="@+id/wear_glucose_chart" android:layout_width="match_parent" android:layout_height="match_parent" />
+                <app.sugarlicious.wear.WearGlucoseChart android:id="@+id/wear_glucose_chart" android:layout_width="match_parent" android:layout_height="match_parent" />
                 <TextView
                     android:id="@+id/wear_graph_period"
                     android:layout_width="wrap_content"

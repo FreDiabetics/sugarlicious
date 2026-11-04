@@ -16,6 +16,8 @@ import java.io.ByteArrayOutputStream
 import javax.inject.Inject
 
 plugins {
+    id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
 }
@@ -201,10 +203,10 @@ tasks.configureEach {
 }
 
 android {
-    namespace = "app.aapswear.wear"
+    namespace = "app.sugarlicious.wear"
     compileSdk = 37
     defaultConfig {
-        applicationId = if (providers.gradleProperty("legacyProductMigration").orNull == "true") "app.aapswear" else "app.sugarlicious"
+        applicationId = "app.sugarlicious"
         minSdk = 33
         targetSdk = 37
         versionCode = rootProject.extra["sugarliciousSuiteVersionCode"] as Int
@@ -220,6 +222,8 @@ android {
 }
 
 dependencies {
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-compiler:2.60.1")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.fragment:fragment-ktx:1.9.1")
@@ -231,7 +235,7 @@ dependencies {
     implementation(project(":wear-storage"))
     implementation(project(":complications"))
     implementation(project(":ui-shared"))
-    implementation(project(":dexcom-g7"))
+    implementation(project(":cgm-protocol"))
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.3.0")
     implementation("androidx.wear.watchfacepush:watchfacepush:1.0.0")

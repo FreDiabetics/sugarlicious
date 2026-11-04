@@ -13,7 +13,7 @@
     android:targetCellHeight="2"
     android:maxResizeWidth="545dp" android:maxResizeHeight="210dp" android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="app.aapswear.mobile.WidgetConfigurationActivity"
+    android:configure="app.sugarlicious.mobile.WidgetConfigurationActivity"
     android:widgetFeatures="reconfigurable"
     android:updatePeriodMillis="1800000"
     app:featuredWidget="0x1a" app:widgetSize="0x1a"

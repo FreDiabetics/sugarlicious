@@ -96,7 +96,7 @@ class NativeWatchfaceRenderingTest {
         listOf("Apex", "Orbit", "GlucoseGraph", "OrbitGlucoseGraph").forEach { family ->
             val native = family in setOf("Apex", "Orbit")
             val name = if (native) "Native${family}GraphComplication" else "${family}Complication"
-            val metadata = services.getValue("app.aapswear.complications.$name").all("meta-data").associate { it.attr("android:name") to it.attr("android:value") }
+            val metadata = services.getValue("app.sugarlicious.complications.$name").all("meta-data").associate { it.attr("android:name") to it.attr("android:value") }
             if (native) assertEquals("true", metadata["android.support.wearable.complications.HIDDEN"])
             assertEquals(if (native) "LONG_TEXT" else "SMALL_IMAGE", metadata["android.support.wearable.complications.SUPPORTED_TYPES"])
         }

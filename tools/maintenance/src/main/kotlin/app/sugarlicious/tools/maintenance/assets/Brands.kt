@@ -108,7 +108,7 @@ internal fun brandTool(command: String, args: List<String>, defaultRoot: Path) {
         val svg = parseXml("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 66 66\"/>")
         svg.documentElement.add("path", "fill" to "#ffffff", "d" to data)
         writeXml(directory.resolve("${stem}_symbol.svg"), svg)
-        val targets = if (wear) mapOf("g7watch" to listOf("drawable/ic_sensor_launcher_foreground.xml", "drawable/ic_sensor_launcher_monochrome.xml", "drawable/ic_notification.xml")) else mapOf("app-mobile" to listOf("drawable/ic_launcher_foreground.xml") + mobileTargets, "app-wear" to wearTargets)
+        val targets = if (wear) mapOf("app-sugarwear" to listOf("drawable/ic_sensor_launcher_foreground.xml", "drawable/ic_sensor_launcher_monochrome.xml", "drawable/ic_notification.xml")) else mapOf("app-mobile" to listOf("drawable/ic_launcher_foreground.xml") + mobileTargets, "app-wear" to wearTargets)
         targets.forEach { (module, files) ->
             files.forEach { name ->
                 val path = root.resolve("$module/src/main/res/$name")
@@ -181,7 +181,7 @@ internal fun brandTool(command: String, args: List<String>, defaultRoot: Path) {
     val gradient = bg.all("linearGradient").firstOrNull()
     val rect = bg.children().firstOrNull { it.localName == "rect" }
     if (!raster) require(gradient != null && rect != null && rect.getAttribute("rx") == rect.getAttribute("ry")) { "Unsupported supplied background geometry" }
-    for (module in if (wear) listOf("g7watch") else listOf("app-mobile", "app-wear")) {
+    for (module in if (wear) listOf("app-sugarwear") else listOf("app-mobile", "app-wear")) {
         val res = root.resolve("$module/src/main/res")
         val mono = if (wear) "ic_sensor_launcher_monochrome" else "ic_launcher_monochrome"
         foreground(res.resolve("drawable/$mono.xml"), data)

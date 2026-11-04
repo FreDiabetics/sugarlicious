@@ -183,7 +183,7 @@ class OrbitGeneratorTest {
     @Test fun weatherUsesVendorImagesAndDayNightConditions() {
         val weather = group("weather")
         val resources = weather.all(".//Image").map { it.attr("resource") }
-        assertTrue(resources.any { it.startsWith("orbit_weather_samsung_") })
+        assertTrue(resources.any { it.startsWith("orbit_weather_device_vendor_") })
         assertFalse(resources.any { it.startsWith("orbit_weather_google_") })
         assertContains(weather.serialized(), "WEATHER.IS_DAY")
         weather.all(".//PartImage").forEach { assertEquals(it.attr("width"), it.attr("height")) }

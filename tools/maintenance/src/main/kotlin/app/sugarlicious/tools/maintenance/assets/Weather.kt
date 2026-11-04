@@ -15,10 +15,11 @@ internal fun weatherTool(args: List<String>, root: Path) {
     val output = root.resolve("watchfaces/sugarlicious-orbit/src/main/res/drawable-nodpi")
     val assets = linkedMapOf<String, JsonElement>()
     val packs = linkedMapOf<String, JsonElement>()
-    ZipFile(required("--samsung-apk")).use { samsung ->
+    ZipFile(required("--samsung-apk")).use { deviceVendor ->
         ZipFile(required("--google-reference-apk")).use { google ->
             fun copy(pack: String, name: String, zip: ZipFile, entry: String): String {
-                val resource = "orbit_weather_${pack}_$name"
+                val resourcePack = if (pack == "samsung") "device_vendor" else pack
+                val resource = "orbit_weather_${resourcePack}_$name"
                 val data = zip.getInputStream(zip.getEntry(entry) ?: error("Missing archive entry $entry")).use { it.readBytes() }
                 val filename = resource + entry.substringAfterLast('/').substringAfterLast('.', "").let { if (it.isEmpty()) "" else ".$it" }
                 val image = ImageIO.read(data.inputStream()) ?: error("Unsupported image $entry")
@@ -61,7 +62,7 @@ internal fun weatherTool(args: List<String>, root: Path) {
                             .mapIndexed { index, original ->
                                 val name = if (period == "night") mapOf("sunny" to "clear", "partly_cloud" to "partly_cloud_night")[original] ?: original else original
                                 val entry = Regex("drawable/" + Regex.escape(name) + "\\s+\\(\\) \\(file\\) (\\S+)").find(resources)?.groupValues?.get(1) ?: error("Missing original Samsung resource: $name")
-                                (index + 1).toString() to JsonPrimitive(copy("samsung", name, samsung, entry))
+                                (index + 1).toString() to JsonPrimitive(copy("samsung", name, deviceVendor, entry))
                             }.toMap(),
                     )
             }

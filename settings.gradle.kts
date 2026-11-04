@@ -15,10 +15,10 @@ rootProject.name = "Sugarlicious"
 
 include(
     ":core-model",
-    ":dexcom-g7",
+    ":cgm-protocol",
     ":data-source-api",
-    ":data-source-aaps",
-    ":data-source-dexcom",
+    ":data-source-therapy",
+    ":data-source-manufacturer",
     ":data-source-external",
     ":wear-protocol",
     ":wear-storage",
@@ -30,7 +30,7 @@ include(
     ":watchfaces:sugarlicious-digital",
     ":watchfaces:sugarlicious-analog",
     ":watchfaces:sugarlicious-orbit",
-    ":tools:aaps-cwf-parser",
+    ":tools:watchface-package-parser",
     ":tools:wff-generator",
     ":tools:screenshot-comparator",
     ":tools:maintenance",

@@ -16,9 +16,9 @@ class StandaloneBuildTest {
         val settings = root.resolve("settings.gradle.kts").readText()
         val moduleText = assertNotNull(Regex("val sharedModules = listOf\\((.*?)\\)").find(settings)).groupValues[1]
         val modules = Regex("\"([^\" ]+)\"").findAll(moduleText).map { it.groupValues[1] }.toSet()
-        assertEquals(setOf("core-model", "dexcom-g7", "wear-protocol", "wear-storage", "ui-shared", "complications"), modules)
+        assertEquals(setOf("core-model", "cgm-protocol", "wear-protocol", "wear-storage", "ui-shared", "complications"), modules)
         assertContains(settings, "project(\":\$module\").projectDir = sharedRoot.resolve(module)")
-        assertContains(settings, "include(\":g7watch\", \":watchfaces:vigil\")")
+        assertContains(settings, "include(\":app-sugarwear\", \":watchfaces:vigil\")")
         modules.forEach { assertFalse(root.resolve(it).exists(), "Shared code copied: $it") }
         // Maintenance is itself shared; adding it must not copy a second implementation.
         assertContains(settings, "include(\":tools:maintenance\")")
@@ -30,7 +30,7 @@ class StandaloneBuildTest {
 
     @Test fun installerOnlyBuildsOwnedWatchPackages() {
         val build = root.resolve("build.gradle.kts").readText()
-        assertContains(build, "dependsOn(\":g7watch:assembleDebug\", \":watchfaces:vigil:assembleDebug\")")
+        assertContains(build, "dependsOn(\":app-sugarwear:assembleDebug\", \":watchfaces:vigil:assembleDebug\")")
         assertContains(build, "extra[\"productPhoneApks\"] = emptyList<String>()")
         assertEquals(2, Regex("\"[^\"\\n]+/build/outputs/apk/debug/[^\"\\n]+\\.apk\"").findAll(build).count())
         assertContains(build, "sharedRoot.resolve(\"gradle/product-installer.gradle\")")

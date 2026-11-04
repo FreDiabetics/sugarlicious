@@ -11,7 +11,7 @@ val syncCanonicalHands =
 
 android {
     enableKotlin = false
-    namespace = "app.aapswear.watchface.orbit"
+    namespace = "app.sugarlicious.watchface.orbit"
     compileSdk = 37
     defaultConfig {
         applicationId = "app.sugarlicious.watchfacepush.orbit"

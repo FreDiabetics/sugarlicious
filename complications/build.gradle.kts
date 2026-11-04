@@ -1,6 +1,6 @@
 plugins { id("com.android.library") }
 android {
-    namespace = "app.aapswear.complications"
+    namespace = "app.sugarlicious.complications"
     compileSdk = 37
     defaultConfig { minSdk = 33 }
     testOptions { unitTests.isIncludeAndroidResources = true }

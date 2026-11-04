@@ -77,6 +77,26 @@ fun runAssetTool(command: String, args: List<String>): Int? {
     val root = Path.of(System.getProperty("user.dir")).toAbsolutePath()
     when (command) {
         "refresh-brand-presentations" -> brandPresentations(args, root)
+        "configure-orbit-seconds-motion" -> {
+            require(args.isEmpty())
+            val res = root.resolve("watchfaces/sugarlicious-orbit/src/main/res")
+            val face =
+                app.sugarlicious.tools.maintenance.watchface
+                    .parseXml(res.resolve("raw/watchface.xml"))
+            val strings =
+                app.sugarlicious.tools.maintenance.watchface
+                    .parseXml(res.resolve("values/strings.xml"))
+            app.sugarlicious.tools.maintenance.watchface
+                .configureOrbitSecondsMotion(face, strings)
+            app.sugarlicious.tools.maintenance.watchface
+                .writeXml(face, res.resolve("raw/watchface.xml"))
+            app.sugarlicious.tools.maintenance.watchface
+                .writeXml(strings, res.resolve("values/strings.xml"))
+        }
+        "import-orbit-handset" -> {
+            val opts = options(args, setOf("--source", "--resources"))
+            importOrbitHandset(Path.of(opts["--source"] ?: root.resolve("design-assets/watchfaces/orbit/hands_4").toString()), Path.of(opts["--resources"] ?: root.resolve("watchfaces/sugarlicious-orbit/src/main/res").toString()))
+        }
         "import-app-brand-icons", "import-adaptive-brand-icons" -> brandTool(command, args, root)
         "import-orbit-weather" -> weatherTool(args, root)
         "render-orbit-hands" -> handTool(args, root)

@@ -12,6 +12,6 @@
     android:targetCellHeight="2"
     android:resizeMode="none"
     android:widgetCategory="home_screen"
-    android:configure="app.aapswear.mobile.WidgetConfigurationActivity"
+    android:configure="app.sugarlicious.mobile.WidgetConfigurationActivity"
     android:widgetFeatures="reconfigurable"
     android:updatePeriodMillis="1800000" />

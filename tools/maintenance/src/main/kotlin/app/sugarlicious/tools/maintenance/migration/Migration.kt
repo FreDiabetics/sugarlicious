@@ -72,9 +72,9 @@ data class Product(
 
 val products =
     mapOf(
-        "mobile" to Product("app.aapswear", "app.sugarlicious", "app-mobile", "app.aapswear.mobile.MainActivity", "legacy-mobile.apk"),
-        "wear" to Product("app.aapswear", "app.sugarlicious", "app-wear", "app.aapswear.wear.WearActivity", "legacy-wear.apk"),
-        "sugarwear" to Product("app.aapswear.g7watch", "app.sugarwear", "g7watch", "app.aapswear.g7watch.G7WatchActivity", "legacy-sugarwear.apk"),
+        "mobile" to Product("app.aapswear", "app.sugarlicious", "app-mobile", "app.sugarlicious.mobile.MainActivity", "legacy-mobile.apk"),
+        "wear" to Product("app.aapswear", "app.sugarlicious", "app-wear", "app.sugarlicious.wear.WearActivity", "legacy-wear.apk"),
+        "sugarwear" to Product("app.aapswear.g7watch", "app.sugarwear", "app-sugarwear", "app.sugarwear.CgmWatchActivity", "legacy-sugarwear.apk"),
     )
 
 fun validateMetadata(metadata: JsonObject, expected: String, directory: Path): Path {

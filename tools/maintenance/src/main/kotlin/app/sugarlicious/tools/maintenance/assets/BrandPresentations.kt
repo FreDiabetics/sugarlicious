@@ -55,5 +55,5 @@ internal fun brandPresentations(args: List<String>, defaultRoot: Path) {
         android("pathData", data)
         if (data.length > 3000) setAttributeNS("http://schemas.android.com/tools", "tools:ignore", "VectorPath")
     }
-    writeXml(root.resolve("${if (wear) "g7watch" else "app-wear"}/src/main/res/drawable/ic_tile_brand.xml"), vector)
+    writeXml(root.resolve("${if (wear) "app-sugarwear" else "app-wear"}/src/main/res/drawable/ic_tile_brand.xml"), vector)
 }

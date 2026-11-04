@@ -1,4 +1,6 @@
 plugins {
+    id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
     id("com.android.application")
@@ -90,10 +92,10 @@ val syncSugarliciousAnalogPreviewAssets =
 android {
     buildFeatures { compose = true }
 
-    namespace = "app.aapswear.mobile"
+    namespace = "app.sugarlicious.mobile"
     compileSdk = 37
     defaultConfig {
-        applicationId = if (providers.gradleProperty("legacyProductMigration").orNull == "true") "app.aapswear" else "app.sugarlicious"
+        applicationId = "app.sugarlicious"
         minSdk = 26
         targetSdk = 37
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -113,6 +115,8 @@ tasks.matching { task -> task.name == "preBuild" }.configureEach {
 }
 
 dependencies {
+    implementation("com.google.dagger:hilt-android:2.60.1")
+    ksp("com.google.dagger:hilt-compiler:2.60.1")
     implementation("androidx.core:core:1.19.1")
     implementation(platform("androidx.compose:compose-bom:2026.09.00"))
     implementation("androidx.activity:activity-compose:1.13.0")
@@ -129,8 +133,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 
-    implementation(project(":data-source-aaps"))
-    implementation(project(":data-source-dexcom"))
+    implementation(project(":data-source-therapy"))
+    implementation(project(":data-source-manufacturer"))
     implementation(project(":data-source-external"))
     implementation(project(":wear-protocol"))
     implementation(project(":wear-storage"))

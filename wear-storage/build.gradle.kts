@@ -3,7 +3,7 @@ plugins {
     kotlin("plugin.serialization")
 }
 android {
-    namespace = "app.aapswear.storage"
+    namespace = "app.sugarlicious.storage"
     compileSdk = 37
     defaultConfig { minSdk = 26 }
     testOptions { unitTests.isIncludeAndroidResources = true }

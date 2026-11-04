@@ -7,6 +7,9 @@ import org.gradle.api.tasks.TaskAction
 import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
+    id("com.google.dagger.hilt.android") version "2.60.1" apply false
+    id("com.google.devtools.ksp") version "2.3.13" apply false
+    id("org.jetbrains.kotlinx.kover") version "0.9.11"
     id("org.jetbrains.kotlin.plugin.compose") version "2.4.10" apply false
 
     id("com.android.application") version "9.4.1" apply false
@@ -19,6 +22,7 @@ plugins {
 }
 
 apply(from = "gradle/shared-conventions.gradle")
+apply(from = "gradle/coverage-conventions.gradle.kts")
 
 // Mobile and Wear deliberately share app.sugarlicious because they are companion variants on
 // different devices. Keep their version monotonically aligned so an in-place update never
@@ -63,10 +67,10 @@ abstract class VerifyArchitectureTask : DefaultTask() {
             setOf(
                 ":core-model",
                 ":data-source-api",
-                ":data-source-aaps",
-                ":data-source-dexcom",
+                ":data-source-therapy",
+                ":data-source-manufacturer",
                 ":data-source-external",
-                ":dexcom-g7",
+                ":cgm-protocol",
                 ":wear-protocol",
                 ":wear-storage",
                 ":ui-shared",
@@ -84,7 +88,7 @@ abstract class VerifyArchitectureTask : DefaultTask() {
         }
 
         val mobileDependencies = projectDependencies(":app-mobile")
-        check(":dexcom-g7" !in mobileDependencies && ":g7watch" !in mobileDependencies) {
+        check(":cgm-protocol" !in mobileDependencies && ":app-sugarwear" !in mobileDependencies) {
             "Mobile must remain a bridge without a direct G7 BLE collector: ${mobileDependencies.sorted()}"
         }
 
@@ -121,7 +125,7 @@ abstract class VerifyArchitectureTask : DefaultTask() {
 
 val architectureModules = setOf(
     ":app-mobile", ":app-wear", ":core-model", ":data-source-api",
-    ":data-source-aaps", ":data-source-dexcom", ":data-source-external", ":dexcom-g7", ":wear-protocol", ":wear-storage",
+    ":data-source-therapy", ":data-source-manufacturer", ":data-source-external", ":cgm-protocol", ":wear-protocol", ":wear-storage",
     ":ui-shared", ":complications",
 )
 val verifyArchitecture = tasks.register<VerifyArchitectureTask>("verifyArchitecture") {
