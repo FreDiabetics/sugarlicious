@@ -1,7 +1,5 @@
 package app.aapswear.mobile
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,35 +27,41 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
 
 /** Embedded in General, sharing its scroll and header instead of launching another window. */
-@Composable internal fun MobileDataSourceSettingsPanel(expandedCards: MutableMap<String, Boolean>) {
+@Composable internal fun MobileDataSourceSettingsPanel(settings: MobileSettingsViewModel, model: MobileSourceSettingsViewModel) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
-    val diagnostics = remember { context.getSharedPreferences("source_diagnostics", Context.MODE_PRIVATE) }
-    var configuration by remember { mutableStateOf(MobileSourceConfigurationStore.read(context)) }
-    var status by remember { mutableStateOf(diagnostics.getString("dexcom_share", "").orEmpty()) }
-    var nightscoutStatus by remember { mutableStateOf(diagnostics.getString("nightscout_cgm", "").orEmpty()) }
-    DisposableEffect(prefs, diagnostics) {
-        val listener =
-            SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-                configuration = MobileSourceConfigurationStore.read(context)
-                status = diagnostics.getString("dexcom_share", "").orEmpty()
-                nightscoutStatus = diagnostics.getString("nightscout_cgm", "").orEmpty()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(model, lifecycleOwner) {
+        val lifecycle = lifecycleOwner.lifecycle
+        val observer =
+            androidx.lifecycle.LifecycleEventObserver { _, _ ->
+                model.setVisible(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
             }
-        prefs.registerOnSharedPreferenceChangeListener(listener)
-        diagnostics.registerOnSharedPreferenceChangeListener(listener)
+        lifecycle.addObserver(observer)
+        model.setVisible(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
         onDispose {
-            prefs.unregisterOnSharedPreferenceChangeListener(listener)
-            diagnostics.unregisterOnSharedPreferenceChangeListener(listener)
+            lifecycle.removeObserver(observer)
+            model.setVisible(false)
         }
     }
+    val operationError by model.operationError.collectAsStateWithLifecycle()
+    val snapshot by model.state.collectAsStateWithLifecycle()
+    val page by settings.uiState.collectAsStateWithLifecycle()
+    val configuration = snapshot.configuration
+    val status = snapshot.shareStatus
+    val nightscoutStatus = snapshot.nightscoutStatus
+    val expandedCards = page.expandedSources
     val permission =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) MobileSourceConfigurationStore.setDexcom(context, MobileGlucoseSource.DEXCOM_BROADCAST, true)
+            if (granted) model.setDexcom(MobileGlucoseSource.DEXCOM_BROADCAST, true)
         }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val error = snapshot.observationError.ifBlank { operationError }
+        if (error.isNotBlank()) Text(error, color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
+        if (!snapshot.loaded) return@Column
         if (configuration.enabledGlucoseSources.size > 1) {
             Surface(color = OneUiWidgetStyle.card, shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -67,22 +71,22 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
             }
         }
         val aapsActive = MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources || configuration.aapsTherapyEnabled || configuration.aapsPredictionsEnabled
-        SourceCard("AndroidAPS", aapsActive, { MobileSourceConfigurationStore.setAndroidApsEnabled(context, it) }, expandedCards) {
-            WidgetToggleSetting("Glukosewerte", MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources) { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.ANDROID_APS, it) }
-            WidgetToggleSetting("Vorhersagen", configuration.aapsPredictionsEnabled) { MobileSourceConfigurationStore.setPredictions(context, it) }
-            WidgetToggleSetting("Therapiedaten", configuration.aapsTherapyEnabled) { MobileSourceConfigurationStore.setTherapy(context, it) }
+        SourceCard("AndroidAPS", aapsActive, { model.setAndroidAps(it) }, expandedCards, settings::expandSource) {
+            WidgetToggleSetting("Glukosewerte", MobileGlucoseSource.ANDROID_APS in configuration.enabledGlucoseSources) { model.setSource(MobileGlucoseSource.ANDROID_APS, it) }
+            WidgetToggleSetting("Vorhersagen", configuration.aapsPredictionsEnabled) { model.setPredictions(it) }
+            WidgetToggleSetting("Therapiedaten", configuration.aapsTherapyEnabled) { model.setTherapy(it) }
         }
-        val dexcom = MobileSourceConfigurationStore.preferredDexcom(context)
+        val dexcom = snapshot.preferredDexcom
         val dexcomActive = configuration.enabledGlucoseSources.any { it == MobileGlucoseSource.DEXCOM_BROADCAST || it == MobileGlucoseSource.DEXCOM_SHARE }
 
         fun selectDexcom(source: MobileGlucoseSource, enabled: Boolean) {
             if (enabled && source == MobileGlucoseSource.DEXCOM_BROADCAST && ContextCompat.checkSelfPermission(context, DexcomBroadcastAdapter.PERMISSION) != PackageManager.PERMISSION_GRANTED) {
                 permission.launch(DexcomBroadcastAdapter.PERMISSION)
             } else {
-                MobileSourceConfigurationStore.setDexcom(context, source, enabled)
+                model.setDexcom(source, enabled)
             }
         }
-        SourceCard("BYODA", dexcomActive, { selectDexcom(dexcom, it) }, expandedCards) {
+        SourceCard("BYODA", dexcomActive, { selectDexcom(dexcom, it) }, expandedCards, settings::expandSource) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 listOf(MobileGlucoseSource.DEXCOM_BROADCAST, MobileGlucoseSource.DEXCOM_SHARE).forEach { source ->
                     Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -92,20 +96,20 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
                     }
                 }
             }
-            if (dexcom == MobileGlucoseSource.DEXCOM_SHARE) ShareCredentialsFields(status)
+            if (dexcom == MobileGlucoseSource.DEXCOM_SHARE) ShareCredentialsFields(status, model)
         }
-        val nightscout = NightscoutConfigurationStore.read(context)
+        val nightscout = snapshot.nightscout
         val nightscoutGlucose = MobileGlucoseSource.NIGHTSCOUT in configuration.enabledGlucoseSources
-        SourceCard("Nightscout", nightscoutGlucose || nightscout.enabled, { MobileSourceConfigurationStore.setNightscoutEnabled(context, it) }, expandedCards) {
-            WidgetToggleSetting("Glukosewerte", nightscoutGlucose) { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.NIGHTSCOUT, it) }
-            WidgetToggleSetting("Therapiedaten", nightscout.enabled, enabled = nightscout.isValid() || nightscout.enabled) { NightscoutConfigurationStore.save(context, nightscout.copy(enabled = it), null) }
+        SourceCard("Nightscout", nightscoutGlucose || nightscout.enabled, { model.setNightscout(it) }, expandedCards, settings::expandSource) {
+            WidgetToggleSetting("Glukosewerte", nightscoutGlucose) { model.setSource(MobileGlucoseSource.NIGHTSCOUT, it) }
+            WidgetToggleSetting("Therapiedaten", nightscout.enabled, enabled = nightscout.isValid() || nightscout.enabled) { model.setNightscoutTherapy(it) }
             Text("Nightscout ergänzt Boli und Kohlenhydrate. IOB, COB und Basal liefert weiterhin AndroidAPS.", color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
-            NightscoutAccessFields(if (nightscoutGlucose) nightscoutStatus else "")
+            NightscoutAccessFields(if (nightscoutGlucose) nightscoutStatus else "", model)
         }
-        SourceCard("xDrip+", MobileGlucoseSource.XDRIP_PLUS in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.XDRIP_PLUS, it) }, expandedCards) {
+        SourceCard("xDrip+", MobileGlucoseSource.XDRIP_PLUS in configuration.enabledGlucoseSources, { model.setSource(MobileGlucoseSource.XDRIP_PLUS, it) }, expandedCards, settings::expandSource) {
             Text("In xDrip+ unter Inter-App-Einstellungen »Lokal senden« und »Kompatibler Broadcast« aktivieren. Als Empfänger app.sugarlicious eintragen oder das Empfängerfeld leer lassen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         }
-        SourceCard("Libre patched app", MobileGlucoseSource.LIBRE_PATCHED in configuration.enabledGlucoseSources, { MobileSourceConfigurationStore.setGlucoseEnabled(context, MobileGlucoseSource.LIBRE_PATCHED, it) }, expandedCards) {
+        SourceCard("Libre patched app", MobileGlucoseSource.LIBRE_PATCHED in configuration.enabledGlucoseSources, { model.setSource(MobileGlucoseSource.LIBRE_PATCHED, it) }, expandedCards, settings::expandSource) {
             Text("Empfängt berechnete Scanwerte und den dabei mitgelieferten Verlauf der gepatchten Libre-App. Für kontinuierliche, aufbereitete Werte xDrip+ verwenden; ungeglättete Live-Rohwerte werden nicht übernommen.", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         }
     }
@@ -125,7 +129,7 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
     }
 }
 
-@Composable private fun SourceCard(title: String, active: Boolean, onActive: (Boolean) -> Unit, expandedCards: MutableMap<String, Boolean>, content: (@Composable () -> Unit)? = null) {
+@Composable private fun SourceCard(title: String, active: Boolean, onActive: (Boolean) -> Unit, expandedCards: Map<String, Boolean>, onExpanded: (String, Boolean) -> Unit, content: (@Composable () -> Unit)? = null) {
     val expanded = expandedCards[title] == true
     val nameInteraction = remember { MutableInteractionSource() }
     val namePressed by nameInteraction.collectIsPressedAsState()
@@ -135,10 +139,10 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
                 SourceBrandIcon(28.dp)
                 Spacer(Modifier.width(12.dp))
                 Box(Modifier.weight(1f)) {
-                    Text(title, color = OneUiWidgetStyle.primary, fontSize = 16.sp, modifier = Modifier.background(if (namePressed) OneUiWidgetStyle.primary.copy(alpha = .10f) else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(4.dp)).semantics { stateDescription = if (expanded) "Geöffnet" else "Geschlossen" }.clickable(interactionSource = nameInteraction, indication = null, role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (expanded) "Zuklappen" else "Aufklappen") { expandedCards[title] = !expanded })
+                    Text(title, color = OneUiWidgetStyle.primary, fontSize = 16.sp, modifier = Modifier.background(if (namePressed) OneUiWidgetStyle.primary.copy(alpha = .10f) else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(4.dp)).semantics { stateDescription = if (expanded) "Geöffnet" else "Geschlossen" }.clickable(interactionSource = nameInteraction, indication = null, role = androidx.compose.ui.semantics.Role.Button, onClickLabel = if (expanded) "Zuklappen" else "Aufklappen") { onExpanded(title, !expanded) })
                 }
                 WidgetSettingsToggle(active, {
-                    expandedCards[title] = it
+                    onExpanded(title, it)
                     onActive(it)
                 }, true, title)
             }
@@ -152,21 +156,22 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
     }
 }
 
-@Composable private fun ShareCredentialsFields(status: String) {
-    val context = LocalContext.current
-    var saved by remember { mutableStateOf(DexcomShareCredentialsStore.read(context)) }
-    var account by remember { mutableStateOf(saved?.account.orEmpty()) }
-    var password by remember { mutableStateOf("") }
-    var region by remember { mutableStateOf(saved?.region ?: "ous") }
-    var feedback by remember { mutableStateOf("") }
-    var editing by remember { mutableStateOf(saved == null) }
+@Composable private fun ShareCredentialsFields(status: String, model: MobileSourceSettingsViewModel) {
+    val snapshot by model.state.collectAsStateWithLifecycle()
+    val draft by model.share.collectAsStateWithLifecycle()
+    val saved = snapshot.share
+    val account = draft.account
+    val password = draft.password
+    val region = draft.region
+    val feedback = draft.feedback
+    val editing = draft.editing
     if (!editing) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Dexcom-Konto", color = OneUiWidgetStyle.primary, fontSize = 16.sp)
                 Text(saved?.account.orEmpty(), color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
             }
-            TextButton(onClick = { editing = true }) { Text("Ändern") }
+            TextButton(onClick = model::editShare) { Text("Ändern") }
         }
         Text(if (saved?.region == "us") "USA" else "International", color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
         if (status.isNotBlank()) Text(status, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
@@ -186,7 +191,7 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
         )
     TextField(
         account,
-        { account = it },
+        { model.updateShare(account = it) },
         label = { Text("Benutzername", fontSize = 13.sp) },
         textStyle =
             androidx.compose.ui.text
@@ -198,7 +203,7 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
     )
     TextField(
         password,
-        { password = it },
+        { model.updateShare(password = it) },
         label = { Text(if (saved == null) "Passwort" else "Passwort gespeichert", fontSize = 13.sp) },
         textStyle =
             androidx.compose.ui.text
@@ -209,79 +214,41 @@ import app.aapswear.datasource.dexcom.DexcomBroadcastAdapter
         colors = colors,
         modifier = Modifier.fillMaxWidth(),
     )
-    OneUiWidgetChoiceRow("Region", region, listOf("ous", "us"), { if (it == "us") "USA" else "International" }) { region = it }
+    OneUiWidgetChoiceRow("Region", region, listOf("ous", "us"), { if (it == "us") "USA" else "International" }) { model.updateShare(region = it) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = {
-            account = saved?.account.orEmpty()
-            password = ""
-            region = saved?.region ?: "ous"
-            editing = false
-        }) { Text("Abbrechen") }
-        TextButton(onClick = {
-            val secret = password.ifBlank { saved?.takeIf { it.account == account.trim() }?.password.orEmpty() }
-            feedback =
-                if (account.isBlank() || secret.isBlank()) {
-                    "Benutzername und Passwort fehlen"
-                } else {
-                    runCatching {
-                        DexcomShareCredentialsStore.save(context, account, secret, region)
-                        saved = DexcomShareCredentialsStore.read(context)
-                        password = ""
-                        editing = false
-                        "Zugang gespeichert"
-                    }.getOrDefault("Zugang konnte nicht sicher gespeichert werden")
-                }
-        }) { Text("Speichern", fontWeight = FontWeight.Bold) }
+        TextButton(onClick = model::cancelShare, enabled = !draft.saving) { Text("Abbrechen") }
+        TextButton(onClick = model::saveShare, enabled = !draft.saving) { Text("Speichern", fontWeight = FontWeight.Bold) }
     }
     if (feedback.isNotBlank()) Text(feedback, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
 }
 
-@Composable private fun NightscoutAccessFields(status: String) {
-    val context = LocalContext.current
-    var saved by remember { mutableStateOf(NightscoutConfigurationStore.read(context)) }
-    var url by remember { mutableStateOf(saved.baseUrl) }
-    var secret by remember { mutableStateOf("") }
-    var authMode by remember { mutableStateOf(saved.authMode) }
-    var editing by remember { mutableStateOf(!saved.isValid()) }
-    var feedback by remember { mutableStateOf("") }
+@Composable private fun NightscoutAccessFields(status: String, model: MobileSourceSettingsViewModel) {
+    val snapshot by model.state.collectAsStateWithLifecycle()
+    val draft by model.nightscout.collectAsStateWithLifecycle()
+    val saved = snapshot.nightscout
+    val url = draft.url
+    val secret = draft.secret
+    val authMode = draft.authMode
+    val editing = draft.editing
+    val feedback = draft.feedback
     if (!editing) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Nightscout-Server", color = OneUiWidgetStyle.primary, fontSize = 16.sp)
                 Text(saved.normalizedBaseUrl, color = OneUiWidgetStyle.secondary, fontSize = 14.sp)
             }
-            TextButton(onClick = { editing = true }) { Text("Ändern") }
+            TextButton(onClick = model::editNightscout) { Text("Ändern") }
         }
         if (status.isNotBlank()) Text(status, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
         return
     }
     val colors = TextFieldDefaults.colors(focusedContainerColor = OneUiWidgetStyle.secondary.copy(alpha = .08f), unfocusedContainerColor = OneUiWidgetStyle.secondary.copy(alpha = .08f), focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, focusedTextColor = OneUiWidgetStyle.primary, unfocusedTextColor = OneUiWidgetStyle.primary)
-    TextField(url, { url = it }, label = { Text("HTTPS-Adresse") }, singleLine = true, shape = RoundedCornerShape(16.dp), colors = colors, modifier = Modifier.fillMaxWidth())
-    OneUiWidgetChoiceRow("Zugang", authMode, NightscoutAuthMode.entries, { if (it == NightscoutAuthMode.API_SECRET) "API-Secret" else "Zugriffstoken" }) { authMode = it }
-    TextField(secret, { secret = it }, label = { Text("Zugang gespeichert / neu eingeben") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(16.dp), colors = colors, modifier = Modifier.fillMaxWidth())
+    TextField(url, { model.updateNightscout(url = it) }, label = { Text("HTTPS-Adresse") }, singleLine = true, shape = RoundedCornerShape(16.dp), colors = colors, modifier = Modifier.fillMaxWidth())
+    OneUiWidgetChoiceRow("Zugang", authMode, NightscoutAuthMode.entries, { if (it == NightscoutAuthMode.API_SECRET) "API-Secret" else "Zugriffstoken" }) { model.updateNightscout(authMode = it) }
+    TextField(secret, { model.updateNightscout(secret = it) }, label = { Text("Zugang gespeichert / neu eingeben") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, shape = RoundedCornerShape(16.dp), colors = colors, modifier = Modifier.fillMaxWidth())
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-        TextButton(onClick = {
-            url = saved.baseUrl
-            secret = ""
-            authMode = saved.authMode
-            editing = false
-        }) { Text("Abbrechen") }
-        TextButton(onClick = {
-            val candidate = NightscoutConfigurationStore.read(context).copy(baseUrl = url, authMode = authMode)
-            feedback =
-                if (!candidate.isValid()) {
-                    "Gültige HTTPS-Adresse ohne Zugangsdaten in der URL erforderlich"
-                } else {
-                    runCatching {
-                        require((authMode == saved.authMode && candidate.normalizedBaseUrl == saved.normalizedBaseUrl) || secret.isNotBlank() || NightscoutSecretStore.read(context).isNullOrBlank()) { "Für den geänderten Server neuen Zugang eingeben" }
-                        NightscoutConfigurationStore.save(context, candidate, secret.takeIf { it.isNotBlank() })
-                        saved = candidate
-                        secret = ""
-                        editing = false
-                        "Zugang gespeichert"
-                    }.getOrDefault("Zugang konnte nicht sicher gespeichert werden")
-                }
-        }) { Text("Speichern", fontWeight = FontWeight.Bold) }
+        TextButton(onClick = model::cancelNightscout, enabled = !draft.saving) { Text("Abbrechen") }
+        TextButton(onClick = model::saveNightscout, enabled = !draft.saving) { Text("Speichern", fontWeight = FontWeight.Bold) }
     }
     if (feedback.isNotBlank()) Text(feedback, color = OneUiWidgetStyle.secondary, fontSize = 13.sp)
 }

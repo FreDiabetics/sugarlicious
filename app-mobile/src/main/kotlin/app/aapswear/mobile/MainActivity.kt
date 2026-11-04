@@ -30,25 +30,24 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.isVisible
 import androidx.health.connect.client.HealthConnectClient
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.SettingsSchemaVersions
-import app.aapswear.storage.TherapyStateStore
 import app.aapswear.storage.ensureSettingsSchema
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import java.time.LocalDate
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 private const val GRAPH_MINUTE_MS = 60_000L
 
@@ -58,10 +57,13 @@ internal fun delayUntilNextGraphMinute(nowEpochMs: Long): kotlin.time.Duration {
 }
 
 class MainActivity : ComponentActivity() {
-    private var resumeLiveNotificationSetup = false
-    private var promotionSettingsRequestedThisSession = false
+    private var resumeLiveNotificationSetup: Boolean
+        get() = settingsViewModel.uiState.value.resumeLiveNotificationSetup
+        set(value) = settingsViewModel.setResumeLiveNotificationSetup(value)
+    private var promotionSettingsRequestedThisSession: Boolean
+        get() = settingsViewModel.uiState.value.promotionSettingsRequestedThisSession
+        set(value) = settingsViewModel.setPromotionSettingsRequested(value)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val diagnostics by lazy { getSharedPreferences("diagnostics", MODE_PRIVATE) }
     private val uiPreferences by lazy { getSharedPreferences("dashboard_ui", MODE_PRIVATE) }
     private lateinit var content: LinearLayout
     private lateinit var scroll: DashboardScrollView
@@ -79,35 +81,19 @@ class MainActivity : ComponentActivity() {
     private var submenuExpansionTitle: String? = null
     private var submenuPullBasePx: Float? = null
     private var submenuExpansionAnimator: android.animation.ValueAnimator? = null
-    private var state: app.aapswear.model.TherapyDisplayState? = null
     private var screen = DashboardScreen.OVERVIEW
-    private var clockJob: Job? = null
-    private var stateObservationJob: Job? = null
+    private val dashboardViewModel by lazy { ViewModelProvider(this, DashboardViewModel.Factory(applicationContext))[DashboardViewModel::class.java] }
+
+    private val settingsViewModel by lazy { ViewModelProvider(this, MobileSettingsViewModel.Factory(applicationContext))[MobileSettingsViewModel::class.java] }
+
+    private val sourceSettingsViewModel by lazy { ViewModelProvider(this, MobileSourceSettingsViewModel.Factory(applicationContext))[MobileSourceSettingsViewModel::class.java] }
+
     private var settingsSwipeStartX = 0f
     private var settingsSwipeStartY = 0f
     private var settingsSwipeTracking = false
     private var deferNightscoutSyncForPermissionCheck = false
     private val healthPermissionsLauncher =
-        registerForActivityResult(HealthConnectIntegration.permissionContract) { granted ->
-            scope.launch {
-                if (granted.any { it in HealthConnectIntegration.recordPermissions }) {
-                    HealthConnectIntegration.schedule(applicationContext)
-                    val result = runCatching { HealthConnectIntegration.sync(applicationContext) }.getOrNull()
-                    SugarliciousWidgets.update(applicationContext)
-                    val message =
-                        when {
-                            HealthConnectIntegration.glucoseWritePermission !in granted -> "Verbunden · BZ-Schreibrecht fehlt"
-                            result?.glucoseExport?.state == HealthConnectExportState.SUCCESS -> "Verbunden · ${result.glucoseExport.acceptedCount} BZ-Werte übertragen"
-                            result?.glucoseExport?.state == HealthConnectExportState.FAILED -> "Verbunden · BZ-Export ${result.glucoseExport.errorCode}"
-                            else -> "Health Connect verbunden"
-                        }
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-                } else {
-                    Toast.makeText(this@MainActivity, "Keine Health-Connect-Berechtigung erteilt", Toast.LENGTH_LONG).show()
-                }
-                refresh(forceSettingsRender = true)
-            }
-        }
+        registerForActivityResult(HealthConnectIntegration.permissionContract) { granted -> settingsViewModel.healthPermissionsResult(granted) }
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             PersistentBridgeService.refresh(this)
@@ -124,79 +110,20 @@ class MainActivity : ComponentActivity() {
                 Toast
                     .makeText(
                         this,
-                        "Lokaler Nightscout-Zugriff ist ohne Netzwerkfreigabe nicht möglich",
+                        "Lokaler Nightscout-Zugriff ist ohne Netzwerkfreigabe nicht m\u00f6glich",
                         Toast.LENGTH_LONG,
                     ).show()
             }
         }
     private val settingsExportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-            if (uri == null) return@registerForActivityResult
-            scope.launch(Dispatchers.IO) {
-                val result =
-                    runCatching {
-                        contentResolver.openOutputStream(uri, "wt")?.use { output ->
-                            SettingsBackup.write(applicationContext, output)
-                        } ?: error("Die Datei konnte nicht geöffnet werden")
-                    }
-                withContext(Dispatchers.Main) {
-                    Toast
-                        .makeText(
-                            this@MainActivity,
-                            result.fold(
-                                onSuccess = { "Einstellungen wurden gesichert" },
-                                onFailure = { "Sicherung fehlgeschlagen: ${it.message ?: "Dateifehler"}" },
-                            ),
-                            Toast.LENGTH_LONG,
-                        ).show()
-                }
-            }
+            uri?.let(settingsViewModel::exportSettings)
         }
     private val settingsImportLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) return@registerForActivityResult
-            scope.launch(Dispatchers.IO) {
-                val result =
-                    runCatching {
-                        contentResolver.openInputStream(uri)?.use { input ->
-                            SettingsBackup.restore(applicationContext, input)
-                        } ?: error("Die Datei konnte nicht geöffnet werden")
-                    }
-                result.onSuccess {
-                    runCatching { publishWatchConfig(applicationContext) }
-                    runCatching { syncComplicationPreset(applicationContext, loadComplicationPreset(applicationContext)) }
-                }
-                withContext(Dispatchers.Main) {
-                    result
-                        .onSuccess { restored ->
-                            SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
-                            MobileTrendArrowAppearance.apply(uiPreferences)
-                            PersistentBridgeService.refresh(this@MainActivity)
-                            SugarliciousWidgets.update(applicationContext)
-                            refresh(forceSettingsRender = true)
-                            Toast
-                                .makeText(
-                                    this@MainActivity,
-                                    "${restored.valueCount} Einstellungen wurden wiederhergestellt",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                        }.onFailure { error ->
-                            Toast
-                                .makeText(
-                                    this@MainActivity,
-                                    "Import fehlgeschlagen: ${error.message ?: "ungültige Datei"}",
-                                    Toast.LENGTH_LONG,
-                                ).show()
-                        }
-                }
-            }
+            uri?.let(settingsViewModel::importSettings)
         }
 
-    private val diagnosticsListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            // The state collector already refreshes immediately after writing this stamp.
-            if (key != "mobileObservedAt") runOnUiThread(::refresh)
-        }
     private val uiListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnUiThread {
@@ -290,57 +217,22 @@ class MainActivity : ComponentActivity() {
                 this,
                 DashboardCallbacks(
                     navigate = ::navigate,
-                    setUnit = { uiPreferences.edit { putString("unit", it.name) } },
-                    setDataSource = { uiPreferences.edit { putString("dataSource", it.name) } },
+                    setUnit = { settingsViewModel.setString("unit", it.name) },
+                    setDataSource = { settingsViewModel.setString("dataSource", it.name) },
                     openNightscoutTreatments = { startActivity(Intent(this, NightscoutTreatmentSettingsActivity::class.java)) },
                     openDiagnostics = { startActivity(Intent(this, DiagnosticActivity::class.java)) },
-                    setThemeMode = { uiPreferences.edit { putString("themeMode", it.name) } },
-                    setGlucoseTileDetailMode = {
-                        uiPreferences.edit {
-                            putString(
-                                DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY,
-                                it.name,
-                            )
-                        }
-                    },
-                    setShowCgmGraph = { uiPreferences.edit { putBoolean("showCgmGraph", it) } },
-                    setGraphHours = { hours ->
-                        uiPreferences.edit { putInt("graphHours", hours.takeIf { it in OVERVIEW_GRAPH_HOUR_OPTIONS } ?: 3) }
-                    },
-                    setCgmStream = { key, enabled ->
-                        uiPreferences.edit {
-                            putBoolean(
-                                key,
-                                enabled,
-                            )
-                        }
-                    },
-                    setShowMetabolicGraph = { uiPreferences.edit { putBoolean("showMetabolicGraph", it) } },
-                    setCompact = { uiPreferences.edit { putBoolean("compact", it) } },
+                    setThemeMode = { settingsViewModel.setString("themeMode", it.name) },
+                    setGlucoseTileDetailMode = { settingsViewModel.setString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, it.name) },
+                    setShowCgmGraph = { settingsViewModel.setBoolean("showCgmGraph", it) },
+                    setGraphHours = settingsViewModel::setGraphHours,
+                    setCgmStream = settingsViewModel::setBoolean,
+                    setShowMetabolicGraph = { settingsViewModel.setBoolean("showMetabolicGraph", it) },
+                    setCompact = { settingsViewModel.setBoolean("compact", it) },
                     setLiveNotification = ::setLiveNotification,
-                    setNotificationGraphEnabled = { enabled ->
-                        uiPreferences.edit {
-                            putBoolean(
-                                PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED,
-                                enabled,
-                            )
-                        }
-                    },
-                    setNotificationGraphHours = { hours ->
-                        uiPreferences.edit {
-                            putInt(
-                                PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_HOURS,
-                                hours.coerceIn(1, 3),
-                            )
-                        }
-                    },
+                    setNotificationGraphEnabled = { settingsViewModel.setBoolean(PersistentBridgeService.PREFERENCE_NOTIFICATION_GRAPH_ENABLED, it) },
+                    setNotificationGraphHours = settingsViewModel::setNotificationGraphHours,
                     setWatchFaceIndex = {
-                        uiPreferences.edit {
-                            putInt(
-                                "watchFaceIndex",
-                                it.coerceIn(sugarliciousWatchFaceCards.indices),
-                            )
-                        }
+                        settingsViewModel.setWatchFaceIndex(it)
                         updateTopBar()
                     },
                     syncNow = ::syncNow,
@@ -354,13 +246,36 @@ class MainActivity : ComponentActivity() {
                     openProjectGitHub = ::openProjectGitHub,
                     openContactEmail = ::openContactEmail,
                 ),
+                dashboardState = dashboardViewModel.uiState,
+                settingsViewModel = settingsViewModel,
+                sourceSettingsViewModel = sourceSettingsViewModel,
                 onSettingsPageChanged = {
                     scroll.scrollTo(0, 0)
                     refresh(forceSettingsRender = true)
                 },
             )
         savedInstanceState?.getString("settingsCategory")?.let { category ->
-            factory.restoreSettingsPage(category, savedInstanceState.getString("settingsTitle", "Einstellungen"))
+            if (factory.settingsCategory == null) {
+                factory.restoreSettingsPage(category, savedInstanceState.getString("settingsTitle", "Einstellungen"))
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsViewModel.uiState.collectLatest { state ->
+                    state.message?.let { message ->
+                        settingsViewModel.clearMessage()
+                        refresh(forceSettingsRender = true)
+                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                dashboardViewModel.uiState.collectLatest {
+                    refresh()
+                }
+            }
         }
         bindTopNavigation()
         scroll.setOnScrollChangeListener { _, _, y, _, _ ->
@@ -417,30 +332,11 @@ class MainActivity : ComponentActivity() {
                 openExternal(
                     Intent(Intent.ACTION_VIEW, "market://details?id=${HealthConnectIntegration.PROVIDER_PACKAGE}".toUri()),
                 )
-            else -> Toast.makeText(this, "Health Connect ist auf diesem Gerät nicht verfügbar", Toast.LENGTH_SHORT).show()
+            else -> Toast.makeText(this, "Health Connect ist auf diesem Ger\u00e4t nicht verf\u00fcgbar", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun syncHealthConnect() {
-        scope.launch {
-            val synced = runCatching { HealthConnectIntegration.sync(applicationContext) }.getOrNull()
-            if (synced != null) {
-                SugarliciousWidgets.update(applicationContext)
-                val message =
-                    when (synced.glucoseExport.state) {
-                        HealthConnectExportState.SUCCESS -> "Aktualisiert · ${synced.glucoseExport.acceptedCount} BZ-Werte übertragen"
-                        HealthConnectExportState.NO_DATA -> "Aktualisiert · kein neuer BZ-Wert"
-                        HealthConnectExportState.PERMISSION_MISSING -> "Aktualisiert · BZ-Schreibrecht fehlt"
-                        HealthConnectExportState.FAILED -> "BZ-Export fehlgeschlagen · ${synced.glucoseExport.errorCode}"
-                        HealthConnectExportState.UNAVAILABLE -> "Health Connect nicht verfügbar"
-                    }
-                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this@MainActivity, "Health-Connect-Zugriff fehlt", Toast.LENGTH_SHORT).show()
-            }
-            refresh(forceSettingsRender = true)
-        }
-    }
+    private fun syncHealthConnect() = settingsViewModel.syncHealthConnect()
 
     private fun manageHealthConnect() {
         if (HealthConnectIntegration.availability(this) == HealthConnectClient.SDK_AVAILABLE) {
@@ -495,25 +391,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        diagnostics.registerOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.registerOnSharedPreferenceChangeListener(uiListener)
-        stateObservationJob =
-            scope.launch {
-                TherapyStateStore(this@MainActivity).state.collectLatest {
-                    state = it?.mobilePhoneSourcesOnly()
-                    getSharedPreferences("diagnostics", MODE_PRIVATE).edit {
-                        putLong("mobileObservedAt", System.currentTimeMillis())
-                    }
-                    refresh()
-                }
-            }
-        clockJob =
-            scope.launch {
-                while (true) {
-                    delay(delayUntilNextGraphMinute(System.currentTimeMillis()))
-                    if (::factory.isInitialized) factory.tickOverviewClock(System.currentTimeMillis())
-                }
-            }
         scope.launch(Dispatchers.IO) { runCatching { requestWatchRuntimeStatus(applicationContext) } }
         if (!deferNightscoutSyncForPermissionCheck) {
             scope.launch(Dispatchers.IO) { runCatching { NightscoutTreatmentSync.syncIfDue(applicationContext) } }
@@ -529,7 +407,7 @@ class MainActivity : ComponentActivity() {
             if (canScheduleExactFreshnessAlarm()) {
                 activateLiveNotification()
             } else {
-                uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+                settingsViewModel.setBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
                 PersistentBridgeService.refresh(this)
             }
         }
@@ -538,11 +416,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         if (::factory.isInitialized) factory.clearDataSourceExpansion()
-        clockJob?.cancel()
-        clockJob = null
-        stateObservationJob?.cancel()
-        stateObservationJob = null
-        diagnostics.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
         uiPreferences.unregisterOnSharedPreferenceChangeListener(uiListener)
         super.onStop()
     }
@@ -565,10 +438,9 @@ class MainActivity : ComponentActivity() {
         SugarliciousColors.apply(SugarliciousColorStore.load(uiPreferences))
         MobileTrendArrowAppearance.apply(uiPreferences)
         applyRuntimeColors()
-        val diagnosticState = DiagnosticsSnapshot.read(diagnostics)
         val uiState = DashboardUiPreferences.read(uiPreferences)
         if (screen != DashboardScreen.SETTINGS || forceSettingsRender) {
-            factory.render(content, screen, state, diagnosticState, uiState, System.currentTimeMillis())
+            factory.render(content, screen, dashboardViewModel.uiState.value.therapy, uiState)
         }
         renderFixedWatchHeader()
         updateTopBar()
@@ -629,7 +501,7 @@ class MainActivity : ComponentActivity() {
                 runCatching { startActivity(launch) }
             } else {
                 android.widget.Toast
-                    .makeText(this, "Bitte den Watchface-Editor auf der Uhr öffnen", android.widget.Toast.LENGTH_SHORT)
+                    .makeText(this, "Bitte den Watchface-Editor auf der Uhr \u00f6ffnen", android.widget.Toast.LENGTH_SHORT)
                     .show()
             }
         }
@@ -641,7 +513,7 @@ class MainActivity : ComponentActivity() {
                 runCatching { syncComplicationPreset(applicationContext, ids) }
                     .onSuccess {
                         android.widget.Toast
-                            .makeText(this@MainActivity, "An Watch gesendet · Provider-Zuweisung in der Watch App", android.widget.Toast.LENGTH_LONG)
+                            .makeText(this@MainActivity, "An Watch gesendet \u00b7 Provider-Zuweisung in der Watch App", android.widget.Toast.LENGTH_LONG)
                             .show()
                     }.onFailure {
                         android.widget.Toast
@@ -781,7 +653,9 @@ class MainActivity : ComponentActivity() {
         return maxOf(56.dp, layout.height + 16.dp)
     }
 
-    private fun submenuExpansionView(): android.widget.FrameLayout? = content.findViewWithTag("settings_submenu_expansion")
+    private val settingsContent: LinearLayout get() = factory.settingsBody ?: content
+
+    private fun submenuExpansionView(): android.widget.FrameLayout? = settingsContent.findViewWithTag("settings_submenu_expansion")
 
     private fun submenuExpandedTitleView(): TextView? = submenuExpansionView()?.getChildAt(0) as? TextView
 
@@ -823,7 +697,7 @@ class MainActivity : ComponentActivity() {
         }
         scroll.topPullExpanded = submenuExpansionPx > 0f
         if (submenuExpansionView() == null) {
-            content.addView(
+            settingsContent.addView(
                 android.widget.FrameLayout(this).apply {
                     tag = "settings_submenu_expansion"
                     clipChildren = false
@@ -887,7 +761,7 @@ class MainActivity : ComponentActivity() {
             val density = resources.displayMetrics.density
             val spacer = submenuExpansionView()
             val heading = submenuExpandedTitleView()
-            val firstCard = (0 until content.childCount).map { content.getChildAt(it) }.firstOrNull { it !== spacer && it.isVisible }
+            val firstCard = (0 until settingsContent.childCount).map { settingsContent.getChildAt(it) }.firstOrNull { it !== spacer && it.isVisible }
             val back = findViewById<View>(R.id.top_back)
             val bar = findViewById<View>(R.id.top_app_bar)
             val state =
@@ -895,7 +769,7 @@ class MainActivity : ComponentActivity() {
                     scrollY / density,
                     submenuExpansionPx / density,
                     submenuMaximumExpansionPx() / density,
-                    (firstCard?.top ?: content.paddingTop) / density,
+                    ((firstCard?.top ?: 0) + content.paddingTop) / density,
                     (back.bottom.takeIf { it > 0 } ?: (bar.height / 2 + 24.dp)) / density,
                     submenuExpandedTitleHeightPx() / density,
                 )
@@ -947,8 +821,8 @@ class MainActivity : ComponentActivity() {
                 bar.layoutParams = it
             }
         }
-        val firstCard = (0 until content.childCount).map { content.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
-        val state = settingsScrollHeaderState(scrollY / density, heading.height / density, (firstCard?.top ?: heading.bottom) / density, compact.heightDp)
+        val firstCard = (0 until settingsContent.childCount).map { settingsContent.getChildAt(it) }.firstOrNull { it !== heading && it.isVisible }
+        val state = settingsScrollHeaderState(scrollY / density, heading.height / density, ((firstCard?.top ?: heading.bottom) + content.paddingTop) / density, compact.heightDp)
         heading.alpha = state.titleAlpha
         heading.translationY = state.titleOffsetDp * density
         (heading as? TextView)?.apply {
@@ -992,39 +866,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncNow() {
-        val latest = state
-        if (latest == null) {
-            Toast.makeText(this, "Noch keine gültigen AndroidAPS-Daten vorhanden", Toast.LENGTH_SHORT).show()
-            return
-        }
-        diagnostics.edit { putString("lastSyncStatus", "pending") }
-        scope.launch {
-            runCatching { withTimeout(4.seconds) { publishState(applicationContext, latest) } }
-                .onSuccess {
-                    diagnostics.edit {
-                        putLong("lastSyncAt", System.currentTimeMillis())
-                        putString("lastSyncStatus", "ok")
-                        remove("lastSyncError")
-                    }
-                    Toast.makeText(this@MainActivity, "An Watch übertragen", Toast.LENGTH_SHORT).show()
-                }.onFailure { error ->
-                    diagnostics.edit {
-                        putString("lastSyncStatus", "unavailable")
-                        putString("lastSyncError", error.javaClass.simpleName)
-                    }
-                    Toast.makeText(this@MainActivity, "Keine Watch erreichbar", Toast.LENGTH_SHORT).show()
-                }
-        }
+        settingsViewModel.syncNow(
+            dashboardViewModel.uiState.value
+                .takeIf { it.observationError == null }
+                ?.therapy,
+        )
     }
 
     private fun setLiveNotification(enabled: Boolean) {
         if (!enabled) {
-            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            settingsViewModel.setBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             PersistentBridgeService.refresh(this)
             return
         }
         if (!canScheduleExactFreshnessAlarm()) {
-            uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false) }
+            settingsViewModel.setBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             PersistentBridgeService.refresh(this)
             resumeLiveNotificationSetup = true
             openExternal(
@@ -1039,11 +895,11 @@ class MainActivity : ComponentActivity() {
         Build.VERSION.SDK_INT < 31 || getSystemService(android.app.AlarmManager::class.java).canScheduleExactAlarms()
 
     private fun activateLiveNotification() {
-        uiPreferences.edit { putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true) }
+        settingsViewModel.setBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
         PersistentBridgeService.refresh(this)
         val samsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
         if (Build.VERSION.SDK_INT < 36 && !samsung) {
-            Toast.makeText(this, "Live-Status benötigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Live-Status ben\u00f6tigt Android 16; normale Benachrichtigung bleibt aktiv", Toast.LENGTH_LONG).show()
             return
         }
         requestPromotionAccessIfNeeded()
@@ -1085,7 +941,7 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("BatteryLife")
     private fun requestUnrestrictedBattery() {
         if (AppRuntimeAccess.isIgnoringBatteryOptimizations(this)) {
-            Toast.makeText(this, "Dauerbetrieb ist bereits uneingeschränkt", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Dauerbetrieb ist bereits uneingeschr\u00e4nkt", Toast.LENGTH_SHORT).show()
             return
         }
         runCatching {

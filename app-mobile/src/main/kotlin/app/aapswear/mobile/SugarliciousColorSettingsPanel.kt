@@ -28,12 +28,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,7 +39,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -56,15 +51,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.edit
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
-import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.ArgbColor
 import app.aapswear.model.TrendArrowStyle
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
 
@@ -110,85 +103,40 @@ internal fun SugarliciousColorSettingsPanel(
     themeMode: DashboardThemeMode,
     onThemeModeSelected: (DashboardThemeMode) -> Unit,
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val model = rememberAppearanceSettingsModel("mobile-appearance", AppearanceColorTarget.MOBILE)
+    val uiMode = androidx.compose.ui.platform.LocalConfiguration.current.uiMode
+    LaunchedEffect(themeMode, uiMode) { model.refreshActiveMode() }
+    val state by model.uiState.collectAsStateWithLifecycle()
+    val snapshot =
+        state.snapshot ?: run {
+            AppearanceLoadingOrError(state, model::retry)
+            return
+        }
+    AppearanceLoadingOrError(state, model::retry)
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val preferences =
-        remember {
-            context.getSharedPreferences(
-                "dashboard_ui",
-                Context.MODE_PRIVATE,
-            )
-        }
-
-    var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
-    var palette by remember { mutableStateOf(SugarliciousColorStore.load(preferences, selectedMode)) }
-    var editingRole by remember {
-        mutableStateOf<SugarliciousColorRole?>(null)
-    }
-    var editingTrendColor by remember { mutableStateOf<String?>(null) }
-    var trendStyle by remember(selectedMode) { mutableStateOf(MobileTrendArrowAppearance.load(preferences, selectedMode)) }
-    var watchSyncStatus by remember { mutableStateOf<String?>(null) }
-    var cgmDotRadiusDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(
-            preferences
-                .getFloat(
-                    graphAppearanceKey(selectedMode, "dotRadiusDp"),
-                    preferences.getFloat("cgm.dotRadiusDp", 2.4f),
-                ).coerceIn(1.5f, 6.0f),
-        )
-    }
-    var cgmHistoricalDotOutlineEnabled by remember(showCgmGraph, selectedMode) {
-        mutableStateOf(
-            preferences.getBoolean(
-                graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"),
-                preferences.getBoolean("cgm.dotOutlineEnabled", true),
-            ),
-        )
-    }
-    var cgmHistoricalDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(
-            preferences
-                .getFloat(
-                    graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"),
-                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
-                ).coerceIn(0.25f, 3.0f),
-        )
-    }
-    var cgmCurrentDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(
-            preferences
-                .getFloat(
-                    graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"),
-                    preferences.getFloat("cgm.dotOutlineWidthDp", 0.95f),
-                ).coerceIn(0.25f, 3.0f),
-        )
-    }
-    var predictionDotRadiusDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(readMobilePredictionDotRadius(preferences, selectedMode))
-    }
-    var predictionDotOutlineWidthDp by remember(showCgmGraph, selectedMode) {
-        mutableFloatStateOf(readMobilePredictionDotOutlineWidth(preferences, selectedMode))
-    }
-
-    fun reload() {
-        palette = SugarliciousColorStore.load(preferences, selectedMode)
-        trendStyle = MobileTrendArrowAppearance.load(preferences, selectedMode)
-        if (selectedMode == SugarliciousColorStore.activeMode(preferences)) {
-            SugarliciousColors.apply(palette)
-        }
-    }
+    val selectedMode = snapshot.mode
+    val palette = snapshot.palette
+    var editingRole by AppearanceBinding({ model.uiState.value.editingRole }, model::editColor)
+    var editingTrendColor by AppearanceBinding({ model.uiState.value.editingTrendColor }, model::editTrendColor)
+    var trendStyle by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).trend }, model::setTrend)
+    val watchSyncStatus = state.watchSyncStatus
+    var cgmDotRadiusDp by model.floatBinding(AppearanceFloat.CGM_RADIUS)
+    var cgmHistoricalDotOutlineEnabled by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).historicalOutlineEnabled }, model::setHistoricalOutline)
+    var cgmHistoricalDotOutlineWidthDp by model.floatBinding(AppearanceFloat.HISTORICAL_WIDTH)
+    var cgmCurrentDotOutlineWidthDp by model.floatBinding(AppearanceFloat.CURRENT_WIDTH)
+    var predictionDotRadiusDp by model.floatBinding(AppearanceFloat.PREDICTION_RADIUS)
+    var predictionDotOutlineWidthDp by model.floatBinding(AppearanceFloat.PREDICTION_WIDTH)
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         MobileSettingsObjectCard("Darstellung") {
             OneUiSettingsModeSelector(themeMode, onSelected = onThemeModeSelected)
         }
         MobileSettingsObjectCard("Trendpfeil") {
-            MobileGlucoseElementSize(preferences, selectedMode, trend = true)
+            MobileGlucoseElementSize(model, trend = true)
             ColorSettingRow(null, "Füllfarbe", trendStyle.fillColor, { editingTrendColor = "fill" })
             GraphSettingSwitch("Kontur", "Separate Trendpfeil-Kontur", trendStyle.outlineEnabled) {
                 trendStyle = trendStyle.copy(outlineEnabled = it)
-                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+                model.saveTrend()
             }
             if (trendStyle.outlineEnabled) {
                 ColorSettingRow(null, "Konturfarbe", trendStyle.outlineColor, { editingTrendColor = "outline" })
@@ -205,26 +153,16 @@ internal fun SugarliciousColorSettingsPanel(
                     {
                         trendStyle = trendStyle.copy(outlineThicknessDp = it)
                     },
-                    { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) },
+                    { model.saveTrend() },
                 )
             }
             SugarliciousSettingSlider("Deckkraft", "Trendpfeil", trendStyle.alpha * 100f, 0f..100f, "${(trendStyle.alpha * 100).roundToInt()} %", {
                 trendStyle = trendStyle.copy(alpha = it / 100f)
-            }, { MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle) })
+            }, { model.saveTrend() })
         }
         MobileSettingsObjectCard("Watch-Farben") {
             Button(
-                onClick = {
-                    watchSyncStatus = "Wird gesendet …"
-                    scope.launch {
-                        watchSyncStatus =
-                            runCatching { publishWatchColors(context.applicationContext) }
-                                .fold(
-                                    onSuccess = { "Graphfarben wurden an die Watch gesendet." },
-                                    onFailure = { "Watch-Farben konnten nicht gesendet werden." },
-                                )
-                    }
-                },
+                onClick = model::sendWatchColors,
                 modifier = Modifier.fillMaxWidth(),
                 colors =
                     ButtonDefaults.buttonColors(
@@ -256,7 +194,7 @@ internal fun SugarliciousColorSettingsPanel(
                     valueText = "${String.format(locale, "%.1f", cgmDotRadiusDp)} dp",
                     onValueChange = { cgmDotRadiusDp = it },
                     onValueChangeFinished = {
-                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "dotRadiusDp"), cgmDotRadiusDp) }
+                        model.saveFloat(AppearanceFloat.CGM_RADIUS)
                     },
                 )
 
@@ -266,7 +204,6 @@ internal fun SugarliciousColorSettingsPanel(
                     checked = cgmHistoricalDotOutlineEnabled,
                     onCheckedChange = { enabled ->
                         cgmHistoricalDotOutlineEnabled = enabled
-                        preferences.edit { putBoolean(graphAppearanceKey(selectedMode, "historicalDotOutlineEnabled"), enabled) }
                     },
                 )
 
@@ -279,7 +216,7 @@ internal fun SugarliciousColorSettingsPanel(
                         valueText = "${String.format(locale, "%.2f", cgmHistoricalDotOutlineWidthDp)} dp",
                         onValueChange = { cgmHistoricalDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
                         onValueChangeFinished = {
-                            preferences.edit { putFloat(graphAppearanceKey(selectedMode, "historicalDotOutlineWidthDp"), cgmHistoricalDotOutlineWidthDp) }
+                            model.saveFloat(AppearanceFloat.HISTORICAL_WIDTH)
                         },
                     )
                 }
@@ -292,7 +229,7 @@ internal fun SugarliciousColorSettingsPanel(
                     valueText = "${String.format(locale, "%.2f", cgmCurrentDotOutlineWidthDp)} dp",
                     onValueChange = { cgmCurrentDotOutlineWidthDp = AppearanceControlContract.quantizeDotOutlineWidth(it) },
                     onValueChangeFinished = {
-                        preferences.edit { putFloat(graphAppearanceKey(selectedMode, "currentDotOutlineWidthDp"), cgmCurrentDotOutlineWidthDp) }
+                        model.saveFloat(AppearanceFloat.CURRENT_WIDTH)
                     },
                 )
 
@@ -307,12 +244,7 @@ internal fun SugarliciousColorSettingsPanel(
                     valueText = "${String.format(locale, "%.1f", predictionDotRadiusDp)} dp",
                     onValueChange = { predictionDotRadiusDp = it },
                     onValueChangeFinished = {
-                        preferences.edit {
-                            putFloat(
-                                graphAppearanceKey(selectedMode, "prediction.dotRadiusDp"),
-                                predictionDotRadiusDp,
-                            )
-                        }
+                        model.saveFloat(AppearanceFloat.PREDICTION_RADIUS)
                     },
                 )
 
@@ -324,12 +256,7 @@ internal fun SugarliciousColorSettingsPanel(
                     valueText = "${String.format(locale, "%.2f", predictionDotOutlineWidthDp)} dp",
                     onValueChange = { predictionDotOutlineWidthDp = it },
                     onValueChangeFinished = {
-                        preferences.edit {
-                            putFloat(
-                                graphAppearanceKey(selectedMode, "prediction.dotOutlineWidthDp"),
-                                predictionDotOutlineWidthDp,
-                            )
-                        }
+                        model.saveFloat(AppearanceFloat.PREDICTION_WIDTH)
                     },
                 )
                 AppearanceObjectColorRows("Vorhersagen", palette, showCgmGraph, showMetabolicGraph) { editingRole = it }
@@ -341,7 +268,7 @@ internal fun SugarliciousColorSettingsPanel(
             .forEach { (objectTitle, roles) ->
                 if (showCgmGraph && objectTitle in setOf("CGM-Punkte", "Vorhersagen")) return@forEach
                 MobileSettingsObjectCard(objectTitle) {
-                    if (objectTitle == "Glukosewert") MobileGlucoseElementSize(preferences, selectedMode, trend = false)
+                    if (objectTitle == "Glukosewert") MobileGlucoseElementSize(model, trend = false)
                     roles.forEach { role -> ColorSettingRow(role = role, argb = palette.argb(role), onEdit = { editingRole = role }) }
                 }
             }
@@ -353,22 +280,17 @@ internal fun SugarliciousColorSettingsPanel(
             label = role.label,
             initialArgb = palette.argb(role),
             onReset = {
-                SugarliciousColorStore.reset(preferences, selectedMode, role)
-                reload()
-                palette.argb(role)
+                model.reset(AppearanceReset.COLOR, role = role)
             },
             actions =
                 listOf(
                     ColorPickerAction("Alle Farben zurücksetzen") {
-                        SugarliciousColorStore.resetAll(preferences)
-                        reload()
-                        palette.argb(role)
+                        model.reset(AppearanceReset.ALL_COLORS, role = role)
                     },
                 ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
-                SugarliciousColorStore.save(preferences, selectedMode, role, argb)
-                reload()
+                model.saveColor(role, argb)
             },
         )
     }
@@ -381,7 +303,7 @@ internal fun SugarliciousColorSettingsPanel(
             onDismiss = { editingTrendColor = null },
             onChange = { color ->
                 trendStyle = if (field == "fill") trendStyle.copy(fillColor = color) else trendStyle.copy(outlineColor = color)
-                MobileTrendArrowAppearance.save(preferences, selectedMode, trendStyle)
+                model.saveTrend()
             },
         )
     }
@@ -402,10 +324,9 @@ private fun AppearanceObjectColorRows(
 }
 
 @Composable
-private fun MobileGlucoseElementSize(preferences: android.content.SharedPreferences, mode: AppearanceMode, trend: Boolean) {
-    val key = if (trend) DashboardUiPreferences.MOBILE_TREND_SCALE_KEY else DashboardUiPreferences.MOBILE_GLUCOSE_SCALE_KEY
-    val default = if (trend) DashboardSystemDefaults.TREND_SCALE_PERCENT else app.aapswear.model.GlucoseTrendSizing.DEFAULT_SCALE_PERCENT
-    var size by remember(key, mode) { mutableIntStateOf(preferences.getInt(key, default).coerceIn(app.aapswear.model.GlucoseTrendSizing.MIN_SCALE_PERCENT, app.aapswear.model.GlucoseTrendSizing.MAX_SCALE_PERCENT)) }
+private fun MobileGlucoseElementSize(model: AppearanceSettingsViewModel, trend: Boolean) {
+    val field = if (trend) AppearanceFloat.TREND_SIZE else AppearanceFloat.GLUCOSE_SIZE
+    var size by model.floatBinding(field)
     val minimum =
         app.aapswear.model.GlucoseTrendSizing.MIN_SCALE_PERCENT
             .toFloat()
@@ -417,27 +338,26 @@ private fun MobileGlucoseElementSize(preferences: android.content.SharedPreferen
         if (trend) "Trendpfeil in der Übersicht" else "Glukosewert in der Übersicht",
         size.toFloat(),
         minimum..maximum,
-        "$size %",
-        { size = it.toInt() },
-        { preferences.edit { putInt(key, size) } },
+        "${size.toInt()} %",
+        { size = it.toInt().toFloat() },
+        { model.saveFloat(field) },
     )
 }
 
 @Composable
 internal fun WidgetColorSettingsPanel() {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var revision by remember { mutableIntStateOf(0) }
-    var editingRole by remember { mutableStateOf<WidgetColorRole?>(null) }
-    val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
-    var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
-    var samsungCompact by remember { mutableStateOf(WidgetLayoutSizeStore.isSamsungCompact(context)) }
-    val palette = remember(revision, selectedMode) { WidgetColorStore.load(context, selectedMode) }
-
-    fun refreshWidgets() {
-        revision++
-        scope.launch { SugarliciousWidgets.update(context.applicationContext) }
-    }
+    val model = rememberAppearanceSettingsModel("widget-appearance", AppearanceColorTarget.WIDGET)
+    val state by model.uiState.collectAsStateWithLifecycle()
+    val snapshot =
+        state.snapshot ?: run {
+            AppearanceLoadingOrError(state, model::retry)
+            return
+        }
+    AppearanceLoadingOrError(state, model::retry)
+    var editingRole by AppearanceBinding({ model.uiState.value.editingWidgetRole }, model::editWidgetColor)
+    var selectedMode by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).mode }, model::selectMode)
+    var samsungCompact by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).samsungCompact }, model::setCompact)
+    val palette = snapshot.widgetPalette
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         MobileSettingsObjectCard("Widget-Grunddarstellung") {
@@ -446,8 +366,6 @@ internal fun WidgetColorSettingsPanel() {
                     checked = samsungCompact,
                     onCheckedChange = { enabled ->
                         samsungCompact = enabled
-                        WidgetLayoutSizeStore.setSamsungCompact(context, enabled)
-                        refreshWidgets()
                     },
                 )
                 Column(modifier = Modifier.weight(1f)) {
@@ -482,27 +400,20 @@ internal fun WidgetColorSettingsPanel() {
             label = "Widget: ${role.label}",
             initialArgb = palette.argb(role),
             onReset = {
-                WidgetColorStore.reset(context, selectedMode, role)
-                refreshWidgets()
-                WidgetColorStore.load(context, selectedMode).argb(role)
+                model.reset(AppearanceReset.COLOR, widgetRole = role)
             },
             actions =
                 listOf(
                     ColorPickerAction("Aus Mobile-Graph übernehmen") {
-                        WidgetColorStore.copyFromMobileGraph(context, selectedMode)
-                        refreshWidgets()
-                        WidgetColorStore.load(context, selectedMode).argb(role)
+                        model.reset(AppearanceReset.COPY_MOBILE, widgetRole = role)
                     },
                     ColorPickerAction("Alle Widget-Farben zurücksetzen") {
-                        WidgetColorStore.resetAll(context)
-                        refreshWidgets()
-                        WidgetColorStore.load(context, selectedMode).argb(role)
+                        model.reset(AppearanceReset.ALL_COLORS, widgetRole = role)
                     },
                 ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
-                WidgetColorStore.save(context, selectedMode, role, argb)
-                refreshWidgets()
+                model.saveWidgetColor(role, argb)
             },
         )
     }
@@ -596,8 +507,8 @@ internal fun SugarliciousSettingSlider(
     onValueChange: (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
 ) {
-    var editingValue by remember { mutableStateOf(false) }
-    var enteredValue by remember(value, editingValue) { mutableStateOf(value.toString().trimEnd('0').trimEnd('.')) }
+    val editor = rememberAppearanceEditorModel("appearance-number:$title:$description", AppearanceNumberEditorViewModel::class.java) { AppearanceNumberEditorViewModel() }
+    val editorState by editor.uiState.collectAsStateWithLifecycle()
     Column(
         modifier =
             Modifier
@@ -619,38 +530,33 @@ internal fun SugarliciousSettingSlider(
                 modifier =
                     Modifier
                         .background(OneUiWidgetStyle.action, RoundedCornerShape(10.dp))
-                        .clickable { editingValue = true }
+                        .clickable { editor.open(value) }
                         .padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
         MobileSettingsSeekBar(title, value, valueRange, onValueChange, onValueChangeFinished)
     }
-    if (editingValue) {
+    if (editorState.open) {
         AlertDialog(
-            onDismissRequest = { editingValue = false },
+            onDismissRequest = editor::dismiss,
             title = { Text(title) },
             text = {
                 OutlinedTextField(
-                    value = enteredValue,
-                    onValueChange = { enteredValue = it },
+                    value = editorState.text,
+                    onValueChange = editor::enter,
                     label = { Text("Wert ${valueRange.start} bis ${valueRange.endInclusive}") },
                     singleLine = true,
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
-                    enteredValue
-                        .replace(',', '.')
-                        .toFloatOrNull()
-                        ?.takeIf { it in valueRange }
-                        ?.let {
-                            onValueChange(it)
-                            onValueChangeFinished()
-                            editingValue = false
-                        }
+                    editor.confirm(valueRange)?.let {
+                        onValueChange(it)
+                        onValueChangeFinished()
+                    }
                 }) { Text("ÜBERNEHMEN") }
             },
-            dismissButton = { TextButton(onClick = { editingValue = false }) { Text("ABBRECHEN") } },
+            dismissButton = { TextButton(onClick = editor::dismiss) { Text("ABBRECHEN") } },
         )
     }
 }
@@ -1086,97 +992,40 @@ internal fun AlphaPicker(
 
 @Composable
 internal fun NotificationGraphSettingsPanel() {
-    val context = LocalContext.current
+    val model = rememberAppearanceSettingsModel("notification-appearance", AppearanceColorTarget.NOTIFICATION)
+    val state by model.uiState.collectAsStateWithLifecycle()
+    val snapshot =
+        state.snapshot ?: run {
+            AppearanceLoadingOrError(state, model::retry)
+            return
+        }
+    AppearanceLoadingOrError(state, model::retry)
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val preferences = remember { context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
-    var revision by remember { mutableIntStateOf(0) }
-    var editingRole by remember { mutableStateOf<SugarliciousColorRole?>(null) }
-    var selectedMode by remember { mutableStateOf(SugarliciousColorStore.activeMode(preferences)) }
-    val palette = SugarliciousColorStore.load(preferences, selectedMode)
-    val modePrefix = "notification.color.${selectedMode.storageKey}."
+    var editingRole by AppearanceBinding({ model.uiState.value.editingRole }, model::editColor)
+    var selectedMode by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).mode }, model::selectMode)
 
-    fun key(role: SugarliciousColorRole) = modePrefix + role.preferenceKey
+    fun resolved(role: SugarliciousColorRole) = requireNotNull(model.uiState.value.snapshot).notificationColors.getValue(role)
+    var scaleLaneOpacity by model.floatBinding(AppearanceFloat.NOTIFICATION_SCALE)
+    var collapsedLayout by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationLayouts.getValue(NotificationGraphProfile.COLLAPSED) }, { model.setLayout(NotificationGraphProfile.COLLAPSED, it) })
+    var expandedLayout by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationLayouts.getValue(NotificationGraphProfile.EXPANDED) }, { model.setLayout(NotificationGraphProfile.EXPANDED, it) })
+    var collapsedRadius by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.COLLAPSED).cgmRadiusDp }, { value -> model.updateDots(NotificationGraphProfile.COLLAPSED) { it.copy(cgmRadiusDp = value) } })
+    var collapsedOutlineEnabled by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.COLLAPSED).historicalOutlineEnabled }, { value -> model.updateDots(NotificationGraphProfile.COLLAPSED) { it.copy(historicalOutlineEnabled = value) } })
+    var collapsedOutlineWidth by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.COLLAPSED).historicalOutlineWidthDp }, { value -> model.updateDots(NotificationGraphProfile.COLLAPSED) { it.copy(historicalOutlineWidthDp = value) } })
+    var collapsedCurrentOutlineWidth by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.COLLAPSED).currentOutlineWidthDp }, { value -> model.updateDots(NotificationGraphProfile.COLLAPSED) { it.copy(currentOutlineWidthDp = value) } })
+    var expandedRadius by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.EXPANDED).cgmRadiusDp }, { value -> model.updateDots(NotificationGraphProfile.EXPANDED) { it.copy(cgmRadiusDp = value) } })
+    var expandedOutlineEnabled by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.EXPANDED).historicalOutlineEnabled }, { value -> model.updateDots(NotificationGraphProfile.EXPANDED) { it.copy(historicalOutlineEnabled = value) } })
+    var expandedOutlineWidth by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.EXPANDED).historicalOutlineWidthDp }, { value -> model.updateDots(NotificationGraphProfile.EXPANDED) { it.copy(historicalOutlineWidthDp = value) } })
+    var expandedCurrentOutlineWidth by AppearanceBinding({ requireNotNull(model.uiState.value.snapshot).notificationDots.getValue(NotificationGraphProfile.EXPANDED).currentOutlineWidthDp }, { value -> model.updateDots(NotificationGraphProfile.EXPANDED) { it.copy(currentOutlineWidthDp = value) } })
 
-    fun legacyOverrideKey(role: SugarliciousColorRole) = "notification.color.override." + role.preferenceKey
+    fun saveCollapsed() = model.saveDots(NotificationGraphProfile.COLLAPSED)
 
-    fun resolved(role: SugarliciousColorRole): Int =
-        when {
-            preferences.contains(key(role)) -> preferences.getInt(key(role), palette.argb(role))
-            else -> NotificationGraphColorDefaults.argb(palette, role)
-        }
-
-    val collapsedInitial =
-        remember(revision, selectedMode) {
-            NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
-        }
-    val expandedInitial =
-        remember(revision, selectedMode) {
-            NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.EXPANDED)
-        }
-    var collapsedRadius by remember(revision) { mutableFloatStateOf(collapsedInitial.cgmRadiusDp) }
-    var collapsedOutlineEnabled by remember(revision) { mutableStateOf(collapsedInitial.historicalOutlineEnabled) }
-    var collapsedOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.historicalOutlineWidthDp) }
-    var collapsedCurrentOutlineWidth by remember(revision) { mutableFloatStateOf(collapsedInitial.currentOutlineWidthDp) }
-    var expandedRadius by remember(revision) { mutableFloatStateOf(expandedInitial.cgmRadiusDp) }
-    var expandedOutlineEnabled by remember(revision) { mutableStateOf(expandedInitial.historicalOutlineEnabled) }
-    var expandedOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.historicalOutlineWidthDp) }
-    var expandedCurrentOutlineWidth by remember(revision) { mutableFloatStateOf(expandedInitial.currentOutlineWidthDp) }
-    var scaleLaneOpacity by remember(revision) {
-        mutableFloatStateOf(preferences.getInt("notification.graph.scale_lane_opacity_percent", 30).toFloat())
-    }
-    var collapsedLayout by remember(revision) {
-        mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.COLLAPSED))
-    }
-    var expandedLayout by remember(revision) {
-        mutableStateOf(NotificationLayoutSettingsStore.read(preferences, NotificationGraphProfile.EXPANDED))
-    }
-
-    fun saveLayout(
-        profile: NotificationGraphProfile,
-        value: NotificationLayoutSettings,
-    ) {
-        NotificationLayoutSettingsStore.save(preferences, profile, value)
-        PersistentBridgeService.refresh(context)
-    }
-
-    fun saveCollapsed() {
-        NotificationGraphDotStyleStore.save(
-            preferences,
-            selectedMode,
-            NotificationGraphProfile.COLLAPSED,
-            NotificationGraphDotStyle(collapsedRadius, collapsedOutlineEnabled, collapsedOutlineWidth, collapsedOutlineEnabled, collapsedOutlineWidth, collapsedCurrentOutlineWidth),
-        )
-    }
-
-    fun saveExpanded() {
-        NotificationGraphDotStyleStore.save(
-            preferences,
-            selectedMode,
-            NotificationGraphProfile.EXPANDED,
-            NotificationGraphDotStyle(expandedRadius, expandedOutlineEnabled, expandedOutlineWidth, expandedOutlineEnabled, expandedOutlineWidth, expandedCurrentOutlineWidth),
-        )
-    }
-
-    val roles =
-        listOf(
-            SugarliciousColorRole.CGM_DOT_LOW,
-            SugarliciousColorRole.CGM_DOT_IN_RANGE,
-            SugarliciousColorRole.CGM_DOT_HIGH,
-            SugarliciousColorRole.GRAPH_CURRENT_OUTLINE,
-            SugarliciousColorRole.GRAPH_BACKGROUND,
-            SugarliciousColorRole.GRAPH_DIVIDER,
-            SugarliciousColorRole.RANGE_LOW,
-            SugarliciousColorRole.RANGE_IN_RANGE,
-            SugarliciousColorRole.RANGE_HIGH,
-            SugarliciousColorRole.TARGET_VALUE,
-            SugarliciousColorRole.GRAPH_SIGNAL_LOSS,
-        )
+    fun saveExpanded() = model.saveDots(NotificationGraphProfile.EXPANDED)
+    val roles = notificationAppearanceRoles
 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         MobileSettingsObjectCard("Benachrichtigung · Darstellung") {
             AppearanceModeSelector(selectedMode) {
                 selectedMode = it
-                revision++
             }
 
             Text(
@@ -1194,8 +1043,7 @@ internal fun NotificationGraphSettingsPanel() {
                 "${scaleLaneOpacity.roundToInt()} %",
                 { value ->
                     scaleLaneOpacity = value
-                    preferences.edit { putInt("notification.graph.scale_lane_opacity_percent", value.roundToInt()) }
-                    PersistentBridgeService.refresh(context)
+                    model.saveFloat(AppearanceFloat.NOTIFICATION_SCALE)
                 },
                 {},
             )
@@ -1212,7 +1060,6 @@ internal fun NotificationGraphSettingsPanel() {
             value = collapsedLayout,
             onChange = {
                 collapsedLayout = it
-                saveLayout(NotificationGraphProfile.COLLAPSED, it)
             },
         )
         MobileSettingsObjectCard("Eingeklappt · CGM-Punkte") {
@@ -1267,7 +1114,6 @@ internal fun NotificationGraphSettingsPanel() {
             value = expandedLayout,
             onChange = {
                 expandedLayout = it
-                saveLayout(NotificationGraphProfile.EXPANDED, it)
             },
         )
         MobileSettingsObjectCard("Ausgeklappt · CGM-Punkte") {
@@ -1312,12 +1158,7 @@ internal fun NotificationGraphSettingsPanel() {
         }
         TextButton(
             onClick = {
-                val copied = NotificationGraphDotStyleStore.read(preferences, selectedMode, NotificationGraphProfile.COLLAPSED)
-                NotificationGraphDotStyleStore.save(preferences, selectedMode, NotificationGraphProfile.EXPANDED, copied)
-                expandedRadius = copied.cgmRadiusDp
-                expandedOutlineEnabled = copied.historicalOutlineEnabled
-                expandedOutlineWidth = copied.historicalOutlineWidthDp
-                expandedCurrentOutlineWidth = copied.currentOutlineWidthDp
+                model.copyCollapsedDots()
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -1337,38 +1178,20 @@ internal fun NotificationGraphSettingsPanel() {
             label = role.label,
             initialArgb = resolved(role),
             onReset = {
-                preferences.edit {
-                    remove(key(role))
-                    remove(legacyOverrideKey(role))
-                }
-                revision++
-                resolved(role)
+                model.reset(AppearanceReset.COLOR, role = role)
             },
             actions =
                 listOf(
                     ColorPickerAction("Farben aus Mobile übernehmen") {
-                        preferences.edit {
-                            roles.forEach { source -> putInt(key(source), palette.argb(source)) }
-                        }
-                        revision++
-                        resolved(role)
+                        model.reset(AppearanceReset.COPY_MOBILE, role = role)
                     },
                     ColorPickerAction("Notification-Graph zurücksetzen") {
-                        NotificationGraphDotStyleStore.resetProfiles(preferences)
-                        preferences.edit {
-                            roles.forEach {
-                                remove(key(it))
-                                remove(legacyOverrideKey(it))
-                            }
-                        }
-                        revision++
-                        resolved(role)
+                        model.reset(AppearanceReset.NOTIFICATION_GRAPH, role = role)
                     },
                 ),
             onDismiss = { editingRole = null },
             onChange = { argb ->
-                preferences.edit { putInt(key(role), argb) }
-                revision++
+                model.saveColor(role, argb)
             },
         )
     }
@@ -1435,4 +1258,13 @@ internal fun copyWidgetColorHex(context: android.content.Context, argb: Int) {
     context
         .getSystemService(android.content.ClipboardManager::class.java)
         .setPrimaryClip(android.content.ClipData.newPlainText("HEX", toHex(argb)))
+}
+
+@Composable
+private fun AppearanceLoadingOrError(state: AppearanceSettingsUiState, retry: () -> Unit) {
+    if (state.error == AppearanceSettingsError.STORAGE) {
+        TextButton(onClick = retry) { Text("Einstellungen konnten nicht geladen oder gespeichert werden. Erneut versuchen", color = OneUiWidgetStyle.primary) }
+    } else if (state.snapshot == null) {
+        Text("Einstellungen werden geladen ...", color = OneUiWidgetStyle.secondary)
+    }
 }

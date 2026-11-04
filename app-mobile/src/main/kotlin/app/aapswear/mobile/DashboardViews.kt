@@ -10,9 +10,10 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
-import androidx.core.content.edit
+import androidx.compose.runtime.getValue
 import androidx.core.view.isNotEmpty
 import androidx.core.view.isVisible
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.mobile.ui.theme.SugarliciousColorRole
 import app.aapswear.mobile.ui.theme.SugarliciousColors
 import app.aapswear.mobile.ui.theme.SugarliciousTheme
@@ -22,6 +23,7 @@ import app.aapswear.model.GlucoseTrendSizing
 import app.aapswear.model.GlucoseUnit
 import app.aapswear.model.PredictionKind
 import app.aapswear.model.TherapyDisplayState
+import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 
 enum class DashboardScreen { OVERVIEW, WATCH, SETTINGS }
@@ -316,37 +318,30 @@ data class DashboardCallbacks(
     val openContactEmail: () -> Unit,
 )
 
-class DashboardViewFactory(
+internal class DashboardViewFactory(
     private val context: Context,
     private val callbacks: DashboardCallbacks,
     private val onSettingsPageChanged: () -> Unit = {},
+    private val dashboardState: StateFlow<DashboardUiState>,
+    private val settingsViewModel: MobileSettingsViewModel,
+    private val sourceSettingsViewModel: MobileSourceSettingsViewModel,
 ) {
-    private data class ComposeRenderState(
-        val state: TherapyDisplayState?,
-        val diagnostics: DiagnosticsSnapshot,
-        val preferences: DashboardUiPreferences,
-        val now: Long,
-    )
-
-    private val overviewRenderState = androidx.compose.runtime.mutableStateOf<ComposeRenderState?>(null)
-    private val watchRenderState = androidx.compose.runtime.mutableStateOf<ComposeRenderState?>(null)
     private var activeComposeScreen: DashboardScreen? = null
     private var activeComposeView: androidx.compose.ui.platform.ComposeView? = null
-    private var notificationGraphSettingsExpanded = false
+    private val settingsState get() = settingsViewModel.uiState.value
+    private val notificationGraphSettingsExpanded get() = settingsState.notificationGraphExpanded
+    val settingsTitle: String get() = settingsState.title
+    val settingsIsRoot: Boolean get() = settingsState.category == null
+    val settingsCategory: String? get() = settingsState.category
+    private var renderedSettingsPreferences: DashboardUiPreferences? = null
+    var settingsBody: LinearLayout? = null
+        private set
 
-    // The settings renderer replaces ComposeViews after preference changes.
-    // Keep page-local expansion above those disposable compositions.
-    private val expandedDataSources = androidx.compose.runtime.mutableStateMapOf<String, Boolean>()
-    private val settingsNavigation = MobileSettingsNavigation()
-    val settingsTitle: String get() = settingsNavigation.title
-    val settingsIsRoot: Boolean get() = settingsNavigation.category == null
-    val settingsCategory: String? get() = settingsNavigation.category
+    fun clearDataSourceExpansion() = settingsViewModel.clearDataSourceExpansion()
 
-    fun clearDataSourceExpansion() = expandedDataSources.clear()
+    fun restoreSettingsPage(category: String, title: String) = settingsViewModel.open(category, title)
 
-    fun restoreSettingsPage(category: String, title: String) = settingsNavigation.open(category, title)
-
-    fun backWithinSettings(): Boolean = settingsNavigation.back()
+    fun backWithinSettings(): Boolean = settingsViewModel.back()
 
     private val density = context.resources.displayMetrics.density
     private val text: Int get() = MobileSettingsStyle.text(SugarliciousColors.palette.isLight)
@@ -354,56 +349,41 @@ class DashboardViewFactory(
     private val accent: Int get() =
         app.aapswear.mobile.ui.theme
             .mobileMenuAccentArgb(context, dark = !SugarliciousColors.palette.isLight)
-    private val dashboardPreferences: SharedPreferences by lazy {
-        context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)
-    }
-
-    /** Advances only the visible Overview clock; no data reload or background renderer wakes. */
-    fun tickOverviewClock(nowEpochMs: Long) {
-        if (activeComposeScreen != DashboardScreen.OVERVIEW) return
-        overviewRenderState.value = overviewRenderState.value?.copy(now = nowEpochMs)
-    }
 
     fun render(
         parent: LinearLayout,
         screen: DashboardScreen,
         state: TherapyDisplayState?,
-        diagnostics: DiagnosticsSnapshot,
         preferences: DashboardUiPreferences,
-        now: Long,
     ) {
-        if (screen != DashboardScreen.SETTINGS || settingsCategory != "general") expandedDataSources.clear()
+        if (screen != DashboardScreen.SETTINGS || settingsCategory != "general") settingsViewModel.clearDataSourceExpansion()
         when (screen) {
-            DashboardScreen.OVERVIEW -> renderOverview(parent, state, diagnostics, preferences, now)
-            DashboardScreen.WATCH -> renderWatch(parent, state, diagnostics, preferences, now)
+            DashboardScreen.OVERVIEW -> renderOverview(parent)
+            DashboardScreen.WATCH -> renderWatch(parent)
             DashboardScreen.SETTINGS -> renderSettings(parent, state, preferences)
         }
     }
 
     private fun renderOverview(
         parent: LinearLayout,
-        state: TherapyDisplayState?,
-        diagnostics: DiagnosticsSnapshot,
-        preferences: DashboardUiPreferences,
-        now: Long,
     ) {
         collapseSettingsSections()
-        overviewRenderState.value = ComposeRenderState(state, diagnostics, preferences, now)
         if (activeComposeScreen == DashboardScreen.OVERVIEW && activeComposeView?.parent === parent) return
         parent.removeAllViews()
-        watchRenderState.value = null
         val composeView =
             androidx.compose.ui.platform.ComposeView(context).apply {
                 setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
                 setContent {
                     SugarliciousTheme {
-                        overviewRenderState.value?.let { rendered ->
+                        val rendered by dashboardState.collectAsStateWithLifecycle()
+                        run {
                             SugarliciousOverviewScreen(
-                                state = rendered.state,
+                                state = rendered.therapy,
                                 diagnostics = rendered.diagnostics,
                                 preferences = rendered.preferences,
-                                now = rendered.now,
+                                now = rendered.nowEpochMs,
                                 callbacks = callbacks,
+                                observationError = rendered.observationError,
                             )
                         }
                     }
@@ -416,25 +396,20 @@ class DashboardViewFactory(
 
     private fun renderWatch(
         parent: LinearLayout,
-        state: TherapyDisplayState?,
-        diagnostics: DiagnosticsSnapshot,
-        preferences: DashboardUiPreferences,
-        now: Long,
     ) {
         collapseSettingsSections()
-        watchRenderState.value = ComposeRenderState(state, diagnostics, preferences, now)
         if (activeComposeScreen == DashboardScreen.WATCH && activeComposeView?.parent === parent) return
         parent.removeAllViews()
-        overviewRenderState.value = null
         val composeView =
             androidx.compose.ui.platform.ComposeView(context).apply {
                 setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
                 setContent {
                     SugarliciousTheme {
-                        watchRenderState.value?.let { rendered ->
+                        val rendered by dashboardState.collectAsStateWithLifecycle()
+                        run {
                             OneUiWidgetSettingsTheme(dark = !SugarliciousColors.palette.isLight) {
                                 SugarliciousWatchScreen(
-                                    state = rendered.state,
+                                    state = rendered.therapy,
                                     preferences = rendered.preferences,
                                     diagnostics = rendered.diagnostics,
                                     onSelectedFace = callbacks.setWatchFaceIndex,
@@ -483,11 +458,45 @@ class DashboardViewFactory(
         state: TherapyDisplayState?,
         preferences: DashboardUiPreferences,
     ) {
+        if (activeComposeScreen == DashboardScreen.SETTINGS && activeComposeView?.parent === parent) {
+            settingsBody?.let { renderSettingsControls(it, state, preferences) }
+            return
+        }
         parent.removeAllViews()
-        overviewRenderState.value = null
-        watchRenderState.value = null
-        activeComposeScreen = null
-        activeComposeView = null
+        val nativeBody =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                clipChildren = false
+                clipToPadding = false
+            }
+        settingsBody = nativeBody
+        renderSettingsControls(nativeBody, state, preferences)
+        val host =
+            androidx.compose.ui.platform.ComposeView(context).apply {
+                setViewCompositionStrategy(androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                setContent {
+                    val page by settingsViewModel.uiState.collectAsStateWithLifecycle()
+                    val rendered by dashboardState.collectAsStateWithLifecycle()
+                    // Navigation and expansion are retained above the disposable rendering adapters.
+                    androidx.compose.runtime.LaunchedEffect(page.category) { onSettingsPageChanged() }
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { nativeBody },
+                        update = { body ->
+                            if (renderedSettingsPreferences != rendered.preferences) {
+                                renderSettingsControls(body, rendered.therapy, rendered.preferences)
+                            }
+                        },
+                    )
+                }
+            }
+        parent.addView(host, fullWidth())
+        activeComposeView = host
+        activeComposeScreen = DashboardScreen.SETTINGS
+    }
+
+    private fun renderSettingsControls(parent: LinearLayout, state: TherapyDisplayState?, preferences: DashboardUiPreferences) {
+        renderedSettingsPreferences = preferences
+        parent.removeAllViews()
         if (settingsIsRoot) parent.addView(screenTitle("Einstellungen").apply { tag = "settings_scroll_title" })
 
         val colorContainer =
@@ -538,7 +547,7 @@ class DashboardViewFactory(
             }
 
         addSettingsCategory(parent, "general", "Datenquellen", R.drawable.ic_settings) {
-            addView(composeSettingsControl { MobileDataSourceSettingsPanel(expandedDataSources) }.apply { tag = "mobile-data-sources" }, cardParams(top = 8))
+            addView(composeSettingsControl { MobileDataSourceSettingsPanel(settingsViewModel, sourceSettingsViewModel) }.apply { tag = "mobile-data-sources" }, cardParams(top = 8))
             addView(
                 tile(null).apply {
                     addView(settingsGroupLabel("WATCH-VERBINDUNG"))
@@ -575,7 +584,7 @@ class DashboardViewFactory(
                         valueFormatter = { formatThreshold(thresholdFromUi(it, selectedThresholdUnit), selectedThresholdUnit) },
                     ) { entered ->
                         val mgDl = thresholdFromUi(entered, selectedThresholdUnit)
-                        CgmThresholdPreferences.save(dashboardPreferences, update(mgDl))
+                        settingsViewModel.saveThresholds(update(mgDl))
                     }
                     addView(
                         thresholdRow(
@@ -649,7 +658,7 @@ class DashboardViewFactory(
                         addView(divider())
                         addView(
                             actionRow("CGM-Graph", "Anpassen") {
-                                notificationGraphSettingsExpanded = !notificationGraphSettingsExpanded
+                                settingsViewModel.toggleNotificationGraph()
                                 notificationGraphCustomization.visibility =
                                     if (notificationGraphSettingsExpanded) View.VISIBLE else View.GONE
                             },
@@ -680,7 +689,7 @@ class DashboardViewFactory(
                         Triple("Time in Tight Range", "overview.showTitr", preferences.showTitr),
                         Triple("Therapie-Progressbars", "overview.showTherapyProgress", preferences.showTherapyProgress),
                     ).forEach { (label, key, enabled) ->
-                        addView(switchRowCompact(label, enabled, View.generateViewId()) { dashboardPreferences.edit { putBoolean(key, it) } })
+                        addView(switchRowCompact(label, enabled, View.generateViewId()) { settingsViewModel.setBoolean(key, it) })
                     }
                     if (preferences.showTherapyProgress) {
                         addView(divider())
@@ -692,7 +701,7 @@ class DashboardViewFactory(
                                 minimum = 0f,
                                 maximum = 30f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
-                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) } },
+                            ) { settingsViewModel.setFloat(DashboardUiPreferences.IOB_PROGRESS_MAXIMUM_KEY, it) },
                         )
                         addView(divider())
                         addView(settingsGroupLabel("COB-ANZEIGE"))
@@ -703,7 +712,7 @@ class DashboardViewFactory(
                                 minimum = 10f,
                                 maximum = 500f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
-                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, it) } },
+                            ) { settingsViewModel.setFloat(DashboardUiPreferences.COB_PROGRESS_MAXIMUM_KEY, it) },
                         )
                     }
                     addView(divider())
@@ -729,12 +738,10 @@ class DashboardViewFactory(
                                         },
                                         preferences.graphScaleMode == mode,
                                     ) {
-                                        dashboardPreferences.edit {
-                                            putString(
-                                                DashboardUiPreferences.GRAPH_SCALE_MODE_KEY,
-                                                mode.name,
-                                            )
-                                        }
+                                        settingsViewModel.setString(
+                                            DashboardUiPreferences.GRAPH_SCALE_MODE_KEY,
+                                            mode.name,
+                                        )
                                     }
                                 },
                             ),
@@ -752,12 +759,10 @@ class DashboardViewFactory(
                                     maximum = thresholdForUi(600.0, graphUnit),
                                     valueFormatter = { formatThreshold(thresholdFromUi(it, graphUnit), graphUnit) },
                                 ) { entered ->
-                                    dashboardPreferences.edit {
-                                        putFloat(
-                                            DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
-                                            thresholdFromUi(entered, graphUnit).toFloat(),
-                                        )
-                                    }
+                                    settingsViewModel.setFloat(
+                                        DashboardUiPreferences.GRAPH_MAXIMUM_KEY,
+                                        thresholdFromUi(entered, graphUnit).toFloat(),
+                                    )
                                 },
                             )
                         }
@@ -806,9 +811,7 @@ class DashboardViewFactory(
                                 "IOB-Skalierung",
                                 CgmGraphScaleMode.entries.map { mode ->
                                     Triple(graphScaleModeLabel(mode), preferences.iobGraphScaleMode == mode) {
-                                        dashboardPreferences.edit {
-                                            putString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, mode.name)
-                                        }
+                                        settingsViewModel.setString(DashboardUiPreferences.IOB_GRAPH_SCALE_MODE_KEY, mode.name)
                                     }
                                 },
                             ),
@@ -821,7 +824,7 @@ class DashboardViewFactory(
                                 minimum = 1f,
                                 maximum = 30f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.1f U", it) },
-                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, it) } },
+                            ) { settingsViewModel.setFloat(DashboardUiPreferences.IOB_GRAPH_MAXIMUM_KEY, it) },
                         )
                         addView(divider())
                         addView(settingsGroupLabel("COB-GRAPH"))
@@ -830,9 +833,7 @@ class DashboardViewFactory(
                                 "COB-Skalierung",
                                 CgmGraphScaleMode.entries.map { mode ->
                                     Triple(graphScaleModeLabel(mode), preferences.cobGraphScaleMode == mode) {
-                                        dashboardPreferences.edit {
-                                            putString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, mode.name)
-                                        }
+                                        settingsViewModel.setString(DashboardUiPreferences.COB_GRAPH_SCALE_MODE_KEY, mode.name)
                                     }
                                 },
                             ),
@@ -845,21 +846,13 @@ class DashboardViewFactory(
                                 minimum = 10f,
                                 maximum = 500f,
                                 valueFormatter = { String.format(Locale.GERMANY, "%.0f g", it) },
-                            ) { dashboardPreferences.edit { putFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, it) } },
+                            ) { settingsViewModel.setFloat(DashboardUiPreferences.COB_GRAPH_MAXIMUM_KEY, it) },
                         )
                         addView(divider())
                         addView(settingsGroupLabel("VORHERSAGEN"))
                         addView(
                             switchRowCompact("Vorhersagen", preferences.showCgmPredictions, View.generateViewId()) { enabled ->
-                                dashboardPreferences.edit {
-                                    putBoolean("showPredictions", enabled)
-                                    if (enabled) {
-                                        putBoolean("cgm.prediction.iob", true)
-                                        putBoolean("cgm.prediction.cob", true)
-                                        putBoolean("cgm.prediction.uam", true)
-                                        putBoolean("cgm.prediction.zeroTemp", true)
-                                    }
-                                }
+                                settingsViewModel.setPredictions(enabled)
                             },
                         )
                         addView(divider())
@@ -1035,8 +1028,7 @@ class DashboardViewFactory(
     }
 
     private fun collapseSettingsSections() {
-        notificationGraphSettingsExpanded = false
-        settingsNavigation.back()
+        settingsViewModel.collapse()
     }
 
     private fun aboutCard(): View =
@@ -1120,7 +1112,7 @@ class DashboardViewFactory(
         buildContent: LinearLayout.() -> Unit,
     ) {
         if (!settingsIsRoot) {
-            if (settingsNavigation.category == key) {
+            if (settingsCategory == key) {
                 parent.addView(
                     LinearLayout(context).apply {
                         orientation = LinearLayout.VERTICAL
@@ -1155,7 +1147,7 @@ class DashboardViewFactory(
                 )
                 addView(value(title, text, 16f, 2), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
                 setOnClickListener {
-                    settingsNavigation.open(key, title)
+                    settingsViewModel.open(key, title)
                     onSettingsPageChanged()
                 }
             }

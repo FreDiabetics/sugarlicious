@@ -26,15 +26,16 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -43,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.model.ArgbColor
 import kotlin.math.roundToInt
 import android.graphics.Color as AndroidColor
@@ -114,14 +116,23 @@ internal fun OneUiWidgetColorPicker(
     actions: List<ColorPickerAction> = emptyList(),
 ) {
     val context = LocalContext.current
-    val openingArgb = remember(label) { initialArgb }
-    var selected by remember(label) { mutableStateOf(WidgetPickerColor.fromArgb(openingArgb)) }
-    var hex by remember(label) { mutableStateOf(ArgbColor.format(openingArgb)) }
-    var spectrum by remember(label) { mutableStateOf(false) }
+    val hostOwner = appearanceViewModelStoreOwner(LocalView.current, context)
+    val model = rememberAppearanceEditorModel("appearance-color:$label", AppearanceColorEditorViewModel::class.java) { AppearanceColorEditorViewModel(initialArgb) }
+    val state by model.uiState.collectAsStateWithLifecycle()
+    val openingArgb = state.openingArgb
+    val selected = state.selected
+    val hex = state.hex
+    val spectrum = state.spectrum
+    LaunchedEffect(model) { model.open(initialArgb) }
+    LaunchedEffect(initialArgb) { model.syncExternal(initialArgb) }
+    DisposableEffect(model) {
+        onDispose {
+            if ((hostOwner as? androidx.activity.ComponentActivity)?.isChangingConfigurations != true) model.close()
+        }
+    }
 
     fun update(value: WidgetPickerColor) {
-        selected = value
-        hex = ArgbColor.format(value.argb)
+        model.update(value)
         onChange(value.argb)
     }
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -158,7 +169,7 @@ internal fun OneUiWidgetColorPicker(
                                     .height(44.dp)
                                     .clip(RoundedCornerShape(22.dp))
                                     .background(if (active) colors.accent.copy(alpha = .2f) else Color.Transparent)
-                                    .selectable(active, role = Role.Tab) { spectrum = index == 1 },
+                                    .selectable(active, role = Role.Tab) { model.setSpectrum(index == 1) },
                                 contentAlignment = Alignment.Center,
                             ) { Text(title, color = if (active) colors.accent else colors.secondary, fontSize = 14.sp) }
                         }
@@ -174,16 +185,9 @@ internal fun OneUiWidgetColorPicker(
                     OutlinedTextField(
                         value = hex,
                         onValueChange = {
-                            hex =
-                                it
-                                    .trim()
-                                    .uppercase()
-                                    .let { text -> if (text.startsWith("#")) text else "#$text" }
-                                    .take(9)
-                            ArgbColor.parse(hex)?.let { color ->
-                                selected = WidgetPickerColor.fromArgb(color)
-                                onChange(color)
-                            }
+                            model.enterHex(it)
+                            model.uiState.value.parsedHex
+                                ?.let(onChange)
                         },
                         label = { Text("HEX · AARRGGBB") },
                         singleLine = true,
@@ -195,16 +199,14 @@ internal fun OneUiWidgetColorPicker(
                     }
                     actions.forEach { action ->
                         OneUiResetIcon(onClick = {
-                            selected = WidgetPickerColor.fromArgb(action.run())
-                            hex = ArgbColor.format(selected.argb)
+                            model.update(WidgetPickerColor.fromArgb(action.run()))
                         }, description = action.label)
                     }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     OneUiResetIcon(onClick = {
                         if (onReset != null) {
-                            selected = WidgetPickerColor.fromArgb(onReset())
-                            hex = ArgbColor.format(selected.argb)
+                            model.update(WidgetPickerColor.fromArgb(onReset()))
                         } else {
                             resetArgb?.let { update(WidgetPickerColor.fromArgb(it)) }
                         }

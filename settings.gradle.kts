@@ -33,4 +33,5 @@ include(
     ":tools:aaps-cwf-parser",
     ":tools:wff-generator",
     ":tools:screenshot-comparator",
+    ":tools:maintenance",
 )

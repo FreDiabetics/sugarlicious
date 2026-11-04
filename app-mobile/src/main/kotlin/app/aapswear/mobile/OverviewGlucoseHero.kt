@@ -192,17 +192,21 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, stats: Me
                     }
                 }
             }
-            if (distribution != null) {
-                drawRoundRect(gradient, cornerRadius = CornerRadius(size.height / 2f), alpha = .30f)
-            }
-            if (distribution == null) {
-                drawRoundRect(SugarliciousColors.TextSecondary.copy(alpha = .25f), cornerRadius = CornerRadius(size.height / 2f))
-            } else if (fraction == null) {
+            drawRoundRect(Color(glucoseBarTrackArgb(SugarliciousColors.argb(app.aapswear.mobile.ui.theme.SugarliciousColorRole.SURFACE))), cornerRadius = CornerRadius(size.height / 2f))
+            if (distribution != null && fraction == null) {
                 drawRoundRect(gradient, cornerRadius = CornerRadius(size.height / 2f), alpha = .35f)
-            } else {
+            } else if (distribution != null) {
                 segment(0f, (marker - gap / 2f).coerceAtLeast(0f))
                 segment((marker + gap / 2f).coerceAtMost(size.width), size.width)
             }
         }
     }
+}
+
+private const val GLUCOSE_TRACK_LIGHTENING_FRACTION = .20f
+
+internal fun glucoseBarTrackArgb(tileArgb: Int): Int {
+    val base = maxOf((tileArgb ushr 16) and 0xff, (tileArgb ushr 8) and 0xff, tileArgb and 0xff)
+    val gray = (base + maxOf(1, ((255 - base) * GLUCOSE_TRACK_LIGHTENING_FRACTION).toInt())).coerceAtMost(255)
+    return (0xff shl 24) or (gray shl 16) or (gray shl 8) or gray
 }

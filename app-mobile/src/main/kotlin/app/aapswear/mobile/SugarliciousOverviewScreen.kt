@@ -67,6 +67,7 @@ internal fun SugarliciousOverviewScreen(
     preferences: DashboardUiPreferences,
     now: Long,
     callbacks: DashboardCallbacks,
+    observationError: DashboardObservationError? = null,
 ) {
     val unit = preferences.unitFor(state)
     val glucose = state?.glucose
@@ -245,7 +246,7 @@ internal fun SugarliciousOverviewScreen(
                             trendScalePercent = preferences.trendScalePercent,
                             active = headerStatus.waveActive,
                             centeredGlucose = landscape,
-                            status = headerStatus.label,
+                            status = if (observationError != null) "Anzeigedaten nicht verfügbar" else headerStatus.label,
                             onClick = { glucoseDetailsOpen = true },
                         )
                     }
