@@ -72,13 +72,15 @@ class G7AuthenticationSession(
 
     fun next(): Array<ByteArray?>? = plugin.aNext()
 
+    fun nextStep(): AuthStep = plugin.nextStep()
+
     fun onAuthenticationData(data: ByteArray): Boolean = plugin.receivedResponse(data)
 
     fun onExtraData(data: ByteArray): Boolean = plugin.receivedData(data)
 
     fun shouldBond(data: ByteArray): Boolean = plugin.bondNow(data)
 
-    fun sharedKey(): ByteArray? = plugin.getPersistence(1).takeIf { it.size == 16 }
+    fun sharedKey(): ByteArray? = plugin.getPersistence(1)?.takeIf { it.size == 16 }
 }
 
 object G7SetupParser {
