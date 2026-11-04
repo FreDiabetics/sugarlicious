@@ -352,7 +352,7 @@ class PersistentBridgeService :
             Notification
                 .Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_outlined)
-                .setColor(SamsungLiveNotificationAdapter.systemAccentColor(this))
+                .setColor(SamsungLiveNotificationAdapter.systemNotificationIconColor(this))
                 .setContentTitle(display.title)
                 .setContentText(display.subtitle)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -385,7 +385,7 @@ class PersistentBridgeService :
             NotificationCompat
                 .Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification_outlined)
-                .setColor(SamsungLiveNotificationAdapter.systemAccentColor(this))
+                .setColor(SamsungLiveNotificationAdapter.systemNotificationIconColor(this))
                 .setContentTitle(presentation.drawerPrimaryText)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setContentIntent(openApp)

@@ -90,6 +90,15 @@ internal object SamsungLiveNotificationAdapter {
         return if (context.theme.resolveAttribute(android.R.attr.colorAccent, value, true)) value.data else context.getColor(android.R.color.holo_blue_light)
     }
 
+    /** Notification badges need the counterpart shade, independently of the app's own theme. */
+    internal fun systemNotificationIconColor(context: Context): Int {
+        if (Build.VERSION.SDK_INT >= 31) {
+            val dark = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            return (if (dark) dynamicLightColorScheme(context) else dynamicDarkColorScheme(context)).primary.toArgb()
+        }
+        return systemAccentColor(context)
+    }
+
     fun texts(presentation: NotificationPresentation): SamsungLiveTexts {
         val primary = presentation.compactPrimaryText ?: presentation.statusText ?: "Keine Quelle"
         val nowBarPrimary =
