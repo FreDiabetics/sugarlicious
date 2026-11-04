@@ -5,8 +5,6 @@ plugins {
 
 dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0")
-    implementation("org.apache.xmlgraphics:batik-transcoder:1.19")
-    implementation("org.apache.xmlgraphics:batik-codec:1.19")
     implementation("net.java.dev.jna:jna:5.18.1")
     testImplementation(kotlin("test"))
 }

@@ -48,4 +48,3 @@ Diese Regeln ergänzen bestehende Projektvorgaben. Zuverlässige CGM-Daten, best
 - Betroffene Builds, vollständige relevante Tests, Lint, statische Analyse, Formatierung und CI müssen grün sein. Plattform-/Geräteverhalten zusätzlich auf unterstützten Samsung- und Pixel-Geräten prüfen, soweit betroffen.
 - Keine Zusage absoluter Fehlerfreiheit oder unbegrenzter Gerätestabilität ohne entsprechende Nachweise. Unterstützte Versionen/Geräte, gemessene Ergebnisse und verbleibende Risiken präzise benennen.
 - Vor Git-Änderungen Status, Branches, Remotes und Worktrees prüfen. Fremde Änderungen erhalten; getrennte PRs mit überprüfbarem Umfang und nachvollziehbarer Validierung verwenden.
-

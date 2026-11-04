@@ -59,7 +59,8 @@ The focused shared-module gate passed 87 main tests, then 109 tests including
 standalone contracts, together with Detekt and formatting.
 
 The complete Sugarlicious command `verifyArchitecture detekt ktlintCheck test
-assembleDebug lint` passed: 870 tasks (38 executed, 832 up-to-date), 1,444 tests
+assembleDebug lint` passed again after removing the two unused Batik dependencies:
+870 tasks (37 executed, 833 up-to-date), 1,444 tests
 represented by the module reports, zero failures/errors. These include all 111
 G7 reference/unit tests. Existing unchanged module results were reused normally.
 
@@ -69,6 +70,25 @@ Independent review caught the Windows-only `$IsWindows` compatibility issue;
 OS detection now uses the API available in both editions. The local 5.1 script
 test used a process-only execution-policy override, without changing OS policy.
 
-Default pinned-submodule integration and the complete standalone gate are
-recorded after their final execution below. Remote GitHub Actions/Linux execution
-is separate from the local verification reported here.
+The normal pinned-submodule SugarWear build passed `detekt ktlintCheck test
+assembleDebug :watchfaces:vigil:assembleRelease lint`: 397 tasks (43 executed,
+3 from cache, 351 up-to-date), 1,025 represented tests and zero failures/errors.
+This includes 426 SugarWear tests, all 111 G7 reference tests and all 109
+maintenance/standalone contracts. The canonical PowerShell launcher then passed
+the Kotlin code-free verifier on the newly built Vigil release APK.
+
+The official pinned WFF validator passed Digital, ApeX, Orbit, the validator
+fixture and Vigil. The product matrix and code-free checks also passed for the
+existing unchanged Sugarlicious release watchfaces. No device installation or
+real ADB migration was performed.
+
+The pinned Gitleaks 8.30.1 history scan passed. Two exact false positives were
+reviewed: the public deterministic ECDH vector and a literal English sentence
+about packet order. `.gitleaks.toml` retains all default rules and constrains its
+exceptions by rule, exact path and literal match. A separate synthetic Git
+negative control proved that another key on the next line of the same fixture
+file is still rejected while the public known-answer vector is allowed.
+
+Independent review found no remaining Important/Critical issues after the
+PowerShell compatibility correction. Remote GitHub Actions/Linux execution is
+separate from the local verification reported here; commits remain local.
