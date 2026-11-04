@@ -12,14 +12,38 @@ import app.aapswear.model.AppearanceMode
 import app.aapswear.protocol.WatchUiColors
 import app.aapswear.uishared.ScrollSafeSeekBar
 import app.aapswear.uishared.ScrollSafeSwitch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import org.junit.After
 import org.junit.Assert.*
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class WearSettingsPresentationTest {
+    private val mainDispatcher = StandardTestDispatcher()
+    private val controllers = mutableListOf<org.robolectric.android.controller.ActivityController<WearSettingsActivity>>()
+
+    @Before fun prepareMainDispatcher() {
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @After fun disposeActivitiesAndDispatcher() {
+        controllers.asReversed().forEach { it.pause().stop().destroy() }
+        mainDispatcher.scheduler.runCurrent()
+        org.robolectric.Shadows
+            .shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(32))
+        Dispatchers.resetMain()
+    }
+
     @Test
     fun `custom display colors cannot hide settings or change their chrome`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
@@ -30,28 +54,44 @@ class WearSettingsPresentationTest {
             )
         WearDisplayPreferences.saveLocal(context, AppearanceMode.DARK, stored)
         val before = WearDisplayPreferences.read(context, AppearanceMode.DARK)
-        val controller = Robolectric.buildActivity(WearSettingsActivity::class.java).setup()
+        val controller =
+            Robolectric
+                .buildActivity(WearSettingsActivity::class.java)
+                .create()
+                .start()
+                .resume()
+                .visible()
+                .also(controllers::add)
         val activity = controller.get()
         val content = activity.findViewById<ViewGroup>(android.R.id.content)
-        val scroll = content.getChildAt(0) as ScrollView
+        awaitView(content) { it.tag == "settings-category-glucose" }
+        val scroll = descendants(content).filterIsInstance<ScrollView>().single()
         val category = descendants(scroll).single { it.tag == "settings-category-glucose" }
         val label = descendants(category).filterIsInstance<TextView>().single { it.text.toString() == "Glukose" }
         assertEquals(Color.WHITE, label.currentTextColor)
         assertEquals(app.aapswear.uishared.WearSettingsUi.MENU_SURFACE, ((category.parent as View).background as GradientDrawable).color!!.defaultColor)
         assertEquals(before, WearDisplayPreferences.read(context, AppearanceMode.DARK))
-        controller.pause().stop().destroy()
     }
 
     @Test
     fun `every category builds without changing preferences and graph choices retain all periods`() {
-        val controller = Robolectric.buildActivity(WearSettingsActivity::class.java).setup()
+        val controller =
+            Robolectric
+                .buildActivity(WearSettingsActivity::class.java)
+                .create()
+                .start()
+                .resume()
+                .visible()
+                .also(controllers::add)
         val activity = controller.get()
         val content = activity.findViewById<ViewGroup>(android.R.id.content)
+        awaitView(content) { it.tag == "settings-category-glucose" }
         val before = WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity))
         val keys = descendants(content).mapNotNull { (it.tag as? String)?.takeIf { tag -> tag.startsWith("settings-category-") } }.toList()
         assertEquals(11, keys.size)
         keys.forEach { key ->
             descendants(content).single { it.tag == key }.performClick()
+            awaitView(content) { it.contentDescription == "Zur\u00fcck" && descendants(content).none { view -> view.tag == key } }
             if (key == "settings-category-graph") {
                 val buttons = descendants(content).filterIsInstance<TextView>().toList()
                 WearDisplayPreferences.allowedGraphHours.forEach { hours ->
@@ -59,7 +99,7 @@ class WearSettingsPresentationTest {
                     val button = buttons.single { it.text.toString().removePrefix("✓  ") == label }
                     assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, button.layoutParams.width)
                 }
-                val scroll = content.getChildAt(0) as ScrollView
+                val scroll = descendants(content).filterIsInstance<ScrollView>().single()
                 val page = scroll.getChildAt(0) as LinearLayout
                 val sliders = descendants(page).filterIsInstance<ScrollSafeSeekBar>().toList()
                 assertTrue(sliders.isNotEmpty())
@@ -68,8 +108,29 @@ class WearSettingsPresentationTest {
             }
             assertEquals(before, WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)))
             descendants(content).single { it.contentDescription == "Zurück" }.performClick()
+            awaitView(content) { it.tag == key }
         }
-        controller.pause().stop().destroy()
+    }
+
+    private fun awaitView(root: View, predicate: (View) -> Boolean) {
+        val deadline =
+            System.nanoTime() +
+                java.util.concurrent.TimeUnit.SECONDS
+                    .toNanos(5)
+        while (descendants(root).none(predicate) && System.nanoTime() < deadline) {
+            mainDispatcher.scheduler.runCurrent()
+            org.robolectric.Shadows
+                .shadowOf(android.os.Looper.getMainLooper())
+                .idleFor(java.time.Duration.ofMillis(16))
+            Thread.sleep(2)
+        }
+        assertTrue(
+            "Expected settings view to render; tree=" +
+                descendants(root).joinToString { view ->
+                    "${view.javaClass.simpleName}(tag=${view.tag}, text=${(view as? TextView)?.text})"
+                },
+            descendants(root).any(predicate),
+        )
     }
 
     private fun descendants(view: View): Sequence<View> =

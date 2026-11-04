@@ -32,7 +32,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.edit
-import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.DataSourceId
@@ -61,9 +60,6 @@ import app.aapswear.model.TherapyProgressMetric
 import app.aapswear.model.Trend
 import app.aapswear.model.TrendArrowStyle
 import app.aapswear.model.TrendArrowStyleOverride
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import androidx.compose.ui.graphics.Color as ComposeColor
 
@@ -750,12 +746,17 @@ class WidgetConfigurationActivity : ComponentActivity() {
         }
         val widgetKind = configurableWidgetKind(this, appWidgetId, providerClassName)
         val automaticShape = widgetUsesAutomaticShape(providerClassName)
-        val initial =
-            if (!intent.getBooleanExtra("additional_initial_selection", false) && WidgetInstanceConfigurationStore.hasStoredConfiguration(this, appWidgetId)) {
-                WidgetInstanceConfigurationStore.readIsolated(this, appWidgetId, widgetKind)
-            } else {
-                WidgetSystemDefaults.forNewInstance(this, widgetKind)
-            }
+        val model =
+            androidx.lifecycle.ViewModelProvider(
+                this,
+                object : androidx.lifecycle.ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T {
+                        require(modelClass.isAssignableFrom(WidgetConfigurationViewModel::class.java))
+                        return WidgetConfigurationViewModel(AndroidWidgetConfigurationRepository(applicationContext, appWidgetId, widgetKind, intent.getBooleanExtra("additional_initial_selection", false))) as T
+                    }
+                },
+            )["widget-$appWidgetId", WidgetConfigurationViewModel::class.java]
         val widgetOptions = manager.getAppWidgetOptions(appWidgetId)
         val previewWidthDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220).coerceAtLeast(80)
         val previewHeightDp = widgetOptions.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110).coerceAtLeast(48)
@@ -766,23 +767,41 @@ class WidgetConfigurationActivity : ComponentActivity() {
                 (widgetKind == ConfigurableWidgetKind.GLUCOSE && familyLayout == WidgetFamilyLayout.WIDE_4X2)
         setContent {
             OneUiWidgetSettingsTheme {
-                var value by remember { mutableStateOf(initial) }
-                var saving by remember { mutableStateOf(false) }
-                var editBackground by remember { mutableStateOf(false) }
-                var editOutline by remember { mutableStateOf(false) }
-                var editSplitDivider by remember { mutableStateOf(false) }
-                var editTrendOutline by remember { mutableStateOf(false) }
-                var editRole by remember { mutableStateOf<WidgetColorRole?>(null) }
-                val dashboardPreferences = remember { getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE) }
-                var selectedMode by remember { mutableStateOf(resolveSettingsAppearance(initial.themeMode, deviceUsesDarkMode(this@WidgetConfigurationActivity))) }
+                val editor by model.state.collectAsStateWithLifecycle()
+                val snapshot = editor.snapshot
+                if (snapshot == null) {
+                    Column {
+                        Text(if (editor.error == null) "Einstellungen werden geladen ..." else "Einstellungen konnten nicht geladen werden.")
+                        if (editor.error != null) Text("Erneut versuchen", Modifier.clickable { model.reload() })
+                    }
+                    return@OneUiWidgetSettingsTheme
+                }
+                androidx.compose.runtime.LaunchedEffect(editor.saved, editor.error) {
+                    if (editor.saved) {
+                        setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
+                        finish()
+                    } else if (editor.error == WidgetConfigurationError.SAVE_FAILED) {
+                        android.widget.Toast
+                            .makeText(this@WidgetConfigurationActivity, "Widget konnte nicht aktualisiert werden. Bitte erneut speichern.", android.widget.Toast.LENGTH_LONG)
+                            .show()
+                        model.clearError()
+                    }
+                }
+                var value by model.configuration
+                var editBackground by model.backgroundEditor
+                var editOutline by model.outlineEditor
+                var editSplitDivider by model.dividerEditor
+                var editTrendOutline by model.trendEditor
+                var editRole by model.colorRole
+                var selectedMode by model.mode
                 val appearance = value.resolvedAppearance(selectedMode)
-                val parentTrendStyle = MobileTrendArrowAppearance.load(dashboardPreferences, selectedMode)
+                val parentTrendStyle = snapshot.trends.getValue(selectedMode)
 
                 fun resetTrendStyle() {
                     value = value.withTrendStyle(selectedMode, parentTrendStyle.copy(sizePercent = value.trendScalePercent).asCompleteOverride())
                 }
                 val trendAppearance = value.trendStyle(selectedMode, parentTrendStyle)
-                val resetPalette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
+                val resetPalette = snapshot.palettes.getValue(selectedMode)
                 val settingsScroll = rememberScrollState()
                 val compactSettingsTitle = measuredSettingsCompactTitle("Widget-Einstellungen", settingsWindowWidthDp() - 20f)
                 OneUiWidgetSettingsSurface(settingsScroll, onBack = { finish() }) { reportPreviewBounds ->
@@ -806,6 +825,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             widgetUsesNativeHostBounds(providerClassName, widgetOptions),
                             widgetOptions.getFloat("hsResizeRatio", 1f),
                             Modifier.onGloballyPositioned { reportPreviewBounds(it.boundsInRoot()) },
+                            snapshot,
                         )
                         WidgetSettingsSection("Farbvariante") {
                             WidgetAppearanceModeRow(selectedMode) { selectedMode = it }
@@ -840,7 +860,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     WidgetColorSetting(
                                         role.label,
                                         appearance.colorOverrides[role]
-                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
+                                            ?: snapshot.palettes.getValue(selectedMode).argb(role),
                                         {
                                             editRole =
                                                 role
@@ -902,7 +922,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                                     WidgetColorSetting(
                                         role.label,
                                         appearance.colorOverrides[role]
-                                            ?: WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode).argb(role),
+                                            ?: snapshot.palettes.getValue(selectedMode).argb(role),
                                         {
                                             editRole =
                                                 role
@@ -1088,41 +1108,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                             setResult(RESULT_CANCELED)
                             finish()
                         },
-                        onSave = {
-                            if (!saving) {
-                                saving = true
-                                val saved = resolvedWidgetConfigurationOnExit(initial, value, save = true)
-                                lifecycleScope.launch {
-                                    try {
-                                        WidgetRenderTransactions.run(appWidgetId) {
-                                            val views =
-                                                withContext(Dispatchers.Default) {
-                                                    SugarliciousWidgets.prepareInstance(this@WidgetConfigurationActivity, appWidgetId, widgetKind, saved)
-                                                }
-                                            // No suspension between committing, publishing and finishing. A
-                                            // canceled render never changes the persisted instance.
-                                            commitWidgetSettings(
-                                                commit = { WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, saved) },
-                                                publish = { publishWidgetSurface(this@WidgetConfigurationActivity, appWidgetId, views) },
-                                                rollback = { WidgetInstanceConfigurationStore.save(this@WidgetConfigurationActivity, appWidgetId, initial) },
-                                            )
-                                            setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
-                                            finish()
-                                        }
-                                    } catch (error: kotlinx.coroutines.CancellationException) {
-                                        throw error
-                                    } catch (_: Exception) {
-                                        saving = false
-                                        android.widget.Toast
-                                            .makeText(
-                                                this@WidgetConfigurationActivity,
-                                                "Widget konnte nicht aktualisiert werden. Bitte erneut speichern.",
-                                                android.widget.Toast.LENGTH_LONG,
-                                            ).show()
-                                    }
-                                }
-                            }
-                        },
+                        onSave = model::save,
                     )
                 }
                 if (editBackground) {
@@ -1180,7 +1166,7 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     )
                 }
                 editRole?.let { role ->
-                    val palette = WidgetColorStore.load(this@WidgetConfigurationActivity, selectedMode)
+                    val palette = snapshot.palettes.getValue(selectedMode)
                     ColorEditorDialog(
                         widgetStyle = LocalOneUiWidgetSettingsColors.current,
                         role = null,
@@ -1342,9 +1328,10 @@ private fun WidgetConfigurationPreview(
     nativeHostSized: Boolean,
     hostResizeRatio: Float,
     modifier: Modifier,
+    settings: WidgetConfigurationSnapshot,
 ) {
     val context = LocalContext.current
-    val samsungCompact = WidgetLayoutSizeStore.isSamsungCompact(context)
+    val samsungCompact = settings.samsungCompact
     val runtimeKind =
         when (kind) {
             ConfigurableWidgetKind.GLUCOSE -> WidgetKind.GLUCOSE
@@ -1365,8 +1352,8 @@ private fun WidgetConfigurationPreview(
     val state = remember(now) { widgetPreviewState(now) }
     val palette =
         remember(context, themedConfiguration, mode) {
-            WidgetColorStore
-                .load(context, mode)
+            settings.palettes
+                .getValue(mode)
                 .with(themedConfiguration.colorOverrides)
                 .with(
                     WidgetColorRole.BACKGROUND,
@@ -1395,7 +1382,7 @@ private fun WidgetConfigurationPreview(
     val previewTrendStyle =
         configuration.trendStyle(
             mode,
-            MobileTrendArrowAppearance.load(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE), mode),
+            settings.trends.getValue(mode),
         )
     val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
     val bitmap =
@@ -1437,7 +1424,7 @@ private fun WidgetConfigurationPreview(
                         previewWidth,
                         previewHeight,
                         now,
-                        DashboardUiPreferences.read(context.getSharedPreferences("dashboard_ui", Context.MODE_PRIVATE)),
+                        settings.dashboard,
                         renderConfiguration,
                         2f,
                         mode,
@@ -1540,43 +1527,43 @@ private fun WidgetPercentSlider(
     resetValue: Int? = null,
     onChange: (Int) -> Unit,
 ) {
-    var editingValue by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var enteredValue by androidx.compose.runtime.remember(value, editingValue) { androidx.compose.runtime.mutableStateOf(value.toString()) }
+    val editorModel = rememberAppearanceEditorModel("widget-percent:$label", AppearanceNumberEditorViewModel::class.java) { AppearanceNumberEditorViewModel() }
+    val editor by editorModel.uiState.collectAsStateWithLifecycle()
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
             color = OneUiWidgetStyle.primary,
             fontSize = 18.sp,
-            modifier = Modifier.weight(1f).clickable { editingValue = true }.padding(vertical = 6.dp),
+            modifier = Modifier.weight(1f).clickable { editorModel.open(value.toFloat()) }.padding(vertical = 6.dp),
         )
-        Text("$value$suffix", color = OneUiWidgetStyle.secondary, fontSize = 14.sp, modifier = Modifier.clickable { editingValue = true })
+        Text("$value$suffix", color = OneUiWidgetStyle.secondary, fontSize = 14.sp, modifier = Modifier.clickable { editorModel.open(value.toFloat()) })
         if (resetValue != null && value != resetValue) {
             OneUiResetIcon(onClick = { onChange(resetValue) }, description = "$label zurücksetzen")
         }
     }
     OneUiWidgetSeekBar(label, value, range, onChange)
-    if (editingValue) {
+    if (editor.open) {
         AlertDialog(
-            onDismissRequest = { editingValue = false },
+            onDismissRequest = { editorModel.dismiss() },
             title = { Text(label) },
             text = {
                 androidx.compose.material3.OutlinedTextField(
-                    value = enteredValue,
-                    onValueChange = { enteredValue = it },
+                    value = editor.text,
+                    onValueChange = editorModel::enter,
                     label = { Text("${range.first} bis ${range.last}") },
                     singleLine = true,
                 )
             },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
-                    enteredValue.toIntOrNull()?.takeIf { it in range }?.let {
+                    editor.text.toIntOrNull()?.takeIf { it in range }?.let {
                         onChange(it)
-                        editingValue = false
+                        editorModel.dismiss()
                     }
                 }) { Text("ÜBERNEHMEN") }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { editingValue = false }) { Text("ABBRECHEN") }
+                androidx.compose.material3.TextButton(onClick = { editorModel.dismiss() }) { Text("ABBRECHEN") }
             },
         )
     }

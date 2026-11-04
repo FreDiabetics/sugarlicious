@@ -128,47 +128,76 @@ class WearActivityTest {
 
     @Test
     fun `settings are round safe and grouped into independent sections`() {
-        val activity = Robolectric.buildActivity(WearSettingsActivity::class.java).setup().get()
-        val root = activity.findViewById<ViewGroup>(android.R.id.content)
-        val headers = mutableListOf<View>()
+        val controller = Robolectric.buildActivity(WearSettingsActivity::class.java).setup()
+        val activity = controller.get()
+        try {
+            val root = activity.findViewById<ViewGroup>(android.R.id.content)
+            val headers = mutableListOf<View>()
 
-        fun collect(view: View) {
-            if (view.tag?.toString()?.startsWith("settings-category-") == true) headers += view
-            if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+            fun collect(view: View) {
+                if (view.tag?.toString()?.startsWith("settings-category-") == true) headers += view
+                if (view is ViewGroup) (0 until view.childCount).forEach { collect(view.getChildAt(it)) }
+            }
+            awaitSettings(root) { root.findViewWithTag<View>("settings-category-display") != null }
+            collect(root)
+
+            assertEquals(
+                listOf("display", "glucose", "trend", "delta", "therapy", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
+                headers.map { it.tag.toString().removePrefix("settings-category-") },
+            )
+            assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+
+            root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 480, 480)
+            val categoryScroll = settingsScroll(root)!!
+            categoryScroll.scrollTo(0, 200)
+            assertTrue(categoryScroll.scrollY > 0)
+
+            // Opening an element exposes its complete controls without the other elements' controls.
+            headers.single { it.tag == "settings-category-trend" }.performClick()
+            awaitSettings(root) { root.findViewWithTag<View>("settings-category-display") == null && settingsScroll(root) != null }
+            assertEquals("A new submenu must open at its header", 0, settingsScroll(root)!!.scrollY)
+            val text = mutableListOf<String>()
+
+            fun collectText(view: View) {
+                if (view is TextView) text += view.text.toString()
+                if (view is ViewGroup) (0 until view.childCount).forEach { collectText(view.getChildAt(it)) }
+            }
+            collectText(root)
+            assertTrue("Trendpfeil" in text)
+            assertTrue("Trendpfeil · Füllfarbe" in text)
+            assertTrue("Trendpfeil-Kontur" in text)
+            assertTrue("Trend-Deckkraft" in text)
+            assertTrue("Trend-Stil zurücksetzen" in text)
+            assertTrue("IOB" !in text && "COB" !in text && "Basal" !in text)
+        } finally {
+            controller.pause().stop().destroy()
+            org.robolectric.Shadows
+                .shadowOf(android.os.Looper.getMainLooper())
+                .idle()
         }
-        collect(root)
+    }
 
-        assertEquals(
-            listOf("display", "glucose", "trend", "delta", "therapy", "graph", "tiles", "watchfaces", "connection", "diagnostics", "about"),
-            headers.map { it.tag.toString().removePrefix("settings-category-") },
-        )
-        assertTrue(headers.all { it.minimumHeight >= (48 * activity.resources.displayMetrics.density).toInt() })
+    private fun settingsScroll(view: View): android.widget.ScrollView? {
+        if (view is android.widget.ScrollView) return view
+        if (view is ViewGroup) for (i in 0 until view.childCount) settingsScroll(view.getChildAt(i))?.let { return it }
+        return null
+    }
 
-        root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY))
-        root.layout(0, 0, 480, 480)
-        val categoryScroll = root.getChildAt(0) as android.widget.ScrollView
-        categoryScroll.scrollTo(0, 200)
-        assertTrue(categoryScroll.scrollY > 0)
-
-        // Opening an element exposes its complete controls without the other elements' controls.
-        headers.single { it.tag == "settings-category-trend" }.performClick()
-        org.robolectric.Shadows
-            .shadowOf(android.os.Looper.getMainLooper())
-            .idle()
-        assertEquals("A new submenu must open at its header", 0, (root.getChildAt(0) as android.widget.ScrollView).scrollY)
-        val text = mutableListOf<String>()
-
-        fun collectText(view: View) {
-            if (view is TextView) text += view.text.toString()
-            if (view is ViewGroup) (0 until view.childCount).forEach { collectText(view.getChildAt(it)) }
+    private fun awaitSettings(root: View, ready: () -> Boolean) {
+        val deadline =
+            System.nanoTime() +
+                java.util.concurrent.TimeUnit.SECONDS
+                    .toNanos(5)
+        while (!ready() && System.nanoTime() < deadline) {
+            org.robolectric.Shadows
+                .shadowOf(android.os.Looper.getMainLooper())
+                .idleFor(java.time.Duration.ofMillis(16))
+            root.measure(View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(480, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 480, 480)
+            Thread.sleep(2)
         }
-        collectText(root)
-        assertTrue("Trendpfeil" in text)
-        assertTrue("Trendpfeil · Füllfarbe" in text)
-        assertTrue("Trendpfeil-Kontur" in text)
-        assertTrue("Trend-Deckkraft" in text)
-        assertTrue("Trend-Stil zurücksetzen" in text)
-        assertTrue("IOB" !in text && "COB" !in text && "Basal" !in text)
+        assertTrue("Settings must load in their Compose window", ready())
     }
 
     @Test
@@ -179,6 +208,7 @@ class WearActivityTest {
                 .create()
                 .start()
                 .resume()
+                .visible()
                 .get()
         val colors = WearDisplayPreferences.read(activity).uiColors
 
@@ -242,6 +272,7 @@ class WearActivityTest {
                 .create()
                 .start()
                 .resume()
+                .visible()
                 .get()
         val root = activity.findViewById<View>(R.id.wear_root)
         val info = activity.findViewById<ViewGroup>(R.id.wear_glucose_info_block)
@@ -303,6 +334,7 @@ class WearActivityTest {
                 .create()
                 .start()
                 .resume()
+                .visible()
                 .get()
 
         assertEquals(
@@ -341,11 +373,23 @@ class WearActivityTest {
                 .create()
                 .start()
                 .resume()
+                .visible()
                 .get()
         WearDisplayPreferences.saveLocal(activity, WearDisplayPreferences.read(activity).copy(graphHours = 3))
         val control = activity.findViewById<TextView>(R.id.wear_graph_period)
 
         control.performClick()
+
+        val deadline =
+            System.nanoTime() +
+                java.util.concurrent.TimeUnit.SECONDS
+                    .toNanos(5)
+        while ((!control.text.toString().startsWith("6h • ") || WearDisplayPreferences.read(activity).graphHours != 6) && System.nanoTime() < deadline) {
+            org.robolectric.Shadows
+                .shadowOf(android.os.Looper.getMainLooper())
+                .idleFor(java.time.Duration.ofMillis(16))
+            Thread.sleep(2)
+        }
 
         assertEquals(6, WearDisplayPreferences.read(activity).graphHours)
         assertTrue(control.text.toString().startsWith("6h • "))

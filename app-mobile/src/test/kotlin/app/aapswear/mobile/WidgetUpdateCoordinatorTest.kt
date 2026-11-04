@@ -67,7 +67,10 @@ class WidgetUpdateCoordinatorTest {
         assertTrue(source.contains("override fun onCompositionError("))
         assertTrue(source.contains("WidgetRenderTransactions.run(appWidgetId)"))
         val settings = java.io.File("src/main/kotlin/app/aapswear/mobile/WidgetInstanceConfiguration.kt").readText()
-        assertTrue(settings.contains("WidgetRenderTransactions.run(appWidgetId)"))
+        assertTrue(settings.contains("onSave = model::save"))
+        val repository = java.io.File("src/main/kotlin/app/aapswear/mobile/WidgetConfigurationViewModel.kt").readText()
+        assertTrue(repository.contains("WidgetRenderTransactions.run(widgetId)"))
+        assertTrue(repository.contains("commitWidgetSettings("))
     }
 
     @Test

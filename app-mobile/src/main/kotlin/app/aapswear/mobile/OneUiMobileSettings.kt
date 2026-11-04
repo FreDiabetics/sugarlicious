@@ -118,25 +118,6 @@ internal class SettingsSliderInteraction(
     }
 }
 
-internal class MobileSettingsNavigation {
-    var category: String? = null
-        private set
-    var title: String = "Einstellungen"
-        private set
-
-    fun open(category: String, title: String) {
-        this.category = category
-        this.title = title
-    }
-
-    fun back(): Boolean {
-        if (category == null) return false
-        category = null
-        title = "Einstellungen"
-        return true
-    }
-}
-
 internal object MobileSettingsStyle {
     fun page(light: Boolean): Int = if (light) Color.rgb(242, 242, 242) else Color.BLACK
 

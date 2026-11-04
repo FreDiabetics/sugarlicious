@@ -11,6 +11,7 @@ import app.aapswear.mobile.ui.theme.SugarliciousColorStore
 import app.aapswear.mobile.ui.theme.derivedTargetValueArgb
 import app.aapswear.model.CgmGraphScaleMode
 import app.aapswear.model.PredictionKind
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -23,19 +24,40 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlarmManager
+import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MainActivityTest {
+    @get:org.junit.Rule val mainDispatcher = MobileMainDispatcherRule()
+
     @Test fun `stopped overview defers state observation until visible again`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val mainLooper = shadowOf(android.os.Looper.getMainLooper())
-        mainLooper.idle()
-        controller.pause().stop()
         val diagnostics = context.getSharedPreferences("diagnostics", android.content.Context.MODE_PRIVATE)
+        val model = androidx.lifecycle.ViewModelProvider(controller.get())[DashboardViewModel::class.java]
+
+        fun awaitObservation(description: String, condition: () -> Boolean) {
+            repeat(200) {
+                mainLooper.idle()
+                if (condition()) return
+                Thread.sleep(5)
+            }
+            assertTrue(description, condition())
+        }
+        awaitObservation("Visible overview must start its canonical observation") {
+            diagnostics.contains("mobileObservedAt") && model.uiState.value.nowEpochMs > 0
+        }
+        controller.pause().stop()
+        // WhileSubscribed resets replay only after its previous upstream collection has finished
+        // cancellation. Await that barrier before clearing the old observation marker.
+        awaitObservation("Stopped overview must finish cancelling its upstream observation") {
+            model.uiState.value == DashboardUiState()
+        }
         diagnostics.edit().remove("mobileObservedAt").commit()
         kotlinx.coroutines.runBlocking {
             app.aapswear.storage.TherapyStateStore(context).save(
@@ -57,9 +79,9 @@ class MainActivityTest {
     }
 
     @Test fun `settings overview hides back while submenus keep it`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         assertEquals(View.GONE, activity.findViewById<View>(R.id.top_back).visibility)
         openSettingsCategory(activity, "general")
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_back).visibility)
@@ -67,9 +89,9 @@ class MainActivityTest {
     }
 
     @Test fun `expanded submenu title fades without resizing its text box`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "notifications")
         val root = activity.findViewById<View>(R.id.root)
         val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
@@ -89,9 +111,9 @@ class MainActivityTest {
     }
 
     @Test fun `submenu row stays just above the first card throughout a pull`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "notifications")
         val root = activity.findViewById<View>(R.id.root)
         val bar = activity.findViewById<View>(R.id.top_app_bar)
@@ -131,9 +153,9 @@ class MainActivityTest {
     }
 
     @Test fun `background refresh preserves long submenu position without synthetic scroll padding`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "appearance")
         val root = activity.findViewById<View>(R.id.root)
         val content = activity.findViewById<ViewGroup>(R.id.dashboard_content)
@@ -147,6 +169,11 @@ class MainActivityTest {
         val update = MainActivity::class.java.getDeclaredMethod("updateSettingsScrollHeader", Int::class.javaPrimitiveType).apply { isAccessible = true }
         update.invoke(activity, 0)
         layout()
+        // The appearance repository loads its real controls asynchronously. Await their natural
+        // measured height before asserting that this long page can scroll.
+        awaitUiCondition(activity, "Appearance controls must provide their natural scroll range") {
+            content.height - scroll.height + scroll.paddingTop + scroll.paddingBottom >= 250
+        }
         val padding = content.paddingBottom
         assertEquals((24 * activity.resources.displayMetrics.density).toInt(), padding)
         scroll.scrollTo(0, 250)
@@ -163,9 +190,9 @@ class MainActivityTest {
     }
 
     @Test fun `settings scrolling transforms the title without requesting another layout`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         val root = activity.findViewById<View>(R.id.root)
 
         fun layout() {
@@ -187,9 +214,9 @@ class MainActivityTest {
     }
 
     @Test fun `settings category rows match Samsung compact height`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         val row = activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("settings-category-general")
         assertEquals((52 * activity.resources.displayMetrics.density).toInt(), row.minimumHeight)
         controller.pause().stop().destroy()
@@ -207,9 +234,9 @@ class MainActivityTest {
             .commit()
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.PRIMARY, Color.RED)
         SugarliciousColorStore.save(preferences, SugarliciousColorRole.TEXT_PRIMARY, Color.GREEN)
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
         val heading = root.findViewWithTag<TextView>("settings_scroll_title")
         assertEquals(MobileSettingsStyle.text(false), heading.currentTextColor)
@@ -291,7 +318,7 @@ class MainActivityTest {
             .clear()
             .commit()
 
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
         val dashboard = activity.findViewById<ViewGroup>(R.id.dashboard_content)
 
@@ -312,7 +339,7 @@ class MainActivityTest {
         assertTrue(dashboard.childCount > 0)
         assertSame(originalComposeView, dashboard.getChildAt(0))
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
         assertTrue(settingsText.contains("Datenverwaltung"))
@@ -338,10 +365,10 @@ class MainActivityTest {
             .putBoolean("compact", true)
             .putString(DashboardUiPreferences.GLUCOSE_TILE_DETAIL_MODE_KEY, GlucoseTileDetailMode.TIR.name)
             .commit()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         shadowOf(android.os.Looper.getMainLooper()).idle()
         openSettingsCategory(activity, "overview_graphs")
         assertNull(activity.findViewById<View>(R.id.dashboard_details_switch))
@@ -429,7 +456,7 @@ class MainActivityTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val preferences = context.getSharedPreferences("dashboard_ui", android.content.Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
 
         val ui = DashboardUiPreferences.read(preferences)
         assertTrue(ui.showCgmGraph)
@@ -500,10 +527,10 @@ class MainActivityTest {
     }
 
     @Test fun `IOB and COB graph maximum controls are visible in mobile settings`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "overview_graphs")
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
@@ -551,7 +578,7 @@ class MainActivityTest {
             .clear()
             .putInt("watchFaceIndex", 1)
             .commit()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
         val dashboard = activity.findViewById<ViewGroup>(R.id.dashboard_content)
         val originalComposeView = dashboard.getChildAt(0)
@@ -565,17 +592,17 @@ class MainActivityTest {
     }
 
     @Test fun `Sugarlicious about tile shows compact branding and contact pills`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "about")
         shadowOf(android.os.Looper.getMainLooper()).idle()
         val settingsText = textOf(activity.findViewById(R.id.dashboard_content))
         assertTrue(settingsText.contains("Sugarlicious"))
         assertFalse(settingsText.contains("typ1.diafreddy@gmail.com"))
         assertFalse(settingsText.contains("FreDiabetics/aaps_wearable-suite"))
-        assertFalse(settingsText.contains("Unabhängiges Projekt"))
+        assertFalse(settingsText.contains("Unabh\u00e4ngiges Projekt"))
         assertTrue(settingsText.contains("GitHub"))
         assertTrue(settingsText.contains("E-Mail"))
         assertFalse(settingsText.contains("Wear OS und Watchfaces"))
@@ -594,24 +621,24 @@ class MainActivityTest {
     }
 
     @Test fun `bottom navigation is removed and compact top navigation is available`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
         assertEquals(0, activity.resources.getIdentifier("menu_button", "id", activity.packageName))
         assertEquals(0, activity.resources.getIdentifier("more_button", "id", activity.packageName))
         assertEquals(0, activity.resources.getIdentifier("bottom_navigation", "id", activity.packageName))
         assertNotNull(activity.findViewById<View>(R.id.top_app_bar))
         assertNotNull(activity.findViewById<View>(R.id.top_settings))
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertTrue(textOf(activity.findViewById(R.id.dashboard_content)).contains("Einstellungen"))
         controller.pause().stop().destroy()
     }
 
     @Test fun `system back navigates to overview and can never finish the main activity`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         shadowOf(android.os.Looper.getMainLooper()).idle()
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
 
@@ -630,11 +657,12 @@ class MainActivityTest {
     }
 
     @Test fun `settings categories keep order and back returns from a page before leaving settings`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         var activity = controller.get()
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
 
         fun categories(): List<String> {
+            settleUi(activity)
             val root = activity.findViewById<ViewGroup>(R.id.dashboard_content)
 
             fun descendants(view: View): List<View> =
@@ -681,13 +709,13 @@ class MainActivityTest {
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.top_app_bar).visibility)
         activity.findViewById<View>(R.id.top_back).performClick()
         assertEquals(View.GONE, activity.findViewById<View>(R.id.top_app_bar).visibility)
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         assertEquals(expected, categories())
         controller.pause().stop().destroy()
     }
 
     @Test fun `watch menu keeps its header outside the scrolling sections`() {
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
         val scroll = activity.findViewById<DashboardScrollView>(R.id.dashboard_scroll)
 
@@ -726,10 +754,10 @@ class MainActivityTest {
             .clear()
             .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             .commit()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "notifications")
         activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
@@ -757,7 +785,7 @@ class MainActivityTest {
             .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, true)
             .commit()
 
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
         val firstIntent = shadowOf(activity).nextStartedActivity
 
@@ -781,10 +809,10 @@ class MainActivityTest {
             .clear()
             .putBoolean(PersistentBridgeService.PREFERENCE_LIVE_NOTIFICATION, false)
             .commit()
-        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val controller = createActivity()
         val activity = controller.get()
 
-        activity.findViewById<View>(R.id.top_settings).performClick()
+        openSettings(activity)
         openSettingsCategory(activity, "notifications")
         activity.findViewById<View>(R.id.dashboard_live_notification_switch).performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
@@ -819,18 +847,83 @@ class MainActivityTest {
 
         assertEquals("Samsung", status.device)
         assertEquals("angefordert", status.samsungNowBar)
-        assertEquals("nicht unterstützt", status.androidLiveUpdates)
-        assertEquals("nicht verfügbar", status.promotedNotifications)
-        assertEquals("nicht geprüft", status.promotableCharacteristics)
+        assertEquals("nicht unterst\u00fctzt", status.androidLiveUpdates)
+        assertEquals("nicht verf\u00fcgbar", status.promotedNotifications)
+        assertEquals("nicht gepr\u00fcft", status.promotableCharacteristics)
         assertEquals("nicht angewendet", status.samsungExtras)
         assertEquals("noch nicht erfolgt", status.lastPostAttempt)
         assertEquals("nicht erforderlich", status.exactFreshnessAlarm)
-        assertEquals("nicht durchgeführt", status.hardwareValidation)
+        assertEquals("nicht durchgef\u00fchrt", status.hardwareValidation)
+    }
+
+    private val activities = mutableListOf<ActivityController<MainActivity>>()
+
+    private fun createActivity(): ActivityController<MainActivity> {
+        val controller = Robolectric.buildActivity(MainActivity::class.java)
+        activities += controller
+        controller.setup().visible()
+        settleUi(controller.get())
+        return controller
+    }
+
+    @After fun destroyActivities() {
+        activities.asReversed().forEach { controller ->
+            val activity = controller.get()
+            if (!activity.isDestroyed) {
+                if (activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) controller.pause()
+                if (activity.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) controller.stop()
+                controller.destroy()
+            }
+        }
+        activities.clear()
+    }
+
+    private fun settleUi(activity: MainActivity) {
+        val root = activity.window.decorView
+        repeat(3) {
+            root.measure(View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(2400, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, 1080, 2400)
+            shadowOf(android.os.Looper.getMainLooper()).idleFor(16, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    private fun awaitUiCondition(activity: MainActivity, description: String, condition: () -> Boolean) {
+        repeat(120) {
+            settleUi(activity)
+            if (condition()) return
+            Thread.sleep(5)
+        }
+
+        fun dimensions(view: View, depth: Int = 0): String {
+            val own = "${" ".repeat(depth)}${view.javaClass.simpleName} tag=${view.tag} h=${view.height} measured=${view.measuredHeight} w=${view.width} requested=${view.isLayoutRequested}"
+            return own + if (view is ViewGroup && depth < 8) (0 until view.childCount).joinToString("\n", prefix = "\n") { dimensions(view.getChildAt(it), depth + 1) } else ""
+        }
+        val appearance =
+            androidx.lifecycle
+                .ViewModelProvider(activity)["mobile-appearance", AppearanceSettingsViewModel::class.java]
+                .uiState.value
+        throw AssertionError("$description; appearanceSnapshot=${appearance.snapshot != null} error=${appearance.error}\n" + dimensions(activity.findViewById(R.id.dashboard_scroll)))
+    }
+
+    private fun awaitSettingsView(activity: MainActivity, tag: String): View {
+        repeat(80) {
+            settleUi(activity)
+            activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>(tag)?.let { view ->
+                if (view.isAttachedToWindow) return view
+            }
+            Thread.sleep(5)
+        }
+        throw AssertionError("Settings did not attach view $tag")
+    }
+
+    private fun openSettings(activity: MainActivity) {
+        activity.findViewById<View>(R.id.top_settings).performClick()
+        awaitSettingsView(activity, "settings_scroll_title")
     }
 
     private fun openSettingsCategory(activity: MainActivity, key: String) {
-        activity.findViewById<ViewGroup>(R.id.dashboard_content).findViewWithTag<View>("settings-category-$key").performClick()
-        shadowOf(android.os.Looper.getMainLooper()).idle()
+        awaitSettingsView(activity, "settings-category-$key").performClick()
+        settleUi(activity)
     }
 
     private fun textOf(view: View): String =

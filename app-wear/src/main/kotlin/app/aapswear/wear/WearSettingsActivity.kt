@@ -1,17 +1,25 @@
 package app.aapswear.wear
 
-import android.app.Activity
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
-import app.aapswear.complications.ComplicationUpdatePlanner
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.model.AppearanceControlContract
 import app.aapswear.model.AppearanceMode
 import app.aapswear.model.AppearanceTerminology
@@ -27,14 +35,14 @@ import app.aapswear.uishared.SharedNumberEditor
 import app.aapswear.uishared.WearSettingsUi
 import kotlin.math.roundToInt
 
-class WearSettingsActivity : Activity() {
+class WearSettingsActivity : ComponentActivity() {
     private lateinit var root: LinearLayout
     private lateinit var scrollView: ScrollView
-    private var current = WearDisplayPreferences()
-    private var selectedAppearanceMode = AppearanceMode.DARK
-    private var selectedSettingsCategory: String? = null
-    private var categoryListScrollY = 0
-    private var colorEditorOpen = false
+    private lateinit var settingsModel: WearSettingsViewModel
+    private val state get() = settingsModel.uiState.value
+    private val current get() = requireNotNull(state.snapshot).preferences
+    private val selectedAppearanceMode get() = state.snapshot?.mode ?: AppearanceMode.DARK
+    private val selectedSettingsCategory get() = state.category
     private var sectionContainer: LinearLayout? = null
     private val contentRoot: LinearLayout get() = sectionContainer ?: root
     private val navigationRows = mutableListOf<View>()
@@ -55,22 +63,61 @@ class WearSettingsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         onBackInvokedDispatcher.registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT) { navigateBack() }
-        selectedSettingsCategory = savedInstanceState?.getString("settings-category")
-        categoryListScrollY = savedInstanceState?.getInt("settings-list-scroll") ?: 0
-        selectedAppearanceMode = WearDisplayPreferences.activeAppearanceMode(this)
-        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
-        buildUi()
+        settingsModel =
+            ViewModelProvider(
+                this,
+                object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return WearSettingsViewModel(
+                            AndroidWearSettingsRepository(applicationContext),
+                            initialCategory = savedInstanceState?.getString("settings-category"),
+                            initialListScrollY = savedInstanceState?.getInt("settings-list-scroll") ?: 0,
+                        ) as T
+                    }
+                },
+            )[WearSettingsViewModel::class.java]
+        setContent {
+            val uiState by settingsModel.uiState.collectAsStateWithLifecycle()
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { FrameLayout(it) },
+                update = { host ->
+                    if (host.tag != uiState.renderRevision) {
+                        host.tag = uiState.renderRevision
+                        host.removeAllViews()
+                        val view =
+                            if (uiState.storageError) {
+                                TextView(this).apply {
+                                    text = "Einstellungen konnten nicht geladen oder gespeichert werden. Erneut versuchen"
+                                    setTextColor(WearSettingsUi.MENU_TEXT)
+                                    setBackgroundColor(WearSettingsUi.MENU_BACKGROUND)
+                                    setOnClickListener { settingsModel.retry() }
+                                }
+                            } else if (uiState.snapshot != null) {
+                                buildUi()
+                            } else {
+                                TextView(this).apply {
+                                    text = "Einstellungen werden geladen ..."
+                                    setTextColor(WearSettingsUi.MENU_TEXT)
+                                    setBackgroundColor(WearSettingsUi.MENU_BACKGROUND)
+                                }
+                            }
+                        host.addView(view, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+                    }
+                },
+            )
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putString("settings-category", selectedSettingsCategory)
-        outState.putInt("settings-list-scroll", categoryListScrollY)
+        outState.putString("settings-category", state.category)
+        outState.putInt("settings-list-scroll", state.categoryListScrollY)
     }
 
-    private fun buildUi(scrollPosition: Int? = null) {
-        val restoreScrollY = scrollPosition ?: if (::scrollView.isInitialized) scrollView.scrollY else 0
-        current = WearDisplayPreferences.read(this, selectedAppearanceMode)
+    private fun buildUi(): View {
+        val restoreScrollY = state.scrollY
         sectionContainer = null
         navigationRows.clear()
         val ui = menuColors
@@ -88,7 +135,7 @@ class WearSettingsActivity : Activity() {
                 WearSettingsUi.pagePadding(this)
             }
         scroll.addView(root, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        setContentView(scroll)
+        scroll.setOnScrollChangeListener { _, _, y, _, _ -> settingsModel.rememberScroll(y) }
 
         val pageTitle =
             when (selectedSettingsCategory) {
@@ -107,12 +154,7 @@ class WearSettingsActivity : Activity() {
             }
         root.addView(
             app.aapswear.uishared.WearSettingsUi.pageHeader(this, pageTitle, menuColors.textPrimary) {
-                if (selectedSettingsCategory != null) {
-                    selectedSettingsCategory = null
-                    buildUi(scrollPosition = categoryListScrollY)
-                } else {
-                    finish()
-                }
+                navigateBack()
             },
             fullWidth(),
         )
@@ -122,9 +164,8 @@ class WearSettingsActivity : Activity() {
                     listOf("Hell" to AppearanceMode.LIGHT, "Dunkel" to AppearanceMode.DARK),
                     selectedAppearanceMode,
                 ) { mode ->
-                    selectedAppearanceMode = mode
-                    WearDisplayPreferences.setActiveAppearanceMode(this, mode)
-                    buildUi()
+                    settingsModel.rememberScroll(scrollView.scrollY)
+                    settingsModel.selectAppearance(mode)
                 },
                 cardParams(),
             )
@@ -259,8 +300,7 @@ class WearSettingsActivity : Activity() {
             )
             contentRoot.addView(
                 actionCard("Trend-Stil zurücksetzen", "Light/Dark getrennt") {
-                    WearDisplayPreferences.resetTrendArrowStyle(this, selectedAppearanceMode)
-                    buildUi()
+                    settingsModel.resetTrend()
                 },
                 cardParams(),
             )
@@ -460,7 +500,7 @@ class WearSettingsActivity : Activity() {
         }
 
         settingsCategory("tiles", "Tiles und Complications", "Darstellung bleibt je Tile lokal getrennt") {
-            val glucoseTileColors = WearTileAppearanceStore.read(this, WearTileKind.GLUCOSE, selectedAppearanceMode)
+            val glucoseTileColors = requireNotNull(state.snapshot).tileColors.getValue(WearTileKind.GLUCOSE)
             section("TILE 1 · INHALT")
             tileContentRows(WearTileKind.GLUCOSE)
             section("TILE 1 · FARBEN")
@@ -475,7 +515,7 @@ class WearSettingsActivity : Activity() {
                 updateTileColors(WearTileKind.GLUCOSE) { colors -> colors.copy(glucoseHigh = it) }
             }
 
-            val therapyTileColors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
+            val therapyTileColors = requireNotNull(state.snapshot).tileColors.getValue(WearTileKind.THERAPY)
             section("TILE 2 · THERAPIE")
             therapyGeometryRows()
             section("TILE 2 · FARBEN")
@@ -515,6 +555,7 @@ class WearSettingsActivity : Activity() {
             }
         }
         scroll.post { scroll.scrollTo(0, restoreScrollY.coerceIn(0, (root.height - scroll.height).coerceAtLeast(0))) }
+        return scroll
     }
 
     private fun updateGraphColors(transform: (WatchGraphColors) -> WatchGraphColors) {
@@ -556,24 +597,15 @@ class WearSettingsActivity : Activity() {
         kind: WearTileKind,
         transform: (WatchUiColors) -> WatchUiColors,
     ) {
-        WearTileAppearanceStore.write(
-            this,
-            kind,
-            selectedAppearanceMode,
-            transform(WearTileAppearanceStore.read(this, kind, selectedAppearanceMode)),
-        )
-        requestSugarliciousTileUpdates(this)
-        if (!colorEditorOpen) buildUi()
+        settingsModel.updateTileColors(kind, transform)
     }
 
     private fun tileContentRows(kind: WearTileKind) {
-        val selected = WearTileContentStore.read(this, kind)
+        val selected = requireNotNull(state.snapshot).tileContent.getValue(kind)
         listOf(WearTileContent.GLUCOSE, WearTileContent.GRAPH).chunked(3).forEach { rowItems ->
             contentRoot.addView(
                 choiceRow(rowItems.map { it.label to it }, selected) { content ->
-                    WearTileContentStore.write(this, kind, content)
-                    requestSugarliciousTileUpdates(this)
-                    buildUi()
+                    settingsModel.setTileContent(kind, content)
                 },
                 cardParams(),
             )
@@ -581,12 +613,10 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun therapyGeometryRows() {
-        val appearance = TherapyTileGeometryStore.read(this)
+        val appearance = requireNotNull(state.snapshot).therapy
 
         fun save(value: TherapyProgressAppearance) {
-            TherapyTileGeometryStore.write(this, value.validated())
-            requestSugarliciousTileUpdates(this, setOf(TherapyTileService::class.java))
-            buildUi()
+            settingsModel.saveTherapy(value)
         }
 
         fun addSlider(
@@ -619,11 +649,11 @@ class WearSettingsActivity : Activity() {
             contentRoot.addView(
                 switchRow("Anzeigen", metric in appearance.enabledMetrics) { enabled ->
                     val selected = if (enabled) appearance.enabledMetrics + metric else appearance.enabledMetrics - metric
-                    if (selected.isNotEmpty()) save(appearance.copy(enabledMetrics = selected)) else buildUi()
+                    if (selected.isNotEmpty()) save(appearance.copy(enabledMetrics = selected)) else settingsModel.requestRender()
                 },
                 cardParams(),
             )
-            val colors = WearTileAppearanceStore.read(this, WearTileKind.THERAPY, selectedAppearanceMode)
+            val colors = requireNotNull(state.snapshot).tileColors.getValue(WearTileKind.THERAPY)
             when (metric) {
                 TherapyProgressMetric.IOB -> colorRow("Farbe", colors.iob, WatchUiColors().iob) { updateTileColors(WearTileKind.THERAPY) { c -> c.copy(iob = it) } }
                 TherapyProgressMetric.COB -> colorRow("Farbe", colors.cob, WatchUiColors().cob) { updateTileColors(WearTileKind.THERAPY) { c -> c.copy(cob = it) } }
@@ -645,12 +675,7 @@ class WearSettingsActivity : Activity() {
     }
 
     private fun navigateBack() {
-        if (selectedSettingsCategory == null) {
-            finish()
-        } else {
-            selectedSettingsCategory = null
-            buildUi(scrollPosition = categoryListScrollY)
-        }
+        if (!settingsModel.navigateBack()) finish()
     }
 
     private fun settingsCategory(
@@ -674,9 +699,7 @@ class WearSettingsActivity : Activity() {
                     menuColors.textPrimary,
                     menuColors.textSecondary,
                 ) {
-                    categoryListScrollY = scrollView.scrollY
-                    selectedSettingsCategory = key
-                    buildUi(scrollPosition = 0)
+                    settingsModel.openCategory(key, scrollView.scrollY)
                 }.apply {
                     tag = "settings-category-$key"
                     contentDescription = "$title. $summary"
@@ -952,7 +975,7 @@ class WearSettingsActivity : Activity() {
         defaultColor: Int,
         changed: (Int) -> Unit,
     ) {
-        colorEditorOpen = true
+        settingsModel.setColorEditorOpen(true)
         SharedColorEditor.show(
             this,
             title,
@@ -964,8 +987,7 @@ class WearSettingsActivity : Activity() {
             onChange = changed,
             onReset = { changed(defaultColor) },
             onDismiss = {
-                colorEditorOpen = false
-                buildUi()
+                settingsModel.setColorEditorOpen(false)
             },
         )
     }
@@ -984,17 +1006,8 @@ class WearSettingsActivity : Activity() {
         value: WearDisplayPreferences,
         rebuild: Boolean = true,
     ) {
-        val trendChanged = current.trendScalePercent != value.trendScalePercent
-        current = value
-        WearDisplayPreferences.saveLocal(this, selectedAppearanceMode, current)
-        requestSugarliciousTileUpdates(this)
-        if (trendChanged) {
-            ComplicationUpdatePlanner.allManagedProviders.forEach { provider ->
-                app.aapswear.complications.ActiveProviderUpdates
-                    .request(this, provider)
-            }
-        }
-        if (rebuild && !colorEditorOpen) buildUi()
+        settingsModel.rememberScroll(scrollView.scrollY)
+        settingsModel.save(value, rebuild)
     }
 
     private fun cardBackground(radiusDp: Float = 20f): GradientDrawable =

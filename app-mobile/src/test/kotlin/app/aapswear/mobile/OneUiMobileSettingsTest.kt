@@ -115,12 +115,27 @@ class OneUiMobileSettingsTest {
 
     @Test
     fun `settings page navigation returns from a category before leaving settings`() {
-        val navigation = MobileSettingsNavigation()
-        assertEquals(null, navigation.category)
+        val navigation =
+            MobileSettingsViewModel(
+                object : MobileSettingsStore {
+                    override fun write(key: String, value: Any) = Unit
+
+                    override fun saveThresholds(value: app.aapswear.model.CgmThresholds) = Unit
+
+                    override suspend fun syncHealth(schedule: Boolean): HealthConnectSyncResult? = null
+
+                    override suspend fun sync(therapy: app.aapswear.model.TherapyDisplayState) = Unit
+
+                    override suspend fun export(uri: android.net.Uri) = Unit
+
+                    override suspend fun restore(uri: android.net.Uri) = SettingsRestoreResult(0, 0)
+                },
+            )
+        assertEquals(null, navigation.uiState.value.category)
         navigation.open("general", "Allgemein")
-        assertEquals("Allgemein", navigation.title)
+        assertEquals("Allgemein", navigation.uiState.value.title)
         assertTrue(navigation.back())
-        assertEquals(null, navigation.category)
+        assertEquals(null, navigation.uiState.value.category)
         assertEquals(false, navigation.back())
     }
 }

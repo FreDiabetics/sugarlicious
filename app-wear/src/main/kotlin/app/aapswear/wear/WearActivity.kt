@@ -1,10 +1,8 @@
 package app.aapswear.wear
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -13,7 +11,15 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import app.aapswear.complications.G7LocalReadingResolver
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.aapswear.model.AapsDisplayField
 import app.aapswear.model.BasalState
 import app.aapswear.model.DataSourceId
@@ -27,17 +33,12 @@ import app.aapswear.model.WearGlucoseCardInput
 import app.aapswear.model.WearGlucoseCardStyle
 import app.aapswear.model.wearGlucoseCardPresentation
 import app.aapswear.protocol.WatchGlucoseUnit
-import app.aapswear.storage.TherapyStateStore
 import app.aapswear.uishared.TrendDrawableResources
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.math.roundToInt
 import app.aapswear.complications.R as ComplicationR
@@ -61,15 +62,36 @@ internal fun wearGraphScaleAgeText(
     return "${graphHours}h • $age"
 }
 
-class WearActivity : Activity() {
+class WearActivity : ComponentActivity() {
+    private val notificationPermission =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .RequestPermission(),
+        ) { granted ->
+            notificationPermissionResult(granted)
+        }
+    private val watchFacePermission =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .RequestPermission(),
+        ) {
+            renderWatchFacePushStatus()
+        }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
-    private var refreshJob: Job? = null
-    private var latest: TherapyDisplayState? = null
-    private var connectedNodes = 0
+    private val overviewModel by lazy {
+        ViewModelProvider(
+            this,
+            object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <T : ViewModel> create(modelClass: Class<T>): T =
+                    WearOverviewViewModel(AndroidWearOverviewRepository(applicationContext)) as T
+            },
+        )[WearOverviewViewModel::class.java]
+    }
     private var lastRenderedState: TherapyDisplayState? = null
     private var lastRenderedPreferences: WearDisplayPreferences? = null
     private var lastRenderedConnectedNodes: Int? = null
+    private var lastRenderedNowEpochMs: Long? = null
     private var hasRendered = false
     private var batteryRequestPending = false
 
@@ -92,11 +114,6 @@ class WearActivity : Activity() {
     private lateinit var watchFacePushStatus: TextView
     private var currentBasalIconRes: Int = ComplicationR.drawable.ic_complication_basal
 
-    private val displayPreferencesListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-            runOnUiThread { render() }
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         runCatching { StateDataLayerService.start(this) }
@@ -109,46 +126,23 @@ class WearActivity : Activity() {
                 )
             }
 
-        setContentView(R.layout.activity_wear)
-        configureTherapyOverviewLayout(findViewById(R.id.wear_root))
+        // Keep the approved round-screen XML/chart geometry inside the Compose lifecycle host.
+        val overview = layoutInflater.inflate(R.layout.activity_wear, android.widget.FrameLayout(this), false)
+        configureTherapyOverviewLayout(overview.findViewById(R.id.wear_root))
         app.aapswear.uishared.SystemTypography
-            .applyDeclaredWeights(findViewById(android.R.id.content))
-        bindViews()
-
-        findViewById<View>(R.id.wear_connection_card).setOnClickListener { requestPhoneRefresh() }
-        findViewById<View>(R.id.wear_settings_action).setOnClickListener {
+            .applyDeclaredWeights(overview)
+        bindViews(overview)
+        overview.findViewById<View>(R.id.wear_connection_card).setOnClickListener { overviewModel.refresh() }
+        overview.findViewById<View>(R.id.wear_settings_action).setOnClickListener {
             startActivity(Intent(this, WearSettingsActivity::class.java))
         }
-
-        scope.launch {
-            TherapyStateStore(this@WearActivity).state.collectLatest {
-                latest = it
-                getSharedPreferences("diagnostics", Context.MODE_PRIVATE)
-                    .edit()
-                    .putLong("wearUiObservedAt", System.currentTimeMillis())
-                    .apply()
-                render()
-            }
-        }
-        val advanceGraphScale =
-            View.OnClickListener {
-                val current = WearDisplayPreferences.read(this)
-                val next = nextWearGraphHours(current.graphHours)
-                WearDisplayPreferences.saveLocal(this, current.copy(graphHours = next))
-                render(refreshClock = true)
-            }
-        // Graph gestures and scale selection stay separate. This explicit round-safe hit target
-        // remains above the chart canvas and is the single source of the scale action.
-        findViewById<View>(R.id.wear_graph_period).apply {
-            setOnClickListener(advanceGraphScale)
+        overview.findViewById<View>(R.id.wear_graph_period).apply {
+            setOnClickListener { overviewModel.advanceGraphPeriod() }
             bringToFront()
         }
-        scope.launch {
-            WearCanonicalStateEvents.updates.collectLatest {
-                // The event only invalidates the canonical resolver-backed UI. It does not copy
-                // G7 database data into the phone-fed TherapyStateStore.
-                render()
-            }
+        setContent {
+            val state by overviewModel.uiState.collectAsStateWithLifecycle()
+            AndroidView(factory = { overview }, modifier = Modifier.fillMaxSize(), update = { render(it, state) })
         }
 
         val notificationRequestStarted = requestRuntimeNotificationPermission()
@@ -156,8 +150,7 @@ class WearActivity : Activity() {
             val batteryRequestStarted = requestBatteryExemptionIfNeeded()
             if (!batteryRequestStarted) requestWatchFacePermissionOnFirstLaunch()
         }
-        requestPhoneRefresh(initial = true)
-        render()
+        overviewModel.refresh()
     }
 
     override fun onResume() {
@@ -190,85 +183,47 @@ class WearActivity : Activity() {
         requestWatchFacePermissionOnFirstLaunch()
     }
 
-    override fun onStart() {
-        super.onStart()
-        getSharedPreferences(WearDisplayPreferences.PREFS, Context.MODE_PRIVATE)
-            .registerOnSharedPreferenceChangeListener(displayPreferencesListener)
-
-        refreshJob =
-            scope.launch {
-                while (true) {
-                    render(refreshClock = true)
-                    delay(30_000L)
-                }
-            }
-    }
-
-    override fun onStop() {
-        refreshJob?.cancel()
-        refreshJob = null
-        getSharedPreferences(WearDisplayPreferences.PREFS, Context.MODE_PRIVATE)
-            .unregisterOnSharedPreferenceChangeListener(displayPreferencesListener)
-        super.onStop()
-    }
-
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
     }
 
-    private fun bindViews() {
-        glucose = findViewById(R.id.wear_glucose)
-        trendContainer = findViewById(R.id.wear_trend_container)
-        trendArrow1 = findViewById(R.id.wear_trend_arrow_1)
-        delta = findViewById(R.id.wear_delta)
-        age = findViewById(R.id.wear_age)
-        source = findViewById(R.id.wear_source)
-        connection = findViewById(R.id.wear_connection)
-        syncHint = findViewById(R.id.wear_sync_hint)
-        iob = findViewById(R.id.wear_iob)
-        cob = findViewById(R.id.wear_cob)
-        basal = findViewById(R.id.wear_basal)
-        iobIcon = findViewById(R.id.wear_iob_icon)
-        cobIcon = findViewById(R.id.wear_cob_icon)
-        basalIcon = findViewById(R.id.wear_basal_icon)
-        therapyRow = findViewById(R.id.wear_therapy_row)
-        chart = findViewById(R.id.wear_glucose_chart)
-        watchFacePushStatus = findViewById(R.id.wear_watchface_push_status)
+    private fun bindViews(root: View) {
+        glucose = root.findViewById(R.id.wear_glucose)
+        trendContainer = root.findViewById(R.id.wear_trend_container)
+        trendArrow1 = root.findViewById(R.id.wear_trend_arrow_1)
+        delta = root.findViewById(R.id.wear_delta)
+        age = root.findViewById(R.id.wear_age)
+        source = root.findViewById(R.id.wear_source)
+        connection = root.findViewById(R.id.wear_connection)
+        syncHint = root.findViewById(R.id.wear_sync_hint)
+        iob = root.findViewById(R.id.wear_iob)
+        cob = root.findViewById(R.id.wear_cob)
+        basal = root.findViewById(R.id.wear_basal)
+        iobIcon = root.findViewById(R.id.wear_iob_icon)
+        cobIcon = root.findViewById(R.id.wear_cob_icon)
+        basalIcon = root.findViewById(R.id.wear_basal_icon)
+        therapyRow = root.findViewById(R.id.wear_therapy_row)
+        chart = root.findViewById(R.id.wear_glucose_chart)
+        watchFacePushStatus = root.findViewById(R.id.wear_watchface_push_status)
     }
 
-    private fun requestPhoneRefresh(initial: Boolean = false) {
-        if (!::connection.isInitialized) return
-        if (!initial) syncHint.setText(R.string.syncing_values)
-
-        scope.launch {
-            connectedNodes =
-                withContext(Dispatchers.IO) {
-                    runCatching { requestLatestState(applicationContext) }.getOrDefault(0)
-                }
-            syncHint.text =
-                if (connectedNodes > 0) {
-                    getString(R.string.tap_to_refresh)
-                } else {
-                    getString(R.string.phone_unreachable)
-                }
-            render()
-        }
-    }
-
-    private fun render(refreshClock: Boolean = false) {
+    private fun render(root: View, uiState: WearOverviewUiState) {
         if (!::glucose.isInitialized) return
 
-        val now = System.currentTimeMillis()
-        val preferences = WearDisplayPreferences.read(this)
-        val state = G7LocalReadingResolver.resolve(this, latest, now, preferences.dataSource)
+        val now = uiState.nowEpochMs
+        val preferences = uiState.snapshot.preferences
+        // Retain the last snapshot for recovery, but never display it as current after storage failure.
+        val state = uiState.displayTherapy
+        val connectedNodes = uiState.connectedNodes
+        val refreshClock = lastRenderedNowEpochMs != now
         val previousState = lastRenderedState
         val glucoseState = state?.glucose
         val previousPreferences = lastRenderedPreferences
         val firstRender = !hasRendered
 
         if (firstRender || previousPreferences == null || previousPreferences.uiColors != preferences.uiColors || previousPreferences.graphStyle.borderEnabled != preferences.graphStyle.borderEnabled) {
-            applyUiColors(preferences)
+            applyUiColors(root, preferences)
         }
 
         val thresholds = preferences.cgmThresholds
@@ -331,7 +286,7 @@ class WearActivity : Activity() {
             age.text = app.aapswear.uishared.glucoseMetadataText(presentation.secondaryMeta)
             age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
 
-            findViewById<View>(R.id.wear_glucose_card).background =
+            root.findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, if (preferences.graphStyle.borderEnabled) preferences.uiColors.tileBorder else android.graphics.Color.TRANSPARENT, WearGlucoseCardStyle.CARD_RADIUS_DP)
         }
 
@@ -343,7 +298,7 @@ class WearActivity : Activity() {
             style = preferences.graphStyle,
             thresholds = preferences.cgmThresholds,
         )
-        findViewById<TextView>(R.id.wear_graph_period).apply {
+        root.findViewById<TextView>(R.id.wear_graph_period).apply {
             text = wearGraphScaleAgeText(preferences.graphHours, state?.glucose?.measuredAtEpochMs, now)
             setTextColor(preferences.uiColors.textSecondary)
             background = null
@@ -363,7 +318,7 @@ class WearActivity : Activity() {
             previousState?.therapyEvents != state?.therapyEvents
         ) {
             therapyRow.visibility = if (preferences.showTherapyStats) View.VISIBLE else View.GONE
-            findViewById<View>(R.id.wear_basal_card).visibility =
+            root.findViewById<View>(R.id.wear_basal_card).visibility =
                 if (preferences.showTherapyStats) View.VISIBLE else View.GONE
 
             iob.text = if (canShowValue) TherapyDisplayFormatter.aaps(AapsDisplayField.IOB, state?.insulin?.totalIob, state) else "—"
@@ -386,23 +341,23 @@ class WearActivity : Activity() {
                 Triple(TherapyTileMetric.COB, R.id.wear_cob_progress, preferences.uiColors.cob),
                 Triple(TherapyTileMetric.BASAL, R.id.wear_basal_progress, preferences.uiColors.basal),
             ).forEach { (metric, id, color) ->
-                findViewById<WearTherapyProgressView>(id).bind(if (canShowValue) wearTherapyProgress(metric, state, now) else null, color)
+                root.findViewById<WearTherapyProgressView>(id).bind(if (canShowValue) wearTherapyProgress(metric, state, now) else null, color)
             }
-            findViewById<TextView>(R.id.wear_iob_secondary).apply {
+            root.findViewById<TextView>(R.id.wear_iob_secondary).apply {
                 text = if (canShowValue) presentation.iobSecondary.orEmpty() else ""
                 visibility = if (text.isBlank()) View.GONE else View.VISIBLE
             }
             val basalDetails = wearBasalDetails(if (canShowValue) state?.basal else null, now)
-            findViewById<TextView>(R.id.wear_basal_base).text = basalDetails.base
-            findViewById<TextView>(R.id.wear_basal_secondary).text = basalDetails.temporary
+            root.findViewById<TextView>(R.id.wear_basal_base).text = basalDetails.base
+            root.findViewById<TextView>(R.id.wear_basal_secondary).text = basalDetails.temporary
             val detailIcon =
                 when (currentBasalIconRes) {
                     ComplicationR.drawable.ic_complication_basal_more -> app.aapswear.uishared.R.drawable.ic_basalmore_bckgrnd
                     ComplicationR.drawable.ic_complication_basal_less -> app.aapswear.uishared.R.drawable.ic_basalless_bckgrnd
                     else -> app.aapswear.uishared.R.drawable.ic_basal_bckgrnd
                 }
-            findViewById<ImageView>(R.id.wear_basal_base_icon).renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_basal_bckgrnd, preferences.uiColors.basal, preferences.uiColors.tileBackground)
-            findViewById<ImageView>(R.id.wear_basal_temp_icon).renderSugarliciousWearIcon(detailIcon, preferences.uiColors.basal, preferences.uiColors.tileBackground)
+            root.findViewById<ImageView>(R.id.wear_basal_base_icon).renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_basal_bckgrnd, preferences.uiColors.basal, preferences.uiColors.tileBackground)
+            root.findViewById<ImageView>(R.id.wear_basal_temp_icon).renderSugarliciousWearIcon(detailIcon, preferences.uiColors.basal, preferences.uiColors.tileBackground)
         }
 
         if (firstRender || previousState?.source != state?.source || previousState?.sourceVersion != state?.sourceVersion) {
@@ -431,10 +386,23 @@ class WearActivity : Activity() {
             )
         }
 
+        syncHint.text =
+            when {
+                uiState.error != null ->
+                    when (uiState.error) {
+                        WearOverviewError.STORAGE_UNAVAILABLE -> "Gespeicherte Daten nicht verfügbar · zum Wiederholen tippen"
+                        WearOverviewError.PHONE_REFRESH_FAILED -> "Telefonaktualisierung fehlgeschlagen"
+                        WearOverviewError.PREFERENCES_SAVE_FAILED -> "Graphzeitraum konnte nicht gespeichert werden"
+                    }
+                uiState.refreshing -> getString(R.string.syncing_values)
+                uiState.refreshAttempted && connectedNodes == 0 -> getString(R.string.phone_unreachable)
+                else -> getString(R.string.tap_to_refresh)
+            }
         renderWatchFacePushStatus()
         lastRenderedState = state
         lastRenderedPreferences = preferences
         lastRenderedConnectedNodes = connectedNodes
+        lastRenderedNowEpochMs = now
         hasRendered = true
     }
 
@@ -462,17 +430,17 @@ class WearActivity : Activity() {
         trendArrow1.visibility = View.VISIBLE
     }
 
-    private fun applyUiColors(preferences: WearDisplayPreferences) {
+    private fun applyUiColors(root: View, preferences: WearDisplayPreferences) {
         val ui = preferences.uiColors
-        findViewById<View>(R.id.wear_root).setBackgroundColor(ui.background)
+        root.findViewById<View>(R.id.wear_root).setBackgroundColor(ui.background)
 
         listOf(R.id.wear_basal_card, R.id.wear_iob_card, R.id.wear_cob_card).forEach { id ->
-            findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 20f)
+            root.findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 20f)
         }
         listOf(R.id.wear_connection_card).forEach { id ->
-            findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 22f)
+            root.findViewById<View>(id).background = roundedBackground(ui.tileBackground, if (preferences.graphStyle.borderEnabled) ui.tileBorder else android.graphics.Color.TRANSPARENT, 22f)
         }
-        findViewById<View>(R.id.wear_graph_card).background = null
+        root.findViewById<View>(R.id.wear_graph_card).background = null
 
         listOf(
             R.id.wear_glucose,
@@ -481,7 +449,7 @@ class WearActivity : Activity() {
             R.id.wear_iob,
             R.id.wear_cob,
             R.id.wear_source,
-        ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textPrimary) }
+        ).forEach { id -> root.findViewById<TextView>(id).setTextColor(ui.textPrimary) }
 
         listOf(
             R.id.wear_delta,
@@ -491,12 +459,12 @@ class WearActivity : Activity() {
             R.id.wear_cob_secondary,
             R.id.wear_basal_secondary,
             R.id.wear_watchface_push_status,
-        ).forEach { id -> findViewById<TextView>(id).setTextColor(ui.textSecondary) }
+        ).forEach { id -> root.findViewById<TextView>(id).setTextColor(ui.textSecondary) }
         iobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_iob, ui.iob, ui.tileBackground)
         cobIcon.renderSugarliciousWearIcon(app.aapswear.uishared.R.drawable.ic_cob, ui.cob, ui.tileBackground)
         basalIcon.renderSugarliciousWearIcon(currentBasalIconRes, ui.basal, ui.tileBackground)
         app.aapswear.uishared.WearOverviewSettingsButton.apply(
-            findViewById(R.id.wear_settings_action),
+            root.findViewById(R.id.wear_settings_action),
             R.drawable.ic_settings,
             ui.tileBackground,
             ui.textPrimary,
@@ -519,7 +487,7 @@ class WearActivity : Activity() {
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
             return false
         }
-        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
+        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         return true
     }
 
@@ -550,7 +518,7 @@ class WearActivity : Activity() {
 
         onboarding.edit().putBoolean(KEY_WFP_PERMISSION_REQUESTED, true).apply()
         if (SugarliciousWatchFacePush.isSupported() && !SugarliciousWatchFacePush.hasActivationPermission(this)) {
-            requestPermissions(arrayOf(SugarliciousWatchFacePush.ACTIVE_PERMISSION), WATCH_FACE_PERMISSION_REQUEST)
+            watchFacePermission.launch(SugarliciousWatchFacePush.ACTIVE_PERMISSION)
         }
     }
 
@@ -581,33 +549,22 @@ class WearActivity : Activity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            NOTIFICATION_PERMISSION_REQUEST -> {
-                val granted = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
-                if (!granted) {
-                    Toast
-                        .makeText(
-                            this,
-                            "Benachrichtigungen nicht freigegeben – die Dauerbetrieb-Anzeige kann verborgen bleiben",
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    recordRuntimeDiagnostic(
-                        "WATCH-NOTIFY-403",
-                        "Notification permission was not granted for Sugarlicious Wear",
-                        DiagnosticSeverity.WARNING,
-                    )
-                }
-                val batteryRequestStarted = requestBatteryExemptionIfNeeded()
-                if (!batteryRequestStarted) requestWatchFacePermissionOnFirstLaunch()
-            }
-            WATCH_FACE_PERMISSION_REQUEST -> renderWatchFacePushStatus()
+    private fun notificationPermissionResult(granted: Boolean) {
+        if (!granted) {
+            Toast
+                .makeText(
+                    this,
+                    "Benachrichtigungen nicht freigegeben – die Dauerbetrieb-Anzeige kann verborgen bleiben",
+                    Toast.LENGTH_LONG,
+                ).show()
+            recordRuntimeDiagnostic(
+                "WATCH-NOTIFY-403",
+                "Notification permission was not granted for Sugarlicious Wear",
+                DiagnosticSeverity.WARNING,
+            )
         }
+        val batteryRequestStarted = requestBatteryExemptionIfNeeded()
+        if (!batteryRequestStarted) requestWatchFacePermissionOnFirstLaunch()
     }
 
     private fun resolveUnit(
@@ -627,8 +584,6 @@ class WearActivity : Activity() {
     ): String = value?.let { String.format(Locale.US, "%.${digits}f%s", it, suffix) } ?: "—"
 
     companion object {
-        private const val NOTIFICATION_PERMISSION_REQUEST = 700
-        private const val WATCH_FACE_PERMISSION_REQUEST = 701
         private const val ONBOARDING_PREFS = "wear_onboarding"
         private const val KEY_WFP_PERMISSION_REQUESTED = "watchface_permission_requested"
     }
