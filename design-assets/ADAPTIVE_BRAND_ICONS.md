@@ -4,8 +4,8 @@ The original supplied 108 x 108 SVG layers are preserved byte for byte in
 `app-icons/adaptive108` (Sugarlicious) and `sugarwear/adaptive108` (SugarWear).
 `combined.svg` composes the full background and centered 66-unit foreground motif for store artwork and review.
 
-Reimport using `python tools/import_adaptive_brand_icons.py --source-dir PATH`.
-The separate legacy `import_app_brand_icons.py` and 66 x 66 masters remain
+Reimport using `./gradlew :tools:maintenance:run --args="import-adaptive-brand-icons --source-dir PATH"`.
+The separate Kotlin command `import-app-brand-icons` and 66 x 66 masters remain
 available for the old input format; do not use that importer for layered108 input.
 
 Launcher foreground and adaptive monochrome vectors use the exact supplied

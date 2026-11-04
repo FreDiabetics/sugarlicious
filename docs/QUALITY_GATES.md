@@ -7,7 +7,7 @@ declared complete, run from the repository root:
 
 ```powershell
 .\gradlew.bat verifyArchitecture detekt ktlintCheck test assembleDebug lint :watchfaces:test-wff:assembleRelease --continue --no-daemon --no-problems-report
-python -m unittest discover -s tools/tests -p "test_*.py"
+.\gradlew.bat :tools:maintenance:test
 .\tools\tests\watchface-product-matrix.tests.ps1
 .\tools\wff-validator\validate.ps1
 .\tools\verify-codefree-watchfaces.ps1
@@ -16,6 +16,9 @@ python -m unittest discover -s tools/tests -p "test_*.py"
 Use focused tests while developing, but do not substitute them for the complete
 gate. The `--no-problems-report` flag avoids a known Windows report-file ACL
 collision and does not suppress compiler, test or Android Lint findings.
+
+Maintenance raster tests require Cairo 1.18.4 and its native dependencies;
+see `tools/maintenance/README.md`. Project-owned tools and tests use Kotlin.
 
 ## Pull-request gate
 
