@@ -1,8 +1,8 @@
 package app.sugarlicious.mobile
 
 import app.sugarlicious.model.CgmThresholds
-import app.sugarlicious.model.GlucoseBarRange as CanonicalGlucoseBarRange
 import app.sugarlicious.model.GlucoseBarScale
+import app.sugarlicious.model.GlucoseBarRange as CanonicalGlucoseBarRange
 
 internal enum class GlucoseBarRange { LOW, TARGET, HIGH }
 
