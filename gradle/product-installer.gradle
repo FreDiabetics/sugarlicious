@@ -50,8 +50,9 @@ abstract class ProductInstallerTask extends DefaultTask {
     private String adb(List<String> arguments) {
         def stdout = new ByteArrayOutputStream()
         def stderr = new ByteArrayOutputStream()
+        def executable = adbExecutable()
         def result = execOperations.exec {
-            commandLine([adbExecutable()] + arguments)
+            commandLine([executable] + arguments)
             standardOutput = stdout
             errorOutput = stderr
             ignoreExitValue = true
