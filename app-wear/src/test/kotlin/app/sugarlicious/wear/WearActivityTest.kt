@@ -112,6 +112,27 @@ class WearActivityTest {
     }
 
     @Test
+    fun `custom Mobile glucose progress colors survive Wear appearance persistence`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val original = WearDisplayPreferences.read(context, AppearanceMode.DARK)
+        val palette =
+            original.uiColors.copy(
+                glucoseBarLow = 0xFFBA2436.toInt(),
+                glucoseBarTarget = 0xFF00E886.toInt(),
+                glucoseBarHigh = 0xFFE5AC10.toInt(),
+                glucoseBarUnderlay = 0x33808080,
+            )
+        WearDisplayPreferences.saveLocal(context, AppearanceMode.DARK, original.copy(uiColors = palette))
+
+        val stored = WearDisplayPreferences.read(context, AppearanceMode.DARK).uiColors
+        assertEquals(palette.glucoseBarLow, stored.glucoseBarLow)
+        assertEquals(palette.glucoseBarTarget, stored.glucoseBarTarget)
+        assertEquals(palette.glucoseBarHigh, stored.glucoseBarHigh)
+        assertEquals(palette.glucoseBarUnderlay, stored.glucoseBarUnderlay)
+        WearDisplayPreferences.saveLocal(context, AppearanceMode.DARK, original)
+    }
+
+    @Test
     fun `legacy Wear source selection cannot override AndroidAPS phone policy`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val prefs = context.getSharedPreferences(WearDisplayPreferences.PREFS, android.content.Context.MODE_PRIVATE)
