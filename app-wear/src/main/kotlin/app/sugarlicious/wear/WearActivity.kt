@@ -23,9 +23,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.sugarlicious.model.BasalState
 import app.sugarlicious.model.DataSourceId
 import app.sugarlicious.model.DiagnosticSeverity
-import app.sugarlicious.model.GlucoseTrendSizing
-import app.sugarlicious.model.GlucoseAgeText
 import app.sugarlicious.model.Freshness
+import app.sugarlicious.model.GlucoseAgeText
+import app.sugarlicious.model.GlucoseTrendSizing
 import app.sugarlicious.model.GlucoseUnit
 import app.sugarlicious.model.TherapyBridgeDisplayField
 import app.sugarlicious.model.TherapyDisplayFormatter
@@ -36,13 +36,13 @@ import app.sugarlicious.model.WearGlucoseCardStyle
 import app.sugarlicious.model.wearGlucoseCardPresentation
 import app.sugarlicious.protocol.WatchGlucoseUnit
 import app.sugarlicious.uishared.TrendDrawableResources
+import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.util.Locale
-import kotlin.math.roundToInt
 import app.sugarlicious.complications.R as ComplicationR
 
 internal fun nextWearGraphHours(current: Int): Int {
