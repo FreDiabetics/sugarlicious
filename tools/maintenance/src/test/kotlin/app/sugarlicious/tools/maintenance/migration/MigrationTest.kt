@@ -31,7 +31,7 @@ class MigrationTest {
         error("apk_application_id_mismatch") { validateMetadata(metadata("app.apk"), "other", root) }
         listOf("../other.apk", "config.xml").forEach { error("apk_path_invalid") { validateMetadata(metadata(it), "app.sugarwear", root) } }
         error("sugarwear_repository_required") { artifactDirectory("sugarwear", root) }
-        assertEquals(root.resolve("g7watch/build/outputs/apk/debug"), artifactDirectory("sugarwear", Path.of("ignored"), root))
+        assertEquals(root.resolve("app-sugarwear/build/outputs/apk/debug"), artifactDirectory("sugarwear", Path.of("ignored"), root))
     }
 
     @Test fun plansAndAllowlist() {

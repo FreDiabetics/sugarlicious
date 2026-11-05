@@ -7,16 +7,12 @@ import kotlin.test.*
 class ProductInstallerTest {
     private val root = Path.of(System.getProperty("maintenance.sharedRoot", System.getProperty("user.dir")))
 
-    @Test fun publicIdsRetainClassNamespaces() {
+    @Test fun publicIdsStayStableWithProjectOwnedNamespaces() {
         mapOf("app-mobile" to "app.sugarlicious", "app-wear" to "app.sugarlicious", "watchfaces/sugarlicious-analog" to "app.sugarlicious.watchfacepush.apex", "watchfaces/sugarlicious-orbit" to "app.sugarlicious.watchfacepush.orbit", "watchfaces/sugarlicious-digital" to "app.sugarlicious.watchfacepush.digital").forEach { (module, id) ->
             val source = root.resolve("$module/build.gradle.kts").readText()
-            if (module.startsWith("app-")) {
-                assertContains(source, "else \"$id\"")
-                assertContains(source, "providers.gradleProperty(\"legacyProductMigration\")")
-            } else {
-                assertContains(source, "applicationId = \"$id\"")
-            }
-            assertTrue(Regex("namespace = \"app\\.aapswear\\.").containsMatchIn(source))
+            assertContains(source, "applicationId = \"$id\"")
+            assertFalse(source.contains("legacyProductMigration"))
+            assertTrue(Regex("namespace = \"app\\.sugarlicious\\.").containsMatchIn(source))
         }
     }
 
@@ -26,9 +22,9 @@ class ProductInstallerTest {
         assertEquals(setOf(":app-mobile:assembleDebug", ":app-wear:assembleDebug"), Regex("\"(:[^\"\\n]+:assembleDebug)\"").findAll(block).map { it.groupValues[1] }.toSet())
         assertFalse(source.contains("installSugarWearDebug"))
         val settings = root.resolve("settings.gradle.kts").readText()
-        assertFalse(settings.contains("\":g7watch\""))
+        assertFalse(settings.contains("\":app-sugarwear\""))
         assertFalse(settings.contains("\":watchfaces:sugarlicious-direct-to-watch\""))
-        assertFalse(root.resolve("g7watch/build.gradle.kts").exists())
+        assertFalse(root.resolve("app-sugarwear/build.gradle.kts").exists())
         assertFalse(root.resolve("watchfaces/sugarlicious-direct-to-watch/build.gradle.kts").exists())
         val wear = root.resolve("app-wear/build.gradle.kts").readText()
         assertFalse(wear.contains(":watchfaces:sugarlicious-direct-to-watch:assembleRelease"))

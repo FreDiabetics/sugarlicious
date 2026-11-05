@@ -205,25 +205,25 @@
         <Configuration id="progressBars" optionId="5" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_ultra" displayName="native_profile_ultra">
@@ -236,25 +236,25 @@
         <Configuration id="progressBars" optionId="5" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_military" displayName="native_profile_military">
@@ -267,25 +267,25 @@
         <Configuration id="progressBars" optionId="4" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_polar" displayName="native_profile_polar">
@@ -298,25 +298,25 @@
         <Configuration id="progressBars" optionId="0" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_aurora" displayName="native_profile_aurora">
@@ -329,25 +329,25 @@
         <Configuration id="progressBars" optionId="3" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_solar" displayName="native_profile_solar">
@@ -360,25 +360,25 @@
         <Configuration id="progressBars" optionId="7" />
         <Configuration id="glucoseColor" optionId="FALSE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="1">
           <DefaultProviderPolicy defaultSystemProvider="WATCH_BATTERY" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="6">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
     </Flavors>
@@ -675,7 +675,7 @@
     </PartDraw>
     <ComplicationSlot slotId="7" displayName="upper_content" tintColor="#FFFFFFFF" isCustomizable="FALSE" supportedTypes="LONG_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="255" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.NativeApexGraphComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.NativeApexGraphComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingBox x="91" y="91" width="330" height="97" />
       <Complication type="LONG_TEXT">
         <Group name="graph-clipped-content" x="0" y="0" width="512" height="512" tintColor="[CONFIGURATION.materialAccent.0]">
@@ -706,7 +706,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="0" displayName="Outer upper left" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="440" height="440" thickness="64" startAngle="270" endAngle="360" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="SHORT_TEXT">
         <PartImage x="50" y="221" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.2]">
@@ -1375,7 +1375,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="2" displayName="Outer lower right" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="440" height="440" thickness="64" startAngle="90" endAngle="180" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="SHORT_TEXT">
         <PartImage x="440" y="259" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.2]">
@@ -1549,7 +1549,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="3" displayName="Outer lower left" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.TirRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="440" height="440" thickness="64" startAngle="180" endAngle="270" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="SHORT_TEXT">
         <PartImage x="58" y="308" width="25" height="25" tintColor="[CONFIGURATION.materialAccent.2]">
@@ -2081,7 +2081,7 @@
     </Group>
     <ComplicationSlot slotId="4" displayName="Middle left" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="83" y="195" width="123" height="123">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.DateComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingOval x="0" y="0" width="123" height="123" />
       <Complication type="SHORT_TEXT">
         <Condition>
@@ -2292,7 +2292,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="5" displayName="Middle right" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="306" y="195" width="123" height="123">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingOval x="0" y="0" width="123" height="123" />
       <Complication type="SHORT_TEXT">
         <Condition>
@@ -2503,7 +2503,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="6" displayName="Bottom center" tintColor="#FFFFFFFF" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="181" y="281" width="150" height="149">
       <Variant mode="AMBIENT" target="alpha" value="160" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingOval x="0" y="0" width="150" height="149" />
       <Complication type="SHORT_TEXT">
         <Condition>
@@ -2845,7 +2845,7 @@
       </Group>
     </Group>
     <PartDraw name="native-hands-center-tap" x="230" y="230" width="52" height="52">
-      <Launch target="app.sugarlicious/app.aapswear.complications.ApexHandsOpacityActivity" />
+      <Launch target="app.sugarlicious/app.sugarlicious.complications.ApexHandsOpacityActivity" />
       <Ellipse x="0" y="0" width="52" height="52">
         <Fill color="#01000000" />
       </Ellipse>

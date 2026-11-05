@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "app.aapswear.uishared"
+    namespace = "app.sugarlicious.uishared"
     compileSdk = 37
     defaultConfig { minSdk = 26 }
     testOptions { unitTests.isIncludeAndroidResources = true }

@@ -201,5 +201,5 @@ internal fun simplifyApexEditor(root: Element, strings: Element) {
             child.one("Variant[@mode='AMBIENT'][@target='alpha']")?.set("value" to "160")
         }
     }
-    configs.all("Flavors/Flavor/ComplicationSlot[@slotId='7']/DefaultProviderPolicy").forEach { it.set("primaryProvider" to "app.sugarlicious/app.aapswear.complications.GlucoseGraphComplication", "primaryProviderType" to "SMALL_IMAGE") }
+    configs.all("Flavors/Flavor/ComplicationSlot[@slotId='7']/DefaultProviderPolicy").forEach { it.set("primaryProvider" to "app.sugarlicious/app.sugarlicious.complications.GlucoseGraphComplication", "primaryProviderType" to "SMALL_IMAGE") }
 }

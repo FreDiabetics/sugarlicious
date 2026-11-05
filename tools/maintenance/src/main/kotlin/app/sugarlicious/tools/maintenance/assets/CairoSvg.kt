@@ -67,6 +67,8 @@ internal interface Cairo : Library {
 
     fun cairoNewPath(c: Pointer)
 
+    fun cairoPathExtents(c: Pointer, x1: com.sun.jna.ptr.DoubleByReference, y1: com.sun.jna.ptr.DoubleByReference, x2: com.sun.jna.ptr.DoubleByReference, y2: com.sun.jna.ptr.DoubleByReference)
+
     fun cairoFillPreserve(c: Pointer)
 
     fun cairoStroke(c: Pointer)
@@ -100,6 +102,32 @@ internal val cairo: Cairo by lazy {
             method.name.replace(Regex("[A-Z]")) { "_${it.value.lowercase()}" }
         }
     Native.load(name, Cairo::class.java, mapOf(Library.OPTION_FUNCTION_MAPPER to symbols)).also { require(it.cairoVersionString() == "1.18.4") { "Asset parity requires Cairo 1.18.4; use SUGARLICIOUS_CAIRO_LIBRARY to select the pinned library" } }
+}
+
+internal data class VectorBounds(
+    val left: Double,
+    val top: Double,
+    val right: Double,
+    val bottom: Double,
+)
+
+internal fun cairoPathBounds(data: String): VectorBounds {
+    val lib = cairo
+    val surface = lib.cairoImageSurfaceCreate(0, 1, 1)
+    val context = lib.cairoCreate(surface)
+    try {
+        cairoPath(lib, context, data)
+        val values =
+            List(4) {
+                com.sun.jna.ptr
+                    .DoubleByReference()
+            }
+        lib.cairoPathExtents(context, values[0], values[1], values[2], values[3])
+        return VectorBounds(values[0].value, values[1].value, values[2].value, values[3].value)
+    } finally {
+        lib.cairoDestroy(context)
+        lib.cairoSurfaceDestroy(surface)
+    }
 }
 
 internal fun cairoSvg(svg: String, output: Path, size: Int) {

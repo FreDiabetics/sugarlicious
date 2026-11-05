@@ -29,8 +29,9 @@ class WatchfacePythonParityTest {
             "apex:simplify_editor" to "1ad23b3d589e20505952f4716cba0227c00476ee60b3db8c806e942bcf65195f",
         )
 
+    // Rebranding changes only component namespaces; historical geometry/expression hashes remain fixed.
     private fun normalize(value: String) =
-        Regex("(?<![A-Za-z_])[-+]?\\d+(?:\\.\\d+)?(?:e[-+]?\\d+)?").replace(value) { match ->
+        Regex("(?<![A-Za-z_])[-+]?\\d+(?:\\.\\d+)?(?:e[-+]?\\d+)?").replace(value.replace("app.sugarlicious.complications.", "app.aapswear.complications.")) { match ->
             match.value
                 .toBigDecimal(MathContext(12))
                 .stripTrailingZeros()
@@ -61,9 +62,10 @@ class WatchfacePythonParityTest {
         val failures = mutableListOf<String>()
         golden.forEach { (key, expected) ->
             val (family, command) = key.split(':')
-            val source = repo.resolve("watchfaces/sugarlicious-${if (family == "apex") "analog" else "orbit"}/src/main/res")
-            val face = parseXml(source.resolve("raw/watchface.xml"))
-            val strings = parseXml(source.resolve("values/strings.xml"))
+            // Historical parity hashes require historical input, independent of new product features.
+            val source = if (family == "orbit") repo.resolve("tools/maintenance/src/test/resources/dom-parity-input/orbit") else repo.resolve("tools/maintenance/src/test/resources/dom-parity-input/apex")
+            val face = parseXml(source.resolve(if (family == "orbit") "watchface.xml" else "raw/watchface.xml"))
+            val strings = parseXml(source.resolve(if (family == "orbit") "strings.xml" else "values/strings.xml"))
             when (command) {
                 "configure_indicator_gradient" -> configureIndicatorGradient(face, family)
                 "segmented_progress" -> configureSegmentedProgress(face, family)

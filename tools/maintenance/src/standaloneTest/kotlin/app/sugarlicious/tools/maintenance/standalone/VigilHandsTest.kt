@@ -21,7 +21,7 @@ class VigilHandsTest {
         val action = face.need("Scene/Group[@name='vigil-open-sugarwear']")
         assertEquals("300", action.attr("width"))
         assertEquals("108", action.attr("height"))
-        assertEquals("app.sugarwear/app.aapswear.g7watch.G7WatchActivity", action.need("Launch").attr("target"))
+        assertEquals("app.sugarwear/app.sugarwear.CgmWatchActivity", action.need("Launch").attr("target"))
     }
 
     @Test fun analogTextAndPairingButtonRenderBelowNativeHands() {

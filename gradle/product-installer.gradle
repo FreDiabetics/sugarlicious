@@ -9,6 +9,8 @@ abstract class ProductInstallerTask extends DefaultTask {
     @Input abstract Property<Boolean> getLegacyMigration()
     @Inject abstract ExecOperations getExecOperations()
 
+    // Gradle's decorated task invokes these helpers from Groovy closures.
+    // Keep them visible to dynamic dispatch rather than private.
     @TaskAction
     void install() {
         if (legacyMigration.get()) throw new GradleException('Legacy migration artifacts are not normal product installers')
@@ -27,31 +29,32 @@ abstract class ProductInstallerTask extends DefaultTask {
         watchApks.files.each { installApk(watches.first(), it) }
     }
 
-    private boolean isWatch(String serial) {
+    boolean isWatch(String serial) {
         adb(['-s', serial, 'shell', 'getprop', 'ro.build.characteristics']).trim()
             .split(',').any { it.trim().equalsIgnoreCase('watch') }
     }
-    private String model(String serial) {
+    String model(String serial) {
         adb(['-s', serial, 'shell', 'getprop', 'ro.product.model']).trim() ?: 'unbekannt'
     }
-    private String physicalId(String serial) {
+    String physicalId(String serial) {
         adb(['-s', serial, 'shell', 'getprop', 'ro.serialno']).trim() ?: serial
     }
-    private String describe(List<String> serials) {
+    String describe(List<String> serials) {
         serials.collect { "${model(it)} [$it]" }.join(', ') ?: '0'
     }
-    private void installApk(String serial, File apk) {
+    void installApk(String serial, File apk) {
         logger.lifecycle("Installiere ${apk.name} auf ${model(serial)} [$serial]")
         def output = adb(['-s', serial, 'install', '-r', '-t', apk.absolutePath])
         if (!output.readLines().any { it.trim().equalsIgnoreCase('Success') }) {
             throw new GradleException("ADB bestaetigt die Installation nicht: $output")
         }
     }
-    private String adb(List<String> arguments) {
+    String adb(List<String> arguments) {
         def stdout = new ByteArrayOutputStream()
         def stderr = new ByteArrayOutputStream()
+        def executable = adbExecutable()
         def result = execOperations.exec {
-            commandLine([adbExecutable()] + arguments)
+            commandLine([executable] + arguments)
             standardOutput = stdout
             errorOutput = stderr
             ignoreExitValue = true
@@ -59,7 +62,7 @@ abstract class ProductInstallerTask extends DefaultTask {
         if (result.exitValue != 0) throw new GradleException("ADB fehlgeschlagen (${result.exitValue}): $stderr\n$stdout")
         stdout.toString('UTF-8')
     }
-    private String adbExecutable() {
+    String adbExecutable() {
         def name = System.getProperty('os.name').toLowerCase(Locale.ROOT).startsWith('windows') ? 'adb.exe' : 'adb'
         def sdk = System.getenv('ANDROID_SDK_ROOT') ?: System.getenv('ANDROID_HOME')
         def executable = sdk ? new File(sdk, "platform-tools/$name") : null

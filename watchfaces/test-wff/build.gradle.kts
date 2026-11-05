@@ -1,7 +1,7 @@
 plugins { id("com.android.application") }
 android {
     enableKotlin = false
-    namespace = "app.aapswear.watchface.test"
+    namespace = "app.sugarlicious.watchface.test"
     compileSdk = 37
     defaultConfig {
         applicationId =

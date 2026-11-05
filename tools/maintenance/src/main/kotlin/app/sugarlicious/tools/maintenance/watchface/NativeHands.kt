@@ -26,7 +26,7 @@ internal fun restoreNativeHands(root: Element, family: String) {
     val content = slot.need("Complication[@type='SMALL_IMAGE']").set("type" to "LONG_TEXT")
     content.all(".//Image").filter { it.attr("resource") == "[COMPLICATION.SMALL_IMAGE]" }.forEach { it.set("resource" to "[COMPLICATION.MONOCHROMATIC_IMAGE]") }
     slot.set("supportedTypes" to "LONG_TEXT EMPTY")
-    val provider = "app.sugarlicious/app.aapswear.complications.Native${if (family == "orbit") "Orbit" else "Apex"}GraphComplication"
+    val provider = "app.sugarlicious/app.sugarlicious.complications.Native${if (family == "orbit") "Orbit" else "Apex"}GraphComplication"
     (policies + slot.need("DefaultProviderPolicy")).forEach { it.set("primaryProviderType" to "LONG_TEXT", "primaryProvider" to provider) }
     if (content.one("Group[@name='native-hands-opacity-state']") == null) {
         val state = content.add("Group", "name" to "native-hands-opacity-state", "x" to "91", "y" to "91", "width" to "1", "height" to "1")
@@ -40,7 +40,7 @@ internal fun restoreNativeHands(root: Element, family: String) {
     }
     val hotspot =
         scene.one("PartDraw[@name='native-hands-center-tap']") ?: scene.add("PartDraw", "name" to "native-hands-center-tap", "x" to "230", "y" to "230", "width" to "52", "height" to "52").apply {
-            add("Launch", "target" to "app.sugarlicious/app.aapswear.complications.${if (family == "orbit") "Orbit" else "Apex"}HandsOpacityActivity")
+            add("Launch", "target" to "app.sugarlicious/app.sugarlicious.complications.${if (family == "orbit") "Orbit" else "Apex"}HandsOpacityActivity")
             add("Ellipse", "x" to "0", "y" to "0", "width" to "52", "height" to "52").add("Fill", "color" to "#01000000")
             add("Variant", "mode" to "AMBIENT", "target" to "alpha", "value" to "0")
         }

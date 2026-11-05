@@ -1,38 +1,38 @@
 {
   "packs": {
     "samsung_day": {
-      "1": "orbit_weather_samsung_sunny",
-      "2": "orbit_weather_samsung_cloudy",
-      "3": "orbit_weather_samsung_fog",
-      "4": "orbit_weather_samsung_heavy_rain",
-      "5": "orbit_weather_samsung_heavy_snow",
-      "6": "orbit_weather_samsung_rain",
-      "7": "orbit_weather_samsung_snow",
-      "8": "orbit_weather_samsung_sunny",
-      "9": "orbit_weather_samsung_thunderstorm",
-      "10": "orbit_weather_samsung_rain_and_snow",
-      "11": "orbit_weather_samsung_light_snow",
-      "12": "orbit_weather_samsung_shower",
-      "13": "orbit_weather_samsung_fog",
-      "14": "orbit_weather_samsung_partly_cloud",
-      "15": "orbit_weather_samsung_wind"
+      "1": "orbit_weather_device_vendor_sunny",
+      "2": "orbit_weather_device_vendor_cloudy",
+      "3": "orbit_weather_device_vendor_fog",
+      "4": "orbit_weather_device_vendor_heavy_rain",
+      "5": "orbit_weather_device_vendor_heavy_snow",
+      "6": "orbit_weather_device_vendor_rain",
+      "7": "orbit_weather_device_vendor_snow",
+      "8": "orbit_weather_device_vendor_sunny",
+      "9": "orbit_weather_device_vendor_thunderstorm",
+      "10": "orbit_weather_device_vendor_rain_and_snow",
+      "11": "orbit_weather_device_vendor_light_snow",
+      "12": "orbit_weather_device_vendor_shower",
+      "13": "orbit_weather_device_vendor_fog",
+      "14": "orbit_weather_device_vendor_partly_cloud",
+      "15": "orbit_weather_device_vendor_wind"
     },
     "samsung_night": {
-      "1": "orbit_weather_samsung_clear",
-      "2": "orbit_weather_samsung_cloudy",
-      "3": "orbit_weather_samsung_fog",
-      "4": "orbit_weather_samsung_heavy_rain",
-      "5": "orbit_weather_samsung_heavy_snow",
-      "6": "orbit_weather_samsung_rain",
-      "7": "orbit_weather_samsung_snow",
-      "8": "orbit_weather_samsung_clear",
-      "9": "orbit_weather_samsung_thunderstorm",
-      "10": "orbit_weather_samsung_rain_and_snow",
-      "11": "orbit_weather_samsung_light_snow",
-      "12": "orbit_weather_samsung_shower",
-      "13": "orbit_weather_samsung_fog",
-      "14": "orbit_weather_samsung_partly_cloud_night",
-      "15": "orbit_weather_samsung_wind"
+      "1": "orbit_weather_device_vendor_clear",
+      "2": "orbit_weather_device_vendor_cloudy",
+      "3": "orbit_weather_device_vendor_fog",
+      "4": "orbit_weather_device_vendor_heavy_rain",
+      "5": "orbit_weather_device_vendor_heavy_snow",
+      "6": "orbit_weather_device_vendor_rain",
+      "7": "orbit_weather_device_vendor_snow",
+      "8": "orbit_weather_device_vendor_clear",
+      "9": "orbit_weather_device_vendor_thunderstorm",
+      "10": "orbit_weather_device_vendor_rain_and_snow",
+      "11": "orbit_weather_device_vendor_light_snow",
+      "12": "orbit_weather_device_vendor_shower",
+      "13": "orbit_weather_device_vendor_fog",
+      "14": "orbit_weather_device_vendor_partly_cloud_night",
+      "15": "orbit_weather_device_vendor_wind"
     },
     "google_day": {
       "1": "orbit_weather_google_ic_clear_day_2",
@@ -70,8 +70,8 @@
     }
   },
   "assets": {
-    "orbit_weather_samsung_sunny": {
-      "file": "orbit_weather_samsung_sunny.webp",
+    "orbit_weather_device_vendor_sunny": {
+      "file": "orbit_weather_device_vendor_sunny.webp",
       "source": "res/eZ.webp",
       "sha256": "9d0787da67ef201a36fc29914ee98f89931e8b81f47513b26e3d77a8776cc02f",
       "canvas": [
@@ -85,8 +85,8 @@
         164
       ]
     },
-    "orbit_weather_samsung_cloudy": {
-      "file": "orbit_weather_samsung_cloudy.webp",
+    "orbit_weather_device_vendor_cloudy": {
+      "file": "orbit_weather_device_vendor_cloudy.webp",
       "source": "res/Eu.webp",
       "sha256": "09b46de315934b61af90a5e7e5561c565575451e5e509158e5e1f85afebd863e",
       "canvas": [
@@ -100,8 +100,8 @@
         152
       ]
     },
-    "orbit_weather_samsung_fog": {
-      "file": "orbit_weather_samsung_fog.webp",
+    "orbit_weather_device_vendor_fog": {
+      "file": "orbit_weather_device_vendor_fog.webp",
       "source": "res/tl.webp",
       "sha256": "5cdb89673ae2136e4d9a34c4fd6551dd3f228988e22b46aede07b9201fa65eb9",
       "canvas": [
@@ -115,8 +115,8 @@
         143
       ]
     },
-    "orbit_weather_samsung_heavy_rain": {
-      "file": "orbit_weather_samsung_heavy_rain.webp",
+    "orbit_weather_device_vendor_heavy_rain": {
+      "file": "orbit_weather_device_vendor_heavy_rain.webp",
       "source": "res/L1.webp",
       "sha256": "ce0f33cec7dc3dfdaf92d3e6a4e81bf2dc63a3863efab75e74e491b038f74633",
       "canvas": [
@@ -130,8 +130,8 @@
         141
       ]
     },
-    "orbit_weather_samsung_heavy_snow": {
-      "file": "orbit_weather_samsung_heavy_snow.webp",
+    "orbit_weather_device_vendor_heavy_snow": {
+      "file": "orbit_weather_device_vendor_heavy_snow.webp",
       "source": "res/17.webp",
       "sha256": "71609dfae61a17a51ea085143f1c9d1810307b1826f85deaa84a115d4e8d5402",
       "canvas": [
@@ -145,8 +145,8 @@
         171
       ]
     },
-    "orbit_weather_samsung_rain": {
-      "file": "orbit_weather_samsung_rain.webp",
+    "orbit_weather_device_vendor_rain": {
+      "file": "orbit_weather_device_vendor_rain.webp",
       "source": "res/ur.webp",
       "sha256": "49bed30c0035c72e0fd6493fa9881ebd324b2be599ca7f0dcacb8c4987ebb9e7",
       "canvas": [
@@ -160,8 +160,8 @@
         144
       ]
     },
-    "orbit_weather_samsung_snow": {
-      "file": "orbit_weather_samsung_snow.webp",
+    "orbit_weather_device_vendor_snow": {
+      "file": "orbit_weather_device_vendor_snow.webp",
       "source": "res/K8.webp",
       "sha256": "cd218cbc7a2e909d623e6de83aa11bf472366a44f3ac17948332f1cacecdaa1f",
       "canvas": [
@@ -175,8 +175,8 @@
         164
       ]
     },
-    "orbit_weather_samsung_thunderstorm": {
-      "file": "orbit_weather_samsung_thunderstorm.webp",
+    "orbit_weather_device_vendor_thunderstorm": {
+      "file": "orbit_weather_device_vendor_thunderstorm.webp",
       "source": "res/9a.webp",
       "sha256": "40eace37503c486ae86f7481a5304b83806e2c666d5eb32760d8eb50a72bdca8",
       "canvas": [
@@ -190,8 +190,8 @@
         172
       ]
     },
-    "orbit_weather_samsung_rain_and_snow": {
-      "file": "orbit_weather_samsung_rain_and_snow.webp",
+    "orbit_weather_device_vendor_rain_and_snow": {
+      "file": "orbit_weather_device_vendor_rain_and_snow.webp",
       "source": "res/DC.webp",
       "sha256": "89a8fd7cef687a6c8515d1421aec9b1cdb55cff7070fe092557764c8495658fd",
       "canvas": [
@@ -205,8 +205,8 @@
         148
       ]
     },
-    "orbit_weather_samsung_light_snow": {
-      "file": "orbit_weather_samsung_light_snow.webp",
+    "orbit_weather_device_vendor_light_snow": {
+      "file": "orbit_weather_device_vendor_light_snow.webp",
       "source": "res/h_.webp",
       "sha256": "8a85745c26df0e3c72583c24e411917b5e27b85204c73bd46536c04991cfd5f5",
       "canvas": [
@@ -220,8 +220,8 @@
         164
       ]
     },
-    "orbit_weather_samsung_shower": {
-      "file": "orbit_weather_samsung_shower.webp",
+    "orbit_weather_device_vendor_shower": {
+      "file": "orbit_weather_device_vendor_shower.webp",
       "source": "res/Qs.webp",
       "sha256": "975d8f6bca45736536e29d8acf20de6dad858f2852da98cd2df6449bbce38734",
       "canvas": [
@@ -235,8 +235,8 @@
         137
       ]
     },
-    "orbit_weather_samsung_partly_cloud": {
-      "file": "orbit_weather_samsung_partly_cloud.webp",
+    "orbit_weather_device_vendor_partly_cloud": {
+      "file": "orbit_weather_device_vendor_partly_cloud.webp",
       "source": "res/cS.webp",
       "sha256": "035dc9853f84e8b0d26a3841bbe72e6d4e91f0e8ef447d4f319e4e7c7e076fc3",
       "canvas": [
@@ -250,8 +250,8 @@
         164
       ]
     },
-    "orbit_weather_samsung_wind": {
-      "file": "orbit_weather_samsung_wind.webp",
+    "orbit_weather_device_vendor_wind": {
+      "file": "orbit_weather_device_vendor_wind.webp",
       "source": "res/JL.webp",
       "sha256": "0fc0a5505b62e95a6195c3d4871a0083046378ec54662e582047e885a2359601",
       "canvas": [
@@ -265,8 +265,8 @@
         151
       ]
     },
-    "orbit_weather_samsung_clear": {
-      "file": "orbit_weather_samsung_clear.webp",
+    "orbit_weather_device_vendor_clear": {
+      "file": "orbit_weather_device_vendor_clear.webp",
       "source": "res/rE.webp",
       "sha256": "16ffa9b14752216ca5cb1ffa7cac5df61755c5787e254791b87bf74970b619c8",
       "canvas": [
@@ -280,8 +280,8 @@
         162
       ]
     },
-    "orbit_weather_samsung_partly_cloud_night": {
-      "file": "orbit_weather_samsung_partly_cloud_night.webp",
+    "orbit_weather_device_vendor_partly_cloud_night": {
+      "file": "orbit_weather_device_vendor_partly_cloud_night.webp",
       "source": "res/zr.webp",
       "sha256": "feb9936e2a5be53971573842ccaac3bccd9ac9343ee0cde4ae49392d9c152cff",
       "canvas": [

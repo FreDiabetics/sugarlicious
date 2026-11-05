@@ -19,6 +19,13 @@ argument array, preserving spaces and Unicode without constructing shell code.
 The canonical launcher also accepts `-RepositoryRoot` for an explicit product.
 For SugarWear brand import pass `--product sugarwear --repository-root PATH`.
 
+`refresh-brand-presentations` regenerates only `adaptive108/readme.svg` and the
+standalone Tile-selector vector from the saved foreground/background masters.
+Pass `--product sugarwear --repository-root PATH` for SugarWear. Both symbols
+are uniformly fitted to a painted height of 80 on a 108-unit canvas. Adaptive
+launcher safe zones, notification assets and store images remain independent.
+The same presentation refresh runs after a subsequent adaptive-brand import.
+
 | Former Python file stem | Kotlin command |
 | --- | --- |
 | configure_apex_progress | configure-apex-progress |

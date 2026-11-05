@@ -266,7 +266,7 @@
       <ListOption id="4" displayName="arcContent_4" />
     </ListConfiguration>
     <ListConfiguration id="weatherLaunch" displayName="weatherLaunch" defaultValue="0">
-      <ListOption id="0" displayName="weatherLaunch_0" icon="orbit_weather_samsung_sunny" />
+      <ListOption id="0" displayName="weatherLaunch_0" icon="orbit_weather_device_vendor_sunny" />
       <ListOption id="1" displayName="weatherLaunch_1" icon="orbit_weather_google_ic_clear_day_2" />
     </ListConfiguration>
     <ListConfiguration id="progressBars" displayName="progressBars" defaultValue="7">
@@ -295,22 +295,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_ultra" displayName="native_profile_ultra">
@@ -326,22 +326,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_military" displayName="native_profile_military">
@@ -357,22 +357,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_polar" displayName="native_profile_polar">
@@ -388,22 +388,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_aurora" displayName="native_profile_aurora">
@@ -419,22 +419,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
       <Flavor id="profile_solar" displayName="native_profile_solar">
@@ -450,22 +450,22 @@
         <Configuration id="batteryIndicator" optionId="TRUE" />
         <Configuration id="glucoseColor" optionId="TRUE" />
         <ComplicationSlot slotId="0">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="7">
           <DefaultProviderPolicy primaryProvider="com.samsung.android.wear.shealth/com.samsung.android.wear.shealth.complications.steps.StepsComplicationProviderService" primaryProviderType="RANGED_VALUE" defaultSystemProvider="STEP_COUNT" defaultSystemProviderType="RANGED_VALUE" />
         </ComplicationSlot>
         <ComplicationSlot slotId="2">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="3">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
         <ComplicationSlot slotId="4">
           <DefaultProviderPolicy primaryProvider="com.android.providers.calendar/com.android.providers.calendar.complication.NextEventProviderService" primaryProviderType="SHORT_TEXT" defaultSystemProvider="NEXT_EVENT" defaultSystemProviderType="SHORT_TEXT" />
         </ComplicationSlot>
         <ComplicationSlot slotId="5">
-          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+          <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
         </ComplicationSlot>
       </Flavor>
     </Flavors>
@@ -1059,181 +1059,181 @@
                   <Group name="weather-0-day-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud_night" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud_night" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.IS_DAY]) &amp;&amp; [WEATHER.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                 </Group>
@@ -1283,181 +1283,181 @@
                   <Group name="weather-0-day-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud_night" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud_night" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.1.IS_DAY]) &amp;&amp; [WEATHER.HOURS.1.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                 </Group>
@@ -1507,181 +1507,181 @@
                   <Group name="weather-0-day-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud_night" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud_night" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.2.IS_DAY]) &amp;&amp; [WEATHER.HOURS.2.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                 </Group>
@@ -1731,181 +1731,181 @@
                   <Group name="weather-0-day-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud_night" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud_night" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.3.IS_DAY]) &amp;&amp; [WEATHER.HOURS.3.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                 </Group>
@@ -1955,181 +1955,181 @@
                   <Group name="weather-0-day-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_sunny" />
+                      <Image resource="orbit_weather_device_vendor_sunny" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-day-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="([WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-1-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 1 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-2-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 2 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_cloudy" />
+                      <Image resource="orbit_weather_device_vendor_cloudy" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-3-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 3 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-4-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 4 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_rain" />
+                      <Image resource="orbit_weather_device_vendor_heavy_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-5-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 5 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_heavy_snow" />
+                      <Image resource="orbit_weather_device_vendor_heavy_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-6-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 6 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain" />
+                      <Image resource="orbit_weather_device_vendor_rain" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-7-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 7 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_snow" />
+                      <Image resource="orbit_weather_device_vendor_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-8-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 8 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_clear" />
+                      <Image resource="orbit_weather_device_vendor_clear" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-9-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 9 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_thunderstorm" />
+                      <Image resource="orbit_weather_device_vendor_thunderstorm" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-10-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 10 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_rain_and_snow" />
+                      <Image resource="orbit_weather_device_vendor_rain_and_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-11-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 11 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_light_snow" />
+                      <Image resource="orbit_weather_device_vendor_light_snow" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-12-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 12 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_shower" />
+                      <Image resource="orbit_weather_device_vendor_shower" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-13-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 13 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_fog" />
+                      <Image resource="orbit_weather_device_vendor_fog" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-14-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 14 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_partly_cloud_night" />
+                      <Image resource="orbit_weather_device_vendor_partly_cloud_night" />
                     </PartImage>
                   </Group>
                   <Group name="weather-0-night-15-256" x="0" y="0" width="512" height="512">
                     <Transform target="alpha" value="(![WEATHER.HOURS.4.IS_DAY]) &amp;&amp; [WEATHER.HOURS.4.CONDITION] == 15 ? 255 : 0" />
                     <PartImage x="236" y="139" width="41" height="41">
-                      <Image resource="orbit_weather_samsung_wind" />
+                      <Image resource="orbit_weather_device_vendor_wind" />
                     </PartImage>
                   </Group>
                 </Group>
@@ -2401,7 +2401,7 @@
     </Group>
     <ComplicationSlot slotId="0" displayName="slot_0" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.IobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="453.96999999999997" height="453.96999999999997" startAngle="280" endAngle="344" thickness="55.254999999999995" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -3002,7 +3002,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="2" displayName="slot_2" isCustomizable="TRUE" supportedTypes="RANGED_VALUE SHORT_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.CobRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="453.96999999999997" height="453.96999999999997" startAngle="100" endAngle="171" thickness="55.254999999999995" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -3118,7 +3118,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="3" displayName="slot_3" isCustomizable="TRUE" supportedTypes="RANGED_VALUE GOAL_PROGRESS SHORT_TEXT MONOCHROMATIC_IMAGE SMALL_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="255" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseTrendRangedValueComplication" primaryProviderType="RANGED_VALUE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingOval x="67" y="287" width="162" height="162" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -3592,7 +3592,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="5" displayName="slot_5" isCustomizable="TRUE" supportedTypes="SHORT_TEXT RANGED_VALUE MONOCHROMATIC_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.GlucoseDeltaComplication" primaryProviderType="SHORT_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingArc centerX="256" centerY="256" width="232.1" height="232.1" startAngle="90" endAngle="180" thickness="40.96" direction="CLOCKWISE" isRoundEdge="FALSE" />
       <Complication type="EMPTY" />
       <Complication type="SHORT_TEXT">
@@ -3786,7 +3786,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="8" displayName="slot_8" isCustomizable="FALSE" supportedTypes="LONG_TEXT EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="255" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.NativeOrbitGraphComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.NativeOrbitGraphComplication" primaryProviderType="LONG_TEXT" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingBox x="91" y="91" width="330" height="165" />
       <Complication type="EMPTY" />
       <Complication type="LONG_TEXT">
@@ -3822,7 +3822,7 @@
     </ComplicationSlot>
     <ComplicationSlot slotId="9" displayName="slot_9" isCustomizable="FALSE" supportedTypes="MONOCHROMATIC_IMAGE EMPTY" x="0" y="0" width="512" height="512">
       <Variant mode="AMBIENT" target="alpha" value="0" />
-      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.aapswear.complications.OrbitDailyTirComplication" primaryProviderType="MONOCHROMATIC_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
+      <DefaultProviderPolicy primaryProvider="app.sugarlicious/app.sugarlicious.complications.OrbitDailyTirComplication" primaryProviderType="MONOCHROMATIC_IMAGE" defaultSystemProvider="EMPTY" defaultSystemProviderType="EMPTY" />
       <BoundingBox x="91" y="91" width="330" height="165" />
       <Complication type="EMPTY" />
       <Complication type="MONOCHROMATIC_IMAGE">
@@ -3971,7 +3971,7 @@
       </Group>
     </Group>
     <PartDraw name="native-hands-center-tap" x="230" y="230" width="52" height="52">
-      <Launch target="app.sugarlicious/app.aapswear.complications.OrbitHandsOpacityActivity" />
+      <Launch target="app.sugarlicious/app.sugarlicious.complications.OrbitHandsOpacityActivity" />
       <Ellipse x="0" y="0" width="52" height="52">
         <Fill color="#01000000" />
       </Ellipse>

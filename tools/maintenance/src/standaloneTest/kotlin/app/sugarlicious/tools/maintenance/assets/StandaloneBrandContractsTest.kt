@@ -25,14 +25,14 @@ class StandaloneBrandContractsTest {
 
     @Test fun launcherGradientsMatchFullMastersAndKeepSymbolsSeparate() {
         val master = parse(root.resolve("design-assets/sugarwear/adaptive108/combined.svg")).documentElement
-        val runtime = parse(root.resolve("g7watch/src/main/res/drawable/sugarwear_launcher_background.xml")).documentElement
+        val runtime = parse(root.resolve("app-sugarwear/src/main/res/drawable/sugarwear_launcher_background.xml")).documentElement
         if (master.all("image").isNotEmpty()) {
             assertEquals("bitmap", runtime.tagName)
             assertEquals("fill", runtime.getAttributeNS(ANDROID, "gravity"))
             val expectedFile = Files.createTempDirectory("sugarwear-source-raster").resolve("background.png")
             svgPng(Files.readString(root.resolve("design-assets/sugarwear/adaptive108/background.svg")), expectedFile, 432)
             val expected = ImageIO.read(expectedFile.toFile())
-            val actual = ImageIO.read(root.resolve("g7watch/src/main/res/drawable-nodpi/sugarwear_launcher_background_art.png").toFile())
+            val actual = ImageIO.read(root.resolve("app-sugarwear/src/main/res/drawable-nodpi/sugarwear_launcher_background_art.png").toFile())
             assertEquals(expected.width, actual.width)
             assertEquals(expected.height, actual.height)
             assertContentEquals(expected.getRGB(0, 0, expected.width, expected.height, null, 0, expected.width), actual.getRGB(0, 0, actual.width, actual.height, null, 0, actual.width))
@@ -46,7 +46,7 @@ class StandaloneBrandContractsTest {
 
     @Test fun adaptiveLayersCenterExactSourceInsideSafe66UnitMotif() {
         val data = parse(root.resolve("design-assets/sugarwear/adaptive108/foreground.svg")).documentElement.child("path").getAttribute("d")
-        val directory = root.resolve("g7watch/src/main/res/drawable")
+        val directory = root.resolve("app-sugarwear/src/main/res/drawable")
         val runtime = parse(directory.resolve("ic_sensor_launcher_foreground.xml")).documentElement
         assertEquals("vector", runtime.tagName)
         for (dimension in listOf("viewportWidth", "viewportHeight")) assertEquals("108", runtime.getAttributeNS(ANDROID, dimension))

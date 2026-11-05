@@ -174,7 +174,7 @@ class AssetToolsTest {
                 .also { ImageIO.write(image, "png", it) }
                 .toByteArray()
         val names = listOf("sunny", "cloudy", "fog", "heavy_rain", "heavy_snow", "rain", "snow", "thunderstorm", "rain_and_snow", "light_snow", "shower", "partly_cloud", "wind", "clear", "partly_cloud_night")
-        val samsung = root.resolve("samsung.apk")
+        val deviceVendor = root.resolve("samsung.apk")
         val google = root.resolve("google.apk")
 
         fun zip(path: Path, entries: Map<String, ByteArray>) {
@@ -186,12 +186,12 @@ class AssetToolsTest {
                 }
             }
         }
-        zip(samsung, names.associate { "res/drawable/$it.png" to data })
+        zip(deviceVendor, names.associate { "res/drawable/$it.png" to data })
         val table = root.resolve("table.txt")
         Files.writeString(table, "\uFEFF" + names.joinToString("\n") { "drawable/$it () (file) res/drawable/$it.png" })
         val reference = "<WatchFace><BitmapFonts>" + listOf("day", "night").joinToString("") { period -> "<BitmapFont name=\"weather_icons_pack_1_$period\">" + (1..15).joinToString("") { "<Character name=\"$it\" resource=\"weather_$it\"/>" } + "</BitmapFont>" } + "</BitmapFonts></WatchFace>"
         zip(google, (1..15).associate { "res/drawable/weather_$it.png" to data } + ("res/raw/watchface.xml" to reference.toByteArray()))
-        weatherTool(listOf("--samsung-apk", samsung.toString(), "--google-reference-apk", google.toString(), "--samsung-resource-table", table.toString()), root)
+        weatherTool(listOf("--samsung-apk", deviceVendor.toString(), "--google-reference-apk", google.toString(), "--samsung-resource-table", table.toString()), root)
         val manifest =
             kotlinx.serialization.json.Json
                 .parseToJsonElement(Files.readString(root.resolve("watchfaces/sugarlicious-orbit/reference/weather/manifest.json"))) as kotlinx.serialization.json.JsonObject
@@ -199,9 +199,9 @@ class AssetToolsTest {
         assertEquals(4, packs.size)
         packs.values.forEach { assertEquals(15, (it as kotlinx.serialization.json.JsonObject).size) }
         val assets = manifest["assets"] as kotlinx.serialization.json.JsonObject
-        val first = assets["orbit_weather_samsung_sunny"] as kotlinx.serialization.json.JsonObject
+        val first = assets["orbit_weather_device_vendor_sunny"] as kotlinx.serialization.json.JsonObject
         assertEquals("[2,3,6,8]", first["bounds"].toString())
         assertEquals("[8,9]", first["canvas"].toString())
-        assertContentEquals(data, Files.readAllBytes(output.resolve("orbit_weather_samsung_sunny.png")))
+        assertContentEquals(data, Files.readAllBytes(output.resolve("orbit_weather_device_vendor_sunny.png")))
     }
 }

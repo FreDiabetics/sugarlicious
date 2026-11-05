@@ -11,7 +11,7 @@ dependencies {
 
 application { mainClass.set("app.sugarlicious.tools.maintenance.MaintenanceCliKt") }
 
-if (rootProject.file("g7watch/build.gradle.kts").isFile) {
+if (rootProject.file("app-sugarwear/build.gradle.kts").isFile) {
     kotlin.sourceSets.named("test") { kotlin.srcDir("src/standaloneTest/kotlin") }
 }
 
