@@ -31,10 +31,10 @@ import androidx.wear.tiles.TileService
 import app.sugarlicious.complications.DirectSensorReadingResolver
 import app.sugarlicious.model.CgmRangeClass
 import app.sugarlicious.model.CgmThresholds
+import app.sugarlicious.model.Freshness
 import app.sugarlicious.model.GlucoseAgeText
 import app.sugarlicious.model.GlucoseBarScale
 import app.sugarlicious.model.GlucoseBarState
-import app.sugarlicious.model.Freshness
 import app.sugarlicious.model.GlucoseSample
 import app.sugarlicious.model.GlucoseTrendSizing
 import app.sugarlicious.model.GlucoseUnit
@@ -63,15 +63,15 @@ import app.sugarlicious.uishared.SharedWearCgmGraphStyle
 import app.sugarlicious.uishared.TrendDrawableResources
 import app.sugarlicious.uishared.toRgb565Image
 import com.google.common.util.concurrent.SettableFuture
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
-import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
 private const val TILE_RESOURCES_VERSION = "sugarlicious-19-glucose-mobile-parity"
