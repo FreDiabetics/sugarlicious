@@ -15,7 +15,9 @@ import app.sugarlicious.uishared.GlucoseRangeBarRenderer
  * Native Wear counterpart of the Mobile glucose progress bar.
  * Animates only after a new validated reading; no polling or permanent animator.
  */
-internal class WearGlucoseRangeBarView(context: Context) : View(context) {
+internal class WearGlucoseRangeBarView(
+    context: Context,
+) : View(context) {
     private val renderer = GlucoseRangeBarRenderer()
     private val palette = GlucoseRangeBarPalette()
     private val gapPx = 7f * resources.displayMetrics.density
