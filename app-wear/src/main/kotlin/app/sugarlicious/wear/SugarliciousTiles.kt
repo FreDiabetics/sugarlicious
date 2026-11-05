@@ -396,6 +396,7 @@ private fun glucoseTileContent(
                     widthPx = barBitmap.width.toFloat(),
                     heightPx = barBitmap.height.toFloat(),
                     state = presentation.barState,
+                    palette = preferences.uiColors.glucoseRangeBarPalette(),
                     gapPx = 7f * scale,
                 )
             }
