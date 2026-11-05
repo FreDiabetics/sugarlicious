@@ -7,14 +7,12 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
-import app.sugarlicious.model.CgmRangeClass
 import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.GlucoseRangeBarInterval
 import app.sugarlicious.model.GlucoseRangeBarPresentation
 import app.sugarlicious.model.GlucoseRangeBarStyle
 import app.sugarlicious.model.glucoseRangeBarPresentation
 import app.sugarlicious.protocol.WatchUiColors
-import kotlin.math.roundToInt
 
 /** Single Android Canvas renderer shared by the Wear overview and the system tile snapshot.
  *
@@ -49,6 +47,7 @@ internal object WearGlucoseRangeBarRenderer {
         if (presentation == null) return
 
         paint.color = accent
+
         fun section(left: Float, right: Float) {
             if (right <= left) return
             val save = canvas.save()
@@ -62,10 +61,12 @@ internal object WearGlucoseRangeBarRenderer {
 }
 
 /** Native Kotlin-only view, animated on change and stopped when hidden/detached. */
-internal class WearGlucoseRangeBar @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-) : View(context, attrs) {
+internal class WearGlucoseRangeBar
+    @JvmOverloads
+    constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+    ) : View(context, attrs) {
     private var state: GlucoseRangeBarPresentation? = null
     private var displayedPosition: Float? = null
     private var accent: Int = android.graphics.Color.WHITE
@@ -96,14 +97,15 @@ internal class WearGlucoseRangeBar @JvmOverloads constructor(
             invalidate()
             return
         }
-        animator = ValueAnimator.ofFloat(previous, next.position).apply {
-            duration = 300L
-            addUpdateListener {
-                displayedPosition = it.animatedValue as Float
-                invalidate()
+        animator =
+            ValueAnimator.ofFloat(previous, next.position).apply {
+                duration = 300L
+                addUpdateListener {
+                    displayedPosition = it.animatedValue as Float
+                    invalidate()
+                }
+                start()
             }
-            start()
-        }
     }
 
     override fun onDraw(canvas: Canvas) {
