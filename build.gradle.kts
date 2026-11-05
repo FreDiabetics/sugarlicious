@@ -46,11 +46,22 @@ tasks.register<Copy>("prepareWatchFaceValidatorCli") {
 
 extra["productInstallTaskName"] = "installSugarliciousDebug"
 extra["productPhoneApks"] = listOf("app-mobile/build/outputs/apk/debug/app-mobile-debug.apk")
-extra["productWatchApks"] = listOf("app-wear/build/outputs/apk/debug/app-wear-debug.apk")
+extra["productWatchApks"] = listOf(
+    "app-wear/build/outputs/apk/debug/app-wear-debug.apk",
+    "watchfaces/sugarlicious-digital/build/outputs/apk/release/sugarlicious-digital-release.apk",
+    "watchfaces/sugarlicious-analog/build/outputs/apk/release/sugarlicious-analog-release.apk",
+    "watchfaces/sugarlicious-orbit/build/outputs/apk/release/sugarlicious-orbit-release.apk",
+)
 apply(from = "gradle/product-installer.gradle")
 tasks.named("installSugarliciousDebug") {
-    description = "Builds and installs only Sugarlicious Mobile and its Wear companion."
-    dependsOn(":app-mobile:assembleDebug", ":app-wear:assembleDebug")
+    description = "Builds and installs Sugarlicious Mobile, Wear and all Sugarlicious watchfaces."
+    dependsOn(
+        ":app-mobile:assembleDebug",
+        ":app-wear:assembleDebug",
+        ":watchfaces:sugarlicious-digital:assembleRelease",
+        ":watchfaces:sugarlicious-analog:assembleRelease",
+        ":watchfaces:sugarlicious-orbit:assembleRelease",
+    )
 }
 
 abstract class VerifyArchitectureTask : DefaultTask() {
