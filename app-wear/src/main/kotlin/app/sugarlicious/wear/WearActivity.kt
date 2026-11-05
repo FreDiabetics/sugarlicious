@@ -1,10 +1,10 @@
 package app.sugarlicious.wear
 
-import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.GradientDrawable
+import android.Manifest
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -32,17 +32,17 @@ import app.sugarlicious.model.TherapyDisplayFormatter
 import app.sugarlicious.model.TherapyDisplayState
 import app.sugarlicious.model.TrendVisuals
 import app.sugarlicious.model.WearGlucoseCardInput
-import app.sugarlicious.model.WearGlucoseCardStyle
 import app.sugarlicious.model.wearGlucoseCardPresentation
+import app.sugarlicious.model.WearGlucoseCardStyle
 import app.sugarlicious.protocol.WatchGlucoseUnit
 import app.sugarlicious.uishared.TrendDrawableResources
-import java.util.Locale
-import kotlin.math.roundToInt
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
+import java.util.Locale
+import kotlin.math.roundToInt
 import app.sugarlicious.complications.R as ComplicationR
 
 internal fun nextWearGraphHours(current: Int): Int {
