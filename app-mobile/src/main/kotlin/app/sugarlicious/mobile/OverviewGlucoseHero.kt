@@ -41,11 +41,13 @@ import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.GlucoseAgeText
+import app.sugarlicious.model.GlucoseBarScale
 import app.sugarlicious.model.GlucoseVisualSpec
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisuals
 import app.sugarlicious.uishared.GlucoseRangeBarPalette
 import app.sugarlicious.uishared.GlucoseRangeBarRenderer
+import app.sugarlicious.model.GlucoseBarRange as CanonicalGlucoseBarRange
 import app.sugarlicious.uishared.R as SharedUiR
 
 /** Glucose header with a canonical-value range bar. */
@@ -141,13 +143,13 @@ internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Colo
 @Composable
 private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp: Float) {
     val renderer = remember { GlucoseRangeBarRenderer() }
-    val state = glucoseBarState(value, thresholds)
+    val state = GlucoseBarScale.state(value, thresholds)
     val position by animateFloatAsState(state?.position ?: .5f, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose position")
     val selectedColor =
         when (state?.range) {
-            GlucoseBarRange.LOW -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_LOW)
-            GlucoseBarRange.TARGET -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
-            GlucoseBarRange.HIGH -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_HIGH)
+            CanonicalGlucoseBarRange.LOW -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_LOW)
+            CanonicalGlucoseBarRange.TARGET -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
+            CanonicalGlucoseBarRange.HIGH -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_HIGH)
             null -> Color.Transparent
         }
     val barColor by animateColorAsState(selectedColor, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose interval color")
