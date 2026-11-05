@@ -7,6 +7,7 @@ import androidx.wear.tiles.RequestBuilders
 import app.sugarlicious.model.BasalState
 import app.sugarlicious.model.CarbState
 import app.sugarlicious.model.DataSourceId
+import app.sugarlicious.model.GlucoseBarRange
 import app.sugarlicious.model.GlucoseSample
 import app.sugarlicious.model.GlucoseState
 import app.sugarlicious.model.GlucoseUnit
@@ -52,6 +53,45 @@ class SugarliciousTilesTest {
         assertTrue(presentation.footer.contains("AndroidAPS"))
         assertEquals(colors.glucoseInRange, presentation.valueColor)
         assertEquals("AKTUELL", presentation.status)
+    }
+
+    @Test
+    fun `glucose tile uses the Mobile progress interval and stacked metadata`() {
+        val presentation = wearGlucoseTilePresentation(state(123.0, now - 2 * 60_000L), colors, now)
+
+        assertEquals(GlucoseBarRange.TARGET, presentation.barState?.range)
+        assertEquals("vor 2 Min.", presentation.ageText)
+        assertEquals("+5 mg/dL", presentation.deltaText)
+    }
+
+    @Test
+    fun `stale tile keeps its explicit status but hides the active progress marker`() {
+        val presentation = wearGlucoseTilePresentation(state(123.0, now - 20 * 60_000L), colors, now)
+
+        assertEquals("SIGNALVERLUST", presentation.status)
+        assertEquals(null, presentation.barState)
+    }
+
+    @Test
+    fun `glucose tile registers the shared Kotlin progress bar as an inline image`() {
+        WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GLUCOSE)
+        val device =
+            DeviceParameters.Builder()
+                .setScreenWidthDp(192)
+                .setScreenHeightDp(192)
+                .setScreenDensity(2f)
+                .build()
+        val service = Robolectric.buildService(GlucoseTileService::class.java).create().get()
+        val request =
+            RequestBuilders.TileRequest.Builder()
+                .setDeviceConfiguration(device)
+                .build()
+
+        service.onTileRequest(request).get()
+        val progress = request.scope.collectResources().idToImageMapping.getValue("glucose_range_progress").inlineResource!!
+        assertEquals(IMAGE_FORMAT_RGB_565, progress.format)
+        assertEquals(progress.widthPx * progress.heightPx * 2, progress.data.size)
+        service.onDestroy()
     }
 
     @Test
