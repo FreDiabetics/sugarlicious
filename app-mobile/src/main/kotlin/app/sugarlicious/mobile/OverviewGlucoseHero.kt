@@ -40,8 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 import app.sugarlicious.model.CgmThresholds
-import app.sugarlicious.model.GlucoseVisualSpec
 import app.sugarlicious.model.GlucoseAgeText
+import app.sugarlicious.model.GlucoseVisualSpec
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisuals
 import app.sugarlicious.uishared.GlucoseRangeBarPalette
