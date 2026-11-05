@@ -294,6 +294,7 @@ class WearActivity : ComponentActivity() {
                     presentation.displayable && presentation.freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
                 },
                 thresholds,
+                preferences.uiColors.glucoseRangeBarPalette(),
             )
             val glucoseFill = preferences.uiColors.tileBackground
             renderTrend(
