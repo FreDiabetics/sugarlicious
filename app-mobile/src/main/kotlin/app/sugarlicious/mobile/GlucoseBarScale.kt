@@ -1,8 +1,8 @@
 package app.sugarlicious.mobile
 
 import app.sugarlicious.model.CgmThresholds
-import app.sugarlicious.model.GlucoseRangeBarInterval
-import app.sugarlicious.model.glucoseRangeBarPresentation
+import app.sugarlicious.model.GlucoseBarRange as CanonicalGlucoseBarRange
+import app.sugarlicious.model.GlucoseBarScale
 
 internal enum class GlucoseBarRange { LOW, TARGET, HIGH }
 
@@ -13,13 +13,13 @@ internal data class GlucoseBarState(
 
 /** Mobile adapter for the same clamped interval semantics used by Wear. */
 internal fun glucoseBarState(value: Double?, thresholds: CgmThresholds): GlucoseBarState? =
-    glucoseRangeBarPresentation(value, thresholds)?.let {
+    GlucoseBarScale.state(value, thresholds)?.let {
         GlucoseBarState(
             range =
-                when (it.interval) {
-                    GlucoseRangeBarInterval.LOW -> GlucoseBarRange.LOW
-                    GlucoseRangeBarInterval.TARGET -> GlucoseBarRange.TARGET
-                    GlucoseRangeBarInterval.HIGH -> GlucoseBarRange.HIGH
+                when (it.range) {
+                    CanonicalGlucoseBarRange.LOW -> GlucoseBarRange.LOW
+                    CanonicalGlucoseBarRange.TARGET -> GlucoseBarRange.TARGET
+                    CanonicalGlucoseBarRange.HIGH -> GlucoseBarRange.HIGH
                 },
             position = it.position,
         )
