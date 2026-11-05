@@ -195,21 +195,22 @@ class WearActivity : ComponentActivity() {
         metaPill.removeView(age)
         metaPill.addView(age, 0)
         val density = resources.displayMetrics.density
+
         fun pixels(dp: Float): Int = (dp * density).roundToInt()
-        metaPill.layoutParams =
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-                .apply { gravity = android.view.Gravity.CENTER_HORIZONTAL }
+
+        val pillParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+        pillParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        metaPill.layoutParams = pillParams
         metaPill.setPadding(pixels(14f), pixels(8f), pixels(14f), pixels(8f))
         glucoseRangeBar = WearGlucoseRangeBarView(this)
-        infoBlock.addView(
-            glucoseRangeBar,
-            1,
-            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pixels(11f))
-                .apply {
-                    topMargin = pixels(9f)
-                    bottomMargin = pixels(12f)
-                },
-        )
+        val barParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pixels(11f))
+        barParams.topMargin = pixels(9f)
+        barParams.bottomMargin = pixels(12f)
+        infoBlock.addView(glucoseRangeBar, 1, barParams)
         source = root.findViewById(R.id.wear_source)
         connection = root.findViewById(R.id.wear_connection)
         syncHint = root.findViewById(R.id.wear_sync_hint)
