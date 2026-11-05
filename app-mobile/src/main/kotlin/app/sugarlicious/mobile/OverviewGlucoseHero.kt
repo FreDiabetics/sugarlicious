@@ -23,13 +23,12 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
@@ -44,6 +43,8 @@ import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.GlucoseVisualSpec
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisuals
+import app.sugarlicious.uishared.GlucoseRangeBarPalette
+import app.sugarlicious.uishared.GlucoseRangeBarRenderer
 import app.sugarlicious.uishared.R as SharedUiR
 
 /** Glucose header with a canonical-value range bar. */
@@ -146,6 +147,7 @@ internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Colo
 
 @Composable
 private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp: Float) {
+    val renderer = remember { GlucoseRangeBarRenderer() }
     val state = glucoseBarState(value, thresholds)
     val position by animateFloatAsState(state?.position ?: .5f, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose position")
     val selectedColor =
@@ -165,21 +167,20 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp:
                 .align(Alignment.BottomCenter)
                 .clearAndSetSemantics {},
         ) {
-            val gap = 7.dp.toPx()
-            val marker = size.width * position.coerceIn(0f, 1f)
-
-            fun segment(left: Float, right: Float) {
-                if (right > left) {
-                    clipRect(left, 0f, right, size.height) {
-                        drawRoundRect(barColor, Offset(left, 0f), Size(right - left, size.height), CornerRadius(size.height / 2f))
-                    }
-                }
-            }
-            drawRoundRect(underlay, cornerRadius = CornerRadius(size.height / 2f))
-            if (state != null) {
-                segment(0f, (marker - gap / 2f).coerceAtLeast(0f))
-                segment((marker + gap / 2f).coerceAtMost(size.width), size.width)
-            }
+            renderer.draw(
+                canvas = drawContext.canvas.nativeCanvas,
+                widthPx = size.width,
+                heightPx = size.height,
+                state = state?.copy(position = position),
+                palette =
+                    GlucoseRangeBarPalette(
+                        low = barColor.toArgb(),
+                        target = barColor.toArgb(),
+                        high = barColor.toArgb(),
+                        underlay = underlay.toArgb(),
+                    ),
+                gapPx = 7.dp.toPx(),
+            )
         }
     }
 }
