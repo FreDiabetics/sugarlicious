@@ -8,6 +8,7 @@ import android.view.animation.DecelerateInterpolator
 import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.GlucoseBarScale
 import app.sugarlicious.model.GlucoseBarState
+import app.sugarlicious.protocol.WatchUiColors
 import app.sugarlicious.uishared.GlucoseRangeBarPalette
 import app.sugarlicious.uishared.GlucoseRangeBarRenderer
 
@@ -15,11 +16,19 @@ import app.sugarlicious.uishared.GlucoseRangeBarRenderer
  * Native Wear counterpart of the Mobile glucose progress bar.
  * Animates only after a new validated reading; no polling or permanent animator.
  */
+internal fun WatchUiColors.glucoseRangeBarPalette(): GlucoseRangeBarPalette =
+    GlucoseRangeBarPalette(
+        low = glucoseBarLow,
+        target = glucoseBarTarget,
+        high = glucoseBarHigh,
+        underlay = glucoseBarUnderlay,
+    )
+
 internal class WearGlucoseRangeBarView(
     context: Context,
 ) : View(context) {
     private val renderer = GlucoseRangeBarRenderer()
-    private val palette = GlucoseRangeBarPalette()
+    private var palette = GlucoseRangeBarPalette()
     private val gapPx = 7f * resources.displayMetrics.density
     private var target: GlucoseBarState? = null
     private var displayedPosition: Float? = null
@@ -29,9 +38,15 @@ internal class WearGlucoseRangeBarView(
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
     }
 
-    fun bind(valueMgDl: Double?, thresholds: CgmThresholds) {
+    fun bind(valueMgDl: Double?, thresholds: CgmThresholds, palette: GlucoseRangeBarPalette) {
         val next = GlucoseBarScale.state(valueMgDl, thresholds)
-        if (next == target) return
+        val valueChanged = next != target
+        if (!valueChanged && this.palette == palette) return
+        this.palette = palette
+        if (!valueChanged) {
+            invalidate()
+            return
+        }
         val startPosition = displayedPosition
         animator?.cancel()
         animator = null
