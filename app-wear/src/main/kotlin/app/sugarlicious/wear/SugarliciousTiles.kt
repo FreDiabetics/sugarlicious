@@ -29,8 +29,10 @@ import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
 import app.sugarlicious.complications.DirectSensorReadingResolver
+import app.sugarlicious.model.basalIndicatorIcon
 import app.sugarlicious.model.CgmRangeClass
 import app.sugarlicious.model.CgmThresholds
+import app.sugarlicious.model.effectiveBasalPresentation
 import app.sugarlicious.model.Freshness
 import app.sugarlicious.model.GlucoseAgeText
 import app.sugarlicious.model.GlucoseBarScale
@@ -51,8 +53,6 @@ import app.sugarlicious.model.TherapyRingGeometry
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisualAsset
 import app.sugarlicious.model.TrendVisuals
-import app.sugarlicious.model.basalIndicatorIcon
-import app.sugarlicious.model.effectiveBasalPresentation
 import app.sugarlicious.protocol.WatchUiColors
 import app.sugarlicious.storage.TherapyStateStore
 import app.sugarlicious.uishared.GlucoseRangeBarRenderer
@@ -60,18 +60,18 @@ import app.sugarlicious.uishared.SharedWearCgmGraphInput
 import app.sugarlicious.uishared.SharedWearCgmGraphPalette
 import app.sugarlicious.uishared.SharedWearCgmGraphRenderer
 import app.sugarlicious.uishared.SharedWearCgmGraphStyle
-import app.sugarlicious.uishared.TrendDrawableResources
 import app.sugarlicious.uishared.toRgb565Image
+import app.sugarlicious.uishared.TrendDrawableResources
 import com.google.common.util.concurrent.SettableFuture
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.SupervisorJob
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.util.Locale
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
 private const val TILE_RESOURCES_VERSION = "sugarlicious-19-glucose-mobile-parity"
