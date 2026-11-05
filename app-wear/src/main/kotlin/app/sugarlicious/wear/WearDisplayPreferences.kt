@@ -247,6 +247,10 @@ internal data class WearDisplayPreferences(
                         glucoseHigh = preferences.getInt(prefix + UI_PREFIX + "glucose_high", uiDefaults.glucoseHigh),
                         glucoseVeryLow = preferences.getInt(prefix + UI_PREFIX + "glucose_very_low", uiDefaults.glucoseVeryLow),
                         glucoseVeryHigh = preferences.getInt(prefix + UI_PREFIX + "glucose_very_high", uiDefaults.glucoseVeryHigh),
+                        glucoseBarLow = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_low", uiDefaults.glucoseBarLow),
+                        glucoseBarTarget = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_target", uiDefaults.glucoseBarTarget),
+                        glucoseBarHigh = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_high", uiDefaults.glucoseBarHigh),
+                        glucoseBarUnderlay = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_underlay", uiDefaults.glucoseBarUnderlay),
                         iob = preferences.getInt(prefix + UI_PREFIX + "iob", uiDefaults.iob),
                         cob = preferences.getInt(prefix + UI_PREFIX + "cob", uiDefaults.cob),
                         basal = preferences.getInt(prefix + UI_PREFIX + "basal", uiDefaults.basal),
@@ -430,6 +434,10 @@ internal data class WearDisplayPreferences(
             putInt(prefix + UI_PREFIX + "glucose_high", ui.glucoseHigh)
             putInt(prefix + UI_PREFIX + "glucose_very_low", ui.glucoseVeryLow)
             putInt(prefix + UI_PREFIX + "glucose_very_high", ui.glucoseVeryHigh)
+            putInt(prefix + UI_PREFIX + "glucose_bar_low", ui.glucoseBarLow)
+            putInt(prefix + UI_PREFIX + "glucose_bar_target", ui.glucoseBarTarget)
+            putInt(prefix + UI_PREFIX + "glucose_bar_high", ui.glucoseBarHigh)
+            putInt(prefix + UI_PREFIX + "glucose_bar_underlay", ui.glucoseBarUnderlay)
             putInt(prefix + UI_PREFIX + "iob", ui.iob)
             putInt(prefix + UI_PREFIX + "cob", ui.cob)
             putInt(prefix + UI_PREFIX + "basal", ui.basal)

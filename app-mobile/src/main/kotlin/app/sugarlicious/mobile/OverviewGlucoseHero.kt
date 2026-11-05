@@ -23,13 +23,12 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.SpanStyle
@@ -41,9 +40,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 import app.sugarlicious.model.CgmThresholds
+import app.sugarlicious.model.GlucoseAgeText
+import app.sugarlicious.model.GlucoseBarScale
 import app.sugarlicious.model.GlucoseVisualSpec
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisuals
+import app.sugarlicious.uishared.GlucoseRangeBarPalette
+import app.sugarlicious.uishared.GlucoseRangeBarRenderer
+import app.sugarlicious.model.GlucoseBarRange as CanonicalGlucoseBarRange
 import app.sugarlicious.uishared.R as SharedUiR
 
 /** Glucose header with a canonical-value range bar. */
@@ -125,15 +129,7 @@ private fun SoftMotionInfoPill(icon: Int, text: androidx.compose.ui.text.Annotat
     }
 }
 
-internal fun softMotionAge(age: String): String {
-    val minutes = age.removeSuffix("m").toLongOrNull()?.takeIf { it >= 0 } ?: return "\u2014"
-    return when {
-        minutes < 60 -> "vor $minutes Min."
-        minutes < 1440 -> "vor ${minutes / 60} Std. ${minutes % 60} Min."
-        minutes < 2880 -> "vor 1 Tag"
-        else -> "vor ${minutes / 1440} Tagen"
-    }
-}
+internal fun softMotionAge(age: String): String = GlucoseAgeText.fromAgeMinutes(age)
 
 internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Color): androidx.compose.ui.text.AnnotatedString =
     buildAnnotatedString {
@@ -146,13 +142,14 @@ internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Colo
 
 @Composable
 private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp: Float) {
-    val state = glucoseBarState(value, thresholds)
+    val renderer = remember { GlucoseRangeBarRenderer() }
+    val state = GlucoseBarScale.state(value, thresholds)
     val position by animateFloatAsState(state?.position ?: .5f, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose position")
     val selectedColor =
         when (state?.range) {
-            GlucoseBarRange.LOW -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_LOW)
-            GlucoseBarRange.TARGET -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
-            GlucoseBarRange.HIGH -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_HIGH)
+            CanonicalGlucoseBarRange.LOW -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_LOW)
+            CanonicalGlucoseBarRange.TARGET -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_IN_RANGE)
+            CanonicalGlucoseBarRange.HIGH -> SugarliciousColors.color(app.sugarlicious.mobile.ui.theme.SugarliciousColorRole.OVERVIEW_WAVE_HIGH)
             null -> Color.Transparent
         }
     val barColor by animateColorAsState(selectedColor, spring(dampingRatio = 1f, stiffness = 90f), label = "glucose interval color")
@@ -165,21 +162,20 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp:
                 .align(Alignment.BottomCenter)
                 .clearAndSetSemantics {},
         ) {
-            val gap = 7.dp.toPx()
-            val marker = size.width * position.coerceIn(0f, 1f)
-
-            fun segment(left: Float, right: Float) {
-                if (right > left) {
-                    clipRect(left, 0f, right, size.height) {
-                        drawRoundRect(barColor, Offset(left, 0f), Size(right - left, size.height), CornerRadius(size.height / 2f))
-                    }
-                }
-            }
-            drawRoundRect(underlay, cornerRadius = CornerRadius(size.height / 2f))
-            if (state != null) {
-                segment(0f, (marker - gap / 2f).coerceAtLeast(0f))
-                segment((marker + gap / 2f).coerceAtMost(size.width), size.width)
-            }
+            renderer.draw(
+                canvas = drawContext.canvas.nativeCanvas,
+                widthPx = size.width,
+                heightPx = size.height,
+                state = state?.copy(position = position),
+                palette =
+                    GlucoseRangeBarPalette(
+                        low = barColor.toArgb(),
+                        target = barColor.toArgb(),
+                        high = barColor.toArgb(),
+                        underlay = underlay.toArgb(),
+                    ),
+                gapPx = 7.dp.toPx(),
+            )
         }
     }
 }

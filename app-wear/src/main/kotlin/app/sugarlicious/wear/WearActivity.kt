@@ -23,6 +23,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.sugarlicious.model.BasalState
 import app.sugarlicious.model.DataSourceId
 import app.sugarlicious.model.DiagnosticSeverity
+import app.sugarlicious.model.Freshness
+import app.sugarlicious.model.GlucoseAgeText
 import app.sugarlicious.model.GlucoseTrendSizing
 import app.sugarlicious.model.GlucoseUnit
 import app.sugarlicious.model.TherapyBridgeDisplayField
@@ -88,6 +90,7 @@ class WearActivity : ComponentActivity() {
     private var batteryRequestPending = false
 
     private lateinit var glucose: TextView
+    private lateinit var glucoseRangeBar: WearGlucoseRangeBarView
     private lateinit var trendContainer: LinearLayout
     private lateinit var trendArrow1: ImageView
     private lateinit var delta: TextView
@@ -186,6 +189,28 @@ class WearActivity : ComponentActivity() {
         trendArrow1 = root.findViewById(R.id.wear_trend_arrow_1)
         delta = root.findViewById(R.id.wear_delta)
         age = root.findViewById(R.id.wear_age)
+        // Reuse the existing Wear layout host; add the shared glucose bar in Kotlin.
+        val infoBlock = root.findViewById<LinearLayout>(R.id.wear_glucose_info_block)
+        val metaPill = root.findViewById<LinearLayout>(R.id.wear_glucose_meta_row)
+        metaPill.removeView(age)
+        metaPill.addView(age, 0)
+        val density = resources.displayMetrics.density
+
+        fun pixels(dp: Float): Int = (dp * density).roundToInt()
+
+        val pillParams =
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            )
+        pillParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
+        metaPill.layoutParams = pillParams
+        metaPill.setPadding(pixels(14f), pixels(8f), pixels(14f), pixels(8f))
+        glucoseRangeBar = WearGlucoseRangeBarView(this)
+        val barParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pixels(11f))
+        barParams.topMargin = pixels(9f)
+        barParams.bottomMargin = pixels(12f)
+        infoBlock.addView(glucoseRangeBar, 1, barParams)
         source = root.findViewById(R.id.wear_source)
         connection = root.findViewById(R.id.wear_connection)
         syncHint = root.findViewById(R.id.wear_sync_hint)
@@ -264,6 +289,13 @@ class WearActivity : ComponentActivity() {
                     else -> preferences.uiColors.glucoseInRange
                 }
             glucose.setTextColor(valueColor)
+            glucoseRangeBar.bind(
+                glucoseState?.valueMgDl?.takeIf {
+                    presentation.displayable && presentation.freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)
+                },
+                thresholds,
+                preferences.uiColors.glucoseRangeBarPalette(),
+            )
             val glucoseFill = preferences.uiColors.tileBackground
             renderTrend(
                 trend = presentation.trend,
@@ -273,10 +305,18 @@ class WearActivity : ComponentActivity() {
                 style = preferences.trendArrowStyle,
             )
             delta.text = app.sugarlicious.uishared.glucoseMetadataText(presentation.primaryMeta)
-            delta.setTextColor(android.graphics.Color.WHITE)
-            age.setTextColor(android.graphics.Color.WHITE)
-            age.text = app.sugarlicious.uishared.glucoseMetadataText(presentation.secondaryMeta)
-            age.visibility = if (presentation.secondaryMeta.isBlank()) View.GONE else View.VISIBLE
+            delta.setTextColor(preferences.uiColors.textPrimary)
+            age.setTextColor(preferences.uiColors.textSecondary)
+            val ageText =
+                if (presentation.freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
+                    GlucoseAgeText.fromAgeMinutes(TherapyDisplayFormatter.ageMinutes(glucoseState?.measuredAtEpochMs, now))
+                } else {
+                    presentation.secondaryMeta
+                }
+            age.text = app.sugarlicious.uishared.glucoseMetadataText(ageText)
+            age.visibility = if (ageText.isBlank()) View.GONE else View.VISIBLE
+            root.findViewById<View>(R.id.wear_glucose_meta_row).background =
+                roundedBackground(preferences.uiColors.background, android.graphics.Color.TRANSPARENT, 36f)
 
             root.findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, if (preferences.graphStyle.borderEnabled) preferences.uiColors.tileBorder else android.graphics.Color.TRANSPARENT, WearGlucoseCardStyle.CARD_RADIUS_DP)

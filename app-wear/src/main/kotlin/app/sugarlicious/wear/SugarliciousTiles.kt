@@ -32,6 +32,9 @@ import app.sugarlicious.complications.DirectSensorReadingResolver
 import app.sugarlicious.model.CgmRangeClass
 import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.Freshness
+import app.sugarlicious.model.GlucoseAgeText
+import app.sugarlicious.model.GlucoseBarScale
+import app.sugarlicious.model.GlucoseBarState
 import app.sugarlicious.model.GlucoseSample
 import app.sugarlicious.model.GlucoseTrendSizing
 import app.sugarlicious.model.GlucoseUnit
@@ -52,6 +55,7 @@ import app.sugarlicious.model.basalIndicatorIcon
 import app.sugarlicious.model.effectiveBasalPresentation
 import app.sugarlicious.protocol.WatchUiColors
 import app.sugarlicious.storage.TherapyStateStore
+import app.sugarlicious.uishared.GlucoseRangeBarRenderer
 import app.sugarlicious.uishared.SharedWearCgmGraphInput
 import app.sugarlicious.uishared.SharedWearCgmGraphPalette
 import app.sugarlicious.uishared.SharedWearCgmGraphRenderer
@@ -70,7 +74,7 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 // Bump when visual resources/typography change so Wear OS cannot reuse an older cached tile tree.
-private const val TILE_RESOURCES_VERSION = "sugarlicious-18-shared-therapy-proportions"
+private const val TILE_RESOURCES_VERSION = "sugarlicious-19-glucose-mobile-parity"
 private const val TILE_GRAPH_RESOURCE_ID = "live_cgm_graph"
 private const val TILE_GRAPH_WIDTH_PX = 296
 private const val TILE_GRAPH_HEIGHT_PX = 120
@@ -88,6 +92,10 @@ internal data class WearGlucoseTilePresentation(
     val valueColor: Int,
     val statusColor: Int,
     val trend: Trend? = null,
+    val freshness: Freshness = Freshness.NO_DATA,
+    val barState: GlucoseBarState? = null,
+    val ageText: String = "—",
+    val deltaText: String = "—",
 )
 
 internal fun wearGlucoseTilePresentation(
@@ -123,6 +131,8 @@ internal fun wearGlucoseTilePresentation(
             status = TherapyDisplayFormatter.freshnessLabel(freshness),
             valueColor = colors.textPrimary,
             statusColor = statusColor,
+            freshness = freshness,
+            deltaText = message,
         )
     }
     val valueColor =
@@ -149,6 +159,13 @@ internal fun wearGlucoseTilePresentation(
         valueColor = valueColor,
         statusColor = statusColor,
         trend = glucose.trend.takeIf { retainsLastState && it != Trend.UNKNOWN },
+        freshness = freshness,
+        barState =
+            glucose.valueMgDl
+                .takeIf { freshness in setOf(Freshness.CURRENT, Freshness.DELAYED) }
+                ?.let { GlucoseBarScale.state(it, thresholds) },
+        ageText = GlucoseAgeText.fromAgeMinutes(age),
+        deltaText = "$delta $unit",
     )
 }
 
@@ -341,7 +358,11 @@ private fun glucoseTileContent(
     textRenderer: SugarliciousTileTypography,
 ): LayoutElementBuilders.LayoutElement {
     val presentation = wearGlucoseTilePresentation(state, colors, now, preferences.cgmThresholds)
-    val trendSpace = presentation.trend?.let(TrendVisuals::spec)?.let { 7f + GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * preferences.trendArrowStyle.renderSpec().scale * it.aspectRatio } ?: 0f
+    val contentWidth = textRenderer.contentWidthDp
+    val trendSpace =
+        presentation.trend?.let(TrendVisuals::spec)?.let {
+            7f + GlucoseTrendSizing.arrowHeightForGlucoseHeight(42f) * preferences.trendArrowStyle.renderSpec().scale * it.aspectRatio
+        } ?: 0f
     val primary =
         Row
             .Builder()
@@ -353,38 +374,99 @@ private fun glucoseTileContent(
                     42f * GlucoseTrendSizing.scaleFactor(preferences.glucoseScalePercent),
                     presentation.valueColor,
                     bold = true,
-                    maxWidthDp = (textRenderer.contentWidthDp - 28f - trendSpace).coerceAtLeast(24f),
+                    maxWidthDp = (contentWidth - trendSpace - 12f).coerceAtLeast(24f),
                 ),
             ).apply {
-                val spec = presentation.trend?.let(TrendVisuals::spec)
-                if (spec != null) {
+                presentation.trend?.let(TrendVisuals::spec)?.let { spec ->
                     addContent(Spacer.Builder().setWidth(dp(7f)).build())
                     addContent(tileTrendImage(scope, spec, preferences.trendArrowStyle.renderSpec()))
                 }
             }.build()
-    val card = roundedTileCard(colors, 14f, primary)
+
+    val barWidthDp = (contentWidth * 0.96f).coerceAtLeast(24f)
+    val barHeightDp = 12f
+    val scale = 2f
+    val barBitmap = createBitmap((barWidthDp * scale).toInt().coerceAtLeast(1), (barHeightDp * scale).toInt().coerceAtLeast(1))
+    val barPixels =
+        try {
+            Canvas(barBitmap).apply {
+                drawColor(colors.background)
+                GlucoseRangeBarRenderer().draw(
+                    canvas = this,
+                    widthPx = barBitmap.width.toFloat(),
+                    heightPx = barBitmap.height.toFloat(),
+                    state = presentation.barState,
+                    palette = preferences.uiColors.glucoseRangeBarPalette(),
+                    gapPx = 7f * scale,
+                )
+            }
+            barBitmap.toRgb565Image()
+        } finally {
+            barBitmap.recycle()
+        }
+    val progressBar =
+        Image
+            .Builder(scope)
+            .setImageResource(
+                ImageResource
+                    .Builder()
+                    .setInlineResource(
+                        InlineImageResource
+                            .Builder()
+                            .setData(barPixels.data)
+                            .setWidthPx(barPixels.widthPx)
+                            .setHeightPx(barPixels.heightPx)
+                            .setFormat(IMAGE_FORMAT_RGB_565)
+                            .build(),
+                    ).build(),
+                "glucose_range_progress",
+            ).setWidth(dp(barWidthDp))
+            .setHeight(dp(barHeightDp))
+            .build()
+
+    val metadata =
+        Column
+            .Builder()
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .addContent(textRenderer.text(scope, presentation.ageText, 13f, colors.textSecondary, bold = true, maxWidthDp = contentWidth * 0.82f))
+            .addContent(Spacer.Builder().setHeight(dp(3f)).build())
+            .addContent(textRenderer.text(scope, presentation.deltaText, 15f, colors.textPrimary, bold = true, maxWidthDp = contentWidth * 0.82f))
+            .build()
+    val pill =
+        Box
+            .Builder()
+            .setWidth(dp(contentWidth * 0.91f))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setModifiers(
+                Modifiers
+                    .Builder()
+                    .setBackground(
+                        Background
+                            .Builder()
+                            .setColor(argb(colors.tileBackground))
+                            .setCorner(Corner.Builder().setRadius(dp(36f)).build())
+                            .build(),
+                    ).setPadding(Padding.Builder().setAll(dp(10f)).build())
+                    .build(),
+            ).addContent(metadata)
+            .build()
     val column =
         Column
             .Builder()
             .setWidth(expand())
             .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-            .addContent(textRenderer.text(scope, presentation.status, 10f, presentation.statusColor, bold = true))
-            .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-            .addContent(card)
-            .addContent(Spacer.Builder().setHeight(dp(6f)).build())
-            .addContent(
-                Row
-                    .Builder()
-                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                    .addContent(textRenderer.text(scope, presentation.meta.replace("  ·  ", " "), 14f, colors.deltaUnit, bold = true, maxWidthDp = textRenderer.contentWidthDp * .65f))
-                    .apply {
-                        Regex("\\b\\d+m\\b").find(presentation.footer)?.value?.let {
-                            addContent(textRenderer.text(scope, " · $it", 14f, colors.textSecondary, bold = true, maxWidthDp = textRenderer.contentWidthDp * .35f))
-                        }
-                    }.build(),
-            ).addContent(Spacer.Builder().setHeight(dp(4f)).build())
-            .build()
-    return tileRoot(colors.background, column)
+            .addContent(primary)
+            .addContent(Spacer.Builder().setHeight(dp(12f)).build())
+            .addContent(progressBar)
+            .addContent(Spacer.Builder().setHeight(dp(14f)).build())
+            .addContent(pill)
+            .apply {
+                if (presentation.freshness !in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
+                    addContent(Spacer.Builder().setHeight(dp(6f)).build())
+                    addContent(textRenderer.text(scope, presentation.status, 10f, presentation.statusColor, bold = true))
+                }
+            }.build()
+    return tileRoot(colors.background, column, paddingDp = 12f)
 }
 
 class TherapyTileService : SugarliciousTileService() {

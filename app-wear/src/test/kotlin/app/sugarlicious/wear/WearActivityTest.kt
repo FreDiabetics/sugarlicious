@@ -45,6 +45,21 @@ class WearActivityTest {
     }
 
     @Test
+    fun `overview glucose uses value then shared progress bar then stacked age and delta pill`() {
+        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val info = activity.findViewById<LinearLayout>(R.id.wear_glucose_info_block)
+        val pill = activity.findViewById<LinearLayout>(R.id.wear_glucose_meta_row)
+
+        assertEquals(3, info.childCount)
+        assertEquals(R.id.wear_glucose_primary_row, info.getChildAt(0).id)
+        assertTrue(info.getChildAt(1) is WearGlucoseRangeBarView)
+        assertEquals(pill, info.getChildAt(2))
+        assertEquals(R.id.wear_age, pill.getChildAt(0).id)
+        assertEquals(R.id.wear_delta, pill.getChildAt(1).id)
+        assertNotNull(pill.background)
+    }
+
+    @Test
     fun `overview ends with native settings action and contains no app branding`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
         val settings = activity.findViewById<android.widget.Button>(R.id.wear_settings_action)
@@ -94,6 +109,27 @@ class WearActivityTest {
         assertEquals(AppearanceMode.LIGHT, WearDisplayPreferences.activeAppearanceMode(context))
         WearDisplayPreferences.setActiveAppearanceMode(context, AppearanceMode.DARK)
         assertEquals(AppearanceMode.DARK, WearDisplayPreferences.activeAppearanceMode(context))
+    }
+
+    @Test
+    fun `custom Mobile glucose progress colors survive Wear appearance persistence`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val original = WearDisplayPreferences.read(context, AppearanceMode.DARK)
+        val palette =
+            original.uiColors.copy(
+                glucoseBarLow = 0xFFBA2436.toInt(),
+                glucoseBarTarget = 0xFF00E886.toInt(),
+                glucoseBarHigh = 0xFFE5AC10.toInt(),
+                glucoseBarUnderlay = 0x33808080,
+            )
+        WearDisplayPreferences.saveLocal(context, AppearanceMode.DARK, original.copy(uiColors = palette))
+
+        val stored = WearDisplayPreferences.read(context, AppearanceMode.DARK).uiColors
+        assertEquals(palette.glucoseBarLow, stored.glucoseBarLow)
+        assertEquals(palette.glucoseBarTarget, stored.glucoseBarTarget)
+        assertEquals(palette.glucoseBarHigh, stored.glucoseBarHigh)
+        assertEquals(palette.glucoseBarUnderlay, stored.glucoseBarUnderlay)
+        WearDisplayPreferences.saveLocal(context, AppearanceMode.DARK, original)
     }
 
     @Test
@@ -265,7 +301,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata uses stacked rows with white values and smaller gray units`() {
+    fun `glucose metadata is centered in a compact pill with age above delta`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -303,16 +339,20 @@ class WearActivityTest {
 
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
-        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
-        assertEquals(android.graphics.Color.WHITE, delta.currentTextColor)
+        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, meta.layoutParams.width)
+        assertEquals(Gravity.CENTER_HORIZONTAL, (meta.layoutParams as LinearLayout.LayoutParams).gravity)
+        assertNotNull(meta.background)
+        val colors = WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)).uiColors
+        assertEquals(colors.textPrimary, delta.currentTextColor)
+        assertEquals(colors.textSecondary, age.currentTextColor)
         val styled = delta.text as android.text.Spanned
         assertTrue(styled.getSpans(0, styled.length, android.text.style.RelativeSizeSpan::class.java).isNotEmpty())
         assertTrue(styled.getSpans(0, styled.length, android.text.style.ForegroundColorSpan::class.java).any { it.foregroundColor == android.graphics.Color.rgb(181, 181, 181) })
         assertEquals(View.VISIBLE, age.visibility)
-        assertTrue(delta.bottom <= age.top)
+        assertTrue(age.bottom <= delta.top)
         assertEquals(1, age.lineCount)
         assertTrue(info.measuredWidth > primary.measuredWidth)
-        assertEquals(info.measuredWidth, meta.measuredWidth)
+        assertTrue(meta.measuredWidth <= info.measuredWidth)
         assertEquals(1, delta.lineCount)
         assertEquals(
             TypedValue.applyDimension(
