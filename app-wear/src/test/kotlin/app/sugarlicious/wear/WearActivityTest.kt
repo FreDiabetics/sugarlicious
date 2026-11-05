@@ -45,6 +45,21 @@ class WearActivityTest {
     }
 
     @Test
+    fun `overview glucose uses value then shared progress bar then stacked age and delta pill`() {
+        val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
+        val info = activity.findViewById<LinearLayout>(R.id.wear_glucose_info_block)
+        val pill = activity.findViewById<LinearLayout>(R.id.wear_glucose_meta_row)
+
+        assertEquals(3, info.childCount)
+        assertEquals(R.id.wear_glucose_primary_row, info.getChildAt(0).id)
+        assertTrue(info.getChildAt(1) is WearGlucoseRangeBarView)
+        assertEquals(pill, info.getChildAt(2))
+        assertEquals(R.id.wear_age, pill.getChildAt(0).id)
+        assertEquals(R.id.wear_delta, pill.getChildAt(1).id)
+        assertNotNull(pill.background)
+    }
+
+    @Test
     fun `overview ends with native settings action and contains no app branding`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
         val settings = activity.findViewById<android.widget.Button>(R.id.wear_settings_action)
