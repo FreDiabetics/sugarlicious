@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import app.sugarlicious.mobile.ui.theme.SugarliciousColors
 import app.sugarlicious.model.CgmThresholds
 import app.sugarlicious.model.GlucoseVisualSpec
+import app.sugarlicious.model.GlucoseAgeText
 import app.sugarlicious.model.Trend
 import app.sugarlicious.model.TrendVisuals
 import app.sugarlicious.uishared.GlucoseRangeBarPalette
@@ -126,15 +127,7 @@ private fun SoftMotionInfoPill(icon: Int, text: androidx.compose.ui.text.Annotat
     }
 }
 
-internal fun softMotionAge(age: String): String {
-    val minutes = age.removeSuffix("m").toLongOrNull()?.takeIf { it >= 0 } ?: return "\u2014"
-    return when {
-        minutes < 60 -> "vor $minutes Min."
-        minutes < 1440 -> "vor ${minutes / 60} Std. ${minutes % 60} Min."
-        minutes < 2880 -> "vor 1 Tag"
-        else -> "vor ${minutes / 1440} Tagen"
-    }
-}
+internal fun softMotionAge(age: String): String = GlucoseAgeText.fromAgeMinutes(age)
 
 internal fun softMotionAgeText(age: String, numberColor: Color, labelColor: Color): androidx.compose.ui.text.AnnotatedString =
     buildAnnotatedString {
