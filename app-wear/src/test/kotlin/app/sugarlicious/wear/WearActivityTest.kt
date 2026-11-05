@@ -301,7 +301,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata uses stacked rows with white values and smaller gray units`() {
+    fun `glucose metadata is centered in a compact pill with age above delta`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -339,16 +339,20 @@ class WearActivityTest {
 
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
-        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
-        assertEquals(android.graphics.Color.WHITE, delta.currentTextColor)
+        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, meta.layoutParams.width)
+        assertEquals(Gravity.CENTER_HORIZONTAL, (meta.layoutParams as LinearLayout.LayoutParams).gravity)
+        assertNotNull(meta.background)
+        val colors = WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)).uiColors
+        assertEquals(colors.textPrimary, delta.currentTextColor)
+        assertEquals(colors.textSecondary, age.currentTextColor)
         val styled = delta.text as android.text.Spanned
         assertTrue(styled.getSpans(0, styled.length, android.text.style.RelativeSizeSpan::class.java).isNotEmpty())
         assertTrue(styled.getSpans(0, styled.length, android.text.style.ForegroundColorSpan::class.java).any { it.foregroundColor == android.graphics.Color.rgb(181, 181, 181) })
         assertEquals(View.VISIBLE, age.visibility)
-        assertTrue(delta.bottom <= age.top)
+        assertTrue(age.bottom <= delta.top)
         assertEquals(1, age.lineCount)
         assertTrue(info.measuredWidth > primary.measuredWidth)
-        assertEquals(info.measuredWidth, meta.measuredWidth)
+        assertTrue(meta.measuredWidth <= info.measuredWidth)
         assertEquals(1, delta.lineCount)
         assertEquals(
             TypedValue.applyDimension(
