@@ -76,19 +76,26 @@ class SugarliciousTilesTest {
     fun `glucose tile registers the shared Kotlin progress bar as an inline image`() {
         WearTileContentStore.write(context, WearTileKind.GLUCOSE, WearTileContent.GLUCOSE)
         val device =
-            DeviceParameters.Builder()
+            DeviceParameters
+                .Builder()
                 .setScreenWidthDp(192)
                 .setScreenHeightDp(192)
                 .setScreenDensity(2f)
                 .build()
         val service = Robolectric.buildService(GlucoseTileService::class.java).create().get()
         val request =
-            RequestBuilders.TileRequest.Builder()
+            RequestBuilders.TileRequest
+                .Builder()
                 .setDeviceConfiguration(device)
                 .build()
 
         service.onTileRequest(request).get()
-        val progress = request.scope.collectResources().idToImageMapping.getValue("glucose_range_progress").inlineResource!!
+        val progress =
+            request.scope
+                .collectResources()
+                .idToImageMapping
+                .getValue("glucose_range_progress")
+                .inlineResource!!
         assertEquals(IMAGE_FORMAT_RGB_565, progress.format)
         assertEquals(progress.widthPx * progress.heightPx * 2, progress.data.size)
         service.onDestroy()
