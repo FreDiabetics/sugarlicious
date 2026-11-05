@@ -139,6 +139,11 @@ data class WatchUiColors(
     val iob: Int = 0xFF64BFFF.toInt(),
     val cob: Int = 0xFFFF9D18.toInt(),
     val basal: Int = 0xFF19D7E8.toInt(),
+    // Explicit Mobile progress-bar color roles, kept independent of graph target-area colors.
+    val glucoseBarLow: Int = 0xFFF73D45.toInt(),
+    val glucoseBarTarget: Int = 0xFF22EB60.toInt(),
+    val glucoseBarHigh: Int = 0xFFFCC93B.toInt(),
+    val glucoseBarUnderlay: Int = 0x4DB0B0B0,
 )
 
 @Serializable
