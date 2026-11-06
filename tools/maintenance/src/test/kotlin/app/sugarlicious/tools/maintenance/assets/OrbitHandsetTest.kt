@@ -41,7 +41,8 @@ class OrbitHandsetTest {
         assertContentEquals(first, Files.readAllBytes(resources.resolve("raw/watchface.xml")))
         val face = parse(resources.resolve("raw/watchface.xml")).documentElement
         val options =
-            face.all("ListConfiguration")
+            face
+                .all("ListConfiguration")
                 .single { it.getAttribute("id") == "apexHands" }
                 .children()
                 .filter { it.tagName == "ListOption" }
