@@ -22,7 +22,7 @@ private fun handsetSvg(source: Path): Document {
     val fills =
         root.all("style")
             .flatMap { style ->
-                Regex("""\\.([\\w-]+)\\s*\\{\\s*fill:\\s*([^;]+);""")
+                Regex("""\.([\w-]+)\s*\{\s*fill:\s*([^;]+);""")
                     .findAll(style.textContent)
                     .map { match -> match.groupValues[1] to match.groupValues[2].trim() }
                     .toList()
