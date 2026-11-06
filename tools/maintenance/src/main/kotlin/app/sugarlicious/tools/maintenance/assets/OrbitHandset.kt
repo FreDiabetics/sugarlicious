@@ -20,7 +20,8 @@ private fun handsetSvg(source: Path): Document {
     val root = doc.documentElement
     require(root.getAttribute("viewBox") == "0 0 512 512") { "Expected centered 512x512 Orbit artwork" }
     val fills =
-        root.all("style")
+        root
+            .all("style")
             .flatMap { style ->
                 Regex("""\.([\w-]+)\s*\{\s*fill:\s*([^;]+);""")
                     .findAll(style.textContent)
@@ -87,7 +88,8 @@ internal fun importOrbitHandset(source: Path, resources: Path) {
         it.removeAttribute("tintColor")
     }
     // The composite hub already includes the top dot; draw it after the seconds layers.
-    group.addNode("PartImage", "name" to "custom-hub-4", "x" to 0, "y" to 0, "width" to 512, "height" to 512)
+    group
+        .addNode("PartImage", "name" to "custom-hub-4", "x" to 0, "y" to 0, "width" to 512, "height" to 512)
         .addNode("Image", "resource" to "orbit_custom_hub_4")
     val ambient = hands.requireNode(".//Group[@name='ambient-seconds-hub']")
     hands.insertBefore(group, hands.selectOne("Group[@name='legacy-ambient-hub-gate']") ?: ambient)
