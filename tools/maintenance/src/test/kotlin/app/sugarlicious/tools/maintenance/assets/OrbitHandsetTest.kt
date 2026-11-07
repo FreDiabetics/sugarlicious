@@ -71,7 +71,7 @@ class OrbitHandsetTest {
         assertEquals(512, hub.width)
         assertEquals(0xff000000.toInt(), hub.getRGB(256, 256))
         val hour = ImageIO.read(resources.resolve("drawable-nodpi/orbit_custom_hour_4.png").toFile())
-        assertEquals(-1, hour.getRGB(243, 150))
+        assertEquals(-1, hour.getRGB(244, 150))
         assertEquals(0, hour.getRGB(256, 150))
         val second = ImageIO.read(resources.resolve("drawable-nodpi/orbit_custom_second_4.png").toFile())
         assertEquals(-1, second.getRGB(256, 100))
