@@ -9,9 +9,10 @@ canvas and the rotation center at (256,256).
 - `4second_hand.svg`: white second hand (original upload `4seconds_hand.svg`)
 - `3dots.svg`: fixed layered hub, including its top dot
 
-No additional `5topdot.svg`, accent masks, dynamic hand tinting, or per-hand color
-customizations are used by option 3. The hub appears over the seconds layer to keep
-the integrated top dot visible. The other Orbit hand options, color configurations,
+No separate `5topdot.svg` or post-import hour/minute accent masks are used by option 3.
+The original seconds color settings (white, configurable tertiary accent, red, off)
+remain available through the watchface and apply to the imported white seconds mask.
+The hub appears over the seconds layer to keep the integrated top dot visible. The other Orbit hand options, color configurations,
 seconds controls, and AOD rules remain unchanged.
 
 The canonical hand sprites and option preview are generated with the existing

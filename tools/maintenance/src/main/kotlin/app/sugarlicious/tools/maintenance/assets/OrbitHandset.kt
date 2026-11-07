@@ -83,10 +83,8 @@ internal fun importOrbitHandset(source: Path, resources: Path) {
         }
     }
     group.selectAll(".//Group").forEach { it.setAttrs("name" to it.getAttribute("name").replace("seconds-2-", "seconds-3-")) }
-    group.selectAll(".//SecondHand").forEach {
-        it.setAttrs("resource" to "orbit_custom_second_4")
-        it.removeAttribute("tintColor")
-    }
+    // Keep the existing seconds color and off options from the cloned hand configuration.
+    group.selectAll(".//SecondHand").forEach { it.setAttrs("resource" to "orbit_custom_second_4") }
     // The composite hub already includes the top dot; draw it after the seconds layers.
     group
         .addNode("PartImage", "name" to "custom-hub-4", "x" to 0, "y" to 0, "width" to 512, "height" to 512)

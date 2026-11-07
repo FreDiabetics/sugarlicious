@@ -53,7 +53,18 @@ class OrbitHandsetTest {
         assertEquals(1, clock.all("MinuteHand").size)
         assertEquals("orbit_custom_hour_4", clock.all("HourHand").single().getAttribute("resource"))
         assertEquals("orbit_custom_minute_4", clock.all("MinuteHand").single().getAttribute("resource"))
-        assertTrue((hands.all("HourHand") + hands.all("MinuteHand") + hands.all("SecondHand")).none { it.hasAttribute("tintColor") })
+        assertTrue((hands.all("HourHand") + hands.all("MinuteHand")).none { it.hasAttribute("tintColor") })
+        assertEquals(
+            listOf(
+                "#FFFFFFFF",
+                "#FFFFFFFF",
+                "[CONFIGURATION.tertiary.1]",
+                "[CONFIGURATION.tertiary.1]",
+                "#FFFF4040",
+                "#FFFF4040",
+            ),
+            hands.all("SecondHand").map { it.getAttribute("tintColor") },
+        )
         assertEquals("custom-hub-4", hands.children().last().getAttribute("name"))
         assertTrue(hands.all("PartImage").none { it.getAttribute("name") == "custom-top-4" })
         val hub = ImageIO.read(resources.resolve("drawable-nodpi/orbit_custom_hub_4.png").toFile())
