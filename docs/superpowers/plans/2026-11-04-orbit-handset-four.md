@@ -1,13 +1,21 @@
 # Orbit handset four
 
-Add the five supplied SVG layers as the fourth `apexHands` choice (stable id 3), preserving all existing option IDs and defaults. Only Orbit changes. Native Orbit canvas and supplied art are both 512×512; retain them without cropping or shrinking. Center pivot stays (256,256).
+The fourth Orbit hand option (stable ID `3`) uses the four user-supplied SVG masters in
+`design-assets/watchfaces/orbit/hands_4/`. All layers keep their original full 512 × 512
+canvas and the rotation center at (256,256).
 
-Layer order is hours, minutes, fixed hub circles, sweeping seconds, fixed top dot. Existing seconds color/off controls and ambient hiding of the seconds hand remain supported. The new set owns its supplied center decoration in ambient/off modes. Generate a standard 10:08:32 option preview and retain source SVGs as read-only provenance copies. Use the existing Kotlin/Cairo tooling and add a reproducible import command.
+- `1hours_hand.svg`: white hour outline
+- `2minutes_hand.svg`: white minute outline
+- `4second_hand.svg`: white second hand (original upload `4seconds_hand.svg`)
+- `3dots.svg`: fixed layered hub, including its top dot
 
-- [x] Test source geometry, layer order, stable fourth option, preview, opacity and ambient behavior.
-- [x] Implement import/render/integration; inspect preview.
-- [x] Run Kotlin/static gates, Orbit builds and WFF validation; install if Galaxy remains reachable.
+No separate `5topdot.svg` or post-import hour/minute accent masks are used by option 3.
+The original seconds color settings (white, configurable tertiary accent, red, off)
+remain available through the watchface and apply to the imported white seconds mask.
+The hub appears over the seconds layer to keep the integrated top dot visible. The other Orbit hand options, color configurations,
+seconds controls, and AOD rules remain unchanged.
 
-Middle strips and seconds are imported as neutral white alpha masks. Both strips bind to the vivid third tone of the Akzente palette (	ertiary.2); outlines and supplied hub colors remain independent. Source SVG copies retain the supplied original artwork. Existing selection IDs/defaults are unchanged.
-
-Evidence: full local architecture/static/unit/build/Lint gates passed (3m46s, 870 tasks); WFF v4 validation passed. Final maintenance tests/ktlint passed (34s). Orbit and its Sugarlicious Wear bundle were installed on SM-L705F. Installed Orbit SHA-256 matches the built release APK: 733eaa0aa96f3b68852daa8a90a7f1e6bef8496577de66dbdf9aacfdee6f87d5. No commit/PR/push was performed for this handset.
+The canonical hand sprites and option preview are generated with the existing
+`importOrbitHandset` maintenance pipeline. Updates are restricted to the fourth
+Orbit hand option. This update was requested for direct installation without executing
+the optional verification suite.
