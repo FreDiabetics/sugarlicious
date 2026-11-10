@@ -33,6 +33,7 @@ object DirectSensorReadingResolver {
     private const val KEY_STATE = "state"
     private const val KEY_RECOVERY_COUNT = "recovery_count"
     private const val KEY_RECOVERY_MOBILE_TIMESTAMP = "recovery_mobile_timestamp"
+    private const val KEY_RECOVERY_REQUIRED = "recovery_required"
 
     val defaultPolicy = CgmSourcePolicy()
 
@@ -73,8 +74,19 @@ object DirectSensorReadingResolver {
         val directRows = snapshot?.readings.orEmpty()
         val directStatus = snapshot?.status
         // Persisted rows remain history during a manual pause, never a live source candidate.
-        val directEnabled = directStatus?.collectorEnabled != false
-        val latestDirectEvent = directRows.takeIf { directEnabled }?.maxByOrNull(DirectReading::measuredAt)
+        val activeSession =
+            directStatus?.takeIf {
+                it.collectorEnabled &&
+                    !it.sensorId.isNullOrBlank() &&
+                    !it.sessionId.isNullOrBlank() &&
+                    it.sensorState !in setOf("UNKNOWN", "ENDED", "NOT_ACTIVE")
+            }
+        val latestDirectEvent =
+            activeSession?.let { session ->
+                directRows
+                    .filter { it.sensorId == session.sensorId && it.sessionId == session.sessionId && it.hasValidTimes(nowEpochMs, defaultPolicy) }
+                    .maxByOrNull(DirectReading::measuredAt)
+            }
         val latestDirect = latestDirectEvent?.takeIf { it.quality == CgmQuality.VALID }
         val mobileCandidate =
             fallback?.glucose?.takeIf { it.quality == CgmQuality.VALID }?.let { glucose ->
@@ -90,9 +102,10 @@ object DirectSensorReadingResolver {
             }
         val watchCandidate = latestDirect?.toCandidate()
 
-        if (fallback == null && latestDirectEvent == null && directStatus == null) return null
+        if (fallback == null && latestDirectEvent == null && directStatus == null && directRows.isEmpty()) return null
 
-        val previous = readMemory(context)
+        val automatic = selectedSource == WatchDataSource.AUTOMATIC
+        val previous = if (automatic) readMemory(context) else CgmResolverMemory()
         val resolution =
             CanonicalCgmSourceResolver.resolve(
                 mobile = mobileCandidate,
@@ -102,7 +115,7 @@ object DirectSensorReadingResolver {
                 mode = selectedSource.toResolverMode(),
                 policy = defaultPolicy,
             )
-        writeMemory(context, resolution.memory)
+        if (automatic) writeMemory(context, resolution.memory)
 
         val watchOnly = selectedSource == WatchDataSource.DEXCOM_G7_WATCH
         val directSensorError =
@@ -176,7 +189,7 @@ object DirectSensorReadingResolver {
             source = chosenSource,
             sourceVersion = sourceVersion,
             sourceContract =
-                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${if (!directEnabled) "PAUSED" else directStatus?.sessionState ?: "UNINITIALIZED"}:PROVIDER_${providerOutcome.code}",
+                "CANONICAL_CGM_V2:${resolution.state.name}:${resolution.reason}:SENSOR_${directStatus?.sensorState ?: "UNKNOWN"}:SESSION_${if (directStatus?.collectorEnabled == false) "PAUSED" else directStatus?.sessionState ?: "UNINITIALIZED"}:PROVIDER_${providerOutcome.code}",
             receivedAtEpochMs =
                 resolution.reading?.receivedAtEpochMs
                     ?: chosenGlucose?.receivedAtEpochMs
@@ -278,6 +291,7 @@ object DirectSensorReadingResolver {
             state = state,
             recoveryReadingCount = prefs.getInt(KEY_RECOVERY_COUNT, 0),
             lastRecoveryMobileTimestampEpochMs = lastRecoveryTimestamp,
+            recoveryRequired = prefs.getBoolean(KEY_RECOVERY_REQUIRED, state == CgmSourceState.WATCH_DIRECT || state == CgmSourceState.MOBILE_RECOVERY),
         )
     }
 
@@ -290,6 +304,7 @@ object DirectSensorReadingResolver {
             .edit()
             .putString(KEY_STATE, memory.state.name)
             .putInt(KEY_RECOVERY_COUNT, memory.recoveryReadingCount)
+            .putBoolean(KEY_RECOVERY_REQUIRED, memory.recoveryRequired)
             .apply {
                 val timestamp = memory.lastRecoveryMobileTimestampEpochMs
                 if (timestamp == null) {
@@ -322,10 +337,13 @@ object DirectSensorReadingResolver {
         nowEpochMs: Long,
         policy: CgmSourcePolicy,
     ): Boolean =
+        hasValidTimes(nowEpochMs, policy) &&
+            (nowEpochMs - measuredAt).coerceAtLeast(0L) <= policy.watchFreshAfterMs
+
+    private fun DirectReading.hasValidTimes(nowEpochMs: Long, policy: CgmSourcePolicy): Boolean =
         measuredAt <= nowEpochMs + policy.futureToleranceMs &&
             receivedAt >= measuredAt - policy.futureToleranceMs &&
-            receivedAt <= nowEpochMs + policy.futureToleranceMs &&
-            (nowEpochMs - measuredAt).coerceAtLeast(0L) <= policy.watchFreshAfterMs
+            receivedAt <= nowEpochMs + policy.futureToleranceMs
 
     private fun DirectReading.toGlucoseState(): GlucoseState =
         GlucoseState(

@@ -21,7 +21,7 @@ class CgmDirectProviderOutcomeTest {
 
     @Test
     fun `successful provider snapshot supplies Watch Direct reading`() {
-        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "ACTIVE"))))
+        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "ACTIVE", sensorId = "sensor", sessionId = "session"))))
 
         assertEquals(DataSourceId.DEXCOM_G7_WATCH, resolved?.source)
         assertEquals(123.0, resolved?.glucose?.valueMgDl ?: 0.0, 0.0)
@@ -32,7 +32,7 @@ class CgmDirectProviderOutcomeTest {
     @Test
     fun `watch only retains stale graph history without marking the current source fresh`() {
         val history = listOf(17L, 22L, 45L, 120L).map { minutes -> reading().copy(measuredAt = now - minutes * 60_000L) }
-        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(history, DirectStatus("ACTIVE", "ACTIVE"))))
+        val resolved = resolve(DirectProviderOutcome.Success(DirectSnapshot(history, DirectStatus("ACTIVE", "ACTIVE", sensorId = "sensor", sessionId = "session"))))
         assertEquals(history.size, resolved?.glucoseHistory?.size)
         assertEquals(app.sugarlicious.model.CgmSourceState.NO_SOURCE, DirectSensorReadingResolver.sourceState(resolved))
         assertTrue(DirectToWatchPresentationFormatter.header(resolved, now).signalLoss)
@@ -46,7 +46,7 @@ class CgmDirectProviderOutcomeTest {
         val resolved =
             resolve(
                 DirectProviderOutcome.Success(
-                    DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "UNINITIALIZED", collectorEnabled = false)),
+                    DirectSnapshot(listOf(reading()), DirectStatus("ACTIVE", "UNINITIALIZED", collectorEnabled = false, sensorId = "sensor", sessionId = "session")),
                 ),
             )
         assertEquals(app.sugarlicious.model.CgmSourceState.NO_SOURCE, DirectSensorReadingResolver.sourceState(resolved))
