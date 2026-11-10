@@ -23,6 +23,8 @@ internal data class DirectStatus(
     val sensorState: String,
     val sessionState: String,
     val collectorEnabled: Boolean = true,
+    val sensorId: String? = null,
+    val sessionId: String? = null,
 )
 
 internal data class DirectSnapshot(
@@ -74,6 +76,8 @@ internal class AndroidDirectCgmProvider(
                 sensorState = cursor.requiredString("sensor_state"),
                 sessionState = cursor.requiredString("session_state"),
                 collectorEnabled = cursor.getInt(cursor.requiredIndex("collector_enabled")) == 1,
+                sensorId = cursor.optionalString("sensor_id"),
+                sessionId = cursor.optionalString("session_id"),
             )
         }
 
@@ -113,6 +117,8 @@ internal class AndroidDirectCgmProvider(
     private fun Cursor.requiredIndex(name: String): Int = getColumnIndexOrThrow(name)
 
     private fun Cursor.requiredString(name: String): String = getString(requiredIndex(name)) ?: throw IllegalArgumentException("Null $name")
+
+    private fun Cursor.optionalString(name: String): String? = getColumnIndex(name).takeIf { it >= 0 }?.let { getString(it) }?.takeIf { it.isNotBlank() }
 
     private fun Cursor.nullableLong(name: String): Long? = requiredIndex(name).let { if (isNull(it)) null else getLong(it) }
 
