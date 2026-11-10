@@ -61,6 +61,7 @@ data class CgmResolverMemory(
     val state: CgmSourceState = CgmSourceState.NO_SOURCE,
     val recoveryReadingCount: Int = 0,
     val lastRecoveryMobileTimestampEpochMs: Long? = null,
+    val recoveryRequired: Boolean = false,
 )
 
 data class CgmSourceResolution(
@@ -151,7 +152,7 @@ object CanonicalCgmSourceResolver {
             }
         }
 
-        if (previous.state == CgmSourceState.WATCH_DIRECT || previous.state == CgmSourceState.MOBILE_RECOVERY) {
+        if (previous.requiresRecovery()) {
             val mobileFreshForRecovery =
                 mobileAgeMs != null && mobileAgeMs <= policy.mobileDegradedAfterMs
             val nextRecoveryCount =
@@ -167,17 +168,18 @@ object CanonicalCgmSourceResolver {
                 }
 
             if (nextRecoveryCount < policy.recoveryReadingsRequired) {
-                val chosen = watch ?: mobile
+                val nextState = if (watch == null) CgmSourceState.NO_SOURCE else CgmSourceState.MOBILE_RECOVERY
                 return CgmSourceResolution(
-                    state = CgmSourceState.MOBILE_RECOVERY,
-                    canonicalSource = chosen.source,
-                    reading = chosen,
+                    state = nextState,
+                    canonicalSource = watch?.source ?: CgmCanonicalSource.NONE,
+                    reading = watch,
                     memory =
                         CgmResolverMemory(
-                            state = CgmSourceState.MOBILE_RECOVERY,
+                            state = nextState,
                             recoveryReadingCount = nextRecoveryCount,
                             lastRecoveryMobileTimestampEpochMs =
-                                mobile.measuredAtEpochMs.takeIf { mobileFreshForRecovery },
+                                if (mobileFreshForRecovery) maxOf(previous.lastRecoveryMobileTimestampEpochMs ?: Long.MIN_VALUE, mobile.measuredAtEpochMs) else null,
+                            recoveryRequired = true,
                         ),
                     deduplicatedSameMeasurement = sameMeasurement,
                     reason = "mobile_recovery_hysteresis",
@@ -241,6 +243,7 @@ object CanonicalCgmSourceResolver {
                     state = state,
                     recoveryReadingCount = 0,
                     lastRecoveryMobileTimestampEpochMs = null,
+                    recoveryRequired = state == CgmSourceState.WATCH_DIRECT,
                 ),
             deduplicatedSameMeasurement = deduplicated,
             reason = reason,
@@ -254,9 +257,12 @@ object CanonicalCgmSourceResolver {
             state = CgmSourceState.NO_SOURCE,
             canonicalSource = CgmCanonicalSource.NONE,
             reading = null,
-            memory = CgmResolverMemory(state = CgmSourceState.NO_SOURCE),
+            memory = CgmResolverMemory(state = CgmSourceState.NO_SOURCE, recoveryRequired = previous.requiresRecovery()),
             reason = reason,
         )
+
+    private fun CgmResolverMemory.requiresRecovery(): Boolean =
+        recoveryRequired || state == CgmSourceState.WATCH_DIRECT || state == CgmSourceState.MOBILE_RECOVERY
 
     private fun CgmSourceCandidate.isValid(
         nowEpochMs: Long,
