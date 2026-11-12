@@ -87,7 +87,11 @@ class WearActivity : ComponentActivity() {
     private var lastRenderedConnectedNodes: Int? = null
     private var lastRenderedNowEpochMs: Long? = null
     private var hasRendered = false
-    private var batteryRequestPending = false
+    private val batterySettings =
+        registerForActivityResult(
+            androidx.activity.result.contract.ActivityResultContracts
+                .StartActivityForResult(),
+        ) { batterySettingsReturned() }
 
     private lateinit var glucose: TextView
     private lateinit var glucoseRangeBar: WearGlucoseRangeBarView
@@ -148,11 +152,7 @@ class WearActivity : ComponentActivity() {
         overviewModel.refresh()
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (!batteryRequestPending) return
-
-        batteryRequestPending = false
+    private fun batterySettingsReturned() {
         val unrestricted = WearBackgroundAccess.isBatteryUnrestricted(this)
         if (unrestricted) {
             Toast.makeText(this, "Dauerbetrieb ist uneingeschränkt", Toast.LENGTH_SHORT).show()
@@ -165,7 +165,7 @@ class WearActivity : ComponentActivity() {
             Toast
                 .makeText(
                     this,
-                    "Dauerbetrieb nicht freigegeben – Akkuoptimierung ist weiterhin aktiv",
+                    "Keine Doze-Ausnahme bestätigt – bitte Akku-Einstellungen prüfen",
                     Toast.LENGTH_LONG,
                 ).show()
             recordRuntimeDiagnostic(
@@ -192,20 +192,48 @@ class WearActivity : ComponentActivity() {
         // Reuse the existing Wear layout host; add the shared glucose bar in Kotlin.
         val infoBlock = root.findViewById<LinearLayout>(R.id.wear_glucose_info_block)
         val metaPill = root.findViewById<LinearLayout>(R.id.wear_glucose_meta_row)
-        metaPill.removeView(age)
-        metaPill.addView(age, 0)
+        metaPill.removeAllViews()
         val density = resources.displayMetrics.density
 
         fun pixels(dp: Float): Int = (dp * density).roundToInt()
 
+        fun metadataRow(text: TextView, icon: Int): LinearLayout =
+            LinearLayout(this).apply {
+                gravity = android.view.Gravity.CENTER
+                isBaselineAligned = false
+                addView(
+                    ImageView(this@WearActivity).apply {
+                        setImageResource(icon)
+                        imageTintList =
+                            android.content.res.ColorStateList
+                                .valueOf(0xFFB5B5B5.toInt())
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    LinearLayout.LayoutParams(pixels(20f * resources.configuration.fontScale), pixels(20f * resources.configuration.fontScale)).apply { marginEnd = pixels(5f) },
+                )
+                addView(text)
+            }
+        metaPill.addView(metadataRow(delta, app.sugarlicious.uishared.R.drawable.ic_metadata_delta))
+        metaPill.addView(metadataRow(age, app.sugarlicious.uishared.R.drawable.ic_metadata_age))
+
         val pillParams =
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             )
         pillParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
         metaPill.layoutParams = pillParams
-        metaPill.setPadding(pixels(14f), pixels(8f), pixels(14f), pixels(8f))
+        metaPill.setPadding(pixels(18f), pixels(10f), pixels(18f), pixels(10f))
+        delta.textSize = 20f
+        age.textSize = 20f
+        metaPill.addView(
+            View(this).apply { tag = "metadata-pill-divider" },
+            1,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pixels(1f).coerceAtLeast(1)).apply {
+                topMargin = pixels(6f)
+                bottomMargin = pixels(6f)
+            },
+        )
         glucoseRangeBar = WearGlucoseRangeBarView(this)
         val barParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, pixels(11f))
         barParams.topMargin = pixels(9f)
@@ -305,8 +333,8 @@ class WearActivity : ComponentActivity() {
                 style = preferences.trendArrowStyle,
             )
             delta.text = app.sugarlicious.uishared.glucoseMetadataText(presentation.primaryMeta)
-            delta.setTextColor(preferences.uiColors.textPrimary)
-            age.setTextColor(preferences.uiColors.textSecondary)
+            delta.setTextColor(preferences.uiColors.metadataPillValue)
+            age.setTextColor(preferences.uiColors.metadataPillValue)
             val ageText =
                 if (presentation.freshness in setOf(Freshness.CURRENT, Freshness.DELAYED)) {
                     GlucoseAgeText.fromAgeMinutes(TherapyDisplayFormatter.ageMinutes(glucoseState?.measuredAtEpochMs, now))
@@ -315,8 +343,13 @@ class WearActivity : ComponentActivity() {
                 }
             age.text = app.sugarlicious.uishared.glucoseMetadataText(ageText)
             age.visibility = if (ageText.isBlank()) View.GONE else View.VISIBLE
+            (age.parent as View).visibility = age.visibility
             root.findViewById<View>(R.id.wear_glucose_meta_row).background =
-                roundedBackground(preferences.uiColors.background, android.graphics.Color.TRANSPARENT, 36f)
+                roundedBackground(preferences.uiColors.metadataPillBackground, android.graphics.Color.TRANSPARENT, 36f)
+            root.findViewWithTag<View>("metadata-pill-divider").apply {
+                setBackgroundColor(preferences.uiColors.metadataPillDivider)
+                visibility = age.visibility
+            }
 
             root.findViewById<View>(R.id.wear_glucose_card).background =
                 roundedBackground(glucoseFill, if (preferences.graphStyle.borderEnabled) preferences.uiColors.tileBorder else android.graphics.Color.TRANSPARENT, WearGlucoseCardStyle.CARD_RADIUS_DP)
@@ -525,11 +558,10 @@ class WearActivity : ComponentActivity() {
 
     private fun requestBatteryExemptionIfNeeded(): Boolean {
         if (WearBackgroundAccess.isBatteryUnrestricted(this)) return false
+        // Some watches resolve the request to a no-op system placeholder, not a consent dialog.
+        if (!WearBackgroundAccess.supportsBatteryRequest(this)) return false
 
-        batteryRequestPending = true
-        if (WearBackgroundAccess.openBatterySettings(this)) return true
-
-        batteryRequestPending = false
+        if (WearBackgroundAccess.openBatterySettings(this, batterySettings::launch)) return true
         Toast
             .makeText(
                 this,

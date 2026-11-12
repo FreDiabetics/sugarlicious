@@ -30,6 +30,17 @@ import app.sugarlicious.complications.R as ComplicationR
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    fun `metadata pill colors survive saving independently in both appearance modes`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        for (mode in AppearanceMode.entries) {
+            val original = WearDisplayPreferences.read(context, mode)
+            val colors = original.uiColors.copy(metadataPillBackground = 0xFF123456.toInt(), metadataPillValue = 0xFFABCDEF.toInt(), metadataPillDivider = 0xFF456789.toInt())
+            WearDisplayPreferences.saveLocal(context, mode, original.copy(uiColors = colors))
+            assertEquals(colors, WearDisplayPreferences.read(context, mode).uiColors)
+        }
+    }
+
+    @Test
     fun `therapy overview keeps separate cards with IOB and COB side by side`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
         listOf(
@@ -54,8 +65,11 @@ class WearActivityTest {
         assertEquals(R.id.wear_glucose_primary_row, info.getChildAt(0).id)
         assertTrue(info.getChildAt(1) is WearGlucoseRangeBarView)
         assertEquals(pill, info.getChildAt(2))
-        assertEquals(R.id.wear_age, pill.getChildAt(0).id)
-        assertEquals(R.id.wear_delta, pill.getChildAt(1).id)
+        assertEquals(3, pill.childCount)
+        assertNotNull(pill.getChildAt(0).findViewById<TextView>(R.id.wear_delta))
+        assertEquals("metadata-pill-divider", pill.getChildAt(1).tag)
+        assertNotNull(pill.getChildAt(2).findViewById<TextView>(R.id.wear_age))
+        assertEquals(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 20f, activity.resources.displayMetrics), activity.findViewById<TextView>(R.id.wear_age).textSize, .1f)
         assertNotNull(pill.background)
     }
 
@@ -301,7 +315,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata is centered in a compact pill with age above delta`() {
+    fun `glucose metadata fills a wider pill with large white values and separated rows`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -324,6 +338,7 @@ class WearActivityTest {
         delta.text = app.sugarlicious.uishared.glucoseMetadataText("-5 mg/dL")
         age.text = app.sugarlicious.uishared.glucoseMetadataText("vor 2 Min")
         age.visibility = View.VISIBLE
+        (age.parent as View).visibility = View.VISIBLE
         trend.visibility = View.VISIBLE
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
@@ -339,17 +354,17 @@ class WearActivityTest {
 
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
-        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, meta.layoutParams.width)
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
         assertEquals(Gravity.CENTER_HORIZONTAL, (meta.layoutParams as LinearLayout.LayoutParams).gravity)
         assertNotNull(meta.background)
         val colors = WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)).uiColors
-        assertEquals(colors.textPrimary, delta.currentTextColor)
-        assertEquals(colors.textSecondary, age.currentTextColor)
+        assertEquals(colors.metadataPillValue, delta.currentTextColor)
+        assertEquals(colors.metadataPillValue, age.currentTextColor)
         val styled = delta.text as android.text.Spanned
         assertTrue(styled.getSpans(0, styled.length, android.text.style.RelativeSizeSpan::class.java).isNotEmpty())
         assertTrue(styled.getSpans(0, styled.length, android.text.style.ForegroundColorSpan::class.java).any { it.foregroundColor == android.graphics.Color.rgb(181, 181, 181) })
         assertEquals(View.VISIBLE, age.visibility)
-        assertTrue(age.bottom <= delta.top)
+        assertTrue((delta.parent as View).bottom <= (age.parent as View).top)
         assertEquals(1, age.lineCount)
         assertTrue(info.measuredWidth > primary.measuredWidth)
         assertTrue(meta.measuredWidth <= info.measuredWidth)
@@ -357,7 +372,7 @@ class WearActivityTest {
         assertEquals(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,
-                14f,
+                20f,
                 activity.resources.displayMetrics,
             ),
             delta.textSize,

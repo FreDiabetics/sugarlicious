@@ -7,7 +7,8 @@ import kotlin.math.sqrt
 
 /** Shared proportions and finite foreground motion for the Mobile/Wear therapy rings. */
 object TherapyRingStyle {
-    const val CAP_CLEARANCE_STROKE_RATIO = 1.4f
+    const val SEGMENT_GAP_STROKE_RATIO = .25f
+    const val CAP_CLEARANCE_STROKE_RATIO = 1f + SEGMENT_GAP_STROKE_RATIO
     const val TRACK_ALPHA = .30f
     const val MOTION_DAMPING = .78f
     const val MOTION_STIFFNESS = 180f

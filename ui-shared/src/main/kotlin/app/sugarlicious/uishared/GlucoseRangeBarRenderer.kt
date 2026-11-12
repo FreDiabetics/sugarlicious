@@ -37,11 +37,12 @@ class GlucoseRangeBarRenderer {
         heightPx: Float,
         state: GlucoseBarState?,
         palette: GlucoseRangeBarPalette = GlucoseRangeBarPalette(),
-        gapPx: Float = 7f,
+        gapPx: Float = heightPx * app.sugarlicious.model.TherapyRingStyle.SEGMENT_GAP_STROKE_RATIO,
     ) {
         if (widthPx <= 0f || heightPx <= 0f) return
         val radius = heightPx / 2f
-        paint.color = palette.underlay
+        // Keep the configured color for later; the underlay is temporarily invisible.
+        paint.color = palette.underlay and 0x00FFFFFF
         bounds.set(0f, 0f, widthPx, heightPx)
         canvas.drawRoundRect(bounds, radius, radius, paint)
         if (state == null) return

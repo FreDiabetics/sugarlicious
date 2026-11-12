@@ -31,11 +31,11 @@ class GlucoseRangeBarRendererTest {
     }
 
     @Test
-    fun `missing or stale data draws only the muted track`() {
+    fun `missing or stale data leaves the temporary hidden underlay transparent`() {
         val bitmap = Bitmap.createBitmap(200, 12, Bitmap.Config.ARGB_8888)
         try {
             renderer.draw(Canvas(bitmap), 200f, 12f, null, palette)
-            assertEquals(palette.underlay, bitmap.getPixel(100, 6))
+            assertEquals(android.graphics.Color.TRANSPARENT, bitmap.getPixel(100, 6))
         } finally {
             bitmap.recycle()
         }

@@ -251,6 +251,9 @@ internal data class WearDisplayPreferences(
                         glucoseBarTarget = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_target", uiDefaults.glucoseBarTarget),
                         glucoseBarHigh = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_high", uiDefaults.glucoseBarHigh),
                         glucoseBarUnderlay = preferences.getInt(prefix + UI_PREFIX + "glucose_bar_underlay", uiDefaults.glucoseBarUnderlay),
+                        metadataPillBackground = preferences.getInt(prefix + UI_PREFIX + "metadata_pill_background", uiDefaults.metadataPillBackground),
+                        metadataPillValue = preferences.getInt(prefix + UI_PREFIX + "metadata_pill_value", uiDefaults.metadataPillValue),
+                        metadataPillDivider = preferences.getInt(prefix + UI_PREFIX + "metadata_pill_divider", uiDefaults.metadataPillDivider),
                         iob = preferences.getInt(prefix + UI_PREFIX + "iob", uiDefaults.iob),
                         cob = preferences.getInt(prefix + UI_PREFIX + "cob", uiDefaults.cob),
                         basal = preferences.getInt(prefix + UI_PREFIX + "basal", uiDefaults.basal),
@@ -438,6 +441,9 @@ internal data class WearDisplayPreferences(
             putInt(prefix + UI_PREFIX + "glucose_bar_target", ui.glucoseBarTarget)
             putInt(prefix + UI_PREFIX + "glucose_bar_high", ui.glucoseBarHigh)
             putInt(prefix + UI_PREFIX + "glucose_bar_underlay", ui.glucoseBarUnderlay)
+            putInt(prefix + UI_PREFIX + "metadata_pill_background", ui.metadataPillBackground)
+            putInt(prefix + UI_PREFIX + "metadata_pill_value", ui.metadataPillValue)
+            putInt(prefix + UI_PREFIX + "metadata_pill_divider", ui.metadataPillDivider)
             putInt(prefix + UI_PREFIX + "iob", ui.iob)
             putInt(prefix + UI_PREFIX + "cob", ui.cob)
             putInt(prefix + UI_PREFIX + "basal", ui.basal)

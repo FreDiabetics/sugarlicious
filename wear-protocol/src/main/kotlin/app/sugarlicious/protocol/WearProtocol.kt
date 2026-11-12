@@ -144,6 +144,9 @@ data class WatchUiColors(
     val glucoseBarTarget: Int = 0xFF22EB60.toInt(),
     val glucoseBarHigh: Int = 0xFFFCC93B.toInt(),
     val glucoseBarUnderlay: Int = 0x4DB0B0B0,
+    val metadataPillBackground: Int = 0xFF181818.toInt(),
+    val metadataPillValue: Int = 0xFFFFFFFF.toInt(),
+    val metadataPillDivider: Int = 0xFF505050.toInt(),
 )
 
 @Serializable
