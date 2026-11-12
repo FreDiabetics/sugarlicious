@@ -134,7 +134,7 @@ class WearSettingsActivity : ComponentActivity() {
                 "display" -> "App-Oberfläche"
                 "glucose" -> "Glukose"
                 "trend" -> "Trendpfeil"
-                "delta" -> "Delta und Einheit"
+                "delta" -> "Delta und Alter"
                 "therapy" -> "Therapie"
                 "graph" -> "Graph"
                 "tiles" -> "Tiles und Complications"
@@ -298,8 +298,11 @@ class WearSettingsActivity : ComponentActivity() {
             )
         }
 
-        settingsCategory("delta", "Delta und Einheit", "Farbe der Änderung und Einheit") {
+        settingsCategory("delta", "Delta und Alter", "Pille, Werte und Trennlinie") {
             colorRow(AppearanceTerminology.DELTA_UNIT, current.uiColors.deltaUnit, WatchUiColors().deltaUnit) { updateUiColors { c -> c.copy(deltaUnit = it) } }
+            colorRow("Pillenfläche", current.uiColors.metadataPillBackground, WatchUiColors().metadataPillBackground) { updateUiColors { c -> c.copy(metadataPillBackground = it) } }
+            colorRow("Zahlen", current.uiColors.metadataPillValue, WatchUiColors().metadataPillValue) { updateUiColors { c -> c.copy(metadataPillValue = it) } }
+            colorRow("Trennlinie", current.uiColors.metadataPillDivider, WatchUiColors().metadataPillDivider) { updateUiColors { c -> c.copy(metadataPillDivider = it) } }
         }
         settingsCategory("therapy", "Therapie", "IOB, COB und Basal") {
             section("THERAPIE")

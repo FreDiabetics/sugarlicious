@@ -25,7 +25,7 @@ class WearTherapyProgressViewTest {
             val stroke = 7f * side / 66f
             val radius = (side - stroke) / 2f
             // Inside Mobile's visible gap, beyond the projecting fill cap.
-            val angle = Math.toRadians(270.0) + .82 * stroke / radius
+            val angle = Math.toRadians(270.0) + .625 * stroke / radius
             val x = (side / 2f + radius * kotlin.math.cos(angle)).toInt()
             val y = (side / 2f + radius * kotlin.math.sin(angle)).toInt()
             assertEquals("clear segment gap at size $side", 0, Color.alpha(bitmap.getPixel(x, y)))

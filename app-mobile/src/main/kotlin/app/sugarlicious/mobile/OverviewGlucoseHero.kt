@@ -174,7 +174,6 @@ private fun GlucoseRangeBar(value: Double?, thresholds: CgmThresholds, heightDp:
                         high = barColor.toArgb(),
                         underlay = underlay.toArgb(),
                     ),
-                gapPx = 7.dp.toPx(),
             )
         }
     }

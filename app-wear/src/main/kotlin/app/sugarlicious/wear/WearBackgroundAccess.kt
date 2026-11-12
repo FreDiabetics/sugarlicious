@@ -9,6 +9,11 @@ import android.provider.Settings
 import androidx.core.net.toUri
 
 internal object WearBackgroundAccess {
+    internal fun isPlaceholderSettingsActivity(className: String?): Boolean = className?.endsWith(".FakeSettingsActivity") == true
+
+    fun supportsBatteryRequest(context: Context): Boolean =
+        !isPlaceholderSettingsActivity(batterySettingsIntents(context.packageName).first().resolveActivity(context.packageManager)?.className)
+
     fun isBatteryUnrestricted(context: Context): Boolean =
         context
             .getSystemService(PowerManager::class.java)
@@ -26,11 +31,12 @@ internal object WearBackgroundAccess {
         )
     }
 
-    fun openBatterySettings(activity: Activity): Boolean {
+    fun openBatterySettings(activity: Activity, launch: (Intent) -> Unit = { activity.startActivity(it) }): Boolean {
         for (intent in batterySettingsIntents(activity.packageName)) {
+            if (isPlaceholderSettingsActivity(intent.resolveActivity(activity.packageManager)?.className)) continue
             val opened =
                 runCatching {
-                    activity.startActivity(intent)
+                    launch(intent)
                     true
                 }.getOrDefault(false)
             if (opened) return true

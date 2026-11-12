@@ -11,6 +11,9 @@
     <uses-permission android:name="app.sugarwear.permission.READ_G7_DATA" />
     <uses-permission android:name="app.sugarwear.permission.CONFIGURE_G7" />
     <queries>
+        <intent><action android:name="android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" /><data android:scheme="package" /></intent>
+        <intent><action android:name="android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS" /></intent>
+        <intent><action android:name="android.settings.APPLICATION_DETAILS_SETTINGS" /><data android:scheme="package" /></intent>
         <package android:name="app.sugarwear" />
         <provider android:authorities="app.sugarwear.readings" />
         <package android:name="app.sugarlicious" />

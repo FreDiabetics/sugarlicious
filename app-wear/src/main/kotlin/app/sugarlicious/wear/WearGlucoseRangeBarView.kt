@@ -29,7 +29,6 @@ internal class WearGlucoseRangeBarView(
 ) : View(context) {
     private val renderer = GlucoseRangeBarRenderer()
     private var palette = GlucoseRangeBarPalette()
-    private val gapPx = 7f * resources.displayMetrics.density
     private var target: GlucoseBarState? = null
     private var displayedPosition: Float? = null
     private var animator: ValueAnimator? = null
@@ -77,7 +76,6 @@ internal class WearGlucoseRangeBarView(
             heightPx = height.toFloat(),
             state = target?.copy(position = displayedPosition ?: target?.position ?: 0.5f),
             palette = palette,
-            gapPx = gapPx,
         )
     }
 

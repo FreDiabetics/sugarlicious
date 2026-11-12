@@ -30,6 +30,63 @@ import app.sugarlicious.complications.R as ComplicationR
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    @org.robolectric.annotation.Config(qualifiers = "w192dp-h192dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `compact metadata keeps complete text at enlarged system font`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val configuration =
+            android.content.res
+                .Configuration(context.resources.configuration)
+                .apply { fontScale = 1.3f }
+        @Suppress("DEPRECATION")
+        context.resources.updateConfiguration(configuration, context.resources.displayMetrics)
+        val controller = Robolectric.buildActivity(WearActivity::class.java).setup()
+        controller.pause().stop()
+        try {
+            val activity = controller.get()
+            val root = activity.findViewById<View>(R.id.wear_root)
+            val age = activity.findViewById<TextView>(R.id.wear_age)
+            val delta = activity.findViewById<TextView>(R.id.wear_delta)
+            val pill = activity.findViewById<ViewGroup>(R.id.wear_glucose_meta_row)
+            age.text = "vor 14 Min."
+            delta.text = "+12 mg/dL"
+            age.visibility = View.VISIBLE
+            (age.parent as View).visibility = View.VISIBLE
+            val side = (192 * activity.resources.displayMetrics.density).toInt()
+            root.measure(View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, side, side)
+            assertEquals("vor 14 Min.", age.text.toString())
+            assertEquals("+12 mg/dL", delta.text.toString())
+            for (text in listOf(age, delta)) {
+                val layout = requireNotNull(text.layout)
+                assertEquals(text.text.length, layout.getLineEnd(layout.lineCount - 1))
+                assertTrue("all metadata glyphs fit their line", (0 until layout.lineCount).all { layout.getLineMax(it) <= text.width - text.paddingLeft - text.paddingRight + 1 })
+                assertTrue("metadata remains inside its row", text.right <= (text.parent as View).width)
+                val row = text.parent as ViewGroup
+                val icon = row.getChildAt(0)
+                val margin = (icon.layoutParams as ViewGroup.MarginLayoutParams).marginEnd
+                val available = pill.width - pill.paddingLeft - pill.paddingRight - icon.width - margin
+                assertTrue("wide metadata must wrap: natural=${text.paint.measureText(text.text.toString())}, available=$available, pill=${pill.width}", text.paint.measureText(text.text.toString()) <= available || layout.lineCount > 1)
+                assertTrue("text width ${text.width} fits available $available", text.width <= available)
+                assertTrue("system-scaled font is retained", text.textSize >= 20 * activity.resources.displayMetrics.density)
+            }
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    fun `metadata pill colors survive saving independently in both appearance modes`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        for (mode in AppearanceMode.entries) {
+            val original = WearDisplayPreferences.read(context, mode)
+            val colors = original.uiColors.copy(metadataPillBackground = 0xFF123456.toInt(), metadataPillValue = 0xFFABCDEF.toInt(), metadataPillDivider = 0xFF456789.toInt())
+            WearDisplayPreferences.saveLocal(context, mode, original.copy(uiColors = colors))
+            assertEquals(colors, WearDisplayPreferences.read(context, mode).uiColors)
+        }
+    }
+
+    @Test
     fun `therapy overview keeps separate cards with IOB and COB side by side`() {
         val activity = Robolectric.buildActivity(WearActivity::class.java).setup().get()
         listOf(
@@ -54,8 +111,11 @@ class WearActivityTest {
         assertEquals(R.id.wear_glucose_primary_row, info.getChildAt(0).id)
         assertTrue(info.getChildAt(1) is WearGlucoseRangeBarView)
         assertEquals(pill, info.getChildAt(2))
-        assertEquals(R.id.wear_age, pill.getChildAt(0).id)
-        assertEquals(R.id.wear_delta, pill.getChildAt(1).id)
+        assertEquals(3, pill.childCount)
+        assertNotNull(pill.getChildAt(0).findViewById<TextView>(R.id.wear_delta))
+        assertEquals("metadata-pill-divider", pill.getChildAt(1).tag)
+        assertNotNull(pill.getChildAt(2).findViewById<TextView>(R.id.wear_age))
+        assertEquals(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 20f, activity.resources.displayMetrics), activity.findViewById<TextView>(R.id.wear_age).textSize, .1f)
         assertNotNull(pill.background)
     }
 
@@ -301,7 +361,7 @@ class WearActivityTest {
     }
 
     @Test
-    fun `glucose metadata is centered in a compact pill with age above delta`() {
+    fun `glucose metadata fills a wider pill with large white values and separated rows`() {
         val activity =
             Robolectric
                 .buildActivity(WearActivity::class.java)
@@ -324,6 +384,7 @@ class WearActivityTest {
         delta.text = app.sugarlicious.uishared.glucoseMetadataText("-5 mg/dL")
         age.text = app.sugarlicious.uishared.glucoseMetadataText("vor 2 Min")
         age.visibility = View.VISIBLE
+        (age.parent as View).visibility = View.VISIBLE
         trend.visibility = View.VISIBLE
         root.measure(
             View.MeasureSpec.makeMeasureSpec(
@@ -339,17 +400,17 @@ class WearActivityTest {
 
         assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, info.layoutParams.width)
         assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, primary.layoutParams.width)
-        assertEquals(ViewGroup.LayoutParams.WRAP_CONTENT, meta.layoutParams.width)
+        assertEquals(ViewGroup.LayoutParams.MATCH_PARENT, meta.layoutParams.width)
         assertEquals(Gravity.CENTER_HORIZONTAL, (meta.layoutParams as LinearLayout.LayoutParams).gravity)
         assertNotNull(meta.background)
         val colors = WearDisplayPreferences.read(activity, WearDisplayPreferences.activeAppearanceMode(activity)).uiColors
-        assertEquals(colors.textPrimary, delta.currentTextColor)
-        assertEquals(colors.textSecondary, age.currentTextColor)
+        assertEquals(colors.metadataPillValue, delta.currentTextColor)
+        assertEquals(colors.metadataPillValue, age.currentTextColor)
         val styled = delta.text as android.text.Spanned
         assertTrue(styled.getSpans(0, styled.length, android.text.style.RelativeSizeSpan::class.java).isNotEmpty())
         assertTrue(styled.getSpans(0, styled.length, android.text.style.ForegroundColorSpan::class.java).any { it.foregroundColor == android.graphics.Color.rgb(181, 181, 181) })
         assertEquals(View.VISIBLE, age.visibility)
-        assertTrue(age.bottom <= delta.top)
+        assertTrue((delta.parent as View).bottom <= (age.parent as View).top)
         assertEquals(1, age.lineCount)
         assertTrue(info.measuredWidth > primary.measuredWidth)
         assertTrue(meta.measuredWidth <= info.measuredWidth)
@@ -357,7 +418,7 @@ class WearActivityTest {
         assertEquals(
             TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_SP,
-                14f,
+                20f,
                 activity.resources.displayMetrics,
             ),
             delta.textSize,

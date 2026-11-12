@@ -39,7 +39,7 @@ class TherapyRingRendererTest {
             assertEquals(77, Color.alpha(pixel(bitmap, 350.0)))
             assertEquals("end cap remains track colored without a bright dot", 77, Color.alpha(pixel(bitmap, 410.0)))
             val stroke = side * 7.0 / 66.0
-            val gapSample = 270.0 + Math.toDegrees(.82 * stroke / ((side - stroke) / 2.0))
+            val gapSample = 270.0 + Math.toDegrees(.625 * stroke / ((side - stroke) / 2.0))
             assertEquals("proportional visible gap", 0, Color.alpha(pixel(bitmap, gapSample)))
             bitmap.recycle()
         }

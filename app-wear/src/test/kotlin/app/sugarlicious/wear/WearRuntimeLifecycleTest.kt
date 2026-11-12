@@ -20,6 +20,48 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class WearRuntimeLifecycleTest {
+    @Test fun `watch placeholder settings cannot be mistaken for an exemption dialog`() {
+        assertTrue(WearBackgroundAccess.isPlaceholderSettingsActivity("com.google.android.clockwork.settings.FakeSettingsActivity"))
+        assertFalse(WearBackgroundAccess.isPlaceholderSettingsActivity("com.samsung.android.clockwork.settings.StMainSettingsActivity"))
+    }
+
+    @Test fun `battery exemption is evaluated after settings result rather than initial resume`() {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        org.robolectric.Shadows
+            .shadowOf(app)
+            .grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        val power = app.getSystemService(android.os.PowerManager::class.java)
+        org.robolectric.Shadows
+            .shadowOf(power)
+            .setIgnoringBatteryOptimizations(app.packageName, false)
+        org.robolectric.shadows.ShadowToast
+            .reset()
+        val controller = Robolectric.buildActivity(WearActivity::class.java).setup()
+        try {
+            val activity = controller.get()
+            val request =
+                org.robolectric.Shadows
+                    .shadowOf(activity)
+                    .nextStartedActivityForResult
+            assertEquals(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, request.intent.action)
+            assertNull(
+                org.robolectric.shadows.ShadowToast
+                    .getTextOfLatestToast(),
+            )
+            org.robolectric.Shadows
+                .shadowOf(power)
+                .setIgnoringBatteryOptimizations(app.packageName, true)
+            activity.activityResultRegistry.dispatchResult(request.requestCode, android.app.Activity.RESULT_OK, null)
+            assertEquals(
+                "Dauerbetrieb ist uneingeschränkt",
+                org.robolectric.shadows.ShadowToast
+                    .getTextOfLatestToast(),
+            )
+        } finally {
+            controller.pause().stop().destroy()
+        }
+    }
+
     @Test fun `G7 reading receiver escapes the restricted receiver context`() {
         val application = ApplicationProvider.getApplicationContext<android.content.Context>()
         val receiverContext = ContextWrapper(application)

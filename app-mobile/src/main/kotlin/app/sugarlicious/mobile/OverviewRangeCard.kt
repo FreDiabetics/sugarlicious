@@ -253,7 +253,7 @@ private fun TirProgress(
             val radius =
                 androidx.compose.ui.geometry
                     .CornerRadius(size.height / 2f)
-            val remainingStart = if (animatedPercent <= 0f) 0f else (size.width * animatedPercent.coerceIn(0f, 100f) / 100f + size.height * .25f).coerceAtMost(size.width)
+            val remainingStart = if (animatedPercent <= 0f) 0f else (size.width * animatedPercent.coerceIn(0f, 100f) / 100f + size.height * app.sugarlicious.model.TherapyRingStyle.SEGMENT_GAP_STROKE_RATIO).coerceAtMost(size.width)
             if (remainingStart < size.width) {
                 drawRoundRect(
                     color = track,
