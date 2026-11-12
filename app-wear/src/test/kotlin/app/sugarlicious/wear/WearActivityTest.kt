@@ -30,6 +30,52 @@ import app.sugarlicious.complications.R as ComplicationR
 @RunWith(RobolectricTestRunner::class)
 class WearActivityTest {
     @Test
+    @org.robolectric.annotation.Config(qualifiers = "w192dp-h192dp")
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun `compact metadata keeps complete text at enlarged system font`() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        val configuration =
+            android.content.res
+                .Configuration(context.resources.configuration)
+                .apply { fontScale = 1.3f }
+        @Suppress("DEPRECATION")
+        context.resources.updateConfiguration(configuration, context.resources.displayMetrics)
+        val controller = Robolectric.buildActivity(WearActivity::class.java).setup()
+        controller.pause().stop()
+        try {
+            val activity = controller.get()
+            val root = activity.findViewById<View>(R.id.wear_root)
+            val age = activity.findViewById<TextView>(R.id.wear_age)
+            val delta = activity.findViewById<TextView>(R.id.wear_delta)
+            val pill = activity.findViewById<ViewGroup>(R.id.wear_glucose_meta_row)
+            age.text = "vor 14 Min."
+            delta.text = "+12 mg/dL"
+            age.visibility = View.VISIBLE
+            (age.parent as View).visibility = View.VISIBLE
+            val side = (192 * activity.resources.displayMetrics.density).toInt()
+            root.measure(View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(side, View.MeasureSpec.EXACTLY))
+            root.layout(0, 0, side, side)
+            assertEquals("vor 14 Min.", age.text.toString())
+            assertEquals("+12 mg/dL", delta.text.toString())
+            for (text in listOf(age, delta)) {
+                val layout = requireNotNull(text.layout)
+                assertEquals(text.text.length, layout.getLineEnd(layout.lineCount - 1))
+                assertTrue("all metadata glyphs fit their line", (0 until layout.lineCount).all { layout.getLineMax(it) <= text.width - text.paddingLeft - text.paddingRight + 1 })
+                assertTrue("metadata remains inside its row", text.right <= (text.parent as View).width)
+                val row = text.parent as ViewGroup
+                val icon = row.getChildAt(0)
+                val margin = (icon.layoutParams as ViewGroup.MarginLayoutParams).marginEnd
+                val available = pill.width - pill.paddingLeft - pill.paddingRight - icon.width - margin
+                assertTrue("wide metadata must wrap: natural=${text.paint.measureText(text.text.toString())}, available=$available, pill=${pill.width}", text.paint.measureText(text.text.toString()) <= available || layout.lineCount > 1)
+                assertTrue("text width ${text.width} fits available $available", text.width <= available)
+                assertTrue("system-scaled font is retained", text.textSize >= 20 * activity.resources.displayMetrics.density)
+            }
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
     fun `metadata pill colors survive saving independently in both appearance modes`() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         for (mode in AppearanceMode.entries) {

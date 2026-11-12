@@ -201,6 +201,7 @@ class WearActivity : ComponentActivity() {
             LinearLayout(this).apply {
                 gravity = android.view.Gravity.CENTER
                 isBaselineAligned = false
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
                 addView(
                     ImageView(this@WearActivity).apply {
                         setImageResource(icon)
@@ -211,7 +212,10 @@ class WearActivity : ComponentActivity() {
                     },
                     LinearLayout.LayoutParams(pixels(20f * resources.configuration.fontScale), pixels(20f * resources.configuration.fontScale)).apply { marginEnd = pixels(5f) },
                 )
-                addView(text)
+                text.setSingleLine(false)
+                text.maxLines = Int.MAX_VALUE
+                text.gravity = android.view.Gravity.CENTER
+                addView(text, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
             }
         metaPill.addView(metadataRow(delta, app.sugarlicious.uishared.R.drawable.ic_metadata_delta))
         metaPill.addView(metadataRow(age, app.sugarlicious.uishared.R.drawable.ic_metadata_age))
@@ -223,7 +227,7 @@ class WearActivity : ComponentActivity() {
             )
         pillParams.gravity = android.view.Gravity.CENTER_HORIZONTAL
         metaPill.layoutParams = pillParams
-        metaPill.setPadding(pixels(18f), pixels(10f), pixels(18f), pixels(10f))
+        metaPill.setPadding(pixels(8f), pixels(10f), pixels(8f), pixels(10f))
         delta.textSize = 20f
         age.textSize = 20f
         metaPill.addView(
